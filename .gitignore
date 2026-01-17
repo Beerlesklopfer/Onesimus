@@ -1,0 +1,58 @@
+# Build-Verzeichnisse
+build/
+build-*/
+cmake-build-*/
+
+# OpenSSL Build-Artefakte (Submodule wird nicht ignoriert, nur Build-Output)
+external/openssl/apps/
+external/openssl/test/
+external/openssl/*.o
+external/openssl/*.obj
+external/openssl/*.exe
+external/openssl/libcrypto.*
+external/openssl/libssl.*
+external/openssl/Makefile
+external/openssl/makefile
+
+# CMake-generierte Dateien
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Qt-generierte Dateien
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.qm
+
+# Kompilierte Dateien
+*.o
+*.so
+*.a
+*.dylib
+*.dll
+*.exe
+BaculaQtUI
+
+# IDE-spezifische Dateien
+.vscode/
+.idea/
+*.user
+*.pro.user
+*.autosave
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Zertifikate (Beispiele, nicht committen!)
+bacula-certs-windows/
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+

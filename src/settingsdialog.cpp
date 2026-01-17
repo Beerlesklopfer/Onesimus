@@ -1,0 +1,913 @@
+#include "settingsdialog.h"
+#include "ui_settingsdialog.h"
+
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QStandardPaths>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QFile>
+
+SettingsDialog::SettingsDialog(BaculaDirector *director, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::SettingsDialog)
+    , m_director(director)
+    , m_categoryList(nullptr)
+    , m_contentStack(nullptr)
+{
+    ui->setupUi(this);
+    
+    setWindowTitle("Einstellungen");
+    resize(900, 600);
+    setModal(true);
+    
+    setupUI();
+    loadSettings();
+    applyModernStyle();
+}
+
+SettingsDialog::~SettingsDialog()
+{
+    delete ui;
+}
+
+void SettingsDialog::setupUI()
+{
+    // Haupt-Layout
+    QHBoxLayout *mainLayout = new QHBoxLayout(this);
+    mainLayout->setSpacing(0);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    
+    // Sidebar erstellen
+    createSidebar();
+    
+    // Content-Bereich
+    QWidget *contentWidget = new QWidget(this);
+    QVBoxLayout *contentLayout = new QVBoxLayout(contentWidget);
+    contentLayout->setContentsMargins(30, 30, 30, 20);
+    contentLayout->setSpacing(20);
+    
+    // Content Stack
+    m_contentStack = new QStackedWidget(this);
+    createContentPages();
+    contentLayout->addWidget(m_contentStack, 1);
+    
+    // Button-Leiste
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(10);
+    
+    m_resetButton = new QPushButton("Zurücksetzen", this);
+    m_resetButton->setObjectName("resetButton");
+    m_cancelButton = new QPushButton("Abbrechen", this);
+    m_cancelButton->setObjectName("cancelButton");
+    m_applyButton = new QPushButton("Übernehmen", this);
+    m_applyButton->setObjectName("applyButton");
+    m_applyButton->setDefault(true);
+    
+    buttonLayout->addWidget(m_resetButton);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(m_cancelButton);
+    buttonLayout->addWidget(m_applyButton);
+    
+    contentLayout->addLayout(buttonLayout);
+    
+    mainLayout->addWidget(m_categoryList);
+    mainLayout->addWidget(contentWidget, 1);
+    
+    // Signals verbinden
+    connect(m_categoryList, &QListWidget::currentRowChanged, this, &SettingsDialog::onCategoryChanged);
+    connect(m_applyButton, &QPushButton::clicked, this, &SettingsDialog::onApplyClicked);
+    connect(m_cancelButton, &QPushButton::clicked, this, &SettingsDialog::onCancelClicked);
+    connect(m_resetButton, &QPushButton::clicked, this, &SettingsDialog::onResetToDefaultsClicked);
+    
+    // Erste Kategorie auswählen
+    m_categoryList->setCurrentRow(0);
+}
+
+void SettingsDialog::createSidebar()
+{
+    m_categoryList = new QListWidget(this);
+    m_categoryList->setObjectName("categoryList");
+    m_categoryList->setFixedWidth(220);
+    m_categoryList->setSpacing(2);
+    m_categoryList->setFrameShape(QFrame::NoFrame);
+    
+    // Kategorien hinzufügen
+    QListWidgetItem *connectionItem = new QListWidgetItem("🔌 Verbindung");
+    connectionItem->setData(Qt::UserRole, "connection");
+    m_categoryList->addItem(connectionItem);
+    
+    QListWidgetItem *tlsItem = new QListWidgetItem("🔒 TLS/SSL");
+    tlsItem->setData(Qt::UserRole, "tls");
+    m_categoryList->addItem(tlsItem);
+    
+    QListWidgetItem *appearanceItem = new QListWidgetItem("🎨 Erscheinungsbild");
+    appearanceItem->setData(Qt::UserRole, "appearance");
+    m_categoryList->addItem(appearanceItem);
+    
+    QListWidgetItem *behaviorItem = new QListWidgetItem("⚙️ Verhalten");
+    behaviorItem->setData(Qt::UserRole, "behavior");
+    m_categoryList->addItem(behaviorItem);
+    
+    QListWidgetItem *advancedItem = new QListWidgetItem("🔧 Erweitert");
+    advancedItem->setData(Qt::UserRole, "advanced");
+    m_categoryList->addItem(advancedItem);
+}
+
+void SettingsDialog::createContentPages()
+{
+    createConnectionPage();
+    createTLSPage();
+    createAppearancePage();
+    createBehaviorPage();
+    createAdvancedPage();
+}
+
+void SettingsDialog::createConnectionPage()
+{
+    m_connectionPage = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(m_connectionPage);
+    layout->setSpacing(20);
+    
+    // Titel
+    QLabel *titleLabel = new QLabel("Verbindungseinstellungen");
+    titleLabel->setObjectName("pageTitle");
+    layout->addWidget(titleLabel);
+    
+    // Bconsole-Einstellungen
+    QGroupBox *bconsoleGroup = new QGroupBox("Bacula Director (Bconsole)");
+    bconsoleGroup->setObjectName("settingsGroup");
+    QFormLayout *bconsoleLayout = new QFormLayout(bconsoleGroup);
+    bconsoleLayout->setSpacing(12);
+    
+    m_hostEdit = new QLineEdit();
+    m_hostEdit->setPlaceholderText("z.B. 192.168.1.100 oder bacula-dir.local");
+    bconsoleLayout->addRow("Host:", m_hostEdit);
+    
+    m_portSpin = new QSpinBox();
+    m_portSpin->setRange(1, 65535);
+    m_portSpin->setValue(9101);
+    bconsoleLayout->addRow("Port:", m_portSpin);
+    
+    m_directorEdit = new QLineEdit();
+    m_directorEdit->setPlaceholderText("bacula-dir");
+    bconsoleLayout->addRow("Director Name:", m_directorEdit);
+    
+    m_passwordEdit = new QLineEdit();
+    m_passwordEdit->setEchoMode(QLineEdit::Password);
+    m_passwordEdit->setPlaceholderText("••••••••");
+    bconsoleLayout->addRow("Passwort:", m_passwordEdit);
+    
+    layout->addWidget(bconsoleGroup);
+    
+    // Verbindungsoptionen
+    QGroupBox *optionsGroup = new QGroupBox("Verbindungsoptionen");
+    optionsGroup->setObjectName("settingsGroup");
+    QVBoxLayout *optionsLayout = new QVBoxLayout(optionsGroup);
+    optionsLayout->setSpacing(12);
+    
+    m_savePasswordCheck = new QCheckBox("Passwort speichern");
+    m_savePasswordCheck->setChecked(true);
+    optionsLayout->addWidget(m_savePasswordCheck);
+    
+    m_autoConnectCheck = new QCheckBox("Automatisch beim Start verbinden");
+    optionsLayout->addWidget(m_autoConnectCheck);
+    
+    QHBoxLayout *timeoutLayout = new QHBoxLayout();
+    QLabel *timeoutLabel = new QLabel("Verbindungs-Timeout:");
+    m_connectionTimeoutSpin = new QSpinBox();
+    m_connectionTimeoutSpin->setRange(5, 120);
+    m_connectionTimeoutSpin->setValue(30);
+    m_connectionTimeoutSpin->setSuffix(" Sekunden");
+    timeoutLayout->addWidget(timeoutLabel);
+    timeoutLayout->addWidget(m_connectionTimeoutSpin);
+    timeoutLayout->addStretch();
+    optionsLayout->addLayout(timeoutLayout);
+    
+    layout->addWidget(optionsGroup);
+    
+    // Buttons
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QPushButton *exportBtn = new QPushButton("Einstellungen exportieren");
+    QPushButton *importBtn = new QPushButton("Einstellungen importieren");
+    QPushButton *clearBtn = new QPushButton("Gespeicherte Verbindungen löschen");
+    clearBtn->setObjectName("dangerButton");
+    
+    connect(exportBtn, &QPushButton::clicked, this, &SettingsDialog::onExportSettings);
+    connect(importBtn, &QPushButton::clicked, this, &SettingsDialog::onImportSettings);
+    connect(clearBtn, &QPushButton::clicked, this, &SettingsDialog::onClearStoredConnections);
+    
+    buttonLayout->addWidget(exportBtn);
+    buttonLayout->addWidget(importBtn);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(clearBtn);
+    optionsLayout->addLayout(buttonLayout);
+    
+    layout->addStretch();
+    
+    m_contentStack->addWidget(m_connectionPage);
+}
+
+void SettingsDialog::createTLSPage()
+{
+    m_tlsPage = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(m_tlsPage);
+    layout->setSpacing(20);
+    
+    // Titel
+    QLabel *titleLabel = new QLabel("TLS/SSL Verschlüsselung");
+    titleLabel->setObjectName("pageTitle");
+    layout->addWidget(titleLabel);
+    
+    // TLS aktivieren
+    m_tlsEnabledCheck = new QCheckBox("TLS/SSL-Verschlüsselung verwenden");
+    m_tlsEnabledCheck->setObjectName("prominentCheckbox");
+    layout->addWidget(m_tlsEnabledCheck);
+    
+    // Zertifikat-Pfade
+    QGroupBox *certGroup = new QGroupBox("Zertifikate");
+    certGroup->setObjectName("settingsGroup");
+    QFormLayout *certLayout = new QFormLayout(certGroup);
+    certLayout->setSpacing(12);
+    
+    // CA Certificate
+    QHBoxLayout *caLayout = new QHBoxLayout();
+    m_caCertEdit = new QLineEdit();
+    m_caCertEdit->setPlaceholderText("Pfad zum CA-Zertifikat (.pem)");
+    QPushButton *caBrowse = new QPushButton("Durchsuchen...");
+    caBrowse->setObjectName("browseButton");
+    connect(caBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseCACert);
+    caLayout->addWidget(m_caCertEdit);
+    caLayout->addWidget(caBrowse);
+    certLayout->addRow("CA Certificate:", caLayout);
+    
+    // Client Certificate
+    QHBoxLayout *clientCertLayout = new QHBoxLayout();
+    m_clientCertEdit = new QLineEdit();
+    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pem)");
+    QPushButton *clientCertBrowse = new QPushButton("Durchsuchen...");
+    clientCertBrowse->setObjectName("browseButton");
+    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
+    clientCertLayout->addWidget(m_clientCertEdit);
+    clientCertLayout->addWidget(clientCertBrowse);
+    certLayout->addRow("Client Certificate:", clientCertLayout);
+    
+    // Private Key
+    QHBoxLayout *keyLayout = new QHBoxLayout();
+    m_clientKeyEdit = new QLineEdit();
+    m_clientKeyEdit->setPlaceholderText("Pfad zum Private Key (.pem, .key)");
+    QPushButton *keyBrowse = new QPushButton("Durchsuchen...");
+    keyBrowse->setObjectName("browseButton");
+    connect(keyBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientKey);
+    keyLayout->addWidget(m_clientKeyEdit);
+    keyLayout->addWidget(keyBrowse);
+    certLayout->addRow("Private Key:", keyLayout);
+    
+    layout->addWidget(certGroup);
+    
+    // TLS-Optionen
+    QGroupBox *tlsOptionsGroup = new QGroupBox("TLS-Optionen");
+    tlsOptionsGroup->setObjectName("settingsGroup");
+    QVBoxLayout *tlsOptionsLayout = new QVBoxLayout(tlsOptionsGroup);
+    
+    m_verifyPeerCheck = new QCheckBox("Server-Zertifikat validieren (empfohlen)");
+    m_verifyPeerCheck->setChecked(true);
+    tlsOptionsLayout->addWidget(m_verifyPeerCheck);
+    
+    QLabel *infoLabel = new QLabel(
+        "ℹ️ TLS verschlüsselt die Kommunikation mit dem Bacula Director.\n"
+        "Für Produktionsumgebungen wird TLS dringend empfohlen.");
+    infoLabel->setObjectName("infoLabel");
+    infoLabel->setWordWrap(true);
+    tlsOptionsLayout->addWidget(infoLabel);
+    
+    layout->addWidget(tlsOptionsGroup);
+    
+    // TLS-Felder aktivieren/deaktivieren
+    auto updateTlsFields = [=]() {
+        bool enabled = m_tlsEnabledCheck->isChecked();
+        certGroup->setEnabled(enabled);
+        tlsOptionsGroup->setEnabled(enabled);
+    };
+    connect(m_tlsEnabledCheck, &QCheckBox::toggled, updateTlsFields);
+    updateTlsFields();
+    
+    layout->addStretch();
+    
+    m_contentStack->addWidget(m_tlsPage);
+}
+
+void SettingsDialog::createAppearancePage()
+{
+    m_appearancePage = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(m_appearancePage);
+    layout->setSpacing(20);
+    
+    // Titel
+    QLabel *titleLabel = new QLabel("Erscheinungsbild");
+    titleLabel->setObjectName("pageTitle");
+    layout->addWidget(titleLabel);
+    
+    // Theme
+    QGroupBox *themeGroup = new QGroupBox("Farbschema");
+    themeGroup->setObjectName("settingsGroup");
+    QFormLayout *themeLayout = new QFormLayout(themeGroup);
+    
+    m_themeCombo = new QComboBox();
+    m_themeCombo->addItem("🌙 Dunkel (Industrial)", "dark");
+    m_themeCombo->addItem("☀️ Hell", "light");
+    m_themeCombo->addItem("🖥️ System", "system");
+    themeLayout->addRow("Theme:", m_themeCombo);
+    
+    layout->addWidget(themeGroup);
+    
+    // Schrift
+    QGroupBox *fontGroup = new QGroupBox("Schriftgröße");
+    fontGroup->setObjectName("settingsGroup");
+    QFormLayout *fontLayout = new QFormLayout(fontGroup);
+    
+    m_fontSizeSpin = new QSpinBox();
+    m_fontSizeSpin->setRange(8, 16);
+    m_fontSizeSpin->setValue(10);
+    m_fontSizeSpin->setSuffix(" pt");
+    fontLayout->addRow("Basis-Schriftgröße:", m_fontSizeSpin);
+    
+    layout->addWidget(fontGroup);
+    
+    // UI-Optionen
+    QGroupBox *uiGroup = new QGroupBox("Benutzeroberfläche");
+    uiGroup->setObjectName("settingsGroup");
+    QVBoxLayout *uiLayout = new QVBoxLayout(uiGroup);
+    
+    m_animationsCheck = new QCheckBox("Animationen aktivieren");
+    m_animationsCheck->setChecked(true);
+    uiLayout->addWidget(m_animationsCheck);
+    
+    m_compactModeCheck = new QCheckBox("Kompakter Modus");
+    uiLayout->addWidget(m_compactModeCheck);
+    
+    layout->addWidget(uiGroup);
+    
+    layout->addStretch();
+    
+    m_contentStack->addWidget(m_appearancePage);
+}
+
+void SettingsDialog::createBehaviorPage()
+{
+    m_behaviorPage = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(m_behaviorPage);
+    layout->setSpacing(20);
+    
+    // Titel
+    QLabel *titleLabel = new QLabel("Verhalten");
+    titleLabel->setObjectName("pageTitle");
+    layout->addWidget(titleLabel);
+    
+    // Bestätigungen
+    QGroupBox *confirmGroup = new QGroupBox("Bestätigungen");
+    confirmGroup->setObjectName("settingsGroup");
+    QVBoxLayout *confirmLayout = new QVBoxLayout(confirmGroup);
+    
+    m_confirmJobCancelCheck = new QCheckBox("Job-Abbruch bestätigen");
+    m_confirmJobCancelCheck->setChecked(true);
+    confirmLayout->addWidget(m_confirmJobCancelCheck);
+    
+    layout->addWidget(confirmGroup);
+    
+    // Auto-Refresh
+    QGroupBox *refreshGroup = new QGroupBox("Automatische Aktualisierung");
+    refreshGroup->setObjectName("settingsGroup");
+    QVBoxLayout *refreshLayout = new QVBoxLayout(refreshGroup);
+    
+    m_autoRefreshCheck = new QCheckBox("Automatisch aktualisieren");
+    refreshLayout->addWidget(m_autoRefreshCheck);
+    
+    QHBoxLayout *intervalLayout = new QHBoxLayout();
+    QLabel *intervalLabel = new QLabel("Intervall:");
+    m_refreshIntervalSpin = new QSpinBox();
+    m_refreshIntervalSpin->setRange(10, 300);
+    m_refreshIntervalSpin->setValue(30);
+    m_refreshIntervalSpin->setSuffix(" Sekunden");
+    intervalLayout->addWidget(intervalLabel);
+    intervalLayout->addWidget(m_refreshIntervalSpin);
+    intervalLayout->addStretch();
+    refreshLayout->addLayout(intervalLayout);
+    
+    layout->addWidget(refreshGroup);
+    
+    // Anzeige
+    QGroupBox *displayGroup = new QGroupBox("Anzeige");
+    displayGroup->setObjectName("settingsGroup");
+    QFormLayout *displayLayout = new QFormLayout(displayGroup);
+    
+    m_maxJobsDisplaySpin = new QSpinBox();
+    m_maxJobsDisplaySpin->setRange(10, 1000);
+    m_maxJobsDisplaySpin->setValue(100);
+    m_maxJobsDisplaySpin->setSuffix(" Jobs");
+    displayLayout->addRow("Maximale Jobs:", m_maxJobsDisplaySpin);
+    
+    layout->addWidget(displayGroup);
+    
+    layout->addStretch();
+    
+    m_contentStack->addWidget(m_behaviorPage);
+}
+
+void SettingsDialog::createAdvancedPage()
+{
+    m_advancedPage = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(m_advancedPage);
+    layout->setSpacing(20);
+    
+    // Titel
+    QLabel *titleLabel = new QLabel("Erweiterte Einstellungen");
+    titleLabel->setObjectName("pageTitle");
+    layout->addWidget(titleLabel);
+    
+    // Logging
+    QGroupBox *logGroup = new QGroupBox("Protokollierung");
+    logGroup->setObjectName("settingsGroup");
+    QVBoxLayout *logLayout = new QVBoxLayout(logGroup);
+    
+    m_debugLoggingCheck = new QCheckBox("Debug-Logging aktivieren");
+    logLayout->addWidget(m_debugLoggingCheck);
+    
+    QHBoxLayout *logFileLayout = new QHBoxLayout();
+    QLabel *logFileLabel = new QLabel("Log-Datei:");
+    m_logFileEdit = new QLineEdit();
+    m_logFileEdit->setPlaceholderText("bacula-qt-ui.log");
+    QPushButton *logBrowse = new QPushButton("Durchsuchen...");
+    logFileLayout->addWidget(logFileLabel);
+    logFileLayout->addWidget(m_logFileEdit, 1);
+    logFileLayout->addWidget(logBrowse);
+    logLayout->addLayout(logFileLayout);
+    
+    QHBoxLayout *maxSizeLayout = new QHBoxLayout();
+    QLabel *maxSizeLabel = new QLabel("Max. Log-Größe:");
+    m_maxLogSizeSpin = new QSpinBox();
+    m_maxLogSizeSpin->setRange(1, 100);
+    m_maxLogSizeSpin->setValue(10);
+    m_maxLogSizeSpin->setSuffix(" MB");
+    maxSizeLayout->addWidget(maxSizeLabel);
+    maxSizeLayout->addWidget(m_maxLogSizeSpin);
+    maxSizeLayout->addStretch();
+    logLayout->addLayout(maxSizeLayout);
+    
+    layout->addWidget(logGroup);
+    
+    // Weitere Optionen
+    QGroupBox *miscGroup = new QGroupBox("Sonstiges");
+    miscGroup->setObjectName("settingsGroup");
+    QVBoxLayout *miscLayout = new QVBoxLayout(miscGroup);
+    
+    m_enableTooltipsCheck = new QCheckBox("Tooltips anzeigen");
+    m_enableTooltipsCheck->setChecked(true);
+    miscLayout->addWidget(m_enableTooltipsCheck);
+    
+    layout->addWidget(miscGroup);
+    
+    // Warnung
+    QLabel *warningLabel = new QLabel(
+        "⚠️ Diese Einstellungen sind für fortgeschrittene Benutzer.\n"
+        "Änderungen können die Stabilität der Anwendung beeinflussen.");
+    warningLabel->setObjectName("warningLabel");
+    warningLabel->setWordWrap(true);
+    layout->addWidget(warningLabel);
+    
+    layout->addStretch();
+    
+    m_contentStack->addWidget(m_advancedPage);
+}
+
+void SettingsDialog::applyModernStyle()
+{
+    setStyleSheet(R"(
+        /* Haupt-Dialog */
+        SettingsDialog {
+            background-color: #1a1d23;
+            color: #e4e6eb;
+        }
+        
+        /* Sidebar */
+        QListWidget#categoryList {
+            background-color: #0f1115;
+            border: none;
+            border-right: 2px solid #2d3139;
+            outline: none;
+            padding: 20px 0;
+        }
+        
+        QListWidget#categoryList::item {
+            padding: 16px 20px;
+            margin: 2px 10px;
+            border-radius: 6px;
+            color: #8b92a0;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        QListWidget#categoryList::item:selected {
+            background-color: #2d5a8f;
+            color: #ffffff;
+        }
+        
+        QListWidget#categoryList::item:hover {
+            background-color: #252932;
+            color: #e4e6eb;
+        }
+        
+        /* Page Titles */
+        QLabel#pageTitle {
+            font-size: 24px;
+            font-weight: 600;
+            color: #ffffff;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #2d5a8f;
+        }
+        
+        /* Group Boxes */
+        QGroupBox#settingsGroup {
+            font-size: 13px;
+            font-weight: 600;
+            color: #c4c9d4;
+            border: 1px solid #2d3139;
+            border-radius: 8px;
+            margin-top: 16px;
+            padding-top: 24px;
+            background-color: #171a1f;
+        }
+        
+        QGroupBox#settingsGroup::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 4px 12px;
+            margin-left: 8px;
+            background-color: #2d5a8f;
+            border-radius: 4px;
+            color: #ffffff;
+        }
+        
+        /* Input Fields */
+        QLineEdit, QSpinBox {
+            background-color: #0f1115;
+            border: 1px solid #2d3139;
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: #e4e6eb;
+            font-size: 12px;
+        }
+        
+        QLineEdit:focus, QSpinBox:focus {
+            border-color: #2d5a8f;
+            background-color: #1a1d23;
+        }
+        
+        QLineEdit::placeholder {
+            color: #5a6270;
+        }
+        
+        /* ComboBox */
+        QComboBox {
+            background-color: #0f1115;
+            border: 1px solid #2d3139;
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: #e4e6eb;
+            min-width: 200px;
+        }
+        
+        QComboBox:hover {
+            border-color: #2d5a8f;
+        }
+        
+        QComboBox::drop-down {
+            border: none;
+            width: 30px;
+        }
+        
+        QComboBox QAbstractItemView {
+            background-color: #1a1d23;
+            border: 1px solid #2d3139;
+            selection-background-color: #2d5a8f;
+            color: #e4e6eb;
+        }
+        
+        /* Checkboxes */
+        QCheckBox {
+            color: #e4e6eb;
+            spacing: 8px;
+            font-size: 12px;
+        }
+        
+        QCheckBox#prominentCheckbox {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        QCheckBox::indicator {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #2d3139;
+            border-radius: 4px;
+            background-color: #0f1115;
+        }
+        
+        QCheckBox::indicator:hover {
+            border-color: #2d5a8f;
+        }
+        
+        QCheckBox::indicator:checked {
+            background-color: #2d5a8f;
+            border-color: #2d5a8f;
+            image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkuNSAzLjVMNC41IDguNUwyLjUgNi41IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
+        }
+        
+        /* Buttons */
+        QPushButton {
+            background-color: #252932;
+            color: #e4e6eb;
+            border: 1px solid #2d3139;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        QPushButton:hover {
+            background-color: #2d3139;
+            border-color: #3a4048;
+        }
+        
+        QPushButton:pressed {
+            background-color: #1a1d23;
+        }
+        
+        QPushButton#applyButton {
+            background-color: #2d5a8f;
+            color: #ffffff;
+            border: none;
+            padding: 12px 32px;
+        }
+        
+        QPushButton#applyButton:hover {
+            background-color: #3a6ba5;
+        }
+        
+        QPushButton#cancelButton {
+            background-color: transparent;
+            border: 1px solid #2d3139;
+        }
+        
+        QPushButton#resetButton {
+            background-color: transparent;
+            color: #8b92a0;
+        }
+        
+        QPushButton#browseButton {
+            padding: 8px 16px;
+        }
+        
+        QPushButton#dangerButton {
+            background-color: #8f2d2d;
+            color: #ffffff;
+            border: none;
+        }
+        
+        QPushButton#dangerButton:hover {
+            background-color: #a53a3a;
+        }
+        
+        /* Info/Warning Labels */
+        QLabel#infoLabel {
+            background-color: #1a2d3a;
+            border-left: 3px solid #2d5a8f;
+            padding: 12px;
+            border-radius: 4px;
+            color: #c4d9e8;
+        }
+        
+        QLabel#warningLabel {
+            background-color: #3a2d1a;
+            border-left: 3px solid #8f6a2d;
+            padding: 12px;
+            border-radius: 4px;
+            color: #e8d9c4;
+        }
+    )");
+}
+
+void SettingsDialog::loadSettings()
+{
+    QSettings settings("Bacula", "BaculaQtUI");
+    
+    // Verbindung
+    m_hostEdit->setText(settings.value("Connection/bconsole_host", "localhost").toString());
+    m_portSpin->setValue(settings.value("Connection/bconsole_port", 9101).toInt());
+    m_directorEdit->setText(settings.value("Connection/bconsole_director", "bacula-dir").toString());
+    m_passwordEdit->setText(settings.value("Connection/bconsole_password").toString());
+    m_savePasswordCheck->setChecked(settings.value("Settings/save_password", true).toBool());
+    m_autoConnectCheck->setChecked(settings.value("Settings/auto_connect", false).toBool());
+    m_connectionTimeoutSpin->setValue(settings.value("Settings/connection_timeout", 30).toInt());
+    
+    // TLS
+    m_tlsEnabledCheck->setChecked(settings.value("Connection/tls_enabled", false).toBool());
+    m_caCertEdit->setText(settings.value("Connection/tls_ca_cert").toString());
+    m_clientCertEdit->setText(settings.value("Connection/tls_cert").toString());
+    m_clientKeyEdit->setText(settings.value("Connection/tls_key").toString());
+    m_verifyPeerCheck->setChecked(settings.value("Settings/tls_verify_peer", true).toBool());
+    
+    // Appearance
+    QString theme = settings.value("Settings/theme", "dark").toString();
+    int themeIndex = m_themeCombo->findData(theme);
+    if (themeIndex >= 0) m_themeCombo->setCurrentIndex(themeIndex);
+    m_fontSizeSpin->setValue(settings.value("Settings/font_size", 10).toInt());
+    m_animationsCheck->setChecked(settings.value("Settings/animations", true).toBool());
+    m_compactModeCheck->setChecked(settings.value("Settings/compact_mode", false).toBool());
+    
+    // Behavior
+    m_confirmJobCancelCheck->setChecked(settings.value("Settings/confirm_job_cancel", true).toBool());
+    m_autoRefreshCheck->setChecked(settings.value("Settings/auto_refresh", false).toBool());
+    m_refreshIntervalSpin->setValue(settings.value("Settings/refresh_interval", 30).toInt());
+    m_maxJobsDisplaySpin->setValue(settings.value("Settings/max_jobs_display", 100).toInt());
+    
+    // Advanced
+    m_debugLoggingCheck->setChecked(settings.value("Settings/debug_logging", false).toBool());
+    m_logFileEdit->setText(settings.value("Settings/log_file", "bacula-qt-ui.log").toString());
+    m_maxLogSizeSpin->setValue(settings.value("Settings/max_log_size", 10).toInt());
+    m_enableTooltipsCheck->setChecked(settings.value("Settings/enable_tooltips", true).toBool());
+}
+
+void SettingsDialog::saveSettings()
+{
+    QSettings settings("Bacula", "BaculaQtUI");
+    
+    // Verbindung
+    settings.setValue("Connection/bconsole_host", m_hostEdit->text());
+    settings.setValue("Connection/bconsole_port", m_portSpin->value());
+    settings.setValue("Connection/bconsole_director", m_directorEdit->text());
+    if (m_savePasswordCheck->isChecked()) {
+        settings.setValue("Connection/bconsole_password", m_passwordEdit->text());
+    } else {
+        settings.remove("Connection/bconsole_password");
+    }
+    settings.setValue("Settings/save_password", m_savePasswordCheck->isChecked());
+    settings.setValue("Settings/auto_connect", m_autoConnectCheck->isChecked());
+    settings.setValue("Settings/connection_timeout", m_connectionTimeoutSpin->value());
+    
+    // TLS
+    settings.setValue("Connection/tls_enabled", m_tlsEnabledCheck->isChecked());
+    settings.setValue("Connection/tls_ca_cert", m_caCertEdit->text());
+    settings.setValue("Connection/tls_cert", m_clientCertEdit->text());
+    settings.setValue("Connection/tls_key", m_clientKeyEdit->text());
+    settings.setValue("Settings/tls_verify_peer", m_verifyPeerCheck->isChecked());
+    
+    // Appearance
+    settings.setValue("Settings/theme", m_themeCombo->currentData().toString());
+    settings.setValue("Settings/font_size", m_fontSizeSpin->value());
+    settings.setValue("Settings/animations", m_animationsCheck->isChecked());
+    settings.setValue("Settings/compact_mode", m_compactModeCheck->isChecked());
+    
+    // Behavior
+    settings.setValue("Settings/confirm_job_cancel", m_confirmJobCancelCheck->isChecked());
+    settings.setValue("Settings/auto_refresh", m_autoRefreshCheck->isChecked());
+    settings.setValue("Settings/refresh_interval", m_refreshIntervalSpin->value());
+    settings.setValue("Settings/max_jobs_display", m_maxJobsDisplaySpin->value());
+    
+    // Advanced
+    settings.setValue("Settings/debug_logging", m_debugLoggingCheck->isChecked());
+    settings.setValue("Settings/log_file", m_logFileEdit->text());
+    settings.setValue("Settings/max_log_size", m_maxLogSizeSpin->value());
+    settings.setValue("Settings/enable_tooltips", m_enableTooltipsCheck->isChecked());
+    
+    emit settingsChanged();
+}
+
+void SettingsDialog::onCategoryChanged(int index)
+{
+    m_contentStack->setCurrentIndex(index);
+}
+
+void SettingsDialog::onApplyClicked()
+{
+    saveSettings();
+    QMessageBox::information(this, "Einstellungen", 
+        "Die Einstellungen wurden gespeichert.\n"
+        "Einige Änderungen erfordern einen Neustart der Anwendung.");
+    accept();
+}
+
+void SettingsDialog::onCancelClicked()
+{
+    reject();
+}
+
+void SettingsDialog::onResetToDefaultsClicked()
+{
+    int ret = QMessageBox::question(this, "Zurücksetzen",
+        "Möchten Sie wirklich alle Einstellungen auf die Standardwerte zurücksetzen?\n"
+        "Diese Aktion kann nicht rückgängig gemacht werden.",
+        QMessageBox::Yes | QMessageBox::No);
+    
+    if (ret == QMessageBox::Yes) {
+        QSettings settings("Bacula", "BaculaQtUI");
+        settings.clear();
+        loadSettings();
+        QMessageBox::information(this, "Zurückgesetzt", 
+            "Alle Einstellungen wurden auf die Standardwerte zurückgesetzt.");
+    }
+}
+
+void SettingsDialog::onBrowseCACert()
+{
+    QString file = QFileDialog::getOpenFileName(this, "CA-Zertifikat wählen",
+        QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
+    if (!file.isEmpty()) {
+        m_caCertEdit->setText(file);
+    }
+}
+
+void SettingsDialog::onBrowseClientCert()
+{
+    QString file = QFileDialog::getOpenFileName(this, "Client-Zertifikat wählen",
+        QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
+    if (!file.isEmpty()) {
+        m_clientCertEdit->setText(file);
+    }
+}
+
+void SettingsDialog::onBrowseClientKey()
+{
+    QString file = QFileDialog::getOpenFileName(this, "Private Key wählen",
+        QString(), "Keys (*.pem *.key);;Alle Dateien (*)");
+    if (!file.isEmpty()) {
+        m_clientKeyEdit->setText(file);
+    }
+}
+
+void SettingsDialog::onExportSettings()
+{
+    QString file = QFileDialog::getSaveFileName(this, "Einstellungen exportieren",
+        "bacula-settings.json", "JSON (*.json)");
+    
+    if (!file.isEmpty()) {
+        QSettings settings("Bacula", "BaculaQtUI");
+        QJsonObject json;
+        
+        foreach (QString key, settings.allKeys()) {
+            json[key] = settings.value(key).toString();
+        }
+        
+        QJsonDocument doc(json);
+        QFile outFile(file);
+        if (outFile.open(QIODevice::WriteOnly)) {
+            outFile.write(doc.toJson());
+            outFile.close();
+            QMessageBox::information(this, "Export", "Einstellungen erfolgreich exportiert.");
+        }
+    }
+}
+
+void SettingsDialog::onImportSettings()
+{
+    QString file = QFileDialog::getOpenFileName(this, "Einstellungen importieren",
+        QString(), "JSON (*.json)");
+    
+    if (!file.isEmpty()) {
+        QFile inFile(file);
+        if (inFile.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(inFile.readAll());
+            QJsonObject json = doc.object();
+            
+            QSettings settings("Bacula", "BaculaQtUI");
+            for (auto it = json.begin(); it != json.end(); ++it) {
+                settings.setValue(it.key(), it.value().toString());
+            }
+            
+            loadSettings();
+            QMessageBox::information(this, "Import", "Einstellungen erfolgreich importiert.");
+        }
+    }
+}
+
+void SettingsDialog::onClearStoredConnections()
+{
+    int ret = QMessageBox::warning(this, "Verbindungen löschen",
+        "Möchten Sie wirklich alle gespeicherten Verbindungsinformationen löschen?\n"
+        "Dies beinhaltet Passwörter und Zertifikatspfade.",
+        QMessageBox::Yes | QMessageBox::No);
+    
+    if (ret == QMessageBox::Yes) {
+        QSettings settings("Bacula", "BaculaQtUI");
+        settings.beginGroup("Connection");
+        settings.remove("");
+        settings.endGroup();
+        
+        loadSettings();
+        QMessageBox::information(this, "Gelöscht", 
+            "Alle gespeicherten Verbindungsinformationen wurden gelöscht.");
+    }
+}

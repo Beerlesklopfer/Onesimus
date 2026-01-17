@@ -1,0 +1,116 @@
+#ifndef SETTINGSDIALOG_H
+#define SETTINGSDIALOG_H
+
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QStackedWidget>
+#include <QListWidget>
+#include <QPushButton>
+#include <QLabel>
+#include <QScrollArea>
+#include <QFrame>
+#include <QSettings>
+#include "baculadirector.h"
+
+namespace Ui {
+class SettingsDialog;
+}
+
+/**
+ * @brief Moderner Settings Dialog mit Kategorien-Navigation
+ * 
+ * Design: Industriell-dunkel mit klaren Kategorien
+ * Layout: Sidebar-Navigation + Content-Bereich
+ */
+class SettingsDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit SettingsDialog(BaculaDirector *director, QWidget *parent = nullptr);
+    ~SettingsDialog();
+
+    // Einstellungen laden/speichern
+    void loadSettings();
+    void saveSettings();
+
+signals:
+    void settingsChanged();
+
+private slots:
+    void onCategoryChanged(int index);
+    void onApplyClicked();
+    void onCancelClicked();
+    void onResetToDefaultsClicked();
+    void onBrowseCACert();
+    void onBrowseClientCert();
+    void onBrowseClientKey();
+    void onExportSettings();
+    void onImportSettings();
+    void onClearStoredConnections();
+
+private:
+    void setupUI();
+    void createSidebar();
+    void createContentPages();
+    void createConnectionPage();
+    void createTLSPage();
+    void createAppearancePage();
+    void createBehaviorPage();
+    void createAdvancedPage();
+    void applyModernStyle();
+    
+    Ui::SettingsDialog *ui;
+    BaculaDirector *m_director;
+    
+    // UI-Komponenten
+    QListWidget *m_categoryList;
+    QStackedWidget *m_contentStack;
+    QPushButton *m_applyButton;
+    QPushButton *m_cancelButton;
+    QPushButton *m_resetButton;
+    
+    // Settings-Seiten
+    QWidget *m_connectionPage;
+    QWidget *m_tlsPage;
+    QWidget *m_appearancePage;
+    QWidget *m_behaviorPage;
+    QWidget *m_advancedPage;
+    
+    // Verbindungseinstellungen
+    QLineEdit *m_hostEdit;
+    QSpinBox *m_portSpin;
+    QLineEdit *m_directorEdit;
+    QLineEdit *m_passwordEdit;
+    QCheckBox *m_savePasswordCheck;
+    QCheckBox *m_autoConnectCheck;
+    QSpinBox *m_connectionTimeoutSpin;
+    
+    // TLS-Einstellungen
+    QCheckBox *m_tlsEnabledCheck;
+    QLineEdit *m_caCertEdit;
+    QLineEdit *m_clientCertEdit;
+    QLineEdit *m_clientKeyEdit;
+    QCheckBox *m_verifyPeerCheck;
+    
+    // Appearance-Einstellungen
+    QComboBox *m_themeCombo;
+    QSpinBox *m_fontSizeSpin;
+    QCheckBox *m_animationsCheck;
+    QCheckBox *m_compactModeCheck;
+    
+    // Behavior-Einstellungen
+    QCheckBox *m_confirmJobCancelCheck;
+    QCheckBox *m_autoRefreshCheck;
+    QSpinBox *m_refreshIntervalSpin;
+    QSpinBox *m_maxJobsDisplaySpin;
+    
+    // Advanced-Einstellungen
+    QCheckBox *m_debugLoggingCheck;
+    QLineEdit *m_logFileEdit;
+    QSpinBox *m_maxLogSizeSpin;
+    QCheckBox *m_enableTooltipsCheck;
+};
+
+#endif // SETTINGSDIALOG_H
