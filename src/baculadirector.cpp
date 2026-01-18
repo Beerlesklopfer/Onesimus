@@ -12,13 +12,19 @@
 BaculaDirector::BaculaDirector(QObject *parent)
     : QObject(parent)
     , m_connectionType(BConsole)
+    , m_backupSystem(Bacula)
     , m_socket(nullptr)
     , m_sslSocket(nullptr)
     , m_port(9101)
     , m_authenticated(false)
+    , m_authChallengeSent(false)
+    , m_waitingForDirectorResponse(false)
+    , m_phase1Complete(false)
+    , m_phase2Complete(false)
     , m_networkManager(nullptr)
     , m_authTimer(nullptr)
     , m_connected(false)
+    , m_useApiMode(true)  // API-Modus standardmäßig aktivieren
 {
     m_socket = new QTcpSocket(this);
     m_sslSocket = new QSslSocket(this);
@@ -125,10 +131,30 @@ BaculaDirector::ConnectionType BaculaDirector::connectionType() const
 // Bconsole-Verbindungsmethoden
 void BaculaDirector::onBConsoleConnected()
 {
-    qDebug() << "Bconsole-Verbindung hergestellt";
-    m_connected = true;
-    saveConnectionSettings();
-    emit connected();
+    qDebug() << "═══════════════════════════════════════════════════";
+    qDebug() << "TCP CONNECTION ESTABLISHED";
+    qDebug() << "  Host:" << m_host;
+    qDebug() << "  Port:" << m_port;
+    qDebug() << "  TLS enabled:" << m_tlsConfig.enabled;
+    qDebug() << "═══════════════════════════════════════════════════";
+
+    QString consName = "*UserAgent*";
+    int version = 1;
+    int tlspskLocalNeed = 0;
+    
+    QString helloMsg = QString("Hello %1 calling %2 tlspsk=%3\n")
+                       .arg(consName)
+                       .arg(version)
+                       .arg(tlspskLocalNeed);
+    
+    qDebug() << ">>> SENDING HELLO TO DIRECTOR:";
+    qDebug() << "    Message:" << helloMsg.trimmed();
+    qDebug() << "    Length:" << helloMsg.length() << "bytes";
+    qDebug() << "    HEX:" << helloMsg.toUtf8().toHex(' ');
+    
+    sendToDirector(helloMsg.toUtf8());
+    
+    qDebug() << ">>> Waiting for Director response...";
 }
 
 void BaculaDirector::onBConsoleDisconnected()
@@ -151,13 +177,8 @@ void BaculaDirector::onBConsoleReadyRead()
     
     m_receiveBuffer.append(data);
     
-    // Prüfe auf Authentifizierungsanfrage
-    if (!m_authenticated && m_receiveBuffer.contains("cram-md5")) {
-        authenticateBConsole();
-        return;
-    }
-    
     // Verarbeite vollständige Antworten
+    // Authentifizierung passiert automatisch wenn Director seine Challenge sendet
     processBConsoleResponse(m_receiveBuffer);
     m_receiveBuffer.clear();
 }
@@ -169,38 +190,290 @@ void BaculaDirector::onBConsoleError(QAbstractSocket::SocketError error)
     emit connectionError(errorMsg);
 }
 
-void BaculaDirector::authenticateBConsole()
-{
-    // Implementierung der CRAM-MD5-Authentifizierung
-    // Vereinfachte Version - in Produktion sollte echtes CRAM-MD5 verwendet werden
-    QByteArray authPacket;
-    authPacket.append("Hello ");
-    authPacket.append(m_directorName.toUtf8());
-    authPacket.append(" calling\n");
-    
-    if (m_tlsConfig.enabled && m_sslSocket->isEncrypted()) {
-        m_sslSocket->write(authPacket);
-        m_sslSocket->flush();
-    } else {
-        m_socket->write(authPacket);
-        m_socket->flush();
-    }
-    
-    m_authenticated = true;
-}
+// Authentifizierung ist event-driven - passiert automatisch in processBConsoleResponse()
+// wenn der Director seine Challenge sendet
 
 void BaculaDirector::processBConsoleResponse(const QByteArray &data)
 {
-    QString response = QString::fromUtf8(data);
-    emit commandResponse(response);
+    QString response = QString::fromUtf8(data).trimmed();
     
-    // Parse spezifische Antworten basierend auf letztem Befehl
-    if (m_lastCommand.startsWith("list jobs")) {
-        // Parse Job-Liste (vereinfacht)
-        QList<JobInfo> jobs;
-        // Parsing-Logik hier implementieren
-        emit jobsReceived(jobs);
+    // ===== DEBUG: Alle Rohdaten loggen =====
+    qDebug() << "═══════════════════════════════════════════════════";
+    qDebug() << "RAW DATA received (" << data.size() << "bytes):";
+    qDebug() << "  HEX:" << data.toHex(' ');
+    qDebug() << "  UTF8:" << response;
+    qDebug() << "  Trimmed length:" << response.length();
+    qDebug() << "  Authenticated:" << m_authenticated;
+    qDebug() << "  Phase1 complete:" << m_phase1Complete;
+    qDebug() << "  Phase2 complete:" << m_phase2Complete;
+    qDebug() << "  Waiting for response:" << m_waitingForDirectorResponse;
+    qDebug() << "═══════════════════════════════════════════════════";
+    
+    if (!m_authenticated) {
+        // Phase 0: Optional TLS-PSK Negotiation
+        // Director → "starttls tlspsk=<code>"
+        if (response.startsWith("starttls tlspsk=")) {
+            qDebug() << ">>> DETECTED: TLS-PSK Negotiation";
+            QRegularExpression rx("starttls tlspsk=(\\d+)");
+            QRegularExpressionMatch match = rx.match(response);
+            if (match.hasMatch()) {
+                int tlspskRemote = match.captured(1).toInt();
+                qDebug() << "    TLS-PSK Remote need:" << tlspskRemote;
+                qDebug() << "    TLS need:" << (tlspskRemote % 100);
+                qDebug() << "    PSK need:" << (tlspskRemote / 100);
+                // TODO: Handle TLS negotiation
+            } else {
+                qWarning() << "    ERROR: Could not parse TLS-PSK value";
+            }
+            return;
+        }
+        
+        // Phase 1: Director sendet Challenge (nach Hello-Austausch)
+        // Format: "auth cram-md5 <challenge> ssl=<tls_need>"
+        if (response.startsWith("auth cram-md5")) {
+            qDebug() << ">>> DETECTED: Director CRAM-MD5 Challenge";
+            handleDirectorChallengePhase1(response);
+            return;
+        }
+        
+        // Phase 2b: Director bestätigt unsere Challenge
+        // Format: "1000 OK auth"
+        if (response == "1000 OK auth") {
+            qDebug() << ">>> DETECTED: Director confirms authentication (1000 OK auth)";
+            m_phase2Complete = true;
+            qDebug() << "    Phase 1 complete:" << m_phase1Complete;
+            qDebug() << "    Phase 2 complete:" << m_phase2Complete;
+            
+            // Wenn beide Phasen abgeschlossen sind
+            if (m_phase1Complete && m_phase2Complete) {
+                qDebug() << "    ✓ Bidirectional CRAM-MD5 authentication complete";
+                qDebug() << "    Waiting for final Director response (1000 OK: ...)";
+                // Warte auf finale "1000 OK: ..." Nachricht
+            }
+            return;
+        }
+        
+        // Phase 1b: Director antwortet auf unsere Challenge
+        // Dies ist eine Base64-Response (nicht "1000 OK auth")
+        if (m_waitingForDirectorResponse && !response.startsWith("auth") && 
+            !response.startsWith("1000") && !response.startsWith("1999") &&
+            !response.startsWith("2000")) {
+            qDebug() << ">>> DETECTED: Director response to our challenge (Base64)";
+            qDebug() << "    Response length:" << response.length();
+            qDebug() << "    First 20 chars:" << response.left(20);
+            handleDirectorResponsePhase1b(response);
+            return;
+        }
+        
+        // Phase 3: Finale Director-Antwort nach erfolgreicher Authentifizierung
+        // Format: "1000 OK: 10002 bacula-dir Version: 15.0.3 (...)"
+        // oder:   "2000 OK Hello 10002" (FD-Modus)
+        if (response.startsWith("1000 OK:") || response.startsWith("2000 OK Hello")) {
+            qDebug() << ">>> DETECTED: Final Director response";
+            qDebug() << "    Full response:" << response;
+            
+            // Parse Director-Version
+            QRegularExpression versionRx("(1000|2000) OK.*?(\\d+)");
+            QRegularExpressionMatch match = versionRx.match(response);
+            if (match.hasMatch()) {
+                int dirVersion = match.captured(2).toInt();
+                qDebug() << "    Director version:" << dirVersion;
+            } else {
+                qDebug() << "    Could not parse Director version";
+            }
+            
+            m_authenticated = true;
+            m_connected = true;
+            qDebug() << "    ✓ AUTHENTICATION SUCCESSFUL";
+            qDebug() << "    Saving connection settings...";
+            saveConnectionSettings();
+            
+            // Optional: Aktiviere API-Modus (wie BAT)
+            if (m_useApiMode) {
+                qDebug() << "    Activating API mode (.api 1)...";
+                sendCommand(".api 1");
+            }
+            
+            qDebug() << "    Emitting connected() signal";
+            emit connected();
+            return;
+        }
+        
+        // Fehler
+        if (response.contains("1999")) {
+            qDebug() << ">>> DETECTED: Authentication FAILED (1999)";
+            qWarning() << "    Error message:" << response;
+            emit connectionError("Authentication failed: " + response);
+            return;
+        }
+        
+        // Unbekannte Nachricht während Authentifizierung
+        qWarning() << ">>> UNKNOWN MESSAGE during authentication:";
+        qWarning() << "    Response:" << response;
+        qWarning() << "    Starts with auth:" << response.startsWith("auth");
+        qWarning() << "    Starts with 1000:" << response.startsWith("1000");
+        qWarning() << "    Starts with 1999:" << response.startsWith("1999");
+        qWarning() << "    Starts with 2000:" << response.startsWith("2000");
+        qWarning() << "    Waiting for response:" << m_waitingForDirectorResponse;
+    } else {
+        // Nach Authentifizierung: Normale Befehlsantworten
+        qDebug() << ">>> POST-AUTH MESSAGE:";
+        qDebug() << "    Response:" << response;
+        emit commandResponse(response);
+        
+        if (m_lastCommand.startsWith("list jobs")) {
+            qDebug() << "    Processing 'list jobs' response";
+            QList<JobInfo> jobs;
+            emit jobsReceived(jobs);
+        }
     }
+}
+
+void BaculaDirector::handleDirectorChallengePhase1(const QString &challengeLine)
+{
+    // cram_md5_respond() Implementierung
+    // Parse Challenge: "auth cram-md5[c] <challenge> ssl=<tls_need>"
+    
+    QRegularExpression rx("auth cram-md5c? <([^>]+)> ssl=(\\d+)");
+    QRegularExpressionMatch match = rx.match(challengeLine);
+    
+    if (!match.hasMatch()) {
+        // Alte Version ohne SSL
+        QRegularExpression rxOld("auth cram-md5c? <([^>]+)>");
+        match = rxOld.match(challengeLine);
+        
+        if (!match.hasMatch()) {
+            qWarning() << "Invalid challenge format:" << challengeLine;
+            emit connectionError("Invalid challenge format");
+            return;
+        }
+    }
+    
+    QString challenge = match.captured(1);
+    bool compatible = challengeLine.contains("cram-md5c");
+    
+    qDebug() << "Director challenge:" << challenge;
+    qDebug() << "Compatible mode:" << compatible;
+    
+    // Berechne HMAC-MD5 Response auf Director-Challenge
+    QByteArray hmac = calculateCramMd5Response(
+        challenge.toUtf8(),
+        m_password.toUtf8()
+    );
+    
+    // Konvertiere zu Base64
+    QByteArray response = hmac.toBase64();
+    
+    // Sende Response
+    QString responseMsg = response + "\n";
+    qDebug() << "Sending response to Director challenge:" << response;
+    
+    sendToDirector(responseMsg.toUtf8());
+    
+    // Jetzt müssen WIR eine Challenge senden (Phase 2)
+    // Dies entspricht cram_md5_challenge() in cram_md5_respond()
+    sendOurChallenge();
+}
+
+void BaculaDirector::sendOurChallenge()
+{
+    // cram_md5_challenge() Implementierung
+    // Generiere Challenge: <random.timestamp@hostname>
+    
+    qint64 random1 = QRandomGenerator::global()->generate();
+    qint64 timestamp = QDateTime::currentSecsSinceEpoch();
+    QString hostname = QHostInfo::localHostName();
+    if (hostname.isEmpty()) {
+        hostname = "onesimus-console";
+    }
+    
+    m_ourChallenge = QString("<%1.%2@%3>").arg(random1).arg(timestamp).arg(hostname);
+    
+    // Sende Challenge an Director
+    // Format: "auth cram-md5 <challenge> ssl=<tls_local_need>"
+    int tlsLocalNeed = m_tlsConfig.enabled ? 1 : 0;
+    QString challengeMsg = QString("auth cram-md5 %1 ssl=%2\n")
+                           .arg(m_ourChallenge)
+                           .arg(tlsLocalNeed);
+    
+    qDebug() << "Sending our challenge to Director:" << m_ourChallenge;
+    
+    sendToDirector(challengeMsg.toUtf8());
+    
+    m_waitingForDirectorResponse = true;
+}
+
+void BaculaDirector::handleDirectorResponsePhase1b(const QString &response)
+{
+    // Director sendet Base64-Response auf unsere Challenge
+    // Wir müssen validieren
+    
+    QByteArray receivedHmac = QByteArray::fromBase64(response.toUtf8());
+    
+    // Berechne erwartete HMAC
+    QByteArray expectedHmac = calculateCramMd5Response(
+        m_ourChallenge.toUtf8(),
+        m_password.toUtf8()
+    );
+    
+    bool ok = (receivedHmac == expectedHmac);
+    
+    if (ok) {
+        qDebug() << "✓ Director response validated successfully";
+        
+        // Sende Bestätigung
+        QString confirmMsg = "1000 OK auth\n";
+        sendToDirector(confirmMsg.toUtf8());
+        
+        m_phase1Complete = true;
+        m_waitingForDirectorResponse = false;
+        
+        // Wenn beide Phasen abgeschlossen sind
+        if (m_phase1Complete && m_phase2Complete) {
+            qDebug() << "✓ Bidirectional authentication successful!";
+            m_authenticated = true;
+            m_connected = true;
+            saveConnectionSettings();
+            emit connected();
+        }
+    } else {
+        qWarning() << "✗ Director response validation failed!";
+        qDebug() << "Expected:" << expectedHmac.toBase64();
+        qDebug() << "Received:" << response;
+        
+        QString errorMsg = "1999 Authorization failed.\n";
+        sendToDirector(errorMsg.toUtf8());
+        
+        emit connectionError("Director authentication failed");
+    }
+}
+
+void BaculaDirector::sendToDirector(const QByteArray &data)
+{
+    if (m_tlsConfig.enabled && m_sslSocket && m_sslSocket->isEncrypted()) {
+        m_sslSocket->write(data);
+        m_sslSocket->flush();
+    } else if (m_socket) {
+        m_socket->write(data);
+        m_socket->flush();
+    }
+}
+
+void BaculaDirector::sendPasswordAuthentication()
+{
+    // Nicht mehr verwendet in modernem Bacula
+    qWarning() << "sendPasswordAuthentication() called but CRAM-MD5 is always used";
+}
+
+QByteArray BaculaDirector::calculateCramMd5Response(const QByteArray &challenge, const QByteArray &password)
+{
+    // Bacula: hmac_md5((uint8_t *)chal, strlen(chal), (uint8_t *)password, strlen(password), hmac);
+    // HMAC-MD5(challenge, password) nach RFC 2195
+    
+    QMessageAuthenticationCode hmac(QCryptographicHash::Md5, password);
+    hmac.addData(challenge);
+    
+    return hmac.result();
 }
 
 QByteArray BaculaDirector::prepareBConsolePacket(const QString &command)
@@ -752,3 +1025,29 @@ QString BaculaDirector::jobStatusToString(JobStatus status)
         default: return "Unbekannt";
     }
 }
+
+void BaculaDirector::setBackupSystem(BackupSystem system)
+{
+    if (m_backupSystem != system) {
+        m_backupSystem = system;
+        qDebug() << "Backup-System geändert zu:" << backupSystemName();
+    }
+}
+
+BaculaDirector::BackupSystem BaculaDirector::backupSystem() const
+{
+    return m_backupSystem;
+}
+
+QString BaculaDirector::backupSystemName() const
+{
+    switch (m_backupSystem) {
+        case Bacula:
+            return "Bacula";
+        case Bareos:
+            return "Bareos";
+        default:
+            return "Unbekannt";
+    }
+}
+

@@ -28,7 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     
-    setWindowTitle("Bacula Backup Management");
+    setWindowTitle("Onesimus - Bacula Backup Management");
     resize(1200, 800);
     
     m_director = new BaculaDirector(this);
@@ -75,7 +75,7 @@ void MainWindow::setupUI()
     // Storage-Widget
     m_storageWidget = new StorageWidget(m_director, this);
     m_tabWidget->addTab(m_storageWidget, "Storage/Volumes");
-    
+
     // Statusleiste
     m_statusLabel = new QLabel("Bereit", this);
     statusBar()->addWidget(m_statusLabel);
@@ -191,7 +191,7 @@ void MainWindow::showConnectionDialog()
     QGroupBox *bconsoleGroup = new QGroupBox("Bconsole-Verbindung", &dialog);
     QFormLayout *bconsoleLayout = new QFormLayout(bconsoleGroup);
     
-    QSettings settings("Bacula", "BaculaQtUI");
+    QSettings settings("Bacula", "Onesimus");
     QLineEdit *hostEdit = new QLineEdit(settings.value("Connection/bconsole_host", "localhost").toString(), &dialog);
     QSpinBox *portSpin = new QSpinBox(&dialog);
     portSpin->setRange(1, 65535);
@@ -338,8 +338,8 @@ void MainWindow::onDisconnectTriggered()
 
 void MainWindow::onAboutTriggered()
 {
-    QMessageBox::about(this, "Über Bacula Qt UI",
-        "<h3>Bacula Qt UI v1.0</h3>"
+    QMessageBox::about(this, "Über Onesimus",
+        "<h3>Onesimus v1.0</h3>"
         "<p>Eine moderne Qt-Oberfläche für Bacula Backup</p>"
         "<p>Unterstützt:</p>"
         "<ul>"
@@ -440,7 +440,7 @@ void MainWindow::loadAndConnectLastUsed()
     
     m_director->loadConnectionSettings();
     
-    QSettings settings("Bacula", "BaculaQtUI");
+    QSettings settings("Bacula", "Onesimus");
     BaculaDirector::ConnectionType type = static_cast<BaculaDirector::ConnectionType>(
         settings.value("Connection/type", 0).toInt()
     );

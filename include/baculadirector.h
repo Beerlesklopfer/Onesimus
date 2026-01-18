@@ -17,19 +17,32 @@
 #include <QSslCertificate>
 #include <QSslKey>
 #include <QFile>
+#include <QMessageAuthenticationCode>
+#include <QCryptographicHash>
+#include <QRandomGenerator>
+#include <QDateTime>
+#include <QRegularExpression>
+#include <QHostInfo>
 
 /**
- * @brief BaculaDirector-Klasse für die Kommunikation mit dem Bacula Director
+ * @brief BaculaDirector-Klasse für die Kommunikation mit Bacula/Bareos Director
  * 
  * Diese Klasse bietet zwei Verbindungsmethoden:
- * 1. Direkte bconsole-Verbindung über TCP-Socket
+ * 1. Direkte bconsole-Verbindung über TCP-Socket (Bacula/Bareos)
  * 2. REST-API-Verbindung über HTTP/HTTPS
+ * 
+ * Unterstützt sowohl Bacula als auch Bareos (Fork von Bacula)
  */
 class BaculaDirector : public QObject
 {
     Q_OBJECT
 
 public:
+    enum BackupSystem {
+        Bacula,     // Original Bacula
+        Bareos      // Bareos (Bacula Fork)
+    };
+    
     enum ConnectionType {
         BConsole,   // Direkte bconsole-Verbindung
         RestAPI     // REST-API-Verbindung
@@ -92,6 +105,11 @@ public:
 
     explicit BaculaDirector(QObject *parent = nullptr);
     ~BaculaDirector();
+
+    // Backup-System (Bacula/Bareos)
+    void setBackupSystem(BackupSystem system);
+    BackupSystem backupSystem() const;
+    QString backupSystemName() const;
 
     // Verbindungsverwaltung
     void connectBConsole(const QString &host, int port, const QString &directorName, const QString &password, const TLSConfig &tlsConfig = TLSConfig());
@@ -158,12 +176,19 @@ private slots:
 
 private:
     // Bconsole-Methoden
-    void authenticateBConsole();
     void processBConsoleResponse(const QByteArray &data);
     QByteArray prepareBConsolePacket(const QString &command);
     QString parseBConsoleResponse(const QByteArray &data);
     bool setupTLSConnection();
     bool loadTLSCertificates(QSslConfiguration &sslConfig);
+    
+    // CRAM-MD5 Authentifizierung (bidirektional)
+    void handleDirectorChallengePhase1(const QString &challengeLine);
+    void sendOurChallenge();
+    void handleDirectorResponsePhase1b(const QString &response);
+    void sendToDirector(const QByteArray &data);
+    void sendPasswordAuthentication();
+    QByteArray calculateCramMd5Response(const QByteArray &challenge, const QByteArray &password);
     
     // REST-API-Methoden
     void restRequest(const QString &endpoint, const QString &method = "GET", const QJsonObject &data = QJsonObject());
@@ -178,6 +203,7 @@ private:
 
     // Mitgliedsvariablen
     ConnectionType m_connectionType;
+    BackupSystem m_backupSystem;
     
     // Bconsole-Verbindung
     QTcpSocket *m_socket;
@@ -187,8 +213,15 @@ private:
     QString m_host;
     int m_port;
     bool m_authenticated;
+    bool m_authChallengeSent;  // DEPRECATED
     QByteArray m_receiveBuffer;
     TLSConfig m_tlsConfig;
+    
+    // Bidirektionale CRAM-MD5 Authentifizierung (Client-Seite)
+    QString m_ourChallenge;
+    bool m_waitingForDirectorResponse;
+    bool m_phase1Complete;  // Director hat unsere Response akzeptiert
+    bool m_phase2Complete;  // Wir haben Director-Response validiert
     
     // REST-API-Verbindung
     QNetworkAccessManager *m_networkManager;
@@ -201,6 +234,7 @@ private:
     // Status
     bool m_connected;
     QString m_lastCommand;
+    bool m_useApiMode;  // Aktiviere .api 1 Modus (wie BAT)
 };
 
 #endif // BACULADIRECTOR_H

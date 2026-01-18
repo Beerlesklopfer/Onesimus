@@ -11,6 +11,12 @@
 #include <QScrollArea>
 #include <QFrame>
 #include <QSettings>
+#include <QSpinBox>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QGroupBox>
 #include "baculadirector.h"
 
 namespace Ui {
@@ -86,7 +92,7 @@ private:
     QCheckBox *m_savePasswordCheck;
     QCheckBox *m_autoConnectCheck;
     QSpinBox *m_connectionTimeoutSpin;
-    
+
     // TLS-Einstellungen
     QCheckBox *m_tlsEnabledCheck;
     QLineEdit *m_caCertEdit;
@@ -111,6 +117,7 @@ private:
     QLineEdit *m_logFileEdit;
     QSpinBox *m_maxLogSizeSpin;
     QCheckBox *m_enableTooltipsCheck;
+    QComboBox *m_backupSystemCombo;
 };
 
 #endif // SETTINGSDIALOG_H

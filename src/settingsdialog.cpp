@@ -25,7 +25,7 @@ SettingsDialog::SettingsDialog(BaculaDirector *director, QWidget *parent)
     
     setupUI();
     loadSettings();
-    applyModernStyle();
+    // applyModernStyle();
 }
 
 SettingsDialog::~SettingsDialog()
@@ -136,8 +136,28 @@ void SettingsDialog::createConnectionPage()
     titleLabel->setObjectName("pageTitle");
     layout->addWidget(titleLabel);
     
+    // Backup-System Auswahl
+    QGroupBox *systemGroup = new QGroupBox("Backup-System");
+    systemGroup->setObjectName("settingsGroup");
+    QVBoxLayout *systemLayout = new QVBoxLayout(systemGroup);
+    systemLayout->setSpacing(12);
+    
+    m_backupSystemCombo = new QComboBox();
+    m_backupSystemCombo->addItem("🗄️ Bacula (Original)", static_cast<int>(BaculaDirector::Bacula));
+    m_backupSystemCombo->addItem("🔧 Bareos (Bacula Fork)", static_cast<int>(BaculaDirector::Bareos));
+    systemLayout->addWidget(m_backupSystemCombo);
+    
+    QLabel *systemInfoLabel = new QLabel(
+        "ℹ️ Bareos ist ein Fork von Bacula mit zusätzlichen Features.\n"
+        "Beide Systeme verwenden kompatible Protokolle.");
+    systemInfoLabel->setObjectName("infoLabel");
+    systemInfoLabel->setWordWrap(true);
+    systemLayout->addWidget(systemInfoLabel);
+    
+    layout->addWidget(systemGroup);
+    
     // Bconsole-Einstellungen
-    QGroupBox *bconsoleGroup = new QGroupBox("Bacula Director (Bconsole)");
+    QGroupBox *bconsoleGroup = new QGroupBox("Director-Verbindung (Bconsole)");
     bconsoleGroup->setObjectName("settingsGroup");
     QFormLayout *bconsoleLayout = new QFormLayout(bconsoleGroup);
     bconsoleLayout->setSpacing(12);
@@ -702,48 +722,48 @@ void SettingsDialog::applyModernStyle()
 
 void SettingsDialog::loadSettings()
 {
-    QSettings settings("Bacula", "BaculaQtUI");
+    QSettings settings("Bacula", "Onesimus");
     
     // Verbindung
     m_hostEdit->setText(settings.value("Connection/bconsole_host", "localhost").toString());
     m_portSpin->setValue(settings.value("Connection/bconsole_port", 9101).toInt());
     m_directorEdit->setText(settings.value("Connection/bconsole_director", "bacula-dir").toString());
     m_passwordEdit->setText(settings.value("Connection/bconsole_password").toString());
-    m_savePasswordCheck->setChecked(settings.value("Settings/save_password", true).toBool());
-    m_autoConnectCheck->setChecked(settings.value("Settings/auto_connect", false).toBool());
-    m_connectionTimeoutSpin->setValue(settings.value("Settings/connection_timeout", 30).toInt());
+    m_savePasswordCheck->setChecked(settings.value("Connection/save_password", true).toBool());
+    m_autoConnectCheck->setChecked(settings.value("Connection/auto_connect", false).toBool());
+    m_connectionTimeoutSpin->setValue(settings.value("Connection/connection_timeout", 30).toInt());
     
     // TLS
     m_tlsEnabledCheck->setChecked(settings.value("Connection/tls_enabled", false).toBool());
     m_caCertEdit->setText(settings.value("Connection/tls_ca_cert").toString());
     m_clientCertEdit->setText(settings.value("Connection/tls_cert").toString());
     m_clientKeyEdit->setText(settings.value("Connection/tls_key").toString());
-    m_verifyPeerCheck->setChecked(settings.value("Settings/tls_verify_peer", true).toBool());
+    m_verifyPeerCheck->setChecked(settings.value("Connection/tls_verify_peer", true).toBool());
     
     // Appearance
-    QString theme = settings.value("Settings/theme", "dark").toString();
+    QString theme = settings.value("Appearance/theme", "dark").toString();
     int themeIndex = m_themeCombo->findData(theme);
     if (themeIndex >= 0) m_themeCombo->setCurrentIndex(themeIndex);
-    m_fontSizeSpin->setValue(settings.value("Settings/font_size", 10).toInt());
-    m_animationsCheck->setChecked(settings.value("Settings/animations", true).toBool());
-    m_compactModeCheck->setChecked(settings.value("Settings/compact_mode", false).toBool());
+    m_fontSizeSpin->setValue(settings.value("Appearance/font_size", 10).toInt());
+    m_animationsCheck->setChecked(settings.value("Appearance/animations", true).toBool());
+    m_compactModeCheck->setChecked(settings.value("Appearance/compact_mode", false).toBool());
     
     // Behavior
-    m_confirmJobCancelCheck->setChecked(settings.value("Settings/confirm_job_cancel", true).toBool());
-    m_autoRefreshCheck->setChecked(settings.value("Settings/auto_refresh", false).toBool());
-    m_refreshIntervalSpin->setValue(settings.value("Settings/refresh_interval", 30).toInt());
-    m_maxJobsDisplaySpin->setValue(settings.value("Settings/max_jobs_display", 100).toInt());
+    m_confirmJobCancelCheck->setChecked(settings.value("Behavior/confirm_job_cancel", true).toBool());
+    m_autoRefreshCheck->setChecked(settings.value("Behavior/auto_refresh", false).toBool());
+    m_refreshIntervalSpin->setValue(settings.value("Behavior/refresh_interval", 30).toInt());
+    m_maxJobsDisplaySpin->setValue(settings.value("Behavior/max_jobs_display", 100).toInt());
     
     // Advanced
-    m_debugLoggingCheck->setChecked(settings.value("Settings/debug_logging", false).toBool());
-    m_logFileEdit->setText(settings.value("Settings/log_file", "bacula-qt-ui.log").toString());
-    m_maxLogSizeSpin->setValue(settings.value("Settings/max_log_size", 10).toInt());
-    m_enableTooltipsCheck->setChecked(settings.value("Settings/enable_tooltips", true).toBool());
+    m_debugLoggingCheck->setChecked(settings.value("Advanced/debug_logging", false).toBool());
+    m_logFileEdit->setText(settings.value("Advanced/log_file", "bacula-qt-ui.log").toString());
+    m_maxLogSizeSpin->setValue(settings.value("Advanced/max_log_size", 10).toInt());
+    m_enableTooltipsCheck->setChecked(settings.value("Advanced/enable_tooltips", true).toBool());
 }
 
 void SettingsDialog::saveSettings()
 {
-    QSettings settings("Bacula", "BaculaQtUI");
+    QSettings settings("Bacula", "Onesimus");
     
     // Verbindung
     settings.setValue("Connection/bconsole_host", m_hostEdit->text());
@@ -754,34 +774,34 @@ void SettingsDialog::saveSettings()
     } else {
         settings.remove("Connection/bconsole_password");
     }
-    settings.setValue("Settings/save_password", m_savePasswordCheck->isChecked());
-    settings.setValue("Settings/auto_connect", m_autoConnectCheck->isChecked());
-    settings.setValue("Settings/connection_timeout", m_connectionTimeoutSpin->value());
+    settings.setValue("Connection/save_password", m_savePasswordCheck->isChecked());
+    settings.setValue("Connection/auto_connect", m_autoConnectCheck->isChecked());
+    settings.setValue("Connection/connection_timeout", m_connectionTimeoutSpin->value());
     
     // TLS
     settings.setValue("Connection/tls_enabled", m_tlsEnabledCheck->isChecked());
     settings.setValue("Connection/tls_ca_cert", m_caCertEdit->text());
     settings.setValue("Connection/tls_cert", m_clientCertEdit->text());
     settings.setValue("Connection/tls_key", m_clientKeyEdit->text());
-    settings.setValue("Settings/tls_verify_peer", m_verifyPeerCheck->isChecked());
+    settings.setValue("Connection/tls_verify_peer", m_verifyPeerCheck->isChecked());
     
     // Appearance
-    settings.setValue("Settings/theme", m_themeCombo->currentData().toString());
-    settings.setValue("Settings/font_size", m_fontSizeSpin->value());
-    settings.setValue("Settings/animations", m_animationsCheck->isChecked());
-    settings.setValue("Settings/compact_mode", m_compactModeCheck->isChecked());
+    settings.setValue("Appearance/theme", m_themeCombo->currentData().toString());
+    settings.setValue("Appearance/font_size", m_fontSizeSpin->value());
+    settings.setValue("Appearance/animations", m_animationsCheck->isChecked());
+    settings.setValue("Appearance/compact_mode", m_compactModeCheck->isChecked());
     
     // Behavior
-    settings.setValue("Settings/confirm_job_cancel", m_confirmJobCancelCheck->isChecked());
-    settings.setValue("Settings/auto_refresh", m_autoRefreshCheck->isChecked());
-    settings.setValue("Settings/refresh_interval", m_refreshIntervalSpin->value());
-    settings.setValue("Settings/max_jobs_display", m_maxJobsDisplaySpin->value());
+    settings.setValue("Behavior/confirm_job_cancel", m_confirmJobCancelCheck->isChecked());
+    settings.setValue("Behavior/auto_refresh", m_autoRefreshCheck->isChecked());
+    settings.setValue("Behavior/refresh_interval", m_refreshIntervalSpin->value());
+    settings.setValue("Behavior/max_jobs_display", m_maxJobsDisplaySpin->value());
     
     // Advanced
-    settings.setValue("Settings/debug_logging", m_debugLoggingCheck->isChecked());
-    settings.setValue("Settings/log_file", m_logFileEdit->text());
-    settings.setValue("Settings/max_log_size", m_maxLogSizeSpin->value());
-    settings.setValue("Settings/enable_tooltips", m_enableTooltipsCheck->isChecked());
+    settings.setValue("Advanced/debug_logging", m_debugLoggingCheck->isChecked());
+    settings.setValue("Advanced/log_file", m_logFileEdit->text());
+    settings.setValue("Advanced/max_log_size", m_maxLogSizeSpin->value());
+    settings.setValue("Advanced/enable_tooltips", m_enableTooltipsCheck->isChecked());
     
     emit settingsChanged();
 }
@@ -813,7 +833,7 @@ void SettingsDialog::onResetToDefaultsClicked()
         QMessageBox::Yes | QMessageBox::No);
     
     if (ret == QMessageBox::Yes) {
-        QSettings settings("Bacula", "BaculaQtUI");
+        QSettings settings("Bacula", "Onesimus");
         settings.clear();
         loadSettings();
         QMessageBox::information(this, "Zurückgesetzt", 
@@ -854,7 +874,7 @@ void SettingsDialog::onExportSettings()
         "bacula-settings.json", "JSON (*.json)");
     
     if (!file.isEmpty()) {
-        QSettings settings("Bacula", "BaculaQtUI");
+        QSettings settings("Bacula", "Onesimus");
         QJsonObject json;
         
         foreach (QString key, settings.allKeys()) {
@@ -882,7 +902,7 @@ void SettingsDialog::onImportSettings()
             QJsonDocument doc = QJsonDocument::fromJson(inFile.readAll());
             QJsonObject json = doc.object();
             
-            QSettings settings("Bacula", "BaculaQtUI");
+            QSettings settings("Bacula", "Onesimus");
             for (auto it = json.begin(); it != json.end(); ++it) {
                 settings.setValue(it.key(), it.value().toString());
             }
@@ -901,7 +921,7 @@ void SettingsDialog::onClearStoredConnections()
         QMessageBox::Yes | QMessageBox::No);
     
     if (ret == QMessageBox::Yes) {
-        QSettings settings("Bacula", "BaculaQtUI");
+        QSettings settings("Bacula", "Onesimus");
         settings.beginGroup("Connection");
         settings.remove("");
         settings.endGroup();

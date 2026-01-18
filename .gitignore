@@ -56,3 +56,9 @@ bacula-certs-windows/
 *.pfx
 *.p12
 
+/CERT_CREATION_README.md
+/QUICK_VS_ENV.txt
+/WINDOWS_TLS_FIX.md
+/STATIC_OPENSSL.md
+/TLS.md
+/VISUAL_STUDIO_ENV.md

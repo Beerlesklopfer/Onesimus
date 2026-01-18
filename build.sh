@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Bacula Qt UI Build-Script mit OpenSSL-Unterstützung
+# Onesimus Build-Script mit OpenSSL-Unterstützung
 # Dieses Script automatisiert den Build-Prozess
 
 set -e  # Beende bei Fehler
 
 echo "================================"
-echo "Bacula Qt UI - Build Script"
+echo "Onesimus - Build Script"
 echo "================================"
 echo ""
 
@@ -99,7 +99,7 @@ echo "================================"
 echo "Build erfolgreich abgeschlossen!"
 echo "================================"
 echo ""
-echo "Ausführbare Datei: ./build/BaculaQtUI"
+echo "Ausführbare Datei: ./build/Onesimus"
 echo ""
 
 if [ "$USE_STATIC_OPENSSL" = "ON" ]; then
@@ -108,7 +108,7 @@ if [ "$USE_STATIC_OPENSSL" = "ON" ]; then
 fi
 
 echo ""
-echo "Programm starten mit: ./build/BaculaQtUI"
+echo "Programm starten mit: ./build/Onesimus"
 echo "Oder installieren mit: cd build && sudo make install"
 echo ""
 
