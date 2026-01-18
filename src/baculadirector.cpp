@@ -64,19 +64,19 @@ void BaculaDirector::connectBConsole(const QString &host, int port, const QStrin
     m_tlsConfig = tlsConfig;
     m_authenticated = false;
     
-    qDebug() << "Verbinde mit Bacula Director (bconsole):" << host << ":" << port;
+    qDebug() << tr("Verbinde mit Bacula Director (%1:%2): ").arg(host).arg(port);
     
-    if (m_tlsConfig.enabled) {
+    if (m_tlsConfig.tlsEnable) {
         qDebug() << "TLS aktiviert - verwende verschlüsselte Verbindung";
         
         if (!setupTLSConnection()) {
-            emit connectionError("TLS-Konfiguration fehlgeschlagen");
+            qDebug() << "Waiting for SSL handshake...";
             return;
-        }
-        
+        }        
         m_sslSocket->connectToHostEncrypted(host, port);
+
     } else {
-        qDebug() << "TLS deaktiviert - verwende unverschlüsselte Verbindung";
+        qDebug() << "Waiting for TCP connection...";
         m_socket->connectToHost(host, port);
     }
     
@@ -103,7 +103,7 @@ void BaculaDirector::connectRestAPI(const QString &baseUrl, const QString &usern
 void BaculaDirector::disconnect()
 {
     if (m_connectionType == BConsole) {
-        if (m_tlsConfig.enabled && m_sslSocket->state() == QAbstractSocket::ConnectedState) {
+        if (m_tlsConfig.tlsEnable && m_sslSocket->state() == QAbstractSocket::ConnectedState) {
             sendCommand("quit");
             m_sslSocket->disconnectFromHost();
         } else if (m_socket->state() == QAbstractSocket::ConnectedState) {
@@ -135,7 +135,6 @@ void BaculaDirector::onBConsoleConnected()
     qDebug() << "TCP CONNECTION ESTABLISHED";
     qDebug() << "  Host:" << m_host;
     qDebug() << "  Port:" << m_port;
-    qDebug() << "  TLS enabled:" << m_tlsConfig.enabled;
     qDebug() << "═══════════════════════════════════════════════════";
 
     QString consName = "*UserAgent*";
@@ -146,15 +145,16 @@ void BaculaDirector::onBConsoleConnected()
                        .arg(consName)
                        .arg(version)
                        .arg(tlspskLocalNeed);
+
+    if (!m_tlsConfig.tlsEnable) {
+        qDebug() << ">>> SENDING HELLO TO DIRECTOR:";
+        qDebug() << "    Message:" << helloMsg.trimmed();
+        qDebug() << "    Length:" << helloMsg.length() << "bytes";
+        qDebug() << "    HEX:" << helloMsg.toUtf8().toHex(' ');
+        sendToDirector(helloMsg.toUtf8());
+    }
     
-    qDebug() << ">>> SENDING HELLO TO DIRECTOR:";
-    qDebug() << "    Message:" << helloMsg.trimmed();
-    qDebug() << "    Length:" << helloMsg.length() << "bytes";
-    qDebug() << "    HEX:" << helloMsg.toUtf8().toHex(' ');
-    
-    sendToDirector(helloMsg.toUtf8());
-    
-    qDebug() << ">>> Waiting for Director response...";
+    qDebug() << ">>> Waiting for Director response..." << m_socket->readAll();
 }
 
 void BaculaDirector::onBConsoleDisconnected()
@@ -169,7 +169,7 @@ void BaculaDirector::onBConsoleReadyRead()
 {
     QByteArray data;
     
-    if (m_tlsConfig.enabled && m_sslSocket->isEncrypted()) {
+    if (m_tlsConfig.tlsEnable && m_sslSocket->isEncrypted()) {
         data = m_sslSocket->readAll();
     } else {
         data = m_socket->readAll();
@@ -391,7 +391,7 @@ void BaculaDirector::sendOurChallenge()
     
     // Sende Challenge an Director
     // Format: "auth cram-md5 <challenge> ssl=<tls_local_need>"
-    int tlsLocalNeed = m_tlsConfig.enabled ? 1 : 0;
+    int tlsLocalNeed = m_tlsConfig.tlsEnable ? 1 : 0;
     QString challengeMsg = QString("auth cram-md5 %1 ssl=%2\n")
                            .arg(m_ourChallenge)
                            .arg(tlsLocalNeed);
@@ -450,12 +450,20 @@ void BaculaDirector::handleDirectorResponsePhase1b(const QString &response)
 
 void BaculaDirector::sendToDirector(const QByteArray &data)
 {
-    if (m_tlsConfig.enabled && m_sslSocket && m_sslSocket->isEncrypted()) {
-        m_sslSocket->write(data);
-        m_sslSocket->flush();
+    if (m_tlsConfig.tlsEnable && m_sslSocket && m_sslSocket->isEncrypted()) {
+        if(m_sslSocket->isOpen()){
+            m_sslSocket->write(data);
+            m_sslSocket->flush();
+        } else {
+            qCritical() << tr("Verbindung zu %1 nicht hergestellt").arg(m_host);
+        }
     } else if (m_socket) {
-        m_socket->write(data);
-        m_socket->flush();
+        if(m_socket->isOpen()){
+            m_socket->write(data);
+            m_socket->flush();
+        } else {
+            qCritical() << tr("Verbindung zu %1 nicht hergestellt").arg(m_host);
+        }
     }
 }
 
@@ -495,7 +503,7 @@ void BaculaDirector::sendCommand(const QString &command)
     m_lastCommand = command;
     QByteArray packet = prepareBConsolePacket(command);
     
-    if (m_tlsConfig.enabled && m_sslSocket->isEncrypted()) {
+    if (m_tlsConfig.tlsEnable && m_sslSocket->isEncrypted()) {
         m_sslSocket->write(packet);
         m_sslSocket->flush();
     } else {
@@ -792,8 +800,12 @@ bool BaculaDirector::setupTLSConnection()
     sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
     
     // Peer-Verification aktivieren
-    sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
-    
+    if (m_tlsConfig.tlsVerifyPeer) {
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
+    } else {
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+    }
+
     m_sslSocket->setSslConfiguration(sslConfig);
     
     return true;
@@ -801,60 +813,137 @@ bool BaculaDirector::setupTLSConnection()
 
 bool BaculaDirector::loadTLSCertificates(QSslConfiguration &sslConfig)
 {
-    // CA-Zertifikat laden
-    if (!m_tlsConfig.caCertFile.isEmpty()) {
-        QFile caCertFile(m_tlsConfig.caCertFile);
-        if (!caCertFile.open(QIODevice::ReadOnly)) {
-            qWarning() << "Kann CA-Zertifikat nicht öffnen:" << m_tlsConfig.caCertFile;
-            return false;
-        }
+    // CA-Zertifikat laden (gemeinsam für Windows und Linux)
+    if (m_tlsConfig.tlsCaCertFile->open(QIODevice::ReadOnly)) {
         
-        QList<QSslCertificate> caCerts = QSslCertificate::fromDevice(&caCertFile, QSsl::Pem);
+        QList<QSslCertificate> caCerts = QSslCertificate::fromDevice(m_tlsConfig.tlsCaCertFile.data(), QSsl::Pem);
         if (caCerts.isEmpty()) {
-            qWarning() << "Keine gültigen CA-Zertifikate gefunden in:" << m_tlsConfig.caCertFile;
-            caCertFile.close();
+            qWarning() << "Keine gültigen CA-Zertifikate gefunden in:" << m_tlsConfig.tlsCaCertFile->fileName();
+            m_tlsConfig.tlsCaCertFile->close();
             return false;
         }
         
         sslConfig.setCaCertificates(caCerts);
-        caCertFile.close();
-        qDebug() << "CA-Zertifikat geladen:" << m_tlsConfig.caCertFile;
+        m_tlsConfig.tlsCaCertFile->close();
+        // qDebug() << "CA-Zertifikat geladen:" << m_tlsConfig.tlsCaCertFile->fileName();
     }
-    
-    // Client-Zertifikat laden
-    if (!m_tlsConfig.certFile.isEmpty()) {
-        QFile certFile(m_tlsConfig.certFile);
-        if (!certFile.open(QIODevice::ReadOnly)) {
-            qWarning() << "Kann Client-Zertifikat nicht öffnen:" << m_tlsConfig.certFile;
+    else {
+        qWarning() << "Kann CA-Zertifikat nicht öffnen:" << m_tlsConfig.tlsCaCertFile->fileName();
+    }
+
+#ifdef Q_OS_WINDOWS
+    if (m_tlsConfig.tlsPfxFile->fileName().isEmpty()) {
+        qWarning() << "Kein PFX-Pfad angegeben";
+        return false;
+    }
+
+    if (m_tlsConfig.tlsPfxFile->open(QIODevice::ReadOnly)) {
+        // QByteArray pfxData = m_tlsConfig.tlsPfxFile->readAll();
+
+        // PKCS#12 importieren
+        QSslCertificate certificate;
+        QSslKey privateKey;
+        QList<QSslCertificate> caCerts;
+
+        // Qt 6.5+ verwendet QSslCertificate::importPkcs12 als static method
+        bool imported = QSslCertificate::importPkcs12(
+            m_tlsConfig.tlsPfxFile.data(),
+            &privateKey,
+            &certificate,
+            &caCerts,
+            m_tlsConfig.tlsPfxPassword.toUtf8()
+            );
+
+        m_tlsConfig.tlsPfxFile->close();
+
+        if (!imported) {
+            qCritical() << "Failed to import PKCS#12 certificate from" << m_tlsConfig.tlsPfxFile->fileName();
+            qCritical() << "SSL Errors:" << QSslSocket::sslLibraryVersionString();
+            m_socket->abort();
             return false;
         }
-        
-        QSslCertificate cert(&certFile, QSsl::Pem);
+
+        if (certificate.isNull()) {
+            qCritical() << "Imported private key is null";
+            m_socket->abort();
+            return false;
+        }
+
+        if (privateKey.isNull()) {
+            qCritical() << "Imported private key is null";
+            m_socket->abort();
+            return false;
+        }
+
+        // Zertifikat und Key setzen
+        sslConfig.setLocalCertificate(certificate);
+        sslConfig.setPrivateKey(privateKey);
+
+        // CA-Zertifikate hinzufügen (falls vorhanden)
+        if (!caCerts.isEmpty()) {
+            sslConfig.setCaCertificates(caCerts);
+        }
+
+        qDebug() << "✓ PFX-Zertifikat erfolgreich geladen:" << m_tlsConfig.tlsPfxFile->fileName();
+        qDebug() << "  Zertifikat Subject:" << certificate.subjectDisplayName();
+        qDebug() << "  Zertifikat Issuer:" << certificate.issuerDisplayName();
+        qDebug() << "  Gültig von:" << certificate.effectiveDate().toString(Qt::ISODate);
+        qDebug() << "  Gültig bis:" << certificate.expiryDate().toString(Qt::ISODate);
+        qDebug() << "  Key-Algorithmus:" << (privateKey.algorithm() == QSsl::Rsa ? "RSA" :
+                                                 privateKey.algorithm() == QSsl::Ec ? "EC" :
+                                                 privateKey.algorithm() == QSsl::Dsa ? "DSA" : "Unknown");
+        qDebug() << "  Key-Länge:" << privateKey.length() << "Bit";
+
+        // Zusätzliche CA-Zertifikate aus PFX (falls vorhanden) zur Konfiguration hinzufügen
+        if (!caCerts.isEmpty()) {
+            QList<QSslCertificate> existingCAs = sslConfig.caCertificates();
+            existingCAs.append(caCerts);
+            sslConfig.setCaCertificates(existingCAs);
+            qDebug() << "  Zusätzliche CA-Zertifikate aus PFX:" << caCerts.size();
+        }
+
+        return true;
+    } else {
+        qCritical() << "Failed to open PFX file:" << m_tlsConfig.tlsPfxFile->fileName();
+        m_socket->abort();
+        return false;
+    }
+
+#else
+    // Client-Zertifikat laden
+    if (!m_tlsConfig.tlsCertFile.fileName().isEmpty()) {
+        if (!m_tlsConfig.tlsCertFile.open(QIODevice::ReadOnly)) {
+            qWarning() << "Kann Client-Zertifikat nicht öffnen:" << m_tlsConfig.tlsCertFile.fileName();
+            return false;
+        }
+
+        QSslCertificate cert(&m_tlsConfig.tlsCertFile, QSsl::Pem);
         if (cert.isNull()) {
-            qWarning() << "Ungültiges Client-Zertifikat:" << m_tlsConfig.certFile;
+            qWarning() << "Ungültiges Client-Zertifikat:" << m_tlsConfig.tlsCertFile.fileName();
             certFile.close();
             return false;
         }
-        
+
         sslConfig.setLocalCertificate(cert);
         certFile.close();
-        qDebug() << "Client-Zertifikat geladen:" << m_tlsConfig.certFile;
+        qDebug() << "✓ Client-Zertifikat geladen:" << m_tlsConfig.tlsCertFile;
+        qDebug() << "  Subject:" << cert.subjectDisplayName();
+        qDebug() << "  Issuer:" << cert.issuerDisplayName();
     }
-    
+
     // Private Key laden
-    if (!m_tlsConfig.keyFile.isEmpty()) {
-        QFile keyFile(m_tlsConfig.keyFile);
-        if (!keyFile.open(QIODevice::ReadOnly)) {
-            qWarning() << "Kann Private Key nicht öffnen:" << m_tlsConfig.keyFile;
+    if (!m_tlsConfig.tlsKeyFile.fileName().isEmpty()) {
+        if (!m_tlsConfig.tlsKeyFile.open(QIODevice::ReadOnly)) {
+            qWarning() << "Kann Private Key nicht öffnen:" << m_tlsConfig.tlsKeyFile.fileName();
             return false;
         }
-        
-        QByteArray keyData = keyFile.readAll();
-        keyFile.close();
-        
-        // Versuche verschiedene Algorithmen zu erkennen
+
+        QByteArray keyData = m_tlsConfig.tlsKeyFile.readAll();
+        m_tlsConfig.tlsKeyFile.close();
+
+        // Versuche verschiedene Algorithmen
         QSslKey key;
-        
+
         // Zuerst EC (Elliptic Curve) versuchen
         key = QSslKey(keyData, QSsl::Ec, QSsl::Pem);
         if (key.isNull()) {
@@ -868,23 +957,25 @@ bool BaculaDirector::loadTLSCertificates(QSslConfiguration &sslConfig)
         if (key.isNull()) {
             // DER-Format versuchen
             key = QSslKey(keyData, QSsl::Ec, QSsl::Der);
+            if (key.isNull()) {
+                key = QSslKey(keyData, QSsl::Rsa, QSsl::Der);
+            }
         }
+
         if (key.isNull()) {
-            key = QSslKey(keyData, QSsl::Rsa, QSsl::Der);
-        }
-        
-        if (key.isNull()) {
-            qWarning() << "Ungültiger Private Key:" << m_tlsConfig.keyFile;
+            qWarning() << "Ungültiger Private Key:" << m_tlsConfig.tlsKeyFile;
             return false;
         }
-        
+
         sslConfig.setPrivateKey(key);
-        qDebug() << "Private Key geladen:" << m_tlsConfig.keyFile 
-                 << "Algorithmus:" << (key.algorithm() == QSsl::Ec ? "EC" : 
-                                      key.algorithm() == QSsl::Rsa ? "RSA" : "DSA");
+        qDebug() << "✓ Private Key geladen:" << m_tlsConfig.tlsKeyFile;
+        qDebug() << "  Algorithmus:" << (key.algorithm() == QSsl::Ec ? "EC" :
+                                             key.algorithm() == QSsl::Rsa ? "RSA" : "DSA");
+        qDebug() << "  Länge:" << key.length() << "Bit";
     }
-    
+
     return true;
+#endif
 }
 
 void BaculaDirector::onSslErrors(const QList<QSslError> &errors)
@@ -903,9 +994,24 @@ void BaculaDirector::onSslErrors(const QList<QSslError> &errors)
 
 void BaculaDirector::onEncrypted()
 {
-    qDebug() << "TLS-Verschlüsselung erfolgreich hergestellt";
-    qDebug() << "Cipher:" << m_sslSocket->sessionCipher().name();
-    qDebug() << "Protokoll:" << m_sslSocket->sessionCipher().protocolString();
+    QString consName = "*UserAgent*";
+    int version = 1;
+    int tlspskLocalNeed = 0;
+
+    QString helloMsg = QString("Hello %1 calling %2 tlspsk=%3\n")
+                           .arg(consName)
+                           .arg(version)
+                           .arg(tlspskLocalNeed);
+
+    qDebug() << "  TLS-Verschlüsselung erfolgreich hergestellt";
+    qDebug() << "  Cipher:" << m_sslSocket->sessionCipher().name();
+    qDebug() << "  Protokoll:" << m_sslSocket->sessionCipher().protocolString();
+    qDebug() << "  TLS enabled:" << m_tlsConfig.tlsEnable;
+    qDebug() << "  SSL-Support:" << QSslSocket::supportsSsl();
+    qDebug() << "  OpenSSL-Version:" << QSslSocket::sslLibraryVersionString();
+    qDebug() << "  Verfügbare Backends:" << QSslSocket::availableBackends();
+    sendToDirector(helloMsg.toUtf8());
+
 }
 
 void BaculaDirector::setTLSConfig(const TLSConfig &config)
@@ -920,7 +1026,7 @@ BaculaDirector::TLSConfig BaculaDirector::tlsConfig() const
 
 void BaculaDirector::saveConnectionSettings()
 {
-    QSettings settings("Bacula", "BaculaQtUI");
+    QSettings settings("Bacula", "Onesimus");
     
     settings.beginGroup("Connection");
     settings.setValue("type", static_cast<int>(m_connectionType));
@@ -933,10 +1039,17 @@ void BaculaDirector::saveConnectionSettings()
         settings.setValue("bconsole_password", m_password);
         
         // TLS-Einstellungen speichern
-        settings.setValue("tls_enabled", m_tlsConfig.enabled);
-        settings.setValue("tls_ca_cert", m_tlsConfig.caCertFile);
-        settings.setValue("tls_cert", m_tlsConfig.certFile);
-        settings.setValue("tls_key", m_tlsConfig.keyFile);
+        settings.setValue("tls_enabled", m_tlsConfig.tlsEnable);
+        settings.setValue("tls_ca_cert_file", m_tlsConfig.tlsCaCertFile->fileName());
+
+#ifdef Q_OS_WINDOWS
+        settings.setValue("tls_pfx_file", m_tlsConfig.tlsPfxFile->fileName());
+        settings.setValue("tls_pfx_password", m_tlsConfig.tlsPfxPassword);
+#else
+        settings.setValue("tls_cert_file", m_tlsConfig.tlsCertFile->fileName());
+        settings.setValue("tls_key_file", m_tlsConfig.tlsKeyFile->fileName());
+#endif
+
     } else {
         settings.setValue("rest_baseurl", m_restBaseUrl);
         settings.setValue("rest_username", m_restUsername);
@@ -951,7 +1064,7 @@ void BaculaDirector::saveConnectionSettings()
 
 void BaculaDirector::loadConnectionSettings()
 {
-    QSettings settings("Bacula", "BaculaQtUI");
+    QSettings settings("Bacula", "Onesimus");
     
     settings.beginGroup("Connection");
     
@@ -970,13 +1083,18 @@ void BaculaDirector::loadConnectionSettings()
         m_password = settings.value("bconsole_password").toString();
         
         // TLS-Einstellungen laden
-        m_tlsConfig.enabled = settings.value("tls_enabled", false).toBool();
-        m_tlsConfig.caCertFile = settings.value("tls_ca_cert").toString();
-        m_tlsConfig.certFile = settings.value("tls_cert").toString();
-        m_tlsConfig.keyFile = settings.value("tls_key").toString();
-        
+        m_tlsConfig.tlsEnable = settings.value("tls_enabled", false).toBool();
+        m_tlsConfig.tlsCaCertFile->setFileName(settings.value("tls_ca_cert_file").toString());
+
+#ifdef Q_OS_WINDOWS
+        m_tlsConfig.tlsPfxFile->setFileName(settings.value("tls_pfx_file").toString());
+        m_tlsConfig.tlsPfxPassword = settings.value("tls_pfx_password").toString();
+#else
+        m_tlsConfig.tlsCertFile->setFileName(settings.value("tls_cert_file").toString());
+        m_tlsConfig.tlsKeyFile->setFileName(settings.value("tls_key_file").toString());
+#endif
         qDebug() << "Bconsole-Einstellungen geladen:" << m_host << ":" << m_port;
-        if (m_tlsConfig.enabled) {
+        if (m_tlsConfig.tlsEnable) {
             qDebug() << "TLS aktiviert";
         }
     } else {
@@ -992,7 +1110,7 @@ void BaculaDirector::loadConnectionSettings()
 
 bool BaculaDirector::hasStoredConnection() const
 {
-    QSettings settings("Bacula", "BaculaQtUI");
+    QSettings settings("Bacula", "Onesimus");
     return settings.contains("Connection/type");
 }
 

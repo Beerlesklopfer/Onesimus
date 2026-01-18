@@ -150,7 +150,7 @@ if(USE_STATIC_OPENSSL)
         
         set(OPENSSL_CONFIGURE_COMMAND 
             ${PERL_EXECUTABLE} Configure VC-WIN64A
-            no-shared
+            shared
             no-tests
             no-apps
             no-docs
@@ -168,7 +168,7 @@ if(USE_STATIC_OPENSSL)
         set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.lib)
         set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.lib)
         
-    else()
+    else() #(USE_STATIC_OPENSSL)
         # Linux/Unix
         message(STATUS "Build System: Unix Makefiles")
         
@@ -182,7 +182,7 @@ if(USE_STATIC_OPENSSL)
         
         set(OPENSSL_CONFIGURE_COMMAND 
             ./config
-            no-shared
+            shared
             no-tests
             no-apps
             no-docs
@@ -340,11 +340,15 @@ set(SOURCES
 if(USE_BACULA_ONLY OR USE_BOTH_SYSTEMS)
     list(APPEND SOURCES src/baculadirector.cpp)
     # list(APPEND HEADERS include/authenticatebase.h)
+    # Präprozessor-Definition setzen
+    add_compile_definitions(USE_BACULA_ONLY)
 endif()
 
 # Bareos-spezifische Dateien
 if(USE_BAREOS_ONLY OR USE_BOTH_SYSTEMS)
     list(APPEND SOURCES src/bareosdirector.cpp)
+    # Präprozessor-Definition setzen
+    add_compile_definitions(USE_BAREOS)
 endif()
 
 # UI-Dateien
@@ -449,3 +453,39 @@ else()
 endif()
 message(STATUS "========================================")
 message(STATUS "")
+
+# ============================================================================
+# OpenSSL DLLs automatisch zu Qt kopieren
+# ============================================================================
+
+if(USE_STATIC_OPENSSL AND WIN32)
+    # Prüfe ob wir shared libraries gebaut haben
+    if(EXISTS "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll")
+        # Qt Bin-Verzeichnis
+        get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
+        get_filename_component(QT_BIN_DIR ${QT_QMAKE_EXECUTABLE} DIRECTORY)
+
+        message(STATUS "")
+        message(STATUS "========================================")
+        message(STATUS "Copying OpenSSL DLLs to Qt")
+        message(STATUS "========================================")
+        message(STATUS "  From:     ${OPENSSL_INSTALL_DIR}/bin")
+        message(STATUS "  To:       ${QT_BIN_DIR}")
+
+        # Kopiere nach OpenSSL-Build
+        ExternalProject_Add_Step(openssl_build copy_dlls_to_qt
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
+                "${QT_BIN_DIR}/libssl-3-x64.dll"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
+                "${QT_BIN_DIR}/libcrypto-3-x64.dll"
+            DEPENDEES install
+            COMMENT "Copying OpenSSL DLLs to Qt bin directory"
+        )
+
+        message(STATUS "✓ OpenSSL DLLs werden automatisch kopiert")
+        message(STATUS "========================================")
+        message(STATUS "")
+    endif()
+endif()

@@ -245,12 +245,14 @@ void SettingsDialog::createTLSPage()
     m_tlsEnabledCheck = new QCheckBox("TLS/SSL-Verschlüsselung verwenden");
     m_tlsEnabledCheck->setObjectName("prominentCheckbox");
     layout->addWidget(m_tlsEnabledCheck);
-    
+
+    QFormLayout *certLayout = new QFormLayout(this);
+    certLayout->setSpacing(12);
+
+#ifndef Q_OS_WINDOWS
     // Zertifikat-Pfade
     QGroupBox *certGroup = new QGroupBox("Zertifikate");
     certGroup->setObjectName("settingsGroup");
-    QFormLayout *certLayout = new QFormLayout(certGroup);
-    certLayout->setSpacing(12);
     
     // CA Certificate
     QHBoxLayout *caLayout = new QHBoxLayout();
@@ -286,12 +288,33 @@ void SettingsDialog::createTLSPage()
     certLayout->addRow("Private Key:", keyLayout);
     
     layout->addWidget(certGroup);
-    
+#endif
+
     // TLS-Optionen
     QGroupBox *tlsOptionsGroup = new QGroupBox("TLS-Optionen");
     tlsOptionsGroup->setObjectName("settingsGroup");
     QVBoxLayout *tlsOptionsLayout = new QVBoxLayout(tlsOptionsGroup);
-    
+
+#ifdef Q_OS_WINDOWS
+    // Client Certificate
+    QHBoxLayout *clientCertLayout = new QHBoxLayout();
+    m_clientCertEdit = new QLineEdit();
+#ifdef Q_OS_WINDOWS
+    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pfx)");
+#else
+    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (*.pem *.crt *.cert)");
+#endif
+    QPushButton *clientCertBrowse = new QPushButton("Durchsuchen...");
+    clientCertBrowse->setObjectName("browseButton");
+    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
+    clientCertLayout->addWidget(m_clientCertEdit);
+    clientCertLayout->addWidget(clientCertBrowse);
+#endif
+
+#ifdef Q_OS_WINDOWS
+    tlsOptionsLayout->addLayout(clientCertLayout);
+#endif
+
     m_verifyPeerCheck = new QCheckBox("Server-Zertifikat validieren (empfohlen)");
     m_verifyPeerCheck->setChecked(true);
     tlsOptionsLayout->addWidget(m_verifyPeerCheck);
@@ -302,13 +325,15 @@ void SettingsDialog::createTLSPage()
     infoLabel->setObjectName("infoLabel");
     infoLabel->setWordWrap(true);
     tlsOptionsLayout->addWidget(infoLabel);
-    
+
     layout->addWidget(tlsOptionsGroup);
     
     // TLS-Felder aktivieren/deaktivieren
     auto updateTlsFields = [=]() {
         bool enabled = m_tlsEnabledCheck->isChecked();
+#ifndef Q_OS_WINDOWS
         certGroup->setEnabled(enabled);
+#endif
         tlsOptionsGroup->setEnabled(enabled);
     };
     connect(m_tlsEnabledCheck, &QCheckBox::toggled, updateTlsFields);
@@ -733,11 +758,16 @@ void SettingsDialog::loadSettings()
     m_autoConnectCheck->setChecked(settings.value("Connection/auto_connect", false).toBool());
     m_connectionTimeoutSpin->setValue(settings.value("Connection/connection_timeout", 30).toInt());
     
+#ifndef Q_OS_WINDOWS
     // TLS
     m_tlsEnabledCheck->setChecked(settings.value("Connection/tls_enabled", false).toBool());
     m_caCertEdit->setText(settings.value("Connection/tls_ca_cert").toString());
     m_clientCertEdit->setText(settings.value("Connection/tls_cert").toString());
     m_clientKeyEdit->setText(settings.value("Connection/tls_key").toString());
+#else
+    m_clientCertEdit->setText(settings.value("Connection/tls_pfx").toString());
+#endif
+
     m_verifyPeerCheck->setChecked(settings.value("Connection/tls_verify_peer", true).toBool());
     
     // Appearance
@@ -780,9 +810,13 @@ void SettingsDialog::saveSettings()
     
     // TLS
     settings.setValue("Connection/tls_enabled", m_tlsEnabledCheck->isChecked());
-    settings.setValue("Connection/tls_ca_cert", m_caCertEdit->text());
-    settings.setValue("Connection/tls_cert", m_clientCertEdit->text());
-    settings.setValue("Connection/tls_key", m_clientKeyEdit->text());
+#ifndef Q_OS_WINDOWS
+    settings.setValue("Connection/tls_ca_cert_file", m_caCertEdit->text());
+    settings.setValue("Connection/tls_cert_file", m_clientCertEdit->text());
+    settings.setValue("Connection/tls_key_file", m_clientKeyEdit->text());
+#else
+    settings.setValue("Connection/tls_pfx_file", m_clientCertEdit->text());
+#endif
     settings.setValue("Connection/tls_verify_peer", m_verifyPeerCheck->isChecked());
     
     // Appearance
@@ -853,7 +887,11 @@ void SettingsDialog::onBrowseCACert()
 void SettingsDialog::onBrowseClientCert()
 {
     QString file = QFileDialog::getOpenFileName(this, "Client-Zertifikat wählen",
-        QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
+#ifdef Q_OS_WINDOWS
+    QString(), "Zertifikate (*.pfx);;Alle Dateien (*)");
+#else
+    QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
+#endif
     if (!file.isEmpty()) {
         m_clientCertEdit->setText(file);
     }

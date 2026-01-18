@@ -32,7 +32,7 @@ MainWindow::MainWindow(QWidget *parent)
     resize(1200, 800);
     
     m_director = new BaculaDirector(this);
-    
+
     setupUI();
     createActions();
     createMenus();
@@ -55,6 +55,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    m_director->saveConnectionSettings();
     delete ui;
 }
 
@@ -165,6 +166,7 @@ void MainWindow::showConnectionDialog()
     // Lade gespeicherte Einstellungen
     m_director->loadConnectionSettings();
     
+#ifdef USE_BAREOS
     // Verbindungstyp
     QGroupBox *typeGroup = new QGroupBox("Verbindungstyp", &dialog);
     QVBoxLayout *typeLayout = new QVBoxLayout(typeGroup);
@@ -185,21 +187,23 @@ void MainWindow::showConnectionDialog()
     
     typeLayout->addWidget(bconsoleRadio);
     typeLayout->addWidget(restRadio);
-    mainLayout->addWidget(typeGroup);
-    
+    mainLayout->addWidget(typeGroup);    
+#endif
+
     // Bconsole-Felder mit gespeicherten Werten
     QGroupBox *bconsoleGroup = new QGroupBox("Bconsole-Verbindung", &dialog);
     QFormLayout *bconsoleLayout = new QFormLayout(bconsoleGroup);
     
     QSettings settings("Bacula", "Onesimus");
-    QLineEdit *hostEdit = new QLineEdit(settings.value("Connection/bconsole_host", "localhost").toString(), &dialog);
+    settings.beginGroup("Connection");
+    QLineEdit *hostEdit = new QLineEdit(settings.value("bconsole_host", "localhost").toString(), &dialog);
     QSpinBox *portSpin = new QSpinBox(&dialog);
     portSpin->setRange(1, 65535);
-    portSpin->setValue(settings.value("Connection/bconsole_port", 9101).toInt());
-    QLineEdit *directorEdit = new QLineEdit(settings.value("Connection/bconsole_director", "bacula-dir").toString(), &dialog);
+    portSpin->setValue(settings.value("/bconsole_port", 9101).toInt());
+    QLineEdit *directorEdit = new QLineEdit(settings.value("bconsole_director", "bacula-dir").toString(), &dialog);
     QLineEdit *passwordEdit = new QLineEdit(&dialog);
     passwordEdit->setEchoMode(QLineEdit::Password);
-    passwordEdit->setText(settings.value("Connection/bconsole_password").toString());
+    passwordEdit->setText(settings.value("bconsole_password").toString());
     
     bconsoleLayout->addRow("Host:", hostEdit);
     bconsoleLayout->addRow("Port:", portSpin);
@@ -208,18 +212,58 @@ void MainWindow::showConnectionDialog()
     
     // TLS-Konfiguration
     QCheckBox *tlsCheckBox = new QCheckBox("TLS/SSL verwenden", &dialog);
-    tlsCheckBox->setChecked(settings.value("Connection/tls_enabled", false).toBool());
+    tlsCheckBox->setChecked(settings.value("tls_enabled", false).toBool());
     bconsoleLayout->addRow("", tlsCheckBox);
-    
-    QLineEdit *caCertEdit = new QLineEdit(settings.value("Connection/tls_ca_cert").toString(), &dialog);
+
+    QLineEdit *caCertEdit = new QLineEdit(settings.value("tls_ca_cert_file").toString(), &dialog);
     QPushButton *caCertBrowse = new QPushButton("...", &dialog);
     caCertBrowse->setMaximumWidth(30);
     QHBoxLayout *caCertLayout = new QHBoxLayout();
     caCertLayout->addWidget(caCertEdit);
     caCertLayout->addWidget(caCertBrowse);
     bconsoleLayout->addRow("TLS CA Certificate:", caCertLayout);
+
+    connect(caCertBrowse, &QPushButton::clicked, [&]() {
+        QString file = QFileDialog::getOpenFileName(&dialog, "CA-Zertifikat wählen",
+                                                    QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
+        if (!file.isEmpty()) caCertEdit->setText(file);
+    });
+
+#ifdef Q_OS_WINDOWS
+
+    QLineEdit *pfxFileEdit = new QLineEdit(settings.value("tls_pfx_file").toString(), &dialog);
+    QLineEdit *pfxPasswordEdit = new QLineEdit(settings.value("tls_pfx_password").toString(), &dialog);
+    pfxPasswordEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+    QPushButton *certBrowse = new QPushButton("...", &dialog);
+    certBrowse->setMaximumWidth(30);
+    QGridLayout *pfxLayout = new QGridLayout();
+    pfxLayout->addWidget(new QLabel("PFX Certificate:"), 0, 0);
+    pfxLayout->addWidget(pfxFileEdit, 0, 1);
+    pfxLayout->addWidget(certBrowse, 0, 2);
+    pfxLayout->addWidget(new QLabel("PFX Password:"), 1, 0);
+    pfxLayout->addWidget(pfxPasswordEdit, 1, 1, 1, 2);
+    bconsoleLayout->addRow(pfxLayout);
+
+    // TLS-Felder initial aktivieren/deaktivieren
+    auto updateTlsFields = [=]() {
+        bool enabled = tlsCheckBox->isChecked();
+        caCertEdit->setEnabled(enabled);
+        caCertBrowse->setEnabled(enabled);
+        pfxFileEdit->setEnabled(enabled);
+        pfxPasswordEdit->setEnabled(enabled);
+        certBrowse->setEnabled(enabled);
+    };
+    updateTlsFields();
+    connect(tlsCheckBox, &QCheckBox::toggled, updateTlsFields);
+
+    connect(certBrowse, &QPushButton::clicked, [&]() {
+        QString file = QFileDialog::getOpenFileName(&dialog, "Client-Zertifikat wählen",
+                                                    QString(), "Zertifikate (*.pfx);;Alle Dateien (*)");
+        if (!file.isEmpty()) pfxFileEdit->setText(file);
+    });
+#else
     
-    QLineEdit *certEdit = new QLineEdit(settings.value("Connection/tls_cert").toString(), &dialog);
+    QLineEdit *certEdit = new QLineEdit(settings.value("Connection/tls_cert_file").toString(), &dialog);
     QPushButton *certBrowse = new QPushButton("...", &dialog);
     certBrowse->setMaximumWidth(30);
     QHBoxLayout *certLayout = new QHBoxLayout();
@@ -227,7 +271,7 @@ void MainWindow::showConnectionDialog()
     certLayout->addWidget(certBrowse);
     bconsoleLayout->addRow("TLS Certificate:", certLayout);
     
-    QLineEdit *keyEdit = new QLineEdit(settings.value("Connection/tls_key").toString(), &dialog);
+    QLineEdit *keyEdit = new QLineEdit(settings.value("Connection/tls_key_file").toString(), &dialog);
     QPushButton *keyBrowse = new QPushButton("...", &dialog);
     keyBrowse->setMaximumWidth(30);
     QHBoxLayout *keyLayout = new QHBoxLayout();
@@ -247,13 +291,8 @@ void MainWindow::showConnectionDialog()
     };
     updateTlsFields();
     connect(tlsCheckBox, &QCheckBox::toggled, updateTlsFields);
-    
+
     // Datei-Browser für Zertifikate
-    connect(caCertBrowse, &QPushButton::clicked, [&]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "CA-Zertifikat wählen", 
-            QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
-        if (!file.isEmpty()) caCertEdit->setText(file);
-    });
     
     connect(certBrowse, &QPushButton::clicked, [&]() {
         QString file = QFileDialog::getOpenFileName(&dialog, "Client-Zertifikat wählen", 
@@ -267,8 +306,10 @@ void MainWindow::showConnectionDialog()
         if (!file.isEmpty()) keyEdit->setText(file);
     });
     
+#endif
     mainLayout->addWidget(bconsoleGroup);
     
+#ifdef USE_BAREOS
     // REST-API-Felder mit gespeicherten Werten
     QGroupBox *restGroup = new QGroupBox("REST-API-Verbindung", &dialog);
     QFormLayout *restLayout = new QFormLayout(restGroup);
@@ -283,7 +324,6 @@ void MainWindow::showConnectionDialog()
     restLayout->addRow("Benutzername:", usernameEdit);
     restLayout->addRow("Passwort:", restPasswordEdit);
     mainLayout->addWidget(restGroup);
-    
     // Toggle zwischen Bconsole und REST basierend auf gespeichertem Typ
     if (bconsoleRadio->isChecked()) {
         bconsoleGroup->setVisible(true);
@@ -292,9 +332,11 @@ void MainWindow::showConnectionDialog()
         bconsoleGroup->setVisible(false);
         restGroup->setVisible(true);
     }
-    
-    connect(bconsoleRadio, &QRadioButton::toggled, bconsoleGroup, &QGroupBox::setVisible);
+
     connect(restRadio, &QRadioButton::toggled, restGroup, &QGroupBox::setVisible);
+    connect(bconsoleRadio, &QRadioButton::toggled, bconsoleGroup, &QGroupBox::setVisible);
+#endif
+
     
     // Buttons
     QDialogButtonBox *buttonBox = new QDialogButtonBox(
@@ -302,15 +344,46 @@ void MainWindow::showConnectionDialog()
     connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     mainLayout->addWidget(buttonBox);
-    
+
     if (dialog.exec() == QDialog::Accepted) {
-        if (bconsoleRadio->isChecked()) {
+
+        settings.setValue("tls_enabled", tlsCheckBox->isChecked());
+        settings.setValue("bconsole_host", hostEdit->text());
+        settings.setValue("bconsole_port", portSpin->value());
+        settings.setValue("bconsole_director", directorEdit->text());
+
+        if (tlsCheckBox->isChecked()) {
             BaculaDirector::TLSConfig tlsConfig;
-            tlsConfig.enabled = tlsCheckBox->isChecked();
+            tlsConfig.tlsEnable = tlsCheckBox->isChecked();
+
+             if(!caCertEdit->text().isEmpty())
+            {
+                tlsConfig.tlsCaCertFile->setFileName(caCertEdit->text());
+                settings.setValue("tls_ca_cert_file",caCertEdit->text());
+            }
+
+#ifdef Q_OS_WINDOWS
+        if(!pfxFileEdit->text().isEmpty()){
+            tlsConfig.tlsPfxFile->setFileName(pfxFileEdit->text());
+            settings.setValue("tls_pfx_file",pfxFileEdit->text());
+        }
+
+        if(!pfxPasswordEdit->text().isEmpty()){
+            tlsConfig.tlsPfxPassword = pfxPasswordEdit->text();
+            settings.setValue("tls_pfx_file",pfxPasswordEdit->text());
+        }
+#else
+            tlsConfig.tlsCertFile->setFileName(certEdit->text());
+            tlsConfig.tlsKeyFile = "";
+#endif
+
+#ifdef USE_BAREOS
+
+#ifdef Q_OS_WINDOWS
+#else
             tlsConfig.caCertFile = caCertEdit->text();
-            tlsConfig.certFile = certEdit->text();
             tlsConfig.keyFile = keyEdit->text();
-            
+#endif //Q_OS_WINDOWS
             m_director->connectBConsole(
                 hostEdit->text(),
                 portSpin->value(),
@@ -318,16 +391,30 @@ void MainWindow::showConnectionDialog()
                 passwordEdit->text(),
                 tlsConfig
             );
-        } else {
+        }
+        else {
             m_director->connectRestAPI(
                 urlEdit->text(),
                 usernameEdit->text(),
                 restPasswordEdit->text()
             );
         }
-        
+#else
+
+
+    m_director->connectBConsole(
+        hostEdit->text(),
+        portSpin->value(),
+        directorEdit->text(),
+        passwordEdit->text(),
+        tlsConfig
+        );
+
+#endif
+        settings.endGroup();
         m_statusLabel->setText("Verbindung wird hergestellt...");
     }
+}
 }
 
 void MainWindow::onDisconnectTriggered()
@@ -440,8 +527,8 @@ void MainWindow::loadAndConnectLastUsed()
     
     m_director->loadConnectionSettings();
     
-    QSettings settings("Bacula", "Onesimus");
-    BaculaDirector::ConnectionType type = static_cast<BaculaDirector::ConnectionType>(
+  /*   QSettings settings("Bacula", "Onesimus");
+   BaculaDirector::ConnectionType type = static_cast<BaculaDirector::ConnectionType>(
         settings.value("Connection/type", 0).toInt()
     );
     
@@ -452,11 +539,16 @@ void MainWindow::loadAndConnectLastUsed()
         QString password = settings.value("Connection/bconsole_password").toString();
         
         BaculaDirector::TLSConfig tlsConfig;
-        tlsConfig.enabled = settings.value("Connection/tls_enabled", false).toBool();
-        tlsConfig.caCertFile = settings.value("Connection/tls_ca_cert").toString();
-        tlsConfig.certFile = settings.value("Connection/tls_cert").toString();
-        tlsConfig.keyFile = settings.value("Connection/tls_key").toString();
-        
+        tlsConfig.tlsEnable = settings.value("Connection/tls_enabled", false).toBool();
+        tlsConfig.tlsCaCertFile->setFileName(settings.value("Connection/tls_ca_cert_file").toString());
+
+#ifdef Q_OS_WINDOWS
+        tlsConfig.tlsPfxFile->setFileName(settings.value("Connection/tls_pfx_file").toString());
+        tlsConfig.tlsPfxPassword =settings.value("Connection/tls_pfx_password").toString();
+#else
+        tlsConfig.tlsCertFile->setFileName(settings.value("Connection/tls_cert_file").toString());
+        tlsConfig.tlsKeyFile->setFileName(settings.value("Connection/tls_key_file").toString());
+#endif
         if (!password.isEmpty()) {
             m_director->connectBConsole(host, port, director, password, tlsConfig);
             m_statusLabel->setText("Verbinde mit Bconsole...");
@@ -470,7 +562,7 @@ void MainWindow::loadAndConnectLastUsed()
             m_director->connectRestAPI(baseUrl, username, password);
             m_statusLabel->setText("Verbinde mit REST-API...");
         }
-    }
+    }*/
     
     // Aktualisiere "Letzte Verbindung" Button Status
     m_connectLastAction->setEnabled(true);

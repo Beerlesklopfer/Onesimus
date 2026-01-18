@@ -85,13 +85,46 @@ public:
     };
 
     struct TLSConfig {
-        bool enabled;
-        QString caCertFile;
-        QString certFile;
-        QString keyFile;
-        
-        TLSConfig() : enabled(false) {}
-    };
+        bool tlsEnable;
+        bool tlsRequire;
+        bool tlsVerifyPeer;
+
+        QSharedPointer<QFile> tlsCaCertFile;        // CA-Zertifikat (.pem)
+
+#ifdef Q_OS_WINDOWS
+        // PKCS#12-Format (bevorzugt für Windows)
+        QSharedPointer<QFile> tlsPfxFile;           // Pfad zur .pfx-Datei
+        QString tlsPfxPassword;                       // Passwort für .pfx (kann leer sein)
+#else
+        // PEM-Format (Legacy, für Linux)
+        QSharedPointer<QFile> tlsCertFile;          // Client-Zertifikat (.pem)
+        QSharedPointer<QFile> tlsKeyFile;           // Private Key (.pem)
+#endif
+#ifdef Q_OS_WINDOWS
+        TLSConfig() :
+            tlsEnable(false),
+            tlsRequire(false),
+            tlsVerifyPeer(false),
+            tlsCaCertFile(new QFile("")),
+            tlsPfxFile(new QFile("")),
+            tlsPfxPassword("") {}
+#else
+        TLSConfig() :
+            tlsEnable(false),
+            tlsRequire(false),
+            tlsVerifyPeer(false),
+            tlsCaCertFile(new QFile("")),
+            tlsCertFile(new QFile("")),
+            tlsKeyFile(new QFile("")){}
+#endif
+        // // Move constructor and assignment (automatically generated)
+        // TLSConfig(TLSConfig&&) = delete;
+        // TLSConfig& operator=(TLSConfig&&) = delete;
+
+        // // Delete copy constructor and assignment
+        // TLSConfig(const TLSConfig&) = delete;
+        // TLSConfig& operator=(const TLSConfig&) = delete;
+};
 
     struct VolumeInfo {
         QString volumeName;
@@ -157,10 +190,10 @@ signals:
     void disconnected();
     void connectionError(const QString &error);
     void commandResponse(const QString &response);
-    void jobsReceived(const QList<JobInfo> &jobs);
-    void clientsReceived(const QList<ClientInfo> &clients);
-    void volumesReceived(const QList<VolumeInfo> &volumes);
-    void jobStatusChanged(int jobId, JobStatus status);
+    void jobsReceived(const QList<BaculaDirector::JobInfo> &jobs);
+    void clientsReceived(const QList<BaculaDirector::ClientInfo> &clients);
+    void volumesReceived(const QList<BaculaDirector::VolumeInfo> &volumes);
+    void jobStatusChanged(int jobId, BaculaDirector::JobStatus status);
     void authenticationRequired();
     void authenticationFailed();
 

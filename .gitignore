@@ -4,6 +4,7 @@ build-*/
 cmake-build-*/
 
 # OpenSSL Build-Artefakte (Submodule wird nicht ignoriert, nur Build-Output)
+external/openssl/
 external/openssl/apps/
 external/openssl/test/
 external/openssl/*.o
@@ -56,9 +57,16 @@ bacula-certs-windows/
 *.pfx
 *.p12
 
-/CERT_CREATION_README.md
-/QUICK_VS_ENV.txt
-/WINDOWS_TLS_FIX.md
-/STATIC_OPENSSL.md
-/TLS.md
-/VISUAL_STUDIO_ENV.md
+CERT_CREATION_README.md
+QUICK_VS_ENV.txt
+WINDOWS_TLS_FIX.md
+STATIC_OPENSSL.md
+TLS.md
+VISUAL_STUDIO_ENV.md
+BACKUP_SYSTEMS.md
+Import-VsDevShell.ps1
+QSETTINGS.md
+QUICKSTART.md
+build-windows.ps1.backup
+create-bacula-certs.bat
+create-bacula-certs.ps1
