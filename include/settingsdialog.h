@@ -17,7 +17,7 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QGroupBox>
-#include "baculadirector.h"
+#include "director.h"
 
 namespace Ui {
 class SettingsDialog;
@@ -34,7 +34,7 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit SettingsDialog(BaculaDirector *director, QWidget *parent = nullptr);
+    explicit SettingsDialog(Director *director, QWidget *parent = nullptr);
     ~SettingsDialog();
 
     // Einstellungen laden/speichern
@@ -68,7 +68,7 @@ private:
     void applyModernStyle();
     
     Ui::SettingsDialog *ui;
-    BaculaDirector *m_director;
+    Director *m_director;
     
     // UI-Komponenten
     QListWidget *m_categoryList;

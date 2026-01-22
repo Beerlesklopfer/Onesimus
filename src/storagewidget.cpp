@@ -3,7 +3,7 @@
 #include <QHeaderView>
 #include <QVBoxLayout>
 
-StorageWidget::StorageWidget(BaculaDirector *director, QWidget *parent)
+StorageWidget::StorageWidget(Director *director, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::StorageWidget)
     , m_director(director)
@@ -11,7 +11,7 @@ StorageWidget::StorageWidget(BaculaDirector *director, QWidget *parent)
     ui->setupUi(this);
     setupUI();
     
-    connect(m_director, &BaculaDirector::volumesReceived, this, &StorageWidget::onVolumesReceived);
+    connect(m_director, &Director::volumesReceived, this, &StorageWidget::onVolumesReceived);
 }
 
 StorageWidget::~StorageWidget()
@@ -55,18 +55,18 @@ void StorageWidget::setupUI()
     connect(m_volumeTable, &QTableWidget::itemSelectionChanged, this, &StorageWidget::onVolumeSelectionChanged);
 }
 
-void StorageWidget::onVolumesReceived(const QList<BaculaDirector::VolumeInfo> &volumes)
+void StorageWidget::onVolumesReceived(const QList<Director::VolumeInfo> &volumes)
 {
     updateVolumeTable(volumes);
 }
 
-void StorageWidget::updateVolumeTable(const QList<BaculaDirector::VolumeInfo> &volumes)
+void StorageWidget::updateVolumeTable(const QList<Director::VolumeInfo> &volumes)
 {
     m_volumeTable->setSortingEnabled(false);
     m_volumeTable->setRowCount(volumes.size());
     
     for (int i = 0; i < volumes.size(); ++i) {
-        const BaculaDirector::VolumeInfo &volume = volumes[i];
+        const Director::VolumeInfo &volume = volumes[i];
         
         m_volumeTable->setItem(i, 0, new QTableWidgetItem(volume.volumeName));
         m_volumeTable->setItem(i, 1, new QTableWidgetItem(volume.poolName));
@@ -91,11 +91,7 @@ void StorageWidget::updateVolumeTable(const QList<BaculaDirector::VolumeInfo> &v
 
 void StorageWidget::onRefreshClicked()
 {
-    if (m_director->connectionType() == BaculaDirector::RestAPI) {
-        m_director->restGetVolumes();
-    } else {
-        m_director->listVolumes();
-    }
+    m_director->listVolumes();
 }
 
 void StorageWidget::onVolumeSelectionChanged()

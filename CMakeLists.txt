@@ -14,30 +14,21 @@ set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/ui)
 # ============================================================================
 # Backup System Auswahl
 # ============================================================================
-set(BACKUP_SYSTEM "BACULA" CACHE STRING "Backup system to support: BACULA, BAREOS, or BOTH")
-set_property(CACHE BACKUP_SYSTEM PROPERTY STRINGS "BACULA" "BAREOS" "BOTH")
+set(BACKUP_SYSTEM "BAREOS" CACHE STRING "Backup system to support: BACULA or BAREOS")
+set_property(CACHE BACKUP_SYSTEM PROPERTY STRINGS "BACULA" "BAREOS")
 
 message(STATUS "")
 message(STATUS "========================================")
 message(STATUS "Backup System Configuration")
 message(STATUS "========================================")
-message(STATUS "Selected system: ${BACKUP_SYSTEM}")
 
 # Setze Compiler-Definitionen basierend auf Auswahl
 if(BACKUP_SYSTEM STREQUAL "BACULA")
-    add_compile_definitions(USE_BACULA)
     set(USE_BACULA_ONLY TRUE)
-    message(STATUS "Building with: Bacula support only")
 elseif(BACKUP_SYSTEM STREQUAL "BAREOS")
-    add_compile_definitions(USE_BAREOS)
     set(USE_BAREOS_ONLY TRUE)
-    message(STATUS "Building with: Bareos support only")
-elseif(BACKUP_SYSTEM STREQUAL "BOTH")
-    add_compile_definitions(USE_BACULA USE_BAREOS)
-    set(USE_BOTH_SYSTEMS TRUE)
-    message(STATUS "Building with: Bacula AND Bareos support")
 else()
-    message(FATAL_ERROR "Invalid BACKUP_SYSTEM: ${BACKUP_SYSTEM}. Must be BACULA, BAREOS, or BOTH")
+    message(FATAL_ERROR "Invalid BACKUP_SYSTEM: ${BACKUP_SYSTEM}. Must be BACULA or BAREOS")
 endif()
 
 message(STATUS "========================================")
@@ -307,6 +298,17 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src
 )
 
+# Quell-Dateien
+set(SOURCES
+    src/main.cpp
+    src/mainwindow.cpp
+    src/jobwidget.cpp
+    src/clientwidget.cpp
+    src/storagewidget.cpp
+    src/settingsdialog.cpp
+    src/director.cpp
+)
+
 # Header-Dateien
 set(HEADERS
     include/mainwindow.h
@@ -314,40 +316,27 @@ set(HEADERS
     include/clientwidget.h
     include/storagewidget.h
     include/settingsdialog.h
+    include/director.h
+    include/version.h
 )
 
 # Bacula-spezifische Dateien
-if(USE_BACULA_ONLY OR USE_BOTH_SYSTEMS)
-    list(APPEND HEADERS include/baculadirector.h)
+if(USE_BACULA_ONLY)
+    message(STATUS "========================================")
+    message(STATUS "Building with BACULA backend")
+    message(STATUS "========================================")
+    list(APPEND SOURCES src/baculaauth.cpp)
+    list(APPEND HEADERS include/baculaauth.h)
+    add_compile_definitions(USE_BACULA)
 endif()
 
 # Bareos-spezifische Dateien
-if(USE_BAREOS_ONLY OR USE_BOTH_SYSTEMS)
-    list(APPEND HEADERS include/bareosdirector.h)
-endif()
-
-# Quell-Dateien
-set(SOURCES
-    src/main.cpp    
-    src/mainwindow.cpp
-    src/jobwidget.cpp
-    src/clientwidget.cpp
-    src/storagewidget.cpp
-    src/settingsdialog.cpp
-)
-
-# Bacula-spezifische Dateien
-if(USE_BACULA_ONLY OR USE_BOTH_SYSTEMS)
-    list(APPEND SOURCES src/baculadirector.cpp)
-    # list(APPEND HEADERS include/authenticatebase.h)
-    # Präprozessor-Definition setzen
-    add_compile_definitions(USE_BACULA_ONLY)
-endif()
-
-# Bareos-spezifische Dateien
-if(USE_BAREOS_ONLY OR USE_BOTH_SYSTEMS)
-    list(APPEND SOURCES src/bareosdirector.cpp)
-    # Präprozessor-Definition setzen
+if(USE_BAREOS_ONLY)
+    message(STATUS "========================================")
+    message(STATUS "Building with BAREOS backend")
+    message(STATUS "========================================")
+    list(APPEND SOURCES src/bareosauth.cpp)
+    list(APPEND HEADERS include/bareosauth.h)
     add_compile_definitions(USE_BAREOS)
 endif()
 
@@ -413,15 +402,6 @@ message(STATUS "========================================")
 message(STATUS "Project:       ${PROJECT_NAME} v${PROJECT_VERSION}")
 message(STATUS "Build Type:    ${CMAKE_BUILD_TYPE}")
 message(STATUS "Install:       ${CMAKE_INSTALL_PREFIX}")
-message(STATUS "")
-message(STATUS "Backup System: ${BACKUP_SYSTEM}")
-if(USE_BACULA_ONLY)
-    message(STATUS "  Support:     Bacula only")
-elseif(USE_BAREOS_ONLY)
-    message(STATUS "  Support:     Bareos only")
-elseif(USE_BOTH_SYSTEMS)
-    message(STATUS "  Support:     Bacula AND Bareos")
-endif()
 message(STATUS "")
 message(STATUS "Qt Version:    ${Qt6_VERSION}")
 message(STATUS "C++ Standard:  ${CMAKE_CXX_STANDARD}")

@@ -5,7 +5,7 @@
 #include <QInputDialog>
 #include <QDateTime>
 
-JobWidget::JobWidget(BaculaDirector *director, QWidget *parent)
+JobWidget::JobWidget(Director *director, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::JobWidget)
     , m_director(director)
@@ -13,7 +13,7 @@ JobWidget::JobWidget(BaculaDirector *director, QWidget *parent)
     ui->setupUi(this);
     setupUI();
     
-    connect(m_director, &BaculaDirector::jobsReceived, this, &JobWidget::onJobsReceived);
+    connect(m_director, &Director::jobsReceived, this, &JobWidget::onJobsReceived);
 }
 
 JobWidget::~JobWidget()
@@ -75,18 +75,18 @@ void JobWidget::setupUI()
     m_detailsButton->setEnabled(false);
 }
 
-void JobWidget::onJobsReceived(const QList<BaculaDirector::JobInfo> &jobs)
+void JobWidget::onJobsReceived(const QList<Director::JobInfo> &jobs)
 {
     updateJobTable(jobs);
 }
 
-void JobWidget::updateJobTable(const QList<BaculaDirector::JobInfo> &jobs)
+void JobWidget::updateJobTable(const QList<Director::JobInfo> &jobs)
 {
     m_jobTable->setSortingEnabled(false);
     m_jobTable->setRowCount(jobs.size());
     
     for (int i = 0; i < jobs.size(); ++i) {
-        const BaculaDirector::JobInfo &job = jobs[i];
+        const Director::JobInfo &job = jobs[i];
         
         m_jobTable->setItem(i, 0, new QTableWidgetItem(QString::number(job.jobId)));
         m_jobTable->setItem(i, 1, new QTableWidgetItem(job.name));
@@ -122,11 +122,7 @@ void JobWidget::onRunJobClicked()
         "Job-Name:", QLineEdit::Normal, "", &ok);
     
     if (ok && !jobName.isEmpty()) {
-        if (m_director->connectionType() == BaculaDirector::RestAPI) {
-            m_director->restRunJob(jobName);
-        } else {
-            m_director->runJob(jobName);
-        }
+        m_director->runJob(jobName);
         QMessageBox::information(this, "Job gestartet", 
             QString("Job '%1' wurde gestartet.").arg(jobName));
     }
@@ -149,11 +145,7 @@ void JobWidget::onCancelJobClicked()
         QMessageBox::Yes | QMessageBox::No);
     
     if (ret == QMessageBox::Yes) {
-        if (m_director->connectionType() == BaculaDirector::RestAPI) {
-            m_director->restCancelJob(jobId);
-        } else {
-            m_director->cancelJob(jobId);
-        }
+        m_director->cancelJob(jobId);
         QMessageBox::information(this, "Job abgebrochen", 
             QString("Job %1 wurde abgebrochen.").arg(jobId));
     }
@@ -168,21 +160,12 @@ void JobWidget::onShowDetailsClicked()
     
     int row = selectedItems.first()->row();
     int jobId = m_jobTable->item(row, 0)->text().toInt();
-    
-    if (m_director->connectionType() == BaculaDirector::RestAPI) {
-        m_director->restGetJobDetails(jobId);
-    } else {
-        m_director->showJobDetails(jobId);
-    }
+    m_director->showJobDetails(jobId);
 }
 
 void JobWidget::onRefreshClicked()
 {
-    if (m_director->connectionType() == BaculaDirector::RestAPI) {
-        m_director->restGetJobs();
-    } else {
-        m_director->listJobs();
-    }
+    m_director->listJobs();
 }
 
 void JobWidget::onJobSelectionChanged()

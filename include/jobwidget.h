@@ -5,7 +5,7 @@
 #include <QTableWidget>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include "baculadirector.h"
+#include "director.h"
 
 namespace Ui {
 class JobWidget;
@@ -16,11 +16,11 @@ class JobWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit JobWidget(BaculaDirector *director, QWidget *parent = nullptr);
+    explicit JobWidget(Director *director, QWidget *parent = nullptr);
     ~JobWidget();
 
 private slots:
-    void onJobsReceived(const QList<BaculaDirector::JobInfo> &jobs);
+    void onJobsReceived(const QList<Director::JobInfo> &jobs);
     void onRunJobClicked();
     void onCancelJobClicked();
     void onShowDetailsClicked();
@@ -29,12 +29,12 @@ private slots:
 
 private:
     void setupUI();
-    void updateJobTable(const QList<BaculaDirector::JobInfo> &jobs);
+    void updateJobTable(const QList<Director::JobInfo> &jobs);
     QString formatBytes(qint64 bytes);
     QString formatJobStatus(const QString &status);
 
     Ui::JobWidget *ui;
-    BaculaDirector *m_director;
+    Director *m_director;
     
     QTableWidget *m_jobTable;
     QPushButton *m_runJobButton;

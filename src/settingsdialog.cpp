@@ -10,7 +10,7 @@
 #include <QJsonObject>
 #include <QFile>
 
-SettingsDialog::SettingsDialog(BaculaDirector *director, QWidget *parent)
+SettingsDialog::SettingsDialog(Director *director, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::SettingsDialog)
     , m_director(director)
@@ -143,8 +143,8 @@ void SettingsDialog::createConnectionPage()
     systemLayout->setSpacing(12);
     
     m_backupSystemCombo = new QComboBox();
-    m_backupSystemCombo->addItem("🗄️ Bacula (Original)", static_cast<int>(BaculaDirector::Bacula));
-    m_backupSystemCombo->addItem("🔧 Bareos (Bacula Fork)", static_cast<int>(BaculaDirector::Bareos));
+    m_backupSystemCombo->addItem("🗄️ Bacula (Original)", static_cast<int>(Director::Bacula));
+    m_backupSystemCombo->addItem("🔧 Bareos (Bacula Fork)", static_cast<int>(Director::Bareos));
     systemLayout->addWidget(m_backupSystemCombo);
     
     QLabel *systemInfoLabel = new QLabel(

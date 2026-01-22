@@ -7,7 +7,7 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QLabel>
-#include "baculadirector.h"
+#include "director.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -24,6 +24,9 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+    Director *director() const;
+    void setDirector(Director *newDirector);
 
 private slots:
     void onConnectTriggered();
@@ -45,7 +48,7 @@ private:
     void loadAndConnectLastUsed();
 
     Ui::MainWindow *ui;
-    BaculaDirector *m_director;
+    Director *m_director;
     
     // Widgets
     QTabWidget *m_tabWidget;

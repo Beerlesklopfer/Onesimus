@@ -31,7 +31,7 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle("Onesimus - Bacula Backup Management");
     resize(1200, 800);
     
-    m_director = new BaculaDirector(this);
+    m_director = new Director(this);
 
     setupUI();
     createActions();
@@ -39,13 +39,13 @@ MainWindow::MainWindow(QWidget *parent)
     createToolBar();
     
     // Verbinde Signals
-    connect(m_director, &BaculaDirector::connected, this, [this]() {
+    connect(m_director, &Director::connected, this, [this]() {
         onConnectionChanged(true);
     });
-    connect(m_director, &BaculaDirector::disconnected, this, [this]() {
+    connect(m_director, &Director::disconnected, this, [this]() {
         onConnectionChanged(false);
     });
-    connect(m_director, &BaculaDirector::connectionError, this, &MainWindow::onConnectionError);
+    connect(m_director, &Director::connectionError, this, &MainWindow::onConnectionError);
     
     updateConnectionStatus(false);
     
@@ -158,70 +158,69 @@ void MainWindow::onConnectTriggered()
 void MainWindow::showConnectionDialog()
 {
     QDialog dialog(this);
-    dialog.setWindowTitle("Bacula Director Verbindung");
-    dialog.resize(450, 450);
-    
+    dialog.setWindowTitle("Bareos Director Verbindung");
+    dialog.resize(500, 400);
+
     QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
-    
+
     // Lade gespeicherte Einstellungen
     m_director->loadConnectionSettings();
-    
-#ifdef USE_BAREOS
-    // Verbindungstyp
-    QGroupBox *typeGroup = new QGroupBox("Verbindungstyp", &dialog);
-    QVBoxLayout *typeLayout = new QVBoxLayout(typeGroup);
-    
-    QRadioButton *bconsoleRadio = new QRadioButton("Bconsole (TCP)", typeGroup);
-    QRadioButton *restRadio = new QRadioButton("REST API (HTTP/HTTPS)", typeGroup);
-    
-    // Setze gespeicherten Verbindungstyp als Standard
-    if (m_director->hasStoredConnection()) {
-        if (m_director->connectionType() == BaculaDirector::BConsole) {
-            bconsoleRadio->setChecked(true);
-        } else {
-            restRadio->setChecked(true);
-        }
-    } else {
-        bconsoleRadio->setChecked(true);
-    }
-    
-    typeLayout->addWidget(bconsoleRadio);
-    typeLayout->addWidget(restRadio);
-    mainLayout->addWidget(typeGroup);    
-#endif
 
-    // Bconsole-Felder mit gespeicherten Werten
-    QGroupBox *bconsoleGroup = new QGroupBox("Bconsole-Verbindung", &dialog);
-    QFormLayout *bconsoleLayout = new QFormLayout(bconsoleGroup);
-    
-    QSettings settings("Bacula", "Onesimus");
+    QSettings settings("Bacula", QCoreApplication::applicationName());
     settings.beginGroup("Connection");
-    QLineEdit *hostEdit = new QLineEdit(settings.value("bconsole_host", "localhost").toString(), &dialog);
+
+    // Bconsole-Verbindungsfelder
+    QGroupBox *connectionGroup = new QGroupBox("Bareos Director", &dialog);
+    QFormLayout *connectionLayout = new QFormLayout(connectionGroup);
+
+    QLineEdit *hostEdit = new QLineEdit(settings.value("host", "localhost").toString(), &dialog);
     QSpinBox *portSpin = new QSpinBox(&dialog);
     portSpin->setRange(1, 65535);
-    portSpin->setValue(settings.value("/bconsole_port", 9101).toInt());
-    QLineEdit *directorEdit = new QLineEdit(settings.value("bconsole_director", "bacula-dir").toString(), &dialog);
+    portSpin->setValue(settings.value("port", 9101).toInt());
+    QLineEdit *directorEdit = new QLineEdit(settings.value("director", "bareos-dir").toString(), &dialog);
     QLineEdit *passwordEdit = new QLineEdit(&dialog);
     passwordEdit->setEchoMode(QLineEdit::Password);
-    passwordEdit->setText(settings.value("bconsole_password").toString());
-    
-    bconsoleLayout->addRow("Host:", hostEdit);
-    bconsoleLayout->addRow("Port:", portSpin);
-    bconsoleLayout->addRow("Director Name:", directorEdit);
-    bconsoleLayout->addRow("Passwort:", passwordEdit);
-    
-    // TLS-Konfiguration
-    QCheckBox *tlsCheckBox = new QCheckBox("TLS/SSL verwenden", &dialog);
-    tlsCheckBox->setChecked(settings.value("tls_enabled", false).toBool());
-    bconsoleLayout->addRow("", tlsCheckBox);
+    passwordEdit->setText(settings.value("password").toString());
 
+    connectionLayout->addRow("Host:", hostEdit);
+    connectionLayout->addRow("Port:", portSpin);
+    connectionLayout->addRow("Director Name:", directorEdit);
+    connectionLayout->addRow("Passwort:", passwordEdit);
+
+    mainLayout->addWidget(connectionGroup);
+
+    // ####### TLS-Konfiguration #######
+    QGroupBox *tlsGroup = new QGroupBox("TLS Konfiguration", &dialog);
+    QFormLayout *tlsLayout = new QFormLayout(tlsGroup);
+
+    // TLS Enable - Bareos 18.2+ verwendet standardmäßig TLS-PSK
+    QCheckBox *tlsEnableCheckBox = new QCheckBox("TLS aktivieren", &dialog);
+    tlsEnableCheckBox->setChecked(settings.value("tls_enabled", true).toBool());
+    tlsLayout->addRow("", tlsEnableCheckBox);
+
+    // TLS Require
+    QCheckBox *tlsRequireCheckBox = new QCheckBox("TLS erzwingen", &dialog);
+    tlsRequireCheckBox->setChecked(settings.value("tls_require", true).toBool());
+    tlsLayout->addRow("", tlsRequireCheckBox);
+
+    // TLS-PSK - Standard für Bareos 18.2+
+    QCheckBox *tlsPSKEnableCheckBox = new QCheckBox("TLS-PSK verwenden (empfohlen für Bareos 18.2+)", &dialog);
+    tlsPSKEnableCheckBox->setChecked(settings.value("tls_psk_enabled", true).toBool());
+    tlsLayout->addRow("", tlsPSKEnableCheckBox);
+
+    // Verify Peer
+    QCheckBox *tlsVerifyPeerCheckBox = new QCheckBox("Gegenstelle verifizieren", &dialog);
+    tlsVerifyPeerCheckBox->setChecked(settings.value("tls_verify_peer", false).toBool());
+    tlsLayout->addRow("", tlsVerifyPeerCheckBox);
+
+    // CA Certificate
     QLineEdit *caCertEdit = new QLineEdit(settings.value("tls_ca_cert_file").toString(), &dialog);
     QPushButton *caCertBrowse = new QPushButton("...", &dialog);
     caCertBrowse->setMaximumWidth(30);
     QHBoxLayout *caCertLayout = new QHBoxLayout();
     caCertLayout->addWidget(caCertEdit);
     caCertLayout->addWidget(caCertBrowse);
-    bconsoleLayout->addRow("TLS CA Certificate:", caCertLayout);
+    tlsLayout->addRow("CA Zertifikat:", caCertLayout);
 
     connect(caCertBrowse, &QPushButton::clicked, [&]() {
         QString file = QFileDialog::getOpenFileName(&dialog, "CA-Zertifikat wählen",
@@ -230,114 +229,103 @@ void MainWindow::showConnectionDialog()
     });
 
 #ifdef Q_OS_WINDOWS
-
+    // Windows: PFX-Format
     QLineEdit *pfxFileEdit = new QLineEdit(settings.value("tls_pfx_file").toString(), &dialog);
+    QPushButton *pfxBrowse = new QPushButton("...", &dialog);
+    pfxBrowse->setMaximumWidth(30);
+    QHBoxLayout *pfxLayout = new QHBoxLayout();
+    pfxLayout->addWidget(pfxFileEdit);
+    pfxLayout->addWidget(pfxBrowse);
+    tlsLayout->addRow("PFX Zertifikat:", pfxLayout);
+
     QLineEdit *pfxPasswordEdit = new QLineEdit(settings.value("tls_pfx_password").toString(), &dialog);
-    pfxPasswordEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
-    QPushButton *certBrowse = new QPushButton("...", &dialog);
-    certBrowse->setMaximumWidth(30);
-    QGridLayout *pfxLayout = new QGridLayout();
-    pfxLayout->addWidget(new QLabel("PFX Certificate:"), 0, 0);
-    pfxLayout->addWidget(pfxFileEdit, 0, 1);
-    pfxLayout->addWidget(certBrowse, 0, 2);
-    pfxLayout->addWidget(new QLabel("PFX Password:"), 1, 0);
-    pfxLayout->addWidget(pfxPasswordEdit, 1, 1, 1, 2);
-    bconsoleLayout->addRow(pfxLayout);
+    pfxPasswordEdit->setEchoMode(QLineEdit::Password);
+    tlsLayout->addRow("PFX Passwort:", pfxPasswordEdit);
 
-    // TLS-Felder initial aktivieren/deaktivieren
-    auto updateTlsFields = [=]() {
-        bool enabled = tlsCheckBox->isChecked();
-        caCertEdit->setEnabled(enabled);
-        caCertBrowse->setEnabled(enabled);
-        pfxFileEdit->setEnabled(enabled);
-        pfxPasswordEdit->setEnabled(enabled);
-        certBrowse->setEnabled(enabled);
-    };
-    updateTlsFields();
-    connect(tlsCheckBox, &QCheckBox::toggled, updateTlsFields);
-
-    connect(certBrowse, &QPushButton::clicked, [&]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "Client-Zertifikat wählen",
-                                                    QString(), "Zertifikate (*.pfx);;Alle Dateien (*)");
+    connect(pfxBrowse, &QPushButton::clicked, [&]() {
+        QString file = QFileDialog::getOpenFileName(&dialog, "PFX-Zertifikat wählen",
+                                                    QString(), "PKCS#12 (*.pfx *.p12);;Alle Dateien (*)");
         if (!file.isEmpty()) pfxFileEdit->setText(file);
     });
+
+    // TLS-Felder aktivieren/deaktivieren
+    auto updateTlsFields = [=]() {
+        bool enabled = tlsEnableCheckBox->isChecked();
+        bool isPSK = tlsPSKEnableCheckBox->isChecked();
+        // Bei PSK werden keine Zertifikatdateien benötigt
+        bool needsCerts = enabled && !isPSK;
+
+        tlsRequireCheckBox->setEnabled(enabled);
+        tlsPSKEnableCheckBox->setEnabled(enabled);
+        tlsVerifyPeerCheckBox->setEnabled(enabled && !isPSK);
+        caCertEdit->setEnabled(needsCerts);
+        caCertBrowse->setEnabled(needsCerts);
+        pfxFileEdit->setEnabled(needsCerts);
+        pfxBrowse->setEnabled(needsCerts);
+        pfxPasswordEdit->setEnabled(needsCerts);
+    };
 #else
-    
-    QLineEdit *certEdit = new QLineEdit(settings.value("Connection/tls_cert_file").toString(), &dialog);
+    // Linux: PEM-Format
+    QLineEdit *certEdit = new QLineEdit(settings.value("tls_cert_file").toString(), &dialog);
     QPushButton *certBrowse = new QPushButton("...", &dialog);
     certBrowse->setMaximumWidth(30);
     QHBoxLayout *certLayout = new QHBoxLayout();
     certLayout->addWidget(certEdit);
     certLayout->addWidget(certBrowse);
-    bconsoleLayout->addRow("TLS Certificate:", certLayout);
-    
-    QLineEdit *keyEdit = new QLineEdit(settings.value("Connection/tls_key_file").toString(), &dialog);
+    tlsLayout->addRow("Zertifikat:", certLayout);
+
+    QLineEdit *keyEdit = new QLineEdit(settings.value("tls_key_file").toString(), &dialog);
     QPushButton *keyBrowse = new QPushButton("...", &dialog);
     keyBrowse->setMaximumWidth(30);
     QHBoxLayout *keyLayout = new QHBoxLayout();
     keyLayout->addWidget(keyEdit);
     keyLayout->addWidget(keyBrowse);
-    bconsoleLayout->addRow("TLS Key:", keyLayout);
-    
-    // TLS-Felder initial aktivieren/deaktivieren
-    auto updateTlsFields = [=]() {
-        bool enabled = tlsCheckBox->isChecked();
-        caCertEdit->setEnabled(enabled);
-        caCertBrowse->setEnabled(enabled);
-        certEdit->setEnabled(enabled);
-        certBrowse->setEnabled(enabled);
-        keyEdit->setEnabled(enabled);
-        keyBrowse->setEnabled(enabled);
-    };
-    updateTlsFields();
-    connect(tlsCheckBox, &QCheckBox::toggled, updateTlsFields);
+    tlsLayout->addRow("Private Key:", keyLayout);
 
-    // Datei-Browser für Zertifikate
-    
     connect(certBrowse, &QPushButton::clicked, [&]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "Client-Zertifikat wählen", 
-            QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
+        QString file = QFileDialog::getOpenFileName(&dialog, "Zertifikat wählen",
+                                                    QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
         if (!file.isEmpty()) certEdit->setText(file);
     });
-    
+
     connect(keyBrowse, &QPushButton::clicked, [&]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "Private Key wählen", 
-            QString(), "Keys (*.pem *.key);;Alle Dateien (*)");
+        QString file = QFileDialog::getOpenFileName(&dialog, "Private Key wählen",
+                                                    QString(), "Keys (*.pem *.key);;Alle Dateien (*)");
         if (!file.isEmpty()) keyEdit->setText(file);
     });
-    
-#endif
-    mainLayout->addWidget(bconsoleGroup);
-    
-#ifdef USE_BAREOS
-    // REST-API-Felder mit gespeicherten Werten
-    QGroupBox *restGroup = new QGroupBox("REST-API-Verbindung", &dialog);
-    QFormLayout *restLayout = new QFormLayout(restGroup);
-    
-    QLineEdit *urlEdit = new QLineEdit(settings.value("Connection/rest_baseurl", "http://localhost:9101").toString(), &dialog);
-    QLineEdit *usernameEdit = new QLineEdit(settings.value("Connection/rest_username", "admin").toString(), &dialog);
-    QLineEdit *restPasswordEdit = new QLineEdit(&dialog);
-    restPasswordEdit->setEchoMode(QLineEdit::Password);
-    restPasswordEdit->setText(settings.value("Connection/rest_password").toString());
-    
-    restLayout->addRow("Base URL:", urlEdit);
-    restLayout->addRow("Benutzername:", usernameEdit);
-    restLayout->addRow("Passwort:", restPasswordEdit);
-    mainLayout->addWidget(restGroup);
-    // Toggle zwischen Bconsole und REST basierend auf gespeichertem Typ
-    if (bconsoleRadio->isChecked()) {
-        bconsoleGroup->setVisible(true);
-        restGroup->setVisible(false);
-    } else {
-        bconsoleGroup->setVisible(false);
-        restGroup->setVisible(true);
-    }
 
-    connect(restRadio, &QRadioButton::toggled, restGroup, &QGroupBox::setVisible);
-    connect(bconsoleRadio, &QRadioButton::toggled, bconsoleGroup, &QGroupBox::setVisible);
+    // TLS-Felder aktivieren/deaktivieren
+    auto updateTlsFields = [=]() {
+        bool enabled = tlsEnableCheckBox->isChecked();
+        bool isPSK = tlsPSKEnableCheckBox->isChecked();
+        // Bei PSK werden keine Zertifikatdateien benötigt
+        bool needsCerts = enabled && !isPSK;
+
+        tlsRequireCheckBox->setEnabled(enabled);
+        tlsPSKEnableCheckBox->setEnabled(enabled);
+        tlsVerifyPeerCheckBox->setEnabled(enabled && !isPSK);
+        caCertEdit->setEnabled(needsCerts);
+        caCertBrowse->setEnabled(needsCerts);
+        certEdit->setEnabled(needsCerts);
+        certBrowse->setEnabled(needsCerts);
+        keyEdit->setEnabled(needsCerts);
+        keyBrowse->setEnabled(needsCerts);
+    };
 #endif
 
-    
+    updateTlsFields();
+    connect(tlsEnableCheckBox, &QCheckBox::toggled, updateTlsFields);
+    connect(tlsPSKEnableCheckBox, &QCheckBox::toggled, updateTlsFields);
+
+    mainLayout->addWidget(tlsGroup);
+
+    // Hinweis für Bareos
+    QLabel *hintLabel = new QLabel(
+        "<i>Hinweis: Bareos 18.2+ verwendet standardmäßig TLS-PSK.<br>"
+        "Bei TLS-PSK wird das Director-Passwort als Pre-Shared Key verwendet.</i>", &dialog);
+    hintLabel->setWordWrap(true);
+    mainLayout->addWidget(hintLabel);
+
     // Buttons
     QDialogButtonBox *buttonBox = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
@@ -346,77 +334,61 @@ void MainWindow::showConnectionDialog()
     mainLayout->addWidget(buttonBox);
 
     if (dialog.exec() == QDialog::Accepted) {
-
-        settings.setValue("tls_enabled", tlsCheckBox->isChecked());
-        settings.setValue("bconsole_host", hostEdit->text());
-        settings.setValue("bconsole_port", portSpin->value());
-        settings.setValue("bconsole_director", directorEdit->text());
-
-        if (tlsCheckBox->isChecked()) {
-            BaculaDirector::TLSConfig tlsConfig;
-            tlsConfig.tlsEnable = tlsCheckBox->isChecked();
-
-             if(!caCertEdit->text().isEmpty())
-            {
-                tlsConfig.tlsCaCertFile->setFileName(caCertEdit->text());
-                settings.setValue("tls_ca_cert_file",caCertEdit->text());
-            }
+        // Speichere Einstellungen
+        settings.setValue("host", hostEdit->text());
+        settings.setValue("port", portSpin->value());
+        settings.setValue("director", directorEdit->text());
+        settings.setValue("password", passwordEdit->text());
+        settings.setValue("tls_enabled", tlsEnableCheckBox->isChecked());
+        settings.setValue("tls_require", tlsRequireCheckBox->isChecked());
+        settings.setValue("tls_psk_enabled", tlsPSKEnableCheckBox->isChecked());
+        settings.setValue("tls_verify_peer", tlsVerifyPeerCheckBox->isChecked());
+        settings.setValue("tls_ca_cert_file", caCertEdit->text());
 
 #ifdef Q_OS_WINDOWS
-        if(!pfxFileEdit->text().isEmpty()){
-            tlsConfig.tlsPfxFile->setFileName(pfxFileEdit->text());
-            settings.setValue("tls_pfx_file",pfxFileEdit->text());
-        }
-
-        if(!pfxPasswordEdit->text().isEmpty()){
-            tlsConfig.tlsPfxPassword = pfxPasswordEdit->text();
-            settings.setValue("tls_pfx_file",pfxPasswordEdit->text());
-        }
+        settings.setValue("tls_pfx_file", pfxFileEdit->text());
+        settings.setValue("tls_pfx_password", pfxPasswordEdit->text());
 #else
-            tlsConfig.tlsCertFile->setFileName(certEdit->text());
-            tlsConfig.tlsKeyFile = "";
-#endif
-
-#ifdef USE_BAREOS
-
-#ifdef Q_OS_WINDOWS
-#else
-            tlsConfig.caCertFile = caCertEdit->text();
-            tlsConfig.keyFile = keyEdit->text();
-#endif //Q_OS_WINDOWS
-            m_director->connectBConsole(
-                hostEdit->text(),
-                portSpin->value(),
-                directorEdit->text(),
-                passwordEdit->text(),
-                tlsConfig
-            );
-        }
-        else {
-            m_director->connectRestAPI(
-                urlEdit->text(),
-                usernameEdit->text(),
-                restPasswordEdit->text()
-            );
-        }
-#else
-
-
-    m_director->connectBConsole(
-        hostEdit->text(),
-        portSpin->value(),
-        directorEdit->text(),
-        passwordEdit->text(),
-        tlsConfig
-        );
-
+        settings.setValue("tls_cert_file", certEdit->text());
+        settings.setValue("tls_key_file", keyEdit->text());
 #endif
         settings.endGroup();
+
+        // TLS-Konfiguration setzen
+        m_director->tlsConfig()->tlsEnable = tlsEnableCheckBox->isChecked();
+        m_director->tlsConfig()->tlsRequire = tlsRequireCheckBox->isChecked();
+        m_director->tlsConfig()->tlsPSKEnable = tlsPSKEnableCheckBox->isChecked();
+        m_director->tlsConfig()->tlsVerifyPeer = tlsVerifyPeerCheckBox->isChecked();
+
+        if (!caCertEdit->text().isEmpty()) {
+            m_director->tlsConfig()->tlsCaCertFile->setFileName(caCertEdit->text());
+        }
+
+#ifdef Q_OS_WINDOWS
+        if (!pfxFileEdit->text().isEmpty()) {
+            m_director->tlsConfig()->tlsPfxFile->setFileName(pfxFileEdit->text());
+            m_director->tlsConfig()->tlsPfxPassword = pfxPasswordEdit->text();
+        }
+#else
+        if (!certEdit->text().isEmpty()) {
+            m_director->tlsConfig()->tlsCertFile->setFileName(certEdit->text());
+        }
+        if (!keyEdit->text().isEmpty()) {
+            m_director->tlsConfig()->tlsKeyFile->setFileName(keyEdit->text());
+        }
+#endif
+
+        // Verbindung herstellen
+        m_director->connect(
+            hostEdit->text(),
+            portSpin->value(),
+            directorEdit->text(),
+            passwordEdit->text()
+            );
+
         m_statusLabel->setText("Verbindung wird hergestellt...");
     }
 }
-}
-
 void MainWindow::onDisconnectTriggered()
 {
     m_director->disconnect();
@@ -475,10 +447,8 @@ void MainWindow::updateConnectionStatus(bool connected)
     m_disconnectAction->setEnabled(connected);
     m_refreshAction->setEnabled(connected);
     
-    if (connected) {
-        QString connType = (m_director->connectionType() == BaculaDirector::BConsole) 
-                          ? "Bconsole" : "REST-API";
-        m_connectionLabel->setText("Verbunden (" + connType + ")");
+    if (connected) {        
+        m_connectionLabel->setText("Verbunden (" ")");
         m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
     } else {
         m_connectionLabel->setText("Nicht verbunden");
@@ -494,16 +464,9 @@ void MainWindow::onRefreshAll()
     
     m_statusLabel->setText("Aktualisiere Daten...");
     
-    if (m_director->connectionType() == BaculaDirector::RestAPI) {
-        m_director->restGetJobs();
-        m_director->restGetClients();
-        m_director->restGetVolumes();
-    } else {
-        m_director->listJobs();
-        m_director->listClients();
-        m_director->listVolumes();
-    }
-    
+    m_director->listJobs();
+    m_director->listClients();
+    m_director->listVolumes();
     m_statusLabel->setText("Aktualisierung abgeschlossen");
 }
 
@@ -528,26 +491,26 @@ void MainWindow::loadAndConnectLastUsed()
     m_director->loadConnectionSettings();
     
   /*   QSettings settings("Bacula", "Onesimus");
-   BaculaDirector::ConnectionType type = static_cast<BaculaDirector::ConnectionType>(
+   Director::ConnectionType type = static_cast<Director::ConnectionType>(
         settings.value("Connection/type", 0).toInt()
     );
     
-    if (type == BaculaDirector::BConsole) {
+    if (type == Director::BConsole) {
         QString host = settings.value("Connection/bconsole_host", "localhost").toString();
         int port = settings.value("Connection/bconsole_port", 9101).toInt();
         QString director = settings.value("Connection/bconsole_director", "bacula-dir").toString();
         QString password = settings.value("Connection/bconsole_password").toString();
         
-        BaculaDirector::TLSConfig tlsConfig;
-        tlsConfig.tlsEnable = settings.value("Connection/tls_enabled", false).toBool();
-        tlsConfig.tlsCaCertFile->setFileName(settings.value("Connection/tls_ca_cert_file").toString());
+        Director::TLSConfig tlsConfig;
+        m_director->tlsConfig()->tlsEnable = settings.value("Connection/tls_enabled", false).toBool();
+        m_director->tlsConfig()->tlsCaCertFile->setFileName(settings.value("Connection/tls_ca_cert_file").toString());
 
 #ifdef Q_OS_WINDOWS
-        tlsConfig.tlsPfxFile->setFileName(settings.value("Connection/tls_pfx_file").toString());
-        tlsConfig.tlsPfxPassword =settings.value("Connection/tls_pfx_password").toString();
+        m_director->tlsConfig()->tlsPfxFile->setFileName(settings.value("Connection/tls_pfx_file").toString());
+        m_director->tlsConfig()->tlsPfxPassword =settings.value("Connection/tls_pfx_password").toString();
 #else
-        tlsConfig.tlsCertFile->setFileName(settings.value("Connection/tls_cert_file").toString());
-        tlsConfig.tlsKeyFile->setFileName(settings.value("Connection/tls_key_file").toString());
+        m_director->tlsConfig()->tlsCertFile->setFileName(settings.value("Connection/tls_cert_file").toString());
+        m_director->tlsConfig()->tlsKeyFile->setFileName(settings.value("Connection/tls_key_file").toString());
 #endif
         if (!password.isEmpty()) {
             m_director->connectBConsole(host, port, director, password, tlsConfig);
@@ -566,4 +529,14 @@ void MainWindow::loadAndConnectLastUsed()
     
     // Aktualisiere "Letzte Verbindung" Button Status
     m_connectLastAction->setEnabled(true);
+}
+
+Director *MainWindow::director() const
+{
+    return m_director;
+}
+
+void MainWindow::setDirector(Director *newDirector)
+{
+    m_director = newDirector;
 }

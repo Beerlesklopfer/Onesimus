@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QTableWidget>
 #include <QPushButton>
-#include "baculadirector.h"
+#include "director.h"
 
 namespace Ui {
 class StorageWidget;
@@ -15,21 +15,21 @@ class StorageWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit StorageWidget(BaculaDirector *director, QWidget *parent = nullptr);
+    explicit StorageWidget(Director *director, QWidget *parent = nullptr);
     ~StorageWidget();
 
 private slots:
-    void onVolumesReceived(const QList<BaculaDirector::VolumeInfo> &volumes);
+    void onVolumesReceived(const QList<Director::VolumeInfo> &volumes);
     void onRefreshClicked();
     void onVolumeSelectionChanged();
 
 private:
     void setupUI();
-    void updateVolumeTable(const QList<BaculaDirector::VolumeInfo> &volumes);
+    void updateVolumeTable(const QList<Director::VolumeInfo> &volumes);
     QString formatBytes(qint64 bytes);
 
     Ui::StorageWidget *ui;
-    BaculaDirector *m_director;
+    Director *m_director;
     QTableWidget *m_volumeTable;
     QPushButton *m_refreshButton;
 };

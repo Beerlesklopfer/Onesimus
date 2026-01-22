@@ -3,7 +3,7 @@
 #include <QHeaderView>
 #include <QVBoxLayout>
 
-ClientWidget::ClientWidget(BaculaDirector *director, QWidget *parent)
+ClientWidget::ClientWidget(Director *director, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::ClientWidget)
     , m_director(director)
@@ -11,7 +11,7 @@ ClientWidget::ClientWidget(BaculaDirector *director, QWidget *parent)
     ui->setupUi(this);
     setupUI();
     
-    connect(m_director, &BaculaDirector::clientsReceived, this, &ClientWidget::onClientsReceived);
+    connect(m_director, &Director::clientsReceived, this, &ClientWidget::onClientsReceived);
 }
 
 ClientWidget::~ClientWidget()
@@ -61,18 +61,18 @@ void ClientWidget::setupUI()
     connect(m_clientTable, &QTableWidget::itemSelectionChanged, this, &ClientWidget::onClientSelectionChanged);
 }
 
-void ClientWidget::onClientsReceived(const QList<BaculaDirector::ClientInfo> &clients)
+void ClientWidget::onClientsReceived(const QList<Director::ClientInfo> &clients)
 {
     updateClientTable(clients);
 }
 
-void ClientWidget::updateClientTable(const QList<BaculaDirector::ClientInfo> &clients)
+void ClientWidget::updateClientTable(const QList<Director::ClientInfo> &clients)
 {
     m_clientTable->setSortingEnabled(false);
     m_clientTable->setRowCount(clients.size());
     
     for (int i = 0; i < clients.size(); ++i) {
-        const BaculaDirector::ClientInfo &client = clients[i];
+        const Director::ClientInfo &client = clients[i];
         
         m_clientTable->setItem(i, 0, new QTableWidgetItem(client.name));
         m_clientTable->setItem(i, 1, new QTableWidgetItem(client.address));
@@ -101,11 +101,7 @@ void ClientWidget::onStatusClicked()
 
 void ClientWidget::onRefreshClicked()
 {
-    if (m_director->connectionType() == BaculaDirector::RestAPI) {
-        m_director->restGetClients();
-    } else {
-        m_director->listClients();
-    }
+    m_director->listClients();
 }
 
 void ClientWidget::onClientSelectionChanged()
