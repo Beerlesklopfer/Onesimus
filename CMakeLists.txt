@@ -27,6 +27,7 @@ if(BACKUP_SYSTEM STREQUAL "BACULA")
     set(USE_BACULA_ONLY TRUE)
 elseif(BACKUP_SYSTEM STREQUAL "BAREOS")
     set(USE_BAREOS_ONLY TRUE)
+    set(BAREOS_VERSION_STR "25.0.0")
 else()
     message(FATAL_ERROR "Invalid BACKUP_SYSTEM: ${BACKUP_SYSTEM}. Must be BACULA or BAREOS")
 endif()
@@ -187,9 +188,15 @@ if(USE_STATIC_OPENSSL)
         # Linux System-Bibliotheken
         set(OPENSSL_SYSTEM_LIBS pthread dl)
         
-        # Bibliotheksnamen
-        set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
-        set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib64/libssl.a)
+            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib64/libcrypto.a)
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
+            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
+        else()
+            message(FATAL_ERROR "Unknown architecture")
+        endif()        # Bibliotheksnamen
     endif()
     
     set(OPENSSL_INCLUDE_DIR ${OPENSSL_INSTALL_DIR}/include)
@@ -338,6 +345,7 @@ if(USE_BAREOS_ONLY)
     list(APPEND SOURCES src/bareosauth.cpp)
     list(APPEND HEADERS include/bareosauth.h)
     add_compile_definitions(USE_BAREOS)
+    add_compile_definitions(BAREOS_VERSION)
 endif()
 
 # UI-Dateien
@@ -348,6 +356,41 @@ set(UI_FILES
     ui/storagewidget.ui
     ui/settingsdialog.ui
 )
+
+# ============================================================================
+# Qt Ressourcen automatisch generieren und einbinden
+# ============================================================================
+
+set(RESOURCE_PREFIX_ICONS  icons)
+set(RESOURCE_PREFIX_IMAGES images)
+
+set(RESOURCE_CONTENT 
+    res/img/logo_bareos.png 
+    res/img/logo_bacula.png 
+    )
+
+# Generierte qrc-Datei im Build-Verzeichnis
+set(QT_AUTO_QRC ${CMAKE_BINARY_DIR}/resources_autogen.qrc)
+
+# qrc-Datei schreiben
+file(WRITE ${QT_AUTO_QRC} "<!DOCTYPE RCC><RCC version=\"1.0\">\n")
+file(APPEND ${QT_AUTO_QRC} "<qresource prefix=\"/${RESOURCE_PREFIX_IMAGES}\">\n")
+
+foreach(res_file IN LISTS RESOURCE_CONTENT)
+    # Nur der Dateiname als Alias
+    get_filename_component(res_name ${res_file} NAME)
+    file(APPEND ${QT_AUTO_QRC} "    <file alias=\"${res_name}\">${CMAKE_SOURCE_DIR}/${res_file}</file>\n")
+endforeach()
+
+file(APPEND ${QT_AUTO_QRC} "</qresource>\n</RCC>\n")
+
+# CMake Qt Ressourcen automatisch kompilieren
+qt6_add_resources(QT_RESOURCES
+    ${QT_AUTO_QRC}
+)
+
+# Kompilierte Ressourcen zu den Quellen hinzufügen
+list(APPEND SOURCES ${QT_RESOURCES})
 
 # ============================================================================
 # Executable Target
@@ -405,7 +448,8 @@ message(STATUS "Install:       ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "")
 message(STATUS "Qt Version:    ${Qt6_VERSION}")
 message(STATUS "C++ Standard:  ${CMAKE_CXX_STANDARD}")
-message(STATUS "")
+message(STATUS "========================================")
+
 if(USE_STATIC_OPENSSL)
     message(STATUS "OpenSSL:       Static (auto-downloaded via git submodule)")
     if(OPENSSL_VERSION_STRING)

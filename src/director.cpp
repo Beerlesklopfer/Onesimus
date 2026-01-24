@@ -1,4 +1,4 @@
-#include "director.h"
+#include <director.h>
 
 /**
  * @file director.cpp
@@ -43,14 +43,14 @@ Director::Director(QObject *parent)
     , m_connected(false)
     , m_useApiMode(true)  // API-Modus standardmäßig aktivieren
 {
-    m_sslSocket = new QSslSocket(this);
     m_tlsConfig = new TLSConfig();
+    m_sslSocket = new QSslSocket(this);
 
     // Nur SSL Socket-Verbindungen (funktioniert auch für plain TCP)
     QObject::connect(m_sslSocket, &QSslSocket::encrypted, this, &Director::onEncrypted);
     QObject::connect(m_sslSocket, &QSslSocket::connected, this, &Director::onConnected);
     QObject::connect(m_sslSocket, &QSslSocket::disconnected, this, &Director::onDisconnected);
-    QObject::connect(m_sslSocket, &QSslSocket::readyRead, this, &Director::onReadyRead);
+    // QObject::connect(m_sslSocket, &QSslSocket::readyRead, this, &Director::onReadyRead);
     QObject::connect(m_sslSocket, &QSslSocket::errorOccurred, this, &Director::onError);
     QObject::connect(m_sslSocket, QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
                      this, &Director::onSslErrors);
@@ -118,6 +118,9 @@ Director::~Director()
     // Clean up
     delete m_tlsConfig;
     m_tlsConfig = nullptr;
+
+    delete m_sslSocket;
+    m_sslSocket = nullptr;
 }
 
 /**
@@ -156,11 +159,10 @@ void Director::connect(const QString &host, int port, const QString &directorNam
                        const QString &password)
 {
     qDebug() << "========================================";
-    qDebug() << "CONNECTING TO" << backupSystemName() << "DIRECTOR";
+    qDebug() << "CONNECTING TO" << backupSystemName() << "DIRECTOR" << directorName;
     qDebug() << "========================================";
     qDebug() << "Host:" << host;
     qDebug() << "Port:" << port;
-    qDebug() << "Director:" << directorName;
     qDebug() << "Password present:" << (!password.isEmpty());
     qDebug() << "========================================";
 
@@ -177,7 +179,9 @@ void Director::connect(const QString &host, int port, const QString &directorNam
 
 
     qDebug() << "Connecting via plain TCP...";
+    if (m_tlsConfig->tlsEnable) {
     qDebug() << "(TLS/PSK will be negotiated after 'starttls' response)";
+    }
 
     // Nur TCP verbinden - TLS kommt NACH dem "starttls" vom Director
     m_sslSocket->connectToHost(host, port);
@@ -505,22 +509,24 @@ void Director::startAuthentication()
                      this, &Director::onAuthenticationFailed);
     QObject::connect(m_auth, &AUTH_CLASS::statusMessage,
                      this, &Director::onAuthStatusMessage);
-
-    bool usePSK = !m_password.isEmpty();  // PSK wenn Passwort vorhanden
+    
+    // PSK wenn Passwort vorhanden
+    bool usePSK = !m_password.isEmpty() && m_tlsConfig->tlsEnable;  
 
     qDebug() << "PSK will be used:" << usePSK << "(password present:" << !m_password.isEmpty() << ")";
 
     // Start authentication
-    bool started = m_auth->authenticateDirector(
+    bool authentificated = m_auth->authenticateDirector(
         m_directorName,
         PROJECT_NAME,
         m_password,
         m_tlsConfig->tlsEnable,
         m_tlsConfig->tlsRequire,
+        m_tlsConfig->tlsVerifyPeer,
         usePSK
         );
 
-    if (!started) {
+    if (!authentificated) {
         qCritical() << "Failed to start authentication:" << m_auth->getErrorMessage();
         onAuthenticationFailed(m_auth->getErrorMessage());
     }

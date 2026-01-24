@@ -28,7 +28,11 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     
+#if USE_BACULA
     setWindowTitle("Onesimus - Bacula Backup Management");
+#elif defined(USE_BAREOS)
+    setWindowTitle("Onesimus - Bareos Backup Management");
+#endif
     resize(1200, 800);
     
     m_director = new Director(this);
@@ -166,8 +170,13 @@ void MainWindow::showConnectionDialog()
     // Lade gespeicherte Einstellungen
     m_director->loadConnectionSettings();
 
+#if USE_BACULA
     QSettings settings("Bacula", QCoreApplication::applicationName());
-    settings.beginGroup("Connection");
+#elif defined(USE_BAREOS)
+    QSettings settings("Bareos", QCoreApplication::applicationName());
+#endif
+
+settings.beginGroup("Connection");
 
     // Bconsole-Verbindungsfelder
     QGroupBox *connectionGroup = new QGroupBox("Bareos Director", &dialog);
@@ -395,20 +404,90 @@ void MainWindow::onDisconnectTriggered()
     m_statusLabel->setText("Getrennt");
 }
 
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QPixmap>
+
 void MainWindow::onAboutTriggered()
 {
-    QMessageBox::about(this, "Über Onesimus",
-        "<h3>Onesimus v1.0</h3>"
-        "<p>Eine moderne Qt-Oberfläche für Bacula Backup</p>"
+    // Dialog erstellen
+    QDialog aboutDialog(this);
+    aboutDialog.setWindowTitle("Über Onesimus");
+    aboutDialog.setMinimumSize(400, 300);
+
+    // Hauptlayout
+    QVBoxLayout* mainLayout = new QVBoxLayout(&aboutDialog);
+
+    // Überschrift
+    QLabel* titleLabel = new QLabel("<h2>Onesimus v1.0</h2>");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    mainLayout->addWidget(titleLabel);
+
+    // Horizontaler Container für Bild + Text
+    QHBoxLayout* contentLayout = new QHBoxLayout();
+
+    // Logo
+    QLabel* logoLabel = new QLabel();
+#if USE_BACULA
+    logoLabel->setPixmap(QPixmap(":/images/logo_bacula.png").scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+#elif defined(USE_BAREOS)
+    logoLabel->setPixmap(QPixmap(":/images/logo_bareos.png").scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+#endif
+    contentLayout->addWidget(logoLabel);
+
+    // Text neben dem Bild
+    QLabel* textLabel = new QLabel();
+#if USE_BACULA
+    textLabel->setText("<p>Eine moderne Qt-Oberfläche für Bacula Backup</p>");
+#elif defined(USE_BAREOS)
+    textLabel->setText("<p>Eine moderne Qt-Oberfläche für Bareos Backup</p>");
+#endif
+    textLabel->setWordWrap(true);
+    contentLayout->addWidget(textLabel);
+
+    mainLayout->addLayout(contentLayout);
+
+    // Unterstützte Features
+    QLabel* featuresLabel = new QLabel(
         "<p>Unterstützt:</p>"
         "<ul>"
-        "<li>Bconsole TCP-Verbindung</li>"
-        "<li>REST-API-Verbindung</li>"
+        "<li>Console TCP-Verbindungen über SSL/TLS</li>"
         "<li>Job-Verwaltung</li>"
         "<li>Client-Verwaltung</li>"
         "<li>Storage/Volume-Verwaltung</li>"
         "</ul>"
-        "<p>© 2026</p>");
+        "<p>© 2026</p>"
+    );
+    featuresLabel->setWordWrap(true);
+    mainLayout->addWidget(featuresLabel);
+
+    // Horizontaler Container für Buttons
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    
+    // Schließen-Button
+    QPushButton* closeButton = new QPushButton("Schließen");
+    QObject::connect(closeButton, &QPushButton::clicked, &aboutDialog, &QDialog::accept);
+    buttonLayout->addWidget(closeButton);
+
+    // Über Qt Button mit Qt-Logo
+    QPushButton* aboutQtButton = new QPushButton("Über Qt");
+
+    // Qt-Logo aus Ressourcen (oder Standard Qt Icon verwenden)
+    QPixmap qtLogo(":/icons/qt_logo.png"); // Füge das Qt-Logo in deine Ressourcen hinzu
+    aboutQtButton->setIcon(QIcon(qtLogo));
+    aboutQtButton->setIconSize(QSize(24, 24));
+
+    QObject::connect(aboutQtButton, &QPushButton::clicked, this, &QApplication::aboutQt);
+    buttonLayout->addWidget(aboutQtButton);
+
+    // Buttons zum Hauptlayout hinzufügen, zentriert
+    mainLayout->addLayout(buttonLayout);
+    
+    // Dialog anzeigen (modal)
+    aboutDialog.exec();
 }
 
 void MainWindow::onSettingsTriggered()

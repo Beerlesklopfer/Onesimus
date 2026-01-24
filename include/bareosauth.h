@@ -8,15 +8,13 @@
  *
  * @author Original Bacula code by Kern Sibbald
  * @author Bareos modifications by Bareos GmbH & Co. KG
- * @author Qt port by [Your Name]
+ * @author Qt port by Jörg Bernau
  *
  * @version 1.0.0
  * @date 2025-01-22
  *
  * @copyright Copyright (c) 2025
  * @license AGPL-3.0-or-later
- *
- * Based on Bareos's cram_md5.cc, bsock.cc and console.cc
  *
  * @par Key Differences from Bacula:
  * - TLS-PSK is established BEFORE CRAM-MD5 authentication (since Bareos 18.2)
@@ -43,20 +41,61 @@
 #include <QRandomGenerator>
 #include <QSslPreSharedKeyAuthenticator>
 
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+#include <openssl/md5.h>
+
+constexpr int PAD_LEN = 64; // HMAC block size
+constexpr int SIG_LEN = 16; // MD5 output size
+
+static uint8_t constexpr base64_digits[64]
+    = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+       'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+       'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+       'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+       '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+
+#define MAXHOSTNAMELEN 50
+#define MD5ENCODEDLEN  16
+
+#if defined(HAVE_GCC)
+#  define IGNORE_DEPRECATED_ON      \
+_Pragma("GCC diagnostic push"); \
+    _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"");
+#  define IGNORE_DEPRECATED_OFF _Pragma("GCC diagnostic pop")
+#elif defined(HAVE_CLANG)
+#  define IGNORE_DEPRECATED_ON        \
+_Pragma("clang diagnostic push"); \
+    _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"");
+#  define IGNORE_DEPRECATED_OFF _Pragma("clang diagnostic pop")
+#elif defined(HAVE_MSVC)
+#  define IGNORE_DEPRECATED_ON  \
+_Pragma("warning( push )"); \
+    _Pragma("warning( disable : 4996 )")
+#  define IGNORE_DEPRECATED_OFF _Pragma("warning( pop )")
+#else
+#  define IGNORE_DEPRECATED_ON
+#  define IGNORE_DEPRECATED_OFF
+#endif
+
 /**
  * @defgroup BareosAuthVersion Version Information
  * @{
  */
-#define BAREOSAUTH_VERSION_MAJOR 1  ///< Major version number
-#define BAREOSAUTH_VERSION_MINOR 0  ///< Minor version number
-#define BAREOSAUTH_VERSION_PATCH 0  ///< Patch version number
+#define BAREOSAUTH_VERSION_MAJOR 1 ///< Major version number
+#define BAREOSAUTH_VERSION_MINOR 0 ///< Minor version number
+#define BAREOSAUTH_VERSION_PATCH 0 ///< Patch version number
+
+#ifndef BAREOS_VERSION_STR
+#define BAREOS_VERSION_STR "25.0.0"
+#endif
 
 /** @brief Full version string */
 #define BAREOSAUTH_VERSION_STRING "1.0.0"
 
 /** @brief Version as integer for comparisons (1.0.0 = 10000) */
 #define BAREOSAUTH_VERSION ((BAREOSAUTH_VERSION_MAJOR * 10000) + \
-                            (BAREOSAUTH_VERSION_MINOR * 100) + \
+                            (BAREOSAUTH_VERSION_MINOR * 100) +   \
                             BAREOSAUTH_VERSION_PATCH)
 /** @} */
 
@@ -81,10 +120,10 @@
  * @brief Bareos resource type identifiers
  * @details Used in challenge messages: R_TYPE::name
  */
-#define BAREOS_R_DIRECTOR  "R_DIRECTOR"
-#define BAREOS_R_CONSOLE   "R_CONSOLE"
-#define BAREOS_R_CLIENT    "R_CLIENT"
-#define BAREOS_R_STORAGE   "R_STORAGE"
+#define BAREOS_R_DIRECTOR "R_DIRECTOR"
+#define BAREOS_R_CONSOLE "R_CONSOLE"
+#define BAREOS_R_CLIENT "R_CLIENT"
+#define BAREOS_R_STORAGE "R_STORAGE"
 
 /** @} */
 
@@ -97,12 +136,12 @@
 /**
  * @brief TLS not available/disabled (cleartext)
  */
-#define BAREOS_TLS_NONE     0
+#define BAREOS_TLS_NONE 0
 
 /**
  * @brief TLS available but not required (TLS-Cert possible)
  */
-#define BAREOS_TLS_OK       1
+#define BAREOS_TLS_OK 1
 
 /**
  * @brief TLS is required for connection (TLS-Cert required)
@@ -120,7 +159,7 @@
 /**
  * @brief Record Separator for PAM messages (ASCII 0x1e)
  */
-#define BAREOS_PAM_RS       "\x1e"
+#define BAREOS_PAM_RS "\x1e"
 
 /**
  * @brief PAM authentication required message code
@@ -140,9 +179,9 @@
 /**
  * @brief PAM result codes
  */
-#define BAREOS_PAM_SUCCESS          0x0  ///< Authentication successful
-#define BAREOS_PAM_PROMPT_ECHO_OFF  0x1  ///< Hidden input (password)
-#define BAREOS_PAM_PROMPT_ECHO_ON   0x2  ///< Visible input (username)
+#define BAREOS_PAM_SUCCESS 0x0         ///< Authentication successful
+#define BAREOS_PAM_PROMPT_ECHO_OFF 0x1 ///< Hidden input (password)
+#define BAREOS_PAM_PROMPT_ECHO_ON 0x2  ///< Visible input (username)
 
 /** @} */
 
@@ -150,38 +189,41 @@
  * @enum BareosTLSRequirementResult
  * @brief Results of TLS requirement negotiation
  */
-enum BareosTLSRequirementResult {
-    BAREOS_TLS_REQ_OK,         ///< TLS requirements are compatible
-    BAREOS_TLS_REQ_ERR_LOCAL,  ///< Local TLS requirements not met by remote
-    BAREOS_TLS_REQ_ERR_REMOTE  ///< Remote TLS requirements not met by local
+enum BareosTLSRequirementResult
+{
+    BAREOS_TLS_REQ_OK,        ///< TLS requirements are compatible
+    BAREOS_TLS_REQ_ERR_LOCAL, ///< Local TLS requirements not met by remote
+    BAREOS_TLS_REQ_ERR_REMOTE ///< Remote TLS requirements not met by local
 };
 
 /**
- * @brief Converts binary data to Bareos-compatible Base64
+ * @brief States for the CRAM-MD5 bidirectional handshake.
  *
- * Bareos uses a standard Base64 encoding but without padding characters.
- * This is used for CRAM-MD5 authentication responses.
+ * Diese Enum beschreibt alle möglichen Zustände während
+ * der Authentifizierung zwischen Bareos Client und Director.
  *
- * @param data Binary data to encode
- * @return QString Base64-encoded string without padding
- *
- * @note Bareos's Base64 removes the '=' padding characters
- *
- * @par Example:
- * @code
- * QByteArray hmac = calculateHMAC(...);
- * QString encoded = bareosBase64Encode(hmac);
- * // encoded will be like "NA31sq0e02zQukZvhKKaAQ" (no padding)
- * @endcode
+ * Die Zustände berücksichtigen sowohl den Empfang als auch
+ * das Senden von Challenges und Responses.
  *
  * @since 1.0.0
+ * @version 1.0.0
  */
-static QString bareosBase64Encode(const QByteArray &data)
+enum class BCramState
 {
-    QString base64 = QString::fromLatin1(data.toBase64());
-    base64.remove('=');  // Remove padding
-    return base64;
-}
+    CRAM_IDLE,                        /**< Initialzustand, noch kein Hello gesendet */
+    CRAM_HELLO_SENT,                  /**< Client hat Hello gesendet, wartet auf Director-Challenge */
+    CRAM_WAITING_DIRECTOR_CHALLENGE,  /**< Client wartet aktiv auf Challenge vom Director */
+    CRAM_DIRECTOR_CHALLENGE_RECEIVED, /**< Challenge vom Director empfangen, HMAC noch nicht gesendet */
+    CRAM_CLIENT_RESPONSE_SENT,        /**< Client hat HMAC-Response auf Director-Challenge gesendet */
+    CRAM_SENDING_CLIENT_CHALLENGE,    /**< Client wartet aktiv auf Challenge vom Director */
+    CRAM_CLIENT_CHALLENGE_SENT,       /**< Challenge vom Director empfangen, HMAC noch nicht gesendet */
+    CRAM_DIRECTOR_RESPONSE_RECIVED,   /**< Client hat HMAC-Response auf Director-Challenge gesendet */
+    CRAM_AUTHENTICATED,               /**< Director, Klient hat die Response akzeptiert (1000 OK), Auth erfolgreich */
+    CRAM_FAILED,                      /**< Timeout oder Netzwerk-/Protokollfehler, Auth fehlgeschlagen */
+    CRAM_FORMAT_MISMATCH,
+    CRAM_WRONG_HASH,
+    CRAM_REPLAY_ATTACK
+};
 
 /**
  * @class BareosAuth
@@ -302,7 +344,8 @@ public:
                               const QString &password,
                               bool tlsEnable,
                               bool tlsRequire,
-                              bool tlsPSKEnable = true);
+                              bool tlsVerifyPeer = false,
+                              bool tlsPSKEnable = false);
 
     /**
      * @brief Gets the last error message
@@ -351,6 +394,17 @@ public:
      */
     static int versionNumber() { return BAREOSAUTH_VERSION; }
 
+    enum class BnetStatus
+    {
+        Ok,         // Normale Daten
+        Empty,      // Leere Nachricht (pktsiz == 0)
+        Signal,     // Protokoll-Signal (pktsiz < 0)
+        Terminated, // TERMINATE / Verbindung beendet
+        Eof,        // Peer hat Verbindung geschlossen
+        Error       // Socket- oder Protokollfehler
+    };
+    Q_ENUM(BnetStatus)
+
 signals:
     /**
      * @brief Emitted when authentication succeeds
@@ -389,26 +443,31 @@ signals:
     void pamAuthenticationRequired();
 
 private:
-    /// @name Member Variables
+    /// @name Private Member Variables
     /// @{
-    QSslSocket *m_socket;           ///< SSL socket for communication
-    QTimer *m_authTimer;            ///< Authentication timeout timer
-    QString m_errorMessage;         ///< Last error message
-    int m_directorVersion;          ///< Director protocol version (numeric)
-    QString m_directorVersionString;///< Director version string
+    QSslSocket *m_socket;            ///< SSL socket for communication
+    QByteArray m_readBuffer;         ///< buffer for readings from socket
+    QByteArray m_writeBuffer;        ///< buffer for writings to socket
+    QTimer *m_authTimer;             ///< Authentication timeout timer
+    QString m_errorMessage;          ///< Last error message
+    int m_directorVersion;           ///< Director protocol version (numeric)
+    QString m_directorVersionString; ///< Director version string
 
-    QString m_directorName;         ///< Director name for authentication
-    QString m_consoleName;          ///< Console name for authentication
-    QString m_password;             ///< Password for CRAM-MD5 and PSK
-    QByteArray m_passwordMD5;       ///< MD5 hash of password for PSK
+    QString m_directorName; ///< Director name for authentication
+    QString m_consoleName;  ///< Console name for authentication
+    QByteArray m_password;  ///< Password for CRAM-MD5 and PSK
 
-    int m_tlsLocalNeed;             ///< Local TLS requirement level
-    int m_tlsRemoteNeed;            ///< Remote TLS requirement level
-    bool m_tlsPSKEnable;            ///< PSK-TLS enabled flag
+    BCramState m_cramState; ///< State mache flags of handshake
+    int m_tlsLocalNeed;     ///< Local TLS requirement level
+    int m_tlsRemoteNeed;    ///< Remote TLS requirement level
 
-    bool m_tlsStarted;              ///< TLS encryption active flag
-    bool m_authSuccess;             ///< Authentication success flag
-    QByteArray m_readBuffer;        ///< Buffer for incoming data
+    bool m_tlsLocalEnable;  ///< Local TLS enabled flag
+    bool m_tlsLocalRequire; ///< Local TLS requirement flag
+    bool m_tlsVerifyPeer;   ///< TLS peer verifivation enabled flag
+    bool m_tlsPSKEnable;    ///< PSK-TLS enabled flag
+
+    bool m_tlsStarted;       ///< TLS encryption active flag
+    bool m_authSuccess;      ///< Authentication success flag
     /// @}
 
     /// @name TLS/PSK Helper Methods
@@ -475,86 +534,70 @@ private:
     QByteArray createBareosPacket(const QString &message);
 
     /**
-     * @brief Sends a message using Bareos protocol
+     * @brief Sends a message without formating
      *
-     * @param message Message to send
-     * @return true if message was sent successfully
+     * Each message is prefixed by a 4-byte signed big-endian length.
+     *
+     * @param[in] data The payload to send (QByteArray)
+     * @return BnetStatus describing the result
      *
      * @since 1.0.0
+     * @version 1.0.0
      */
-    bool sendBareosMessage(const QString &message);
+    BnetStatus bsend(const QByteArray &message);
 
     /**
-     * @brief Reads a message using Bareos protocol
+     * @brief Sends a formated message using the Bareos protocol
      *
-     * @param message Output: received message
+     * Each message is prefixed by a 4-byte signed big-endian length.
+     *
+     * @param[in] data The payload to send (QByteArray)
+     * @return BnetStatus describing the result
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    BnetStatus bfsend(const QByteArray &message);
+
+    /**
+     * @brief Receives a message using Bareos protocol
+     *
+     * @param[out] data Received payload
      * @param timeoutMs Timeout in milliseconds
-     * @return true if message was received successfully
-     *
-     * @since 1.0.0
+     * @param maxPacketSize Maximum allowed packet size
+     * @return BnetStatus describing the result
      */
-    bool readBareosMessage(QString &message, int timeoutMs = 5000);
+    BnetStatus brecv(
+        QByteArray &data,
+        int timeoutMs = 30000,
+        int32_t maxPacketSize = 1024 * 1024);
 
-    /**
-     * @brief Waits for data to be available
-     *
-     * @param timeoutMs Timeout in milliseconds
-     * @return true if data is available
-     *
-     * @since 1.0.0
-     */
-    bool waitForResponse(int timeoutMs = 180000);
-
-    /**
-     * @brief Performs CRAM-MD5 authentication sequence
-     *
-     * For Bareos, this is performed AFTER TLS-PSK is established.
-     *
-     * @param password Password for CRAM-MD5
-     * @return true if authentication succeeded
-     *
-     * @since 1.0.0
-     */
-    bool clientCramMD5Authenticate(const QString &password);
     /// @}
 
     /// @name CRAM-MD5 Implementation
     /// @{
 
     /**
-     * @brief Responds to Director's CRAM-MD5 challenge
-     *
-     * Parses the challenge, computes HMAC-MD5, and sends response.
-     *
-     * @param password Password for HMAC computation
-     * @return true if response accepted
-     *
-     * @since 1.0.0
-     */
-    bool cramMD5Respond(const QString &password);
-
-    /**
-     * @brief Challenges the Director with CRAM-MD5
+     * @brief Challenges the Director with CRAM-MD5 2nd Handshake
      *
      * Sends a challenge and verifies the Director's response.
      *
-     * @param password Password for HMAC computation
      * @return true if Director's response is valid
      *
      * @since 1.0.0
      */
-    bool cramMD5Challenge(const QString &password);
+    bool cramMD5Challenge();
 
     /**
-     * @brief Generates a CRAM-MD5 challenge string
+     * @brief Challenges the Director with CRAM-MD5 1st Handshake
      *
-     * Format: <random.timestamp@R_CONSOLE::ConsoleName>
+     * Sends a challenge and verifies the Director's response.
      *
-     * @return QString Challenge string
+     * @return true if Director's response is valid
      *
      * @since 1.0.0
      */
-    QString generateChallenge();
+    bool cramMD5Response(const QByteArray challenge);
 
     /**
      * @brief Computes HMAC-MD5 hash
@@ -606,6 +649,65 @@ private:
     bool parseDirectorVersion(const QString &response);
     /// @}
 
+    /**
+     * @brief Computes HMAC-MD5 digest of given data using the specified key.
+     *
+     * This implementation uses OpenSSL's `HMAC()` function with `EVP_md5()`,
+     * ensuring byte-compatibility with the traditional MD5_CTX approach.
+     *
+     * The output is exactly 16 bytes (128 bits), suitable for Bareos protocol HMAC.
+     *
+     * @param text The input data to hash.
+     * @param key The secret key used for HMAC.
+     * @return QByteArray The resulting 16-byte HMAC-MD5 digest.
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    const QByteArray hmac_md5(const QByteArray &challenge, const QByteArray &key_str);
+
+    /**
+     * @brief Converts binary data to Bareos-compatible Base64
+     *
+     * Bareos uses a standard Base64 encoding but without padding characters.
+     * This is used for CRAM-MD5 authentication responses.
+     *
+     * @param data Binary data to encode
+     * @return QString Base64-encoded string without padding
+     *
+     * @note Bareos's Base64 removes the '=' padding characters
+     *
+     * @par Example:
+     * @code
+     * QByteArray hmac = calculateHMAC(...);
+     * QString encoded = bareosBase64Encode(hmac);
+     * // encoded will be like "NA31sq0e02zQukZvhKKaAQ" (no padding)
+     * @endcode
+     *
+     * @since 1.0.0
+     */
+    const QByteArray base64Encode(const QByteArray &data, bool isCompatible = false);
+
+    /**
+     * @brief Converts binary data to Bareos-compatible Base64
+     *
+     * Bareos uses a standard Base64 encoding but without padding characters.
+     * This is used for CRAM-MD5 authentication responses.
+     *
+     * @param data Binary data to encode
+     * @return QString Base64-encoded string without padding
+     *
+     * @note Bareos's Base64 removes the '=' padding characters
+     *
+     * @par Example:
+     * @code
+     * QByteArray hmac= base64Decode(hmac);
+     * @endcode
+     *
+     * @since 1.0.0
+     */
+    const QByteArray base64Decode(const QByteArray &data, bool isCompatible = false);
+
 private slots:
     /**
      * @brief Handles authentication timeout
@@ -613,6 +715,20 @@ private slots:
      * @since 1.0.0
      */
     void onAuthTimeout();
+
+    /**
+     * @brief Handles all readings from director
+     *
+     * @since 1.0.0
+     */
+    void onReadyRead();
+
+    /**
+     * @brief Handles all readings from director
+     *
+     * @since 1.0.0
+     */
+    void onBytesWritten(qint64 bytes);
 
     /**
      * @brief Handles TLS encryption established
