@@ -122,7 +122,8 @@ void JobWidget::onRunJobClicked()
         "Job-Name:", QLineEdit::Normal, "", &ok);
     
     if (ok && !jobName.isEmpty()) {
-        m_director->runJob(jobName);
+        m_director->sendCommand(Director::DirectorCommand::Run, jobName);
+
         QMessageBox::information(this, "Job gestartet", 
             QString("Job '%1' wurde gestartet.").arg(jobName));
     }
@@ -136,7 +137,7 @@ void JobWidget::onCancelJobClicked()
     }
     
     int row = selectedItems.first()->row();
-    int jobId = m_jobTable->item(row, 0)->text().toInt();
+    quint64 jobId = m_jobTable->item(row, 0)->text().toInt();
     QString jobName = m_jobTable->item(row, 1)->text();
     
     int ret = QMessageBox::question(this, "Job abbrechen",
@@ -145,7 +146,7 @@ void JobWidget::onCancelJobClicked()
         QMessageBox::Yes | QMessageBox::No);
     
     if (ret == QMessageBox::Yes) {
-        m_director->cancelJob(jobId);
+        m_director->sendCommand(Director::DirectorCommand::Cancel, jobId);
         QMessageBox::information(this, "Job abgebrochen", 
             QString("Job %1 wurde abgebrochen.").arg(jobId));
     }
@@ -158,14 +159,14 @@ void JobWidget::onShowDetailsClicked()
         return;
     }
     
-    int row = selectedItems.first()->row();
+    quint64 row = selectedItems.first()->row();
     int jobId = m_jobTable->item(row, 0)->text().toInt();
-    m_director->showJobDetails(jobId);
+    //// m_director->sendCommand(Director::DirectorCommand::ListJobDetails, 100);
 }
 
 void JobWidget::onRefreshClicked()
 {
-    m_director->listJobs();
+    m_director->sendCommand(Director::DirectorCommand::ListJobs, "100");
 }
 
 void JobWidget::onJobSelectionChanged()

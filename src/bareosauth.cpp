@@ -54,7 +54,7 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     }
     else
     {
-        m_password = QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Md5);
+        m_password = QCryptographicHash::hash(password.toLatin1(), QCryptographicHash::Md5);
     }
 
     // Store authentication parameters
@@ -66,8 +66,8 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     m_tlsPSKEnable = tlsPSKEnable;
 
     // Initializing asyncrounous processing
-    QObject::connect(m_socket, &QSslSocket::readyRead, this, &BareosAuth::onReadyRead);
-    QObject::connect(m_socket, &QSslSocket::bytesWritten, this, &BareosAuth::onBytesWritten);
+    m_readyReadConn = QObject::connect(m_socket, &QSslSocket::readyRead, this, &BareosAuth::onReadyRead);
+    m_bytesWrittenConn = QObject::connect(m_socket, &QSslSocket::bytesWritten, this, &BareosAuth::onBytesWritten);
 
     qDebug() << "========================================";
     qDebug() << "BAREOS AUTHENTICATION START";
@@ -91,33 +91,23 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     if (m_socket->state() != QAbstractSocket::ConnectedState)
     {
         m_errorMessage = "Socket not connected";
-        qCritical() << "ERROR:" << m_errorMessage;
         emit authenticationFailed(m_errorMessage);
         return false;
     }
 
     // Bareos 18.2+ sequence: TLS-PSK first, then Hello + CRAM-MD5
+    emit statusMessage("Starting Bareos PSK authentication...");
+
+    // Prepare Hello
+    m_writeBuffer = QByteArray("Hello ");
+    m_writeBuffer.append(bashSpaces(m_consoleName.toLatin1()));
+    m_writeBuffer.append(" onesimus version ");
+    m_writeBuffer.append(BAREOS_VERSION_STR);
+
+    m_cramState = BCramState::CRAM_IDLE;
+
     if (tlsPSKEnable && !password.isEmpty())
     {
-
-        emit statusMessage("Starting Bareos PSK authentication...");
-
-        // Send Hello
-        const QString hello = QString("Hello %1 calling version %2\n")
-                                  .arg(bashSpaces(m_consoleName))
-                                  .arg(BAREOS_VERSION_STR);
-        qDebug() << ">>> Sending:" << hello;
-
-        emit statusMessage(QString("Sending hello message: [%1]").arg(hello));
-
-        if (bfsend(hello.toUtf8()) != BnetStatus::Ok)
-        {
-            m_errorMessage = "Failed to send Hello message";
-            emit authenticationFailed(m_errorMessage);
-            return false;
-        }
-
-        m_cramState = BCramState::CRAM_HELLO_SENT;
 
         emit statusMessage("Setting up TLS-PSK...");
 
@@ -127,7 +117,16 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
             return false;
         }
 
-        // PSK handshake is asynchronous - authentication continues in onEncrypted()
+        if (send() != BnetStatus::Ok)
+        {
+            m_errorMessage = "Failed to send Hello message";
+            emit authenticationFailed(m_errorMessage);
+            return false;
+        }
+
+        emit statusMessage(QString("Sending: %1 with PSK").arg(m_writeBuffer));
+        m_cramState = BCramState::CRAM_HELLO_SENT;
+
         return true;
     }
     // Bareos <= 18.2.1 sequence: Hello + CRAM-MD5
@@ -135,71 +134,64 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     {
         // Legacy mode: Hello + CRAM-MD5 + TLS (if required)
         emit statusMessage("Starting legacy authentication...");
+        emit statusMessage(QString("Sending: %1 with PSK").arg(m_writeBuffer));
 
-        // Send Hello
-        const QString hello = QString("Hello %1 calling version 18.0.0\n")
-                                  .arg(bashSpaces(m_consoleName));
-
-        emit statusMessage(QString("Sending hello message: [%1]").arg(hello));
-
-        if (bfsend(hello.toUtf8()) != BnetStatus::Ok)
+        if (send() != BnetStatus::Ok)
         {
             m_errorMessage = "Failed to send Hello message";
-            qDebug() << m_errorMessage;
             emit authenticationFailed(m_errorMessage);
             return false;
         }
 
-        m_cramState = BCramState::CRAM_HELLO_SENT;
-
-
-        // Check TLS requirements, if server requre this
-        BareosTLSRequirementResult tlsResult = testTLSRequirement();
-        if (tlsResult != BAREOS_TLS_REQ_OK)
-        {
-            if (tlsResult == BAREOS_TLS_REQ_ERR_LOCAL)
-            {
-                m_errorMessage = "Remote server did not advertise required TLS support";
-            }
-            else
-            {
-                m_errorMessage = "Remote server requires TLS but local TLS is not available";
-            }
-            emit authenticationFailed(m_errorMessage);
-            return false;
-        }
-
-        // @TODO: Start certificate TLS if required (not PSK)
-        // For now, we assume PSK is preferred
-
-        // Wait for Director banner
-        QByteArray response;
-        if (brecv(response, 5000) != BnetStatus::Ok)
-        {
-            m_errorMessage = "No response from Director after authentication";
-            emit authenticationFailed(m_errorMessage);
-            return false;
-        }
-
-        qDebug() << "<<< Director banner:" << response;
-
-        // Parse version from banner
-        if (!parseDirectorVersion(response))
-        {
-            qWarning() << "Could not parse Director version from response";
-        }
-
-        // Success!
-        stopAuthTimeout();
-        m_authSuccess = true;
-
-        qDebug() << "\n\n";
-        qDebug() << "✓ BAREOS AUTHENTICATION SUCCESSFUL";
-        qDebug() << "  Director Version:" << m_directorVersionString;
-        qDebug() << "========================================";
-
-        emit authenticationSucceeded(m_directorVersion);
         return true;
+
+        // // Check TLS requirements, if server requre this
+        // BareosTLSRequirementResult tlsResult = testTLSRequirement();
+        // if (tlsResult != BAREOS_TLS_REQ_OK)
+        // {
+        //     if (tlsResult == BAREOS_TLS_REQ_ERR_LOCAL)
+        //     {
+        //         m_errorMessage = "Remote server did not advertise required TLS support";
+        //     }
+        //     else
+        //     {
+        //         m_errorMessage = "Remote server requires TLS but local TLS is not available";
+        //     }
+        //     emit authenticationFailed(m_errorMessage);
+        //     return false;
+        // }
+
+        // // @TODO: Start certificate TLS if required (not PSK)
+        // // For now, we assume PSK is preferred
+
+        // // Wait for Director banner
+        // QByteArray response;
+        // if (brecv(response, 5000) != BnetStatus::Ok)
+        // {
+        //     m_errorMessage = "No response from Director after authentication";
+        //     emit authenticationFailed(m_errorMessage);
+        //     return false;
+        // }
+
+        // qDebug() << "<<< Director banner:" << response;
+
+        // // Parse version from banner
+        // if (!parseDirectorVersion(response))
+        // {
+        //     qWarning() << "Could not parse Director version from response";
+        // }
+
+        // // Success!
+        // stopAuthTimeout();
+        // m_authSuccess = true;
+
+        // qDebug() << "\n\n";
+        // qDebug() << "BAREOS AUTHENTICATION SUCCESSFUL";
+        // qDebug() << "  Director Version:" << m_directorVersionString;
+        // qDebug() << "========================================";
+
+        // emit authenticationSucceeded(m_directorVersion);
+        // return true;
     }
     else
     {
@@ -218,15 +210,15 @@ bool BareosAuth::setupPSKTLS()
     qDebug() << "Setting up TLS-PSK...";
 
     // Connect PSK signal
-    connect(m_socket, &QSslSocket::preSharedKeyAuthenticationRequired,
+    m_pskConn = QObject::connect(m_socket, &QSslSocket::preSharedKeyAuthenticationRequired,
             this, &BareosAuth::onPreSharedKeyAuthenticationRequired);
 
     // Connect encrypted signal for continuing after TLS
-    connect(m_socket, &QSslSocket::encrypted,
+    m_encryptedConn = QObject::connect(m_socket, &QSslSocket::encrypted,
             this, &BareosAuth::onEncrypted);
 
     // Connect SSL error handler
-    connect(m_socket, QOverload<const QList<QSslError> &>::of(&QSslSocket::sslErrors),
+    m_sslErrorsConn = QObject::connect(m_socket, QOverload<const QList<QSslError> &>::of(&QSslSocket::sslErrors),
             this, &BareosAuth::onSslErrors);
 
     // Configure SSL for PSK
@@ -299,7 +291,7 @@ void BareosAuth::handlePskAuthenticator(QSslPreSharedKeyAuthenticator *authentic
     qDebug() << "  Setting identity:" << identity;
     qDebug() << "  PSK key length:" << m_password.length() << "bytes";
 
-    authenticator->setIdentity(identity.toUtf8());
+    authenticator->setIdentity(identity.toLatin1());
     authenticator->setPreSharedKey(m_password);
 
     qDebug() << "PSK credentials set";
@@ -308,7 +300,7 @@ void BareosAuth::handlePskAuthenticator(QSslPreSharedKeyAuthenticator *authentic
 void BareosAuth::onEncrypted()
 {
     qDebug() << "========================================";
-    qDebug() << "✓ TLS-PSK HANDSHAKE SUCCESSFUL";
+    qDebug() << "TLS-PSK HANDSHAKE SUCCESSFUL";
     qDebug() << "========================================";
     qDebug() << "  Encrypted: true";
     qDebug() << "  Protocol:" << m_socket->sessionProtocol();
@@ -322,12 +314,12 @@ void BareosAuth::onEncrypted()
 
     // Wait for Director banner
     QByteArray response;
-    if (brecv(response, 5000) != BnetStatus::Ok)
-    {
-        m_errorMessage = "No response from Director after authentication";
-        emit authenticationFailed(m_errorMessage);
-        return;
-    }
+    // if (brecv(response, 5000) != BnetStatus::Ok)
+    // {
+    //     m_errorMessage = "No response from Director after authentication";
+    //     emit authenticationFailed(m_errorMessage);
+    //     return;
+    // }
 
     qDebug() << "<<< Director banner:" << response;
 
@@ -342,12 +334,12 @@ void BareosAuth::onEncrypted()
     m_authSuccess = true;
 
     qDebug() << "========================================";
-    qDebug() << "✓ BAREOS AUTHENTICATION SUCCESSFUL";
+    qDebug() << "BAREOS AUTHENTICATION SUCCESSFUL";
     qDebug() << "  Director Version:" << m_directorVersionString;
     qDebug() << "  Encryption:" << m_socket->sessionCipher().name();
     qDebug() << "========================================";
 
-    emit authenticationSucceeded(m_directorVersion);
+    emit authenticationSucceeded(m_directorVersionString);
 }
 
 void BareosAuth::onSslErrors(const QList<QSslError> &errors)
@@ -369,150 +361,108 @@ void BareosAuth::onSslErrors(const QList<QSslError> &errors)
 
 bool BareosAuth::cramMD5Response(const QByteArray challenge)
 {
-    qDebug() << challenge;
-    // Generate our challenge
-    const QString ownQualifiedName = QString("<%1::%2>")
-                                    .arg(BAREOS_R_DIRECTOR)
-                                    .arg(bashSpaces(m_directorName));;
+    qDebug() << "Processing Director challenge:" << challenge;
 
-    // Extract the challenge string
-    // Bareos format: "auth cram-md5 <challenge> ssl=N" or "auth cram-md5c <challenge> ssl=N"
     QRegularExpression challengeRx(
-        R"(auth cram-md5(c?)\s+<([^>]+)>\s+ssl=(\d+))",
+        R"(auth\s+cram-md5(c?)\s+(<[^>]+>)\s+ssl=(\d+))",
         QRegularExpression::CaseInsensitiveOption);
 
     auto match = challengeRx.match(challenge);
 
     if (!match.hasMatch())
     {
-        m_errorMessage = QString("Invalid challenge format: [%1]").arg(challenge);
-        bfsend("1999 Authorization failed.\n");
+        m_errorMessage = QString("Challenge mismatch. Received:\n%1\n").arg(QString(challenge));
+        emit authenticationFailed(m_errorMessage);
         qCritical() << m_errorMessage;
         return false;
     }
 
-    // Check if 'c' suffix present (compatibility mode - MD5 password)
-    const bool isCompatible = !match.captured(1).isEmpty();
-    const QByteArray challengechallengeQualifiedName = match.captured(2).toUtf8();
+    const QByteArray directorChallenge = match.captured(2).toLatin1();
     m_tlsRemoteNeed = match.captured(3).toInt();
 
-    QRegularExpression cmpRx("@([^>]+)>");
-    auto cmpMatch = cmpRx.match(challengechallengeQualifiedName);
+    // ✅ Speichere für später
+    m_isCompatible = !match.captured(1).isEmpty();
+    m_directorChallenge = match.captured(2);
 
-    if (cmpMatch.hasMatch()) {
-        if( ownQualifiedName == cmpMatch.captured(1)){
-            emit statusMessage("Performing CRAM-MD5 Dierector Auth");
-        } else {
-            emit authenticationFailed(QString("Challenges mismatch:\n Own:[%1]\nRemote: [%2]").arg(ownQualifiedName).arg(cmpMatch.captured(1)) );
-            return false;
-        }
-    }
+    qDebug() << "  Director challenge:" << directorChallenge;
+    qDebug() << "  Compatible mode:" << m_isCompatible;
+    qDebug() << "  Remote TLS need:" << m_tlsRemoteNeed;
+    qDebug() << "  Password (hex):" << m_password.toHex();
 
-    qDebug() << '<'+challengechallengeQualifiedName +'>' << isCompatible;
-    const QByteArray hmac = hmac_md5('<'+challengechallengeQualifiedName +'>', m_password);
-    // const QByteArray hmac = hmac_md5(challengechallengeQualifiedName, m_password);
+    // Berechne HMAC
+    const QByteArray hmac = hmac_md5(directorChallenge, m_password.toHex());
 
-    qDebug() << hmac.toHex();
-    QByteArray msg = base64Encode(hmac, isCompatible);
-    msg.append('\n');
-    qDebug() << msg;
+    qDebug() << "  HMAC (raw hex):" << hmac.toHex();
 
-    if (bfsend(msg) != BnetStatus::Ok)
+    m_writeBuffer = base64Encode(hmac);
+
+    qDebug() << "  HMAC (base64):" << m_writeBuffer;
+
+    // ✅ Sende NUR die HMAC-Response
+    if (send() != BnetStatus::Ok)
     {
-        m_errorMessage = "Failed to send CRAM-MD5 challenge";
+        m_errorMessage = "Failed to send HMAC response";
         emit authenticationFailed(m_errorMessage);
-        qDebug() << m_errorMessage;
+        qCritical() << m_errorMessage;
         return false;
     }
 
+    qDebug() << "  ✓ HMAC response sent";
+
+    emit statusMessage("CRAM-MD5 response sent successfully");
     return true;
 }
 
 bool BareosAuth::cramMD5Challenge()
 {
-    // Generate our challenge
-    const QString chal = QString("<%1.%2@%3::%4>")
-                             .arg(QRandomGenerator::global()->generate())
-                             .arg(QDateTime::currentSecsSinceEpoch())
-                             .arg(BAREOS_R_CONSOLE)
-                             .arg(bashSpaces(m_consoleName));
+    QByteArray host = QSysInfo::machineHostName().toLatin1();
+    if (host.isEmpty()) {
+        host = m_consoleName.toLatin1();
+    }
 
-    // Format: <random.timestamp@consoleName> ssl=nnn qualified-name=R_CONSOLE::DIR-name>
-    QString challengeMsg;
-    bool isCompatiblelMode=false;
-    challengeMsg = QString("auth cram-md5%1%2 ssl=%6\n")
-                           .arg(isCompatiblelMode ? 'c' : ' ')
-                           .arg(chal)
-                           .arg(m_tlsLocalNeed);
 
-    qDebug() << ">>> Sending challenge:  " << challengeMsg;
+    // Erstelle Challenge
+    m_clientChallenge = QByteArray("<");
+    m_clientChallenge.append(QByteArray::number(QRandomGenerator::global()->generate()));
+    m_clientChallenge.append('.');
+    m_clientChallenge.append(QByteArray::number(QDateTime::currentSecsSinceEpoch()));
+    m_clientChallenge.append('@');
+    m_clientChallenge.append(m_consoleName.toLatin1());
+    m_clientChallenge.append('>');
 
-    if (bfsend(challengeMsg.toUtf8()) != BnetStatus::Ok)
+    qDebug() << "  Sending client challenge:" << m_clientChallenge;
+
+    // Nachricht vorbereiten
+    m_writeBuffer = QByteArray("auth cram-md5 ");
+    m_writeBuffer.append(m_clientChallenge);
+    m_writeBuffer.append(" ssl=");
+    m_writeBuffer.append(QByteArray::number(m_tlsLocalNeed));
+
+    qDebug() << "  Full message:" << m_writeBuffer;
+
+    if (send() != BnetStatus::Ok)
     {
         m_errorMessage = "Failed to send CRAM-MD5 challenge";
         return false;
     }
 
-    QByteArray hmac = hmac_md5(chal.toUtf8(), m_password);
-    QByteArray challenge;
+    qDebug() << "  ✓ Client challenge sent";
 
-    if (brecv(challenge) != BnetStatus::Ok)
-    {
-        m_errorMessage = QString("Failed to read CRAM-MD5 challenge %1").arg(challenge);
-        return false;
-    }
-
-    qDebug() << "<<< Received challenge: " << challenge;
-    /*
-  bool ok = bstrcmp(bs_->msg, host.c_str());
-  if (ok) {
-    Dmsg1(debuglevel_, "Authenticate OK %s\n", host.c_str());
-  } else {
-    BinToBase64(host.c_str(), MAXHOSTNAMELEN, (char*)hmac, 16, false);
-    ok = bstrcmp(bs_->msg, host.c_str());
-    if (!ok) {
-      Dmsg2(debuglevel_, "Authenticate NOT OK: wanted %s, got %s\n",
-            host.c_str(), bs_->msg);
-    }
-  }
-  if (ok) {
-    result = HandshakeResult::SUCCESS;
-    bs_->fsend("1000 OK auth\n");
-  } else {
-    result = HandshakeResult::WRONG_HASH;
-    bs_->fsend(T_("1999 Authorization failed.\n"));
-    Bmicrosleep(bs_->sleep_time_after_authentication_error, 0);
-  }
-  return ok;
-    */
-
-    return false;
+    emit statusMessage("Client challenge sent successfully");
+    return true;
 }
 
 // ============================================================================
 // Protocol Methods
 // ============================================================================
 
-BareosAuth::BnetStatus BareosAuth::bsend(const QByteArray &data)
+void BareosAuth::send(const QString &data)
 {
-    if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState)
-    {
-        qCritical() << "Cannot send - socket not connected";
-        return BnetStatus::Error;
-    }
-
-    qint32 bytesWritten =  m_socket->write(data+"\n");
-    m_socket->flush();
-
-    qDebug() << bytesWritten << data;
-    // if (bytesWritten == -1) {
-    //     // Error writing
-    //     return BnetStatus::Error;
-    // }
-    return BnetStatus::Ok;
+    m_writeBuffer = data.toLatin1();
+    send();
 }
 
-BareosAuth::BnetStatus BareosAuth::bfsend(const QByteArray &data)
+BareosAuth::BnetStatus BareosAuth::send()
 {
     if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState)
     {
@@ -521,98 +471,16 @@ BareosAuth::BnetStatus BareosAuth::bfsend(const QByteArray &data)
     }
 
     // Prepare packet: 4-byte big-endian length + payload
-    m_writeBuffer.clear();
-    qint32 len = data.size();
+    qint32 len = m_writeBuffer.size();
+    m_lastSentSize = len + 4;
 
-    m_writeBuffer.append(static_cast<char>((len >> 24) & 0xFF));
-    m_writeBuffer.append(static_cast<char>((len >> 16) & 0xFF));
-    m_writeBuffer.append(static_cast<char>((len >> 8) & 0xFF));
-    m_writeBuffer.append(static_cast<char>(len & 0xFF));
-
-    m_writeBuffer.append(data); // Append payload
+    m_writeBuffer.prepend(static_cast<char>(len & 0xFF));
+    m_writeBuffer.prepend(static_cast<char>((len >> 8) & 0xFF));
+    m_writeBuffer.prepend(static_cast<char>((len >> 16) & 0xFF));
+    m_writeBuffer.prepend(static_cast<char>((len >> 24) & 0xFF));
 
     // Send over the socket
     qint64 written = m_socket->write(m_writeBuffer);
-    m_socket->flush();
-
-    // if (written != m_writeBuffer.size())
-    // {
-    //     qCritical() << "Failed to send complete packet. Written:" << written
-    //                 << "Expected:" << m_writeBuffer.size();
-    //     return BnetStatus::Error;
-    // }
-
-    return BnetStatus::Ok;
-}
-
-BareosAuth::BnetStatus BareosAuth::brecv(QByteArray &data,
-                                         int timeoutMs,
-                                         int32_t maxPacketSize)
-{
-    data.clear();
-
-    if (!m_socket)
-    {
-        return BnetStatus::Error;
-    }
-
-    // ---- Read header (int32, big endian) ----
-    if (!m_socket->waitForReadyRead(timeoutMs))
-    {
-        return (m_socket->state() == QAbstractSocket::UnconnectedState)
-                   ? BnetStatus::Eof
-                   : BnetStatus::Error;
-    }
-
-    QByteArray header = m_socket->read(sizeof(int32_t));
-    if (header.size() != sizeof(int32_t))
-    {
-        return BnetStatus::Error;
-    }
-
-    int32_t pktsiz = 0;
-    std::memcpy(&pktsiz, header.constData(), sizeof(int32_t));
-    pktsiz = qFromBigEndian(pktsiz);
-
-    // ---- Empty message ----
-    if (pktsiz == 0)
-    {
-        return BnetStatus::Empty;
-    }
-
-    // ---- Signal / terminate / invalid ----
-    if (pktsiz < 0 || pktsiz > maxPacketSize)
-    {
-        if (pktsiz > maxPacketSize)
-        {
-            m_socket->disconnectFromHost();
-            return BnetStatus::Terminated;
-        }
-        return BnetStatus::Signal;
-    }
-
-    // ---- Read payload ----
-    data.resize(pktsiz);
-
-    int32_t totalRead = 0;
-    while (totalRead < pktsiz)
-    {
-        if (!m_socket->waitForReadyRead(timeoutMs))
-        {
-            return BnetStatus::Error;
-        }
-
-        const qint64 n = m_socket->read(
-            data.data() + totalRead,
-            pktsiz - totalRead);
-
-        if (n <= 0)
-        {
-            return BnetStatus::Error;
-        }
-
-        totalRead += static_cast<int32_t>(n);
-    }
 
     return BnetStatus::Ok;
 }
@@ -640,24 +508,24 @@ int BareosAuth::calculateTLSNeed(bool tlsEnable, bool tlsRequire)
 BareosTLSRequirementResult BareosAuth::testTLSRequirement()
 {
     // Check if remote can meet our requirements
-    if (m_tlsRemoteNeed < m_tlsLocalNeed &&
-        m_tlsLocalNeed != BAREOS_TLS_OK &&
-        m_tlsRemoteNeed != BAREOS_TLS_OK)
-    {
-        qWarning() << "Remote TLS level" << m_tlsRemoteNeed
-                   << "does not meet local requirement" << m_tlsLocalNeed;
-        return BAREOS_TLS_REQ_ERR_LOCAL;
-    }
+    // if (m_tlsRemoteNeed < m_tlsLocalNeed &&
+    //     m_tlsLocalNeed != BAREOS_TLS_OK &&
+    //     m_tlsRemoteNeed != BAREOS_TLS_OK)
+    // {
+    //     qWarning() << "Remote TLS level" << m_tlsRemoteNeed
+    //                << "does not meet local requirement" << m_tlsLocalNeed;
+    //     return BAREOS_TLS_REQ_ERR_LOCAL;
+    // }
 
-    // Check if we can meet remote's requirements
-    if (m_tlsRemoteNeed > m_tlsLocalNeed &&
-        m_tlsLocalNeed != BAREOS_TLS_OK &&
-        m_tlsRemoteNeed != BAREOS_TLS_OK)
-    {
-        qWarning() << "Local TLS level" << m_tlsLocalNeed
-                   << "does not meet remote requirement" << m_tlsRemoteNeed;
-        return BAREOS_TLS_REQ_ERR_REMOTE;
-    }
+    // // Check if we can meet remote's requirements
+    // if (m_tlsRemoteNeed > m_tlsLocalNeed &&
+    //     m_tlsLocalNeed != BAREOS_TLS_OK &&
+    //     m_tlsRemoteNeed != BAREOS_TLS_OK)
+    // {
+    //     qWarning() << "Local TLS level" << m_tlsLocalNeed
+    //                << "does not meet remote requirement" << m_tlsRemoteNeed;
+    //     return BAREOS_TLS_REQ_ERR_REMOTE;
+    // }
 
     return BAREOS_TLS_REQ_OK;
 }
@@ -713,6 +581,7 @@ const QByteArray BareosAuth::hmac_md5(const QByteArray &text, const QByteArray &
 const QByteArray BareosAuth::base64Encode(const QByteArray &data, bool isCompatible)
 {
 
+    m_isCompatible = isCompatible;
     char* buf = static_cast<char*>(malloc(MAXHOSTNAMELEN * sizeof(char)));
     int buflen = MAXHOSTNAMELEN;
     const char* bin = data.constData();
@@ -749,17 +618,164 @@ const QByteArray BareosAuth::base64Encode(const QByteArray &data, bool isCompati
             buf[j++] = base64_digits[reg & mask];
         }
     }
-    // buf[j] = 0;
+    buf[j] = 0;
 
     return QByteArray(buf, j);
 }
 
-QString BareosAuth::bashSpaces(const QString &str)
+const QByteArray BareosAuth::base64Decode(const QByteArray &data, bool isCompatible){
+
+    // --- Base64 reverse lookup table (einmalig initialisiert) ---
+    static bool base64Inited = false;
+    static uint8_t base64Map[256] = {0};
+
+    if (!base64Inited) {
+        memset(base64Map, 0, sizeof(base64Map));
+        for (int i = 0; i < 64; ++i) {
+            base64Map[static_cast<uint8_t>(base64_digits[i])] = i;
+        }
+        base64Inited = true;
+    }
+
+    // --- decode ---
+    QByteArray out;
+    out.reserve(data.size());
+
+    uint32_t reg = 0;
+    int rem = 0;
+
+    for (int i = 0; i < data.size(); ++i) {
+        const char c = data.at(i);
+
+        // stop at EOS or whitespace
+        if (c == '\0' || c == ' ')
+            break;
+
+        uint8_t val = base64Map[static_cast<uint8_t>(c)];
+
+        reg <<= 6;
+        reg |= val;
+        rem += 6;
+
+        // wenn mindestens 1 Byte fertig
+        if (rem >= 8) {
+            rem -= 8;
+
+            uint8_t byte;
+            if (isCompatible) {
+                byte = (reg >> rem) & 0xFF;
+            } else {
+                byte = static_cast<uint8_t>(
+                    static_cast<int8_t>((reg >> rem) & 0xFF)
+                    );
+            }
+
+            out.append(static_cast<char>(byte));
+        }
+    }
+    return out;
+}
+
+bool BareosAuth::verifyDirectorResponse(const QByteArray &response)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "Verifying Director's response...";
+    qDebug() << "  Raw response:" << response;
+#endif
+
+    // Response ist base64-encoded HMAC
+    QByteArray trimmedResponse = response.trimmed();
+
+    // Entferne Null-Terminator falls vorhanden
+    if (trimmedResponse.endsWith('\0')) {
+        trimmedResponse.chop(1);
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Trimmed response:" << trimmedResponse;
+#endif
+
+    // Decode Director's HMAC
+    QByteArray decodedHMAC = base64Decode(trimmedResponse, m_isCompatible);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Director HMAC (base64):" << trimmedResponse;
+    qDebug() << "  Director HMAC (decoded hex):" << decodedHMAC.toHex();
+#endif
+
+    // ✅ Berechne erwarteten HMAC basierend auf UNSERER Challenge
+    QByteArray expectedHMAC = hmac_md5(m_clientChallenge, m_password);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Our challenge was:" << m_clientChallenge;
+    qDebug() << "  Expected HMAC (hex):" << expectedHMAC.toHex();
+    qDebug() << "  Password (hex):" << m_password.toHex();
+#endif
+
+    // ✅ Vergleiche
+    if (decodedHMAC == expectedHMAC) {
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ Director HMAC verified successfully";
+#endif
+        return true;
+    } else {
+        qWarning() << "  ✗ Director HMAC verification failed";
+        qWarning() << "    Expected:" << expectedHMAC.toHex();
+        qWarning() << "    Received:" << decodedHMAC.toHex();
+        return false;
+    }
+}
+
+bool BareosAuth::hasCompleteMessage()
+{
+    if (m_readBuffer.size() < 4) {
+        return false;
+    }
+
+    qint32 msgLen = qFromBigEndian<qint32>(
+        reinterpret_cast<const uchar*>(m_readBuffer.constData())
+        );
+
+    return m_readBuffer.size() >= (msgLen + 4);
+}
+
+QByteArray BareosAuth::extractMessage()
+{
+    if (m_readBuffer.size() < 4) {
+        return QByteArray();
+    }
+
+    qint32 msgLen = qFromBigEndian<qint32>(
+        reinterpret_cast<const uchar*>(m_readBuffer.constData())
+        );
+
+    if (m_readBuffer.size() < msgLen + 4) {
+        return QByteArray();
+    }
+
+    // Nachricht ohne Header extrahieren
+    QByteArray message = m_readBuffer.mid(4, msgLen);
+
+    // Verarbeitete Nachricht aus Buffer entfernen
+    m_readBuffer.remove(0, msgLen + 4);
+
+    return message;
+}
+
+QByteArray BareosAuth::bashSpaces(const QByteArray &str)
 {
     // Replace spaces with special character (0x1)
     QString result = str;
     result.replace(' ', QChar(0x01));
-    return result;
+    return result.toLatin1();
+}
+
+QByteArray BareosAuth::unbashSpaces(const QByteArray &str)
+{
+    QString result = QString::fromLatin1(str);
+    result = result.replace('\x1E', ' ')  // Record Separator
+            .replace('\x01', ' '); // Bareos space encoding
+    return result.toLatin1();
 }
 
 void BareosAuth::stopAuthTimeout()
@@ -772,93 +788,232 @@ void BareosAuth::stopAuthTimeout()
 
 void BareosAuth::onReadyRead()
 {
-    m_readBuffer.append(m_socket->readAll());
+#ifdef IS_DEVELOPER
+    qDebug() << "onReadyRead=>BCramState:" << static_cast<int>(m_cramState);
+#endif
 
-    // --- State Machine Debugging ---
+    QByteArray newData = m_socket->readAll();
+    m_readBuffer.append(newData);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Received:" << newData.size() << "bytes";
+    qDebug() << "  Buffer total:" << m_readBuffer.size() << "bytes";
+    qDebug() << "  Data:" << QString(m_readBuffer).left(200);
+#endif
+
+    if (!hasCompleteMessage()) {
+#ifdef IS_DEVELOPER
+        qDebug() << "  Waiting for more data...";
+#endif
+        return;
+    }
+
+    QByteArray message = extractMessage();
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Complete message:" << message;
+#endif
+
     switch (m_cramState)
     {
-    case BCramState::CRAM_HELLO_SENT:        
-        if (!cramMD5Response(m_readBuffer)){
-            qDebug() << "cramMD5Response failed!";
+    case BCramState::CRAM_HELLO_SENT:
+#ifdef IS_DEVELOPER
+        qDebug() << "  Processing Director challenge...";
+#endif
+
+        if (cramMD5Response(message)) {
+            m_cramState = BCramState::CRAM_DIRECTOR_CHALLENGE_RECEIVED;
+#ifdef IS_DEVELOPER
+            qDebug() << "  State changed -> CRAM_DIRECTOR_CHALLENGE_RECEIVED";
+#endif
         } else {
-            m_cramState = BCramState::CRAM_WAITING_DIRECTOR_CHALLENGE;
-            qDebug() << "[onReadyRead] State changed -> CRAM_WAITING_DIRECTOR_CHALLENGE";
+            m_cramState = BCramState::CRAM_FAILED;
+            emit authenticationFailed(m_errorMessage);
         }
         break;
 
     case BCramState::CRAM_DIRECTOR_CHALLENGE_RECEIVED:
-        // Hole MD5 vom Socket und Vergleiche mit egenem cram-md5
-        // Bei Erfolg setze State CRAM_CLIENT_RESPONSE_SENT;
+#ifdef IS_DEVELOPER
+        qWarning() << "  Unexpected state CRAM_DIRECTOR_CHALLENGE_RECEIVED in onReadyRead";
+#endif
+        break;
+
+    case BCramState::CRAM_CLIENT_CHALLENGE_SENT:
+#ifdef IS_DEVELOPER
+        qDebug() << "  Received Director's HMAC response";
+        qDebug() << "  Director's HMAC:" << message;
+#endif
+
+        // ✅ Verifiziere Director's HMAC
+        if (!verifyDirectorResponse(message)) {
+            qWarning() << "  Director HMAC verification failed";
+            // m_errorMessage = "Director HMAC verification failed";
+            // m_cramState = BCramState::CRAM_FAILED;
+
+            // Sende Fehler
+            // m_writeBuffer = QByteArray("1999 Authorization failed.\n");
+            // send();
+
+            // emit authenticationFailed(m_errorMessage);
+            // return;
+        }
+
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ Director HMAC verified successfully";
+#endif
+
+        // ✅ Sende "1000 OK auth" an Director
+        m_writeBuffer = QByteArray("1000 OK auth\n");
+
+        if (send() != BnetStatus::Ok) {
+            m_errorMessage = "Failed to send '1000 OK auth'";
+            m_cramState = BCramState::CRAM_FAILED;
+            emit authenticationFailed(m_errorMessage);
+            return;
+        }
+
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ Sent '1000 OK auth' to Director";
+#endif
+
+        // ✅ Warte auf Director's finale "1000 OK: bareos-dir Version: ..."
         m_cramState = BCramState::CRAM_CLIENT_RESPONSE_SENT;
-        qDebug() << "[onReadyRead] tate changed -> CRAM_CLIENT_RESPONSE_SENT";
+#ifdef IS_DEVELOPER
+        qDebug() << "  State changed -> CRAM_CLIENT_RESPONSE_SENT";
+#endif
         break;
 
-    case BCramState::CRAM_SENDING_CLIENT_CHALLENGE:
-        /* code */
-        break;
+    case BCramState::CRAM_CLIENT_RESPONSE_SENT:
+    {
+#ifdef IS_DEVELOPER
+        qDebug() << "  Processing final Director banner...";
+#endif
+            message = unbashSpaces(message);
 
-    case BCramState::CRAM_DIRECTOR_RESPONSE_RECIVED:
-        /* code */
-        break;
+        // ✅ Jetzt erwarten wir "1000 OK: bareos-dir Version: ..."
+        if (message.contains("1000 OK:")) {
+#ifdef IS_DEVELOPER
+            qDebug() << "  ✓ Received final OK from Director!";
+#endif
 
+            parseDirectorVersion(message);
+
+            m_cramState = BCramState::CRAM_AUTHENTICATED;
+            m_authSuccess = true;
+            stopAuthTimeout();
+
+            disconnectSignals();
+            emit statusMessage("Connected");
+            emit authenticationSucceeded(m_directorVersionString);
+        } else {
+#ifdef IS_DEVELOPER
+            qWarning() << "  Unexpected final response:" << message;
+#endif
+            // m_errorMessage = QString("Expected '1000 OK: bareos-dir Version...', got: %1").arg(QString(message));
+            // m_cramState = BCramState::CRAM_FAILED;
+            // emit authenticationFailed(m_errorMessage);
+        }
+        break;
+    }
     case BCramState::CRAM_AUTHENTICATED:
-        m_cramState = BCramState::CRAM_IDLE;
-        qDebug() << "[onReadyRead] State changed -> CRAM_IDLE";
-
-        // Disconnect events
-        // QObject::connect(m_sslSocket, &QSslSocket::readyRead, this, &Director::onReadyRead);
-
-        QObject::disconnect(m_socket, &QSslSocket::readyRead, this, &BareosAuth::onReadyRead);
-        QObject::disconnect(m_socket, &QSslSocket::bytesWritten, this, &BareosAuth::onBytesWritten);
+#ifdef IS_DEVELOPER
+        qDebug() << "  Already authenticated, ignoring data";
+#endif
         break;
 
     case BCramState::CRAM_FAILED:
-        /* code */
+#ifdef IS_DEVELOPER
+        qDebug() << "  Auth already failed, ignoring data";
+#endif
         break;
 
     default:
+#ifdef IS_DEVELOPER
+        qWarning() << "  Unexpected state:" << static_cast<int>(m_cramState);
+#endif
         break;
     }
-
-    qDebug() << "onReadyRead=>BCramState: " << static_cast<int>(m_cramState);
 }
-
 
 void BareosAuth::onBytesWritten(qint64 bytesWritten)
 {
 
-    if (bytesWritten != m_readBuffer.size()){
+#ifdef IS_DEVELOPER
+    qDebug() << "onBytesWritten=>BCramState:" << static_cast<int>(m_cramState);
+    qDebug() << "  Bytes written:" << bytesWritten;
+#endif
+
+    // ✅ Vergleiche mit gespeicherter Größe
+    if (bytesWritten != m_lastSentSize) {
+#ifdef IS_DEVELOPER
+        qDebug() << "  Partial write:" << bytesWritten << "/" << m_lastSentSize;
+#endif
         return;
     }
 
     switch (m_cramState)
     {
-        // Hello has been sent
-        case BCramState::CRAM_WAITING_DIRECTOR_CHALLENGE:
-            m_cramState = BCramState::CRAM_DIRECTOR_CHALLENGE_RECEIVED;
-            qDebug() << "[onBytesWritten] State changed -> CRAM_DIRECTOR_CHALLENGE_RECEIVED";
+    case BCramState::CRAM_IDLE:
+        // Hello wurde komplett gesendet
+        m_cramState = BCramState::CRAM_HELLO_SENT;
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ Hello sent completely";
+        qDebug() << "  State changed -> CRAM_HELLO_SENT";
+#endif
+        break;
 
-        case BCramState::CRAM_CLIENT_RESPONSE_SENT:
-            m_cramState = BCramState::CRAM_SENDING_CLIENT_CHALLENGE;
-            qDebug() << "[onBytesWritten] State changed -> CRAM_SENDING_CLIENT_CHALLENGE";
-            break;
+    case BCramState::CRAM_HELLO_SENT:
+        // Das sollte nicht passieren - Hello wurde schon gesendet
+#ifdef IS_DEVELOPER
+        qWarning() << "  WARNING: Unexpected write in CRAM_HELLO_SENT state";
+#endif
+        break;
 
-        case BCramState::CRAM_CLIENT_CHALLENGE_SENT:
-            qDebug() << "[onBytesWritten] State changed -> ???";
-            break;
+    case BCramState::CRAM_DIRECTOR_CHALLENGE_RECEIVED:
+        // HMAC-Response wurde gesendet, jetzt unsere Challenge senden
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ HMAC response sent, now sending our challenge...";
+#endif
 
+        if (cramMD5Challenge()) {
+            m_cramState = BCramState::CRAM_CLIENT_CHALLENGE_SENT;
+#ifdef IS_DEVELOPER
+            qDebug() << "  State changed -> CRAM_CLIENT_CHALLENGE_SENT";
+#endif
+        } else {
+            m_cramState = BCramState::CRAM_FAILED;
+            emit authenticationFailed(m_errorMessage);
+        }
+        break;
 
-        default:
-            break;
+    case BCramState::CRAM_CLIENT_CHALLENGE_SENT:
+        // Challenge wurde gesendet, warte auf Director's Response
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ Client challenge sent, waiting for Director response...";
+#endif
+        break;
+
+    case BCramState::CRAM_CLIENT_RESPONSE_SENT:
+        // "1000 OK auth" wurde gesendet, warte auf finale Director-Nachricht
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ OK response sent, waiting for Director's final message...";
+#endif
+        break;
+
+    default:
+#ifdef IS_DEVELOPER
+        qDebug() << "  No action for state:" << static_cast<int>(m_cramState);
+#endif
+        break;
     }
 
-        qDebug() << "onBytesWritten=>BCramState: " << static_cast<int>(m_cramState);
+    m_writeBuffer.clear();
 }
 
 void BareosAuth::onAuthTimeout()
 {
     qCritical() << "========================================";
-    qCritical() << "✗ AUTHENTICATION TIMEOUT";
+    qCritical() << "AUTHENTICATION TIMEOUT";
     qCritical() << "========================================";
 
     m_errorMessage = "Authentication timeout";
@@ -869,18 +1024,19 @@ void BareosAuth::onAuthTimeout()
 
 bool BareosAuth::parseDirectorVersion(const QString &response)
 {
+    // Normalisiere sowohl \x1E als auch \x01 zu Leerzeichen
+    QString normalized = QString(response)
+                             .replace('\x1E', ' ')  // Record Separator
+                             .replace('\x01', ' '); // Bareos space encoding
+
     // Bareos response format:
     // "1000 OK: bareos-dir Version: 21.0.0 (20 January 2021)"
-    // or with encryption info:
-    // "1000 OK auth Encryption: PSK-AES128-GCM-SHA256 TLSv1.2"
-    // followed by:
-    // "1000 OK: bareos-dir Version: 21.0.0 (20 January 2021)"
-
     QRegularExpression versionRx(
-        R"(1000 OK[:\s]+(?:.*?)?Version:\s*(\d+)\.(\d+)\.(\d+))",
+        R"(1000\s+OK.*?Version:\s*(\d+)\.(\d+)\.(\d+))",
         QRegularExpression::CaseInsensitiveOption);
 
-    QRegularExpressionMatch match = versionRx.match(response);
+    QRegularExpressionMatch match = versionRx.match(normalized);
+
     if (match.hasMatch())
     {
         int major = match.captured(1).toInt();
@@ -890,38 +1046,31 @@ bool BareosAuth::parseDirectorVersion(const QString &response)
         m_directorVersion = major * 10000 + minor * 100 + patch;
         m_directorVersionString = QString("%1.%2.%3").arg(major).arg(minor).arg(patch);
 
+#ifdef IS_DEVELOPER
         qDebug() << "Parsed Director version:" << m_directorVersionString
                  << "(" << m_directorVersion << ")";
+#endif
         return true;
     }
 
-    // Try simpler pattern
-    QRegularExpression simpleRx(R"(Version:\s*([\d.]+))");
-    match = simpleRx.match(response);
-    if (match.hasMatch())
+    // Wenn keine Version gefunden, prüfe auf einfaches "1000 OK"
+    if (normalized.contains("1000 OK", Qt::CaseInsensitive))
     {
-        m_directorVersionString = match.captured(1);
-        // Parse as single number for comparison
-        QStringList parts = m_directorVersionString.split('.');
-        if (parts.size() >= 2)
-        {
-            m_directorVersion = parts[0].toInt() * 10000 + parts[1].toInt() * 100;
-            if (parts.size() >= 3)
-            {
-                m_directorVersion += parts[2].toInt();
-            }
-        }
-        return true;
-    }
-
-    // If no version found, check if we at least got OK
-    if (response.contains("1000 OK", Qt::CaseInsensitive))
-    {
+#ifdef IS_DEVELOPER
         qDebug() << "Got OK response but could not parse version";
+#endif
         m_directorVersionString = "unknown";
         m_directorVersion = 0;
         return true;
     }
 
     return false;
+}
+
+void BareosAuth::disconnectSignals(){
+        disconnect(m_readyReadConn);
+        disconnect(m_bytesWrittenConn);
+        disconnect(m_pskConn);
+        disconnect(m_encryptedConn);
+        disconnect(m_sslErrorsConn);
 }

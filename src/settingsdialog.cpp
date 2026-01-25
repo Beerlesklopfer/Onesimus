@@ -142,11 +142,6 @@ void SettingsDialog::createConnectionPage()
     QVBoxLayout *systemLayout = new QVBoxLayout(systemGroup);
     systemLayout->setSpacing(12);
     
-    m_backupSystemCombo = new QComboBox();
-    m_backupSystemCombo->addItem("🗄️ Bacula (Original)", static_cast<int>(Director::Bacula));
-    m_backupSystemCombo->addItem("🔧 Bareos (Bacula Fork)", static_cast<int>(Director::Bareos));
-    systemLayout->addWidget(m_backupSystemCombo);
-    
     QLabel *systemInfoLabel = new QLabel(
         "ℹ️ Bareos ist ein Fork von Bacula mit zusätzlichen Features.\n"
         "Beide Systeme verwenden kompatible Protokolle.");

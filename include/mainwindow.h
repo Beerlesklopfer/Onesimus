@@ -59,7 +59,8 @@ private:
     // Status
     QLabel *m_statusLabel;
     QLabel *m_connectionLabel;
-    
+    QString m_directorVersion;  ///< Speichere Director-Version
+
     // Actions
     QAction *m_connectAction;
     QAction *m_connectLastAction;

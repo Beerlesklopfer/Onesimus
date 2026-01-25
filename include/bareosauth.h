@@ -217,7 +217,7 @@ enum class BCramState
     CRAM_CLIENT_RESPONSE_SENT,        /**< Client hat HMAC-Response auf Director-Challenge gesendet */
     CRAM_SENDING_CLIENT_CHALLENGE,    /**< Client wartet aktiv auf Challenge vom Director */
     CRAM_CLIENT_CHALLENGE_SENT,       /**< Challenge vom Director empfangen, HMAC noch nicht gesendet */
-    CRAM_DIRECTOR_RESPONSE_RECIVED,   /**< Client hat HMAC-Response auf Director-Challenge gesendet */
+    CRAM_DIRECTOR_RESPONSE_RECEIVED,  /**< Client hat HMAC-Response auf Director-Challenge gesendet */
     CRAM_AUTHENTICATED,               /**< Director, Klient hat die Response akzeptiert (1000 OK), Auth erfolgreich */
     CRAM_FAILED,                      /**< Timeout oder Netzwerk-/Protokollfehler, Auth fehlgeschlagen */
     CRAM_FORMAT_MISMATCH,
@@ -260,19 +260,41 @@ enum class BCramState
  * auth->authenticateDirector("bareos-dir", "Console", "password", true, true, true);
  * @endcode
  *
+ *
  * @par Authentication Flow (Bareos 18.2+):
  * 1. Client connects via TCP
- * 2. TLS-PSK handshake (identity: R_CONSOLE::ConsoleName, key: MD5(password))
- * 3. Client sends: Hello ConsoleName calling
- * 4. Director sends: auth cram-md5 <challenge> ssl=N
- * 5. Client computes HMAC-MD5 and sends Base64-encoded response
- * 6. Director sends: 1000 OK auth
- * 7. Client sends: auth cram-md5 <challenge> ssl=N
- * 8. Director responds with its HMAC-MD5 response
- * 9. Client sends: 1000 OK auth
- * 10. Director sends: 1000 OK: bareos-dir Version: X.Y.Z
+ * 2. Optional: TLS-PSK handshake or SSL/TLS establishment
+ *
+ * 3. Console → Director: "Hello <consolename> calling version <version>"
+ *    onBytesWritten: IDLE → HELLO_SENT
+ *
+ * 4. Director → Console: "auth cram-md5 <DIR_CHALLENGE> ssl=0"
+ *    onReadyRead: Process Director's challenge
+ *
+ * 5. Console → Director: "base64(HMAC(DIR_CHALLENGE, password))"
+ *    onBytesWritten: HELLO_SENT → DIRECTOR_CHALLENGE_RECEIVED
+ *                    Triggers cramMD5Challenge()
+ *
+ * 6. Console → Director: "auth cram-md5 <CON_CHALLENGE> ssl=0"
+ *    onBytesWritten: DIRECTOR_CHALLENGE_RECEIVED → CLIENT_CHALLENGE_SENT
+ *
+ * 7. Director → Console: "base64(HMAC(CON_CHALLENGE, password))" or "1000 OK auth"
+ *    onReadyRead: Verify Director's HMAC (if mutual auth)
+ *
+ * 8. Console → Director: "1000 OK auth\n"
+ *    onBytesWritten: CLIENT_CHALLENGE_SENT → DIRECTOR_RESPONSE_RECEIVED
+ *
+ * 9. Director → Console: "1000 OK: bareos-dir Version: <version> (<date>)"
+ *    onReadyRead: Parse version → AUTHENTICATED
+ *
+ * 10. Director → Console: "1002 <info message>" (optional)
+ *     onReadyRead: Ignored in AUTHENTICATED state
+ *
+ * @note If Director does not require mutual authentication, step 7 returns
+ *       "1000 OK auth" instead of HMAC, and step 8 is skipped.
  *
  * @warning The socket must be connected before calling authenticateDirector()
+ *
  *
  * @see https://docs.bareos.org/DeveloperGuide/tls-techdoc.html
  * @see https://docs.bareos.org/DeveloperGuide/pam-techdoc.html
@@ -405,6 +427,20 @@ public:
     };
     Q_ENUM(BnetStatus)
 
+public slots:
+
+    /**
+     * @brief Copies data to m_writeBuffer and sends them via @ref send()
+     *
+     * Each message is prefixed by a 4-byte signed big-endian length.
+     *
+     * @return BnetStatus describing the result
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    void send(const QString &data);
+
 signals:
     /**
      * @brief Emitted when authentication succeeds
@@ -413,7 +449,7 @@ signals:
      *
      * @since 1.0.0
      */
-    void authenticationSucceeded(int directorVersion);
+    void authenticationSucceeded(const QString &directorVersion);
 
     /**
      * @brief Emitted when authentication fails
@@ -443,6 +479,16 @@ signals:
     void pamAuthenticationRequired();
 
 private:
+
+    /// @name Connections als Member speichern
+    /// @{
+    QMetaObject::Connection m_readyReadConn;
+    QMetaObject::Connection m_bytesWrittenConn;
+    QMetaObject::Connection m_pskConn;
+    QMetaObject::Connection m_encryptedConn;
+    QMetaObject::Connection m_sslErrorsConn;
+    /// @}
+
     /// @name Private Member Variables
     /// @{
     QSslSocket *m_socket;            ///< SSL socket for communication
@@ -450,8 +496,34 @@ private:
     QByteArray m_writeBuffer;        ///< buffer for writings to socket
     QTimer *m_authTimer;             ///< Authentication timeout timer
     QString m_errorMessage;          ///< Last error message
-    int m_directorVersion;           ///< Director protocol version (numeric)
+    int m_directorVersion;       ///< Director protocol version (numeric)
     QString m_directorVersionString; ///< Director version string
+
+    /**
+     * @brief Compatibility mode flag for base64 encoding
+     *
+     * Determines whether to use compatible or standard base64 encoding.
+     * Extracted from Director's challenge message ('c' suffix).
+     */
+    bool m_isCompatible;
+
+    /**
+     * @brief Stores the client challenge sent during mutual authentication
+     *
+     * Format: "<random_number>.<timestamp>@<hostname>"
+     * Used by verifyDirectorResponse() to validate Director's HMAC
+     */
+    QByteArray m_clientChallenge;
+
+    /**
+     * @brief Stores the Director's challenge received during authentication
+     *
+     * Format: "<random_number>.<timestamp>@R_DIRECTOR::<director_name>"
+     * Used to send our HMAC response after Director verification
+     */
+    QString m_directorChallenge;
+
+    qint64 m_lastSentSize;
 
     QString m_directorName; ///< Director name for authentication
     QString m_consoleName;  ///< Console name for authentication
@@ -534,7 +606,7 @@ private:
     QByteArray createBareosPacket(const QString &message);
 
     /**
-     * @brief Sends a message without formating
+     * @brief Sends a formated m_writeBuffer using the Bareos protocol
      *
      * Each message is prefixed by a 4-byte signed big-endian length.
      *
@@ -544,33 +616,14 @@ private:
      * @since 1.0.0
      * @version 1.0.0
      */
-    BnetStatus bsend(const QByteArray &message);
+    BnetStatus send();
 
     /**
-     * @brief Sends a formated message using the Bareos protocol
+     * @brief Receives a message to m_readBuffer using Bareos protocol
      *
-     * Each message is prefixed by a 4-byte signed big-endian length.
-     *
-     * @param[in] data The payload to send (QByteArray)
-     * @return BnetStatus describing the result
-     *
-     * @since 1.0.0
-     * @version 1.0.0
-     */
-    BnetStatus bfsend(const QByteArray &message);
-
-    /**
-     * @brief Receives a message using Bareos protocol
-     *
-     * @param[out] data Received payload
-     * @param timeoutMs Timeout in milliseconds
-     * @param maxPacketSize Maximum allowed packet size
      * @return BnetStatus describing the result
      */
-    BnetStatus brecv(
-        QByteArray &data,
-        int timeoutMs = 30000,
-        int32_t maxPacketSize = 1024 * 1024);
+    // BnetStatus read();
 
     /// @}
 
@@ -578,25 +631,45 @@ private:
     /// @{
 
     /**
-     * @brief Challenges the Director with CRAM-MD5 2nd Handshake
+     * @brief Sends a CRAM-MD5 challenge to the Director for mutual authentication
      *
-     * Sends a challenge and verifies the Director's response.
+     * Creates a challenge string in the format "<random>.<timestamp>@<hostname>",
+     * stores it in m_clientChallenge, and sends it to the Director. The Director
+     * must respond with HMAC(challenge, password) which is verified by verifyDirectorResponse().
      *
-     * @return true if Director's response is valid
+     * @return true if challenge was sent successfully, false on error
+     *
+     * @note Only called if Director requests mutual authentication
+     * @note Challenge is stored in m_clientChallenge for later verification
+     * @see verifyDirectorResponse()
      *
      * @since 1.0.0
+     * @version 1.0.0
      */
     bool cramMD5Challenge();
 
     /**
-     * @brief Challenges the Director with CRAM-MD5 1st Handshake
-     *
-     * Sends a challenge and verifies the Director's response.
-     *
-     * @return true if Director's response is valid
-     *
-     * @since 1.0.0
-     */
+ * @brief Processes the Director's CRAM-MD5 challenge and sends HMAC response
+ *
+ * Parses the Director's challenge message in the format:
+ * "auth cram-md5[c] <challenge> ssl=N"
+ * where [c] indicates compatibility mode (base64 encoding variant).
+ *
+ * Extracts the challenge string, calculates HMAC-MD5 using the password,
+ * encodes it as base64, and sends it back to the Director. Also extracts
+ * the Director's TLS requirement level from the ssl parameter.
+ *
+ * @param challenge Raw challenge message from Director
+ * @return true if challenge was processed and response sent successfully, false on error
+ *
+ * @note Sets m_tlsRemoteNeed based on the ssl parameter
+ * @note Uses bashSpaces() to handle special characters in challenge
+ * @see hmac_md5()
+ * @see base64Encode()
+ *
+ * @since 1.0.0
+ * @version 1.0.0
+ */
     bool cramMD5Response(const QByteArray challenge);
 
     /**
@@ -615,14 +688,33 @@ private:
     /// @{
 
     /**
-     * @brief Converts spaces to Bareos escape sequence
+     * @brief Replaces spaces with special character (0x01)
      *
-     * @param str Input string
-     * @return QString String with spaces escaped as 0x1
+     * @param str Input string with spaces
+     * @return String with spaces replaced by 0x01
+     *
+     * @see unbashSpaces()
      *
      * @since 1.0.0
+     * @version 1.0.0
      */
-    QString bashSpaces(const QString &str);
+    QByteArray bashSpaces(const QByteArray &str);
+
+    /**
+     * @brief Converts special character (0x01) back to spaces
+     *
+     * Bareos uses 0x01 to encode spaces in certain fields. This function
+     * reverses the encoding performed by bashSpaces().
+     *
+     * @param str Input string with 0x01 characters
+     * @return String with spaces restored
+     *
+     * @see bashSpaces()
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    QByteArray unbashSpaces(const QByteArray &str);
 
     /**
      * @brief Starts the authentication timeout timer
@@ -708,6 +800,55 @@ private:
      */
     const QByteArray base64Decode(const QByteArray &data, bool isCompatible = false);
 
+    /**
+     * @brief Verifies the Director's HMAC response during mutual authentication
+     *
+     * Decodes the Director's base64-encoded HMAC and compares it against the
+     * expected HMAC calculated from the client challenge and shared password.
+     * This is the counterpart to cramMD5Response() for mutual authentication.
+     *
+     * @param response Raw response from Director containing the base64-encoded HMAC
+     * @return true if Director's HMAC is valid, false otherwise
+     *
+     * @note Requires m_clientChallenge to be set by cramMD5Challenge()
+     * @see cramMD5Response()
+     * @see cramMD5Challenge()
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    bool verifyDirectorResponse(const QByteArray &response);
+
+    /**
+     * @brief Checks if m_readBuffer contains a complete Bareos message
+     *
+     * Bareos messages have a 4-byte big-endian length header followed by
+     * the payload. This method verifies both header and payload are complete.
+     *
+     * @return true if a complete message is available in m_readBuffer
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    bool hasCompleteMessage();
+
+    /**
+     * @brief Extracts one complete message from m_readBuffer
+     *
+     * Reads the 4-byte length header, extracts the corresponding payload,
+     * and removes both from m_readBuffer. This allows processing multiple
+     * messages that arrive in a single read operation.
+     *
+     * @return The extracted message payload (without length header), or empty if incomplete
+     *
+     * @note m_readBuffer is modified - processed data is removed
+     * @see hasCompleteMessage()
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    QByteArray extractMessage();
+
 private slots:
     /**
      * @brief Handles authentication timeout
@@ -754,6 +895,20 @@ private slots:
      * @since 1.0.0
      */
     void onPreSharedKeyAuthenticationRequired(QSslPreSharedKeyAuthenticator *authenticator);
+
+    /**
+     * @brief Disconnects all signal connections to the socket
+     *
+     * Called after successful authentication to return socket control
+     * to the Director class. Disconnects readyRead, bytesWritten,
+     * encrypted, preSharedKeyAuthenticationRequired, and sslErrors signals.
+     *
+     * @note Must be called before Director connects its own signal handlers
+     *
+     * @since 1.0.0
+     * @version 1.0.0
+     */
+    void disconnectSignals();
 };
 
 #endif // BAREOSAUTH_H

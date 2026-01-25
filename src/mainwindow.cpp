@@ -42,18 +42,30 @@ MainWindow::MainWindow(QWidget *parent)
     createMenus();
     createToolBar();
     
-    // Verbinde Signals
-    connect(m_director, &Director::connected, this, [this]() {
-        onConnectionChanged(true);
-    });
     connect(m_director, &Director::disconnected, this, [this]() {
         onConnectionChanged(false);
     });
+
+    // ✅ Verbinde statusMessage Signal
+    connect(m_director, &Director::statusMessage, this, [this](const QString &msg) {
+        m_statusLabel->setText(msg);
+    });
+
+    connect(m_director, &Director::authenticationSucceeded, this, [this](const QString &msg) {
+        m_connectionLabel->setText(msg);
+        m_connectionLabel->setStyleSheet("color:gteen; font-weight: bold;");
+    });
+
+    // ✅ Verbinde Signals mit Lambda - fängt den QString Parameter ab
+    connect(m_director, &Director::connected, this, [this](const QString &version) {
+        qDebug() << "Connected to Director version:" << version;
+        m_statusLabel->setText(QString("Verbunden mit Director %1").arg(version));
+        onConnectionChanged(true);
+    });
+
     connect(m_director, &Director::connectionError, this, &MainWindow::onConnectionError);
     
     updateConnectionStatus(false);
-    
-    // Automatisch mit letzter Verbindung verbinden, falls vorhanden
     loadAndConnectLastUsed();
 }
 
@@ -505,12 +517,20 @@ void MainWindow::onSettingsTriggered()
 void MainWindow::onConnectionChanged(bool connected)
 {
     updateConnectionStatus(connected);
-    
+
     if (connected) {
-        m_statusLabel->setText("Verbunden");
-        onRefreshAll();
+        // ✅ Status NACH updateConnectionStatus setzen
+        m_statusLabel->setText("Verbunden - Lade Daten...");
+
+        // ✅ Refresh mit kleiner Verzögerung, damit API-Modus aktiviert wird
+        QTimer::singleShot(100, this, [this]() {
+            onRefreshAll();
+        });
     } else {
-        m_statusLabel->setText("Nicht verbunden");
+        m_statusLabel->setText("");
+        m_connectionLabel->setText("Nicht verbunden");
+        m_connectionLabel->setStyleSheet("color:red; font-weight: bold;");
+
     }
 }
 
@@ -526,27 +546,37 @@ void MainWindow::updateConnectionStatus(bool connected)
     m_disconnectAction->setEnabled(connected);
     m_refreshAction->setEnabled(connected);
     
-    if (connected) {        
-        m_connectionLabel->setText("Verbunden (" ")");
+    if (connected) {
+        // ✅ Zeige Version an wenn vorhanden
+        QString statusText = m_directorVersion.isEmpty() ?
+                                 "Verbunden" :
+                                 QString("Verbunden (v%1)").arg(m_directorVersion);
+
+        m_connectionLabel->setText(statusText);
         m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
     } else {
         m_connectionLabel->setText("Nicht verbunden");
         m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
-    }
-}
+    }}
 
 void MainWindow::onRefreshAll()
 {
     if (!m_director->isConnected()) {
         return;
     }
-    
+
     m_statusLabel->setText("Aktualisiere Daten...");
-    
-    m_director->listJobs();
-    m_director->listClients();
-    m_director->listVolumes();
-    m_statusLabel->setText("Aktualisierung abgeschlossen");
+
+    // m_director->sendCommand("list jobs");
+    // m_director->listClients();
+    // m_director->listVolumes();
+
+    // ✅ Status nach kurzer Zeit zurücksetzen
+    QTimer::singleShot(1000, this, [this]() {
+        if (m_director->isConnected()) {
+            m_statusLabel->setText("Bereit");
+        }
+    });
 }
 
 void MainWindow::onConnectLastUsed()

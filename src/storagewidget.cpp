@@ -91,7 +91,7 @@ void StorageWidget::updateVolumeTable(const QList<Director::VolumeInfo> &volumes
 
 void StorageWidget::onRefreshClicked()
 {
-    m_director->listVolumes();
+    m_director->sendCommand(Director::DirectorCommand::ListVolumes);
 }
 
 void StorageWidget::onVolumeSelectionChanged()

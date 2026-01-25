@@ -11,6 +11,10 @@ set(CMAKE_AUTOUIC ON)
 # UI-Verzeichnis für AUTOUIC angeben
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/ui)
 
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_compile_definitions(IS_DEVELOPER)
+endif()
+
 # ============================================================================
 # Backup System Auswahl
 # ============================================================================

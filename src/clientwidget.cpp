@@ -96,12 +96,12 @@ void ClientWidget::onStatusClicked()
     int row = selectedItems.first()->row();
     QString clientName = m_clientTable->item(row, 0)->text();
     
-    m_director->statusClient(clientName);
+    m_director->sendCommand(Director::DirectorCommand::StatusClient);
 }
 
 void ClientWidget::onRefreshClicked()
 {
-    m_director->listClients();
+    m_director->sendCommand(Director::DirectorCommand::ListClients, "100");
 }
 
 void ClientWidget::onClientSelectionChanged()
