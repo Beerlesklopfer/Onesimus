@@ -131,7 +131,7 @@ bool BareosDirector::isConnected() const
     return m_connected;
 }
 
-void BareosDirector::sendCommand(const QString &command)
+void BareosDirector::doSendCommand(const QString &command)
 {
     if (!m_connected || !m_authenticated) {
         emit commandResponse("Error: Not connected or authenticated");
@@ -269,7 +269,7 @@ void BareosDirector::onBConsoleError(QAbstractSocket::SocketError error)
     }
     
     m_lastError = errorStr;
-    emit connectionError(errorStr);
+    emit protocolError(errorStr);
 }
 
 void BareosDirector::onBConsoleDisconnected()
@@ -293,7 +293,7 @@ void BareosDirector::onSslErrors(const QList<QSslError> &errors)
     if (!m_tlsConfig.verifyPeer && m_sslSocket) {
         m_sslSocket->ignoreSslErrors();
     } else {
-        emit connectionError(errorStr);
+        emit protocolError(errorStr);
     }
 }
 

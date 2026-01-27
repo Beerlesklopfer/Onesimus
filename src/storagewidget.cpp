@@ -3,7 +3,7 @@
 #include <QHeaderView>
 #include <QVBoxLayout>
 
-StorageWidget::StorageWidget(Director *director, QWidget *parent)
+StorageWidget::StorageWidget(BDirector *director, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::StorageWidget)
     , m_director(director)
@@ -11,7 +11,7 @@ StorageWidget::StorageWidget(Director *director, QWidget *parent)
     ui->setupUi(this);
     setupUI();
     
-    connect(m_director, &Director::volumesReceived, this, &StorageWidget::onVolumesReceived);
+    // connect(m_director, &BDirector::volumesReceived, this, &StorageWidget::onVolumesReceived);
 }
 
 StorageWidget::~StorageWidget()
@@ -55,18 +55,18 @@ void StorageWidget::setupUI()
     connect(m_volumeTable, &QTableWidget::itemSelectionChanged, this, &StorageWidget::onVolumeSelectionChanged);
 }
 
-void StorageWidget::onVolumesReceived(const QList<Director::VolumeInfo> &volumes)
+void StorageWidget::onVolumesReceived(const QList<BDirector::VolumeInfo> &volumes)
 {
     updateVolumeTable(volumes);
 }
 
-void StorageWidget::updateVolumeTable(const QList<Director::VolumeInfo> &volumes)
+void StorageWidget::updateVolumeTable(const QList<BDirector::VolumeInfo> &volumes)
 {
     m_volumeTable->setSortingEnabled(false);
     m_volumeTable->setRowCount(volumes.size());
     
     for (int i = 0; i < volumes.size(); ++i) {
-        const Director::VolumeInfo &volume = volumes[i];
+        const BDirector::VolumeInfo &volume = volumes[i];
         
         m_volumeTable->setItem(i, 0, new QTableWidgetItem(volume.volumeName));
         m_volumeTable->setItem(i, 1, new QTableWidgetItem(volume.poolName));
@@ -91,7 +91,7 @@ void StorageWidget::updateVolumeTable(const QList<Director::VolumeInfo> &volumes
 
 void StorageWidget::onRefreshClicked()
 {
-    m_director->sendCommand(Director::DirectorCommand::ListVolumes);
+    emit sendCommand(BDirector::Command::ListVolumes, "");
 }
 
 void StorageWidget::onVolumeSelectionChanged()

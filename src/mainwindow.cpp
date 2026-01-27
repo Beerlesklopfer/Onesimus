@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "jobwidget.h"
+#include "jobs/bjobwidget.h"
 #include "clientwidget.h"
 #include "storagewidget.h"
 #include "settingsdialog.h"
@@ -35,37 +35,47 @@ MainWindow::MainWindow(QWidget *parent)
 #endif
     resize(1200, 800);
     
-    m_director = new Director(this);
+    m_director = new BDirector(this);
 
     setupUI();
     createActions();
     createMenus();
     createToolBar();
     
-    connect(m_director, &Director::disconnected, this, [this]() {
-        onConnectionChanged(false);
+    connect(m_director, &BDirector::disconnected, this, [this]() {
+        onAuthentificationSucceeded(false, "");
     });
 
     // ✅ Verbinde statusMessage Signal
-    connect(m_director, &Director::statusMessage, this, [this](const QString &msg) {
+    connect(m_director, &BDirector::statusMessage, this, [this](const QString &msg) {
         m_statusLabel->setText(msg);
     });
 
-    connect(m_director, &Director::authenticationSucceeded, this, [this](const QString &msg) {
-        m_connectionLabel->setText(msg);
-        m_connectionLabel->setStyleSheet("color:gteen; font-weight: bold;");
-    });
+    connect(m_director, &BDirector::authentificationSucceeded,  this, &MainWindow::onAuthentificationSucceeded);
 
-    // ✅ Verbinde Signals mit Lambda - fängt den QString Parameter ab
-    connect(m_director, &Director::connected, this, [this](const QString &version) {
-        qDebug() << "Connected to Director version:" << version;
-        m_statusLabel->setText(QString("Verbunden mit Director %1").arg(version));
-        onConnectionChanged(true);
-    });
+    connect(m_director, &BDirector::protocolError, this, &MainWindow::onConnectionError);
 
-    connect(m_director, &Director::connectionError, this, &MainWindow::onConnectionError);
-    
-    updateConnectionStatus(false);
+    // Connect Jobwidget signals
+    connect(m_jobWidget, &BJobWidget::sendCommand, this, &MainWindow::onSendCommand);
+
+    QObject::connect(m_jobWidget, &BJobWidget::statusMessageChanged,
+            m_statusLabel, &QLabel::setText);
+
+    // Connect ClientWidget signals
+    // connect(m_clientWidget, &ClientWidget::sendCommand,
+    //         m_director, &BDirector::sendCommand);
+
+    // connect(m_clientWidget, &ClientWidget::statusMessageChanged,
+    //         m_statusLabel, &QLabel::setText);
+
+    // Connect Storagewidget signals
+    // connect(m_storageWidget, &StorageWidget::sendCommand,
+    //         m_director, &Director::sendCommand);
+
+    // connect(m_storageWidget, &StorageWidget::statusMessageChanged,
+    //         m_statusLabel, &QLabel::setText);
+
+    onAuthentificationSucceeded(false, tr("Nicht verbunden"));
     loadAndConnectLastUsed();
 }
 
@@ -80,11 +90,10 @@ void MainWindow::setupUI()
     // Zentrales Widget mit Tabs
     m_tabWidget = new QTabWidget(this);
     setCentralWidget(m_tabWidget);
-    
-    // Job-Widget
-    m_jobWidget = new JobWidget(m_director, this);
+
+    m_jobWidget = new BJobWidget(this);
     m_tabWidget->addTab(m_jobWidget, "Jobs");
-    
+
     // Client-Widget
     m_clientWidget = new ClientWidget(m_director, this);
     m_tabWidget->addTab(m_clientWidget, "Clients");
@@ -92,6 +101,8 @@ void MainWindow::setupUI()
     // Storage-Widget
     m_storageWidget = new StorageWidget(m_director, this);
     m_tabWidget->addTab(m_storageWidget, "Storage/Volumes");
+
+    m_tabWidget->setEnabled(false);
 
     // Statusleiste
     m_statusLabel = new QLabel("Bereit", this);
@@ -514,23 +525,30 @@ void MainWindow::onSettingsTriggered()
     }
 }
 
-void MainWindow::onConnectionChanged(bool connected)
+void MainWindow::onAuthentificationSucceeded(const bool connected, const QString msg)
 {
-    updateConnectionStatus(connected);
+    qDebug() << "####################################";
+    // Update Actions
+    m_connectAction->setDisabled(connected);
+    m_disconnectAction->setEnabled(connected);
+    m_refreshAction->setEnabled(connected);
+    m_tabWidget->setEnabled(connected);
 
     if (connected) {
-        // ✅ Status NACH updateConnectionStatus setzen
+        // Zeige Version an wenn vorhanden
+        QString statusText = QString("Verbunden BAREOS (v%1)").arg(msg);
+
+        m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
         m_statusLabel->setText("Verbunden - Lade Daten...");
 
-        // ✅ Refresh mit kleiner Verzögerung, damit API-Modus aktiviert wird
+        // Refresh mit kleiner Verzögerung, damit API-Modus aktiviert wird
         QTimer::singleShot(100, this, [this]() {
             onRefreshAll();
         });
     } else {
+        m_connectionLabel->setText(msg);
+        m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
         m_statusLabel->setText("");
-        m_connectionLabel->setText("Nicht verbunden");
-        m_connectionLabel->setStyleSheet("color:red; font-weight: bold;");
-
     }
 }
 
@@ -540,34 +558,19 @@ void MainWindow::onConnectionError(const QString &error)
     m_statusLabel->setText("Fehler: " + error);
 }
 
-void MainWindow::updateConnectionStatus(bool connected)
-{
-    m_connectAction->setEnabled(!connected);
-    m_disconnectAction->setEnabled(connected);
-    m_refreshAction->setEnabled(connected);
-    
-    if (connected) {
-        // ✅ Zeige Version an wenn vorhanden
-        QString statusText = m_directorVersion.isEmpty() ?
-                                 "Verbunden" :
-                                 QString("Verbunden (v%1)").arg(m_directorVersion);
-
-        m_connectionLabel->setText(statusText);
-        m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
-    } else {
-        m_connectionLabel->setText("Nicht verbunden");
-        m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
-    }}
-
 void MainWindow::onRefreshAll()
 {
+#ifdef IS_DEVELOPER
+    qDebug() << "Refresh clicked";
+#endif
+
     if (!m_director->isConnected()) {
         return;
     }
 
     m_statusLabel->setText("Aktualisiere Daten...");
 
-    // m_director->sendCommand("list jobs");
+    m_director->doSendCommand(BDirector::Command::ListJobs, "");
     // m_director->listClients();
     // m_director->listVolumes();
 
@@ -589,6 +592,13 @@ void MainWindow::onConnectLastUsed()
     
     m_statusLabel->setText("Verbinde mit letzter Konfiguration...");
     loadAndConnectLastUsed();
+}
+
+void MainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)
+{
+    if (m_director) {
+        m_director->doSendCommand(cmd, args);
+    }
 }
 
 void MainWindow::loadAndConnectLastUsed()
@@ -640,12 +650,12 @@ void MainWindow::loadAndConnectLastUsed()
     m_connectLastAction->setEnabled(true);
 }
 
-Director *MainWindow::director() const
+BDirector *MainWindow::director() const
 {
     return m_director;
 }
 
-void MainWindow::setDirector(Director *newDirector)
+void MainWindow::setDirector(BDirector *newDirector)
 {
     m_director = newDirector;
 }

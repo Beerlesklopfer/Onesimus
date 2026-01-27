@@ -217,7 +217,7 @@ enum class BCramState
     CRAM_CLIENT_RESPONSE_SENT,        /**< Client hat HMAC-Response auf Director-Challenge gesendet */
     CRAM_SENDING_CLIENT_CHALLENGE,    /**< Client wartet aktiv auf Challenge vom Director */
     CRAM_CLIENT_CHALLENGE_SENT,       /**< Challenge vom Director empfangen, HMAC noch nicht gesendet */
-    CRAM_DIRECTOR_RESPONSE_RECEIVED,  /**< Client hat HMAC-Response auf Director-Challenge gesendet */
+    // CRAM_DIRECTOR_RESPONSE_RECEIVED,  /**< Client hat HMAC-Response auf Director-Challenge gesendet */
     CRAM_AUTHENTICATED,               /**< Director, Klient hat die Response akzeptiert (1000 OK), Auth erfolgreich */
     CRAM_FAILED,                      /**< Timeout oder Netzwerk-/Protokollfehler, Auth fehlgeschlagen */
     CRAM_FORMAT_MISMATCH,

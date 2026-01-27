@@ -70,3 +70,4 @@ QUICKSTART.md
 build-windows.ps1.backup
 create-bacula-certs.bat
 create-bacula-certs.ps1
+.cache

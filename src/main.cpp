@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
         }
 
         // Director-Verbindung ohne GUI
-        Director director;
+        BDirector director;
 
         // Verbinde
         if (!options.host.isEmpty()) {
@@ -344,18 +344,18 @@ int main(int argc, char *argv[])
 
             // Warte auf Verbindung
             QEventLoop loop;
-            QObject::connect(&director, &Director::connected, &loop, &QEventLoop::quit);
-            QObject::connect(&director, &Director::connectionError, &loop, &QEventLoop::quit);
+            // QObject::connect(&director, &BDirector::connected, &loop, &QEventLoop::quit);
+            QObject::connect(&director, &BDirector::protocolError, &loop, &QEventLoop::quit);
             QTimer::singleShot(10000, &loop, &QEventLoop::quit); // Timeout
             loop.exec();
 
             if (director.isConnected()) {
                 // Führe Befehl aus
                 if (!options.command.isEmpty()) {
-                    director.sendCommand(options.command);
+                    // director.doSendCommand(options.command);
 
                     // Warte auf Antwort
-                    QObject::connect(&director, &Director::commandResponse,
+                    QObject::connect(&director, &BDirector::commandResponse,
                                      [](const QString &response) {
                                          qDebug() << response;
                                      });

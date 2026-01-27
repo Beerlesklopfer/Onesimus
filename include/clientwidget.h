@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QTableWidget>
 #include <QPushButton>
-#include "director.h"
+#include "bdirector.h"
 
 namespace Ui {
 class ClientWidget;
@@ -15,21 +15,24 @@ class ClientWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit ClientWidget(Director *director, QWidget *parent = nullptr);
+    explicit ClientWidget(BDirector *director, QWidget *parent = nullptr);
     ~ClientWidget();
 
+signals:
+    void sendCommand(BDirector::Command, const QString &args);
+
 private slots:
-    void onClientsReceived(const QList<Director::ClientInfo> &clients);
+    void onClientsReceived(const QList<BDirector::ClientInfo> &clients);
     void onStatusClicked();
     void onRefreshClicked();
     void onClientSelectionChanged();
 
 private:
     void setupUI();
-    void updateClientTable(const QList<Director::ClientInfo> &clients);
+    void updateClientTable(const QList<BDirector::ClientInfo> &clients);
 
     Ui::ClientWidget *ui;
-    Director *m_director;
+    BDirector *m_director;
     QTableWidget *m_clientTable;
     QPushButton *m_statusButton;
     QPushButton *m_refreshButton;

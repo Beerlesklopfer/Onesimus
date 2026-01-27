@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QTableWidget>
 #include <QPushButton>
-#include "director.h"
+#include "bdirector.h"
 
 namespace Ui {
 class StorageWidget;
@@ -15,21 +15,24 @@ class StorageWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit StorageWidget(Director *director, QWidget *parent = nullptr);
+    explicit StorageWidget(BDirector *director, QWidget *parent = nullptr);
     ~StorageWidget();
 
+signals:
+    void sendCommand(BDirector::Command, const QString &args);
+
 private slots:
-    void onVolumesReceived(const QList<Director::VolumeInfo> &volumes);
+    void onVolumesReceived(const QList<BDirector::VolumeInfo> &volumes);
     void onRefreshClicked();
     void onVolumeSelectionChanged();
 
 private:
     void setupUI();
-    void updateVolumeTable(const QList<Director::VolumeInfo> &volumes);
+    void updateVolumeTable(const QList<BDirector::VolumeInfo> &volumes);
     QString formatBytes(qint64 bytes);
 
     Ui::StorageWidget *ui;
-    Director *m_director;
+    BDirector *m_director;
     QTableWidget *m_volumeTable;
     QPushButton *m_refreshButton;
 };

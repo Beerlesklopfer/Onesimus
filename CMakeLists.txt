@@ -313,23 +313,63 @@ include_directories(
 set(SOURCES
     src/main.cpp
     src/mainwindow.cpp
-    src/jobwidget.cpp
+    src/baculaauth.cpp
+    src/bareosauth.cpp
+
+    src/bcheckableheaderview.cpp
+    src/bcheckboxdelegate.cpp
+    src/bcolumnconfiguration.cpp
+    src/bjsonstreamreader.cpp
+    src/btranslations.cpp
     src/clientwidget.cpp
-    src/storagewidget.cpp
+    src/bdirector.cpp
     src/settingsdialog.cpp
-    src/director.cpp
+    src/storagewidget.cpp
+
+    src/jobs/bjobdetailsdialog.cpp
+    src/jobs/bjobsfiltermodel.cpp
+    src/jobs/bjobsfilterwidget.cpp
+    src/jobs/bjobsmodel.cpp
+    src/jobs/bjobsstatisticswidget.cpp
+    src/jobs/bjobwidget.cpp
+    src/jobs/bjsonjobview.cpp
+    src/jobs/bpaginationwidget.cpp
+    src/jobs/bviewpresets.cpp
 )
 
 # Header-Dateien
 set(HEADERS
     include/mainwindow.h
-    include/jobwidget.h
+    include/bcheckableheaderview.h
     include/clientwidget.h
     include/storagewidget.h
     include/settingsdialog.h
-    include/director.h
+    include/bdirector.h
     include/version.h
-)
+    include/baculaauth.h
+    include/bareosauth.h
+
+    include/bcheckableheaderview.h
+    include/bcolumnconfiguration.h
+    include/bjsonstreamreader.h
+    include/bpaginationwidget.h
+    include/btranslations.h
+    include/clientwidget.h
+    include/bdirector.h
+    include/mainwindow.h
+    include/settingsdialog.h
+    include/storagewidget.h
+    include/version.h
+
+    include/jobs/bcheckboxdelegate.h
+    include/jobs/bjobdetailsdialog.h
+    include/jobs/bjobsfiltermodel.h
+    include/jobs/bjobsfilterwidget.h
+    include/jobs/bjobsmodel.h
+    include/jobs/bjobsstatisticswidget.h
+    include/jobs/bjobwidget.h
+    include/jobs/bjsonjobview.h
+    include/jobs/bviewpresets.h)
 
 # Bacula-spezifische Dateien
 if(USE_BACULA_ONLY)

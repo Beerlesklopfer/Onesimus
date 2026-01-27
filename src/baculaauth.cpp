@@ -19,9 +19,6 @@
  * @par Version History:
  * | Version | Date       | Author      | Changes                                    |
  * |---------|------------|-------------|--------------------------------------------|
- * | 1.0.0   | 2024-xx-xx | [Author]    | Initial Qt port from Bacula               |
- * | 1.1.0   | 2025-01-xx | [Author]    | Added PSK-TLS support                     |
- * | 1.2.0   | 2025-01-21 | [Author]    | Fixed CRAM-MD5 Base64, error handling     |
  *
  * @par References:
  * - Bacula Source: https://gitlab.bacula.org/bacula-community-edition/bacula-community

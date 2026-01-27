@@ -3,7 +3,7 @@
 #include <QHeaderView>
 #include <QVBoxLayout>
 
-ClientWidget::ClientWidget(Director *director, QWidget *parent)
+ClientWidget::ClientWidget(BDirector *director, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::ClientWidget)
     , m_director(director)
@@ -11,7 +11,7 @@ ClientWidget::ClientWidget(Director *director, QWidget *parent)
     ui->setupUi(this);
     setupUI();
     
-    connect(m_director, &Director::clientsReceived, this, &ClientWidget::onClientsReceived);
+    // connect(m_director, &BDirector::clientsReceived, this, &ClientWidget::onClientsReceived);
 }
 
 ClientWidget::~ClientWidget()
@@ -61,18 +61,18 @@ void ClientWidget::setupUI()
     connect(m_clientTable, &QTableWidget::itemSelectionChanged, this, &ClientWidget::onClientSelectionChanged);
 }
 
-void ClientWidget::onClientsReceived(const QList<Director::ClientInfo> &clients)
+void ClientWidget::onClientsReceived(const QList<BDirector::ClientInfo> &clients)
 {
     updateClientTable(clients);
 }
 
-void ClientWidget::updateClientTable(const QList<Director::ClientInfo> &clients)
+void ClientWidget::updateClientTable(const QList<BDirector::ClientInfo> &clients)
 {
     m_clientTable->setSortingEnabled(false);
     m_clientTable->setRowCount(clients.size());
     
     for (int i = 0; i < clients.size(); ++i) {
-        const Director::ClientInfo &client = clients[i];
+        const BDirector::ClientInfo &client = clients[i];
         
         m_clientTable->setItem(i, 0, new QTableWidgetItem(client.name));
         m_clientTable->setItem(i, 1, new QTableWidgetItem(client.address));
@@ -96,12 +96,12 @@ void ClientWidget::onStatusClicked()
     int row = selectedItems.first()->row();
     QString clientName = m_clientTable->item(row, 0)->text();
     
-    m_director->sendCommand(Director::DirectorCommand::StatusClient);
+    emit sendCommand(BDirector::Command::StatusClient, "");
 }
 
 void ClientWidget::onRefreshClicked()
 {
-    m_director->sendCommand(Director::DirectorCommand::ListClients, "100");
+    emit sendCommand(BDirector::Command::ListClients, "100");
 }
 
 void ClientWidget::onClientSelectionChanged()

@@ -1,0 +1,564 @@
+#include "jobs/bjsonjobview.h"
+#include "jobs/bjobdetailsdialog.h"
+#include <QHeaderView>
+#include <QMouseEvent>
+#include <QContextMenuEvent>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QFile>
+#include <QJsonDocument>
+
+BJsonJobView::BJsonJobView(QWidget *parent)
+    : QTableView(parent)
+    , m_model(new BJobsModel(this))
+    , m_filterModel(new BJobsFilterModel(this))
+    , m_checkBoxDelegate(new BCheckBoxDelegate(this))
+    , m_headerView(new BCheckableHeaderView(Qt::Horizontal, this))
+    , m_contextMenu(new QMenu(this))
+    , m_liveUpdateTimer(new QTimer(this))
+    , m_columnConfig(new BColumnConfiguration(this))
+    , m_autoSaveTimer(new QTimer(this))
+{
+    // Setup filter model
+    m_filterModel->setSourceModel(m_model);
+    setModel(m_filterModel);
+    
+    // Set custom header
+    setHorizontalHeader(m_headerView);
+    
+    setupView();
+    createContextMenu();
+    
+    // Connect signals
+    connect(m_model, &BJobsModel::selectionChanged,
+            this, &BJsonJobView::onSelectionChanged);
+    
+    connect(m_model, &BJobsModel::jobsAppended,
+            this, &BJsonJobView::onJobsAppended);
+    
+    connect(m_liveUpdateTimer, &QTimer::timeout,
+            this, &BJsonJobView::onLiveUpdateTimeout);
+    
+    // Connect header checkbox click
+    connect(m_headerView, &BCheckableHeaderView::checkboxHeaderClicked,
+            [this](int column) {
+                if (column == BJobsModel::COL_SELECTED) {
+                    m_model->toggleAllSelection();
+                }
+            });
+    
+    // Setup auto-save timer (debounce column changes)
+    m_autoSaveTimer->setSingleShot(true);
+    m_autoSaveTimer->setInterval(500);  // 500ms delay
+    connect(m_autoSaveTimer, &QTimer::timeout, [this]() {
+        m_columnConfig->saveHeaderState(horizontalHeader());
+    });
+    
+    // Restore last saved state
+    QTimer::singleShot(100, this, &BJsonJobView::restoreLastState);
+}void BJsonJobView::setupView()
+{
+    // Set checkbox delegate for the selection column
+    setItemDelegateForColumn(BJobsModel::COL_SELECTED, m_checkBoxDelegate);
+    
+    // Configure table appearance
+    setAlternatingRowColors(true);
+    setSelectionBehavior(QAbstractItemView::SelectRows);
+    setSelectionMode(QAbstractItemView::SingleSelection);
+    setSortingEnabled(true);
+    setContextMenuPolicy(Qt::DefaultContextMenu);
+    
+    // Configure headers
+    horizontalHeader()->setStretchLastSection(true);
+    horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    horizontalHeader()->setSectionsMovable(true);  // Enable drag & drop reordering
+    horizontalHeader()->setDragEnabled(true);
+    horizontalHeader()->setDragDropMode(QAbstractItemView::InternalMove);
+    verticalHeader()->setVisible(false);
+    
+    // Set column widths
+    setColumnWidth(BJobsModel::COL_SELECTED, 40);
+    setColumnWidth(BJobsModel::COL_JOBID, 60);
+    setColumnWidth(BJobsModel::COL_NAME, 150);
+    setColumnWidth(BJobsModel::COL_CLIENT, 100);
+    setColumnWidth(BJobsModel::COL_STARTTIME, 150);
+    setColumnWidth(BJobsModel::COL_ENDTIME, 150);
+    setColumnWidth(BJobsModel::COL_DURATION, 90);
+    setColumnWidth(BJobsModel::COL_TYPE, 50);
+    setColumnWidth(BJobsModel::COL_LEVEL, 50);
+    setColumnWidth(BJobsModel::COL_FILES, 80);
+    setColumnWidth(BJobsModel::COL_BYTES, 100);
+    setColumnWidth(BJobsModel::COL_STATUS, 120);
+    
+    // Enable tooltips
+    setMouseTracking(true);
+    
+    // Auto-save on column resize and move (debounced)
+    connect(horizontalHeader(), &QHeaderView::sectionResized,
+            this, [this]() { m_autoSaveTimer->start(); });
+    connect(horizontalHeader(), &QHeaderView::sectionMoved,
+            this, [this]() { m_autoSaveTimer->start(); });
+    
+    // Also save when visibility changes
+    connect(m_headerView, &BCheckableHeaderView::columnVisibilityChanged,
+            this, [this]() { m_autoSaveTimer->start(); });
+}
+
+void BJsonJobView::createContextMenu()
+{
+    // Job actions
+    m_actionDetails = m_contextMenu->addAction("Show Details...");
+    connect(m_actionDetails, &QAction::triggered, this, &BJsonJobView::showJobDetails);
+    
+    m_contextMenu->addSeparator();
+    
+    m_actionRetry = m_contextMenu->addAction("Retry Job");
+    connect(m_actionRetry, &QAction::triggered, this, &BJsonJobView::retryJob);
+    
+    m_actionCancel = m_contextMenu->addAction("Cancel Job");
+    connect(m_actionCancel, &QAction::triggered, this, &BJsonJobView::cancelJob);
+    
+    m_actionDelete = m_contextMenu->addAction("Delete Job");
+    connect(m_actionDelete, &QAction::triggered, this, &BJsonJobView::deleteJob);
+    
+    m_contextMenu->addSeparator();
+    
+    m_actionViewLog = m_contextMenu->addAction("View Log...");
+    connect(m_actionViewLog, &QAction::triggered, this, &BJsonJobView::viewJobLog);
+    
+    m_contextMenu->addSeparator();
+    
+    // Export actions
+    m_actionExportJson = m_contextMenu->addAction("Export to JSON...");
+    connect(m_actionExportJson, &QAction::triggered, 
+            [this]() { exportToJson(true); });
+    
+    m_actionExportCsv = m_contextMenu->addAction("Export to CSV...");
+    connect(m_actionExportCsv, &QAction::triggered,
+            [this]() { exportToCsv(true); });
+    
+    m_contextMenu->addSeparator();
+    
+    // Selection actions
+    m_actionSelectAll = m_contextMenu->addAction("Select All");
+    connect(m_actionSelectAll, &QAction::triggered,
+            this, &BJsonJobView::selectAllVisible);
+    
+    m_actionInvertSelection = m_contextMenu->addAction("Invert Selection");
+    connect(m_actionInvertSelection, &QAction::triggered,
+            m_model, &BJobsModel::invertSelection);
+    
+    m_actionClearSelection = m_contextMenu->addAction("Clear Selection");
+    connect(m_actionClearSelection, &QAction::triggered,
+            this, &BJsonJobView::clearSelection);
+}
+
+void BJsonJobView::setJobsData(const QJsonArray &jobs)
+{
+    m_model->setJobs(jobs);
+    
+    // Auto-resize columns to content
+    resizeColumnsToContents();
+    
+    // But keep selection column fixed
+    setColumnWidth(BJobsModel::COL_SELECTED, 40);
+}
+
+void BJsonJobView::appendJobsData(const QJsonArray &jobs)
+{
+    m_model->appendJobs(jobs);
+}
+
+QSet<QString> BJsonJobView::selectedJobIds() const
+{
+    return m_model->selectedJobIds();
+}
+
+void BJsonJobView::clearSelection()
+{
+    m_model->clearSelection();
+}
+
+void BJsonJobView::selectAllVisible()
+{
+    // Select all jobs visible in the filter
+    for (int row = 0; row < m_filterModel->rowCount(); ++row) {
+        QModelIndex proxyIndex = m_filterModel->index(row, BJobsModel::COL_SELECTED);
+        QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+        m_model->setData(sourceIndex, Qt::Checked, Qt::CheckStateRole);
+    }
+}
+
+void BJsonJobView::setLiveUpdateEnabled(bool enabled, int intervalMs)
+{
+    if (enabled) {
+        m_liveUpdateTimer->start(intervalMs);
+    } else {
+        m_liveUpdateTimer->stop();
+    }
+}
+
+void BJsonJobView::exportToJson(bool selectedOnly)
+{
+    QString fileName = QFileDialog::getSaveFileName(
+        this,
+        selectedOnly ? "Export Selected Jobs to JSON" : "Export All Jobs to JSON",
+        "jobs_export.json",
+        "JSON Files (*.json);;All Files (*)"
+    );
+    
+    if (fileName.isEmpty()) {
+        return;
+    }
+    
+    QJsonDocument doc = m_model->exportToJson(selectedOnly);
+    
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::critical(this, "Export Error",
+            QString("Could not write to file: %1").arg(file.errorString()));
+        return;
+    }
+    
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+    
+    QMessageBox::information(this, "Export Successful",
+        QString("Exported %1 job(s) to %2")
+            .arg(selectedOnly ? m_model->selectedJobs().size() : m_model->rowCount())
+            .arg(fileName));
+    
+    emit exportRequested("json", selectedOnly);
+}
+
+void BJsonJobView::exportToCsv(bool selectedOnly)
+{
+    QString fileName = QFileDialog::getSaveFileName(
+        this,
+        selectedOnly ? "Export Selected Jobs to CSV" : "Export All Jobs to CSV",
+        "jobs_export.csv",
+        "CSV Files (*.csv);;All Files (*)"
+    );
+    
+    if (fileName.isEmpty()) {
+        return;
+    }
+    
+    QString csv = m_model->exportToCsv(selectedOnly);
+    
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, "Export Error",
+            QString("Could not write to file: %1").arg(file.errorString()));
+        return;
+    }
+    
+    file.write(csv.toUtf8());
+    file.close();
+    
+    QMessageBox::information(this, "Export Successful",
+        QString("Exported %1 job(s) to %2")
+            .arg(selectedOnly ? m_model->selectedJobs().size() : m_model->rowCount())
+            .arg(fileName));
+    
+    emit exportRequested("csv", selectedOnly);
+}
+
+void BJsonJobView::showStatistics()
+{
+    BJobsModel::Statistics stats = m_model->calculateStatistics();
+    
+    QString message;
+    message += QString("Total Jobs: %1\n").arg(stats.totalJobs);
+    message += QString("Successful: %1\n").arg(stats.successfulJobs);
+    message += QString("Warnings: %1\n").arg(stats.warningJobs);
+    message += QString("Failed: %1\n\n").arg(stats.failedJobs);
+    
+    message += QString("Total Files: %1\n").arg(stats.totalFiles);
+    message += QString("Total Size: %1 bytes\n\n").arg(stats.totalBytes);
+    
+    if (stats.earliestJob.isValid() && stats.latestJob.isValid()) {
+        message += QString("Date Range:\n");
+        message += QString("  From: %1\n").arg(stats.earliestJob.toString("yyyy-MM-dd HH:mm"));
+        message += QString("  To: %1\n\n").arg(stats.latestJob.toString("yyyy-MM-dd HH:mm"));
+    }
+    
+    message += QString("Selected: %1").arg(stats.selectedCount);
+    
+    QMessageBox::information(this, "Job Statistics", message);
+}
+
+void BJsonJobView::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    QModelIndex proxyIndex = indexAt(event->pos());
+    
+    if (proxyIndex.isValid()) {
+        // Don't trigger double-click on checkbox column
+        if (proxyIndex.column() == BJobsModel::COL_SELECTED) {
+            QTableView::mouseDoubleClickEvent(event);
+            return;
+        }
+        
+        // Map to source model
+        QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+        QJsonObject job = m_model->jobAt(sourceIndex.row());
+        
+        if (!job.isEmpty()) {
+            emit jobDoubleClicked(job);
+        }
+    }
+    
+    QTableView::mouseDoubleClickEvent(event);
+}
+
+void BJsonJobView::contextMenuEvent(QContextMenuEvent *event)
+{
+    QModelIndex index = indexAt(event->pos());
+    
+    if (index.isValid()) {
+        // Enable/disable actions based on job status
+        QModelIndex sourceIndex = m_filterModel->mapToSource(index);
+        QJsonObject job = m_model->jobAt(sourceIndex.row());
+        QString status = job["jobstatus"].toString();
+        
+        // Enable retry for failed jobs
+        m_actionRetry->setEnabled(status == "f" || status == "E");
+        
+        // Enable cancel for running jobs
+        m_actionCancel->setEnabled(status == "R");
+        
+        m_contextMenu->exec(event->globalPos());
+    } else {
+        // No job selected - show only global actions
+        QMenu menu(this);
+        menu.addAction(m_actionSelectAll);
+        menu.addAction(m_actionClearSelection);
+        menu.addSeparator();
+        menu.addAction("Export All to JSON...", [this]() { exportToJson(false); });
+        menu.addAction("Export All to CSV...", [this]() { exportToCsv(false); });
+        menu.exec(event->globalPos());
+    }
+}
+
+void BJsonJobView::onSelectionChanged()
+{
+    emit selectionChanged();
+}
+
+void BJsonJobView::onJobsAppended(int count)
+{
+    emit liveDataReceived(count);
+}
+
+void BJsonJobView::onLiveUpdateTimeout()
+{
+    // This would connect to a live data source
+    // For now, it's just a placeholder
+    // Implementers would override this or connect to it
+}
+
+QJsonObject BJsonJobView::getJobAtRow(int row)
+{
+    QModelIndex proxyIndex = m_filterModel->index(row, 0);
+    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+    return m_model->jobAt(sourceIndex.row());
+}
+
+void BJsonJobView::showJobDetails()
+{
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return;
+    }
+    
+    QModelIndex proxyIndex = selection.first();
+    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+    QJsonObject job = m_model->jobAt(sourceIndex.row());
+    
+    if (!job.isEmpty()) {
+        emit jobDoubleClicked(job);
+    }
+}
+
+void BJsonJobView::deleteJob()
+{
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return;
+    }
+    
+    QModelIndex proxyIndex = selection.first();
+    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+    QJsonObject job = m_model->jobAt(sourceIndex.row());
+    
+    int ret = QMessageBox::question(this, "Delete Job",
+        QString("Are you sure you want to delete job %1 (%2)?")
+            .arg(job["jobid"].toString())
+            .arg(job["name"].toString()),
+        QMessageBox::Yes | QMessageBox::No);
+    
+    if (ret == QMessageBox::Yes) {
+        // TODO: Implement actual job deletion via Bacula API
+        QMessageBox::information(this, "Delete Job",
+            "Job deletion would be performed here via Bacula API.");
+    }
+}
+
+void BJsonJobView::retryJob()
+{
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return;
+    }
+    
+    QModelIndex proxyIndex = selection.first();
+    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+    QJsonObject job = m_model->jobAt(sourceIndex.row());
+    
+    // TODO: Implement job retry via Bacula API
+    QMessageBox::information(this, "Retry Job",
+        QString("Would retry job %1 (%2) via Bacula API.")
+            .arg(job["jobid"].toString())
+            .arg(job["name"].toString()));
+}
+
+void BJsonJobView::cancelJob()
+{
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return;
+    }
+    
+    QModelIndex proxyIndex = selection.first();
+    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+    QJsonObject job = m_model->jobAt(sourceIndex.row());
+    
+    int ret = QMessageBox::question(this, "Cancel Job",
+        QString("Are you sure you want to cancel running job %1 (%2)?")
+            .arg(job["jobid"].toString())
+            .arg(job["name"].toString()),
+        QMessageBox::Yes | QMessageBox::No);
+    
+    if (ret == QMessageBox::Yes) {
+        // TODO: Implement job cancellation via Bacula API
+        QMessageBox::information(this, "Cancel Job",
+            "Job cancellation would be performed here via Bacula API.");
+    }
+}
+
+void BJsonJobView::viewJobLog()
+{
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return;
+    }
+    
+    QModelIndex proxyIndex = selection.first();
+    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+    QJsonObject job = m_model->jobAt(sourceIndex.row());
+    
+    // TODO: Fetch and display job log
+    QMessageBox::information(this, "Job Log",
+        QString("Would display log for job %1 (%2).\n\nLog would be fetched via Bacula API.")
+            .arg(job["jobid"].toString())
+            .arg(job["name"].toString()));
+}
+
+void BJsonJobView::saveViewPreset(const QString &name)
+{
+    BViewPresets::Preset preset = currentPreset();
+    preset.name = name;
+    BViewPresets::instance()->savePreset(name, preset);
+}
+
+bool BJsonJobView::loadViewPreset(const QString &name)
+{
+    if (!BViewPresets::instance()->hasPreset(name)) {
+        return false;
+    }
+    
+    BViewPresets::Preset preset = BViewPresets::instance()->loadPreset(name);
+    applyPreset(preset);
+    return true;
+}
+
+BViewPresets::Preset BJsonJobView::currentPreset() const
+{
+    BViewPresets::Preset preset;
+    
+    QHeaderView *header = horizontalHeader();
+    int columnCount = m_model->columnCount();
+    
+    // Save column widths
+    for (int i = 0; i < columnCount; ++i) {
+        preset.columnWidths.append(columnWidth(i));
+    }
+    
+    // Save column order
+    for (int visual = 0; visual < columnCount; ++visual) {
+        int logical = header->logicalIndex(visual);
+        preset.columnOrder.append(logical);
+    }
+    
+    // Save column visibility
+    for (int i = 0; i < columnCount; ++i) {
+        preset.columnVisibility.append(!header->isSectionHidden(i));
+    }
+    
+    // Save sort configuration
+    preset.sortColumn = header->sortIndicatorSection();
+    preset.sortOrder = header->sortIndicatorOrder();
+    
+    return preset;
+}
+
+void BJsonJobView::applyPreset(const BViewPresets::Preset &preset)
+{
+    if (preset.columnWidths.isEmpty()) {
+        return;  // Invalid preset
+    }
+    
+    QHeaderView *header = horizontalHeader();
+    
+    // Apply column widths
+    for (int i = 0; i < qMin(preset.columnWidths.size(), m_model->columnCount()); ++i) {
+        setColumnWidth(i, preset.columnWidths[i]);
+    }
+    
+    // Apply column order
+    if (!preset.columnOrder.isEmpty()) {
+        for (int visual = 0; visual < preset.columnOrder.size(); ++visual) {
+            int logical = preset.columnOrder[visual];
+            if (logical >= 0 && logical < m_model->columnCount()) {
+                int currentVisual = header->visualIndex(logical);
+                if (currentVisual != visual) {
+                    header->moveSection(currentVisual, visual);
+                }
+            }
+        }
+    }
+    
+    // Apply column visibility
+    if (!preset.columnVisibility.isEmpty()) {
+        for (int i = 0; i < qMin(preset.columnVisibility.size(), m_model->columnCount()); ++i) {
+            header->setSectionHidden(i, !preset.columnVisibility[i]);
+        }
+    }
+    
+    // Apply sort configuration
+    if (preset.sortColumn >= 0 && preset.sortColumn < m_model->columnCount()) {
+        sortByColumn(preset.sortColumn, preset.sortOrder);
+    }
+}
+
+void BJsonJobView::saveCurrentState()
+{
+    // Legacy method - now uses BColumnConfiguration
+    m_columnConfig->saveHeaderState(horizontalHeader());
+}
+
+void BJsonJobView::restoreLastState()
+{
+    // Restore using BColumnConfiguration
+    m_columnConfig->restoreHeaderState(horizontalHeader());
+}

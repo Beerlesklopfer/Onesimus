@@ -87,15 +87,15 @@
  * director->connect("192.168.1.10", 9101, "bareos-dir", "mypassword");
  *
  * // Send commands using enum
- * director->sendCommand(Director::DirectorCommand::ListJobs);
- * director->sendCommand(Director::DirectorCommand::StatusDirector);
- * director->sendCommand(Director::DirectorCommand::ListJobsLast, "50");
+ * director->doSendCommand(Director::Command::ListJobs);
+ * director->doSendCommand(Director::Command::StatusDirector);
+ * director->doSendCommand(Director::Command::ListJobsLast, "50");
  * @endcode
  *
  * @since 1.0.0
  * @version 1.0.0
  */
-class Director : public QObject
+class BDirector : public QObject
 {
     Q_OBJECT
 
@@ -127,13 +127,13 @@ public:
     };
 
     /**
-     * @enum DirectorCommand
+     * @enum Command
      * @brief Bareos/Bacula Director commands
      *
      * Standard bconsole commands that can be sent to the Director.
      * Commands are grouped by functionality.
      */
-    enum class DirectorCommand {
+    enum class Command {
         // Connection & Session
         ApiMode,            ///< .api [mode] - Set API output mode
         Quit,               ///< quit - Close connection
@@ -228,6 +228,7 @@ public:
         // Custom
         Custom              ///< Custom command string
     };
+    Q_ENUM(Command)
 
     /**
      * @enum JobStatus
@@ -251,16 +252,16 @@ public:
      * @brief Information about a backup job
      */
     struct JobInfo {
-        int jobId;
-        QString name;
-        QString type;
-        QString level;
-        QString clientName;
-        QString status;
-        QDateTime startTime;
-        QDateTime endTime;
-        qint64 jobBytes;
-        qint64 jobFiles;
+        quint64 jobId;          ///< Job ID
+        QString name;           ///< Job name
+        QString type;           ///< Job type (B=Backup, R=Restore, etc.)
+        QString level;          ///< Backup level (F/I/D)
+        QString clientName;     ///< Client name
+        QString status;         ///< Job status (C/R/T/W/f/E/e/A)
+        QDateTime startTime;    ///< Start time
+        QString duration;       ///< Duration string
+        qint64 jobBytes;        ///< Bytes backed up
+        qint64 jobFiles;        ///< Files backed up
     };
 
     /**
@@ -332,8 +333,8 @@ public:
         int volRetention;
     };
 
-    explicit Director(QObject *parent = nullptr);
-    ~Director();
+    explicit BDirector(QObject *parent = nullptr);
+    ~BDirector();
 
     // ========================================================================
     // Backend Information
@@ -370,33 +371,6 @@ public:
     // Command Sending
     // ========================================================================
 
-    /**
-     * @brief Sends a raw command string to the Director
-     *
-     * @param command Command string (without newline)
-     *
-     * @since 1.0.0
-     */
-    void sendCommand(const QString &command);
-
-    /**
-     * @brief Sends a raw command string to the Director
-     *
-     * @param command Command string (without newline)
-     *
-     * @since 1.0.0
-     */
-    void sendCommand(DirectorCommand cmd, quint64);
-
-    /**
-     * @brief Sends a command using DirectorCommand enum
-     *
-     * @param cmd Command enum value
-     * @param args Optional command arguments
-     *
-     * @since 1.0.0
-     */
-    void sendCommand(DirectorCommand cmd, const QString &args = QString());
 
     // ========================================================================
     // API Mode
@@ -406,18 +380,41 @@ public:
     ApiMode apiMode() const;
 
 signals:
-    void connected(const QString &directorVersion);
+    void authentificationSucceeded(const bool result, const QString &msg);
+    void protocolError(const QString &msg);
+
     void disconnected();
-    void connectionError(const QString &error);
-    void commandResponse(const QString &response);
-    void jobsReceived(const QList<Director::JobInfo> &jobs);
-    void clientsReceived(const QList<Director::ClientInfo> &clients);
-    void volumesReceived(const QList<Director::VolumeInfo> &volumes);
-    void jobStatusChanged(int jobId, Director::JobStatus status);
+    void jsonResponse(const QString &response, const QString &error);
+    void commandResponse(const QString &response, const QString &error);
+    // void jobsReceived(const QList<BDirector::JobInfo> &jobs);
+    // void clientsReceived(const QList<BDirector::ClientInfo> &clients);
+    // void volumesReceived(const QList<BDirector::VolumeInfo> &volumes);
+    void jobStatusChanged(int jobId, BDirector::JobStatus status);
     void authenticationRequired();
-    void authenticationFailed(const QString &reason);
-    void authenticationSucceeded(const QString &directorVersion);
     void statusMessage(const QString &message);
+    void commandError(const QString &command, const QString &error);
+
+public slots:
+
+    /**
+     * @brief Sends a raw command string to the Director
+     *
+     * @param command Command string (without newline)
+     * @deprecated
+     *
+     * @since 1.0.0
+     */
+    void doSendCommand(Command cmd, quint64);
+
+    /**
+     * @brief Sends a command using Command enum
+     *
+     * @param cmd Command enum value
+     * @param args Optional command arguments
+     *
+     * @since 1.0.0
+     */
+    void doSendCommand(const BDirector::Command cmd, const QString &args = QString());
 
 private slots:
     void onConnected();
@@ -432,24 +429,44 @@ private slots:
     void onAuthStatusMessage(const QString &message);
 
 private:
-    QString directorCommandToString(DirectorCommand cmd, const QString &args = QString());
+    const QString commandToString(Command cmd, const QString &args = QString());
     bool setupTLSConnection();
     bool loadTLSCertificates(QSslConfiguration &sslConfig);
     void startAuthentication();
     void processResponse(const QByteArray &data);
     QString parseResponse(const QByteArray &data);
-    void sendToDirector(const QByteArray &data);
     JobStatus parseJobStatus(const QString &status);
     QString jobStatusToString(JobStatus status);
     void connectSocketSignals();
     void disconnectAllSignals();
+    void processDirectorMessage(const QString &message, bool isSignal);
+
+    /**
+     * @brief Sends a raw command string to the Director
+     *
+     * @param command Command string (without newline)
+     * @deprecated
+     *
+     * @since 1.0.0
+     */
+    void sendCommand(const QString &command);
+
+    inline QString unbashSpaces(const QString &str)
+    {
+        QString result = str;
+        result = result.replace('\x1E', ' ')
+                    .replace(QChar(0x001E), "") // Record Separator
+                    .replace('\x01', ' ');    // Bareos space encoding
+        return result;
+    }
+
 
     // ========================================================================
     // Member Variables
     // ========================================================================
 
     ConnectionState m_connectionState;
-    QSslSocket *m_sslSocket;
+    QSslSocket *m_socket;
     QString m_directorName;
     QString m_password;
     QString m_host;
@@ -463,6 +480,8 @@ private:
     bool m_connected;
     QString m_lastCommand;
     ApiMode m_apiMode;
+
+    quint64 m_lastSentSize;
 
     // Signal connections
     QMetaObject::Connection m_connSocketConnected;

@@ -10,7 +10,7 @@
 #include <QJsonObject>
 #include <QFile>
 
-SettingsDialog::SettingsDialog(Director *director, QWidget *parent)
+SettingsDialog::SettingsDialog(BDirector *director, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::SettingsDialog)
     , m_director(director)

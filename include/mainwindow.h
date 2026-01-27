@@ -7,7 +7,8 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QLabel>
-#include "director.h"
+#include "bdirector.h"
+#include "jobs/bjobwidget.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -25,18 +26,19 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    Director *director() const;
-    void setDirector(Director *newDirector);
+    BDirector *director() const;
+    void setDirector(BDirector *newDirector);
 
 private slots:
     void onConnectTriggered();
     void onDisconnectTriggered();
     void onAboutTriggered();
     void onSettingsTriggered();
-    void onConnectionChanged(bool connected);
+    void onAuthentificationSucceeded(bool connected, const QString msg);
     void onConnectionError(const QString &error);
     void onRefreshAll();
     void onConnectLastUsed();
+    void onSendCommand(const BDirector::Command cmd, const QString &args);
 
 private:
     void setupUI();
@@ -44,15 +46,14 @@ private:
     void createMenus();
     void createToolBar();
     void showConnectionDialog();
-    void updateConnectionStatus(bool connected);
     void loadAndConnectLastUsed();
 
     Ui::MainWindow *ui;
-    Director *m_director;
+    BDirector *m_director;
     
     // Widgets
     QTabWidget *m_tabWidget;
-    JobWidget *m_jobWidget;
+    BJobWidget *m_jobWidget;
     ClientWidget *m_clientWidget;
     StorageWidget *m_storageWidget;
     

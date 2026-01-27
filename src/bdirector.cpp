@@ -14,7 +14,7 @@
  * @version 1.0.0
  */
 
-#include <director.h>
+#include <bdirector.h>
 #include "version.h"
 
 #include <QApplication>
@@ -41,24 +41,24 @@ static const char* BACKUP_SYSTEM_NAME = "Bareos";
 // Constructor / Destructor
 // ============================================================================
 
-Director::Director(QObject *parent)
+BDirector::BDirector(QObject *parent)
     : QObject(parent)
     , m_connectionState(Disconnected)
-    , m_sslSocket(nullptr)
+    , m_socket(nullptr)
     , m_port(9101)
     , m_directorVersion("0.0.0")
     , m_auth(nullptr)
     , m_connected(false)
-    , m_apiMode(Off)  // API mode enabled by default
+    , m_apiMode(ApiMode::Json)  // API mode enabled by default
+    , m_lastSentSize(0)
 {
     m_tlsConfig = new TLSConfig();
-    m_sslSocket = new QSslSocket(this);
-
+    m_socket = new QSslSocket(this);
     // Connect socket signals and store connections
     connectSocketSignals();
 }
 
-Director::~Director()
+BDirector::~BDirector()
 {
     disconnect();
 
@@ -69,15 +69,15 @@ Director::~Director()
     delete m_tlsConfig;
     m_tlsConfig = nullptr;
 
-    delete m_sslSocket;
-    m_sslSocket = nullptr;
+    delete m_socket;
+    m_socket = nullptr;
 }
 
 // ============================================================================
 // Backend Information
 // ============================================================================
 
-QString Director::backupSystemName() const
+QString BDirector::backupSystemName() const
 {
     return QString(BACKUP_SYSTEM_NAME);
 }
@@ -86,7 +86,7 @@ QString Director::backupSystemName() const
 // Connection Management
 // ============================================================================
 
-void Director::connect(const QString &host, int port, const QString &directorName,
+void BDirector::connect(const QString &host, int port, const QString &directorName,
                        const QString &password)
 {
     qDebug() << "========================================";
@@ -98,9 +98,9 @@ void Director::connect(const QString &host, int port, const QString &directorNam
     qDebug() << "========================================";
 
     // Abort existing connection
-    if (m_sslSocket->state() != QAbstractSocket::UnconnectedState) {
-        m_sslSocket->abort();
-        m_sslSocket->waitForDisconnected(1000);
+    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
+        m_socket->abort();
+        m_socket->waitForDisconnected(1000);
     }
 
     m_connectionState = Connecting;
@@ -115,10 +115,10 @@ void Director::connect(const QString &host, int port, const QString &directorNam
     }
 
     // Connect via TCP - TLS comes during authentication
-    m_sslSocket->connectToHost(host, port);
+    m_socket->connectToHost(host, port);
 }
 
-void Director::disconnect()
+void BDirector::disconnect()
 {
     // Cleanup authentication
     if (m_auth) {
@@ -132,21 +132,21 @@ void Director::disconnect()
     }
 
     // Disconnect socket
-    if (m_sslSocket->state() == QAbstractSocket::ConnectedState) {
+    if (m_socket->state() == QAbstractSocket::ConnectedState) {
         sendCommand("quit");
-        m_sslSocket->disconnectFromHost();
+        m_socket->disconnectFromHost();
     }
 
     m_connected = false;
     m_connectionState = Disconnected;
 }
 
-bool Director::isConnected() const
+bool BDirector::isConnected() const
 {
     return m_connected && m_connectionState == Ready;
 }
 
-Director::ConnectionState Director::connectionState() const
+BDirector::ConnectionState BDirector::connectionState() const
 {
     return m_connectionState;
 }
@@ -155,7 +155,7 @@ Director::ConnectionState Director::connectionState() const
 // TLS Configuration
 // ============================================================================
 
-void Director::setTLSConfig(const TLSConfig &config)
+void BDirector::setTLSConfig(const TLSConfig &config)
 {
     if (!m_tlsConfig) {
         m_tlsConfig = new TLSConfig();
@@ -163,7 +163,7 @@ void Director::setTLSConfig(const TLSConfig &config)
     *m_tlsConfig = config;
 }
 
-Director::TLSConfig *Director::tlsConfig() const
+BDirector::TLSConfig *BDirector::tlsConfig() const
 {
     if (m_tlsConfig) {
         return m_tlsConfig;
@@ -175,37 +175,37 @@ Director::TLSConfig *Director::tlsConfig() const
 // Signal Management
 // ============================================================================
 
-void Director::connectSocketSignals()
+void BDirector::connectSocketSignals()
 {
     // SSL/TLS signals
-    m_connSocketEncrypted = QObject::connect(m_sslSocket, &QSslSocket::encrypted,
-                                    this, &Director::onEncrypted);
+    m_connSocketEncrypted = QObject::connect(m_socket, &QSslSocket::encrypted,
+                                    this, &BDirector::onEncrypted);
 
-    m_connSocketSslErrors = QObject::connect(m_sslSocket,
+    m_connSocketSslErrors = QObject::connect(m_socket,
                                     QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
-                                    this, &Director::onSslErrors);
+                                    this, &BDirector::onSslErrors);
 
     // Basic socket signals
-    m_connSocketConnected = QObject::connect(m_sslSocket, &QSslSocket::connected,
-                                    this, &Director::onConnected);
+    m_connSocketConnected = QObject::connect(m_socket, &QSslSocket::connected,
+                                    this, &BDirector::onConnected);
 
-    m_connSocketDisconnected = QObject::connect(m_sslSocket, &QSslSocket::disconnected,
-                                       this, &Director::onDisconnected);
+    m_connSocketDisconnected = QObject::connect(m_socket, &QSslSocket::disconnected,
+                                       this, &BDirector::onDisconnected);
 
-    m_connSocketReadyRead = QObject::connect(m_sslSocket, &QSslSocket::readyRead,
-                                    this, &Director::onReadyRead);
+    m_connSocketReadyRead = QObject::connect(m_socket, &QSslSocket::readyRead,
+                                    this, &BDirector::onReadyRead);
 
-    m_connSocketError = QObject::connect(m_sslSocket, &QSslSocket::errorOccurred,
-                                this, &Director::onError);
+    m_connSocketError = QObject::connect(m_socket, &QSslSocket::errorOccurred,
+                                this, &BDirector::onError);
 
     // Debug signals
 #ifdef IS_DEVELOPER
-    QObject::connect(m_sslSocket, &QSslSocket::stateChanged, this,
+    QObject::connect(m_socket, &QSslSocket::stateChanged, this,
             [this](QAbstractSocket::SocketState state) {
                 qDebug() << "Socket state changed to:" << state;
             });
 
-    QObject::connect(m_sslSocket, &QAbstractSocket::errorOccurred, this,
+    QObject::connect(m_socket, &QAbstractSocket::errorOccurred, this,
             [this](QAbstractSocket::SocketError socketError) {
                 QString errorMsg;
                 switch(socketError) {
@@ -222,13 +222,13 @@ void Director::connectSocketSignals()
                     errorMsg = "Network error - check network connection";
                     break;
                 default:
-                    errorMsg = m_sslSocket->errorString();
+                    errorMsg = m_socket->errorString();
                 }
                 qCritical() << "Socket error:" << errorMsg;
-                emit connectionError(errorMsg);
+                emit protocolError(errorMsg);
             });
 
-    QObject::connect(m_sslSocket, &QSslSocket::modeChanged, this,
+    QObject::connect(m_socket, &QSslSocket::modeChanged, this,
             [this](QSslSocket::SslMode mode) {
                 qDebug() << "========================================";
                 qDebug() << "SSL MODE CHANGED";
@@ -237,19 +237,19 @@ void Director::connectSocketSignals()
                 qDebug() << "========================================";
             });
 
-    QObject::connect(m_sslSocket, &QSslSocket::encryptedBytesWritten, this,
+    QObject::connect(m_socket, &QSslSocket::encryptedBytesWritten, this,
             [this](qint64 written) {
                 qDebug() << "Encrypted bytes written:" << written;
             });
 
-    QObject::connect(m_sslSocket, &QSslSocket::peerVerifyError, this,
+    QObject::connect(m_socket, &QSslSocket::peerVerifyError, this,
             [this](const QSslError &error) {
                 qDebug() << "⚠ Peer verify error:" << error.errorString();
             });
 #endif
 }
 
-void Director::disconnectAllSignals()
+void BDirector::disconnectAllSignals()
 {
     // Disconnect socket signals
     QObject::disconnect(m_connSocketConnected);
@@ -265,12 +265,12 @@ void Director::disconnectAllSignals()
     QObject::disconnect(m_connAuthStatus);
 }
 
-Director::ApiMode Director::apiMode() const
+BDirector::ApiMode BDirector::apiMode() const
 {
     return m_apiMode;
 }
 
-void Director::setApiMode(ApiMode mode)
+void BDirector::setApiMode(ApiMode mode)
 {
     m_apiMode = mode;
 
@@ -291,13 +291,13 @@ void Director::setApiMode(ApiMode mode)
     qDebug() << "Setting API mode to:" << modeStr;
 #endif
 
-    sendCommand(DirectorCommand::ApiMode, modeStr);
+    doSendCommand(Command::ApiMode, modeStr);
 }
 // ============================================================================
 // Socket Event Handlers
 // ============================================================================
 
-void Director::onConnected()
+void BDirector::onConnected()
 {
     qDebug() << "========================================";
     qDebug() << "TCP CONNECTED";
@@ -306,18 +306,18 @@ void Director::onConnected()
     startAuthentication();
 }
 
-void Director::onEncrypted()
+void BDirector::onEncrypted()
 {
     qDebug() << "========================================";
     qDebug() << "✓ PSK-TLS HANDSHAKE SUCCESSFUL";
     qDebug() << "========================================";
     qDebug() << "  Encrypted: true";
-    qDebug() << "  Protocol:" << m_sslSocket->sessionProtocol();
-    qDebug() << "  Cipher:" << m_sslSocket->sessionCipher().name();
+    qDebug() << "  Protocol:" << m_socket->sessionProtocol();
+    qDebug() << "  Cipher:" << m_socket->sessionCipher().name();
 
-    if (!m_sslSocket->peerCertificate().isNull()) {
+    if (!m_socket->peerCertificate().isNull()) {
         qDebug() << "  Peer Certificate:";
-        qDebug() << "    Subject:" << m_sslSocket->peerCertificate().subjectInfo(QSslCertificate::CommonName);
+        qDebug() << "    Subject:" << m_socket->peerCertificate().subjectInfo(QSslCertificate::CommonName);
     }
     qDebug() << "========================================";
 
@@ -326,7 +326,7 @@ void Director::onEncrypted()
     // For non-PSK, startAuthentication() is called from onConnected()
 }
 
-void Director::onSslErrors(const QList<QSslError> &errors)
+void BDirector::onSslErrors(const QList<QSslError> &errors)
 {
     qWarning() << "========================================";
     qWarning() << "SSL ERRORS OCCURRED (" << errors.size() << "errors)";
@@ -348,21 +348,21 @@ void Director::onSslErrors(const QList<QSslError> &errors)
 
     if (!m_password.isEmpty()) {
         qWarning() << "⚠ PSK-Mode: Ignoring SSL errors (this is normal for PSK)";
-        m_sslSocket->ignoreSslErrors();
+        m_socket->ignoreSslErrors();
     } else if (!m_tlsConfig->tlsVerifyPeer) {
         qWarning() << "⚠ Peer verification disabled - ignoring SSL errors";
-        m_sslSocket->ignoreSslErrors();
+        m_socket->ignoreSslErrors();
     } else {
         qCritical() << "✗ SSL errors with peer verification enabled - connection will fail";
         m_connectionState = Disconnected;
         QString errorSummary = QString("%1 SSL error(s): %2")
                                    .arg(errors.size())
                                    .arg(errors.first().errorString());
-        emit connectionError("SSL error: " + errorSummary);
+        emit protocolError("SSL error: " + errorSummary);
     }
 }
 
-void Director::onDisconnected()
+void BDirector::onDisconnected()
 {
     qDebug() << "========================================";
     qDebug() << "CONNECTION CLOSED";
@@ -385,7 +385,7 @@ void Director::onDisconnected()
     emit disconnected();
 }
 
-void Director::onBytesWritten(qint64 bytes){
+void BDirector::onBytesWritten(qint64 bytes){
 
     // During authentication, the Auth class handles all data
     // This should never happen, for that the connection to this
@@ -396,50 +396,162 @@ void Director::onBytesWritten(qint64 bytes){
     }
 }
 
-void Director::onReadyRead()
+void BDirector::onReadyRead()
 {
-
-    // During authentication, the Auth class handles all data
-    // This should never happen, for that the connection to this
-    // slot is beed done after authentifcatuion
     if (m_connectionState == Authenticating) {
-        // Auth class reads directly from socket
+        qWarning() << "⚠ readyRead during authentication - should not happen!";
         return;
     }
 
-    // After authentication: Process normal command responses
-    m_receiveBuffer.append(m_sslSocket->readAll());
+    // Lese neue Daten
+    QByteArray newData = m_socket->readAll();
+    m_receiveBuffer.append(newData);
 
 #ifdef IS_DEVELOPER
-    qDebug() << "<<<< Getting data:" << m_receiveBuffer;
+    qDebug() << "<<<< Received" << newData.size() << "bytes";
+    qDebug() << "     Buffer total:" << m_receiveBuffer.size() << "bytes";
 #endif
-    // Process complete responses
-    // TODO: Implement response parsing
 
-    m_receiveBuffer.clear();
+    // Verarbeite alle vollständigen Pakete im Buffer
+    while (m_receiveBuffer.size() >= 4) {
+        // Lese 4-Byte Message-Length Header (signed 32-bit big-endian)
+        qint32 messageLength = 0;
+        memcpy(&messageLength, m_receiveBuffer.constData(), 4);
+        messageLength = qFromBigEndian(messageLength);
+
+#ifdef IS_DEVELOPER
+        qDebug() << "     Message length from header:" << messageLength;
+#endif
+
+        // Negative Länge = Signal-Nachricht (z.B. Prompt)
+        bool isSignal = (messageLength < 0);
+        qint32 absLength = qAbs(messageLength);
+
+        // Prüfe ob vollständiges Paket vorhanden (4 Bytes Header + Payload)
+        if (m_receiveBuffer.size() < 4 + absLength) {
+#ifdef IS_DEVELOPER
+            qDebug() << "     Waiting for more data..."
+                     << "Have:" << m_receiveBuffer.size()
+                     << "Need:" << (4 + absLength);
+#endif
+            break;  // Warte auf mehr Daten
+        }
+
+        // Extrahiere Nachricht (ohne Header)
+        QByteArray message = m_receiveBuffer.mid(4, absLength);
+        message.replace(0x01, ' ');
+
+        // Entferne verarbeitetes Paket aus Buffer
+        m_receiveBuffer.remove(0, 4 + absLength);
+
+        // Konvertiere zu String
+        QString messageStr = QString::fromUtf8(message).trimmed();
+
+#ifdef IS_DEVELOPER
+        qDebug() << "✓ Complete message received:";
+        qDebug() << "  Signal:" << isSignal;
+        qDebug() << "  Length:" << absLength;
+        qDebug() << "  Content:" << messageStr;
+#endif
+
+        // Verarbeite Nachricht
+        processDirectorMessage(unbashSpaces(messageStr), isSignal);
+    }
 }
 
-void Director::onError(QAbstractSocket::SocketError error)
+void BDirector::processDirectorMessage(const QString &message, bool isSignal)
+{
+    // Ignoriere leere Nachrichten
+    if (message.isEmpty()) {
+        return;
+    }
+
+    // API-Response (JSON)?
+    if (message.startsWith("{") || message.startsWith("[")) {
+#ifdef IS_DEVELOPER
+        qDebug() << "📄 JSON Response:";
+        qDebug() << message;
+#endif
+        emit jsonResponse(m_lastCommand, message);
+    } else {
+        emit commandResponse(m_lastCommand, message);
+        return;
+    }
+
+    // Status-Nachricht (1000, 1002, etc.)?
+    QRegularExpression statusRe("^(\\d+)(\\n+)");
+    QRegularExpressionMatch match = statusRe.match(message);
+    if (match.hasMatch()) {
+        int statusCode = match.captured(1).toInt();
+
+        // 1000 = OK
+        // 1002 = Info message
+        // 2xxx = Error
+
+        if (statusCode >= 2000) {
+            qWarning() << "⚠ Director error:" << message;
+            emit commandError(m_lastCommand, message);
+            return;
+        } else {
+#ifdef IS_DEVELOPER
+            qDebug() << "ℹ Director status:" << message;
+#endif
+
+            switch (statusCode) {
+            case 1002:
+                emit statusMessage(match.captured(3));
+#ifdef IS_DEVELOPER
+                qDebug() << "✓ Director ready (prompt received)";
+#endif
+                // Optional: Activate API mode (like BAT)
+                if (m_apiMode != ApiMode::Off) {
+                    m_apiMode = ApiMode::JsonPretty;
+                    doSendCommand(Command::ApiMode, m_apiMode);
+#ifdef IS_DEVELOPER
+                    qDebug() << "Activating API mode " << m_apiMode;
+#endif
+                    //// emit directorReady();
+                }
+                break;
+            default:
+                emit statusMessage(message);
+            }
+        }
+    }
+
+    // Prompt "*" oder andere Text-Nachrichten
+    if (isSignal || message == "*") {
+        return;
+    }
+
+    // Normale Text-Antwort
+#ifdef IS_DEVELOPER
+    qDebug() << "📝 Text response:" << message;
+#endif
+    // emit commandResponse(m_lastCommand, message);
+}
+
+void BDirector::onError(QAbstractSocket::SocketError error)
 {
     Q_UNUSED(error);
-    QString errorMsg = QString("Socket error: %1").arg(m_sslSocket->errorString());
+    QString errorMsg = QString("Socket error: %1").arg(m_socket->errorString());
 
     qCritical() << errorMsg;
     m_connectionState = Disconnected;
-    emit connectionError(errorMsg);
+    emit protocolError(errorMsg);
 }
 
 // ============================================================================
 // TLS Setup
 // ============================================================================
 
-bool Director::setupTLSConnection()
+bool BDirector::setupTLSConnection()
 {
     qDebug() << "========================================";
     qDebug() << "TLS CONFIGURATION";
     qDebug() << "========================================";
 
-    QSslConfiguration sslConfig = m_sslSocket->sslConfiguration();
+    QSslConfiguration sslConfig = m_socket->sslConfiguration();
 
     // Load certificates
     if (!loadTLSCertificates(sslConfig)) {
@@ -461,7 +573,7 @@ bool Director::setupTLSConnection()
     qDebug() << "TLS Protocol: TLS 1.2 or later";
 
     // Apply configuration
-    m_sslSocket->setSslConfiguration(sslConfig);
+    m_socket->setSslConfiguration(sslConfig);
 
     qDebug() << "✓ TLS configuration complete";
     qDebug() << "========================================";
@@ -469,7 +581,7 @@ bool Director::setupTLSConnection()
     return true;
 }
 
-bool Director::loadTLSCertificates(QSslConfiguration &sslConfig)
+bool BDirector::loadTLSCertificates(QSslConfiguration &sslConfig)
 {
     // Load CA certificate
     if (m_tlsConfig->tlsCaCertFile && !m_tlsConfig->tlsCaCertFile->fileName().isEmpty()) {
@@ -574,7 +686,7 @@ bool Director::loadTLSCertificates(QSslConfiguration &sslConfig)
 // Authentication
 // ============================================================================
 
-void Director::startAuthentication()
+void BDirector::startAuthentication()
 {
     qDebug() << "========================================";
     qDebug() << "STARTING AUTHENTICATION";
@@ -584,17 +696,17 @@ void Director::startAuthentication()
 
     // Create appropriate auth class based on AUTH_CLASS macro
     // AUTH_CLASS is defined in director.h as BaculaAuth or BareosAuth
-    m_auth = new AUTH_CLASS(m_sslSocket, this);
+    m_auth = new AUTH_CLASS(m_socket, this);
 
     // Connect authentication signals and store connections
     m_connAuthSucceeded = QObject::connect(m_auth, &AUTH_CLASS::authenticationSucceeded,
-                                  this, &Director::onAuthenticationSucceeded);
+                                  this, &BDirector::onAuthenticationSucceeded);
 
     m_connAuthFailed = QObject::connect(m_auth, &AUTH_CLASS::authenticationFailed,
-                               this, &Director::onAuthenticationFailed);
+                               this, &BDirector::onAuthenticationFailed);
 
     m_connAuthStatus = QObject::connect(m_auth, &AUTH_CLASS::statusMessage,
-                               this, &Director::onAuthStatusMessage);
+                               this, &BDirector::onAuthStatusMessage);
 
     // Use PSK if password present
     bool usePSK = !m_password.isEmpty() && m_tlsConfig->tlsEnable;
@@ -618,12 +730,12 @@ void Director::startAuthentication()
     }
 }
 
-void Director::onAuthenticationSucceeded(const QString directorVersion)
+void BDirector::onAuthenticationSucceeded(const QString directorVersion)
 {
 #ifdef IS_DEVELOPER
     qDebug() << "========================================";
     qDebug() << "✓ AUTHENTICATION SUCCESSFUL";
-    qDebug() << "  Encryption:" << m_sslSocket->sessionCipher().name();
+    qDebug() << "  Encryption:" << (m_socket->sessionCipher().name().isEmpty() ? "None" : m_socket->sessionCipher().name());
     qDebug() << "  Director Version:" << directorVersion;
     qDebug() << "========================================";
 #endif
@@ -658,6 +770,7 @@ void Director::onAuthenticationSucceeded(const QString directorVersion)
         qDebug() << "  Parsed version:" << major << "." << minor << "." << patch;
 
         // Enable compression if Director supports it
+        //@TODO !!!
         if (major >= 1) {
             qDebug() << "  Director supports compression";
         }
@@ -667,29 +780,33 @@ void Director::onAuthenticationSucceeded(const QString directorVersion)
     // Save connection settings
     saveConnectionSettings();
 
-    // Optional: Activate API mode (like BAT)
-    if (m_apiMode) {
-#ifdef IS_DEVELOPER
-        qDebug() << "Activating API mode (.api 1)...";
-#endif
-        // sendCommand(".api 1");
-    }
-
     // Initializing asyncrounous processing
-    m_connReadyRead = QObject::connect(m_sslSocket, &QSslSocket::readyRead, this, &Director::onReadyRead);
-    m_connBytesWritten = QObject::connect(m_sslSocket, &QSslSocket::bytesWritten, this, &Director::onBytesWritten);
+    m_connReadyRead = QObject::connect(m_socket, &QSslSocket::readyRead, this, &BDirector::onReadyRead);
+    m_connBytesWritten = QObject::connect(m_socket, &QSslSocket::bytesWritten, this, &BDirector::onBytesWritten);
 
     // ✅ Emit signals NACH dem API-Modus
-    emit authenticationSucceeded(directorVersion);
-    emit connected(directorVersion);
+    emit authentificationSucceeded(true, directorVersion);
+
     m_connectionState = Ready;
+
+    // Verwende QTimer für Keep-Alive
+    QTimer *keepAliveTimer = new QTimer(this);
+    QObject::connect(keepAliveTimer, &QTimer::timeout, [this]() {
+        if (m_socket->isOpen()) {
+            sendCommand(".message\n");  // Keep connection alive
+        }
+#ifdef IS_DEVELOPER
+        qDebug() << ".";
+#endif
+    });
+    // keepAliveTimer->start(3000);
 
 #ifdef IS_DEVELOPER
     qDebug() << "✓ Connection established and ready";
 #endif
 }
 
-void Director::onAuthenticationFailed(const QString &reason)
+void BDirector::onAuthenticationFailed(const QString &reason)
 {
     qCritical() << "========================================";
     qCritical() << "✗ AUTHENTICATION FAILED";
@@ -711,13 +828,13 @@ void Director::onAuthenticationFailed(const QString &reason)
     }
 
     // Disconnect socket
-    m_sslSocket->disconnectFromHost();
+    m_socket->disconnectFromHost();
 
-    emit authenticationFailed(reason);
-    emit connectionError(reason);
+    emit authentificationSucceeded(false, reason);
+    emit protocolError(reason);
 }
 
-void Director::onAuthStatusMessage(const QString &message)
+void BDirector::onAuthStatusMessage(const QString &message)
 {
     qDebug() << "[Auth]" << message;
     emit statusMessage(message);
@@ -727,65 +844,72 @@ void Director::onAuthStatusMessage(const QString &message)
 // Command Handling
 // ============================================================================
 
-void Director::sendCommand(DirectorCommand cmd, quint64){}
-
-void Director::sendCommand(DirectorCommand cmd, const QString &command){}
-
-void Director::sendCommand(const QString &command)
+void BDirector::sendCommand(const QString &command)
 {
-    if (m_connectionState != Ready && m_sslSocket->state() != QAbstractSocket::ConnectedState) {
+    if (m_connectionState != Ready && m_socket->state() != QAbstractSocket::ConnectedState) {
         qWarning() << "Cannot send command - not ready (state:" << m_connectionState << ")";
         emit statusMessage("Nicht bereit");
         return;
+    }
+
+    QString msg = command;
+    if (!msg.endsWith('\n')) {
+        msg += '\n';
     }
 
 #ifdef IS_DEVELOPER
     qDebug() << ">>> Sending command:" << command;
 #endif
 
-    // ✅ Befehle werden als einfacher Text mit Newline gesendet
-    // KEIN 4-Byte-Header nach der Authentifizierung!
-    QString msg = command;
+    // Prepare packet: 4-byte big-endian length + payload
+    qint32 len = m_writeBuffer.size();
+    m_lastSentSize = len + 4;
 
-    // ✅ Füge Newline hinzu, falls nicht vorhanden
-    if (!msg.endsWith('\n')) {
-        msg += '\n';
-    }
+    // Big-Endian System (SPARC, PowerPC, MIPS BE, etc.)
+    #if Q_BYTE_ORDER == Q_BIG_ENDIAN
+        m_writeBuffer.prepend(reinterpret_cast<const char*>(&len), 4);
+    // Little-Endian System (x86, x86-64, ARM LE, etc.)
+    #else
+        qint32 lenBE = qToBigEndian(len);
+        m_writeBuffer.prepend(reinterpret_cast<const char*>(&lenBE), 4);
+    #endif
 
     QByteArray data = msg.toUtf8();
 
-    qint64 written = m_sslSocket->write(data);
-    m_sslSocket->flush();
+    m_lastSentSize = m_socket->write(data);
+    // m_socket->flush();
 
-    if (written != data.size()) {
-        qCritical() << "Failed to send complete command! Written:" << written << "Expected:" << data.size();
+    if (m_lastSentSize!= data.size()) {
+        qCritical() << "Failed to send complete command! Written:" << m_lastSentSize << "Expected:" << data.size();
         emit statusMessage("Fehler beim Senden");
     } else {
 #ifdef IS_DEVELOPER
-        qDebug() << "✓ Command sent successfully (" << written << "bytes)";
+        qDebug() << "✓ Command sent successfully (" << m_lastSentSize << "bytes)";
 #endif
-        emit statusMessage("Befehl gesendet: " + command);
+        m_writeBuffer.clear();
+        emit statusMessage(QString("Befehl '%1' gesendet").arg(command));
     }
 
     m_lastCommand = command;
 }
 
-void Director::sendToDirector(const QByteArray &data)
-{
-    m_sslSocket->write(data);
-    m_sslSocket->flush();
+//@deprecated
+void BDirector::doSendCommand(Command cmd, quint64){ commandToString(cmd); }
+
+void BDirector::doSendCommand(const Command cmd, const QString &args){ 
+    const QString cmdStr = commandToString(cmd, args); 
+    sendCommand(cmdStr);
 }
 
 // ============================================================================
 // Command Helpers
 // ============================================================================
-
-QString Director::directorCommandToString(DirectorCommand cmd, const QString &args)
+const QString BDirector::commandToString(Command cmd, const QString &args)
 {
     QString command;
 
     switch (cmd) {
-    case DirectorCommand::ApiMode:
+    case Command::ApiMode:
         // ✅ Intelligente API-Modus-Verarbeitung
         if (args.isEmpty()) {
             command = ".api 1";  // Default: JSON
@@ -803,100 +927,100 @@ QString Director::directorCommandToString(DirectorCommand cmd, const QString &ar
         break;
 
     // Connection & Session
-    case DirectorCommand::Quit:             command = "quit"; break;
-    case DirectorCommand::Exit:             command = "exit"; break;
+    case Command::Quit:             command = "quit"; break;
+    case Command::Exit:             command = "exit"; break;
 
     // Status Commands
-    case DirectorCommand::StatusDirector:   command = "status director"; break;
-    case DirectorCommand::StatusClient:     command = QString("status client=%1").arg(args); break;
-    case DirectorCommand::StatusStorage:    command = QString("status storage=%1").arg(args); break;
-    case DirectorCommand::StatusScheduler:  command = "status scheduler"; break;
-    case DirectorCommand::StatusRunning:    command = "status running"; break;
-    case DirectorCommand::StatusSubscriptions: command = "status subscriptions"; break;
+    case Command::StatusDirector:   command = "status director"; break;
+    case Command::StatusClient:     command = QString("status client=%1").arg(args); break;
+    case Command::StatusStorage:    command = QString("status storage=%1").arg(args); break;
+    case Command::StatusScheduler:  command = "status scheduler"; break;
+    case Command::StatusRunning:    command = "status running"; break;
+    case Command::StatusSubscriptions: command = "status subscriptions"; break;
 
     // List Commands
-    case DirectorCommand::ListJobs:         command = "list jobs"; break;
-    case DirectorCommand::ListJobsLast:     command = QString("list jobs last=%1").arg(args.isEmpty() ? "100" : args); break;
-    case DirectorCommand::ListJobId:        command = QString("list jobid=%1").arg(args); break;
-    case DirectorCommand::ListClients:      command = "list clients"; break;
-    case DirectorCommand::ListPools:        command = "list pools"; break;
-    case DirectorCommand::ListVolumes:      command = "list volumes"; break;
-    case DirectorCommand::ListVolumePool:   command = QString("list volumes pool=%1").arg(args); break;
-    case DirectorCommand::ListMedia:        command = "list media"; break;
-    case DirectorCommand::ListFileSets:     command = "list filesets"; break;
-    case DirectorCommand::ListFiles:        command = QString("list files jobid=%1").arg(args); break;
-    case DirectorCommand::ListNextVolume:   command = QString("list nextvol job=%1").arg(args); break;
-    case DirectorCommand::ListBackups:      command = "list backups"; break;
-    case DirectorCommand::ListBackupsClient: command = QString("list backups client=%1").arg(args); break;
+    case Command::ListJobs:         command = "list jobs"; break;
+    case Command::ListJobsLast:     command = QString("list jobs last=%1").arg(args.isEmpty() ? "100" : args); break;
+    case Command::ListJobId:        command = QString("list jobid=%1").arg(args); break;
+    case Command::ListClients:      command = "list clients"; break;
+    case Command::ListPools:        command = "list pools"; break;
+    case Command::ListVolumes:      command = "list volumes"; break;
+    case Command::ListVolumePool:   command = QString("list volumes pool=%1").arg(args); break;
+    case Command::ListMedia:        command = "list media"; break;
+    case Command::ListFileSets:     command = "list filesets"; break;
+    case Command::ListFiles:        command = QString("list files jobid=%1").arg(args); break;
+    case Command::ListNextVolume:   command = QString("list nextvol job=%1").arg(args); break;
+    case Command::ListBackups:      command = "list backups"; break;
+    case Command::ListBackupsClient: command = QString("list backups client=%1").arg(args); break;
 
     // Job Control
-    case DirectorCommand::Run:              command = QString("run job=%1").arg(args); break;
-    case DirectorCommand::RunYes:           command = QString("run job=%1 yes").arg(args); break;
-    case DirectorCommand::Cancel:           command = QString("cancel jobid=%1").arg(args); break;
-    case DirectorCommand::Delete:           command = QString("delete job jobid=%1").arg(args); break;
-    case DirectorCommand::Disable:          command = QString("disable job=%1").arg(args); break;
-    case DirectorCommand::Enable:           command = QString("enable job=%1").arg(args); break;
-    case DirectorCommand::Rerun:            command = QString("rerun jobid=%1").arg(args); break;
+    case Command::Run:              command = QString("run job=%1").arg(args); break;
+    case Command::RunYes:           command = QString("run job=%1 yes").arg(args); break;
+    case Command::Cancel:           command = QString("cancel jobid=%1").arg(args); break;
+    case Command::Delete:           command = QString("delete job jobid=%1").arg(args); break;
+    case Command::Disable:          command = QString("disable job=%1").arg(args); break;
+    case Command::Enable:           command = QString("enable job=%1").arg(args); break;
+    case Command::Rerun:            command = QString("rerun jobid=%1").arg(args); break;
 
     // Restore
-    case DirectorCommand::Restore:          command = "restore"; break;
-    case DirectorCommand::RestoreAll:       command = "restore all"; break;
-    case DirectorCommand::RestoreSelect:    command = "restore select"; break;
+    case Command::Restore:          command = "restore"; break;
+    case Command::RestoreAll:       command = "restore all"; break;
+    case Command::RestoreSelect:    command = "restore select"; break;
 
     // Volume Management
-    case DirectorCommand::Label:            command = QString("label %1").arg(args); break;
-    case DirectorCommand::Relabel:          command = QString("relabel %1").arg(args); break;
-    case DirectorCommand::Mount:            command = QString("mount storage=%1").arg(args); break;
-    case DirectorCommand::Unmount:          command = QString("unmount storage=%1").arg(args); break;
-    case DirectorCommand::Release:          command = QString("release storage=%1").arg(args); break;
-    case DirectorCommand::Update:           command = "update"; break;
-    case DirectorCommand::UpdateVolume:     command = QString("update volume=%1").arg(args); break;
-    case DirectorCommand::Purge:            command = QString("purge volume=%1").arg(args); break;
-    case DirectorCommand::Prune:            command = "prune"; break;
-    case DirectorCommand::PruneFiles:       command = "prune files"; break;
-    case DirectorCommand::PruneJobs:        command = "prune jobs"; break;
-    case DirectorCommand::PruneVolume:      command = QString("prune volume=%1").arg(args); break;
+    case Command::Label:            command = QString("label %1").arg(args); break;
+    case Command::Relabel:          command = QString("relabel %1").arg(args); break;
+    case Command::Mount:            command = QString("mount storage=%1").arg(args); break;
+    case Command::Unmount:          command = QString("unmount storage=%1").arg(args); break;
+    case Command::Release:          command = QString("release storage=%1").arg(args); break;
+    case Command::Update:           command = "update"; break;
+    case Command::UpdateVolume:     command = QString("update volume=%1").arg(args); break;
+    case Command::Purge:            command = QString("purge volume=%1").arg(args); break;
+    case Command::Prune:            command = "prune"; break;
+    case Command::PruneFiles:       command = "prune files"; break;
+    case Command::PruneJobs:        command = "prune jobs"; break;
+    case Command::PruneVolume:      command = QString("prune volume=%1").arg(args); break;
 
     // Console Commands
-    case DirectorCommand::Show:             command = QString("show %1").arg(args); break;
-    case DirectorCommand::ShowJobs:         command = "show jobs"; break;
-    case DirectorCommand::ShowClients:      command = "show clients"; break;
-    case DirectorCommand::ShowFilesets:     command = "show filesets"; break;
-    case DirectorCommand::ShowSchedules:    command = "show schedules"; break;
-    case DirectorCommand::ShowPools:        command = "show pools"; break;
-    case DirectorCommand::ShowStorages:     command = "show storages"; break;
-    case DirectorCommand::ShowCatalogs:     command = "show catalogs"; break;
-    case DirectorCommand::ShowMessages:     command = "show messages"; break;
-    case DirectorCommand::ShowAll:          command = "show all"; break;
+    case Command::Show:             command = QString("show %1").arg(args); break;
+    case Command::ShowJobs:         command = "show jobs"; break;
+    case Command::ShowClients:      command = "show clients"; break;
+    case Command::ShowFilesets:     command = "show filesets"; break;
+    case Command::ShowSchedules:    command = "show schedules"; break;
+    case Command::ShowPools:        command = "show pools"; break;
+    case Command::ShowStorages:     command = "show storages"; break;
+    case Command::ShowCatalogs:     command = "show catalogs"; break;
+    case Command::ShowMessages:     command = "show messages"; break;
+    case Command::ShowAll:          command = "show all"; break;
 
     // Messages
-    case DirectorCommand::Messages:         command = "messages"; break;
+    case Command::Messages:         command = "messages"; break;
 
     // Catalog
-    case DirectorCommand::SqlQuery:         command = QString("sqlquery %1").arg(args); break;
-    case DirectorCommand::Query:            command = QString("query %1").arg(args); break;
+    case Command::SqlQuery:         command = QString("sqlquery %1").arg(args); break;
+    case Command::Query:            command = QString("query %1").arg(args); break;
 
     // Testing & Debugging
-    case DirectorCommand::Estimate:         command = QString("estimate %1").arg(args); break;
-    case DirectorCommand::Time:             command = "time"; break;
-    case DirectorCommand::Trace:            command = QString("trace %1").arg(args.isEmpty() ? "on" : args); break;
-    case DirectorCommand::Version:          command = "version"; break;
-    case DirectorCommand::Memory:           command = "memory"; break;
+    case Command::Estimate:         command = QString("estimate %1").arg(args); break;
+    case Command::Time:             command = "time"; break;
+    case Command::Trace:            command = QString("trace %1").arg(args.isEmpty() ? "on" : args); break;
+    case Command::Version:          command = "version"; break;
+    case Command::Memory:           command = "memory"; break;
 
     // Configuration
-    case DirectorCommand::Reload:           command = "reload"; break;
-    case DirectorCommand::Configure:        command = QString("configure %1").arg(args); break;
-    case DirectorCommand::Export:           command = QString("export %1").arg(args); break;
-    case DirectorCommand::Import:           command = QString("import %1").arg(args); break;
+    case Command::Reload:           command = "reload"; break;
+    case Command::Configure:        command = QString("configure %1").arg(args); break;
+    case Command::Export:           command = QString("export %1").arg(args); break;
+    case Command::Import:           command = QString("import %1").arg(args); break;
 
     // Help
-    case DirectorCommand::Help:             command = "help"; break;
+    case Command::Help:             command = "help"; break;
 
     // Custom
-    case DirectorCommand::Custom:           command = args; break;
+    case Command::Custom:           command = args; break;
 
     default:
-        qWarning() << "Unknown DirectorCommand:" << static_cast<int>(cmd);
+        qWarning() << "Unknown Command:" << static_cast<int>(cmd);
         command = args;
         break;
     }
@@ -904,11 +1028,12 @@ QString Director::directorCommandToString(DirectorCommand cmd, const QString &ar
     return command;
 }
 
+
 // ============================================================================
 // Settings Management
 // ============================================================================
 
-void Director::saveConnectionSettings()
+void BDirector::saveConnectionSettings()
 {
     QSettings settings("Bacula", QCoreApplication::applicationName());
     settings.beginGroup("BaculaConnection");
@@ -925,7 +1050,7 @@ void Director::saveConnectionSettings()
     qDebug() << "Connection settings saved";
 }
 
-void Director::loadConnectionSettings()
+void BDirector::loadConnectionSettings()
 {
     QSettings settings("Bacula", QCoreApplication::applicationName());
     settings.beginGroup("BaculaConnection");
@@ -940,7 +1065,7 @@ void Director::loadConnectionSettings()
     qDebug() << "Connection settings loaded";
 }
 
-bool Director::hasStoredConnection() const
+bool BDirector::hasStoredConnection() const
 {
     QSettings settings("Bacula", QCoreApplication::applicationName());
     settings.beginGroup("BaculaConnection");
@@ -953,7 +1078,7 @@ bool Director::hasStoredConnection() const
 // Helper Methods
 // ============================================================================
 
-Director::JobStatus Director::parseJobStatus(const QString &status)
+BDirector::JobStatus BDirector::parseJobStatus(const QString &status)
 {
     QString s = status.toUpper();
 
@@ -970,7 +1095,7 @@ Director::JobStatus Director::parseJobStatus(const QString &status)
     return Unknown;
 }
 
-QString Director::jobStatusToString(JobStatus status)
+QString BDirector::jobStatusToString(JobStatus status)
 {
     switch (status) {
     case Created: return "Created";
@@ -985,3 +1110,5 @@ QString Director::jobStatusToString(JobStatus status)
     default: return "Unknown";
     }
 }
+
+

@@ -474,13 +474,27 @@ BareosAuth::BnetStatus BareosAuth::send()
     qint32 len = m_writeBuffer.size();
     m_lastSentSize = len + 4;
 
-    m_writeBuffer.prepend(static_cast<char>(len & 0xFF));
-    m_writeBuffer.prepend(static_cast<char>((len >> 8) & 0xFF));
-    m_writeBuffer.prepend(static_cast<char>((len >> 16) & 0xFF));
-    m_writeBuffer.prepend(static_cast<char>((len >> 24) & 0xFF));
+    // Big-Endian System (SPARC, PowerPC, MIPS BE, etc.)
+    #if Q_BYTE_ORDER == Q_BIG_ENDIAN
+        m_writeBuffer.prepend(reinterpret_cast<const char*>(&len), 4);
+    // Little-Endian System (x86, x86-64, ARM LE, etc.)
+    #else
+        qint32 lenBE = qToBigEndian(len);
+        m_writeBuffer.prepend(reinterpret_cast<const char*>(&lenBE), 4);
+    #endif
 
     // Send over the socket
-    qint64 written = m_socket->write(m_writeBuffer);
+    m_lastSentSize = m_socket->write(m_writeBuffer);
+
+    if (len+4 != m_writeBuffer.size()) {
+        qCritical() << "Failed to send complete command! Written:" << m_lastSentSize << "Expected:" << m_writeBuffer.size();
+        return BnetStatus::Error;
+    } else {
+#ifdef IS_DEVELOPER
+        qDebug() << "✓ Command sent successfully (" << m_lastSentSize << "bytes)";
+#endif
+        m_writeBuffer.clear();
+    }
 
     return BnetStatus::Ok;
 }
@@ -704,7 +718,7 @@ bool BareosAuth::verifyDirectorResponse(const QByteArray &response)
 #endif
 
     // ✅ Berechne erwarteten HMAC basierend auf UNSERER Challenge
-    QByteArray expectedHMAC = hmac_md5(m_clientChallenge, m_password);
+    QByteArray expectedHMAC = hmac_md5(m_clientChallenge, m_password.toHex());
 
 #ifdef IS_DEVELOPER
     qDebug() << "  Our challenge was:" << m_clientChallenge;
