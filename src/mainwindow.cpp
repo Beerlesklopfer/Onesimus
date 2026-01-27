@@ -34,8 +34,11 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle("Onesimus - Bareos Backup Management");
 #endif
     resize(1200, 800);
-    
+
     m_director = new BDirector(this);
+
+    // ✅ Starte BDirector-Thread (erstellt Socket im Thread-Kontext)
+    m_director->start();
 
     setupUI();
     createActions();

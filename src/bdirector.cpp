@@ -42,7 +42,7 @@ static const char* BACKUP_SYSTEM_NAME = "Bareos";
 // ============================================================================
 
 BDirector::BDirector(QObject *parent)
-    : QObject(parent)
+    : QThread(parent)
     , m_connectionState(Disconnected)
     , m_socket(nullptr)
     , m_port(9101)
@@ -51,26 +51,70 @@ BDirector::BDirector(QObject *parent)
     , m_connected(false)
     , m_apiMode(ApiMode::Json)  // API mode enabled by default
     , m_lastSentSize(0)
+    , m_initialized(false)
+    , m_authCompleted(false)
 {
     m_tlsConfig = new TLSConfig();
-    m_socket = new QSslSocket(this);
-    // Connect socket signals and store connections
+    // Socket wird in run() erstellt (im Thread-Kontext)
+}
+
+void BDirector::run()
+{
+    qDebug() << "========================================";
+    qDebug() << "BDIRECTOR THREAD STARTED";
+    qDebug() << "  Thread ID:" << QThread::currentThreadId();
+    qDebug() << "========================================";
+
+    // Erstelle Socket im Thread-Kontext
+    m_socket = new QSslSocket();
+
+    // Verbinde Socket-Signale
     connectSocketSignals();
+
+    m_initialized = true;
+    qDebug() << "  ✓ Socket created and signals connected";
+
+    // Starte Event-Loop (blockiert bis quit() aufgerufen wird)
+    exec();
+
+    // Cleanup nach Event-Loop
+    qDebug() << "  Cleaning up thread resources...";
+
+    if (m_auth) {
+        m_auth->deleteLater();
+        m_auth = nullptr;
+    }
+
+    if (m_socket) {
+        if (m_socket->state() == QAbstractSocket::ConnectedState) {
+            m_socket->disconnectFromHost();
+            m_socket->waitForDisconnected(1000);
+        }
+        delete m_socket;
+        m_socket = nullptr;
+    }
+
+    qDebug() << "  ✓ Thread cleanup complete";
+    qDebug() << "========================================";
 }
 
 BDirector::~BDirector()
 {
-    disconnect();
+    qDebug() << "BDirector: Destructor called";
 
-    // Disconnect all signals
-    disconnectAllSignals();
+    // Stoppe Thread
+    if (isRunning()) {
+        quit();
+        wait(3000);
+        if (isRunning()) {
+            terminate();
+            wait();
+        }
+    }
 
     // Clean up
     delete m_tlsConfig;
     m_tlsConfig = nullptr;
-
-    delete m_socket;
-    m_socket = nullptr;
 }
 
 // ============================================================================
@@ -89,12 +133,21 @@ QString BDirector::backupSystemName() const
 void BDirector::connect(const QString &host, int port, const QString &directorName,
                        const QString &password)
 {
+    QMutexLocker locker(&m_connectionMutex);
+
+    if (!m_initialized || !m_socket) {
+        qCritical() << "Socket not initialized! Thread not running?";
+        emit protocolError("Internal error: Socket not initialized");
+        return;
+    }
+
     qDebug() << "========================================";
     qDebug() << "CONNECTING TO" << backupSystemName() << "DIRECTOR" << directorName;
     qDebug() << "========================================";
     qDebug() << "Host:" << host;
     qDebug() << "Port:" << port;
     qDebug() << "Password present:" << (!password.isEmpty());
+    qDebug() << "Thread:" << QThread::currentThreadId();
     qDebug() << "========================================";
 
     // Abort existing connection
@@ -103,7 +156,12 @@ void BDirector::connect(const QString &host, int port, const QString &directorNa
         m_socket->waitForDisconnected(1000);
     }
 
-    m_connectionState = Connecting;
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connectionState = Connecting;
+        m_connected = false;
+    }
+
     m_host = host;
     m_port = port;
     m_directorName = directorName;
@@ -143,11 +201,13 @@ void BDirector::disconnect()
 
 bool BDirector::isConnected() const
 {
+    QMutexLocker locker(&m_stateMutex);
     return m_connected && m_connectionState == Ready;
 }
 
 BDirector::ConnectionState BDirector::connectionState() const
 {
+    QMutexLocker locker(&m_stateMutex);
     return m_connectionState;
 }
 
@@ -368,8 +428,11 @@ void BDirector::onDisconnected()
     qDebug() << "CONNECTION CLOSED";
     qDebug() << "========================================";
 
-    m_connected = false;
-    m_connectionState = Disconnected;
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connected = false;
+        m_connectionState = Disconnected;
+    }
 
     // Cleanup
     if (m_auth) {
@@ -692,7 +755,15 @@ void BDirector::startAuthentication()
     qDebug() << "STARTING AUTHENTICATION";
     qDebug() << "========================================";
 
-    m_connectionState = Authenticating;
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connectionState = Authenticating;
+    }
+
+    {
+        QMutexLocker authLocker(&m_authMutex);
+        m_authCompleted = false;
+    }
 
     // Create appropriate auth class based on AUTH_CLASS macro
     // AUTH_CLASS is defined in director.h as BaculaAuth or BareosAuth
@@ -746,8 +817,12 @@ void BDirector::onAuthenticationSucceeded(const QString directorVersion)
     QObject::disconnect(m_connAuthStatus);
 
     m_directorVersion = directorVersion;
-    m_connectionState = Ready;
-    m_connected = true;
+
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connectionState = Ready;
+        m_connected = true;
+    }
 
     // Cleanup auth object
     m_auth->deleteLater();
@@ -780,14 +855,11 @@ void BDirector::onAuthenticationSucceeded(const QString directorVersion)
     // Save connection settings
     saveConnectionSettings();
 
-    // Initializing asyncrounous processing
-    m_connReadyRead = QObject::connect(m_socket, &QSslSocket::readyRead, this, &BDirector::onReadyRead);
-    m_connBytesWritten = QObject::connect(m_socket, &QSslSocket::bytesWritten, this, &BDirector::onBytesWritten);
+    // ✅ Signale sind bereits in connectSocketSignals() verbunden!
+    // KEIN erneutes Connect nötig (würde zu doppelten Aufrufen führen)
 
     // ✅ Emit signals NACH dem API-Modus
     emit authentificationSucceeded(true, directorVersion);
-
-    m_connectionState = Ready;
 
     // Verwende QTimer für Keep-Alive
     QTimer *keepAliveTimer = new QTimer(this);
@@ -804,6 +876,13 @@ void BDirector::onAuthenticationSucceeded(const QString directorVersion)
 #ifdef IS_DEVELOPER
     qDebug() << "✓ Connection established and ready";
 #endif
+
+    // ✅ Signalisiere Authentifizierung abgeschlossen
+    {
+        QMutexLocker authLocker(&m_authMutex);
+        m_authCompleted = true;
+        m_authCondition.wakeAll();
+    }
 }
 
 void BDirector::onAuthenticationFailed(const QString &reason)
@@ -813,8 +892,11 @@ void BDirector::onAuthenticationFailed(const QString &reason)
     qCritical() << "  Reason:" << reason;
     qCritical() << "========================================";
 
-    m_connectionState = Disconnected;
-    m_connected = false;
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connectionState = Disconnected;
+        m_connected = false;
+    }
 
     // ✅ Disconnect auth signals
     QObject::disconnect(m_connAuthSucceeded);
@@ -832,6 +914,13 @@ void BDirector::onAuthenticationFailed(const QString &reason)
 
     emit authentificationSucceeded(false, reason);
     emit protocolError(reason);
+
+    // ✅ Signalisiere Authentifizierung abgeschlossen (mit Fehler)
+    {
+        QMutexLocker authLocker(&m_authMutex);
+        m_authCompleted = true;
+        m_authCondition.wakeAll();
+    }
 }
 
 void BDirector::onAuthStatusMessage(const QString &message)
@@ -861,32 +950,34 @@ void BDirector::sendCommand(const QString &command)
     qDebug() << ">>> Sending command:" << command;
 #endif
 
-    // Prepare packet: 4-byte big-endian length + payload
-    qint32 len = m_writeBuffer.size();
+    // ✅ KORREKT: Identisch zu BareosAuth::send()
+    QByteArray packet = msg.toUtf8();
+    qint32 len = packet.size();
     m_lastSentSize = len + 4;
 
     // Big-Endian System (SPARC, PowerPC, MIPS BE, etc.)
     #if Q_BYTE_ORDER == Q_BIG_ENDIAN
-        m_writeBuffer.prepend(reinterpret_cast<const char*>(&len), 4);
+        packet.prepend(reinterpret_cast<const char*>(&len), 4);
     // Little-Endian System (x86, x86-64, ARM LE, etc.)
     #else
         qint32 lenBE = qToBigEndian(len);
-        m_writeBuffer.prepend(reinterpret_cast<const char*>(&lenBE), 4);
+        packet.prepend(reinterpret_cast<const char*>(&lenBE), 4);
     #endif
 
-    QByteArray data = msg.toUtf8();
+#ifdef IS_DEVELOPER
+    qDebug() << "  Packet size:" << packet.size() << "bytes (4 header + " << len << " payload)";
+#endif
 
-    m_lastSentSize = m_socket->write(data);
-    // m_socket->flush();
+    // Send over the socket
+    qint64 written = m_socket->write(packet);
 
-    if (m_lastSentSize!= data.size()) {
-        qCritical() << "Failed to send complete command! Written:" << m_lastSentSize << "Expected:" << data.size();
+    if (written != packet.size()) {
+        qCritical() << "Failed to send complete command! Written:" << written << "Expected:" << packet.size();
         emit statusMessage("Fehler beim Senden");
     } else {
 #ifdef IS_DEVELOPER
-        qDebug() << "✓ Command sent successfully (" << m_lastSentSize << "bytes)";
+        qDebug() << "✓ Command sent successfully (" << written << "bytes)";
 #endif
-        m_writeBuffer.clear();
         emit statusMessage(QString("Befehl '%1' gesendet").arg(command));
     }
 

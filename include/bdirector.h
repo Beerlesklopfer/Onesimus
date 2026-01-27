@@ -35,6 +35,10 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QMetaObject>
+#include <QThread>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QWaitCondition>
 
 /**
  * @file director.h
@@ -95,7 +99,7 @@
  * @since 1.0.0
  * @version 1.0.0
  */
-class BDirector : public QObject
+class BDirector : public QThread
 {
     Q_OBJECT
 
@@ -416,6 +420,14 @@ public slots:
      */
     void doSendCommand(const BDirector::Command cmd, const QString &args = QString());
 
+protected:
+    /**
+     * @brief Thread-Hauptschleife
+     *
+     * Erstellt Socket und startet Event-Loop für asynchrone Operationen
+     */
+    void run() override;
+
 private slots:
     void onConnected();
     void onDisconnected();
@@ -495,6 +507,14 @@ private:
     QMetaObject::Connection m_connAuthStatus;
     QMetaObject::Connection m_connReadyRead;
     QMetaObject::Connection m_connBytesWritten;
+
+    // Thread-Safety
+    mutable QMutex m_connectionMutex;  ///< Schützt Socket-Operationen
+    mutable QMutex m_stateMutex;       ///< Schützt m_connectionState, m_connected
+    mutable QMutex m_authMutex;        ///< Mutex für Authentifizierung-Wait
+    QWaitCondition m_authCondition;    ///< Wait Condition für Authentifizierung
+    bool m_initialized;                ///< Socket initialisiert?
+    bool m_authCompleted;              ///< Authentifizierung abgeschlossen (Erfolg oder Fehler)
 };
 
 #endif // DIRECTOR_H
