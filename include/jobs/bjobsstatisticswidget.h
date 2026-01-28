@@ -40,7 +40,6 @@ public:
     void refresh();
 
 private slots:
-    void onRefreshClicked();
     void onModelDataChanged();
 
 private:
@@ -64,8 +63,6 @@ private:
     QProgressBar *m_successBar;         ///< Success percentage bar
     QProgressBar *m_warningBar;         ///< Warning percentage bar
     QProgressBar *m_failedBar;          ///< Failed percentage bar
-    
-    QPushButton *m_refreshButton;       ///< Manual refresh button
 };
 
 #endif // BSTATISTICSWIDGET_H

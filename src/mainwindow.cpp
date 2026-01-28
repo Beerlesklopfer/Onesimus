@@ -15,9 +15,12 @@
 #include <QRadioButton>
 #include <QGroupBox>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QSettings>
 #include <QCheckBox>
 #include <QFileDialog>
+#include <QPushButton>
+#include <QLabel>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -44,7 +47,12 @@ MainWindow::MainWindow(QWidget *parent)
     createActions();
     createMenus();
     createToolBar();
-    
+
+    // ✅ Synchronisiere DockWidget-Sichtbarkeit mit Action
+    connect(m_statisticsDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        m_toggleStatisticsAction->setChecked(visible);
+    });
+
     connect(m_director, &BDirector::disconnected, this, [this]() {
         onAuthentificationSucceeded(false, "");
     });
@@ -57,6 +65,38 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_director, &BDirector::authentificationSucceeded,  this, &MainWindow::onAuthentificationSucceeded);
 
     connect(m_director, &BDirector::protocolError, this, &MainWindow::onConnectionError);
+
+    // ✅ Route JSON responses to appropriate widgets based on command
+    connect(m_director, &BDirector::jsonResponse, this, [this](const QString &command, const QString &jsonData) {
+#ifdef IS_DEVELOPER
+        qDebug() << "========================================";
+        qDebug() << "MainWindow: JSON RESPONSE FOR COMMAND:" << command;
+        qDebug() << "  Data size:" << jsonData.size() << "bytes";
+        qDebug() << "========================================";
+#endif
+
+        // Route to appropriate widget based on command
+        if (command.contains("list jobs") || command.contains("list jobid")) {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Routing jobs data to JobWidget";
+#endif
+            m_jobWidget->processJsonResponse(jsonData);
+        } else if (command.contains("list clients")) {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Routing clients data to ClientWidget (not yet implemented)";
+#endif
+            // TODO: m_clientWidget->processJsonResponse(jsonData);
+        } else if (command.contains("list volumes") || command.contains("list media")) {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Routing volumes data to StorageWidget (not yet implemented)";
+#endif
+            // TODO: m_storageWidget->processJsonResponse(jsonData);
+        } else {
+#ifdef IS_DEVELOPER
+            qDebug() << "⚠ Unhandled command response:" << command;
+#endif
+        }
+    });
 
     // Connect Jobwidget signals
     connect(m_jobWidget, &BJobWidget::sendCommand, this, &MainWindow::onSendCommand);
@@ -95,6 +135,7 @@ void MainWindow::setupUI()
     setCentralWidget(m_tabWidget);
 
     m_jobWidget = new BJobWidget(this);
+    m_jobWidget->setDirector(m_director);
     m_tabWidget->addTab(m_jobWidget, "Jobs");
 
     // Client-Widget
@@ -107,10 +148,32 @@ void MainWindow::setupUI()
 
     m_tabWidget->setEnabled(false);
 
+    // ========================================================================
+    // Statistics Dock Widget (rechte Seite)
+    // ========================================================================
+    m_statisticsWidget = new BJobsStatisticsWidget(this);
+    m_statisticsWidget->setModel(m_jobWidget->tableView()->jobsModel());
+
+    m_statisticsDock = new QDockWidget(tr("Statistiken"), this);
+    m_statisticsDock->setWidget(m_statisticsWidget);
+    m_statisticsDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+
+    // ✅ Deaktiviere Features für feste Breite
+    m_statisticsDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetMovable);
+
+    addDockWidget(Qt::RightDockWidgetArea, m_statisticsDock);
+
+    // Setze feste Breite für das DockWidget
+    m_statisticsDock->setMinimumWidth(300);
+    m_statisticsDock->setMaximumWidth(300);
+
+    // Standardmäßig versteckt (wird bei Verbindung angezeigt)
+    m_statisticsDock->setVisible(false);
+
     // Statusleiste
     m_statusLabel = new QLabel("Bereit", this);
     statusBar()->addWidget(m_statusLabel);
-    
+
     m_connectionLabel = new QLabel("Nicht verbunden", this);
     m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
     statusBar()->addPermanentWidget(m_connectionLabel);
@@ -151,6 +214,17 @@ void MainWindow::createActions()
     
     m_aboutAction = new QAction("Über", this);
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAboutTriggered);
+
+    // Ansicht Actions
+    m_toggleStatisticsAction = new QAction("Statistiken anzeigen", this);
+    m_toggleStatisticsAction->setCheckable(true);
+    m_toggleStatisticsAction->setChecked(false);  // Standardmäßig versteckt (bis Verbindung)
+    m_toggleStatisticsAction->setEnabled(false);  // Nur bei Verbindung aktiv
+    m_toggleStatisticsAction->setIcon(QIcon::fromTheme("view-statistics"));
+    m_toggleStatisticsAction->setShortcut(QKeySequence("Ctrl+Shift+S"));
+    connect(m_toggleStatisticsAction, &QAction::toggled, this, [this](bool checked) {
+        m_statisticsDock->setVisible(checked);
+    });
 }
 
 void MainWindow::createMenus()
@@ -165,7 +239,11 @@ void MainWindow::createMenus()
     m_fileMenu->addAction(m_settingsAction);
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_exitAction);
-    
+
+    // Ansicht Menü
+    m_viewMenu = menuBar()->addMenu("Ansicht");
+    m_viewMenu->addAction(m_toggleStatisticsAction);
+
     m_helpMenu = menuBar()->addMenu("Hilfe");
     m_helpMenu->addAction(m_aboutAction);
 }
@@ -178,6 +256,30 @@ void MainWindow::createToolBar()
     m_mainToolBar->addAction(m_disconnectAction);
     m_mainToolBar->addSeparator();
     m_mainToolBar->addAction(m_refreshAction);
+
+    // Spacer um den Toggle-Button rechts zu positionieren
+    QWidget *spacer = new QWidget();
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    m_mainToolBar->addWidget(spacer);
+
+    // Toggle-Button für Statistiken
+    m_toggleStatisticsButton = new QPushButton("Statistiken ▼", this);
+    m_toggleStatisticsButton->setCheckable(false);
+    m_toggleStatisticsButton->setEnabled(false);  // Nur bei Verbindung aktiv
+    m_toggleStatisticsButton->setToolTip(tr("Statistiken ein-/ausblenden"));
+
+    connect(m_toggleStatisticsButton, &QPushButton::clicked, this, [this]() {
+        bool isVisible = m_statisticsDock->isVisible();
+        m_statisticsDock->setVisible(!isVisible);
+        m_toggleStatisticsButton->setText(isVisible ? "Statistiken ▶" : "Statistiken ▼");
+
+        // Synchronisiere mit der Menu-Action
+        if (m_toggleStatisticsAction) {
+            m_toggleStatisticsAction->setChecked(!isVisible);
+        }
+    });
+
+    m_mainToolBar->addWidget(m_toggleStatisticsButton);
 }
 
 void MainWindow::onConnectTriggered()
@@ -535,14 +637,21 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     m_connectAction->setDisabled(connected);
     m_disconnectAction->setEnabled(connected);
     m_refreshAction->setEnabled(connected);
+    m_toggleStatisticsAction->setEnabled(connected);  // ✅ Statistiken nur bei Verbindung
+    m_toggleStatisticsButton->setEnabled(connected);  // ✅ Toolbar-Button synchronisieren
     m_tabWidget->setEnabled(connected);
 
     if (connected) {
         // Zeige Version an wenn vorhanden
         QString statusText = QString("Verbunden BAREOS (v%1)").arg(msg);
-
+        m_connectionLabel->setText(statusText);  // ✅ Text setzen!
         m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
         m_statusLabel->setText("Verbunden - Lade Daten...");
+
+        // ✅ Zeige Statistics DockWidget bei Verbindung
+        m_statisticsDock->setVisible(true);
+        m_toggleStatisticsAction->setChecked(true);
+        m_toggleStatisticsButton->setText("Statistiken ▼");  // ✅ Button-Text aktualisieren
 
         // Refresh mit kleiner Verzögerung, damit API-Modus aktiviert wird
         QTimer::singleShot(100, this, [this]() {
@@ -552,6 +661,11 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
         m_connectionLabel->setText(msg);
         m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
         m_statusLabel->setText("");
+
+        // ✅ Verstecke Statistics DockWidget bei Trennung
+        m_statisticsDock->setVisible(false);
+        m_toggleStatisticsAction->setChecked(false);
+        m_toggleStatisticsButton->setText("Statistiken ▶");  // ✅ Button-Text aktualisieren
     }
 }
 
@@ -609,46 +723,68 @@ void MainWindow::loadAndConnectLastUsed()
     if (!m_director->hasStoredConnection()) {
         return;
     }
-    
-    m_director->loadConnectionSettings();
-    
-  /*   QSettings settings("Bacula", "Onesimus");
-   Director::ConnectionType type = static_cast<Director::ConnectionType>(
-        settings.value("Connection/type", 0).toInt()
-    );
-    
-    if (type == Director::BConsole) {
-        QString host = settings.value("Connection/bconsole_host", "localhost").toString();
-        int port = settings.value("Connection/bconsole_port", 9101).toInt();
-        QString director = settings.value("Connection/bconsole_director", "bacula-dir").toString();
-        QString password = settings.value("Connection/bconsole_password").toString();
-        
-        Director::TLSConfig tlsConfig;
-        m_director->tlsConfig()->tlsEnable = settings.value("Connection/tls_enabled", false).toBool();
-        m_director->tlsConfig()->tlsCaCertFile->setFileName(settings.value("Connection/tls_ca_cert_file").toString());
+
+#if USE_BACULA
+    QSettings settings("Bacula", QCoreApplication::applicationName());
+#elif defined(USE_BAREOS)
+    QSettings settings("Bareos", QCoreApplication::applicationName());
+#endif
+
+    settings.beginGroup("Connection");
+
+    // Lade gespeicherte Verbindungsdaten
+    QString host = settings.value("host", "localhost").toString();
+    int port = settings.value("port", 9101).toInt();
+    QString director = settings.value("director", "bareos-dir").toString();
+    QString password = settings.value("password").toString();
+
+    settings.endGroup();
+
+    // Prüfe ob Passwort vorhanden ist
+    if (password.isEmpty() || host.isEmpty() || director.isEmpty()) {
+        qDebug() << "Keine vollständigen Verbindungsdaten gespeichert - Automatische Verbindung übersprungen";
+        m_connectLastAction->setEnabled(true);
+        return;
+    }
+
+    // Lade TLS-Konfiguration
+    settings.beginGroup("Connection");
+
+    m_director->tlsConfig()->tlsEnable = settings.value("tls_enabled", true).toBool();
+    m_director->tlsConfig()->tlsRequire = settings.value("tls_require", true).toBool();
+    m_director->tlsConfig()->tlsPSKEnable = settings.value("tls_psk_enabled", true).toBool();
+    m_director->tlsConfig()->tlsVerifyPeer = settings.value("tls_verify_peer", false).toBool();
+
+    QString caCertFile = settings.value("tls_ca_cert_file").toString();
+    if (!caCertFile.isEmpty()) {
+        m_director->tlsConfig()->tlsCaCertFile->setFileName(caCertFile);
+    }
 
 #ifdef Q_OS_WINDOWS
-        m_director->tlsConfig()->tlsPfxFile->setFileName(settings.value("Connection/tls_pfx_file").toString());
-        m_director->tlsConfig()->tlsPfxPassword =settings.value("Connection/tls_pfx_password").toString();
+    QString pfxFile = settings.value("tls_pfx_file").toString();
+    if (!pfxFile.isEmpty()) {
+        m_director->tlsConfig()->tlsPfxFile->setFileName(pfxFile);
+        m_director->tlsConfig()->tlsPfxPassword = settings.value("tls_pfx_password").toString();
+    }
 #else
-        m_director->tlsConfig()->tlsCertFile->setFileName(settings.value("Connection/tls_cert_file").toString());
-        m_director->tlsConfig()->tlsKeyFile->setFileName(settings.value("Connection/tls_key_file").toString());
+    QString certFile = settings.value("tls_cert_file").toString();
+    QString keyFile = settings.value("tls_key_file").toString();
+    if (!certFile.isEmpty()) {
+        m_director->tlsConfig()->tlsCertFile->setFileName(certFile);
+    }
+    if (!keyFile.isEmpty()) {
+        m_director->tlsConfig()->tlsKeyFile->setFileName(keyFile);
+    }
 #endif
-        if (!password.isEmpty()) {
-            m_director->connectBConsole(host, port, director, password, tlsConfig);
-            m_statusLabel->setText("Verbinde mit Bconsole...");
-        }
-    } else {
-        QString baseUrl = settings.value("Connection/rest_baseurl", "http://localhost:9101").toString();
-        QString username = settings.value("Connection/rest_username", "admin").toString();
-        QString password = settings.value("Connection/rest_password").toString();
-        
-        if (!password.isEmpty()) {
-            m_director->connectRestAPI(baseUrl, username, password);
-            m_statusLabel->setText("Verbinde mit REST-API...");
-        }
-    }*/
-    
+
+    settings.endGroup();
+
+    // Stelle Verbindung her
+    qDebug() << "Automatische Wiederherstellung der letzten Verbindung:" << host << ":" << port;
+    m_director->setTLSConfig(*m_director->tlsConfig());
+    m_director->connect(host, port, director, password);
+    m_statusLabel->setText(QString("Verbindung wird automatisch hergestellt zu %1...").arg(host));
+
     // Aktualisiere "Letzte Verbindung" Button Status
     m_connectLastAction->setEnabled(true);
 }

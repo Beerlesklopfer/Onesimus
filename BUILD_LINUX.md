@@ -491,7 +491,7 @@ cat > bacula-qt-ui_1.0.0/DEBIAN/control << EOF
 Package: bacula-qt-ui
 Version: 1.0.0
 Architecture: amd64
-Maintainer: Your Name <your@email.com>
+Maintainer: Joerg Bernau <Joerg@bernau.family> 
 Description: Modern Qt UI for Bacula Backup
 Depends: libqt6core6, libqt6gui6, libqt6widgets6, libqt6network6
 EOF

@@ -89,13 +89,7 @@ void BJobsStatisticsWidget::setupUi()
     dataLayout->addRow("Date Range:", m_dateRangeLabel);
     
     mainLayout->addWidget(dataGroup);
-    
-    // Refresh button
-    m_refreshButton = new QPushButton("Refresh Statistics", this);
-    connect(m_refreshButton, &QPushButton::clicked,
-            this, &BJobsStatisticsWidget::onRefreshClicked);
-    mainLayout->addWidget(m_refreshButton);
-    
+
     mainLayout->addStretch();
 }
 
@@ -122,11 +116,6 @@ void BJobsStatisticsWidget::setModel(BJobsModel *model)
 }
 
 void BJobsStatisticsWidget::refresh()
-{
-    updateStatistics();
-}
-
-void BJobsStatisticsWidget::onRefreshClicked()
 {
     updateStatistics();
 }

@@ -47,7 +47,7 @@
  * This class provides a high-level interface for communicating with
  * Bacula or Bareos Director daemons via bconsole protocol.
  *
- * @author Your Name
+ * @author Joerg Bernau <Joerg@bernau.family>
  * @date 2025
  * @version 1.0.0
  */
@@ -154,7 +154,7 @@ public:
         // List Commands
         ListJobs,           ///< list jobs
         ListJobsLast,       ///< list jobs last=<n>
-        ListJobId,          ///< list jobid=<id>
+        ListJobId,          ///< list joblog jobid=<id>
         ListClients,        ///< list clients
         ListPools,          ///< list pools
         ListVolumes,        ///< list volumes
@@ -388,8 +388,21 @@ signals:
     void protocolError(const QString &msg);
 
     void disconnected();
-    void jsonResponse(const QString &response, const QString &error);
-    void commandResponse(const QString &response, const QString &error);
+
+    /**
+     * @brief Emitted when a JSON response is received from the Director
+     * @param command The command that was sent (e.g., "list jobs")
+     * @param jsonData The JSON response data
+     */
+    void jsonResponse(const QString &command, const QString &jsonData);
+
+    /**
+     * @brief Emitted when a text response is received from the Director
+     * @param command The command that was sent
+     * @param response The text response
+     */
+    void commandResponse(const QString &command, const QString &response);
+
     // void jobsReceived(const QList<BDirector::JobInfo> &jobs);
     // void clientsReceived(const QList<BDirector::ClientInfo> &clients);
     // void volumesReceived(const QList<BDirector::VolumeInfo> &volumes);

@@ -7,8 +7,10 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QLabel>
+#include <QDockWidget>
 #include "bdirector.h"
 #include "jobs/bjobwidget.h"
+#include "jobs/bjobsstatisticswidget.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -56,7 +58,11 @@ private:
     BJobWidget *m_jobWidget;
     ClientWidget *m_clientWidget;
     StorageWidget *m_storageWidget;
-    
+
+    // Dock Widgets
+    QDockWidget *m_statisticsDock;
+    BJobsStatisticsWidget *m_statisticsWidget;
+
     // Status
     QLabel *m_statusLabel;
     QLabel *m_connectionLabel;
@@ -70,13 +76,16 @@ private:
     QAction *m_settingsAction;
     QAction *m_exitAction;
     QAction *m_aboutAction;
-    
+    QAction *m_toggleStatisticsAction;
+
     // Menus
     QMenu *m_fileMenu;
+    QMenu *m_viewMenu;
     QMenu *m_helpMenu;
-    
+
     // Toolbar
     QToolBar *m_mainToolBar;
+    QPushButton *m_toggleStatisticsButton;
 };
 
 #endif // MAINWINDOW_H

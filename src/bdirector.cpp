@@ -9,7 +9,7 @@
  * @note m_backupSystem is deprecated and only kept for backward compatibility.
  *       Use the compile-time constant BACKUP_SYSTEM_NAME instead.
  *
- * @author Your Name
+ * @author Joerg Bernau <Joerg@bernau.family>
  * @date 2025
  * @version 1.0.0
  */
@@ -470,7 +470,7 @@ void BDirector::onReadyRead()
     QByteArray newData = m_socket->readAll();
     m_receiveBuffer.append(newData);
 
-#ifdef IS_DEVELOPER
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
     qDebug() << "<<<< Received" << newData.size() << "bytes";
     qDebug() << "     Buffer total:" << m_receiveBuffer.size() << "bytes";
 #endif
@@ -482,8 +482,20 @@ void BDirector::onReadyRead()
         memcpy(&messageLength, m_receiveBuffer.constData(), 4);
         messageLength = qFromBigEndian(messageLength);
 
-#ifdef IS_DEVELOPER
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
         qDebug() << "     Message length from header:" << messageLength;
+        qDebug() << "     First 20 bytes (hex):" << m_receiveBuffer.left(20).toHex(' ');
+#endif
+
+#ifdef IS_DEVELOPER
+        if (messageLength > 100000 || messageLength < -100) {
+            qCritical() << "⚠ SUSPICIOUS MESSAGE LENGTH!" << messageLength;
+            qCritical() << "   Buffer content (first 100 bytes hex):" << m_receiveBuffer.left(100).toHex(' ');
+            qCritical() << "   Buffer content (as string):" << QString::fromLatin1(m_receiveBuffer.left(100));
+            // Clear buffer and break to avoid infinite loop
+            m_receiveBuffer.clear();
+            break;
+        }
 #endif
 
         // Negative Länge = Signal-Nachricht (z.B. Prompt)
@@ -492,7 +504,7 @@ void BDirector::onReadyRead()
 
         // Prüfe ob vollständiges Paket vorhanden (4 Bytes Header + Payload)
         if (m_receiveBuffer.size() < 4 + absLength) {
-#ifdef IS_DEVELOPER
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
             qDebug() << "     Waiting for more data..."
                      << "Have:" << m_receiveBuffer.size()
                      << "Need:" << (4 + absLength);
@@ -502,23 +514,50 @@ void BDirector::onReadyRead()
 
         // Extrahiere Nachricht (ohne Header)
         QByteArray message = m_receiveBuffer.mid(4, absLength);
+
+        // ✅ KRITISCH: Signal-Pakete können verschachtelte Header enthalten!
+        // Bareos sendet manchmal Signale, deren Payload weitere Paket-Header enthält.
+        // In diesem Fall überspringen wir nur den Signal-Header (4 Bytes), nicht das Payload!
+        if (isSignal && message.size() >= 4) {
+            // Prüfe ob die ersten 4 Bytes ein Header sein könnten
+            // Entweder: 00 00 xx xx (Datenpaket) oder ff ff xx xx (weiteres Signal)
+            unsigned char byte0 = (unsigned char)message[0];
+            unsigned char byte1 = (unsigned char)message[1];
+
+            if ((byte0 == 0x00 && byte1 == 0x00) || (byte0 == 0xff && byte1 == 0xff)) {
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
+                qDebug() << "⚠ Signal contains embedded header(s) - removing only signal header (4 bytes)";
+                qDebug() << "  Embedded header:" << message.left(4).toHex(' ');
+#endif
+                // Entferne NUR den Signal-Header, lasse das Payload für das nächste Paket
+                m_receiveBuffer.remove(0, 4);
+                continue;  // Lese das eingebettete Paket im nächsten Loop
+            }
+        }
+
         message.replace(0x01, ' ');
 
-        // Entferne verarbeitetes Paket aus Buffer
+        // Entferne verarbeitetes Paket aus Buffer (Header + Payload)
         m_receiveBuffer.remove(0, 4 + absLength);
 
         // Konvertiere zu String
         QString messageStr = QString::fromUtf8(message).trimmed();
 
-#ifdef IS_DEVELOPER
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
         qDebug() << "✓ Complete message received:";
         qDebug() << "  Signal:" << isSignal;
         qDebug() << "  Length:" << absLength;
-        qDebug() << "  Content:" << messageStr;
+        if (messageStr.size() > 200) {
+            qDebug() << "  Content (first 200 chars):" << messageStr.left(200);
+        } else {
+            qDebug() << "  Content:" << messageStr;
+        }
 #endif
 
-        // Verarbeite Nachricht
-        processDirectorMessage(unbashSpaces(messageStr), isSignal);
+        // Verarbeite Nachricht (ignoriere leere Signal-Prompts wie "*")
+        if (!isSignal || !messageStr.isEmpty()) {
+            processDirectorMessage(unbashSpaces(messageStr), isSignal);
+        }
     }
 }
 
@@ -561,20 +600,19 @@ void BDirector::processDirectorMessage(const QString &message, bool isSignal)
 #endif
 
             switch (statusCode) {
+            case 1000:
+                // 1000 OK - Command successful
+#ifdef IS_DEVELOPER
+                qDebug() << "✓ Command OK";
+#endif
+                emit statusMessage("OK");
+                break;
             case 1002:
+                // 1002 = Prompt received
                 emit statusMessage(match.captured(3));
 #ifdef IS_DEVELOPER
                 qDebug() << "✓ Director ready (prompt received)";
 #endif
-                // Optional: Activate API mode (like BAT)
-                if (m_apiMode != ApiMode::Off) {
-                    m_apiMode = ApiMode::JsonPretty;
-                    doSendCommand(Command::ApiMode, m_apiMode);
-#ifdef IS_DEVELOPER
-                    qDebug() << "Activating API mode " << m_apiMode;
-#endif
-                    //// emit directorReady();
-                }
                 break;
             default:
                 emit statusMessage(message);
@@ -858,6 +896,19 @@ void BDirector::onAuthenticationSucceeded(const QString directorVersion)
     // ✅ Signale sind bereits in connectSocketSignals() verbunden!
     // KEIN erneutes Connect nötig (würde zu doppelten Aufrufen führen)
 
+    // ✅ WICHTIG: Aktiviere JSON API-Modus SOFORT nach Authentifizierung
+    // Dies muss VOR allen anderen Befehlen passieren!
+    if (m_apiMode != ApiMode::Off) {
+#ifdef IS_DEVELOPER
+        qDebug() << "========================================";
+        qDebug() << "ACTIVATING JSON API MODE";
+        qDebug() << "  Mode:" << static_cast<int>(m_apiMode);
+        qDebug() << "========================================";
+#endif
+        // Sende .api 2 Befehl für JSON Pretty-Print Modus
+        sendCommand(".api 2");
+    }
+
     // ✅ Emit signals NACH dem API-Modus
     emit authentificationSucceeded(true, directorVersion);
 
@@ -964,7 +1015,7 @@ void BDirector::sendCommand(const QString &command)
         packet.prepend(reinterpret_cast<const char*>(&lenBE), 4);
     #endif
 
-#ifdef IS_DEVELOPER
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
     qDebug() << "  Packet size:" << packet.size() << "bytes (4 header + " << len << " payload)";
 #endif
 
@@ -975,7 +1026,7 @@ void BDirector::sendCommand(const QString &command)
         qCritical() << "Failed to send complete command! Written:" << written << "Expected:" << packet.size();
         emit statusMessage("Fehler beim Senden");
     } else {
-#ifdef IS_DEVELOPER
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
         qDebug() << "✓ Command sent successfully (" << written << "bytes)";
 #endif
         emit statusMessage(QString("Befehl '%1' gesendet").arg(command));
@@ -1032,7 +1083,7 @@ const QString BDirector::commandToString(Command cmd, const QString &args)
     // List Commands
     case Command::ListJobs:         command = "list jobs"; break;
     case Command::ListJobsLast:     command = QString("list jobs last=%1").arg(args.isEmpty() ? "100" : args); break;
-    case Command::ListJobId:        command = QString("list jobid=%1").arg(args); break;
+    case Command::ListJobId:        command = QString("list joblog jobid=%1").arg(args); break;
     case Command::ListClients:      command = "list clients"; break;
     case Command::ListPools:        command = "list pools"; break;
     case Command::ListVolumes:      command = "list volumes"; break;

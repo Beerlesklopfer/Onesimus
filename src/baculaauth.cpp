@@ -6,7 +6,7 @@
  * providing CRAM-MD5 challenge-response authentication and TLS/PSK support.
  *
  * @author Original Bacula code by Kern Sibbald
- * @author Qt port and modifications by [Your Name]
+ * @author Qt port and modifications by [Joerg Bernau <Joerg@bernau.family>]
  *
  * @version 1.2.0
  * @date 2025-01-21

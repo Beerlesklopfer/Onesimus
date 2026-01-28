@@ -15,6 +15,15 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_definitions(IS_DEVELOPER)
 endif()
 
+# Option für detailliertes Packet Debugging (getrennt von IS_DEVELOPER)
+option(DEBUG_PACKETS "Enable detailed packet-level debugging output" OFF)
+if(DEBUG_PACKETS)
+    add_compile_definitions(DEBUG_PACKETS)
+    message(STATUS "Packet debugging: ENABLED")
+else()
+    message(STATUS "Packet debugging: DISABLED (use -DDEBUG_PACKETS=ON to enable)")
+endif()
+
 # ============================================================================
 # Backup System Auswahl
 # ============================================================================
@@ -326,6 +335,7 @@ set(SOURCES
     src/settingsdialog.cpp
     src/storagewidget.cpp
 
+    src/jobs/bfiltercombomodel.cpp
     src/jobs/bjobdetailsdialog.cpp
     src/jobs/bjobsfiltermodel.cpp
     src/jobs/bjobsfilterwidget.cpp
@@ -362,6 +372,7 @@ set(HEADERS
     include/version.h
 
     include/jobs/bcheckboxdelegate.h
+    include/jobs/bfiltercombomodel.h
     include/jobs/bjobdetailsdialog.h
     include/jobs/bjobsfiltermodel.h
     include/jobs/bjobsfilterwidget.h

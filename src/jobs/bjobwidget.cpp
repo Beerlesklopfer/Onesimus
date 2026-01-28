@@ -17,8 +17,9 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_streamReader(new BJsonStreamReader(this))
     , m_paginationWidget(new BPaginationWidget(this))
     , m_statsWidget(nullptr)   // Optional
-    , m_nameFilter(new QLineEdit(this))
-    , m_clientFilter(new QLineEdit(this))
+    , m_nameFilter(new QComboBox(this))
+    , m_clientFilter(new QComboBox(this))
+    , m_filterComboModel(new BFilterComboModel(this))
     , m_statusSuccess(new QCheckBox(tr("Successful (T)"), this))
     , m_statusWarning(new QCheckBox(tr("Warning (W)"), this))
     , m_statusFailed(new QCheckBox(tr("Failed (f)"), this))
@@ -29,12 +30,11 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_dateEnabled(new QCheckBox(tr("Enable Date Filter"), this))
     , m_dateFrom(new QDateTimeEdit(this))
     , m_dateTo(new QDateTimeEdit(this))
-    , m_clearFiltersButton(new QPushButton(tr("Clear Filters"), this))
-    , m_applyFiltersButton(new QPushButton(tr("Apply Filters"), this))
     , m_filterTimer(new QTimer(this))
     , m_autoRefreshTimer(new QTimer(this))
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_toggleFiltersButton(new QPushButton(this))
+    , m_director(nullptr)
 {
     // Initialize checkboxes - all checked by default
     m_statusSuccess->setChecked(true);
@@ -56,7 +56,16 @@ BJobWidget::BJobWidget(QWidget *parent)
     // Setup filter timer (debouncing)
     m_filterTimer->setSingleShot(true);
     m_filterTimer->setInterval(300);  // 300ms delay
-    
+
+    // Setup editable combo boxes
+    m_nameFilter->setEditable(true);
+    m_nameFilter->setPlaceholderText(tr("Nach Job-Name filtern..."));
+    m_nameFilter->setInsertPolicy(QComboBox::NoInsert);  // Don't add typed text as item
+
+    m_clientFilter->setEditable(true);
+    m_clientFilter->setPlaceholderText(tr("Nach Client filtern..."));
+    m_clientFilter->setInsertPolicy(QComboBox::NoInsert);  // Don't add typed text as item
+
     setupUI();
     
     // Connect table view signals
@@ -71,9 +80,9 @@ BJobWidget::BJobWidget(QWidget *parent)
             this, &BJobWidget::onAutoRefreshTimeout);
     
     // Connect filter controls to debounced apply
-    connect(m_nameFilter, &QLineEdit::textChanged,
+    connect(m_nameFilter, &QComboBox::currentTextChanged,
             this, [this]() { m_filterTimer->start(); });
-    connect(m_clientFilter, &QLineEdit::textChanged,
+    connect(m_clientFilter, &QComboBox::currentTextChanged,
             this, [this]() { m_filterTimer->start(); });
     connect(m_statusSuccess, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
@@ -102,13 +111,7 @@ BJobWidget::BJobWidget(QWidget *parent)
     
     // Connect filter timer to apply
     connect(m_filterTimer, &QTimer::timeout, this, &BJobWidget::applyFilters);
-    
-    // Connect buttons
-    connect(m_clearFiltersButton, &QPushButton::clicked,
-            this, &BJobWidget::clearFilters);
-    connect(m_applyFiltersButton, &QPushButton::clicked,
-            this, &BJobWidget::applyFilters);
-    
+
     // Initial refresh
     onRefreshClicked();
 }
@@ -199,12 +202,8 @@ void BJobWidget::setupUI()
     QGroupBox *textGroup = new QGroupBox(tr("Text Filters"), this);
     QFormLayout *textLayout = new QFormLayout(textGroup);
 
-    m_nameFilter->setPlaceholderText(tr("Filter by job name..."));
-    m_nameFilter->setClearButtonEnabled(true);
+    // Placeholder text is set in constructor
     textLayout->addRow(tr("Job Name:"), m_nameFilter);
-
-    m_clientFilter->setPlaceholderText(tr("Filter by client..."));
-    m_clientFilter->setClearButtonEnabled(true);
     textLayout->addRow(tr("Client:"), m_clientFilter);
 
     filterGroupLayout->addWidget(textGroup);
@@ -242,12 +241,6 @@ void BJobWidget::setupUI()
     dateLayout->addLayout(dateFormLayout);
 
     filterGroupLayout->addWidget(dateGroup);
-
-    // Filter buttons
-    QHBoxLayout *filterButtonLayout = new QHBoxLayout();
-    filterButtonLayout->addWidget(m_applyFiltersButton);
-    filterButtonLayout->addWidget(m_clearFiltersButton);
-    filterGroupLayout->addLayout(filterButtonLayout);
 
     filterGroupLayout->addStretch();
 
@@ -412,7 +405,7 @@ void BJobWidget::onShowDetailsClicked()
         QJsonObject job = jobValue.toObject();
         if (job["jobid"].toString() == jobId) {
             // Show details dialog
-            BJobDetailsDialog dialog(job, this);
+            BJobDetailsDialog dialog(job, m_director, this);
             dialog.exec();
             break;
         }
@@ -421,8 +414,87 @@ void BJobWidget::onShowDetailsClicked()
 
 void BJobWidget::onRefreshClicked()
 {
+    m_refreshButton->setEnabled(false);
     emit statusMessageChanged("Aktualisiere Job-Liste...");
     emit sendCommand(BDirector::Command::ListJobs, "100");
+}
+
+void BJobWidget::processJsonResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "========================================";
+    qDebug() << "BJobWidget: Processing JSON response";
+    qDebug() << "  Data size:" << jsonData.size() << "bytes";
+    if (jsonData.size() < 500) {
+        qDebug() << "  Raw JSON:" << jsonData;
+    } else {
+        qDebug() << "  First 500 chars:" << jsonData.left(500);
+    }
+    qDebug() << "========================================";
+#endif
+
+    // Clear previous data
+    m_streamReader->clear();
+
+    // Feed data to stream reader
+    m_streamReader->receiveData(jsonData.toUtf8());
+
+    // Parse JSON
+    if (!m_streamReader->parseJson()) {
+        qCritical() << "✗ Failed to parse JSON response";
+        emit statusMessageChanged("Fehler beim Parsen der JSON-Daten");
+        m_refreshButton->setEnabled(true);
+        return;
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ JSON parsed successfully";
+#endif
+
+    // Get jobs array
+    QJsonArray jobsArray = m_streamReader->jobsArray();
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Extracted" << jobsArray.size() << "jobs from JSON";
+    if (jobsArray.isEmpty()) {
+        qWarning() << "⚠ Jobs array is empty! Check JSON structure.";
+    }
+#endif
+
+    // Update table view
+    m_tableView->setJobsData(jobsArray);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Table view updated";
+#endif
+
+    // Update filter combo box model
+    m_filterComboModel->updateFromJobsArray(jobsArray);
+
+    // Update combo boxes with new data
+    QString currentNameFilter = m_nameFilter->currentText();
+    QString currentClientFilter = m_clientFilter->currentText();
+
+    // Update job name combo box
+    m_nameFilter->clear();
+    m_nameFilter->addItem("");  // Empty option to show all
+    m_nameFilter->addItems(m_filterComboModel->jobNames());
+    m_nameFilter->setCurrentText(currentNameFilter);  // Restore previous filter
+
+    // Update client name combo box
+    m_clientFilter->clear();
+    m_clientFilter->addItem("");  // Empty option to show all
+    m_clientFilter->addItems(m_filterComboModel->clientNames());
+    m_clientFilter->setCurrentText(currentClientFilter);  // Restore previous filter
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Filter combo boxes updated with"
+             << m_filterComboModel->jobNames().size() << "job names and"
+             << m_filterComboModel->clientNames().size() << "client names";
+#endif
+
+    emit statusMessageChanged(QString("%1 Jobs geladen").arg(jobsArray.size()));
+    m_refreshButton->setEnabled(true);
 }
 
 void BJobWidget::onJobSelectionChanged()
@@ -434,7 +506,7 @@ void BJobWidget::onJobSelectionChanged()
 
 void BJobWidget::onJobDoubleClicked(const QJsonObject &job)
 {
-    BJobDetailsDialog dialog(job, this);
+    BJobDetailsDialog dialog(job, m_director, this);
     dialog.exec();
 }
 
@@ -497,12 +569,12 @@ QString BJobWidget::formatJobStatus(const QString &status)
 void BJobWidget::applyFilters()
 {
     BJobsFilterModel *filterModel = m_tableView->filterModel();
-    
-    // Apply name filter
-    filterModel->setNameFilter(m_nameFilter->text());
-    
-    // Apply client filter
-    filterModel->setClientFilter(m_clientFilter->text());
+
+    // Apply name filter from combo box
+    filterModel->setNameFilter(m_nameFilter->currentText());
+
+    // Apply client filter from combo box
+    filterModel->setClientFilter(m_clientFilter->currentText());
     
     // Apply status filter - build QSet from checkboxes
     QSet<QString> statusSet;
@@ -543,9 +615,9 @@ void BJobWidget::applyFilters()
 
 void BJobWidget::clearFilters()
 {
-    // Clear text filters
-    m_nameFilter->clear();
-    m_clientFilter->clear();
+    // Clear combo box filters (set to empty option)
+    m_nameFilter->setCurrentText("");
+    m_clientFilter->setCurrentText("");
     
     // Check all status filters
     m_statusSuccess->setChecked(true);

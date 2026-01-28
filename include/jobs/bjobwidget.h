@@ -15,6 +15,7 @@
 #include "bpaginationwidget.h"
 #include "jobs/bjobsstatisticswidget.h"
 #include "bdirector.h"
+#include "jobs/bfiltercombomodel.h"
 
 /**
  * @brief Integrated job widget using enhanced BJsonJobView with BDirector backend
@@ -58,6 +59,21 @@ public:
      * @since 2.0
      */
     BJobsStatisticsWidget* statisticsWidget() const { return m_statsWidget; }
+
+    /**
+     * @brief Sets the director for job operations
+     * @param director Pointer to BDirector
+     * @since 2.0
+     */
+    void setDirector(BDirector *director) { m_director = director; }
+
+public slots:
+    /**
+     * @brief Processes JSON response data from BDirector
+     * @param jsonData The JSON string received from Director
+     * @since 2.0
+     */
+    void processJsonResponse(const QString &jsonData);
 
 signals:
     void statusMessageChanged(const QString &message);
@@ -178,10 +194,11 @@ private:
     BJsonStreamReader *m_streamReader;      ///< JSON stream reader
     BPaginationWidget *m_paginationWidget;  ///< Pagination controls
     BJobsStatisticsWidget *m_statsWidget;       ///< Statistics display (optional)
-    
+
     // Integrated filter controls (from BJobsFilterWidget)
-    QLineEdit *m_nameFilter;                ///< Job name filter
-    QLineEdit *m_clientFilter;              ///< Client name filter
+    QComboBox *m_nameFilter;                ///< Job name filter (editable combo box)
+    QComboBox *m_clientFilter;              ///< Client name filter (editable combo box)
+    BFilterComboModel *m_filterComboModel;  ///< Model for combo box data
     
     QCheckBox *m_statusSuccess;             ///< Filter: Successful (T)
     QCheckBox *m_statusWarning;             ///< Filter: Warning (W)
@@ -195,10 +212,7 @@ private:
     QCheckBox *m_dateEnabled;               ///< Enable date range filter
     QDateTimeEdit *m_dateFrom;              ///< Date range start
     QDateTimeEdit *m_dateTo;                ///< Date range end
-    
-    QPushButton *m_clearFiltersButton;      ///< Clear all filters button
-    QPushButton *m_applyFiltersButton;      ///< Apply filters button
-    
+
     QTimer *m_filterTimer;                  ///< Debounce timer for filters
     
     // Toolbar buttons
@@ -218,6 +232,8 @@ private:
     QPushButton *m_toggleFiltersButton;     ///< Toggle filters button
     QWidget *m_filterContainer;             ///< Container for all filters
     bool m_filtersVisible;                  ///< Filter visibility state
+
+    BDirector *m_director;                  ///< Director connection for job operations
 };
 
 #endif // BJOBWIDGET_H
