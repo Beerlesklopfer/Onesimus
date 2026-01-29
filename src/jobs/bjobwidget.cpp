@@ -35,6 +35,7 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_statusWarning(new QCheckBox(tr("Warning (W)"), this))
     , m_statusFailed(new QCheckBox(tr("Failed (f)"), this))
     , m_statusError(new QCheckBox(tr("Error (E)"), this))
+    , m_statusZeroBytes(new QCheckBox(tr("Zero Bytes"), this))
     , m_levelCheckboxLayout(new QVBoxLayout())
     , m_dateEnabled(new QCheckBox(tr("Enable Date Filter"), this))
     , m_dateFrom(new QDateTimeEdit(this))
@@ -49,11 +50,12 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_poolModel(new BPoolModel(this))
     , m_levelModel(new BLevelModel(this))
 {
-    // Initialize checkboxes - all checked by default
+    // Initialize checkboxes - all checked by default (except Zero Bytes)
     m_statusSuccess->setChecked(true);
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
+    m_statusZeroBytes->setChecked(false);
 
     // Level checkboxes will be populated dynamically from .levels command
 
@@ -157,6 +159,8 @@ BJobWidget::BJobWidget(QWidget *parent)
             this, [this]() { m_filterTimer->start(); });
     connect(m_statusError, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
+    connect(m_statusZeroBytes, &QCheckBox::toggled,
+            this, [this]() { m_filterTimer->start(); });
     // Level checkbox connections will be established dynamically when created
     connect(m_dateEnabled, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
@@ -199,6 +203,10 @@ BJobWidget::BJobWidget(QWidget *parent)
             this, [this](bool checked) {
                 BSettings::instance().setJobsFilterCheckbox("status_error", checked);
             });
+    connect(m_statusZeroBytes, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterCheckbox("status_zero_bytes", checked);
+            });
     connect(m_dateEnabled, &QCheckBox::toggled,
             this, [this](bool checked) {
                 BSettings::instance().setJobsFilterDateEnabled(checked);
@@ -219,6 +227,7 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_statusWarning->setChecked(BSettings::instance().jobsFilterCheckbox("status_warning", true));
     m_statusFailed->setChecked(BSettings::instance().jobsFilterCheckbox("status_failed", true));
     m_statusError->setChecked(BSettings::instance().jobsFilterCheckbox("status_error", true));
+    m_statusZeroBytes->setChecked(BSettings::instance().jobsFilterCheckbox("status_zero_bytes", false));
     m_dateEnabled->setChecked(BSettings::instance().jobsFilterDateEnabled());
     m_dateFrom->setDateTime(BSettings::instance().jobsFilterDateFrom());
     m_dateTo->setDateTime(BSettings::instance().jobsFilterDateTo());
@@ -315,6 +324,7 @@ void BJobWidget::setupUI()
     statusLayout->addWidget(m_statusWarning);
     statusLayout->addWidget(m_statusFailed);
     statusLayout->addWidget(m_statusError);
+    statusLayout->addWidget(m_statusZeroBytes);
 
     filterGroupLayout->addWidget(statusGroup);
 
@@ -354,6 +364,11 @@ void BJobWidget::setupUI()
     dateLayout->addLayout(dateFormLayout);
 
     filterGroupLayout->addWidget(dateGroup);
+
+    // Reset Filters Button
+    m_resetFiltersButton = new QPushButton(tr("Filter zurücksetzen"), this);
+    m_resetFiltersButton->setIcon(QIcon::fromTheme("edit-clear"));
+    filterGroupLayout->addWidget(m_resetFiltersButton);
 
     filterGroupLayout->addStretch();
 
@@ -402,6 +417,10 @@ void BJobWidget::setupUI()
     // Toggle filters button
     connect(m_toggleFiltersButton, &QPushButton::toggled,
             this, &BJobWidget::do_toggleFilters);
+
+    // Reset filters button
+    connect(m_resetFiltersButton, &QPushButton::clicked,
+            this, &BJobWidget::clearFilters);
 
     // Pagination
     m_paginationWidget->setModel(m_tableView->jobsModel());
@@ -675,9 +694,13 @@ void BJobWidget::processDotClientsResponse(const QString &jsonData)
 
 void BJobWidget::processDotLevelsResponse(const QString &jsonData)
 {
-#ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Processing .levels response";
-#endif
+    qWarning() << "BJobWidget: Processing .levels response";
+    qWarning() << "  Response size:" << jsonData.size() << "bytes";
+    if (jsonData.size() < 1000) {
+        qWarning() << "  Raw JSON:" << jsonData;
+    } else {
+        qWarning() << "  First 1000 chars:" << jsonData.left(1000);
+    }
 
     // Parse response using model
     m_levelModel->parseLevels(jsonData);
@@ -697,6 +720,9 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
     // Get level codes and descriptions from model
     QStringList levelCodes = m_levelModel->levelCodes();
     QStringList levelDescriptions = m_levelModel->levelDescriptions();
+
+    qWarning() << "  Level codes:" << levelCodes;
+    qWarning() << "  Level descriptions:" << levelDescriptions;
 
     // Create checkboxes for each level
     for (int i = 0; i < levelCodes.size() && i < levelDescriptions.size(); ++i) {
@@ -1239,7 +1265,10 @@ void BJobWidget::applyFilters()
     } else {
         filterModel->setDateRange(QDateTime(), QDateTime());
     }
-    
+
+    // Apply zero bytes filter
+    filterModel->setZeroBytesFilter(m_statusZeroBytes->isChecked());
+
     // Update status label
     int visibleRows = filterModel->rowCount();
     int totalRows = m_tableView->jobsModel()->rowCount();
@@ -1264,6 +1293,7 @@ void BJobWidget::clearFilters()
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
+    m_statusZeroBytes->setChecked(false);
 
     // Check all level filters (dynamic)
     for (auto it = m_levelCheckboxes.constBegin(); it != m_levelCheckboxes.constEnd(); ++it) {

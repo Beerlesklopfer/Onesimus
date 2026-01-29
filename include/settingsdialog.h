@@ -91,6 +91,7 @@ private:
     QLineEdit *m_hostEdit;
     QSpinBox *m_portSpin;
     QLineEdit *m_directorEdit;
+    QLineEdit *m_consoleEdit;
     QLineEdit *m_passwordEdit;
     QCheckBox *m_savePasswordCheck;
     QCheckBox *m_autoConnectCheck;

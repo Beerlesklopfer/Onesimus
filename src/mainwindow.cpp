@@ -6,6 +6,7 @@
 #include "storagewidget.h"
 #include "schedules/bschedulewidget.h"
 #include "settingsdialog.h"
+#include "bcleanupdialog.h"
 #include "bsettings.h"
 
 #include <QApplication>
@@ -95,61 +96,176 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(m_director, &BDirector::protocolError, this, &MainWindow::onConnectionError);
 
-    // ✅ Route JSON responses to appropriate widgets based on command
-    connect(m_director, &BDirector::jsonResponse, this, [this](const QString &command, const QString &jsonData) {
-#ifdef DEBUG_JSON
-        qDebug() << "========================================";
-        qDebug() << "MainWindow: JSON RESPONSE FOR COMMAND:" << command;
-        qDebug() << "  Data size:" << jsonData.size() << "bytes";
-        qDebug() << "========================================";
+    // ✅ Handle non-JSON command responses (for debugging)
+    connect(m_director, &BDirector::commandResponse, this, [this](const QString &command, const QString &response) {
+        Q_UNUSED(command)
+        Q_UNUSED(response)
+#ifdef IS_DEVELOPER
+        qDebug() << "MainWindow: Command response for:" << command << "Response:" << response.left(100);
 #endif
+        // Note: API mode confirmation and resource loading is now handled
+        // by the BareosDirector state machine automatically
+    });
 
-        // Route to appropriate widget based on command
-        if (command.contains("list jobs") || command.contains("list jobid")) {
+    // ✅ Connect to state machine signals
+    connect(m_director, &BDirector::connectionStateChanged, this,
+            [this](BDirector::ConnectionState oldState, BDirector::ConnectionState newState) {
+        Q_UNUSED(oldState)
 #ifdef IS_DEVELOPER
-            qDebug() << "→ Routing jobs data to JobWidget";
+        qDebug() << "MainWindow: Connection state changed:" << static_cast<int>(oldState)
+                 << "->" << static_cast<int>(newState);
 #endif
-            m_jobWidget->processJsonResponse(jsonData);
-        } else if (command.contains("list joblog")) {
+        // Update status bar based on state
+        switch (newState) {
+        case BDirector::ConnectionState::Connecting:
+            statusBar()->showMessage(tr("Connecting..."));
+            break;
+        case BDirector::ConnectionState::Authenticating:
+            statusBar()->showMessage(tr("Authenticating..."));
+            break;
+        case BDirector::ConnectionState::SettingApiMode:
+            statusBar()->showMessage(tr("Setting API mode..."));
+            break;
+        case BDirector::ConnectionState::LoadingResources:
+            statusBar()->showMessage(tr("Loading resources..."));
+            break;
+        case BDirector::ConnectionState::Ready:
+            statusBar()->showMessage(tr("Connected and ready"), 5000);
+            break;
+        case BDirector::ConnectionState::ConnectionError:
+            statusBar()->showMessage(tr("Connection error"));
+            break;
+        case BDirector::ConnectionState::Disconnected:
+            statusBar()->showMessage(tr("Disconnected"));
+            break;
+        }
+    });
+
+    connect(m_director, &BDirector::resourceLoadProgress, this,
+            [this](int loaded, int total) {
+        statusBar()->showMessage(tr("Loading resources... %1/%2").arg(loaded).arg(total));
+    });
+
+    connect(m_director, &BDirector::allResourcesLoaded, this, [this]() {
 #ifdef IS_DEVELOPER
-            qDebug() << "→ Job log response (handled by job details dialog)";
+        qDebug() << "MainWindow: All resources loaded - refreshing views";
 #endif
-            // Job log responses are handled directly by BJobDetailsDialog
-            // No routing needed here
-        } else if (command.contains("list clients")) {
-#ifdef IS_DEVELOPER
-            qDebug() << "→ Routing clients data to ClientWidget";
-#endif
-            m_clientWidget->processJsonResponse(jsonData);
-        } else if (command.contains("list volumes") || command.contains("list media")) {
-#ifdef IS_DEVELOPER
-            qDebug() << "→ Routing volumes data to StorageWidget";
-#endif
-            m_storageWidget->processJsonResponse(jsonData);
-        } else if (command == ".jobs") {
-#ifdef IS_DEVELOPER
-            qDebug() << "→ Routing .jobs dot-command response to JobWidget";
-#endif
-            m_jobWidget->processDotJobsResponse(jsonData);
-        } else if (command == ".clients") {
-#ifdef IS_DEVELOPER
-            qDebug() << "→ Routing .clients dot-command response to JobWidget";
-#endif
-            m_jobWidget->processDotClientsResponse(jsonData);
-        } else if (command == ".levels") {
-#ifdef IS_DEVELOPER
-            qDebug() << "→ Routing .levels dot-command response to JobWidget";
-#endif
+        // Trigger UI refresh now that all resources are available
+        onRefreshAll();
+    });
+
+    // ✅ Route JSON responses to appropriate widgets based on JSON content
+    // Note: We route based on JSON structure, not command name, because multiple
+    // commands can be sent asynchronously and m_lastCommand may be overwritten
+    connect(m_director, &BDirector::jsonResponse, this, [this](const QString &command, const QString &jsonData) {
+        // Parse JSON to determine response type
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+        if (parseError.error != QJsonParseError::NoError) {
+            qWarning() << "MainWindow: Failed to parse JSON response:" << parseError.errorString();
+            return;
+        }
+
+        if (!doc.isObject()) {
+            qWarning() << "MainWindow: JSON response is not an object";
+            return;
+        }
+
+        QJsonObject root = doc.object();
+        QJsonObject result = root["result"].toObject();
+
+        // Route based on JSON content (keys in result object)
+        bool routed = false;
+
+        // Check for dot-command responses (have specific array keys)
+        if (result.contains("levels")) {
+            qWarning() << "→ Routing levels data to JobWidget (detected by JSON content)";
             m_jobWidget->processDotLevelsResponse(jsonData);
-        } else if (command == ".schedule") {
-#ifdef IS_DEVELOPER
-            qDebug() << "→ Routing .schedule dot-command response to ScheduleWidget";
-#endif
+            routed = true;
+        }
+        if (result.contains("filesets")) {
+            qWarning() << "→ Routing filesets data to JobWidget (detected by JSON content)";
+            m_jobWidget->processDotFilesetsResponse(jsonData);
+            routed = true;
+        }
+        if (result.contains("storages")) {
+            qWarning() << "→ Routing storages data to JobWidget (detected by JSON content)";
+            m_jobWidget->processDotStoragesResponse(jsonData);
+            routed = true;
+        }
+        if (result.contains("pools")) {
+            qWarning() << "→ Routing pools data to JobWidget (detected by JSON content)";
+            m_jobWidget->processDotPoolsResponse(jsonData);
+            routed = true;
+        }
+        if (result.contains("schedules")) {
+            qWarning() << "→ Routing schedules data to ScheduleWidget (detected by JSON content)";
             m_scheduleWidget->processDotScheduleResponse(jsonData);
-        } else {
-#ifdef IS_DEVELOPER
-            qDebug() << "⚠ Unhandled command response:" << command;
-#endif
+            routed = true;
+        }
+
+        // Check for .jobs response (array of job configurations with "name" and "enabled" keys)
+        if (result.contains("jobs")) {
+            QJsonArray jobsArray = result["jobs"].toArray();
+            if (!jobsArray.isEmpty()) {
+                QJsonObject firstJob = jobsArray[0].toObject();
+                // .jobs has "enabled" field, list jobs has "jobstatus"
+                if (firstJob.contains("enabled") || firstJob.contains("fileset")) {
+                    qWarning() << "→ Routing .jobs data to JobWidget (detected by JSON content)";
+                    m_jobWidget->processDotJobsResponse(jsonData);
+                    routed = true;
+                } else if (firstJob.contains("jobstatus") || firstJob.contains("jobid")) {
+                    qWarning() << "→ Routing list jobs data to JobWidget (detected by JSON content)";
+                    m_jobWidget->processJsonResponse(jsonData);
+                    routed = true;
+                }
+            }
+        }
+
+        // Check for .clients response
+        if (result.contains("clients")) {
+            QJsonArray clientsArray = result["clients"].toArray();
+            if (!clientsArray.isEmpty()) {
+                QJsonObject firstClient = clientsArray[0].toObject();
+                // .clients has simple "name" field, list clients has more fields
+                if (firstClient.contains("address") || firstClient.contains("uname")) {
+                    qWarning() << "→ Routing list clients data to ClientWidget (detected by JSON content)";
+                    m_clientWidget->processJsonResponse(jsonData);
+                    routed = true;
+                } else {
+                    qWarning() << "→ Routing .clients data to JobWidget (detected by JSON content)";
+                    m_jobWidget->processDotClientsResponse(jsonData);
+                    routed = true;
+                }
+            }
+        }
+
+        // Check for volumes/media response
+        if (result.contains("volumes") || result.contains("media")) {
+            qWarning() << "→ Routing volumes data to StorageWidget (detected by JSON content)";
+            m_storageWidget->processJsonResponse(jsonData);
+            routed = true;
+        }
+
+        // Fallback to command-based routing if content-based didn't match
+        if (!routed) {
+            if (command.contains("list jobs") || command.contains("list jobid")) {
+                qWarning() << "→ Routing jobs data to JobWidget (by command)";
+                m_jobWidget->processJsonResponse(jsonData);
+            } else if (command.contains("list clients")) {
+                qWarning() << "→ Routing clients data to ClientWidget (by command)";
+                m_clientWidget->processJsonResponse(jsonData);
+            } else if (command.contains("list volumes") || command.contains("list media")) {
+                qWarning() << "→ Routing volumes data to StorageWidget (by command)";
+                m_storageWidget->processJsonResponse(jsonData);
+            } else if (command.contains("list joblog")) {
+                // Job log responses are handled directly by BJobDetailsDialog
+                qWarning() << "→ Job log response (handled by job details dialog)";
+            } else {
+                qWarning() << "⚠ Unhandled JSON response - command:" << command;
+                qWarning() << "  Result keys:" << result.keys();
+            }
         }
     });
 
@@ -480,6 +596,13 @@ void MainWindow::createActions()
     m_refreshSchedulesAction->setShortcut(QKeySequence("Ctrl+Shift+D"));
     m_refreshSchedulesAction->setEnabled(false);
     connect(m_refreshSchedulesAction, &QAction::triggered, m_scheduleWidget, &BScheduleWidget::triggerRefresh);
+
+    // Tools Actions
+    m_cleanupDatabaseAction = new QAction(tr("Database Cleanup..."), this);
+    m_cleanupDatabaseAction->setIcon(QIcon::fromTheme("edit-clear"));
+    m_cleanupDatabaseAction->setToolTip(tr("Clean up old backups and free disk space"));
+    m_cleanupDatabaseAction->setEnabled(false);
+    connect(m_cleanupDatabaseAction, &QAction::triggered, this, &MainWindow::onCleanupDatabase);
 }
 
 void MainWindow::createMenus()
@@ -533,6 +656,10 @@ void MainWindow::createMenus()
     // Schedules Menu
     m_schedulesMenu = menuBar()->addMenu(tr("Schedules"));
     m_schedulesMenu->addAction(m_refreshSchedulesAction);
+
+    // Tools Menu
+    m_toolsMenu = menuBar()->addMenu(tr("Tools"));
+    m_toolsMenu->addAction(m_cleanupDatabaseAction);
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
     m_helpMenu->addAction(m_documentationAction);
@@ -634,6 +761,10 @@ void MainWindow::showConnectionDialog()
     QLineEdit *directorEdit = new QLineEdit(settings.connectionDirector(), &dialog);
     directorEdit->setPlaceholderText("bareos-dir");
 
+    QLineEdit *consoleEdit = new QLineEdit(settings.connectionConsole(), &dialog);
+    consoleEdit->setPlaceholderText("onesimus");
+    consoleEdit->setToolTip("Konsolenname für Authentifizierung (z.B. 'admin' oder 'onesimus')");
+
     QLineEdit *passwordEdit = new QLineEdit(&dialog);
     passwordEdit->setEchoMode(QLineEdit::Password);
     passwordEdit->setText(settings.connectionPassword());
@@ -642,6 +773,7 @@ void MainWindow::showConnectionDialog()
     connectionLayout->addRow("Host:", hostEdit);
     connectionLayout->addRow("Port:", portSpin);
     connectionLayout->addRow("Director Name:", directorEdit);
+    connectionLayout->addRow("Console Name:", consoleEdit);
     connectionLayout->addRow("Passwort:", passwordEdit);
 
     mainLayout->addWidget(connectionGroup);
@@ -773,6 +905,7 @@ void MainWindow::showConnectionDialog()
         settings.setConnectionHost(hostEdit->text());
         settings.setConnectionPort(portSpin->value());
         settings.setConnectionDirector(directorEdit->text());
+        settings.setConnectionConsole(consoleEdit->text());
         settings.setConnectionPassword(passwordEdit->text());
         settings.setTlsEnabled(tlsGroupBox->isChecked());
         settings.setTlsUsePSK(tlsPSKRadio->isChecked());
@@ -812,6 +945,7 @@ void MainWindow::showConnectionDialog()
         onDirectorConnect(hostEdit->text(),
                           portSpin->value(),
                           directorEdit->text(),
+                          consoleEdit->text(),
                           passwordEdit->text());
 
         m_statusLabel->setText("Verbindung wird hergestellt...");
@@ -1101,6 +1235,9 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     // Update schedule menu actions
     m_refreshSchedulesAction->setEnabled(connected);
 
+    // Update tools menu actions
+    m_cleanupDatabaseAction->setEnabled(connected);
+
     // Update widget connection states
     m_jobWidget->setConnectionState(connected);
     m_storageWidget->setConnectionState(connected);
@@ -1134,11 +1271,8 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
 #endif
         }
 
-        // Refresh mit Verzögerung, damit API-Modus aktiviert wird
-        // 300ms sollte ausreichen für API-Modus Aktivierung + erste Signale
-        QTimer::singleShot(300, this, [this]() {
-            onRefreshAll();
-        });
+        // Note: Resource loading and initial refresh is now handled by the state machine.
+        // The allResourcesLoaded() signal will trigger onRefreshAll() when ready.
     } else {
         m_connectionLabel->setText(msg);
         m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
@@ -1197,6 +1331,9 @@ void MainWindow::onRefreshAll()
     onSendCommand(BDirector::Command::DotClients, "");
     onSendCommand(BDirector::Command::DotLevels, "");
     onSendCommand(BDirector::Command::DotSchedule, "");
+    onSendCommand(BDirector::Command::DotFilesets, "");
+    onSendCommand(BDirector::Command::DotStorages, "");
+    onSendCommand(BDirector::Command::DotPools, "");
 
     // m_director->listVolumes();
 
@@ -1234,7 +1371,8 @@ void MainWindow::onSendCommand(const BDirector::Command cmd, const QString &args
                               Q_ARG(QString, args));
 }
 
-void MainWindow::onDirectorConnect(const QString &host, int port, const QString &directorName, const QString &password)
+void MainWindow::onDirectorConnect(const QString &host, int port, const QString &directorName,
+                                   const QString &consoleName, const QString &password)
 {
     if (!m_director) {
         qWarning() << "MainWindow::onDirectorConnect: No director instance!";
@@ -1247,6 +1385,7 @@ void MainWindow::onDirectorConnect(const QString &host, int port, const QString 
                               Q_ARG(QString, host),
                               Q_ARG(int, port),
                               Q_ARG(QString, directorName),
+                              Q_ARG(QString, consoleName),
                               Q_ARG(QString, password));
 }
 
@@ -1274,6 +1413,7 @@ void MainWindow::loadAndConnectLastUsed()
     QString host = settings.connectionHost();
     int port = settings.connectionPort();
     QString director = settings.connectionDirector();
+    QString console = settings.connectionConsole();
     QString password = settings.connectionPassword();
 
     // Prüfe ob Passwort vorhanden ist
@@ -1317,7 +1457,7 @@ void MainWindow::loadAndConnectLastUsed()
     qDebug() << "Automatische Wiederherstellung der letzten Verbindung:" << host << ":" << port;
 #endif
     m_director->setTLSConfig(*m_director->tlsConfig());
-    onDirectorConnect(host, port, director, password);
+    onDirectorConnect(host, port, director, console, password);
     m_statusLabel->setText(QString("Verbindung wird automatisch hergestellt zu %1...").arg(host));
 
     // Aktualisiere "Reconnect" Button Status
@@ -1489,4 +1629,29 @@ void MainWindow::onImportSettingsTriggered()
     // Export all jobs to CSV
     m_jobWidget->tableView()->exportToCsv(false);
     m_statusLabel->setText("Jobs als CSV exportiert");
+}
+
+void MainWindow::onCleanupDatabase()
+{
+    if (!m_director->isConnected()) {
+        QMessageBox::warning(this, tr("Not Connected"),
+                           tr("Please connect to Bareos Director first."));
+        return;
+    }
+
+    // Ensure job data is loaded before opening dialog
+    BJobsModel *jobsModel = m_jobWidget->tableView()->jobsModel();
+    if (jobsModel->allJobs().isEmpty()) {
+        // Trigger refresh and wait a moment for data to load
+        m_jobWidget->triggerRefresh();
+        m_statusLabel->setText(tr("Loading job data..."));
+    }
+
+    BCleanupDialog *dialog = new BCleanupDialog(m_director, jobsModel, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+
+    // Remove deleted jobs directly from model (faster than full refresh)
+    connect(dialog, &BCleanupDialog::cleanupCompleted, jobsModel, &BJobsModel::removeJobsByIds);
+
+    dialog->exec();
 }

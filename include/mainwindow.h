@@ -67,7 +67,8 @@ private slots:
      * @param directorName Director name
      * @param password Director password
      */
-    void onDirectorConnect(const QString &host, int port, const QString &directorName, const QString &password);
+    void onDirectorConnect(const QString &host, int port, const QString &directorName,
+                           const QString &consoleName, const QString &password);
 
     /**
      * @brief Thread-safe helper to disconnect from Director
@@ -85,6 +86,9 @@ private slots:
 
     // Settings slots
     void onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds);
+
+    // Tools slots
+    void onCleanupDatabase();
 
 private:
     void setupUI();
@@ -156,6 +160,9 @@ private:
     // Schedule Actions
     QAction *m_refreshSchedulesAction;
 
+    // Tools Actions
+    QAction *m_cleanupDatabaseAction;
+
     // Menus
     QMenu *m_fileMenu;
     QMenu *m_editMenu;
@@ -164,6 +171,7 @@ private:
     QMenu *m_clientsMenu;
     QMenu *m_storageMenu;
     QMenu *m_schedulesMenu;
+    QMenu *m_toolsMenu;
     QMenu *m_helpMenu;
 
     // Toolbar
@@ -172,6 +180,9 @@ private:
 
     // Auto-refresh
     QTimer *m_autoRefreshTimer;
+
+    // Initial data load tracking
+    // Note: Initial refresh is now handled by BareosDirector state machine (allResourcesLoaded signal)
 
     // Window size management
     QSize m_sizeBeforeStatistics;  ///< Fenstergröße vor Einblendung der Statistiken

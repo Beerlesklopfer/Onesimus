@@ -39,6 +39,8 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QWaitCondition>
+#include <QSet>
+#include <QMap>
 
 /**
  * @file director.h
@@ -106,14 +108,78 @@ class BareosDirector : public QObject
 public:
     /**
      * @enum ConnectionState
-     * @brief Current connection state
+     * @brief Current connection state with full initialization phases
+     *
+     * State Machine:
+     * @code
+     *   Disconnected
+     *        │
+     *        ▼ (connect() called)
+     *   Connecting
+     *        │
+     *        ▼ (socket connected)
+     *   Authenticating
+     *        │
+     *        ▼ (CRAM-MD5 success)
+     *   SettingApiMode
+     *        │
+     *        ▼ (.api 2 confirmed)
+     *   LoadingResources
+     *        │
+     *        ▼ (all resources loaded)
+     *   Ready
+     *        │
+     *        ▼ (error or disconnect)
+     *   Disconnected / Error
+     * @endcode
      */
     enum ConnectionState {
-        Disconnected,    ///< Not connected
-        Connecting,      ///< TCP connection in progress
-        Authenticating,  ///< CRAM-MD5 authentication in progress
-        Ready            ///< Connected and authenticated, ready for commands
+        Disconnected,       ///< Not connected
+        Connecting,         ///< TCP connection in progress
+        Authenticating,     ///< CRAM-MD5 authentication in progress
+        SettingApiMode,     ///< .api 2 command sent, waiting for confirmation
+        LoadingResources,   ///< Loading all resource data (dot-commands)
+        Ready,              ///< Fully initialized, ready for user commands
+        ConnectionError     ///< Connection error state
     };
+    Q_ENUM(ConnectionState)
+
+    /**
+     * @enum ResourceType
+     * @brief Bareos resource types that can be loaded via dot-commands
+     *
+     * These correspond to the Bareos Director resource configuration types.
+     * @see https://docs.bareos.org/Configuration/Director.html
+     */
+    enum class ResourceType {
+        Catalog,    ///< .catalogs - Database catalogs
+        Client,     ///< .clients - Backup clients (File Daemons)
+        Console,    ///< .consoles - Console configurations (not typically loaded)
+        Director,   ///< .directors - Director configurations (not typically loaded)
+        Fileset,    ///< .filesets - File set definitions
+        Job,        ///< .jobs - Job definitions
+        JobDefs,    ///< .jobdefs - Job default definitions (not a dot-command)
+        Messages,   ///< .messages - Message configurations (not typically loaded)
+        Pool,       ///< .pools - Storage pools
+        Profile,    ///< .profiles - ACL profiles (not typically loaded)
+        Schedule,   ///< .schedule - Backup schedules
+        Storage,    ///< .storages - Storage daemons
+        Level       ///< .levels - Backup levels (F, I, D, etc.)
+    };
+    Q_ENUM(ResourceType)
+
+    /**
+     * @enum ResourceLoadState
+     * @brief Loading state for each resource type
+     */
+    enum class ResourceLoadState {
+        Initial,    ///< Not yet requested
+        Waiting,    ///< Request sent, waiting for response
+        Loaded,     ///< Successfully loaded
+        Reloading,  ///< Reload requested, waiting for response
+        Failed      ///< Loading failed
+    };
+    Q_ENUM(ResourceLoadState)
 
     /**
      * @enum ApiMode
@@ -393,7 +459,90 @@ public:
     void setApiMode(ApiMode mode);
     ApiMode apiMode() const;
 
+    // ========================================================================
+    // Resource State Machine
+    // ========================================================================
+
+    /**
+     * @brief Get the loading state of a resource type
+     * @param type The resource type
+     * @return Current loading state
+     */
+    ResourceLoadState resourceState(ResourceType type) const;
+
+    /**
+     * @brief Check if a resource is loaded
+     * @param type The resource type
+     * @return true if state is Loaded
+     */
+    bool isResourceLoaded(ResourceType type) const;
+
+    /**
+     * @brief Check if all required resources are loaded
+     * @return true if all required resources have state Loaded
+     */
+    bool areAllResourcesLoaded() const;
+
+    /**
+     * @brief Request a reload of a specific resource
+     * @param type The resource type to reload
+     */
+    void reloadResource(ResourceType type);
+
 signals:
+    // ========================================================================
+    // State Machine Signals
+    // ========================================================================
+
+    /**
+     * @brief Emitted when connection state changes
+     * @param oldState Previous state
+     * @param newState New state
+     */
+    void connectionStateChanged(BareosDirector::ConnectionState oldState,
+                                 BareosDirector::ConnectionState newState);
+
+    /**
+     * @brief Emitted when a resource load state changes
+     * @param resourceType The type of resource
+     * @param state The new loading state
+     */
+    void resourceStateChanged(BareosDirector::ResourceType resourceType,
+                               BareosDirector::ResourceLoadState state);
+
+    /**
+     * @brief Emitted when a resource type has been loaded successfully
+     * @param resourceType The type of resource that was loaded
+     */
+    void resourceLoaded(BareosDirector::ResourceType resourceType);
+
+    /**
+     * @brief Emitted when a resource load failed
+     * @param resourceType The type of resource
+     * @param errorMessage The error message
+     */
+    void resourceLoadFailed(BareosDirector::ResourceType resourceType,
+                             const QString &errorMessage);
+
+    /**
+     * @brief Emitted when all required resources have been loaded
+     *
+     * This signal indicates that the Director is fully initialized
+     * and ready for user commands. The state will be Ready.
+     */
+    void allResourcesLoaded();
+
+    /**
+     * @brief Emitted when resource loading progress changes
+     * @param loaded Number of resources loaded
+     * @param total Total number of resources to load
+     */
+    void resourceLoadProgress(int loaded, int total);
+
+    // ========================================================================
+    // Connection Signals
+    // ========================================================================
+
     void authentificationSucceeded(const bool result, const QString &msg);
     void protocolError(const QString &msg);
 
@@ -428,11 +577,12 @@ public slots:
      * @param host Hostname or IP address
      * @param port Port number
      * @param directorName Director name
-     * @param password Director password
+     * @param consoleName Console name for authentication (e.g., "admin" or "*UserAgent*")
+     * @param password Console password
      * @since 1.0.0
      */
     void connect(const QString &host, int port, const QString &directorName,
-                 const QString &password);
+                 const QString &consoleName, const QString &password);
 
     /**
      * @brief Thread-safe disconnection from Director
@@ -503,6 +653,61 @@ private slots:
     void onAuthStatusMessage(const QString &message);
 
 private:
+    // ========================================================================
+    // State Machine Methods
+    // ========================================================================
+
+    /**
+     * @brief Sets the connection state and emits signal
+     * @param newState The new connection state
+     */
+    void setState(ConnectionState newState);
+
+    /**
+     * @brief Marks a resource as loaded and checks if all resources are ready
+     * @param resourceType The resource type that was loaded
+     */
+    void markResourceLoaded(ResourceType resourceType);
+
+    /**
+     * @brief Marks a resource as failed
+     * @param resourceType The resource type that failed
+     * @param errorMessage The error message
+     */
+    void markResourceFailed(ResourceType resourceType, const QString &errorMessage);
+
+    /**
+     * @brief Detects resource type from JSON response and marks it as loaded
+     * @param jsonData The JSON response data
+     *
+     * Parses the JSON to identify which resource type it represents
+     * based on the keys in the result object (levels, filesets, etc.)
+     */
+    void detectAndMarkResourceLoaded(const QString &jsonData);
+
+    /**
+     * @brief Checks if all required resources have been loaded
+     * @return true if all resources are loaded
+     */
+    bool allResourcesReady() const;
+
+    /**
+     * @brief Starts loading all required resources (dot-commands)
+     *
+     * Called automatically after API mode is confirmed.
+     * Sends: .jobs, .clients, .filesets, .storages, .pools, .levels, .schedule
+     */
+    void startResourceLoading();
+
+    /**
+     * @brief Resets all resource loading flags
+     */
+    void resetResourceFlags();
+
+    // ========================================================================
+    // Protocol Methods
+    // ========================================================================
+
     const QString commandToString(Command cmd, const QString &args = QString());
     bool setupTLSConnection();
     bool loadTLSCertificates(QSslConfiguration &sslConfig);
@@ -540,6 +745,7 @@ private:
     ConnectionState m_connectionState;
     QSslSocket *m_socket;
     QString m_directorName;
+    QString m_consoleName;
     QString m_password;
     QString m_host;
     int m_port;
@@ -576,6 +782,33 @@ private:
     QWaitCondition m_authCondition;    ///< Wait Condition für Authentifizierung
     bool m_initialized;                ///< Socket initialisiert?
     bool m_authCompleted;              ///< Authentifizierung abgeschlossen (Erfolg oder Fehler)
+
+    // ========================================================================
+    // Resource Loading State Machine
+    // ========================================================================
+
+    /**
+     * @brief Set of required resources to load during initialization
+     *
+     * Default resources: Job, Client, Fileset, Storage, Pool, Level, Schedule
+     * Optional resources: Catalog, Messages, Profile, Console, Director, JobDefs
+     */
+    QSet<ResourceType> m_requiredResources;
+
+    /**
+     * @brief Map of resource type to its current loading state
+     */
+    QMap<ResourceType, ResourceLoadState> m_resourceStates;
+
+    /**
+     * @brief Error message if state is Error
+     */
+    QString m_errorMessage;
+
+    /**
+     * @brief Error messages for individual resource loads
+     */
+    QMap<ResourceType, QString> m_resourceErrors;
 };
 
 #endif // BAREOSDIRECTOR_H

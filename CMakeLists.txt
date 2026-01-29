@@ -374,6 +374,7 @@ set(SOURCES
     src/bbasemodels.cpp
     src/bresourcemodels.cpp
     src/settingsdialog.cpp
+    src/bcleanupdialog.cpp
     src/storagewidget.cpp
 
     src/jobs/bjobmodels.cpp
@@ -402,6 +403,7 @@ set(HEADERS
     include/clientwidget.h
     include/storagewidget.h
     include/settingsdialog.h
+    include/bcleanupdialog.h
     include/bdirector.h
     include/bareosdirector.h
     include/bsettings.h

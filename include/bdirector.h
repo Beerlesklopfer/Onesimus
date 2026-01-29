@@ -86,6 +86,8 @@ public:
     using VolumeInfo = DIRECTOR_CLASS::VolumeInfo;
     using JobInfo = DIRECTOR_CLASS::JobInfo;
     using ClientInfo = DIRECTOR_CLASS::ClientInfo;
+    using ResourceType = DIRECTOR_CLASS::ResourceType;
+    using ResourceLoadState = DIRECTOR_CLASS::ResourceLoadState;
 
     /**
      * @brief Constructor
@@ -143,6 +145,36 @@ public:
      */
     bool hasStoredConnection() const;
 
+    // ========================================================================
+    // Resource State Machine
+    // ========================================================================
+
+    /**
+     * @brief Get the loading state of a resource type
+     * @param type The resource type
+     * @return Current loading state
+     */
+    ResourceLoadState resourceState(ResourceType type) const;
+
+    /**
+     * @brief Check if a resource is loaded
+     * @param type The resource type
+     * @return true if state is Loaded
+     */
+    bool isResourceLoaded(ResourceType type) const;
+
+    /**
+     * @brief Check if all required resources are loaded
+     * @return true if all required resources have state Loaded
+     */
+    bool areAllResourcesLoaded() const;
+
+    /**
+     * @brief Request a reload of a specific resource
+     * @param type The resource type to reload
+     */
+    void reloadResource(ResourceType type);
+
     /**
      * @brief Get pointer to underlying director instance
      * @return Pointer to director instance (BareosDirector or BaculaDirector)
@@ -152,7 +184,53 @@ public:
 
 signals:
     // ========================================================================
-    // Signals (forwarded from BareosDirector)
+    // State Machine Signals
+    // ========================================================================
+
+    /**
+     * @brief Emitted when connection state changes
+     * @param oldState Previous state
+     * @param newState New state
+     */
+    void connectionStateChanged(BDirector::ConnectionState oldState,
+                                 BDirector::ConnectionState newState);
+
+    /**
+     * @brief Emitted when a resource load state changes
+     * @param resourceType The type of resource
+     * @param state The new loading state
+     */
+    void resourceStateChanged(BDirector::ResourceType resourceType,
+                               BDirector::ResourceLoadState state);
+
+    /**
+     * @brief Emitted when a resource type has been loaded successfully
+     * @param resourceType The type of resource that was loaded
+     */
+    void resourceLoaded(BDirector::ResourceType resourceType);
+
+    /**
+     * @brief Emitted when a resource load failed
+     * @param resourceType The type of resource
+     * @param errorMessage The error message
+     */
+    void resourceLoadFailed(BDirector::ResourceType resourceType,
+                             const QString &errorMessage);
+
+    /**
+     * @brief Emitted when all required resources have been loaded
+     */
+    void allResourcesLoaded();
+
+    /**
+     * @brief Emitted when resource loading progress changes
+     * @param loaded Number of resources loaded
+     * @param total Total number of resources to load
+     */
+    void resourceLoadProgress(int loaded, int total);
+
+    // ========================================================================
+    // Connection Signals (forwarded from BareosDirector)
     // ========================================================================
 
     /**
@@ -215,12 +293,13 @@ public slots:
      * @param host Hostname or IP address
      * @param port Port number (default 9101)
      * @param directorName Director name
-     * @param password Director password (for CRAM-MD5 or PSK)
+     * @param consoleName Console name for authentication (e.g., "admin" or "*UserAgent*")
+     * @param password Console password (for CRAM-MD5 or PSK)
      *
      * Thread-safe: Forwards call to director's thread
      */
     void connect(const QString &host, int port, const QString &directorName,
-                const QString &password);
+                const QString &consoleName, const QString &password);
 
     /**
      * @brief Disconnect from Director

@@ -77,6 +77,7 @@ private:
     QCheckBox *m_statusWarning;         ///< Status 'W' checkbox
     QCheckBox *m_statusFailed;          ///< Status 'f' checkbox
     QCheckBox *m_statusError;           ///< Status 'E' checkbox
+    QCheckBox *m_statusZeroBytes;       ///< Zero bytes filter checkbox
     
     // Level filters
     QCheckBox *m_levelFull;             ///< Level 'F' checkbox

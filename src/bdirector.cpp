@@ -79,6 +79,35 @@ BDirector::BDirector(QObject *parent)
     QObject::connect(m_director, &DIRECTOR_CLASS::commandError,
                      this, &BDirector::commandError);
 
+    // Forward state machine signals
+    QObject::connect(m_director, &DIRECTOR_CLASS::connectionStateChanged,
+                     this, [this](DIRECTOR_CLASS::ConnectionState oldState,
+                                   DIRECTOR_CLASS::ConnectionState newState) {
+                         emit connectionStateChanged(oldState, newState);
+                     });
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::resourceStateChanged,
+                     this, [this](DIRECTOR_CLASS::ResourceType type,
+                                   DIRECTOR_CLASS::ResourceLoadState state) {
+                         emit resourceStateChanged(type, state);
+                     });
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::resourceLoaded,
+                     this, [this](DIRECTOR_CLASS::ResourceType type) {
+                         emit resourceLoaded(type);
+                     });
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::resourceLoadFailed,
+                     this, [this](DIRECTOR_CLASS::ResourceType type, const QString &error) {
+                         emit resourceLoadFailed(type, error);
+                     });
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::allResourcesLoaded,
+                     this, &BDirector::allResourcesLoaded);
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::resourceLoadProgress,
+                     this, &BDirector::resourceLoadProgress);
+
     // Initialize director in worker thread (creates socket and auth)
     // Use QueuedConnection to ensure it runs in worker thread
     QObject::connect(m_workerThread, &QThread::started,
@@ -190,7 +219,7 @@ bool BDirector::hasStoredConnection() const
 // ============================================================================
 
 void BDirector::connect(const QString &host, int port, const QString &directorName,
-                       const QString &password)
+                       const QString &consoleName, const QString &password)
 {
     if (!m_director) {
         qCritical() << "BDirector::connect: No director instance!";
@@ -207,6 +236,7 @@ void BDirector::connect(const QString &host, int port, const QString &directorNa
                               Q_ARG(QString, host),
                               Q_ARG(int, port),
                               Q_ARG(QString, directorName),
+                              Q_ARG(QString, consoleName),
                               Q_ARG(QString, password));
 }
 
@@ -299,9 +329,10 @@ void BDirector::sendCommand(const QString &command)
         return;
     }
 
-    // Thread-safe: Use QMetaObject::invokeMethod
-    QMetaObject::invokeMethod(m_director, "sendCommand",
+    // Thread-safe: Use QMetaObject::invokeMethod with public slot doSendCommand
+    QMetaObject::invokeMethod(m_director, "doSendCommand",
                               Qt::QueuedConnection,
+                              Q_ARG(BareosDirector::Command, DIRECTOR_CLASS::Command::Custom),
                               Q_ARG(QString, command));
 }
 
@@ -317,4 +348,45 @@ BDirector::JobStatus BDirector::parseJobStatus(const QString &status)
 QString BDirector::jobStatusToString(JobStatus status)
 {
     return DIRECTOR_CLASS::jobStatusToString(status);
+}
+
+// ============================================================================
+// Resource State Machine (thread-safe forwarding)
+// ============================================================================
+
+BDirector::ResourceLoadState BDirector::resourceState(ResourceType type) const
+{
+    if (m_director) {
+        return m_director->resourceState(type);
+    }
+    return DIRECTOR_CLASS::ResourceLoadState::Initial;
+}
+
+bool BDirector::isResourceLoaded(ResourceType type) const
+{
+    if (m_director) {
+        return m_director->isResourceLoaded(type);
+    }
+    return false;
+}
+
+bool BDirector::areAllResourcesLoaded() const
+{
+    if (m_director) {
+        return m_director->areAllResourcesLoaded();
+    }
+    return false;
+}
+
+void BDirector::reloadResource(ResourceType type)
+{
+    if (!m_director) {
+        qCritical() << "BDirector::reloadResource: No director instance!";
+        return;
+    }
+
+    // Thread-safe: Use QMetaObject::invokeMethod
+    QMetaObject::invokeMethod(m_director, "reloadResource",
+                              Qt::QueuedConnection,
+                              Q_ARG(DIRECTOR_CLASS::ResourceType, type));
 }

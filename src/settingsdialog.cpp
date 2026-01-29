@@ -174,8 +174,13 @@ void SettingsDialog::createConnectionPage()
     bconsoleLayout->addRow(tr("Port:"), m_portSpin);
 
     m_directorEdit = new QLineEdit();
-    m_directorEdit->setPlaceholderText("bacula-dir");
+    m_directorEdit->setPlaceholderText("bareos-dir");
     bconsoleLayout->addRow(tr("Director Name:"), m_directorEdit);
+
+    m_consoleEdit = new QLineEdit();
+    m_consoleEdit->setPlaceholderText("onesimus");
+    m_consoleEdit->setToolTip(tr("Console name for authentication (e.g., 'admin' or 'onesimus')"));
+    bconsoleLayout->addRow(tr("Console Name:"), m_consoleEdit);
 
     m_passwordEdit = new QLineEdit();
     m_passwordEdit->setEchoMode(QLineEdit::Password);
@@ -865,6 +870,7 @@ void SettingsDialog::loadSettings()
     m_hostEdit->setText(settings.connectionHost());
     m_portSpin->setValue(settings.connectionPort());
     m_directorEdit->setText(settings.connectionDirector());
+    m_consoleEdit->setText(settings.connectionConsole());
     m_passwordEdit->setText(settings.connectionPassword());
     m_savePasswordCheck->setChecked(settings.connectionSavePassword());
     m_autoConnectCheck->setChecked(settings.connectionAutoConnect());
@@ -951,6 +957,7 @@ void SettingsDialog::saveSettings()
     settings.setConnectionHost(m_hostEdit->text());
     settings.setConnectionPort(m_portSpin->value());
     settings.setConnectionDirector(m_directorEdit->text());
+    settings.setConnectionConsole(m_consoleEdit->text());
     settings.setConnectionSavePassword(m_savePasswordCheck->isChecked());
     settings.setConnectionPassword(m_passwordEdit->text());  // Will only save if savePassword is true
     settings.setConnectionAutoConnect(m_autoConnectCheck->isChecked());
@@ -1124,6 +1131,7 @@ void SettingsDialog::onClearStoredConnections()
         settings.setConnectionHost("");
         settings.setConnectionPort(9101);
         settings.setConnectionDirector("bareos-dir");
+        settings.setConnectionConsole("onesimus");
         settings.setConnectionPassword("");
         settings.setConnectionSavePassword(true);
         settings.setConnectionAutoConnect(false);

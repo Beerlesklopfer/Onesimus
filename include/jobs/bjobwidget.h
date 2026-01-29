@@ -350,6 +350,7 @@ private:
     QCheckBox *m_statusWarning;             ///< Filter: Warning (W)
     QCheckBox *m_statusFailed;              ///< Filter: Failed (f)
     QCheckBox *m_statusError;               ///< Filter: Error (E)
+    QCheckBox *m_statusZeroBytes;           ///< Filter: Zero Bytes
 
     // Dynamic level checkboxes (populated from .levels dot-command)
     QMap<QString, QCheckBox*> m_levelCheckboxes;  ///< Map of level code -> checkbox (e.g., "F" -> Full checkbox)
@@ -374,6 +375,7 @@ private:
     
     QSplitter *m_splitter;                  ///< Splitter for table/filters
     QPushButton *m_toggleFiltersButton;     ///< Toggle filters button
+    QPushButton *m_resetFiltersButton;      ///< Reset filters button
     QWidget *m_filterContainer;             ///< Container for all filters
     bool m_filtersVisible;                  ///< Filter visibility state
 

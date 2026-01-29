@@ -14,6 +14,7 @@ struct CommandLineOptions {
     QString host;
     int port = 9101;
     QString director;
+    QString console;
     QString password;
     QString configFile;
     QString command;
@@ -34,9 +35,9 @@ CommandLineOptions parseCommandLine(QApplication &app)
 {
     QCommandLineParser parser;
     parser.setApplicationDescription(
-        "Onesimus - Bacula Backup Management\n"
+        "Onesimus - Bareos Backup Management\n"
         "\n"
-        "A modern Qt-based interface for Bacula Director.\n"
+        "A modern Qt-based interface for Bareos Director.\n"
         "Can be used with GUI or in headless/batch mode."
         );
 
@@ -89,9 +90,17 @@ CommandLineOptions parseCommandLine(QApplication &app)
         QStringList() << "D" << "director",
         "Director name",
         "director",
-        "bacula-dir"
+        "bareos-dir"
         );
     parser.addOption(directorOption);
+
+    QCommandLineOption consoleOption(
+        QStringList() << "C" << "console",
+        "Console name for authentication",
+        "console",
+        "onesimus"
+        );
+    parser.addOption(consoleOption);
 
     QCommandLineOption passwordOption(
         QStringList() << "P" << "password",
@@ -202,6 +211,7 @@ CommandLineOptions parseCommandLine(QApplication &app)
     options.host        = parser.value(hostOption);
     options.port        = parser.value(portOption).toInt();
     options.director    = parser.value(directorOption);
+    options.console     = parser.value(consoleOption);
     options.password    = parser.value(passwordOption);
     options.configFile  = parser.value(configOption);
 
@@ -235,7 +245,7 @@ CommandLineOptions parseCommandLine(QApplication &app)
 void usage()
 {
     qInfo() << QString(
-        "Onesimus - Bacula Backup Management\n"
+        "Onesimus - Bareos Backup Management\n"
         "Version: " PROJECT_VERSION "\n"
         "Copyright (C) 2025\n"
         "\n"
@@ -247,9 +257,10 @@ void usage()
         "  -v, --verbose               Verbose output\n"
         "\n"
         "Connection Options:\n"
-        "  -H, --host <host>           Bacula Director hostname or IP\n"
+        "  -H, --host <host>           Bareos Director hostname or IP\n"
         "  -p, --port <port>           Director port (default: 9101)\n"
-        "  -D, --director <name>       Director name (default: bacula-dir)\n"
+        "  -D, --director <name>       Director name (default: bareos-dir)\n"
+        "  -C, --console <name>        Console name (default: onesimus)\n"
         "  -P, --password <password>   Director password\n"
         "\n"
         "Configuration:\n"
@@ -341,6 +352,7 @@ int main(int argc, char *argv[])
                 options.host,
                 options.port,
                 options.director,
+                options.console,
                 options.password
                 );
 
@@ -442,6 +454,7 @@ int main(int argc, char *argv[])
                     options.host,
                     options.port,
                     options.director,
+                    options.console,
                     options.password
                     );
             }, Qt::QueuedConnection);

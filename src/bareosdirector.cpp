@@ -56,6 +56,19 @@ BareosDirector::BareosDirector(QObject *parent)
     , m_authCompleted(false)
 {
     m_tlsConfig = new TLSConfig();
+
+    // Define required resources for full initialization
+    // These dot-commands will be sent after API mode is confirmed
+    m_requiredResources = {
+        ResourceType::Job,       // .jobs
+        ResourceType::Client,    // .clients
+        ResourceType::Fileset,   // .filesets
+        ResourceType::Storage,   // .storages
+        ResourceType::Pool,      // .pools
+        ResourceType::Level,     // .levels
+        ResourceType::Schedule   // .schedule
+    };
+
     // Socket and Auth will be created in initialize() (called from worker thread)
 }
 
@@ -121,7 +134,7 @@ QString BareosDirector::backupSystemName() const
 // ============================================================================
 
 void BareosDirector::connect(const QString &host, int port, const QString &directorName,
-                       const QString &password)
+                       const QString &consoleName, const QString &password)
 {
     QMutexLocker locker(&m_connectionMutex);
 
@@ -136,6 +149,7 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     qDebug() << "========================================";
     qDebug() << "Host:" << host;
     qDebug() << "Port:" << port;
+    qDebug() << "Console:" << consoleName;
     qDebug() << "Password present:" << (!password.isEmpty());
     qDebug() << "Thread:" << QThread::currentThreadId();
     qDebug() << "========================================";
@@ -155,6 +169,7 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     m_host = host;
     m_port = port;
     m_directorName = directorName;
+    m_consoleName = consoleName;
     m_password = password;
 
     qDebug() << "Connecting via plain TCP...";
@@ -219,6 +234,300 @@ BareosDirector::TLSConfig *BareosDirector::tlsConfig() const
         return m_tlsConfig;
     }
     return new TLSConfig();
+}
+
+// ============================================================================
+// State Machine
+// ============================================================================
+
+void BareosDirector::setState(ConnectionState newState)
+{
+    ConnectionState oldState;
+    {
+        QMutexLocker locker(&m_stateMutex);
+        if (m_connectionState == newState) {
+            return; // No change
+        }
+        oldState = m_connectionState;
+        m_connectionState = newState;
+
+        // Update m_connected flag
+        m_connected = (newState == Ready);
+    }
+
+    // Debug output
+    static const QMap<ConnectionState, QString> stateNames = {
+        {Disconnected, "Disconnected"},
+        {Connecting, "Connecting"},
+        {Authenticating, "Authenticating"},
+        {SettingApiMode, "SettingApiMode"},
+        {LoadingResources, "LoadingResources"},
+        {Ready, "Ready"},
+        {ConnectionError, "ConnectionError"}
+    };
+
+    qDebug() << "STATE MACHINE:" << stateNames.value(oldState, "?")
+             << "->" << stateNames.value(newState, "?");
+
+    emit connectionStateChanged(oldState, newState);
+}
+
+// Resource name helper for debug output
+static const QMap<BareosDirector::ResourceType, QString> s_resourceNames = {
+    {BareosDirector::ResourceType::Catalog, "Catalog"},
+    {BareosDirector::ResourceType::Client, "Client"},
+    {BareosDirector::ResourceType::Console, "Console"},
+    {BareosDirector::ResourceType::Director, "Director"},
+    {BareosDirector::ResourceType::Fileset, "Fileset"},
+    {BareosDirector::ResourceType::Job, "Job"},
+    {BareosDirector::ResourceType::JobDefs, "JobDefs"},
+    {BareosDirector::ResourceType::Messages, "Messages"},
+    {BareosDirector::ResourceType::Pool, "Pool"},
+    {BareosDirector::ResourceType::Profile, "Profile"},
+    {BareosDirector::ResourceType::Schedule, "Schedule"},
+    {BareosDirector::ResourceType::Storage, "Storage"},
+    {BareosDirector::ResourceType::Level, "Level"}
+};
+
+static const QMap<BareosDirector::ResourceLoadState, QString> s_loadStateNames = {
+    {BareosDirector::ResourceLoadState::Initial, "Initial"},
+    {BareosDirector::ResourceLoadState::Waiting, "Waiting"},
+    {BareosDirector::ResourceLoadState::Loaded, "Loaded"},
+    {BareosDirector::ResourceLoadState::Reloading, "Reloading"},
+    {BareosDirector::ResourceLoadState::Failed, "Failed"}
+};
+
+void BareosDirector::markResourceLoaded(ResourceType resourceType)
+{
+    ResourceLoadState oldState = m_resourceStates.value(resourceType, ResourceLoadState::Initial);
+    m_resourceStates[resourceType] = ResourceLoadState::Loaded;
+    m_resourceErrors.remove(resourceType);
+
+    // Count loaded resources
+    int loaded = 0;
+    for (const ResourceType &type : m_requiredResources) {
+        if (m_resourceStates.value(type) == ResourceLoadState::Loaded) {
+            loaded++;
+        }
+    }
+    int total = m_requiredResources.size();
+
+    qDebug() << "RESOURCE:" << s_resourceNames.value(resourceType, "?")
+             << s_loadStateNames.value(oldState) << "->" << "Loaded"
+             << "(" << loaded << "/" << total << ")";
+
+    emit resourceStateChanged(resourceType, ResourceLoadState::Loaded);
+    emit resourceLoaded(resourceType);
+    emit resourceLoadProgress(loaded, total);
+
+    // Check if all resources are ready
+    if (allResourcesReady()) {
+        qDebug() << "STATE MACHINE: All resources loaded - transitioning to Ready";
+        setState(Ready);
+        emit allResourcesLoaded();
+    }
+}
+
+bool BareosDirector::allResourcesReady() const
+{
+    // Check if all required resources have state Loaded
+    for (const ResourceType &type : m_requiredResources) {
+        if (m_resourceStates.value(type) != ResourceLoadState::Loaded) {
+            return false;
+        }
+    }
+    return true;
+}
+
+BareosDirector::ResourceLoadState BareosDirector::resourceState(ResourceType type) const
+{
+    return m_resourceStates.value(type, ResourceLoadState::Initial);
+}
+
+bool BareosDirector::isResourceLoaded(ResourceType type) const
+{
+    return m_resourceStates.value(type) == ResourceLoadState::Loaded;
+}
+
+bool BareosDirector::areAllResourcesLoaded() const
+{
+    return allResourcesReady();
+}
+
+void BareosDirector::reloadResource(ResourceType type)
+{
+    ResourceLoadState oldState = m_resourceStates.value(type, ResourceLoadState::Initial);
+    m_resourceStates[type] = ResourceLoadState::Reloading;
+
+    qDebug() << "RESOURCE:" << s_resourceNames.value(type, "?")
+             << s_loadStateNames.value(oldState) << "->" << "Reloading";
+
+    emit resourceStateChanged(type, ResourceLoadState::Reloading);
+
+    // Send the appropriate dot-command
+    switch (type) {
+    case ResourceType::Job:
+        doSendCommand(Command::DotJobs);
+        break;
+    case ResourceType::Client:
+        doSendCommand(Command::DotClients);
+        break;
+    case ResourceType::Fileset:
+        doSendCommand(Command::DotFilesets);
+        break;
+    case ResourceType::Storage:
+        doSendCommand(Command::DotStorages);
+        break;
+    case ResourceType::Pool:
+        doSendCommand(Command::DotPools);
+        break;
+    case ResourceType::Level:
+        doSendCommand(Command::DotLevels);
+        break;
+    case ResourceType::Schedule:
+        doSendCommand(Command::DotSchedule);
+        break;
+    case ResourceType::Catalog:
+        doSendCommand(Command::DotCatalogs);
+        break;
+    default:
+        qWarning() << "RESOURCE: No dot-command for" << s_resourceNames.value(type, "?");
+        break;
+    }
+}
+
+void BareosDirector::markResourceFailed(ResourceType resourceType, const QString &errorMessage)
+{
+    ResourceLoadState oldState = m_resourceStates.value(resourceType, ResourceLoadState::Initial);
+    m_resourceStates[resourceType] = ResourceLoadState::Failed;
+    m_resourceErrors[resourceType] = errorMessage;
+
+    qDebug() << "RESOURCE FAILED:" << s_resourceNames.value(resourceType, "?")
+             << s_loadStateNames.value(oldState) << "->" << "Failed"
+             << "Error:" << errorMessage;
+
+    emit resourceStateChanged(resourceType, ResourceLoadState::Failed);
+    emit resourceLoadFailed(resourceType, errorMessage);
+}
+
+void BareosDirector::detectAndMarkResourceLoaded(const QString &jsonData)
+{
+    // Only process during LoadingResources or Ready state
+    if (m_connectionState != LoadingResources && m_connectionState != Ready) {
+        return;
+    }
+
+    // Parse JSON to detect resource type
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // Map JSON keys to resource types
+    if (result.contains("levels")) {
+        markResourceLoaded(ResourceType::Level);
+    }
+    if (result.contains("filesets")) {
+        markResourceLoaded(ResourceType::Fileset);
+    }
+    if (result.contains("storages")) {
+        markResourceLoaded(ResourceType::Storage);
+    }
+    if (result.contains("pools")) {
+        markResourceLoaded(ResourceType::Pool);
+    }
+    if (result.contains("schedules")) {
+        markResourceLoaded(ResourceType::Schedule);
+    }
+    if (result.contains("catalogs")) {
+        markResourceLoaded(ResourceType::Catalog);
+    }
+
+    // Check for .jobs response (has "enabled" or "fileset" field, not "jobstatus")
+    if (result.contains("jobs")) {
+        QJsonArray jobsArray = result["jobs"].toArray();
+        if (!jobsArray.isEmpty()) {
+            QJsonObject firstJob = jobsArray[0].toObject();
+            if (firstJob.contains("enabled") || firstJob.contains("fileset")) {
+                markResourceLoaded(ResourceType::Job);
+            }
+        }
+    }
+
+    // Check for .clients response (simple "name" field only, no "address" or "uname")
+    if (result.contains("clients")) {
+        QJsonArray clientsArray = result["clients"].toArray();
+        if (!clientsArray.isEmpty()) {
+            QJsonObject firstClient = clientsArray[0].toObject();
+            // .clients has only "name", list clients has "address" and "uname"
+            if (!firstClient.contains("address") && !firstClient.contains("uname")) {
+                markResourceLoaded(ResourceType::Client);
+            }
+        }
+    }
+}
+
+void BareosDirector::startResourceLoading()
+{
+    qDebug() << "STATE MACHINE: Starting resource loading...";
+    qDebug() << "  Required resources:" << m_requiredResources.size();
+
+    setState(LoadingResources);
+
+    // Set all required resources to Waiting state and send dot-commands
+    for (const ResourceType &type : m_requiredResources) {
+        m_resourceStates[type] = ResourceLoadState::Waiting;
+        emit resourceStateChanged(type, ResourceLoadState::Waiting);
+
+        switch (type) {
+        case ResourceType::Job:
+            doSendCommand(Command::DotJobs);
+            break;
+        case ResourceType::Client:
+            doSendCommand(Command::DotClients);
+            break;
+        case ResourceType::Fileset:
+            doSendCommand(Command::DotFilesets);
+            break;
+        case ResourceType::Storage:
+            doSendCommand(Command::DotStorages);
+            break;
+        case ResourceType::Pool:
+            doSendCommand(Command::DotPools);
+            break;
+        case ResourceType::Level:
+            doSendCommand(Command::DotLevels);
+            break;
+        case ResourceType::Schedule:
+            doSendCommand(Command::DotSchedule);
+            break;
+        case ResourceType::Catalog:
+            doSendCommand(Command::DotCatalogs);
+            break;
+        default:
+            // Other resource types don't have corresponding dot-commands
+            // Mark them as loaded immediately
+            m_resourceStates[type] = ResourceLoadState::Loaded;
+            break;
+        }
+    }
+}
+
+void BareosDirector::resetResourceFlags()
+{
+    m_resourceStates.clear();
+    m_resourceErrors.clear();
+    m_errorMessage.clear();
+
+    // Initialize all required resources to Initial state
+    for (const ResourceType &type : m_requiredResources) {
+        m_resourceStates[type] = ResourceLoadState::Initial;
+    }
 }
 
 // ============================================================================
@@ -660,6 +969,9 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
         qDebug() << "📄 JSON Response:";
         qDebug() << message;
 #endif
+        // State Machine: Detect resource type from JSON and mark as loaded
+        detectAndMarkResourceLoaded(message);
+
         emit jsonResponse(m_lastCommand, message);
     } else {
         // Try to find JSON after trimming and removing leading garbage
@@ -689,9 +1001,21 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
             qDebug() << jsonPart;
 #endif
             emit jsonResponse(m_lastCommand, jsonPart);
+
+            // State Machine: Check if .api command completed while in SettingApiMode
+            if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
+                qDebug() << "STATE MACHINE: API mode confirmed (JSON response), starting resource loading";
+                startResourceLoading();
+            }
         } else {
             // Not JSON, emit as command response
             emit commandResponse(m_lastCommand, message);
+
+            // State Machine: Check if .api command completed while in SettingApiMode
+            if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
+                qDebug() << "STATE MACHINE: API mode confirmed, starting resource loading";
+                startResourceLoading();
+            }
             return;
         }
     }
@@ -941,7 +1265,7 @@ void BareosDirector::startAuthentication()
     // Start authentication
     bool authenticated = m_auth->authenticateDirector(
         m_directorName,
-        PROJECT_NAME,
+        m_consoleName,
         m_password,
         m_tlsConfig->tlsEnable,
         m_tlsConfig->tlsRequire,
@@ -974,7 +1298,8 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
 
     {
         QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Ready;
+        // DO NOT set Ready here - state machine will transition properly:
+        // Authenticating -> SettingApiMode -> LoadingResources -> Ready
         m_connected = true;
     }
 
@@ -1012,6 +1337,9 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
     // ✅ Signale sind bereits in connectSocketSignals() verbunden!
     // KEIN erneutes Connect nötig (würde zu doppelten Aufrufen führen)
 
+    // ✅ Reset resource flags for new connection
+    resetResourceFlags();
+
     // ✅ WICHTIG: Aktiviere JSON API-Modus SOFORT nach Authentifizierung
     // Dies muss VOR allen anderen Befehlen passieren!
     if (m_apiMode != ApiMode::Off) {
@@ -1021,8 +1349,14 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
         qDebug() << "  Mode:" << static_cast<int>(m_apiMode);
         qDebug() << "========================================";
 #endif
+        // State Machine: Transition to SettingApiMode
+        setState(SettingApiMode);
+
         // Sende .api 2 Befehl für JSON Pretty-Print Modus
         sendCommand(".api 2");
+    } else {
+        // No API mode needed, go directly to LoadingResources
+        startResourceLoading();
     }
 
     // ✅ Emit signals NACH dem API-Modus
@@ -1107,7 +1441,13 @@ void BareosDirector::sendCommand(const QString &command)
     qDebug() << ">>> BareosDirector runs in thread:" << this->thread();
 #endif
 
-    if (m_connectionState != Ready || m_socket->state() != QAbstractSocket::ConnectedState) {
+    // Allow commands in Ready, SettingApiMode (for .api), and LoadingResources (for dot-commands)
+    bool canSend = (m_connectionState == Ready ||
+                    m_connectionState == SettingApiMode ||
+                    m_connectionState == LoadingResources) &&
+                   m_socket->state() == QAbstractSocket::ConnectedState;
+
+    if (!canSend) {
         qWarning() << "Cannot send command - not ready (state:" << m_connectionState << ", socket:" << m_socket->state() << ")";
         emit statusMessage("Nicht bereit");
         return;

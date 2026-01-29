@@ -45,6 +45,9 @@ public:
     QString connectionDirector() const;
     void setConnectionDirector(const QString& director);
 
+    QString connectionConsole() const;
+    void setConnectionConsole(const QString& console);
+
     QString connectionPassword() const;
     void setConnectionPassword(const QString& password);
 

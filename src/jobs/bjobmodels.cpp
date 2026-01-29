@@ -277,6 +277,35 @@ void BJobsModel::appendJobs(const QJsonArray &jobs)
     emit jobsAppended(jobs.size());
 }
 
+void BJobsModel::removeJobsByIds(const QStringList &jobIds)
+{
+    if (jobIds.isEmpty())
+        return;
+
+    // Convert to set for faster lookup
+    QSet<QString> idsToRemove(jobIds.begin(), jobIds.end());
+
+    // Build new array without removed jobs
+    QJsonArray newJobs;
+    for (const QJsonValue &val : m_jobs) {
+        QJsonObject job = val.toObject();
+        QString jobId = job["jobid"].toString();
+        if (!idsToRemove.contains(jobId)) {
+            newJobs.append(val);
+        } else {
+            // Also remove from selection
+            m_selectedJobs.remove(jobId);
+        }
+    }
+
+    // Reset model with filtered data
+    beginResetModel();
+    m_jobs = newJobs;
+    endResetModel();
+
+    emit selectionChanged();
+}
+
 QJsonObject BJobsModel::jobAt(int row) const
 {
     int dataIndex = rowToDataIndex(row);
@@ -575,6 +604,7 @@ BJobsFilterModel::BJobsFilterModel(QObject *parent)
     , m_fileCountMax(-1)
     , m_byteSizeMin(-1)
     , m_byteSizeMax(-1)
+    , m_zeroBytesFilter(false)
 {
     setFilterCaseSensitivity(Qt::CaseInsensitive);
     setSortCaseSensitivity(Qt::CaseInsensitive);
@@ -625,6 +655,12 @@ void BJobsFilterModel::setByteSizeFilter(qint64 min, qint64 max)
     invalidateFilter();
 }
 
+void BJobsFilterModel::setZeroBytesFilter(bool enabled)
+{
+    m_zeroBytesFilter = enabled;
+    invalidateFilter();
+}
+
 void BJobsFilterModel::clearAllFilters()
 {
     m_nameFilter.clear();
@@ -637,6 +673,7 @@ void BJobsFilterModel::clearAllFilters()
     m_fileCountMax = -1;
     m_byteSizeMin = -1;
     m_byteSizeMax = -1;
+    m_zeroBytesFilter = false;
     invalidateFilter();
 }
 
@@ -651,7 +688,8 @@ bool BJobsFilterModel::hasActiveFilters() const
            m_fileCountMin >= 0 ||
            m_fileCountMax >= 0 ||
            m_byteSizeMin >= 0 ||
-           m_byteSizeMax >= 0;
+           m_byteSizeMax >= 0 ||
+           m_zeroBytesFilter;
 }
 
 void BJobsFilterModel::setDateRange(const QDateTime &from, const QDateTime &to)
@@ -742,6 +780,11 @@ bool BJobsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &source
     }
 
     if (m_byteSizeMax >= 0 && byteSize > m_byteSizeMax) {
+        return false;
+    }
+
+    // Zero bytes filter - only show jobs with 0 bytes when enabled
+    if (m_zeroBytesFilter && byteSize != 0) {
         return false;
     }
 

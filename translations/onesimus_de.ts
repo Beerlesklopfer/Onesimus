@@ -15,6 +15,357 @@
     </message>
 </context>
 <context>
+    <name>BCleanupDialog</name>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="14"/>
+        <source>Database Cleanup</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="30"/>
+        <source>This tool helps maintain your Bareos database by removing old or unnecessary data.
+⚠️ Warning: Cleanup operations cannot be undone. Review options carefully before proceeding.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="37"/>
+        <source>Cleanup Options</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="42"/>
+        <source>Remove old full backups</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="44"/>
+        <source>Delete old full backup jobs if newer full backups exist for each client</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="47"/>
+        <source>Keep last:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="54"/>
+        <source> full backups</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="55"/>
+        <source>Number of recent full backups to keep per client</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="62"/>
+        <source>Remove successful jobs with no files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="64"/>
+        <source>Delete jobs that completed successfully but backed up 0 files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="69"/>
+        <source>Prune volumes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="71"/>
+        <source>Apply retention policy to volumes (removes expired job records)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="74"/>
+        <source>Action:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="78"/>
+        <source>Prune only</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="79"/>
+        <source>Prune and purge</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="80"/>
+        <source>Prune removes expired jobs from volumes, Purge also removes volume from catalog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="88"/>
+        <source>Remove failed jobs older than</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="90"/>
+        <source>Delete jobs that failed or were canceled</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="97"/>
+        <source> days</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="106"/>
+        <source>Select cleanup options and click &apos;Analyze&apos; to preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="111"/>
+        <source>Analysis / Log</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="130"/>
+        <source>Analyze</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="131"/>
+        <source>Preview what would be cleaned up</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="135"/>
+        <source>Cleanup</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="137"/>
+        <source>Perform cleanup operations (requires analysis first)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="141"/>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="151"/>
+        <source>Not Connected</source>
+        <translation type="unfinished">Nicht verbunden</translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="152"/>
+        <source>Please connect to Bareos Director first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="161"/>
+        <source>No Options Selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="162"/>
+        <source>Please select at least one cleanup option.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="170"/>
+        <source>=== Analysis ===</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="177"/>
+        <source>Analysis Required</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="178"/>
+        <source>Please run analysis before cleanup.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="183"/>
+        <source>⚠️ This will permanently delete data from the Bareos catalog.
+
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="184"/>
+        <source>Operations to perform:
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="187"/>
+        <source>- Delete old full backup jobs (keep %1 per client)
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="192"/>
+        <source>- Delete empty jobs (successful with 0 files)
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="196"/>
+        <source>- Delete failed jobs older than %1 days
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="202"/>
+        <source>- %1 volumes
+</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="205"/>
+        <source>
+Do you want to continue?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="208"/>
+        <source>Confirm Cleanup</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="225"/>
+        <source>Analyzing cleanup options...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="231"/>
+        <source>✓ Will delete old full backups (keeping %1 most recent per client)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="233"/>
+        <source>  Command: prune jobs type=full yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="238"/>
+        <source>✓ Will delete successful jobs with 0 files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="239"/>
+        <source>  Command: delete job jobstatus=T jobfiles=0 yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="246"/>
+        <source>✓ Will delete failed jobs older than %1 days (before %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="255"/>
+        <source>✓ Will prune all volumes (apply retention policy)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="256"/>
+        <source>  Command: prune volume allpools yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="258"/>
+        <source>✓ Will prune and purge all volumes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="259"/>
+        <source>  Command: prune volume allpools yes + purge volume allpools yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="264"/>
+        <source>=== Analysis Complete ===</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="265"/>
+        <source>Note: Actual space savings depend on your retention policies and data.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="267"/>
+        <source>Analysis complete. Click &apos;Cleanup&apos; to proceed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="277"/>
+        <source>=== Starting Cleanup ===</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="287"/>
+        <source>Pruning old full backup jobs...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="292"/>
+        <location filename="../src/bcleanupdialog.cpp" line="319"/>
+        <location filename="../src/bcleanupdialog.cpp" line="334"/>
+        <location filename="../src/bcleanupdialog.cpp" line="340"/>
+        <location filename="../src/bcleanupdialog.cpp" line="341"/>
+        <source>  Sent: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="300"/>
+        <source>Deleting empty jobs...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="304"/>
+        <source>  Note: Deleting empty jobs requires direct database access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="305"/>
+        <source>  SQL: DELETE FROM Job WHERE JobStatus=&apos;T&apos; AND JobFiles=0;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="313"/>
+        <source>Pruning failed jobs...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="320"/>
+        <source>  (Removes jobs based on retention policy)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="329"/>
+        <source>Processing volumes...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="351"/>
+        <source>=== Cleanup Commands Sent ===</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="352"/>
+        <source>Database cleanup operations have been initiated.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="353"/>
+        <source>Check the Bareos Director log for detailed results.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bcleanupdialog.cpp" line="355"/>
+        <source>Cleanup complete. You can close this dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>BClientDetailsDialog</name>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="23"/>
@@ -700,374 +1051,389 @@
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../src/mainwindow.cpp" line="192"/>
+        <location filename="../src/mainwindow.cpp" line="193"/>
         <source>Nicht verbunden</source>
         <translation>Nicht verbunden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="264"/>
+        <location filename="../src/mainwindow.cpp" line="265"/>
         <source>Statistiken</source>
         <translation>Statistiken</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="283"/>
-        <location filename="../src/mainwindow.cpp" line="1206"/>
+        <location filename="../src/mainwindow.cpp" line="284"/>
+        <location filename="../src/mainwindow.cpp" line="1221"/>
         <source>Ready</source>
         <translation>Bereit</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="286"/>
+        <location filename="../src/mainwindow.cpp" line="287"/>
         <source>Not connected</source>
         <translation>Nicht verbunden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="293"/>
-        <location filename="../src/mainwindow.cpp" line="310"/>
-        <location filename="../src/mainwindow.cpp" line="967"/>
+        <location filename="../src/mainwindow.cpp" line="294"/>
+        <location filename="../src/mainwindow.cpp" line="311"/>
+        <location filename="../src/mainwindow.cpp" line="979"/>
         <source>Connect</source>
         <translation>Verbinden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="298"/>
-        <location filename="../src/mainwindow.cpp" line="316"/>
-        <location filename="../src/mainwindow.cpp" line="968"/>
+        <location filename="../src/mainwindow.cpp" line="299"/>
+        <location filename="../src/mainwindow.cpp" line="317"/>
+        <location filename="../src/mainwindow.cpp" line="980"/>
         <source>Reconnect</source>
         <translation>Wiederverbinden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="304"/>
+        <location filename="../src/mainwindow.cpp" line="305"/>
         <source>Disconnect</source>
         <translation>Trennen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="312"/>
-        <location filename="../src/mainwindow.cpp" line="1079"/>
+        <location filename="../src/mainwindow.cpp" line="313"/>
+        <location filename="../src/mainwindow.cpp" line="1091"/>
         <source>Connect to Director</source>
         <translation>Mit Director verbinden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="318"/>
+        <location filename="../src/mainwindow.cpp" line="319"/>
         <source>Reconnect to last used connection</source>
         <translation>Mit letzter verwendeter Verbindung wiederverbinden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="322"/>
-        <location filename="../src/mainwindow.cpp" line="969"/>
+        <location filename="../src/mainwindow.cpp" line="323"/>
+        <location filename="../src/mainwindow.cpp" line="981"/>
         <source>Refresh</source>
         <translation>Aktualisieren</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="328"/>
-        <location filename="../src/mainwindow.cpp" line="970"/>
+        <location filename="../src/mainwindow.cpp" line="329"/>
+        <location filename="../src/mainwindow.cpp" line="982"/>
         <source>Settings</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="333"/>
-        <location filename="../src/mainwindow.cpp" line="971"/>
+        <location filename="../src/mainwindow.cpp" line="334"/>
+        <location filename="../src/mainwindow.cpp" line="983"/>
         <source>Exit</source>
         <translation>Beenden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="338"/>
+        <location filename="../src/mainwindow.cpp" line="339"/>
         <source>About Onesimus</source>
         <translation>Über Onesimus</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="342"/>
+        <location filename="../src/mainwindow.cpp" line="343"/>
         <source>About Qt</source>
         <translation>Über Qt</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="346"/>
+        <location filename="../src/mainwindow.cpp" line="347"/>
         <source>Online Documentation</source>
         <translation>Online-Dokumentation</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="351"/>
+        <location filename="../src/mainwindow.cpp" line="352"/>
         <source>Report a Bug...</source>
         <translation>Fehler melden...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="355"/>
-        <location filename="../src/mainwindow.cpp" line="947"/>
-        <location filename="../src/mainwindow.cpp" line="953"/>
-        <location filename="../src/mainwindow.cpp" line="1031"/>
+        <location filename="../src/mainwindow.cpp" line="356"/>
+        <location filename="../src/mainwindow.cpp" line="959"/>
+        <location filename="../src/mainwindow.cpp" line="965"/>
+        <location filename="../src/mainwindow.cpp" line="1043"/>
         <source>Keyboard Shortcuts</source>
         <translation>Tastenkombinationen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="361"/>
-        <location filename="../src/mainwindow.cpp" line="984"/>
+        <location filename="../src/mainwindow.cpp" line="362"/>
+        <location filename="../src/mainwindow.cpp" line="996"/>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="367"/>
-        <location filename="../src/mainwindow.cpp" line="985"/>
+        <location filename="../src/mainwindow.cpp" line="368"/>
+        <location filename="../src/mainwindow.cpp" line="997"/>
         <source>Select All</source>
         <translation>Alles auswählen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="373"/>
+        <location filename="../src/mainwindow.cpp" line="374"/>
         <source>Clear Selection</source>
         <translation>Auswahl aufheben</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="378"/>
+        <location filename="../src/mainwindow.cpp" line="379"/>
         <source>Find...</source>
         <translation>Suchen...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="385"/>
-        <location filename="../src/mainwindow.cpp" line="999"/>
+        <location filename="../src/mainwindow.cpp" line="386"/>
+        <location filename="../src/mainwindow.cpp" line="1011"/>
         <source>Show Statistics</source>
         <translation>Statistiken anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="399"/>
-        <location filename="../src/mainwindow.cpp" line="1000"/>
+        <location filename="../src/mainwindow.cpp" line="400"/>
+        <location filename="../src/mainwindow.cpp" line="1012"/>
         <source>Show Job Log</source>
         <translation>Job-Log anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="413"/>
+        <location filename="../src/mainwindow.cpp" line="414"/>
         <source>Toggle Dark/Light Theme</source>
         <translation>Dunkles/Helles Design umschalten</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="427"/>
+        <location filename="../src/mainwindow.cpp" line="428"/>
         <source>Run Job</source>
         <translation>Job ausführen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="432"/>
+        <location filename="../src/mainwindow.cpp" line="433"/>
         <source>Cancel Job</source>
         <translation>Job abbrechen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="437"/>
+        <location filename="../src/mainwindow.cpp" line="438"/>
         <source>Show Details</source>
         <translation>Details anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="442"/>
-        <location filename="../src/mainwindow.cpp" line="1014"/>
+        <location filename="../src/mainwindow.cpp" line="443"/>
+        <location filename="../src/mainwindow.cpp" line="1026"/>
         <source>Refresh Jobs</source>
         <translation>Jobs aktualisieren</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="448"/>
+        <location filename="../src/mainwindow.cpp" line="449"/>
         <source>Export Jobs as JSON...</source>
         <translation>Jobs als JSON exportieren...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="453"/>
+        <location filename="../src/mainwindow.cpp" line="454"/>
         <source>Export Jobs as CSV...</source>
         <translation>Jobs als CSV exportieren...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="459"/>
-        <location filename="../src/mainwindow.cpp" line="1015"/>
+        <location filename="../src/mainwindow.cpp" line="460"/>
+        <location filename="../src/mainwindow.cpp" line="1027"/>
         <source>Refresh Clients</source>
         <translation>Clients aktualisieren</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="465"/>
+        <location filename="../src/mainwindow.cpp" line="466"/>
         <source>Show Client Details</source>
         <translation>Client-Details anzeigen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="471"/>
-        <location filename="../src/mainwindow.cpp" line="1016"/>
+        <location filename="../src/mainwindow.cpp" line="472"/>
+        <location filename="../src/mainwindow.cpp" line="1028"/>
         <source>Refresh Storage</source>
         <translation>Speicher aktualisieren</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="478"/>
-        <location filename="../src/mainwindow.cpp" line="1017"/>
+        <location filename="../src/mainwindow.cpp" line="479"/>
+        <location filename="../src/mainwindow.cpp" line="1029"/>
         <source>Refresh Schedules</source>
         <translation>Zeitpläne aktualisieren</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="487"/>
-        <location filename="../src/mainwindow.cpp" line="975"/>
+        <location filename="../src/mainwindow.cpp" line="486"/>
+        <source>Database Cleanup...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="488"/>
+        <source>Clean up old backups and free disk space</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="495"/>
+        <location filename="../src/mainwindow.cpp" line="987"/>
         <source>File</source>
         <translation>Datei</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="499"/>
-        <location filename="../src/mainwindow.cpp" line="990"/>
+        <location filename="../src/mainwindow.cpp" line="507"/>
+        <location filename="../src/mainwindow.cpp" line="1002"/>
         <source>Edit</source>
         <translation>Bearbeiten</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="508"/>
-        <location filename="../src/mainwindow.cpp" line="1005"/>
+        <location filename="../src/mainwindow.cpp" line="516"/>
+        <location filename="../src/mainwindow.cpp" line="1017"/>
         <source>View</source>
         <translation>Ansicht</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="513"/>
+        <location filename="../src/mainwindow.cpp" line="521"/>
         <source>Jobs</source>
         <translation>Jobs</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="524"/>
+        <location filename="../src/mainwindow.cpp" line="532"/>
         <source>Clients</source>
         <translation>Clients</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="530"/>
+        <location filename="../src/mainwindow.cpp" line="538"/>
         <source>Storage</source>
         <translation>Speicher</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="534"/>
+        <location filename="../src/mainwindow.cpp" line="542"/>
         <source>Schedules</source>
         <translation>Zeitpläne</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="537"/>
-        <location filename="../src/mainwindow.cpp" line="1035"/>
+        <location filename="../src/mainwindow.cpp" line="546"/>
+        <source>Tools</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="549"/>
+        <location filename="../src/mainwindow.cpp" line="1047"/>
         <source>Help</source>
         <translation>Hilfe</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="560"/>
+        <location filename="../src/mainwindow.cpp" line="572"/>
         <source>Main Toolbar</source>
         <translation>Hauptsymbolleiste</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="578"/>
-        <location filename="../src/mainwindow.cpp" line="592"/>
-        <location filename="../src/mainwindow.cpp" line="1120"/>
+        <location filename="../src/mainwindow.cpp" line="590"/>
+        <location filename="../src/mainwindow.cpp" line="604"/>
+        <location filename="../src/mainwindow.cpp" line="1135"/>
         <source>Statistics ▼</source>
         <translation>Statistiken ▼</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="581"/>
+        <location filename="../src/mainwindow.cpp" line="593"/>
         <source>Show/Hide Statistics</source>
         <translation>Statistiken ein-/ausblenden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="592"/>
-        <location filename="../src/mainwindow.cpp" line="1120"/>
-        <location filename="../src/mainwindow.cpp" line="1150"/>
+        <location filename="../src/mainwindow.cpp" line="604"/>
+        <location filename="../src/mainwindow.cpp" line="1135"/>
+        <location filename="../src/mainwindow.cpp" line="1165"/>
         <source>Statistics ▶</source>
         <translation>Statistiken ▶</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="928"/>
+        <location filename="../src/mainwindow.cpp" line="940"/>
         <source>Documentation</source>
         <translation>Dokumentation</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="929"/>
-        <location filename="../src/mainwindow.cpp" line="939"/>
+        <location filename="../src/mainwindow.cpp" line="941"/>
+        <location filename="../src/mainwindow.cpp" line="951"/>
         <source>Could not open browser. Please visit:
 %1</source>
         <translation>Browser konnte nicht geöffnet werden. Bitte besuchen Sie:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="938"/>
+        <location filename="../src/mainwindow.cpp" line="950"/>
         <source>Report Bug</source>
         <translation>Fehler melden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="986"/>
+        <location filename="../src/mainwindow.cpp" line="998"/>
         <source>Find</source>
         <translation>Suchen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1001"/>
+        <location filename="../src/mainwindow.cpp" line="1013"/>
         <source>Toggle Theme</source>
         <translation>Design umschalten</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1021"/>
+        <location filename="../src/mainwindow.cpp" line="1033"/>
         <source>Data</source>
         <translation>Daten</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1030"/>
+        <location filename="../src/mainwindow.cpp" line="1042"/>
         <source>Help Contents</source>
         <translation>Hilfeinhalt</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1076"/>
+        <location filename="../src/mainwindow.cpp" line="1088"/>
         <source>Disconnect from Director</source>
         <translation>Verbindung zum Director trennen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1111"/>
+        <location filename="../src/mainwindow.cpp" line="1126"/>
         <source>Connected BAREOS (v%1)</source>
         <translation>Verbunden BAREOS (v%1)</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1114"/>
+        <location filename="../src/mainwindow.cpp" line="1129"/>
         <source>Connected - Loading data...</source>
         <translation>Verbunden - Lade Daten...</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1174"/>
+        <location filename="../src/mainwindow.cpp" line="1189"/>
         <source>Connection Error</source>
         <translation>Verbindungsfehler</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1175"/>
+        <location filename="../src/mainwindow.cpp" line="1190"/>
         <source>Error: </source>
         <translation>Fehler: </translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1214"/>
+        <location filename="../src/mainwindow.cpp" line="1229"/>
         <source>No Saved Connection</source>
         <translation>Keine gespeicherte Verbindung</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1215"/>
+        <location filename="../src/mainwindow.cpp" line="1230"/>
         <source>No previous connection found. Please use &apos;Connect&apos; to establish a new connection.</source>
         <translation>Keine vorherige Verbindung gefunden. Bitte verwenden Sie &apos;Verbinden&apos;, um eine neue Verbindung herzustellen.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1361"/>
+        <location filename="../src/mainwindow.cpp" line="1376"/>
         <source>%1 Zeile(n) kopiert</source>
         <translation>%1 Zeile(n) kopiert</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1367"/>
+        <location filename="../src/mainwindow.cpp" line="1382"/>
         <source>Client-Daten kopieren noch nicht implementiert</source>
         <translation>Client-Daten kopieren noch nicht implementiert</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1380"/>
+        <location filename="../src/mainwindow.cpp" line="1395"/>
         <source>Alle Jobs ausgewählt</source>
         <translation>Alle Jobs ausgewählt</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1383"/>
+        <location filename="../src/mainwindow.cpp" line="1398"/>
         <source>Alle Clients auswählen noch nicht implementiert</source>
         <translation>Alle Clients auswählen noch nicht implementiert</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1395"/>
+        <location filename="../src/mainwindow.cpp" line="1410"/>
         <source>Auswahl aufgehoben</source>
         <translation>Auswahl aufgehoben</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1398"/>
+        <location filename="../src/mainwindow.cpp" line="1413"/>
         <source>Auswahl für Clients aufheben noch nicht implementiert</source>
         <translation>Auswahl für Clients aufheben noch nicht implementiert</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1409"/>
-        <location filename="../src/mainwindow.cpp" line="1419"/>
+        <location filename="../src/mainwindow.cpp" line="1424"/>
+        <location filename="../src/mainwindow.cpp" line="1434"/>
         <source>Search</source>
         <translation>Suchen</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1410"/>
+        <location filename="../src/mainwindow.cpp" line="1425"/>
         <source>Use the filter options in the Job view
 to search for specific jobs.
 
@@ -1088,33 +1454,39 @@ Verfügbare Filter:
 • Datumsbereich</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1420"/>
+        <location filename="../src/mainwindow.cpp" line="1435"/>
         <source>Use the filter combo box in the Client view
 to search for specific clients.</source>
         <translation>Verwenden Sie das Filter-Kombinationsfeld in der Client-Ansicht,
 um nach bestimmten Clients zu suchen.</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1456"/>
+        <location filename="../src/mainwindow.cpp" line="1471"/>
         <source>Switched to Light Theme</source>
         <translation>Zu hellem Design gewechselt</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1460"/>
+        <location filename="../src/mainwindow.cpp" line="1475"/>
         <source>Switched to Dark Theme</source>
         <translation>Zu dunklem Design gewechselt</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1473"/>
-        <location filename="../src/mainwindow.cpp" line="1485"/>
+        <location filename="../src/mainwindow.cpp" line="1488"/>
+        <location filename="../src/mainwindow.cpp" line="1500"/>
+        <location filename="../src/mainwindow.cpp" line="1512"/>
         <source>Not Connected</source>
         <translation>Nicht verbunden</translation>
     </message>
     <message>
-        <location filename="../src/mainwindow.cpp" line="1473"/>
-        <location filename="../src/mainwindow.cpp" line="1485"/>
+        <location filename="../src/mainwindow.cpp" line="1488"/>
+        <location filename="../src/mainwindow.cpp" line="1500"/>
         <source>Please connect to the Director first.</source>
         <translation>Bitte verbinden Sie sich zuerst mit dem Director.</translation>
+    </message>
+    <message>
+        <location filename="../src/mainwindow.cpp" line="1513"/>
+        <source>Please connect to Bareos Director first.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

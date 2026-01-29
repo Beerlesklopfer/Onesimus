@@ -39,16 +39,19 @@ void BJobsFilterWidget::setupUi()
     m_statusWarning = new QCheckBox("Warning (W)", this);
     m_statusFailed = new QCheckBox("Failed (f)", this);
     m_statusError = new QCheckBox("Error (E)", this);
-    
+    m_statusZeroBytes = new QCheckBox("Zero Bytes", this);
+
     m_statusSuccess->setChecked(true);
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
-    
+    m_statusZeroBytes->setChecked(false);
+
     statusLayout->addWidget(m_statusSuccess);
     statusLayout->addWidget(m_statusWarning);
     statusLayout->addWidget(m_statusFailed);
     statusLayout->addWidget(m_statusError);
+    statusLayout->addWidget(m_statusZeroBytes);
     
     mainLayout->addWidget(statusGroup);
     
@@ -245,7 +248,10 @@ void BJobsFilterWidget::applyFilters()
     } else {
         m_filterModel->setByteSizeFilter(-1, -1);
     }
-    
+
+    // Apply zero bytes filter
+    m_filterModel->setZeroBytesFilter(m_statusZeroBytes->isChecked());
+
     emit filtersApplied();
 }
 
@@ -260,7 +266,8 @@ void BJobsFilterWidget::clearFilters()
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
-    
+    m_statusZeroBytes->setChecked(false);
+
     m_levelFull->setChecked(true);
     m_levelIncremental->setChecked(true);
     m_levelDifferential->setChecked(true);

@@ -198,6 +198,16 @@ void BLevelModel::parseLevels(const QString &jsonResponse)
         return;
     }
 
+#ifdef IS_DEVELOPER
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonArray levelsArray = result["levels"].toArray();
+    qDebug() << "BLevelModel: Found" << levelsArray.size() << "levels in response";
+    for (int i = 0; i < levelsArray.size() && i < 5; ++i) {
+        qDebug() << "  Level" << i << ":" << levelsArray[i].toObject();
+    }
+#endif
+
     setData(doc, "levels");
 }
 
@@ -206,7 +216,19 @@ QStringList BLevelModel::levelCodes() const
     QStringList codes;
     for (int i = 0; i < m_items.size(); ++i) {
         QJsonObject item = m_items[i].toObject();
+
+        // Bareos returns level as ASCII code (e.g., 70='F', 73='I', 68='D')
+        // Try string first (for compatibility), then numeric
         QString code = item["level"].toString();
+
+        if (code.isEmpty()) {
+            // Convert numeric ASCII code to character
+            int levelNum = item["level"].toInt();
+            if (levelNum > 0 && levelNum < 128) {
+                code = QChar(levelNum);
+            }
+        }
+
         if (!code.isEmpty()) {
             codes.append(code);
         }
@@ -230,6 +252,15 @@ QStringList BLevelModel::levelDescriptions() const
 QString BLevelModel::getDisplayText(const QJsonObject &item) const
 {
     QString level = item["level"].toString();
+
+    // Bareos returns level as ASCII code - convert if needed
+    if (level.isEmpty()) {
+        int levelNum = item["level"].toInt();
+        if (levelNum > 0 && levelNum < 128) {
+            level = QChar(levelNum);
+        }
+    }
+
     QString name = item["name"].toString();
 
     if (!level.isEmpty() && !name.isEmpty()) {

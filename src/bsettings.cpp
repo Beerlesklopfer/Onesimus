@@ -85,6 +85,17 @@ void BSettings::setConnectionDirector(const QString& director)
     emit connectionSettingsChanged();
 }
 
+QString BSettings::connectionConsole() const
+{
+    return value("Connection/console", "onesimus").toString();
+}
+
+void BSettings::setConnectionConsole(const QString& console)
+{
+    setValue("Connection/console", console);
+    emit connectionSettingsChanged();
+}
+
 QString BSettings::connectionPassword() const
 {
     return value("Connection/password").toString();

@@ -92,6 +92,7 @@ public:
 
     void setJobs(const QJsonArray &jobs);
     void appendJobs(const QJsonArray &jobs);
+    void removeJobsByIds(const QStringList &jobIds);
     QJsonObject jobAt(int row) const;
     QJsonArray allJobs() const { return m_jobs; }
     QSet<QString> selectedJobIds() const { return m_selectedJobs; }
@@ -163,6 +164,7 @@ public:
     void setDateFilter(const QDateTime &from, const QDateTime &to);
     void setFileCountFilter(qint64 min, qint64 max);
     void setByteSizeFilter(qint64 min, qint64 max);
+    void setZeroBytesFilter(bool enabled);
     void clearAllFilters();
 
     QString nameFilter() const { return m_nameFilter; }
@@ -186,6 +188,7 @@ private:
     qint64 m_fileCountMax;
     qint64 m_byteSizeMin;
     qint64 m_byteSizeMax;
+    bool m_zeroBytesFilter;
 };
 
 
