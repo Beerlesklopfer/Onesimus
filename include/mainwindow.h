@@ -76,6 +76,9 @@ private slots:
     void onClearSelectionTriggered();
     void onFindTriggered();
 
+    // View menu slots
+    void onToggleTheme();
+
     // Settings slots
     void onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds);
 
@@ -115,6 +118,7 @@ private:
     QAction *m_exitAction;
     QAction *m_aboutAction;
     QAction *m_toggleStatisticsAction;
+    QAction *m_toggleThemeAction;
 
     // Edit Actions
     QAction *m_copyAction;

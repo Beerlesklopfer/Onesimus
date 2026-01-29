@@ -75,7 +75,7 @@
 - **Debug Logging:** Extensive logging options for troubleshooting
 
 ### 🔌 Backup System Support
-- **Bacula:** Full support via bconsole (TCP/TLS)
+- ~~**Bacula:** Full support via bconsole (TCP/TLS)~~ *(not yet implemented)*
 - **Bareos:** Full support via bconsole (TCP/TLS) with JSON-RPC
 - **Flexible Configuration:** System selection at build-time or runtime
 - ~~**Restore Functionality:** File browsing and restore wizard~~ *(not yet implemented)*
@@ -98,19 +98,19 @@
 
 | System | bconsole | JSON-RPC | Status |
 |--------|----------|----------|--------|
-| **Bacula** | ✅ TCP/TLS | ⚙️ Via bconsole | Full |
+| **Bacula** | ❌ Not yet | ❌ Not yet | Not implemented |
 | **Bareos** | ✅ TCP/TLS | ✅ Native | Full |
 
 ### Choose Build Option
 
 ```bash
-# Bacula only (default)
-cmake .. -DBACKUP_SYSTEM=BACULA
-
-# Bareos only
+# Bareos (default and currently only supported)
 cmake .. -DBACKUP_SYSTEM=BAREOS
 
-# Both systems (runtime selection)
+# Bacula only (not yet implemented)
+cmake .. -DBACKUP_SYSTEM=BACULA
+
+# Both systems (not yet fully implemented)
 cmake .. -DBACKUP_SYSTEM=BOTH
 ```
 
@@ -163,9 +163,9 @@ brew install cmake git qt@6 perl
 
 | Option | Description |
 |--------|-------------|
-| `BACULA` | Bacula support only (default) |
-| `BAREOS` | Bareos support only |
-| `BOTH` | Bacula AND Bareos (runtime selection) |
+| `BAREOS` | Bareos support only **(default, currently only supported)** |
+| `BACULA` | Bacula support only *(not yet implemented)* |
+| `BOTH` | Bacula AND Bareos *(not yet fully implemented)* |
 
 ### OpenSSL
 

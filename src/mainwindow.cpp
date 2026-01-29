@@ -342,6 +342,21 @@ void MainWindow::createActions()
         }
     });
 
+    // Theme Toggle Action
+    m_toggleThemeAction = new QAction(this);
+    m_toggleThemeAction->setToolTip(tr("Toggle Dark/Light Theme"));
+    m_toggleThemeAction->setShortcut(QKeySequence("Ctrl+Shift+T"));
+
+    // Set initial icon based on current theme
+    QString currentTheme = BSettings::instance().appearanceTheme();
+    if (currentTheme == "dark") {
+        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear-night"));
+    } else {
+        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear"));
+    }
+
+    connect(m_toggleThemeAction, &QAction::triggered, this, &MainWindow::onToggleTheme);
+
     // Jobs Actions
     m_runJobAction = new QAction(tr("Run Job"), this);
     m_runJobAction->setIcon(QIcon::fromTheme("media-playback-start"));
@@ -455,6 +470,16 @@ void MainWindow::createMenus()
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
     m_helpMenu->addAction(m_aboutAction);
+
+    // Add theme toggle button to the right side of menu bar
+    QWidget *spacer = new QWidget();
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    menuBar()->setCornerWidget(spacer, Qt::TopLeftCorner);
+
+    QToolBar *themeToolbar = new QToolBar();
+    themeToolbar->setStyleSheet("QToolBar { border: none; background: transparent; }");
+    themeToolbar->addAction(m_toggleThemeAction);
+    menuBar()->setCornerWidget(themeToolbar, Qt::TopRightCorner);
 }
 
 void MainWindow::createToolBar()
@@ -1193,6 +1218,33 @@ void MainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds)
             m_statusLabel->setText("Auto-Refresh deaktiviert");
         }
     }
+}
+
+void MainWindow::onToggleTheme()
+{
+    // Get current theme
+    QString currentTheme = BSettings::instance().appearanceTheme();
+
+    // Toggle theme
+    QString newTheme;
+    if (currentTheme == "dark") {
+        newTheme = "light";
+        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear"));
+        m_statusLabel->setText(tr("Switched to Light Theme"));
+    } else {
+        newTheme = "dark";
+        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear-night"));
+        m_statusLabel->setText(tr("Switched to Dark Theme"));
+    }
+
+    // Save new theme to settings
+    BSettings::instance().setAppearanceTheme(newTheme);
+
+    // Show message about restart
+    QMessageBox::information(this,
+        tr("Theme Changed"),
+        tr("The theme will be fully applied after restarting the application.\n\n"
+           "Some UI elements may not update until the next restart."));
 }
 
 void MainWindow::onExportSettingsTriggered()
