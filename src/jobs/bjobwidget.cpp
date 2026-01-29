@@ -68,10 +68,36 @@ BJobWidget::BJobWidget(QWidget *parent)
     // Connect table view signals
     connect(m_tableView, &BJsonJobView::jobDoubleClicked,
             this, &BJobWidget::onJobDoubleClicked);
-    
+
     connect(m_tableView, &BJsonJobView::selectionChanged,
             this, &BJobWidget::onJobSelectionChanged);
-    
+
+    connect(m_tableView, &BJsonJobView::jobActionRequested,
+            this, [this](const QString &command, const QString &args) {
+                // Map command to appropriate BDirector::Command enum
+                BDirector::Command cmd;
+
+                if (command == "cancel") {
+                    cmd = BDirector::Command::Cancel;
+                    emit statusMessageChanged(QString("Breche Job ab..."));
+                } else if (command == "delete") {
+                    cmd = BDirector::Command::Delete;
+                    emit statusMessageChanged(QString("Lösche Job..."));
+                } else if (command == "rerun") {
+                    cmd = BDirector::Command::Rerun;
+                    emit statusMessageChanged(QString("Führe Job erneut aus..."));
+                } else if (command == "list") {
+                    cmd = BDirector::Command::ListJobId;
+                    emit statusMessageChanged(QString("Lade Job-Log..."));
+                } else {
+                    qWarning() << "Unknown job action command:" << command;
+                    return;
+                }
+
+                // Forward to Director via signal
+                emit sendCommand(cmd, args);
+            });
+
     // Connect auto-refresh timer
     connect(m_autoRefreshTimer, &QTimer::timeout,
             this, &BJobWidget::onAutoRefreshTimeout);

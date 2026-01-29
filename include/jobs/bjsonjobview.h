@@ -157,20 +157,20 @@ signals:
      * @since 1.0
      */
     void jobDoubleClicked(const QJsonObject &job);
-    
+
     /**
      * @brief Emitted when the selection changes
      * @since 1.0
      */
     void selectionChanged();
-    
+
     /**
      * @brief Emitted when live update receives new data
      * @param count Number of new jobs received
      * @since 2.0
      */
     void liveDataReceived(int count);
-    
+
     /**
      * @brief Emitted when export is requested
      * @param format Export format ("json" or "csv")
@@ -178,6 +178,14 @@ signals:
      * @since 2.0
      */
     void exportRequested(const QString &format, bool selectedOnly);
+
+    /**
+     * @brief Emitted when a job action command should be sent to Director
+     * @param command The command string to send
+     * @param args Optional command arguments
+     * @since 2.8
+     */
+    void jobActionRequested(const QString &command, const QString &args);
 
 protected:
     /**

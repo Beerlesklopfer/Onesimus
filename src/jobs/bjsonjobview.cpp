@@ -402,21 +402,24 @@ void BJsonJobView::deleteJob()
     if (selection.isEmpty()) {
         return;
     }
-    
+
     QModelIndex proxyIndex = selection.first();
     QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
     QJsonObject job = m_model->jobAt(sourceIndex.row());
-    
-    int ret = QMessageBox::question(this, "Delete Job",
-        QString("Are you sure you want to delete job %1 (%2)?")
-            .arg(job["jobid"].toString())
-            .arg(job["name"].toString()),
+
+    QString jobId = job["jobid"].toString();
+    QString jobName = job["name"].toString();
+
+    int ret = QMessageBox::question(this, "Job löschen",
+        QString("Möchten Sie Job %1 (%2) wirklich löschen?\n\n"
+                "WARNUNG: Diese Aktion kann nicht rückgängig gemacht werden!")
+            .arg(jobId)
+            .arg(jobName),
         QMessageBox::Yes | QMessageBox::No);
-    
+
     if (ret == QMessageBox::Yes) {
-        // TODO: Implement actual job deletion via Bacula API
-        QMessageBox::information(this, "Delete Job",
-            "Job deletion would be performed here via Bacula API.");
+        // Send delete command to Director
+        emit jobActionRequested("delete", QString("job jobid=%1 yes").arg(jobId));
     }
 }
 
@@ -426,16 +429,24 @@ void BJsonJobView::retryJob()
     if (selection.isEmpty()) {
         return;
     }
-    
+
     QModelIndex proxyIndex = selection.first();
     QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
     QJsonObject job = m_model->jobAt(sourceIndex.row());
-    
-    // TODO: Implement job retry via Bacula API
-    QMessageBox::information(this, "Retry Job",
-        QString("Would retry job %1 (%2) via Bacula API.")
-            .arg(job["jobid"].toString())
-            .arg(job["name"].toString()));
+
+    QString jobId = job["jobid"].toString();
+    QString jobName = job["name"].toString();
+
+    int ret = QMessageBox::question(this, "Job erneut ausführen",
+        QString("Möchten Sie Job %1 (%2) erneut ausführen?")
+            .arg(jobId)
+            .arg(jobName),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (ret == QMessageBox::Yes) {
+        // Send rerun command to Director
+        emit jobActionRequested("rerun", QString("jobid=%1 yes").arg(jobId));
+    }
 }
 
 void BJsonJobView::cancelJob()
@@ -444,21 +455,23 @@ void BJsonJobView::cancelJob()
     if (selection.isEmpty()) {
         return;
     }
-    
+
     QModelIndex proxyIndex = selection.first();
     QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
     QJsonObject job = m_model->jobAt(sourceIndex.row());
-    
-    int ret = QMessageBox::question(this, "Cancel Job",
-        QString("Are you sure you want to cancel running job %1 (%2)?")
-            .arg(job["jobid"].toString())
-            .arg(job["name"].toString()),
+
+    QString jobId = job["jobid"].toString();
+    QString jobName = job["name"].toString();
+
+    int ret = QMessageBox::question(this, "Job abbrechen",
+        QString("Möchten Sie den laufenden Job %1 (%2) wirklich abbrechen?")
+            .arg(jobId)
+            .arg(jobName),
         QMessageBox::Yes | QMessageBox::No);
-    
+
     if (ret == QMessageBox::Yes) {
-        // TODO: Implement job cancellation via Bacula API
-        QMessageBox::information(this, "Cancel Job",
-            "Job cancellation would be performed here via Bacula API.");
+        // Send cancel command to Director
+        emit jobActionRequested("cancel", QString("jobid=%1").arg(jobId));
     }
 }
 
@@ -468,16 +481,15 @@ void BJsonJobView::viewJobLog()
     if (selection.isEmpty()) {
         return;
     }
-    
+
     QModelIndex proxyIndex = selection.first();
     QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
     QJsonObject job = m_model->jobAt(sourceIndex.row());
-    
-    // TODO: Fetch and display job log
-    QMessageBox::information(this, "Job Log",
-        QString("Would display log for job %1 (%2).\n\nLog would be fetched via Bacula API.")
-            .arg(job["jobid"].toString())
-            .arg(job["name"].toString()));
+
+    QString jobId = job["jobid"].toString();
+
+    // Request job log from Director
+    emit jobActionRequested("list", QString("joblog jobid=%1").arg(jobId));
 }
 
 void BJsonJobView::saveViewPreset(const QString &name)
