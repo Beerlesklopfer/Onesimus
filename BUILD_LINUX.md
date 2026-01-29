@@ -20,7 +20,8 @@ The script:
 ```bash
 # 1. Install prerequisites
 sudo apt-get update
-sudo apt-get install -y build-essential cmake git qt6-base-dev qt6-tools-dev perl
+sudo apt-get install -y build-essential cmake git qt6-base-dev qt6-tools-dev \
+    libqt6network6-dev perl imagemagick
 
 # 2. Clone repository
 git clone <your-repo> onesimus
@@ -55,14 +56,14 @@ sudo apt-get install -y \
     qt6-base-dev \
     qt6-tools-dev \
     qt6-base-dev-tools \
-    libqt6sql6 \
-    libqt6network6 \
+    libqt6network6-dev \
     perl \
     make \
     imagemagick
 ```
 
-**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
+**Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
+**Note:** qt6-base-dev includes most modules, but explicit Network -dev package ensures headers are available
 
 ### Fedora/RHEL/CentOS
 
@@ -73,13 +74,14 @@ sudo dnf install -y \
     git \
     qt6-qtbase-devel \
     qt6-qttools-devel \
-    qt6-qtbase-sql \
+    qt6-qtbase-network-devel \
     perl \
     make \
     ImageMagick
 ```
 
-**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
+**Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
+**Note:** qt6-qtbase-devel includes Core, Gui, and Widgets; Network requires explicit package
 
 ### Arch Linux
 
@@ -94,8 +96,8 @@ sudo pacman -S --needed \
     imagemagick
 ```
 
-**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
-**Note:** qt6-base includes Core, Gui, Widgets, Network, and Sql modules
+**Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
+**Note:** qt6-base includes Core, Gui, Widgets, and Network modules with headers (Arch packages everything together)
 
 ### openSUSE
 
@@ -106,13 +108,14 @@ sudo zypper install -y \
     git \
     qt6-base-devel \
     qt6-tools-devel \
-    qt6-sql-devel \
+    qt6-network-devel \
     perl \
     make \
     ImageMagick
 ```
 
-**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
+**Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
+**Note:** Explicit Network -devel package ensures all headers are available
 
 ## 🎯 Build Options
 
