@@ -352,6 +352,8 @@ set(SOURCES
     src/bdirector.cpp
     src/bareosdirector.cpp
     src/bsettings.cpp
+    src/bbasemodels.cpp
+    src/bresourcemodels.cpp
     src/settingsdialog.cpp
     src/storagewidget.cpp
 
@@ -384,6 +386,8 @@ set(HEADERS
     include/bdirector.h
     include/bareosdirector.h
     include/bsettings.h
+    include/bbasemodels.h
+    include/bresourcemodels.h
     include/version.h
     include/baculaauth.h
     include/bareosauth.h
