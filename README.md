@@ -1,7 +1,7 @@
 # Onesimus - Modern Backup Management UI
 
 <p align="center">
-  <strong>Eine moderne, plattformübergreifende Verwaltungsoberfläche für Bacula und Bareos Backup-Systeme</strong>
+  <strong>A modern, cross-platform management interface for Bacula and Bareos backup systems</strong>
 </p>
 
 <p align="center">
@@ -9,46 +9,119 @@
   <img src="https://img.shields.io/badge/C%2B%2B-17-blue?logo=c%2B%2B" alt="C++ 17">
   <img src="https://img.shields.io/badge/OpenSSL-3.6-orange?logo=openssl" alt="OpenSSL 3.6">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Cross-Platform">
+  <img src="https://img.shields.io/badge/i18n-6%20Languages-blue" alt="6 Languages">
 </p>
 
 ## ✨ Features
 
-- 🔌 **Multi-System Support:** Bacula und/oder Bareos
-- 🔒 **TLS/SSL Encryption:** Sichere verschlüsselte Verbindungen mit OpenSSL
-- 🌐 **Dual Connectivity:** bconsole (TCP/TLS) und REST API
-- 🎨 **Modern UI:** Dunkles Industrial Design mit Settings-Dialog
-- ⚙️ **Flexible Configuration:** CMake Build-Optionen für Backup-System-Auswahl
-- 📦 **Static OpenSSL:** Automatischer Download und Build via Git-Submodule
-- 🖥️ **Cross-Platform:** Windows, Linux, macOS
+### 🎨 User Interface
+- **Modern Qt6 Design:** Dark Industrial theme with intuitive navigation
+- **Multi-Tab Interface:** Jobs, Clients, Storage, Schedules in separate tabs
+- **Flexible Layouts:** Resizable widgets and customizable views
+- **Responsive Design:** Optimized for various screen sizes
 
-## 🎯 Unterstützte Backup-Systeme
+### 🌍 Internationalization (i18n)
+- **6 Languages:** 🇬🇧 English *(complete)* • 🇩🇪 Deutsch *(~30% translated)* • ~~🇪🇸 Español~~ *(0%)* • ~~🇫🇷 Français~~ *(0%)* • ~~🇮🇹 Italiano~~ *(0%)* • ~~🇷🇺 Русский~~ *(0%)*
+- **Automatic Language Detection:** Automatically selects system language on first start
+- **Live Language Switching:** Change language via Settings (restart required for full effect)
+- **Native Language Names:** All languages in their native spelling with flags
+- *Note: Only MainWindow is fully translated. ~325 strings in dialogs/widgets still need translation.*
 
-| System | bconsole | REST API | Status |
+### 📊 Job Management
+- **Job Overview:** All backup jobs in a clear table
+- **Advanced Filters:** Filter by status, level, date, client, name
+- **Statistics:** Real-time statistics for successful/failed jobs
+- **Job Details:** Detailed view with logs, files, bytes, duration
+- **Multi-Selection:** Select jobs via checkbox and export
+- **Pagination:** Efficient display even with thousands of jobs
+- **Export Functions:** Export jobs as JSON or CSV
+- ~~**Job Control:** Start, stop, cancel jobs~~ *(UI present, backend missing)*
+
+### 💾 Client Management
+- **Client Overview:** All configured backup clients
+- **Status Display:** Online/Offline status with visual indicators
+- ~~**Client Details Dialog:** Full client information~~ *(not yet implemented)*
+- **Filtering:** Filter clients by status and name
+
+### 🗄️ Storage Management
+- **Storage Overview:** All storage daemons and devices
+- **Volume Management:** Pools, volumes, media status
+- ~~**Volume Operations:** Label, mount, unmount volumes~~ *(not yet implemented)*
+- **Capacities:** Free/Used storage space per pool
+- **Device Status:** Status and availability of storage devices
+
+### 📅 Schedule Management
+- **Schedule Overview:** All configured backup schedules
+- **Schedule Details:** Run times, level, pool assignment
+- **Visual Representation:** Clear display of backup windows
+- ~~**Schedule Control:** Enable/disable schedules~~ *(not yet implemented)*
+
+### 🔐 Security & Connection
+- **TLS/SSL Encryption:** Secure connections with OpenSSL 3.6
+- **Dual Authentication:** PSK (Pre-Shared Key) or certificate-based
+- **Certificate Management:** CA, client certificate and key files
+- **Windows PFX Support:** Native .pfx file support on Windows
+- **Connection Timeout:** Configurable timeout settings
+- **Auto-Connect:** Automatic connection on startup (optional)
+
+### ⚙️ Settings
+- **Categorized Settings:** Connection, Appearance, Behavior, Advanced
+- **Theme Selection:** Dark (Industrial), Light, System
+- **Font Size:** Adjustable base font size (8-16pt)
+- **UI Options:** Animations, compact mode
+- **Language Selection:** 6 languages with flag icons
+- **Level Colors:** Customizable colors for Full, Incremental, Differential, VirtualFull
+- **Auto-Refresh:** Automatic refresh of job list
+- **Debug Logging:** Extensive logging options for troubleshooting
+
+### 🔌 Backup System Support
+- **Bacula:** Full support via bconsole (TCP/TLS)
+- **Bareos:** Full support via bconsole (TCP/TLS) with JSON-RPC
+- **Flexible Configuration:** System selection at build-time or runtime
+- ~~**Restore Functionality:** File browsing and restore wizard~~ *(not yet implemented)*
+
+### 🛠️ Technical Features
+- **MVC Architecture:** Clean separation of data and presentation
+- **Qt Model/View:** BListModel, BTableModel, BTreeModel for flexible data models
+- **JSON Streaming:** Efficient parsing of large JSON responses
+- **Asynchronous Operations:** Non-blocking network communication
+- **Error Handling:** Robust error handling with user feedback
+- **Settings Persistence:** QSettings-based configuration storage
+
+### 📦 Deployment
+- **Static OpenSSL:** Automatic download and build via Git submodule
+- **Cross-Platform:** Native builds for Windows, Linux, macOS
+- **AppImage Support:** Linux deployment with linuxdeploy
+- **Installer:** NSIS-based Windows installer (planned)
+
+## 🎯 Supported Backup Systems
+
+| System | bconsole | JSON-RPC | Status |
 |--------|----------|----------|--------|
-| **Bacula** | ✅ TCP/TLS | ⚠️ Experimentell | Vollständig |
-| **Bareos** | ✅ TCP/TLS | ✅ Native JSON | Vollständig |
+| **Bacula** | ✅ TCP/TLS | ⚙️ Via bconsole | Full |
+| **Bareos** | ✅ TCP/TLS | ✅ Native | Full |
 
-### Build-Option wählen
+### Choose Build Option
 
 ```bash
-# Nur Bacula (Standard)
+# Bacula only (default)
 cmake .. -DBACKUP_SYSTEM=BACULA
 
-# Nur Bareos  
+# Bareos only
 cmake .. -DBACKUP_SYSTEM=BAREOS
 
-# Beide Systeme
+# Both systems (runtime selection)
 cmake .. -DBACKUP_SYSTEM=BOTH
 ```
 
 📖 **Details:** [BACKUP_SYSTEMS.md](BACKUP_SYSTEMS.md)
 
-## 🚀 Schnellstart
+## 🚀 Quick Start
 
 ### Windows
 
 ```powershell
-# Developer PowerShell for VS 2022 öffnen
+# Open Developer PowerShell for VS 2022
 .\build-windows.ps1
 ```
 
@@ -65,7 +138,7 @@ brew install qt@6 cmake
 ./build.sh
 ```
 
-## 📦 Voraussetzungen
+## 📦 Prerequisites
 
 ### Windows
 - Visual Studio 2022 (C++ Desktop Development)
@@ -76,7 +149,7 @@ brew install qt@6 cmake
 
 ### Linux
 ```bash
-sudo apt-get install build-essential cmake git qt6-base-dev qt6-tools-dev perl
+sudo apt-get install build-essential cmake git qt6-base-dev qt6-tools-dev qt6-tools-dev-tools perl
 ```
 
 ### macOS
@@ -84,69 +157,92 @@ sudo apt-get install build-essential cmake git qt6-base-dev qt6-tools-dev perl
 brew install cmake git qt@6 perl
 ```
 
-## 🔧 Build-Optionen
+## 🔧 Build Options
 
 ### Backup System
 
-| Option | Beschreibung |
+| Option | Description |
 |--------|-------------|
-| `BACULA` | Nur Bacula-Unterstützung (Standard) |
-| `BAREOS` | Nur Bareos-Unterstützung |
-| `BOTH` | Bacula UND Bareos |
+| `BACULA` | Bacula support only (default) |
+| `BAREOS` | Bareos support only |
+| `BOTH` | Bacula AND Bareos (runtime selection) |
 
 ### OpenSSL
 
-| Option | Beschreibung |
+| Option | Description |
 |--------|-------------|
-| `USE_STATIC_OPENSSL=ON` | Statisch (Git-Submodule, Standard) |
-| `USE_STATIC_OPENSSL=OFF` | System-OpenSSL |
+| `USE_STATIC_OPENSSL=ON` | Static (Git submodule, default) |
+| `USE_STATIC_OPENSSL=OFF` | System OpenSSL |
 
-### Build-Typ
+### Build Type
 
-| Option | Beschreibung |
+| Option | Description |
 |--------|-------------|
-| `Release` | Optimiert (Standard) |
-| `Debug` | Mit Debug-Symbolen |
-| `RelWithDebInfo` | Optimiert + Debug |
+| `Release` | Optimized (default) |
+| `Debug` | With debug symbols |
+| `RelWithDebInfo` | Optimized + debug info |
 
-### Beispiel
+### Debugging Options
+
+| Option | Description |
+|--------|-------------|
+| `DEBUG_PACKETS=ON` | Packet-level debugging |
+| `DEBUG_JSON=ON` | JSON parsing debugging |
+| `LOG_JSON=ON` | Log JSON responses |
+
+### Example
 
 ```bash
 cmake .. \
-    -DBACKUP_SYSTEM=BOTH \
+    -DBACKUP_SYSTEM=BAREOS \
     -DUSE_STATIC_OPENSSL=ON \
-    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_BUILD_TYPE=Release \
+    -DDEBUG_JSON=OFF
 ```
 
-## 📚 Dokumentation
+## 📚 Documentation
 
-- [BUILD_WINDOWS.md](BUILD_WINDOWS.md) - Windows Build-Anleitung
-- [BUILD_LINUX.md](BUILD_LINUX.md) - Linux Build-Anleitung
-- [BUILD_OSX.md](BUILD_OSX.md) - macOS Build-Anleitung
+- [BUILD_WINDOWS.md](BUILD_WINDOWS.md) - Windows build instructions
+- [BUILD_LINUX.md](BUILD_LINUX.md) - Linux build instructions
+- [BUILD_OSX.md](BUILD_OSX.md) - macOS build instructions
 - [BACKUP_SYSTEMS.md](BACKUP_SYSTEMS.md) - Bacula vs. Bareos
-- [STATIC_OPENSSL.md](STATIC_OPENSSL.md) - OpenSSL-Integration
-- [VISUAL_STUDIO_ENV.md](VISUAL_STUDIO_ENV.md) - VS-Umgebung laden
+- [STATIC_OPENSSL.md](STATIC_OPENSSL.md) - OpenSSL integration
+- [VISUAL_STUDIO_ENV.md](VISUAL_STUDIO_ENV.md) - VS environment setup
 
 ## 🎨 Screenshots
 
 ### Main Window
-*Moderne Qt6-Oberfläche mit Tab-Navigation*
-
-### Settings Dialog
-*Industrial Dark Design mit Kategorien-Sidebar*
+*Modern Qt6 interface with tab navigation for Jobs, Clients, Storage, Schedules*
 
 ### Job Management
-*Jobs anzeigen, starten, überwachen*
+- Clear table with all jobs
+- Filter by status (Successful, Warning, Failed), level (F/I/D/V), date
+- Real-time statistics
+- Multi-selection and export functions
+
+### Settings Dialog
+*Industrial Dark design with category sidebar*
+- Connection settings with TLS/SSL configuration
+- Appearance: Theme, font size, language (6 languages with flags)
+- Behavior: Auto-refresh, job display options
+- Advanced: Debug logging, tooltips
+
+### Client Management
+*All backup clients with status display*
+
+### Storage Management
+*Storage daemons, pools and volumes*
 
 ## 🔐 TLS/SSL Support
 
-Onesimus unterstützt verschlüsselte Verbindungen mit:
-- CA-Zertifikat Validierung
-- Client-Zertifikat Authentifizierung
-- TLS 1.2+ Protokolle
-- EC und RSA Keys
+Onesimus supports encrypted connections with:
+- **PSK (Pre-Shared Key):** Simple authentication with shared key
+- **Certificate-based:** CA certificate validation + client certificate
+- **TLS 1.2+ Protocols:** Modern encryption standards
+- **EC and RSA Keys:** Support for various key types
+- **Windows PFX:** Native .pfx file support (combined cert+key)
 
-Erstellen Sie Zertifikate mit:
+Create certificates with:
 ```bash
 # Windows
 .\create-bacula-certs.ps1
@@ -155,72 +251,151 @@ Erstellen Sie Zertifikate mit:
 ./create-bacula-certs.sh
 ```
 
-## 🛠️ Entwicklung
+## 🛠️ Development
 
-### Projektstruktur
+### Project Structure
 
 ```
 onesimus/
-├── include/           # Header-Dateien
-│   ├── baculadirector.h
-│   ├── bareosdirector.h
-│   ├── mainwindow.h
-│   └── settingsdialog.h
-├── src/              # Implementierungen
-├── ui/               # Qt UI-Dateien
-├── external/         # Git-Submodules (OpenSSL)
-└── CMakeLists.txt    # Build-Konfiguration
+├── include/              # Header files
+│   ├── mainwindow.h      # Main window
+│   ├── settingsdialog.h  # Settings dialog
+│   ├── bdirector.h       # Director base class
+│   ├── bareosdirector.h  # Bareos-specific
+│   ├── bbasemodels.h     # Base models (List, Table, Tree)
+│   ├── bresourcemodels.h # Resource models (Fileset, Storage, Pool, Level)
+│   ├── btranslations.h   # i18n system
+│   ├── bsettings.h       # Settings management
+│   ├── clientwidget.h    # Client widget
+│   ├── storagewidget.h   # Storage widget
+│   └── jobs/             # Job-specific headers
+│       ├── bjobmodels.h  # Job models
+│       └── bjobwidget.h  # Job widget
+├── src/                  # Implementations
+│   ├── main.cpp          # Entry point with i18n init
+│   ├── mainwindow.cpp    # Main window logic
+│   ├── settingsdialog.cpp# Settings dialog logic
+│   ├── bdirector.cpp     # Director communication
+│   ├── bareosdirector.cpp# Bareos JSON-RPC
+│   ├── bbasemodels.cpp   # Base model implementations
+│   ├── bresourcemodels.cpp# Resource model implementations
+│   ├── btranslations.cpp # i18n implementation
+│   ├── bjsonstreamreader.cpp # JSON stream parser
+│   └── jobs/             # Job implementations
+├── translations/         # Qt Linguist .ts files
+│   ├── onesimus_de.ts    # German
+│   ├── onesimus_en.ts    # English
+│   ├── onesimus_es.ts    # Spanish
+│   ├── onesimus_fr.ts    # French
+│   ├── onesimus_it.ts    # Italian
+│   └── onesimus_ru.ts    # Russian
+├── ui/                   # Qt UI files (if used)
+├── external/             # Git submodules
+│   └── openssl/          # OpenSSL 3.6
+└── CMakeLists.txt        # Build configuration
 ```
 
-### Code-Stil
+### Architecture
+
+#### MVC Pattern
+- **Models:** BListModel, BTableModel, BTreeModel as base classes
+- **Views:** Qt ListView, TableView with custom delegates
+- **Controllers:** Widget classes (BJobWidget, ClientWidget, etc.)
+
+#### Communication Layer
+- **BDirector:** Abstract base class for Director communication
+- **BareosDirector:** Bareos-specific implementation with JSON-RPC
+- **BJsonStreamReader:** Streaming JSON parser for large responses
+
+#### Internationalization
+- **BTranslations:** Singleton for language management
+- **Qt Linguist:** .ts/.qm files for translations
+- **Automatic Language Detection:** System locale detection on first start
+
+### Code Style
 
 - C++17 Standard
 - Qt6 Coding Conventions
-- MOC-basiertes Meta-Object-System
+- MOC-based Meta-Object System
+- Signal/Slot mechanism for event handling
+- Smart pointers where possible
+- RAII principle
 
-### Beitragen
+### Contributing Translations
 
-Pull Requests sind willkommen! Bitte:
-1. Fork das Repository
-2. Erstellen Sie einen Feature-Branch
-3. Commit Ihre Änderungen
-4. Push zum Branch
-5. Öffnen Sie einen Pull Request
+```bash
+# Update .ts files (extract new strings)
+cd build
+cmake ..
+make  # Runs lupdate automatically
 
-## 📄 Lizenz
+# Translate with Qt Linguist
+linguist translations/onesimus_de.ts
+```
 
-Dieses Projekt steht unter der GPL-3.0 Lizenz - siehe [LICENSE](LICENSE) für Details.
+### Contributing
+
+Pull requests are welcome! Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a pull request
+
+**Coding Guidelines:**
+- Follow Qt Coding Conventions
+- Use `tr()` for all UI strings (i18n)
+- Write meaningful commit messages
+- Test on at least one platform
+
+## 📄 License
+
+This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Credits
 
-### Technologien
+### Technologies
 
 - [Qt Framework](https://www.qt.io/) - Cross-platform UI
 - [OpenSSL](https://www.openssl.org/) - TLS/SSL Encryption
 - [CMake](https://cmake.org/) - Build System
 
-### Backup-Systeme
+### Backup Systems
 
 - [Bacula](https://www.bacula.org/) - Open Source Backup
-- [Bareos](https://www.bareos.com/) - Bacula Fork mit Enterprise-Features
+- [Bareos](https://www.bareos.com/) - Bacula Fork with Enterprise Features
 
 ## 📞 Support
 
-- 📖 Dokumentation: Siehe [docs/](docs/)
+- 📖 Documentation: See [docs/](docs/)
 - 🐛 Bugs: [GitHub Issues](https://github.com/your-repo/issues)
-- 💬 Diskussionen: [GitHub Discussions](https://github.com/your-repo/discussions)
+- 💬 Discussions: [GitHub Discussions](https://github.com/your-repo/discussions)
 
 ## 🔄 Version History
 
-### v1.0.0 (Januar 2026)
-- ✅ Umbenennung zu "Onesimus"
-- ✅ Bareos-Support hinzugefügt
-- ✅ CMake Backup-System-Auswahl
-- ✅ Settings-Dialog mit Industrial Dark Design
-- ✅ Statisches OpenSSL via Git-Submodule
-- ✅ Cross-Platform Build-Scripts (Windows/Linux/macOS)
-- ✅ PowerShell Build-Script für Windows
-- ✅ Umfassende Dokumentation
+### v1.0.0 (January 2026)
+- ✅ Renamed to "Onesimus"
+- ✅ Internationalization (i18n): 6 languages with automatic language detection
+- ✅ Bareos support with JSON-RPC added
+- ✅ CMake backup system selection (Bacula/Bareos/Both)
+- ✅ Job Management: Overview, filters, statistics, export
+- ✅ Client Management: Status overview, details
+- ✅ Storage Management: Pools, volumes, devices
+- ✅ Schedule Management: Schedule overview
+- ✅ Settings dialog with Industrial Dark design
+- ✅ MVC architecture with reusable models
+- ✅ Static OpenSSL 3.6 via Git submodule
+- ✅ Cross-platform build scripts (Windows/Linux/macOS)
+- ✅ Comprehensive documentation
+
+### Planned Features (v1.1+)
+- 🔜 Live job monitoring with progress bars
+- 🔜 Job start/stop/cancel functions
+- 🔜 Volume management (label, mount, unmount)
+- 🔜 Enhanced statistics and charts
+- 🔜 Backup job templates
+- 🔜 Email notifications
+- 🔜 Dashboard with overview
 
 ---
 

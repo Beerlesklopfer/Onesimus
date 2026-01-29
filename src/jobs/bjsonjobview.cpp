@@ -37,7 +37,12 @@ BJsonJobView::BJsonJobView(QWidget *parent)
     
     connect(m_model, &BJobsModel::jobsAppended,
             this, &BJsonJobView::onJobsAppended);
-    
+
+    connect(m_model, &BJobsModel::modelReset,
+            this, [this]() {
+        connectSelectionModel();
+    });
+
     connect(m_liveUpdateTimer, &QTimer::timeout,
             this, &BJsonJobView::onLiveUpdateTimeout);
     
@@ -55,7 +60,10 @@ BJsonJobView::BJsonJobView(QWidget *parent)
     connect(m_autoSaveTimer, &QTimer::timeout, [this]() {
         m_columnConfig->saveHeaderState(horizontalHeader());
     });
-    
+
+    // Connect selection model signals
+    connectSelectionModel();
+
     // Restore last saved state
     QTimer::singleShot(100, this, &BJsonJobView::restoreLastState);
 }void BJsonJobView::setupView()
@@ -194,7 +202,9 @@ QSet<QString> BJsonJobView::selectedJobIds() const
 
 QJsonObject BJsonJobView::getSelectedJob() const
 {
+
     QSet<QString> selectedIds = selectedJobIds();
+
     if (selectedIds.isEmpty()) {
         return QJsonObject();
     }
@@ -205,7 +215,9 @@ QJsonObject BJsonJobView::getSelectedJob() const
     // Find the job in the model
     for (int row = 0; row < m_model->rowCount(); ++row) {
         QJsonObject job = m_model->jobAt(row);
-        if (job["jobid"].toString() == firstJobId) {
+        QString jobId = job["jobid"].toString();
+
+        if (jobId == firstJobId) {
             return job;
         }
     }
@@ -327,10 +339,25 @@ void BJsonJobView::showStatistics()
     QMessageBox::information(this, "Job Statistics", message);
 }
 
+void BJsonJobView::mousePressEvent(QMouseEvent *event)
+{
+    qDebug() << "  Mouse position:" << event->pos();
+    qDebug() << "  Button:" << event->button();
+
+    QModelIndex proxyIndex = indexAt(event->pos());
+    qDebug() << "  Index at position - valid:" << proxyIndex.isValid();
+    if (proxyIndex.isValid()) {
+        qDebug() << "  Index row:" << proxyIndex.row() << "column:" << proxyIndex.column();
+    }
+
+    // Call base implementation
+    QTableView::mousePressEvent(event);
+}
+
 void BJsonJobView::mouseDoubleClickEvent(QMouseEvent *event)
 {
     QModelIndex proxyIndex = indexAt(event->pos());
-    
+
     if (proxyIndex.isValid()) {
         // Don't trigger double-click on checkbox column
         if (proxyIndex.column() == BJobsModel::COL_SELECTED) {
@@ -632,4 +659,31 @@ void BJsonJobView::restoreLastState()
 {
     // Restore using BColumnConfiguration
     m_columnConfig->restoreHeaderState(horizontalHeader());
+}
+
+void BJsonJobView::connectSelectionModel()
+{
+
+    // Disconnect any previous connections to avoid duplicates
+    static QMetaObject::Connection s_connection;
+    if (s_connection) {
+        disconnect(s_connection);
+    }
+
+    // Connect to selectionModel's currentChanged signal
+    QItemSelectionModel *selModel = selectionModel();
+
+    if (selModel) {
+
+        s_connection = connect(selModel, &QItemSelectionModel::currentChanged,
+                              this, [this](const QModelIndex &current, const QModelIndex &previous) {
+            qDebug() << "  Previous row:" << previous.row() << "column:" << previous.column();
+            qDebug() << "  Current row:" << current.row() << "column:" << current.column();
+            qDebug() << "  Current valid:" << current.isValid();
+            qDebug() << "  -> Emitting currentRowChanged signal from BJsonJobView";
+            emit currentRowChanged(current, previous);
+        });
+
+    } else {
+    }
 }

@@ -178,6 +178,14 @@ signals:
     void selectionChanged();
 
     /**
+     * @brief Emitted when the current row changes (via click or keyboard)
+     * @param current Current model index
+     * @param previous Previous model index
+     * @since 2.8
+     */
+    void currentRowChanged(const QModelIndex &current, const QModelIndex &previous);
+
+    /**
      * @brief Emitted when live update receives new data
      * @param count Number of new jobs received
      * @since 2.0
@@ -212,6 +220,7 @@ protected:
      * @param event Mouse event
      * @since 1.0
      */
+    void mousePressEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     
     /**
@@ -230,6 +239,7 @@ private slots:
     void retryJob();
     void cancelJob();
     void viewJobLog();
+    void connectSelectionModel();
 
 private:
     void setupView();

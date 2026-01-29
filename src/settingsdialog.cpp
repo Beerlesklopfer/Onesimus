@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
 #include "bsettings.h"
+#include "btranslations.h"
 
 #include <QFormLayout>
 #include <QGroupBox>
@@ -397,6 +398,33 @@ void SettingsDialog::createAppearancePage()
     uiLayout->addWidget(m_compactModeCheck);
 
     layout->addWidget(uiGroup);
+
+    // Language Selection
+    QGroupBox *languageGroup = new QGroupBox("Sprache / Language");
+    languageGroup->setObjectName("settingsGroup");
+    QFormLayout *languageLayout = new QFormLayout(languageGroup);
+
+    m_languageCombo = new QComboBox();
+
+    // Populate with available languages using flags
+    QList<BTranslations::Language> languages = BTranslations::availableLanguages();
+    for (BTranslations::Language lang : languages) {
+        QString flag = BTranslations::languageFlag(lang);
+        QString displayName = BTranslations::languageName(lang);
+        QString code = BTranslations::languageCode(lang);
+        m_languageCombo->addItem(flag + " " + displayName, code);
+    }
+
+    languageLayout->addRow("Anwendungssprache / Application Language:", m_languageCombo);
+
+    QLabel *infoLabel = new QLabel(
+        "Sprachänderungen erfordern einen Neustart der Anwendung.\n"
+        "Language changes require an application restart.");
+    infoLabel->setWordWrap(true);
+    infoLabel->setStyleSheet("color: #888; font-size: 9pt; font-style: italic;");
+    languageLayout->addRow("", infoLabel);
+
+    layout->addWidget(languageGroup);
 
     // Backup Level Colors
     QGroupBox *levelColorsGroup = new QGroupBox("Backup-Level Farben");
@@ -866,6 +894,13 @@ void SettingsDialog::loadSettings()
     m_animationsCheck->setChecked(settings.appearanceAnimations());
     m_compactModeCheck->setChecked(settings.appearanceCompactMode());
 
+    // Language
+    QString currentLangCode = settings.appearanceLanguage();
+    int langIndex = m_languageCombo->findData(currentLangCode);
+    if (langIndex >= 0) {
+        m_languageCombo->setCurrentIndex(langIndex);
+    }
+
     // Level Colors
     QColor colorFull = settings.levelColor("F");
     if (colorFull.isValid()) {
@@ -934,6 +969,14 @@ void SettingsDialog::saveSettings()
     settings.setAppearanceFontSize(m_fontSizeSpin->value());
     settings.setAppearanceAnimations(m_animationsCheck->isChecked());
     settings.setAppearanceCompactMode(m_compactModeCheck->isChecked());
+
+    // Language
+    QString selectedLangCode = m_languageCombo->currentData().toString();
+    settings.setAppearanceLanguage(selectedLangCode);
+
+    // Update language immediately (though full effect requires restart)
+    BTranslations::Language lang = BTranslations::languageFromCode(selectedLangCode);
+    BTranslations::instance()->setLanguage(lang);
 
     // Behavior
     settings.setBehaviorConfirmJobCancel(m_confirmJobCancelCheck->isChecked());

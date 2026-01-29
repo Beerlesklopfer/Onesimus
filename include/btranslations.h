@@ -7,11 +7,12 @@
 
 /**
  * @brief Manages application translations and localization
- * @version 1.0
- * @since 2026-01-26
- * 
+ * @version 2.0
+ * @since 2026-01-29
+ *
  * Supports multiple languages through Qt's translation system.
- * Currently supported: English (en), German (de)
+ * Currently supported: English (en), German (de), Spanish (es),
+ * French (fr), Italian (it), Russian (ru)
  */
 class BTranslations : public QObject
 {
@@ -23,7 +24,11 @@ public:
      */
     enum Language {
         English,    ///< English (en)
-        German      ///< German (de)
+        German,     ///< German (de)
+        Spanish,    ///< Spanish (es)
+        French,     ///< French (fr)
+        Italian,    ///< Italian (it)
+        Russian     ///< Russian (ru)
     };
     Q_ENUM(Language)
 
@@ -63,6 +68,36 @@ public:
      * @since 1.0
      */
     static QString languageCode(Language language);
+
+    /**
+     * @brief Gets list of all available languages
+     * @return QList of all supported languages
+     * @since 2.0
+     */
+    static QList<Language> availableLanguages();
+
+    /**
+     * @brief Converts language code to Language enum
+     * @param code Language code (e.g., "de", "en", "es")
+     * @return Corresponding Language enum value
+     * @since 2.0
+     */
+    static Language languageFromCode(const QString& code);
+
+    /**
+     * @brief Gets flag emoji for a language
+     * @param language Language enum
+     * @return Unicode flag emoji string
+     * @since 2.0
+     */
+    static QString languageFlag(Language language);
+
+    /**
+     * @brief Detects the best matching language from system locale
+     * @return Language enum matching system locale, or English as fallback
+     * @since 2.0
+     */
+    static Language detectSystemLanguage();
 
 signals:
     /**

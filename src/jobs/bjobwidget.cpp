@@ -44,6 +44,10 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_toggleFiltersButton(new QPushButton(this))
     , m_director(nullptr)
+    , m_filesetModel(new BFilesetModel(this))
+    , m_storageModel(new BStorageModel(this))
+    , m_poolModel(new BPoolModel(this))
+    , m_levelModel(new BLevelModel(this))
 {
     // Initialize checkboxes - all checked by default
     m_statusSuccess->setChecked(true);
@@ -99,17 +103,13 @@ BJobWidget::BJobWidget(QWidget *parent)
     connect(m_tableView, &BJsonJobView::jobDoubleClicked,
             this, &BJobWidget::onJobDoubleClicked);
 
+    // Connect checkbox selection changes
     connect(m_tableView, &BJsonJobView::selectionChanged,
             this, &BJobWidget::onJobSelectionChanged);
 
-    // Connect current row changed signal for single row navigation
-    connect(m_tableView->selectionModel(), &QItemSelectionModel::currentChanged,
-            this, [this](const QModelIndex &current, const QModelIndex &previous) {
-        Q_UNUSED(previous);
-        if (current.isValid()) {
-            onJobSelectionChanged();
-        }
-    });
+    // Connect current row changes (click or keyboard navigation)
+    bool connectionSuccess = connect(m_tableView, &BJsonJobView::currentRowChanged,
+                                     this, &BJobWidget::onCurrentRowChanged);
 
     connect(m_tableView, &BJsonJobView::jobActionRequested,
             this, [this](const QString &command, const QString &args) {
@@ -589,6 +589,39 @@ void BJobWidget::processDotJobsResponse(const QString &jsonData)
     qDebug() << "BJobWidget: Processing .jobs response";
 #endif
 
+    // Parse JSON to extract job configurations
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
+        QJsonObject root = doc.object();
+        QJsonObject result = root["result"].toObject();
+        QJsonArray jobsArray = result["jobs"].toArray();
+
+        // Clear previous configurations
+        m_jobConfigurations.clear();
+
+        // Store job configurations by name
+        for (const QJsonValue &jobVal : jobsArray) {
+            if (jobVal.isObject()) {
+                QJsonObject jobConfig = jobVal.toObject();
+                QString jobName = jobConfig["name"].toString();
+                if (!jobName.isEmpty()) {
+                    m_jobConfigurations[jobName] = jobConfig;
+                }
+            }
+        }
+
+#ifdef IS_DEVELOPER
+        qDebug() << "✓ Stored" << m_jobConfigurations.size() << "job configurations";
+        // Show first config as sample
+        if (!m_jobConfigurations.isEmpty()) {
+            QString firstKey = m_jobConfigurations.firstKey();
+            qDebug() << "  Sample config for" << firstKey << ":" << m_jobConfigurations[firstKey];
+        }
+#endif
+    }
+
     // Update job names in filter model
     m_filterComboModel->updateJobNamesFromDotCommand(jsonData);
 
@@ -639,22 +672,8 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
     qDebug() << "BJobWidget: Processing .levels response";
 #endif
 
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
-
-    if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BJobWidget: Failed to parse .levels response:" << parseError.errorString();
-        return;
-    }
-
-    if (!doc.isObject()) {
-        qWarning() << "BJobWidget: .levels response is not a JSON object";
-        return;
-    }
-
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
-    QJsonArray levelsArray = result["levels"].toArray();
+    // Parse response using model
+    m_levelModel->parseLevels(jsonData);
 
     // Clear existing level checkboxes
     for (auto it = m_levelCheckboxes.begin(); it != m_levelCheckboxes.end(); ++it) {
@@ -668,15 +687,14 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
         placeholder->deleteLater();
     }
 
-    // Create checkboxes for each level
-    for (const QJsonValue &levelVal : levelsArray) {
-        if (!levelVal.isObject()) {
-            continue;
-        }
+    // Get level codes and descriptions from model
+    QStringList levelCodes = m_levelModel->levelCodes();
+    QStringList levelDescriptions = m_levelModel->levelDescriptions();
 
-        QJsonObject level = levelVal.toObject();
-        QString levelCode = level["level"].toString();        // e.g., "F", "I", "D"
-        QString levelName = level["description"].toString();  // e.g., "Full", "Incremental", "Differential"
+    // Create checkboxes for each level
+    for (int i = 0; i < levelCodes.size() && i < levelDescriptions.size(); ++i) {
+        QString levelCode = levelCodes[i];
+        QString levelName = levelDescriptions[i];
 
         if (levelCode.isEmpty() || levelName.isEmpty()) {
             continue;
@@ -728,43 +746,16 @@ void BJobWidget::processDotFilesetsResponse(const QString &jsonData)
     qDebug() << "BJobWidget: Processing .filesets response";
 #endif
 
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+    // Parse response using model
+    m_filesetModel->parseFilesets(jsonData);
 
-    if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BJobWidget: Failed to parse .filesets response:" << parseError.errorString();
-        return;
-    }
-
-    if (!doc.isObject()) {
-        qWarning() << "BJobWidget: .filesets response is not a JSON object";
-        return;
-    }
-
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
-    QJsonArray filesetsArray = result["filesets"].toArray();
-
-    // Clear and populate fileset names
-    m_filesetNames.clear();
-    for (const QJsonValue &filesetVal : filesetsArray) {
-        if (!filesetVal.isObject()) {
-            continue;
-        }
-
-        QJsonObject fileset = filesetVal.toObject();
-        QString name = fileset["name"].toString();
-        if (!name.isEmpty()) {
-            m_filesetNames.append(name);
-        }
-    }
-
-    // Update combo box
+    // Update combo box with all filesets (this provides the options for user selection)
+    // Note: The current job's fileset will be selected when a row is clicked
     m_filesetCombo->clear();
-    m_filesetCombo->addItems(m_filesetNames);
+    m_filesetCombo->addItems(m_filesetModel->filesetNames());
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << m_filesetNames.size() << "filesets";
+    qDebug() << "✓ Loaded" << m_filesetModel->filesetNames().size() << "filesets";
 #endif
 }
 
@@ -774,43 +765,15 @@ void BJobWidget::processDotStoragesResponse(const QString &jsonData)
     qDebug() << "BJobWidget: Processing .storages response";
 #endif
 
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+    // Parse response using model
+    m_storageModel->parseStorages(jsonData);
 
-    if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BJobWidget: Failed to parse .storages response:" << parseError.errorString();
-        return;
-    }
-
-    if (!doc.isObject()) {
-        qWarning() << "BJobWidget: .storages response is not a JSON object";
-        return;
-    }
-
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
-    QJsonArray storagesArray = result["storages"].toArray();
-
-    // Clear and populate storage names
-    m_storageNames.clear();
-    for (const QJsonValue &storageVal : storagesArray) {
-        if (!storageVal.isObject()) {
-            continue;
-        }
-
-        QJsonObject storage = storageVal.toObject();
-        QString name = storage["name"].toString();
-        if (!name.isEmpty()) {
-            m_storageNames.append(name);
-        }
-    }
-
-    // Update combo box
+    // Update combo box with all storages
     m_storageCombo->clear();
-    m_storageCombo->addItems(m_storageNames);
+    m_storageCombo->addItems(m_storageModel->storageNames());
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << m_storageNames.size() << "storages";
+    qDebug() << "✓ Loaded" << m_storageModel->storageNames().size() << "storages";
 #endif
 }
 
@@ -820,43 +783,15 @@ void BJobWidget::processDotPoolsResponse(const QString &jsonData)
     qDebug() << "BJobWidget: Processing .pools response";
 #endif
 
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+    // Parse response using model
+    m_poolModel->parsePools(jsonData);
 
-    if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BJobWidget: Failed to parse .pools response:" << parseError.errorString();
-        return;
-    }
-
-    if (!doc.isObject()) {
-        qWarning() << "BJobWidget: .pools response is not a JSON object";
-        return;
-    }
-
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
-    QJsonArray poolsArray = result["pools"].toArray();
-
-    // Clear and populate pool names
-    m_poolNames.clear();
-    for (const QJsonValue &poolVal : poolsArray) {
-        if (!poolVal.isObject()) {
-            continue;
-        }
-
-        QJsonObject pool = poolVal.toObject();
-        QString name = pool["name"].toString();
-        if (!name.isEmpty()) {
-            m_poolNames.append(name);
-        }
-    }
-
-    // Update combo box
+    // Update combo box with all pools
     m_poolCombo->clear();
-    m_poolCombo->addItems(m_poolNames);
+    m_poolCombo->addItems(m_poolModel->poolNames());
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << m_poolNames.size() << "pools";
+    qDebug() << "✓ Loaded" << m_poolModel->poolNames().size() << "pools";
 #endif
 }
 
@@ -909,15 +844,49 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
     }
 #endif
 
-    // Update table view
-    m_tableView->setJobsData(jobsArray);
+    // Enrich job data with configuration information (fileset, storage, pool)
+    QJsonArray enrichedJobsArray;
+    for (const QJsonValue &jobVal : jobsArray) {
+        if (!jobVal.isObject()) {
+            enrichedJobsArray.append(jobVal);
+            continue;
+        }
+
+        QJsonObject job = jobVal.toObject();
+        QString jobName = job["name"].toString();
+
+        // Find matching job configuration
+        if (m_jobConfigurations.contains(jobName)) {
+            QJsonObject jobConfig = m_jobConfigurations[jobName];
+
+            // Add fileset, storage, pool from configuration
+            if (jobConfig.contains("fileset") && !jobConfig["fileset"].toString().isEmpty()) {
+                job["fileset"] = jobConfig["fileset"];
+            }
+            if (jobConfig.contains("storage") && !jobConfig["storage"].toString().isEmpty()) {
+                job["storage"] = jobConfig["storage"];
+            }
+            if (jobConfig.contains("pool") && !jobConfig["pool"].toString().isEmpty()) {
+                job["pool"] = jobConfig["pool"];
+            }
+        }
+
+        enrichedJobsArray.append(job);
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Enriched" << enrichedJobsArray.size() << "jobs with configuration data";
+#endif
+
+    // Update table view with enriched data
+    m_tableView->setJobsData(enrichedJobsArray);
 
 #ifdef IS_DEVELOPER
     qDebug() << "✓ Table view updated";
 #endif
 
-    // Update filter combo box model
-    m_filterComboModel->updateFromJobsArray(jobsArray);
+    // Update filter combo box model with enriched data
+    m_filterComboModel->updateFromJobsArray(enrichedJobsArray);
 
     // Update combo boxes with new data
     int savedNameIndex = BSettings::instance().jobsFilterCombobox("name", 0);
@@ -949,13 +918,15 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
              << m_filterComboModel->clientNames().size() << "client names";
 #endif
 
-    emit statusMessageChanged(QString("%1 Jobs geladen").arg(jobsArray.size()));
+    emit statusMessageChanged(QString("%1 Jobs geladen").arg(enrichedJobsArray.size()));
     m_refreshButton->setEnabled(true);
 }
 
 void BJobWidget::onJobSelectionChanged()
 {
+
     bool hasSelection = !m_tableView->selectedJobIds().isEmpty();
+
     m_cancelJobButton->setEnabled(hasSelection);
     m_detailsButton->setEnabled(hasSelection);
 
@@ -970,25 +941,52 @@ void BJobWidget::onJobSelectionChanged()
             QString storage = selectedJob["storage"].toString();
             QString pool = selectedJob["pool"].toString();
 
-            // Show only the fileset that belongs to this job
+            qDebug() << "  JobID:" << selectedJob["jobid"].toString();
+            qDebug() << "  Name:" << selectedJob["name"].toString();
+            qDebug() << "  Fileset:" << fileset;
+            qDebug() << "  Storage:" << storage;
+            qDebug() << "  Pool:" << pool;
+
+            // Update FileSet combo - fill with all filesets and select current job's fileset
             m_filesetCombo->clear();
+            m_filesetCombo->addItems(m_filesetModel->filesetNames());
             if (!fileset.isEmpty()) {
-                m_filesetCombo->addItem(fileset);
-                m_filesetCombo->setCurrentIndex(0);
+                int index = m_filesetCombo->findText(fileset);
+                if (index >= 0) {
+                    m_filesetCombo->setCurrentIndex(index);
+                } else {
+                    m_filesetCombo->addItem(fileset);
+                    m_filesetCombo->setCurrentIndex(m_filesetCombo->count() - 1);
+                }
+            } else {
             }
 
-            // Show only the storage that belongs to this job
+            // Update Storage combo - fill with all storages and select current job's storage
             m_storageCombo->clear();
+            m_storageCombo->addItems(m_storageModel->storageNames());
             if (!storage.isEmpty()) {
-                m_storageCombo->addItem(storage);
-                m_storageCombo->setCurrentIndex(0);
+                int index = m_storageCombo->findText(storage);
+                if (index >= 0) {
+                    m_storageCombo->setCurrentIndex(index);
+                } else {
+                    m_storageCombo->addItem(storage);
+                    m_storageCombo->setCurrentIndex(m_storageCombo->count() - 1);
+                }
+            } else {
             }
 
-            // Show only the pool that belongs to this job
+            // Update Pool combo - fill with all pools and select current job's pool
             m_poolCombo->clear();
+            m_poolCombo->addItems(m_poolModel->poolNames());
             if (!pool.isEmpty()) {
-                m_poolCombo->addItem(pool);
-                m_poolCombo->setCurrentIndex(0);
+                int index = m_poolCombo->findText(pool);
+                if (index >= 0) {
+                    m_poolCombo->setCurrentIndex(index);
+                } else {
+                    m_poolCombo->addItem(pool);
+                    m_poolCombo->setCurrentIndex(m_poolCombo->count() - 1);
+                }
+            } else {
             }
 
             // Enable combo boxes (visual feedback)
@@ -998,6 +996,7 @@ void BJobWidget::onJobSelectionChanged()
 
             // Load job log for selected job
             loadSelectedJobLog();
+        } else {
         }
     } else {
         // No selection - clear and disable combo boxes
@@ -1013,6 +1012,126 @@ void BJobWidget::onJobSelectionChanged()
         m_logModel->clear();
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
     }
+}
+
+void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+    qDebug() << "  Previous row:" << previous.row();
+    qDebug() << "  Current row:" << current.row();
+    qDebug() << "  Current valid:" << current.isValid();
+
+    if (!current.isValid()) {
+        // Clear and disable combo boxes
+        m_filesetCombo->clear();
+        m_storageCombo->clear();
+        m_poolCombo->clear();
+        m_filesetCombo->setEnabled(false);
+        m_storageCombo->setEnabled(false);
+        m_poolCombo->setEnabled(false);
+
+        // Clear log display
+        m_logModel->clear();
+        m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+        return;
+    }
+
+    // Get the job at the current row by mapping through filter model
+    QModelIndex sourceIndex = m_tableView->filterModel()->mapToSource(current);
+
+    if (!sourceIndex.isValid()) {
+        return;
+    }
+
+    // Get job data from model
+    QJsonObject job = m_tableView->jobsModel()->jobAt(sourceIndex.row());
+
+    if (job.isEmpty()) {
+        return;
+    }
+
+    // Extract job details
+    QString fileset = job["fileset"].toString();
+    QString storage = job["storage"].toString();
+    QString pool = job["pool"].toString();
+    QString jobId = job["jobid"].toString();
+    QString jobName = job["name"].toString();
+
+    qDebug() << "  JobID:" << jobId;
+    qDebug() << "  Name:" << jobName;
+    qDebug() << "  Fileset:" << fileset;
+    qDebug() << "  Storage:" << storage;
+    qDebug() << "  Pool:" << pool;
+
+    // Update FileSet combo - fill with all filesets and select current job's fileset
+    m_filesetCombo->clear();
+    m_filesetCombo->addItems(m_filesetModel->filesetNames());
+    if (!fileset.isEmpty()) {
+        int index = m_filesetCombo->findText(fileset);
+        if (index >= 0) {
+            m_filesetCombo->setCurrentIndex(index);
+        } else {
+            m_filesetCombo->addItem(fileset);
+            m_filesetCombo->setCurrentIndex(m_filesetCombo->count() - 1);
+        }
+    } else {
+    }
+
+    // Update Storage combo - fill with all storages and select current job's storage
+    m_storageCombo->clear();
+    m_storageCombo->addItems(m_storageModel->storageNames());
+    if (!storage.isEmpty()) {
+        int index = m_storageCombo->findText(storage);
+        if (index >= 0) {
+            m_storageCombo->setCurrentIndex(index);
+        } else {
+            m_storageCombo->addItem(storage);
+            m_storageCombo->setCurrentIndex(m_storageCombo->count() - 1);
+        }
+    } else {
+    }
+
+    // Update Pool combo - fill with all pools and select current job's pool
+    m_poolCombo->clear();
+    m_poolCombo->addItems(m_poolModel->poolNames());
+    if (!pool.isEmpty()) {
+        int index = m_poolCombo->findText(pool);
+        if (index >= 0) {
+            m_poolCombo->setCurrentIndex(index);
+        } else {
+            m_poolCombo->addItem(pool);
+            m_poolCombo->setCurrentIndex(m_poolCombo->count() - 1);
+        }
+    } else {
+    }
+
+    // Enable combo boxes
+    m_filesetCombo->setEnabled(true);
+    m_storageCombo->setEnabled(true);
+    m_poolCombo->setEnabled(true);
+
+    // Load job log
+    if (!jobId.isEmpty()) {
+        m_logTitleLabel->setText(QString("<b>Job Log</b> - Job %1: %2 - Lädt...").arg(jobId, jobName));
+
+        // Clear current log
+        m_logModel->clear();
+
+        // Connect to Director signal if not already connected
+        if (m_director) {
+            connect(m_director, &BDirector::jsonResponse,
+                    this, &BJobWidget::onJobLogReceived,
+                    Qt::UniqueConnection);
+
+            // Request job log
+            QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
+                                      Q_ARG(QString, jobId));
+        } else {
+        }
+    } else {
+    }
+
 }
 
 void BJobWidget::onJobDoubleClicked(const QJsonObject &job)
@@ -1171,6 +1290,7 @@ void BJobWidget::do_toggleFilters(bool visible)
 
 void BJobWidget::loadSelectedJobLog()
 {
+
     QJsonObject selectedJob = m_tableView->getSelectedJob();
     if (selectedJob.isEmpty()) {
         return;
@@ -1178,6 +1298,7 @@ void BJobWidget::loadSelectedJobLog()
 
     QString jobId = selectedJob["jobid"].toString();
     QString jobName = selectedJob["name"].toString();
+
 
     if (jobId.isEmpty()) {
         return;
@@ -1200,15 +1321,18 @@ void BJobWidget::loadSelectedJobLog()
                                   Qt::QueuedConnection,
                                   Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
                                   Q_ARG(QString, jobId));
+    } else {
     }
 }
 
 void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonData)
 {
+
     // Check if this is a job log response
     if (!command.contains("list joblog")) {
         return;
     }
+
 
     QJsonObject selectedJob = m_tableView->getSelectedJob();
     if (selectedJob.isEmpty()) {
@@ -1218,17 +1342,20 @@ void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonDat
     QString jobId = selectedJob["jobid"].toString();
     QString jobName = selectedJob["name"].toString();
 
+
     // Check if this log is for the currently selected job
     if (!command.contains(jobId)) {
         return;
     }
 
+
     // Parse and display the log
     if (m_logModel->parseJsonResponse(jsonData)) {
+        int lineCount = m_logModel->rowCount();
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
                                  .arg(jobName)
                                  .arg(jobId)
-                                 .arg(m_logModel->rowCount()));
+                                 .arg(lineCount));
     } else {
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Fehler beim Laden")
                                  .arg(jobName)
@@ -1262,10 +1389,11 @@ void BJobWidget::clearData()
     // Clear filter model
     m_filterComboModel->clear();
 
-    // Clear data lists
-    m_filesetNames.clear();
-    m_storageNames.clear();
-    m_poolNames.clear();
+    // Clear resource models
+    m_filesetModel->clear();
+    m_storageModel->clear();
+    m_poolModel->clear();
+    m_levelModel->clear();
 
     // Clear dynamic level checkboxes
     for (auto it = m_levelCheckboxes.begin(); it != m_levelCheckboxes.end(); ++it) {

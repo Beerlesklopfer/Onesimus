@@ -95,6 +95,10 @@ public:
     bool appearanceCompactMode() const;
     void setAppearanceCompactMode(bool compact);
 
+    QString appearanceLanguage() const;
+    void setAppearanceLanguage(const QString& languageCode);
+    bool hasLanguagePreference() const;
+
     // Level Colors
     QColor levelColor(const QString& level) const;
     void setLevelColor(const QString& level, const QColor& color);

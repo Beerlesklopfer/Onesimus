@@ -1,4 +1,6 @@
 #include "mainwindow.h"
+#include "btranslations.h"
+#include "bsettings.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <version.h>
@@ -375,6 +377,38 @@ int main(int argc, char *argv[])
     // ========================================
     // GUI-Modus (normal)
     // ========================================
+
+    // ========================================
+    // Initialize Translations
+    // ========================================
+
+    BTranslations::Language language;
+    QString languageCode;
+
+    // Check if this is the first start (no language preference saved)
+    if (!BSettings::instance().hasLanguagePreference()) {
+        // First start: detect and save system language
+        language = BTranslations::detectSystemLanguage();
+        languageCode = BTranslations::languageCode(language);
+        BSettings::instance().setAppearanceLanguage(languageCode);
+
+        if (options.verbose) {
+            qDebug() << "First start: Detected system language:" << languageCode
+                     << "(" << BTranslations::languageName(language) << ")";
+        }
+    } else {
+        // Load saved language preference
+        languageCode = BSettings::instance().appearanceLanguage();
+        language = BTranslations::languageFromCode(languageCode);
+
+        if (options.verbose) {
+            qDebug() << "Loading saved language preference:" << languageCode
+                     << "(" << BTranslations::languageName(language) << ")";
+        }
+    }
+
+    // Initialize translation system BEFORE creating MainWindow
+    BTranslations::instance()->setLanguage(language);
 
     MainWindow w;
 

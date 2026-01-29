@@ -11,12 +11,14 @@
 #include <QLabel>
 #include <QCheckBox>
 #include <QMap>
+#include <QJsonObject>
 #include <QListView>
 #include "jobs/bjsonjobview.h"
 #include "bjsonstreamreader.h"
 #include "bpaginationwidget.h"
 #include "jobs/bjobsstatisticswidget.h"
 #include "jobs/bjobmodels.h"
+#include "bresourcemodels.h"
 #include "bdirector.h"
 
 /**
@@ -223,11 +225,19 @@ private slots:
     void onRefreshClicked();
     
     /**
-     * @brief Handles selection changes in table
+     * @brief Handles selection changes in table (checkbox-based)
      * @since 1.0
      */
     void onJobSelectionChanged();
-    
+
+    /**
+     * @brief Handles current row changes (click/keyboard navigation)
+     * @param current Current model index
+     * @param previous Previous model index
+     * @since 2.8
+     */
+    void onCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous);
+
     /**
      * @brief Handles job double-click
      * @param job Job data as JSON object
@@ -370,15 +380,23 @@ private:
     BDirector *m_director;                  ///< Director connection for job operations
 
     // Central data storage (loaded on connect, available for dialogs)
-    QStringList m_filesetNames;             ///< All available fileset names
-    QStringList m_storageNames;             ///< All available storage names
-    QStringList m_poolNames;                ///< All available pool names
+    BFilesetModel *m_filesetModel;          ///< Model for all available filesets
+    BStorageModel *m_storageModel;          ///< Model for all available storages
+    BPoolModel *m_poolModel;                ///< Model for all available pools
+    BLevelModel *m_levelModel;              ///< Model for all available backup levels
+    QMap<QString, QJsonObject> m_jobConfigurations;  ///< Job configurations from .jobs (name -> config)
 
 public:
     // Accessor methods for other dialogs to use
-    const QStringList& filesetNames() const { return m_filesetNames; }
-    const QStringList& storageNames() const { return m_storageNames; }
-    const QStringList& poolNames() const { return m_poolNames; }
+    BFilesetModel* filesetModel() const { return m_filesetModel; }
+    BStorageModel* storageModel() const { return m_storageModel; }
+    BPoolModel* poolModel() const { return m_poolModel; }
+    BLevelModel* levelModel() const { return m_levelModel; }
+
+    // Legacy accessors for backward compatibility
+    QStringList filesetNames() const { return m_filesetModel ? m_filesetModel->filesetNames() : QStringList(); }
+    QStringList storageNames() const { return m_storageModel ? m_storageModel->storageNames() : QStringList(); }
+    QStringList poolNames() const { return m_poolModel ? m_poolModel->poolNames() : QStringList(); }
 };
 
 #endif // BJOBWIDGET_H

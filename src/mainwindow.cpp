@@ -246,80 +246,80 @@ void MainWindow::setupUI()
     m_statisticsDock->setVisible(statsVisible);
     // Note: Action checked state will be set after createActions() in constructor
 
-    // Statusleiste
-    m_statusLabel = new QLabel("Bereit", this);
+    // Status bar
+    m_statusLabel = new QLabel(tr("Ready"), this);
     statusBar()->addWidget(m_statusLabel);
 
-    m_connectionLabel = new QLabel("Nicht verbunden", this);
+    m_connectionLabel = new QLabel(tr("Not connected"), this);
     m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
     statusBar()->addPermanentWidget(m_connectionLabel);
 }
 
 void MainWindow::createActions()
 {
-    m_connectAction = new QAction("Verbinden", this);
+    m_connectAction = new QAction(tr("Connect"), this);
     m_connectAction->setIcon(QIcon::fromTheme("network-connect"));
     m_connectAction->setShortcut(QKeySequence("Ctrl+O"));
     connect(m_connectAction, &QAction::triggered, this, &MainWindow::onConnectTriggered);
-    
-    m_connectLastAction = new QAction("Reconnect", this);
+
+    m_connectLastAction = new QAction(tr("Reconnect"), this);
     m_connectLastAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_connectLastAction->setShortcut(QKeySequence("Ctrl+R"));
     m_connectLastAction->setEnabled(m_director->hasStoredConnection());
     connect(m_connectLastAction, &QAction::triggered, this, &MainWindow::onConnectLastUsed);
-    
-    m_disconnectAction = new QAction("Trennen", this);
+
+    m_disconnectAction = new QAction(tr("Disconnect"), this);
     m_disconnectAction->setIcon(QIcon::fromTheme("network-disconnect"));
     m_disconnectAction->setEnabled(false);
     connect(m_disconnectAction, &QAction::triggered, this, &MainWindow::onDisconnectTriggered);
-    
-    m_refreshAction = new QAction("Aktualisieren", this);
+
+    m_refreshAction = new QAction(tr("Refresh"), this);
     m_refreshAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshAction->setShortcut(QKeySequence("F5"));
     m_refreshAction->setEnabled(false);
     connect(m_refreshAction, &QAction::triggered, this, &MainWindow::onRefreshAll);
 
-    m_settingsAction = new QAction("Einstellungen", this);
+    m_settingsAction = new QAction(tr("Settings"), this);
     m_settingsAction->setIcon(QIcon::fromTheme("preferences-system"));
     m_settingsAction->setShortcut(QKeySequence("Ctrl+,"));
     connect(m_settingsAction, &QAction::triggered, this, &MainWindow::onSettingsTriggered);
-    
-    m_exitAction = new QAction("Beenden", this);
+
+    m_exitAction = new QAction(tr("Exit"), this);
     m_exitAction->setShortcut(QKeySequence("Ctrl+Q"));
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
-    
-    m_aboutAction = new QAction("Über", this);
+
+    m_aboutAction = new QAction(tr("About"), this);
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAboutTriggered);
 
-    // Bearbeiten Actions
-    m_copyAction = new QAction("Kopieren", this);
+    // Edit Actions
+    m_copyAction = new QAction(tr("Copy"), this);
     m_copyAction->setIcon(QIcon::fromTheme("edit-copy"));
     m_copyAction->setShortcut(QKeySequence::Copy);
     m_copyAction->setEnabled(false);
     connect(m_copyAction, &QAction::triggered, this, &MainWindow::onCopyTriggered);
 
-    m_selectAllAction = new QAction("Alles auswählen", this);
+    m_selectAllAction = new QAction(tr("Select All"), this);
     m_selectAllAction->setIcon(QIcon::fromTheme("edit-select-all"));
     m_selectAllAction->setShortcut(QKeySequence::SelectAll);
     m_selectAllAction->setEnabled(false);
     connect(m_selectAllAction, &QAction::triggered, this, &MainWindow::onSelectAllTriggered);
 
-    m_clearSelectionAction = new QAction("Auswahl aufheben", this);
+    m_clearSelectionAction = new QAction(tr("Clear Selection"), this);
     m_clearSelectionAction->setIcon(QIcon::fromTheme("edit-clear"));
     m_clearSelectionAction->setEnabled(false);
     connect(m_clearSelectionAction, &QAction::triggered, this, &MainWindow::onClearSelectionTriggered);
 
-    m_findAction = new QAction("Suchen...", this);
+    m_findAction = new QAction(tr("Find..."), this);
     m_findAction->setIcon(QIcon::fromTheme("edit-find"));
     m_findAction->setShortcut(QKeySequence::Find);
     m_findAction->setEnabled(false);
     connect(m_findAction, &QAction::triggered, this, &MainWindow::onFindTriggered);
 
-    // Ansicht Actions
-    m_toggleStatisticsAction = new QAction("Statistiken anzeigen", this);
+    // View Actions
+    m_toggleStatisticsAction = new QAction(tr("Show Statistics"), this);
     m_toggleStatisticsAction->setCheckable(true);
-    m_toggleStatisticsAction->setChecked(false);  // Standardmäßig versteckt (bis Verbindung)
-    m_toggleStatisticsAction->setEnabled(false);  // Nur bei Verbindung aktiv
+    m_toggleStatisticsAction->setChecked(false);  // Hidden by default (until connected)
+    m_toggleStatisticsAction->setEnabled(false);  // Only active when connected
     m_toggleStatisticsAction->setIcon(QIcon::fromTheme("view-statistics"));
     m_toggleStatisticsAction->setShortcut(QKeySequence("Ctrl+Shift+S"));
     connect(m_toggleStatisticsAction, &QAction::toggled, this, [this](bool checked) {
@@ -330,10 +330,10 @@ void MainWindow::createActions()
         m_statisticsDock->setVisible(checked);
     });
 
-    m_toggleJobLogAction = new QAction("Job Log anzeigen", this);
+    m_toggleJobLogAction = new QAction(tr("Show Job Log"), this);
     m_toggleJobLogAction->setCheckable(true);
-    m_toggleJobLogAction->setChecked(true);  // Standardmäßig sichtbar
-    m_toggleJobLogAction->setEnabled(false);  // Nur bei Verbindung aktiv
+    m_toggleJobLogAction->setChecked(true);  // Visible by default
+    m_toggleJobLogAction->setEnabled(false);  // Only active when connected
     m_toggleJobLogAction->setIcon(QIcon::fromTheme("view-list-details"));
     m_toggleJobLogAction->setShortcut(QKeySequence("Ctrl+Shift+L"));
     connect(m_toggleJobLogAction, &QAction::toggled, this, [this](bool checked) {
@@ -343,58 +343,58 @@ void MainWindow::createActions()
     });
 
     // Jobs Actions
-    m_runJobAction = new QAction("Job ausführen", this);
+    m_runJobAction = new QAction(tr("Run Job"), this);
     m_runJobAction->setIcon(QIcon::fromTheme("media-playback-start"));
     m_runJobAction->setEnabled(false);
     connect(m_runJobAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerRunJob);
 
-    m_cancelJobAction = new QAction("Job abbrechen", this);
+    m_cancelJobAction = new QAction(tr("Cancel Job"), this);
     m_cancelJobAction->setIcon(QIcon::fromTheme("process-stop"));
     m_cancelJobAction->setEnabled(false);
     connect(m_cancelJobAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerCancelJob);
 
-    m_jobDetailsAction = new QAction("Details anzeigen", this);
+    m_jobDetailsAction = new QAction(tr("Show Details"), this);
     m_jobDetailsAction->setIcon(QIcon::fromTheme("document-properties"));
     m_jobDetailsAction->setEnabled(false);
     connect(m_jobDetailsAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerShowDetails);
 
-    m_refreshJobsAction = new QAction("Jobs aktualisieren", this);
+    m_refreshJobsAction = new QAction(tr("Refresh Jobs"), this);
     m_refreshJobsAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshJobsAction->setShortcut(QKeySequence("Ctrl+Shift+J"));
     m_refreshJobsAction->setEnabled(false);
     connect(m_refreshJobsAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerRefresh);
 
-    m_exportJobsJsonAction = new QAction("Jobs als JSON exportieren...", this);
+    m_exportJobsJsonAction = new QAction(tr("Export Jobs as JSON..."), this);
     m_exportJobsJsonAction->setIcon(QIcon::fromTheme("document-save"));
     m_exportJobsJsonAction->setEnabled(false);
     connect(m_exportJobsJsonAction, &QAction::triggered, this, &MainWindow::onExportSettingsTriggered);
 
-    m_exportJobsCsvAction = new QAction("Jobs als CSV exportieren...", this);
+    m_exportJobsCsvAction = new QAction(tr("Export Jobs as CSV..."), this);
     m_exportJobsCsvAction->setIcon(QIcon::fromTheme("text-csv"));
     m_exportJobsCsvAction->setEnabled(false);
     connect(m_exportJobsCsvAction, &QAction::triggered, this, &MainWindow::onImportSettingsTriggered);
 
     // Clients Actions
-    m_refreshClientsAction = new QAction("Clients aktualisieren", this);
+    m_refreshClientsAction = new QAction(tr("Refresh Clients"), this);
     m_refreshClientsAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshClientsAction->setShortcut(QKeySequence("Ctrl+Shift+C"));
     m_refreshClientsAction->setEnabled(false);
     connect(m_refreshClientsAction, &QAction::triggered, m_clientWidget, &BClientsWidget::triggerRefresh);
 
-    m_clientDetailsAction = new QAction("Client-Details anzeigen", this);
+    m_clientDetailsAction = new QAction(tr("Show Client Details"), this);
     m_clientDetailsAction->setIcon(QIcon::fromTheme("document-properties"));
     m_clientDetailsAction->setEnabled(false);
     // TODO: Connect to client details dialog when implemented
 
     // Storage Actions
-    m_refreshStorageAction = new QAction("Storage aktualisieren", this);
+    m_refreshStorageAction = new QAction(tr("Refresh Storage"), this);
     m_refreshStorageAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshStorageAction->setShortcut(QKeySequence("Ctrl+Shift+V"));
     m_refreshStorageAction->setEnabled(false);
     connect(m_refreshStorageAction, &QAction::triggered, m_storageWidget, &StorageWidget::triggerRefresh);
 
     // Schedule Actions
-    m_refreshSchedulesAction = new QAction("Schedules aktualisieren", this);
+    m_refreshSchedulesAction = new QAction(tr("Refresh Schedules"), this);
     m_refreshSchedulesAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshSchedulesAction->setShortcut(QKeySequence("Ctrl+Shift+D"));
     m_refreshSchedulesAction->setEnabled(false);
@@ -403,7 +403,7 @@ void MainWindow::createActions()
 
 void MainWindow::createMenus()
 {
-    m_fileMenu = menuBar()->addMenu("Datei");
+    m_fileMenu = menuBar()->addMenu(tr("File"));
     m_fileMenu->addAction(m_connectAction);
     m_fileMenu->addAction(m_connectLastAction);
     m_fileMenu->addAction(m_disconnectAction);
@@ -414,8 +414,8 @@ void MainWindow::createMenus()
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_exitAction);
 
-    // Bearbeiten Menü
-    m_editMenu = menuBar()->addMenu("Bearbeiten");
+    // Edit Menu
+    m_editMenu = menuBar()->addMenu(tr("Edit"));
     m_editMenu->addAction(m_copyAction);
     m_editMenu->addSeparator();
     m_editMenu->addAction(m_selectAllAction);
@@ -423,13 +423,13 @@ void MainWindow::createMenus()
     m_editMenu->addSeparator();
     m_editMenu->addAction(m_findAction);
 
-    // Ansicht Menü
-    m_viewMenu = menuBar()->addMenu("Ansicht");
+    // View Menu
+    m_viewMenu = menuBar()->addMenu(tr("View"));
     m_viewMenu->addAction(m_toggleStatisticsAction);
     m_viewMenu->addAction(m_toggleJobLogAction);
 
-    // Jobs Menü
-    m_jobsMenu = menuBar()->addMenu("Jobs");
+    // Jobs Menu
+    m_jobsMenu = menuBar()->addMenu(tr("Jobs"));
     m_jobsMenu->addAction(m_runJobAction);
     m_jobsMenu->addAction(m_cancelJobAction);
     m_jobsMenu->addAction(m_jobDetailsAction);
@@ -439,43 +439,43 @@ void MainWindow::createMenus()
     m_jobsMenu->addAction(m_exportJobsJsonAction);
     m_jobsMenu->addAction(m_exportJobsCsvAction);
 
-    // Clients Menü
-    m_clientsMenu = menuBar()->addMenu("Clients");
+    // Clients Menu
+    m_clientsMenu = menuBar()->addMenu(tr("Clients"));
     m_clientsMenu->addAction(m_clientDetailsAction);
     m_clientsMenu->addSeparator();
     m_clientsMenu->addAction(m_refreshClientsAction);
 
-    // Storage Menü
-    m_storageMenu = menuBar()->addMenu("Storage");
+    // Storage Menu
+    m_storageMenu = menuBar()->addMenu(tr("Storage"));
     m_storageMenu->addAction(m_refreshStorageAction);
 
-    // Schedules Menü
-    m_schedulesMenu = menuBar()->addMenu("Schedules");
+    // Schedules Menu
+    m_schedulesMenu = menuBar()->addMenu(tr("Schedules"));
     m_schedulesMenu->addAction(m_refreshSchedulesAction);
 
-    m_helpMenu = menuBar()->addMenu("Hilfe");
+    m_helpMenu = menuBar()->addMenu(tr("Help"));
     m_helpMenu->addAction(m_aboutAction);
 }
 
 void MainWindow::createToolBar()
 {
-    m_mainToolBar = addToolBar("Haupt-Toolbar");
+    m_mainToolBar = addToolBar(tr("Main Toolbar"));
     m_mainToolBar->addAction(m_connectAction);
     m_mainToolBar->addAction(m_connectLastAction);
     m_mainToolBar->addAction(m_disconnectAction);
     m_mainToolBar->addSeparator();
     m_mainToolBar->addAction(m_refreshAction);
 
-    // Spacer um den Toggle-Button rechts zu positionieren
+    // Spacer to position toggle button on the right
     QWidget *spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_mainToolBar->addWidget(spacer);
 
-    // Toggle-Button für Statistiken
-    m_toggleStatisticsButton = new QPushButton("Statistiken ▼", this);
+    // Toggle button for statistics
+    m_toggleStatisticsButton = new QPushButton(tr("Statistics ▼"), this);
     m_toggleStatisticsButton->setCheckable(false);
-    m_toggleStatisticsButton->setEnabled(false);  // Nur bei Verbindung aktiv
-    m_toggleStatisticsButton->setToolTip(tr("Statistiken ein-/ausblenden"));
+    m_toggleStatisticsButton->setEnabled(false);  // Only active when connected
+    m_toggleStatisticsButton->setToolTip(tr("Show/Hide Statistics"));
 
     connect(m_toggleStatisticsButton, &QPushButton::clicked, this, [this]() {
         bool isVisible = m_statisticsDock->isVisible();
@@ -486,7 +486,7 @@ void MainWindow::createToolBar()
         }
 
         m_statisticsDock->setVisible(!isVisible);
-        m_toggleStatisticsButton->setText(isVisible ? "Statistiken ▶" : "Statistiken ▼");
+        m_toggleStatisticsButton->setText(isVisible ? tr("Statistics ▶") : tr("Statistics ▼"));
 
         // Synchronisiere mit der Menu-Action
         if (m_toggleStatisticsAction) {
@@ -860,17 +860,17 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     m_scheduleWidget->setConnectionState(connected);
 
     if (connected) {
-        // Zeige Version an wenn vorhanden
-        QString statusText = QString("Verbunden BAREOS (v%1)").arg(msg);
-        m_connectionLabel->setText(statusText);  // ✅ Text setzen!
+        // Show version if available
+        QString statusText = QString(tr("Connected BAREOS (v%1)")).arg(msg);
+        m_connectionLabel->setText(statusText);
         m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
-        m_statusLabel->setText("Verbunden - Lade Daten...");
+        m_statusLabel->setText(tr("Connected - Loading data..."));
 
-        // ✅ Stelle gespeicherten Statistics-DockWidget-Zustand wieder her
+        // Restore saved Statistics DockWidget state
         bool statsVisible = BSettings::instance().statisticsWidgetVisible();
         m_statisticsDock->setVisible(statsVisible);
         m_toggleStatisticsAction->setChecked(statsVisible);
-        m_toggleStatisticsButton->setText(statsVisible ? "Statistiken ▼" : "Statistiken ▶");
+        m_toggleStatisticsButton->setText(statsVisible ? tr("Statistics ▼") : tr("Statistics ▶"));
 
         // Enable edit menu actions
         m_copyAction->setEnabled(true);
@@ -897,10 +897,10 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
         m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
         m_statusLabel->setText("");
 
-        // ✅ Verstecke Statistics DockWidget bei Trennung
+        // Hide Statistics DockWidget on disconnect
         m_statisticsDock->setVisible(false);
         m_toggleStatisticsAction->setChecked(false);
-        m_toggleStatisticsButton->setText("Statistiken ▶");  // ✅ Button-Text aktualisieren
+        m_toggleStatisticsButton->setText(tr("Statistics ▶"));
 
         // Disable edit menu actions
         m_copyAction->setEnabled(false);
@@ -924,8 +924,8 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
 
 void MainWindow::onConnectionError(const QString &error)
 {
-    QMessageBox::critical(this, "Verbindungsfehler", error);
-    m_statusLabel->setText("Fehler: " + error);
+    QMessageBox::critical(this, tr("Connection Error"), error);
+    m_statusLabel->setText(tr("Error: ") + error);
 }
 
 void MainWindow::onRefreshAll()
@@ -953,10 +953,10 @@ void MainWindow::onRefreshAll()
 
     // m_director->listVolumes();
 
-    // ✅ Status nach kurzer Zeit zurücksetzen
+    // Reset status after short delay
     QTimer::singleShot(1000, this, [this]() {
         if (m_director->isConnected()) {
-            m_statusLabel->setText("Bereit");
+            m_statusLabel->setText(tr("Ready"));
         }
     });
 }
@@ -964,8 +964,8 @@ void MainWindow::onRefreshAll()
 void MainWindow::onConnectLastUsed()
 {
     if (!m_director->hasStoredConnection()) {
-        QMessageBox::information(this, "Keine Verbindung gespeichert",
-            "Es wurde keine vorherige Verbindung gefunden. Bitte verwenden Sie 'Verbinden' um eine neue Verbindung herzustellen.");
+        QMessageBox::information(this, tr("No Saved Connection"),
+            tr("No previous connection found. Please use 'Connect' to establish a new connection."));
         return;
     }
     
@@ -1158,20 +1158,20 @@ void MainWindow::onFindTriggered()
     QWidget *currentWidget = m_tabWidget->currentWidget();
 
     if (currentWidget == m_jobWidget) {
-        // Info: User kann Filter mit dem Toggle-Button in der Job-Ansicht nutzen
-        QMessageBox::information(this, tr("Suchen"),
-            tr("Verwenden Sie die Filter-Optionen in der Job-Ansicht,\n"
-               "um nach bestimmten Jobs zu suchen.\n\n"
-               "Verfügbare Filter:\n"
-               "• Job-Name\n"
-               "• Client-Name\n"
-               "• Status (Erfolg, Warnung, Fehler)\n"
+        // Info: User can use filters via the toggle button in the Job view
+        QMessageBox::information(this, tr("Search"),
+            tr("Use the filter options in the Job view\n"
+               "to search for specific jobs.\n\n"
+               "Available filters:\n"
+               "• Job Name\n"
+               "• Client Name\n"
+               "• Status (Success, Warning, Failed)\n"
                "• Level (Full, Incremental, Differential)\n"
-               "• Datums-Bereich"));
+               "• Date Range"));
     } else if (currentWidget == m_clientWidget) {
-        QMessageBox::information(this, tr("Suchen"),
-            tr("Verwenden Sie die Filter-ComboBox in der Client-Ansicht,\n"
-               "um nach bestimmten Clients zu suchen."));
+        QMessageBox::information(this, tr("Search"),
+            tr("Use the filter combo box in the Client view\n"
+               "to search for specific clients."));
     }
 }
 
@@ -1198,7 +1198,7 @@ void MainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds)
 void MainWindow::onExportSettingsTriggered()
 {
     if (!m_director->isConnected()) {
-        QMessageBox::warning(this, "Nicht verbunden", "Bitte stellen Sie zuerst eine Verbindung zum Director her.");
+        QMessageBox::warning(this, tr("Not Connected"), tr("Please connect to the Director first."));
         return;
     }
 
@@ -1210,7 +1210,7 @@ void MainWindow::onExportSettingsTriggered()
 void MainWindow::onImportSettingsTriggered()
 {
     if (!m_director->isConnected()) {
-        QMessageBox::warning(this, "Nicht verbunden", "Bitte stellen Sie zuerst eine Verbindung zum Director her.");
+        QMessageBox::warning(this, tr("Not Connected"), tr("Please connect to the Director first."));
         return;
     }
 

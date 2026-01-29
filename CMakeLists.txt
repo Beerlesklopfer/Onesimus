@@ -322,9 +322,29 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
     Network
     Sql
+    LinguistTools
 )
 
 message(STATUS "✓ Found Qt6 ${Qt6_VERSION}")
+
+# ============================================================================
+# Qt Linguist Tools Configuration
+# ============================================================================
+
+set(TS_FILES
+    ${CMAKE_SOURCE_DIR}/translations/onesimus_de.ts
+    ${CMAKE_SOURCE_DIR}/translations/onesimus_en.ts
+    ${CMAKE_SOURCE_DIR}/translations/onesimus_es.ts
+    ${CMAKE_SOURCE_DIR}/translations/onesimus_fr.ts
+    ${CMAKE_SOURCE_DIR}/translations/onesimus_it.ts
+    ${CMAKE_SOURCE_DIR}/translations/onesimus_ru.ts
+)
+
+qt_add_translations(${PROJECT_NAME}
+    TS_FILES ${TS_FILES}
+    RESOURCE_PREFIX "/translations"
+    LUPDATE_OPTIONS -no-obsolete
+)
 
 # ============================================================================
 # Project Files

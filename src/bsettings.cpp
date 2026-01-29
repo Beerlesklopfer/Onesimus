@@ -265,6 +265,22 @@ void BSettings::setAppearanceCompactMode(bool compact)
     emit appearanceSettingsChanged();
 }
 
+QString BSettings::appearanceLanguage() const
+{
+    return value("Appearance/language", "en").toString();
+}
+
+void BSettings::setAppearanceLanguage(const QString& languageCode)
+{
+    setValue("Appearance/language", languageCode);
+    emit appearanceSettingsChanged();
+}
+
+bool BSettings::hasLanguagePreference() const
+{
+    return m_settings.contains("Appearance/language");
+}
+
 QColor BSettings::levelColor(const QString& level) const
 {
     // Default colors for each level

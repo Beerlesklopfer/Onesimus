@@ -110,6 +110,7 @@ private:
     QSpinBox *m_fontSizeSpin;
     QCheckBox *m_animationsCheck;
     QCheckBox *m_compactModeCheck;
+    QComboBox *m_languageCombo;
 
     // Level Color Buttons
     QPushButton *m_colorButtonFull;
