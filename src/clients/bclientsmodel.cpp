@@ -194,12 +194,12 @@ BClientsModel::Status BClientsModel::getClientStatus(const QJsonObject &client) 
         lastConnTime = QDateTime::fromString(lastConn, "yyyy-MM-dd HH:mm:ss");
 
     if (lastConnTime.isValid()) {
-        // Consider offline if MORE than 24 hours have passed since last connection
+        // Consider online if LESS than 24 hours have passed since last connection
         qint64 secsSinceLastConn = lastConnTime.secsTo(QDateTime::currentDateTime());
-        if (secsSinceLastConn > 86400) {  // > 24 hours = offline
-            return STATUS_OFFLINE;
+        if (secsSinceLastConn < 86400) {  // < 24 hours = online
+            return STATUS_ONLINE;
         } else {
-            return STATUS_ONLINE;  // <= 24 hours = online
+            return STATUS_OFFLINE;  // >= 24 hours = offline
         }
     }
 

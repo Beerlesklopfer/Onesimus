@@ -4,6 +4,10 @@
 #include <QWidget>
 #include <QTableWidget>
 #include <QPushButton>
+#include <QComboBox>
+#include <QLabel>
+#include <QGroupBox>
+#include <QJsonArray>
 #include "bdirector.h"
 
 namespace Ui {
@@ -53,6 +57,11 @@ private slots:
     void onVolumesReceived(const QList<BDirector::VolumeInfo> &volumes);
     void onRefreshClicked();
     void onVolumeSelectionChanged();
+    void onVolumeDoubleClicked(int row, int column);
+    void onPoolFilterChanged(int index);
+    void onStatusFilterChanged(int index);
+    void applyFilters();
+    void updateStatistics();
 
 private:
     void setupUI();
@@ -63,6 +72,20 @@ private:
     BDirector *m_director;
     QTableWidget *m_volumeTable;
     QPushButton *m_refreshButton;
+
+    // Filters
+    QComboBox *m_poolFilter;
+    QComboBox *m_statusFilter;
+
+    // Statistics
+    QLabel *m_totalVolumesLabel;
+    QLabel *m_totalSizeLabel;
+    QLabel *m_usedSizeLabel;
+    QLabel *m_availableSizeLabel;
+
+    // Data storage
+    QJsonArray m_allVolumes;  // All volumes from server
+    QJsonArray m_filteredVolumes;  // Filtered volumes
 };
 
 #endif // STORAGEWIDGET_H
