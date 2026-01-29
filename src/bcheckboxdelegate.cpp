@@ -1,4 +1,4 @@
-#include "bcheckboxdelegate.h"
+#include "jobs/bcheckboxdelegate.h"
 #include <QPainter>
 #include <QApplication>
 #include <QMouseEvent>

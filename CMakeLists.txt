@@ -411,19 +411,10 @@ set(HEADERS
     include/version.h
     include/baculaauth.h
     include/bareosauth.h
-
-    include/bcheckableheaderview.h
     include/bcolumnconfiguration.h
     include/bjsonstreamreader.h
     include/bpaginationwidget.h
     include/btranslations.h
-    include/clientwidget.h
-    include/bdirector.h
-    include/bareosdirector.h
-    include/mainwindow.h
-    include/settingsdialog.h
-    include/storagewidget.h
-    include/version.h
 
     include/jobs/bcheckboxdelegate.h
     include/jobs/bjobmodels.h

@@ -56,9 +56,13 @@ sudo apt-get install -y \
     qt6-tools-dev \
     qt6-base-dev-tools \
     libqt6sql6 \
+    libqt6network6 \
     perl \
-    make
+    make \
+    imagemagick
 ```
+
+**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
 
 ### Fedora/RHEL/CentOS
 
@@ -69,9 +73,13 @@ sudo dnf install -y \
     git \
     qt6-qtbase-devel \
     qt6-qttools-devel \
+    qt6-qtbase-sql \
     perl \
-    make
+    make \
+    ImageMagick
 ```
+
+**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
 
 ### Arch Linux
 
@@ -82,8 +90,12 @@ sudo pacman -S --needed \
     git \
     qt6-base \
     qt6-tools \
-    perl
+    perl \
+    imagemagick
 ```
+
+**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
+**Note:** qt6-base includes Core, Gui, Widgets, Network, and Sql modules
 
 ### openSUSE
 
@@ -94,9 +106,13 @@ sudo zypper install -y \
     git \
     qt6-base-devel \
     qt6-tools-devel \
+    qt6-sql-devel \
     perl \
-    make
+    make \
+    ImageMagick
 ```
+
+**Required Qt6 modules:** Core, Gui, Widgets, Network, Sql, LinguistTools
 
 ## 🎯 Build Options
 
