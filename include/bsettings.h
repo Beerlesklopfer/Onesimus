@@ -110,6 +110,9 @@ public:
     bool behaviorConfirmJobCancel() const;
     void setBehaviorConfirmJobCancel(bool confirm);
 
+    bool behaviorConfirmJobStart() const;
+    void setBehaviorConfirmJobStart(bool confirm);
+
     bool behaviorAutoRefresh() const;
     void setBehaviorAutoRefresh(bool enabled);
 

@@ -324,6 +324,17 @@ void BSettings::setBehaviorConfirmJobCancel(bool confirm)
     emit behaviorSettingsChanged();
 }
 
+bool BSettings::behaviorConfirmJobStart() const
+{
+    return value("Behavior/confirm_job_start", true).toBool();
+}
+
+void BSettings::setBehaviorConfirmJobStart(bool confirm)
+{
+    setValue("Behavior/confirm_job_start", confirm);
+    emit behaviorSettingsChanged();
+}
+
 bool BSettings::behaviorAutoRefresh() const
 {
     return value("Behavior/auto_refresh", false).toBool();

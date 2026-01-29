@@ -503,7 +503,11 @@ void SettingsDialog::createBehaviorPage()
     m_confirmJobCancelCheck = new QCheckBox("Job-Abbruch bestätigen");
     m_confirmJobCancelCheck->setChecked(true);
     confirmLayout->addWidget(m_confirmJobCancelCheck);
-    
+
+    m_confirmJobStartCheck = new QCheckBox("Job-Start bestätigen");
+    m_confirmJobStartCheck->setChecked(true);
+    confirmLayout->addWidget(m_confirmJobStartCheck);
+
     layout->addWidget(confirmGroup);
     
     // Auto-Refresh
@@ -928,6 +932,7 @@ void SettingsDialog::loadSettings()
 
     // Behavior
     m_confirmJobCancelCheck->setChecked(settings.behaviorConfirmJobCancel());
+    m_confirmJobStartCheck->setChecked(settings.behaviorConfirmJobStart());
     m_autoRefreshCheck->setChecked(settings.behaviorAutoRefresh());
     m_refreshIntervalSpin->setValue(settings.behaviorRefreshInterval());
     m_maxJobsDisplaySpin->setValue(settings.behaviorMaxJobsDisplay());
@@ -980,6 +985,7 @@ void SettingsDialog::saveSettings()
 
     // Behavior
     settings.setBehaviorConfirmJobCancel(m_confirmJobCancelCheck->isChecked());
+    settings.setBehaviorConfirmJobStart(m_confirmJobStartCheck->isChecked());
     settings.setBehaviorAutoRefresh(m_autoRefreshCheck->isChecked());
     settings.setBehaviorRefreshInterval(m_refreshIntervalSpin->value());
     settings.setBehaviorMaxJobsDisplay(m_maxJobsDisplaySpin->value());

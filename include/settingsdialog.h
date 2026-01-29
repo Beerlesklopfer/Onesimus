@@ -120,6 +120,7 @@ private:
     
     // Behavior-Einstellungen
     QCheckBox *m_confirmJobCancelCheck;
+    QCheckBox *m_confirmJobStartCheck;
     QCheckBox *m_autoRefreshCheck;
     QSpinBox *m_refreshIntervalSpin;
     QSpinBox *m_maxJobsDisplaySpin;
