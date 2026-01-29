@@ -508,6 +508,7 @@ void MainWindow::createMenus()
 
     QToolBar *themeToolbar = new QToolBar();
     themeToolbar->setStyleSheet("QToolBar { border: none; background: transparent; }");
+    themeToolbar->setIconSize(QSize(16, 16));  // Half size (16x16 instead of 32x32)
     themeToolbar->addAction(m_toggleThemeAction);
     menuBar()->setCornerWidget(themeToolbar, Qt::TopRightCorner);
 }
