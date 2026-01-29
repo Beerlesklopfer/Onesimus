@@ -59,6 +59,10 @@ MainWindow::MainWindow(QWidget *parent)
     createMenus();
     createToolBar();
 
+    // Restore statistics action checked state after action is created
+    bool statsVisible = BSettings::instance().statisticsWidgetVisible();
+    m_toggleStatisticsAction->setChecked(statsVisible);
+
     // ✅ Synchronisiere DockWidget-Sichtbarkeit mit Action und speichere in Settings
     connect(m_statisticsDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
         m_toggleStatisticsAction->setChecked(visible);
@@ -231,7 +235,7 @@ void MainWindow::setupUI()
     // Lade gespeicherten Sichtbarkeitszustand (oder standardmäßig versteckt)
     bool statsVisible = BSettings::instance().statisticsWidgetVisible();
     m_statisticsDock->setVisible(statsVisible);
-    m_toggleStatisticsAction->setChecked(statsVisible);
+    // Note: Action checked state will be set after createActions() in constructor
 
     // Statusleiste
     m_statusLabel = new QLabel("Bereit", this);
