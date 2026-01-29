@@ -221,7 +221,6 @@ cmake .. \
 - Multi-selection and export functions
 
 ### Settings Dialog
-*Industrial Dark design with category sidebar*
 - Connection settings with TLS/SSL configuration
 - Appearance: Theme, font size, language (6 languages with flags)
 - Behavior: Auto-refresh, job display options

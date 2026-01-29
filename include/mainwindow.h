@@ -89,6 +89,7 @@ private:
     void createToolBar();
     void showConnectionDialog();
     void loadAndConnectLastUsed();
+    void applyTheme(const QString &themeName);
 
     Ui::MainWindow *ui;
     BDirector *m_director;

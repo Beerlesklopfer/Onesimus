@@ -188,12 +188,42 @@ MainWindow::MainWindow(QWidget *parent)
 
     onAuthentificationSucceeded(false, tr("Nicht verbunden"));
     loadAndConnectLastUsed();
+
+    // Apply saved theme from settings
+    QString savedTheme = BSettings::instance().appearanceTheme();
+    applyTheme(savedTheme);
 }
 
 MainWindow::~MainWindow()
 {
     m_director->saveConnectionSettings();
     delete ui;
+}
+
+void MainWindow::applyTheme(const QString &themeName)
+{
+    QString themePath;
+
+    if (themeName == "light") {
+        themePath = ":/themes/themes/light.qss";
+    } else {
+        // Default to dark theme
+        themePath = ":/themes/themes/dark.qss";
+    }
+
+    // Load and apply stylesheet
+    QFile themeFile(themePath);
+    if (themeFile.open(QFile::ReadOnly | QFile::Text)) {
+        QString stylesheet = QLatin1String(themeFile.readAll());
+        qApp->setStyleSheet(stylesheet);
+        themeFile.close();
+
+#ifdef IS_DEVELOPER
+        qDebug() << "Applied theme:" << themeName << "from" << themePath;
+#endif
+    } else {
+        qWarning() << "Could not load theme file:" << themePath;
+    }
 }
 
 void MainWindow::setupUI()
@@ -350,9 +380,9 @@ void MainWindow::createActions()
     // Set initial icon based on current theme
     QString currentTheme = BSettings::instance().appearanceTheme();
     if (currentTheme == "dark") {
-        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear-night"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.png"));
     } else {
-        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.png"));
     }
 
     connect(m_toggleThemeAction, &QAction::triggered, this, &MainWindow::onToggleTheme);
@@ -1227,24 +1257,22 @@ void MainWindow::onToggleTheme()
 
     // Toggle theme
     QString newTheme;
+
     if (currentTheme == "dark") {
         newTheme = "light";
-        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.png"));
         m_statusLabel->setText(tr("Switched to Light Theme"));
     } else {
         newTheme = "dark";
-        m_toggleThemeAction->setIcon(QIcon::fromTheme("weather-clear-night"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.png"));
         m_statusLabel->setText(tr("Switched to Dark Theme"));
     }
 
+    // Apply new theme
+    applyTheme(newTheme);
+
     // Save new theme to settings
     BSettings::instance().setAppearanceTheme(newTheme);
-
-    // Show message about restart
-    QMessageBox::information(this,
-        tr("Theme Changed"),
-        tr("The theme will be fully applied after restarting the application.\n\n"
-           "Some UI elements may not update until the next restart."));
 }
 
 void MainWindow::onExportSettingsTriggered()

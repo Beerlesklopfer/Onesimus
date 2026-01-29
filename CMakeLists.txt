@@ -509,6 +509,12 @@ qt6_add_resources(QT_RESOURCES
 # Kompilierte Ressourcen zu den Quellen hinzufügen
 list(APPEND SOURCES ${QT_RESOURCES})
 
+# Theme Resources
+qt6_add_resources(THEME_RESOURCES
+    ${CMAKE_SOURCE_DIR}/resources/resources.qrc
+)
+list(APPEND SOURCES ${THEME_RESOURCES})
+
 # ============================================================================
 # Executable Target
 # ============================================================================
