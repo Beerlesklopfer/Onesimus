@@ -167,6 +167,47 @@ cmake .. -DCMAKE_BUILD_TYPE=Debug
 cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
+### Advanced Build Options
+
+#### Backup System Selection
+
+```bash
+# Bareos only (default and currently only supported)
+cmake .. -DBACKUP_SYSTEM=BAREOS
+
+# Bacula only (not yet implemented)
+cmake .. -DBACKUP_SYSTEM=BACULA
+```
+
+**Note:** Currently only Bareos is fully implemented. Bacula support is planned.
+
+#### Debug Options
+
+Enable detailed debugging output for development and troubleshooting:
+
+```bash
+# Enable packet-level debugging
+cmake .. -DDEBUG_PACKETS=ON
+
+# Enable JSON message debugging
+cmake .. -DDEBUG_JSON=ON
+
+# Enable JSON logging to file
+cmake .. -DLOG_JSON=ON
+```
+
+**Combined example:**
+```bash
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DDEBUG_JSON=ON \
+    -DLOG_JSON=ON \
+    -DUSE_STATIC_OPENSSL=ON
+make -j$(nproc)
+```
+
+**Warning:** Debug options generate extensive console output and may impact performance. Use only for development/debugging.
+
 ## 🔧 Build Script Options
 
 The `build.sh` script offers interactive options:
