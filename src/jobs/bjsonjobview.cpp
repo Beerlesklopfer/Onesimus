@@ -419,7 +419,12 @@ void BJsonJobView::deleteJob()
 
     if (ret == QMessageBox::Yes) {
         // Send delete command to Director
-        emit jobActionRequested("delete", QString("job jobid=%1 yes").arg(jobId));
+        emit jobActionRequested("delete", QString("jobid=%1 yes").arg(jobId));
+
+        // Request refresh after short delay to allow Director to process command
+        QTimer::singleShot(1500, this, [this]() {
+            emit refreshRequested();
+        });
     }
 }
 
@@ -446,6 +451,11 @@ void BJsonJobView::retryJob()
     if (ret == QMessageBox::Yes) {
         // Send rerun command to Director
         emit jobActionRequested("rerun", QString("jobid=%1 yes").arg(jobId));
+
+        // Request refresh after short delay to allow Director to process command
+        QTimer::singleShot(1500, this, [this]() {
+            emit refreshRequested();
+        });
     }
 }
 
@@ -472,6 +482,11 @@ void BJsonJobView::cancelJob()
     if (ret == QMessageBox::Yes) {
         // Send cancel command to Director
         emit jobActionRequested("cancel", QString("jobid=%1").arg(jobId));
+
+        // Request refresh after short delay to allow Director to process command
+        QTimer::singleShot(1500, this, [this]() {
+            emit refreshRequested();
+        });
     }
 }
 

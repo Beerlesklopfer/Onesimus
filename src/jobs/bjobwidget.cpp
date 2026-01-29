@@ -98,6 +98,9 @@ BJobWidget::BJobWidget(QWidget *parent)
                 emit sendCommand(cmd, args);
             });
 
+    connect(m_tableView, &BJsonJobView::refreshRequested,
+            this, &BJobWidget::onRefreshClicked);
+
     // Connect auto-refresh timer
     connect(m_autoRefreshTimer, &QTimer::timeout,
             this, &BJobWidget::onAutoRefreshTimeout);

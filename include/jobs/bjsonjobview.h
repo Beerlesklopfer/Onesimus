@@ -187,6 +187,12 @@ signals:
      */
     void jobActionRequested(const QString &command, const QString &args);
 
+    /**
+     * @brief Emitted when the table should be refreshed (e.g., after job action)
+     * @since 2.8
+     */
+    void refreshRequested();
+
 protected:
     /**
      * @brief Handles double-click events
