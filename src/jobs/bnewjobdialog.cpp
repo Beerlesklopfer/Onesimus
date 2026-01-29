@@ -1,5 +1,6 @@
 #include "jobs/bnewjobdialog.h"
 #include "jobs/bjobwidget.h"
+#include "bsettings.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -445,11 +446,18 @@ void BNewJobDialog::onRunClicked()
 
     QString command = getJobCommand();
 
-    int ret = QMessageBox::question(this, "Job ausführen",
-        QString("Möchten Sie folgenden Job ausführen?\n\n%1").arg(command),
-        QMessageBox::Yes | QMessageBox::No);
+    // Check if confirmation is required
+    bool shouldConfirm = BSettings::instance().behaviorConfirmJobStart();
 
-    if (ret == QMessageBox::Yes) {
+    bool proceed = true;
+    if (shouldConfirm) {
+        int ret = QMessageBox::question(this, "Job ausführen",
+            QString("Möchten Sie folgenden Job ausführen?\n\n%1").arg(command),
+            QMessageBox::Yes | QMessageBox::No);
+        proceed = (ret == QMessageBox::Yes);
+    }
+
+    if (proceed) {
         if (m_director) {
             QMetaObject::invokeMethod(m_director, "doSendCommand",
                                       Qt::QueuedConnection,

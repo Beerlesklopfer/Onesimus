@@ -483,25 +483,32 @@ void BJobWidget::onRunJobClicked()
 void BJobWidget::onCancelJobClicked()
 {
     QSet<QString> selectedJobs = m_tableView->selectedJobIds();
-    
+
     if (selectedJobs.isEmpty()) {
         QMessageBox::information(this, "Keine Auswahl",
             "Bitte wählen Sie einen Job zum Abbrechen aus.");
         return;
     }
-    
+
     QString jobId = *selectedJobs.begin();
-    
-    int ret = QMessageBox::question(this, "Job abbrechen",
-        QString("Möchten Sie Job ID %1 wirklich abbrechen?").arg(jobId),
-        QMessageBox::Yes | QMessageBox::No);
-    
-    if (ret == QMessageBox::Yes) {
+
+    // Check if confirmation is required
+    bool shouldConfirm = BSettings::instance().behaviorConfirmJobCancel();
+
+    bool proceed = true;
+    if (shouldConfirm) {
+        int ret = QMessageBox::question(this, "Job abbrechen",
+            QString("Möchten Sie Job ID %1 wirklich abbrechen?").arg(jobId),
+            QMessageBox::Yes | QMessageBox::No);
+        proceed = (ret == QMessageBox::Yes);
+    }
+
+    if (proceed) {
         emit sendCommand(BDirector::Command::Cancel, QString::number(jobId.toULongLong()));
-        
-        QMessageBox::information(this, "Job abgebrochen", 
+
+        QMessageBox::information(this, "Job abgebrochen",
             QString("Job %1 wurde abgebrochen.").arg(jobId));
-        
+
         // Refresh after 1 second
         QTimer::singleShot(1000, this, &BJobWidget::onRefreshClicked);
     }

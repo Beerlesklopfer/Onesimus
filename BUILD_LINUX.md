@@ -1,48 +1,48 @@
 # Linux Build Guide
 
-## 🚀 Schnellstart
+## 🚀 Quick Start
 
-### Automatischer Build (Empfohlen)
+### Automated Build (Recommended)
 
 ```bash
 ./build.sh
 ```
 
-Das Script:
-- Initialisiert Git-Submodule automatisch
-- Prüft alle Voraussetzungen
-- Fragt nach Build-Optionen
-- Konfiguriert CMake
-- Kompiliert das Projekt
+The script:
+- Automatically initializes Git submodules
+- Checks all prerequisites
+- Prompts for build options
+- Configures CMake
+- Compiles the project
 
-### Manueller Build
+### Manual Build
 
 ```bash
-# 1. Voraussetzungen installieren
+# 1. Install prerequisites
 sudo apt-get update
 sudo apt-get install -y build-essential cmake git qt6-base-dev qt6-tools-dev perl
 
-# 2. Repository klonen
-git clone <your-repo> bacula-qt-ui
-cd bacula-qt-ui
+# 2. Clone repository
+git clone <your-repo> onesimus
+cd onesimus
 
-# 3. Git-Submodule initialisieren (optional - wird von CMake automatisch gemacht)
+# 3. Initialize Git submodules (optional - done automatically by CMake)
 git submodule update --init --recursive
 
-# 4. Build-Verzeichnis erstellen
+# 4. Create build directory
 mkdir build && cd build
 
-# 5. CMake konfigurieren
+# 5. Configure CMake
 cmake .. -DCMAKE_BUILD_TYPE=Release
 
-# 6. Kompilieren
+# 6. Compile
 make -j$(nproc)
 
-# 7. Ausführen
-./BaculaQtUI
+# 7. Run
+./onesimus
 ```
 
-## 📋 Voraussetzungen
+## 📋 Prerequisites
 
 ### Ubuntu/Debian
 
@@ -98,9 +98,9 @@ sudo zypper install -y \
     make
 ```
 
-## 🎯 Build-Optionen
+## 🎯 Build Options
 
-### Option 1: Statisches OpenSSL (Standard)
+### Option 1: Static OpenSSL (Default)
 
 ```bash
 mkdir build && cd build
@@ -108,13 +108,13 @@ cmake .. -DUSE_STATIC_OPENSSL=ON
 make -j$(nproc)
 ```
 
-**Vorteile:**
-- ✅ Keine externen OpenSSL-Abhängigkeiten
-- ✅ Konsistente OpenSSL-Version
-- ✅ Einfaches Deployment (AppImage, etc.)
+**Advantages:**
+- ✅ No external OpenSSL dependencies
+- ✅ Consistent OpenSSL version
+- ✅ Easy deployment (AppImage, etc.)
 
-**Nachteil:**
-- ⏱️ Längere Build-Zeit beim ersten Mal (5-8 Minuten)
+**Disadvantage:**
+- ⏱️ Longer build time on first run (5-8 minutes)
 
 ### Option 2: System OpenSSL
 
@@ -124,67 +124,67 @@ cmake .. -DUSE_STATIC_OPENSSL=OFF
 make -j$(nproc)
 ```
 
-**Vorteile:**
-- ⚡ Schnellerer Build (~30 Sekunden)
-- 📦 Kleinere Binary
+**Advantages:**
+- ⚡ Faster build (~30 seconds)
+- 📦 Smaller binary
 
-**Nachteil:**
-- 📚 Benötigt libssl-dev/openssl-devel installiert
+**Disadvantage:**
+- 📚 Requires libssl-dev/openssl-devel installed
 
-### Build-Typen
+### Build Types
 
-#### Release (Optimiert, Standard)
+#### Release (Optimized, Default)
 ```bash
 cmake .. -DCMAKE_BUILD_TYPE=Release
 ```
 
-#### Debug (mit Debug-Symbolen)
+#### Debug (with debug symbols)
 ```bash
 cmake .. -DCMAKE_BUILD_TYPE=Debug
 ```
 
-#### RelWithDebInfo (Optimiert + Debug-Symbole)
+#### RelWithDebInfo (Optimized + debug symbols)
 ```bash
 cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
-## 🔧 Build-Script Optionen
+## 🔧 Build Script Options
 
-Das `build.sh` Script bietet interaktive Optionen:
+The `build.sh` script offers interactive options:
 
 ```bash
 ./build.sh
 ```
 
-**Fragt:**
+**Prompts:**
 ```
-OpenSSL Build-Option:
-1) Statisch (aus Submodule) - empfohlen für Deployment
-2) System OpenSSL - schneller Build
+OpenSSL Build Option:
+1) Static (from submodule) - recommended for deployment
+2) System OpenSSL - faster build
 
-Wählen Sie [1/2] (Standard: 1):
-```
-
-**Bei bestehendem Build-Verzeichnis:**
-```
-Build-Verzeichnis existiert bereits.
-Möchten Sie es neu erstellen? (j/n)
+Choose [1/2] (Default: 1):
 ```
 
-## ⏱️ Build-Zeiten
+**With existing build directory:**
+```
+Build directory already exists.
+Do you want to recreate it? (y/n)
+```
 
-### Erstmaliger Build
+## ⏱️ Build Times
 
-| System | Cores | Statisches OpenSSL | System OpenSSL |
-|--------|-------|-------------------|----------------|
+### First Build
+
+| System | Cores | Static OpenSSL | System OpenSSL |
+|--------|-------|----------------|----------------|
 | Intel i7-12700 | 12 | ~4 min | ~25 sec |
 | AMD Ryzen 7 | 8 | ~5 min | ~30 sec |
 | Intel i5-10400 | 6 | ~7 min | ~40 sec |
 | Raspberry Pi 4 | 4 | ~25 min | ~2 min |
 
-### Nachfolgende Builds (Incremental)
+### Subsequent Builds (Incremental)
 
-| System | Zeit |
+| System | Time |
 |--------|------|
 | Intel i7 | ~10-15 sec |
 | AMD Ryzen 7 | ~12-18 sec |
@@ -192,33 +192,33 @@ Möchten Sie es neu erstellen? (j/n)
 
 ## 📦 Installation
 
-### System-Installation
+### System Installation
 
 ```bash
 cd build
 sudo make install
 ```
 
-Standard-Installation nach: `/usr/local/bin/BaculaQtUI`
+Default installation to: `/usr/local/bin/onesimus`
 
 ### Custom Installation Prefix
 
 ```bash
-cmake .. -DCMAKE_INSTALL_PREFIX=/opt/bacula-qt-ui
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/onesimus
 make
 sudo make install
 ```
 
-### AppImage erstellen
+### Create AppImage
 
 ```bash
-# linuxdeployqt herunterladen
+# Download linuxdeployqt
 wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
 chmod +x linuxdeployqt-continuous-x86_64.AppImage
 
-# AppImage erstellen
+# Create AppImage
 ./linuxdeployqt-continuous-x86_64.AppImage \
-    build/BaculaQtUI \
+    build/onesimus \
     -appimage \
     -qmake=/usr/lib/qt6/bin/qmake
 ```
@@ -226,17 +226,17 @@ chmod +x linuxdeployqt-continuous-x86_64.AppImage
 ### Flatpak (TODO)
 
 ```bash
-# Flatpak-Manifest wird noch erstellt
-flatpak-builder build-flatpak org.bacula.BaculaQtUI.yml
+# Flatpak manifest to be created
+flatpak-builder build-flatpak org.onesimus.Onesimus.yml
 ```
 
-## 🐛 Fehlerbehebung
+## 🐛 Troubleshooting
 
 ### "CMake not found"
 
 ```bash
 sudo apt-get install cmake
-# ODER
+# OR
 sudo dnf install cmake
 ```
 
@@ -252,7 +252,7 @@ sudo apt-get install qt6-base-dev qt6-tools-dev
 sudo dnf install qt6-qtbase-devel qt6-qttools-devel
 ```
 
-**Custom Qt-Installation:**
+**Custom Qt installation:**
 ```bash
 cmake .. -DCMAKE_PREFIX_PATH=/opt/Qt/6.10.0/gcc_64
 ```
@@ -260,73 +260,73 @@ cmake .. -DCMAKE_PREFIX_PATH=/opt/Qt/6.10.0/gcc_64
 ### "OpenSSL submodule download failed"
 
 ```bash
-# Manuell initialisieren
+# Initialize manually
 git submodule update --init --recursive
 
-# Prüfen
+# Verify
 ls -la external/openssl/Configure
 ```
 
 ### "undefined reference to SSL_*"
 
-OpenSSL wurde nicht korrekt gelinkt.
+OpenSSL was not linked correctly.
 
-**Lösung:**
+**Solution:**
 ```bash
-# Build-Verzeichnis löschen
+# Delete build directory
 rm -rf build
 mkdir build && cd build
 
-# Neu konfigurieren mit statischem OpenSSL
+# Reconfigure with static OpenSSL
 cmake .. -DUSE_STATIC_OPENSSL=ON
 make -j$(nproc)
 ```
 
-### "Permission denied" beim Ausführen
+### "Permission denied" when running
 
 ```bash
-chmod +x build/BaculaQtUI
+chmod +x build/onesimus
 ```
 
-### OpenSSL Build schlägt fehl
+### OpenSSL Build Fails
 
-**Log prüfen:**
+**Check logs:**
 ```bash
 cat build/openssl_build-prefix/src/openssl_build-stamp/openssl_build-configure.log
 cat build/openssl_build-prefix/src/openssl_build-stamp/openssl_build-build.log
 ```
 
-**Häufige Ursachen:**
-- Fehlende Perl-Module → `sudo apt-get install perl`
-- Compiler-Fehler → `sudo apt-get install build-essential`
-- Fehlende Make → `sudo apt-get install make`
+**Common causes:**
+- Missing Perl modules → `sudo apt-get install perl`
+- Compiler errors → `sudo apt-get install build-essential`
+- Missing Make → `sudo apt-get install make`
 
-**OpenSSL neu bauen:**
+**Rebuild OpenSSL:**
 ```bash
 cd build
 rm -rf openssl-install openssl_build-prefix
 cmake --build . --target openssl_build
 ```
 
-### Qt6-Plugins nicht gefunden
+### Qt6 Plugins Not Found
 
 ```bash
-# Qt6-Plugin-Pfad setzen
+# Set Qt6 plugin path
 export QT_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/qt6/plugins
 
-# ODER in der Binary
+# OR in the binary
 export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 ```
 
-## 🔍 Abhängigkeiten prüfen
+## 🔍 Check Dependencies
 
-### Welche Bibliotheken werden benötigt?
+### Which libraries are required?
 
 ```bash
-ldd build/BaculaQtUI
+ldd build/onesimus
 ```
 
-**Mit statischem OpenSSL:**
+**With static OpenSSL:**
 ```
 linux-vdso.so.1
 libQt6Widgets.so.6
@@ -338,10 +338,10 @@ libstdc++.so.6
 libm.so.6
 libgcc_s.so.1
 libc.so.6
-# KEIN libssl.so, KEIN libcrypto.so → Statisch gelinkt! ✓
+# NO libssl.so, NO libcrypto.so → Statically linked! ✓
 ```
 
-**Mit System-OpenSSL:**
+**With system OpenSSL:**
 ```
 ...
 libssl.so.3
@@ -349,19 +349,19 @@ libcrypto.so.3
 ...
 ```
 
-### OpenSSL-Version prüfen
+### Check OpenSSL Version
 
 ```bash
-# System-Version
+# System version
 openssl version
 
-# Statisch gelinkt (aus Binary extrahieren)
-strings build/BaculaQtUI | grep -i "openssl"
+# Statically linked (extract from binary)
+strings build/onesimus | grep -i "openssl"
 ```
 
-## 📊 Build-Ausgabe verstehen
+## 📊 Understanding Build Output
 
-### Erfolgreicher Build
+### Successful Build
 
 ```
 ========================================
@@ -382,9 +382,9 @@ Configuring OpenSSL ExternalProject...
 ✓ Found Qt6 6.8.0
 
 ========================================
-Bacula Qt UI - Build Summary
+Onesimus - Build Summary
 ========================================
-Project:       BaculaQtUI v1.0.0
+Project:       onesimus v1.0.0
 Build Type:    Release
 Install:       /usr/local
 
@@ -406,33 +406,33 @@ Build commands:
 [ 10%] Building openssl_build
 [ 20%] Performing configure step for 'openssl_build'
 ...
-[ 90%] Building CXX object CMakeFiles/BaculaQtUI.dir/src/main.cpp.o
-[100%] Linking CXX executable BaculaQtUI
+[ 90%] Building CXX object CMakeFiles/onesimus.dir/src/main.cpp.o
+[100%] Linking CXX executable onesimus
 ```
 
-## 🚀 Performance-Optimierung
+## 🚀 Performance Optimization
 
-### Ninja statt Make (schneller)
+### Ninja instead of Make (faster)
 
 ```bash
-# Ninja installieren
+# Install Ninja
 sudo apt-get install ninja-build
 
-# Mit Ninja bauen
+# Build with Ninja
 cmake .. -G Ninja
 ninja
 ```
 
-### Compiler-Cache (ccache)
+### Compiler Cache (ccache)
 
 ```bash
-# ccache installieren
+# Install ccache
 sudo apt-get install ccache
 
-# Aktivieren
+# Enable
 export PATH=/usr/lib/ccache:$PATH
 
-# Bauen
+# Build
 cmake ..
 make -j$(nproc)
 ```
@@ -446,14 +446,14 @@ cmake .. \
 make -j$(nproc)
 ```
 
-## 🔒 Sicherheit
+## 🔒 Security
 
-### OpenSSL aktualisieren
+### Update OpenSSL
 
 ```bash
 cd external/openssl
 git fetch --all
-git checkout openssl-3.6.1  # Neuere Version
+git checkout openssl-3.6.1  # Newer version
 cd ../..
 
 # Rebuild
@@ -463,10 +463,10 @@ cmake .. -DUSE_STATIC_OPENSSL=ON
 make -j$(nproc)
 ```
 
-### Automatisches Submodule-Update
+### Automatic Submodule Update
 
 ```bash
-# Updated Submodule auf neuesten Branch-Stand
+# Update submodule to latest branch state
 git submodule update --remote external/openssl
 
 # Rebuild
@@ -474,36 +474,36 @@ rm -rf build && mkdir build && cd build
 cmake .. && make -j$(nproc)
 ```
 
-## 📦 Distribution-spezifische Pakete
+## 📦 Distribution-Specific Packages
 
 ### .deb (Debian/Ubuntu)
 
 ```bash
-# Mit CPack
+# With CPack
 cd build
 cpack -G DEB
 
-# Oder manuell mit dpkg-deb
-mkdir -p bacula-qt-ui_1.0.0/DEBIAN
-mkdir -p bacula-qt-ui_1.0.0/usr/local/bin
+# Or manually with dpkg-deb
+mkdir -p onesimus_1.0.0/DEBIAN
+mkdir -p onesimus_1.0.0/usr/local/bin
 
-cat > bacula-qt-ui_1.0.0/DEBIAN/control << EOF
-Package: bacula-qt-ui
+cat > onesimus_1.0.0/DEBIAN/control << EOF
+Package: onesimus
 Version: 1.0.0
 Architecture: amd64
-Maintainer: Joerg Bernau <Joerg@bernau.family> 
-Description: Modern Qt UI for Bacula Backup
+Maintainer: Joerg Bernau <Joerg@bernau.family>
+Description: Modern Qt UI for Bareos/Bacula Backup
 Depends: libqt6core6, libqt6gui6, libqt6widgets6, libqt6network6
 EOF
 
-cp BaculaQtUI bacula-qt-ui_1.0.0/usr/local/bin/
-dpkg-deb --build bacula-qt-ui_1.0.0
+cp onesimus onesimus_1.0.0/usr/local/bin/
+dpkg-deb --build onesimus_1.0.0
 ```
 
 ### .rpm (Fedora/RHEL)
 
 ```bash
-# Mit CPack
+# With CPack
 cd build
 cpack -G RPM
 ```
@@ -512,10 +512,10 @@ cpack -G RPM
 
 ```bash
 cat > PKGBUILD << 'EOF'
-pkgname=bacula-qt-ui
+pkgname=onesimus
 pkgver=1.0.0
 pkgrel=1
-pkgdesc="Modern Qt UI for Bacula Backup"
+pkgdesc="Modern Qt UI for Bareos/Bacula Backup"
 arch=('x86_64')
 depends=('qt6-base' 'qt6-tools')
 makedepends=('cmake' 'git' 'perl')
@@ -535,90 +535,90 @@ EOF
 makepkg -si
 ```
 
-## 🎓 Erweiterte Verwendung
+## 🎓 Advanced Usage
 
-### Nur OpenSSL bauen
+### Build Only OpenSSL
 
 ```bash
 cd build
 cmake --build . --target openssl_build
 ```
 
-### Verbose Build (für Debugging)
+### Verbose Build (for debugging)
 
 ```bash
 make VERBOSE=1
 ```
 
-### Parallel-Build mit bestimmter Anzahl Jobs
+### Parallel Build with Specific Number of Jobs
 
 ```bash
-make -j4  # 4 Cores
-make -j8  # 8 Cores
+make -j4  # 4 cores
+make -j8  # 8 cores
 ```
 
 ### Clean Build
 
 ```bash
-# Nur Binary neu kompilieren
+# Recompile binary only
 make clean
 make
 
-# Kompletter Rebuild
+# Complete rebuild
 rm -rf build
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
 ```
 
-## 📚 Zusammenfassung
+## 📚 Summary
 
-| Feature | Statisches OpenSSL | System OpenSSL |
-|---------|-------------------|----------------|
-| Build-Zeit (1. Mal) | 5-8 min | ~30 sec |
-| Build-Zeit (danach) | ~15 sec | ~15 sec |
-| Binary-Größe | ~15-18 MB | ~3-5 MB |
-| Abhängigkeiten | Nur Qt6 | Qt6 + libssl |
-| Deployment | ✅ Einfach | ⚠️ Komplex |
-| AppImage | ✅ Ideal | ⚠️ Problematisch |
-| Produktion | ✅ Empfohlen | ⚠️ Nicht empfohlen |
+| Feature | Static OpenSSL | System OpenSSL |
+|---------|----------------|----------------|
+| Build time (1st time) | 5-8 min | ~30 sec |
+| Build time (after) | ~15 sec | ~15 sec |
+| Binary size | ~15-18 MB | ~3-5 MB |
+| Dependencies | Only Qt6 | Qt6 + libssl |
+| Deployment | ✅ Easy | ⚠️ Complex |
+| AppImage | ✅ Ideal | ⚠️ Problematic |
+| Production | ✅ Recommended | ⚠️ Not recommended |
 
-**Empfehlung:** Statisches OpenSSL für Produktion und Distribution!
+**Recommendation:** Static OpenSSL for production and distribution!
 
 ## 🆘 Support
 
-Bei Problemen:
-1. Prüfen Sie die Logs: `cat build/CMakeFiles/CMakeOutput.log`
-2. Verbose Build: `make VERBOSE=1`
-3. OpenSSL-Logs: `cat build/openssl_build-prefix/src/openssl_build-stamp/*.log`
-4. GitHub Issues erstellen mit:
-   - CMake-Version: `cmake --version`
-   - Qt-Version: `qmake -v` oder `qmake6 -v`
-   - OS-Info: `cat /etc/os-release`
-   - Error-Logs
+In case of problems:
+1. Check logs: `cat build/CMakeFiles/CMakeOutput.log`
+2. Verbose build: `make VERBOSE=1`
+3. OpenSSL logs: `cat build/openssl_build-prefix/src/openssl_build-stamp/*.log`
+4. Create GitHub issue with:
+   - CMake version: `cmake --version`
+   - Qt version: `qmake -v` or `qmake6 -v`
+   - OS info: `cat /etc/os-release`
+   - Error logs
 
 ## ✅ Quick Reference
 
 ```bash
-# Standard Build
+# Standard build
 ./build.sh
 
-# Manuell mit statischem OpenSSL
+# Manual with static OpenSSL
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DUSE_STATIC_OPENSSL=ON
 make -j$(nproc)
 
-# Mit System-OpenSSL (schnell)
+# With system OpenSSL (fast)
 cmake .. -DUSE_STATIC_OPENSSL=OFF
 make -j$(nproc)
 
-# Ausführen
-./build/BaculaQtUI
+# Run
+./build/onesimus
 
-# Installieren
+# Install
 cd build && sudo make install
 
-# Deinstallieren
+# Uninstall
 cd build && sudo make uninstall
 ```
 
