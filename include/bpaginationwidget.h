@@ -7,7 +7,7 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <QCheckBox>
-#include "jobs/bjobsmodel.h"
+#include "jobs/bjobmodels.h"
 
 /**
  * @brief Widget providing pagination controls

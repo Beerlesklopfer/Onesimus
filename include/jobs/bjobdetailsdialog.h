@@ -16,7 +16,10 @@
 #include <QTextEdit>
 #include <QProgressBar>
 #include "bdirector.h"
-#include "bjoblogmodel.h"
+#include "jobs/bjobmodels.h"
+
+// Forward declarations
+class BJobWidget;
 
 /**
  * @brief Dialog to display detailed information about a backup job
@@ -24,18 +27,20 @@
  * Features two tabs:
  * - Files: Windows Explorer-style tree view with file list
  * - Status: Job information, statistics, and logs
+ *
+ * @note Now uses shared log model from BJobWidget to avoid duplicate data loading
+ * @since 2.9
  */
 class BJobDetailsDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit BJobDetailsDialog(const QJsonObject &job, BDirector *director, QWidget *parent = nullptr);
+    explicit BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidget, BDirector *director, QWidget *parent = nullptr);
 
 private slots:
     void onTreeItemClicked(const QModelIndex &index);
     void onFilesDataReceived(const QString &command, const QString &jsonData);
-    void onJobLogReceived(const QString &command, const QString &response);
 
 private:
     void setupUi(const QJsonObject &job);
@@ -65,10 +70,11 @@ private:
 
     // Log Tab
     QListView *m_logListView;
-    BJobLogModel *m_logModel;
+    // Note: Log model is now shared from BJobWidget (m_jobWidget->logModel())
 
     // Data
     QJsonObject m_job;
+    BJobWidget *m_jobWidget;    // Access to shared log model
     BDirector *m_director;
     quint64 m_jobId;
     QString m_bvfsJobIds;  // Comma-separated list of jobids from bvfs_get_jobids

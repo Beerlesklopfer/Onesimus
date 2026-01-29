@@ -5,7 +5,7 @@
 #include <QLabel>
 #include <QProgressBar>
 #include <QPushButton>
-#include "bjobsmodel.h"
+#include "jobs/bjobmodels.h"
 
 /**
  * @brief Widget displaying job statistics in real-time

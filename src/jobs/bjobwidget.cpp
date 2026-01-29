@@ -1,5 +1,8 @@
 #include "jobs/bjobwidget.h"
 #include "jobs/bjobdetailsdialog.h"
+#include "jobs/bnewjobdialog.h"
+#include "jobs/blevelcolors.h"
+#include "bsettings.h"
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>
@@ -10,6 +13,7 @@
 #include <QTimer>
 #include <QCheckBox>
 #include <QDateTimeEdit>
+#include <QListView>
 
 BJobWidget::BJobWidget(QWidget *parent)
     : QWidget(parent)
@@ -17,9 +21,16 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_streamReader(new BJsonStreamReader(this))
     , m_paginationWidget(new BPaginationWidget(this))
     , m_statsWidget(nullptr)   // Optional
+    , m_logView(new QListView(this))
+    , m_logModel(new BJobLogModel(this))
+    , m_logTitleLabel(new QLabel(this))
+    , m_logContainer(new QWidget(this))
     , m_nameFilter(new QComboBox(this))
     , m_clientFilter(new QComboBox(this))
     , m_filterComboModel(new BFilterComboModel(this))
+    , m_filesetCombo(new QComboBox(this))
+    , m_storageCombo(new QComboBox(this))
+    , m_poolCombo(new QComboBox(this))
     , m_statusSuccess(new QCheckBox(tr("Successful (T)"), this))
     , m_statusWarning(new QCheckBox(tr("Warning (W)"), this))
     , m_statusFailed(new QCheckBox(tr("Failed (f)"), this))
@@ -63,6 +74,25 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_clientFilter->setPlaceholderText(tr("Nach Client filtern..."));
     m_clientFilter->setInsertPolicy(QComboBox::NoInsert);  // Don't add typed text as item
 
+    // Setup info combo boxes (read-only, show current job selection)
+    m_filesetCombo->setEnabled(false);
+    m_filesetCombo->setPlaceholderText(tr("(kein Job ausgewählt)"));
+
+    m_storageCombo->setEnabled(false);
+    m_storageCombo->setPlaceholderText(tr("(kein Job ausgewählt)"));
+
+    m_poolCombo->setEnabled(false);
+    m_poolCombo->setPlaceholderText(tr("(kein Job ausgewählt)"));
+
+    // Setup log view
+    m_logView->setModel(m_logModel);
+    m_logView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_logView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_logView->setAlternatingRowColors(true);
+
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+    m_logTitleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
     setupUI();
     
     // Connect table view signals
@@ -71,6 +101,15 @@ BJobWidget::BJobWidget(QWidget *parent)
 
     connect(m_tableView, &BJsonJobView::selectionChanged,
             this, &BJobWidget::onJobSelectionChanged);
+
+    // Connect current row changed signal for single row navigation
+    connect(m_tableView->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, [this](const QModelIndex &current, const QModelIndex &previous) {
+        Q_UNUSED(previous);
+        if (current.isValid()) {
+            onJobSelectionChanged();
+        }
+    });
 
     connect(m_tableView, &BJsonJobView::jobActionRequested,
             this, [this](const QString &command, const QString &args) {
@@ -132,6 +171,57 @@ BJobWidget::BJobWidget(QWidget *parent)
     
     // Connect filter timer to apply
     connect(m_filterTimer, &QTimer::timeout, this, &BJobWidget::applyFilters);
+
+    // Connect combobox filters to save current index
+    connect(m_nameFilter, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int index) {
+                BSettings::instance().setJobsFilterCombobox("name", index);
+            });
+    connect(m_clientFilter, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int index) {
+                BSettings::instance().setJobsFilterCombobox("client", index);
+            });
+
+    // Connect checkbox filters to save state
+    connect(m_statusSuccess, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterCheckbox("status_success", checked);
+            });
+    connect(m_statusWarning, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterCheckbox("status_warning", checked);
+            });
+    connect(m_statusFailed, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterCheckbox("status_failed", checked);
+            });
+    connect(m_statusError, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterCheckbox("status_error", checked);
+            });
+    connect(m_dateEnabled, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterDateEnabled(checked);
+            });
+
+    // Connect date range to save state
+    connect(m_dateFrom, &QDateTimeEdit::dateTimeChanged,
+            this, [this](const QDateTime &dateTime) {
+                BSettings::instance().setJobsFilterDateFrom(dateTime);
+            });
+    connect(m_dateTo, &QDateTimeEdit::dateTimeChanged,
+            this, [this](const QDateTime &dateTime) {
+                BSettings::instance().setJobsFilterDateTo(dateTime);
+            });
+
+    // Restore checkbox filter states from settings
+    m_statusSuccess->setChecked(BSettings::instance().jobsFilterCheckbox("status_success", true));
+    m_statusWarning->setChecked(BSettings::instance().jobsFilterCheckbox("status_warning", true));
+    m_statusFailed->setChecked(BSettings::instance().jobsFilterCheckbox("status_failed", true));
+    m_statusError->setChecked(BSettings::instance().jobsFilterCheckbox("status_error", true));
+    m_dateEnabled->setChecked(BSettings::instance().jobsFilterDateEnabled());
+    m_dateFrom->setDateTime(BSettings::instance().jobsFilterDateFrom());
+    m_dateTo->setDateTime(BSettings::instance().jobsFilterDateTo());
 
     // Initial refresh
     onRefreshClicked();
@@ -242,6 +332,16 @@ void BJobWidget::setupUI()
 
     filterGroupLayout->addWidget(levelGroup);
 
+    // Job Info (selected job configuration)
+    QGroupBox *jobInfoGroup = new QGroupBox(tr("Selected Job Info"), this);
+    QFormLayout *jobInfoLayout = new QFormLayout(jobInfoGroup);
+
+    jobInfoLayout->addRow(tr("FileSet:"), m_filesetCombo);
+    jobInfoLayout->addRow(tr("Storage:"), m_storageCombo);
+    jobInfoLayout->addRow(tr("Pool:"), m_poolCombo);
+
+    filterGroupLayout->addWidget(jobInfoGroup);
+
     // Date range
     QGroupBox *dateGroup = new QGroupBox(tr("Date Range"), this);
     QVBoxLayout *dateLayout = new QVBoxLayout(dateGroup);
@@ -261,7 +361,11 @@ void BJobWidget::setupUI()
 
     m_splitter->addWidget(m_filterContainer);
 
-    // === TABLE CONTAINER (rechte Seite) ===
+    // === RIGHT SIDE: Vertical Splitter for Table and Log ===
+    QSplitter *verticalSplitter = new QSplitter(Qt::Vertical, this);
+    verticalSplitter->setHandleWidth(3);
+
+    // === TABLE CONTAINER (oben) ===
     QWidget *tableContainer = new QWidget(this);
     QVBoxLayout *tableLayout = new QVBoxLayout(tableContainer);
     tableLayout->setContentsMargins(0, 0, 0, 0);
@@ -269,11 +373,27 @@ void BJobWidget::setupUI()
     tableLayout->addWidget(m_tableView);
     tableLayout->addWidget(m_paginationWidget);
 
-    m_splitter->addWidget(tableContainer);
+    verticalSplitter->addWidget(tableContainer);
 
-    // Splitter Größen: Filter 25%, Table 75%
+    // === LOG CONTAINER (unten) ===
+    QVBoxLayout *logLayout = new QVBoxLayout(m_logContainer);
+    logLayout->setContentsMargins(5, 5, 5, 5);
+    logLayout->setSpacing(5);
+
+    logLayout->addWidget(m_logTitleLabel);
+    logLayout->addWidget(m_logView);
+
+    verticalSplitter->addWidget(m_logContainer);
+
+    // Vertikaler Splitter Größen: Table 70%, Log 30%
+    verticalSplitter->setStretchFactor(0, 7);  // Table
+    verticalSplitter->setStretchFactor(1, 3);  // Log
+
+    m_splitter->addWidget(verticalSplitter);
+
+    // Splitter Größen: Filter 25%, Content 75%
     m_splitter->setStretchFactor(0, 1);  // Filter
-    m_splitter->setStretchFactor(1, 3);  // Table
+    m_splitter->setStretchFactor(1, 3);  // Content (Table + Log)
 
     mainLayout->addWidget(m_splitter);
 
@@ -352,17 +472,10 @@ QJsonArray BJobWidget::convertJobsToJson(const QList<BDirector::JobInfo> &jobs)
 
 void BJobWidget::onRunJobClicked()
 {
-    bool ok;
-    QString jobName = QInputDialog::getText(this, "Job ausführen",
-        "Job-Name:", QLineEdit::Normal, "", &ok);
-    
-    if (ok && !jobName.isEmpty()) {
-        emit sendCommand(BDirector::Command::Run, jobName);
-        
-        QMessageBox::information(this, "Job gestartet", 
-            QString("Job '%1' wurde gestartet.").arg(jobName));
-        
-        // Refresh after 2 seconds
+    // Open new job dialog with JobWidget reference
+    BNewJobDialog dialog(this, m_director, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        // Job was started, refresh after a short delay
         QTimer::singleShot(2000, this, &BJobWidget::onRefreshClicked);
     }
 }
@@ -412,8 +525,8 @@ void BJobWidget::onShowDetailsClicked()
     for (const QJsonValue &jobValue : allJobs) {
         QJsonObject job = jobValue.toObject();
         if (job["jobid"].toString() == jobId) {
-            // Show details dialog
-            BJobDetailsDialog dialog(job, m_director, this);
+            // Show details dialog (pass this BJobWidget for shared log model)
+            BJobDetailsDialog dialog(job, this, m_director, this);
             dialog.exec();
             break;
         }
@@ -459,6 +572,15 @@ void BJobWidget::requestFilterData()
 
     // Send .levels command to get all backup levels
     emit sendCommand(BDirector::Command::DotLevels, "");
+
+    // Send .filesets command to get all configured filesets
+    emit sendCommand(BDirector::Command::DotFilesets, "");
+
+    // Send .storages command to get all configured storages
+    emit sendCommand(BDirector::Command::DotStorages, "");
+
+    // Send .pools command to get all configured pools
+    emit sendCommand(BDirector::Command::DotPools, "");
 }
 
 void BJobWidget::processDotJobsResponse(const QString &jsonData)
@@ -471,11 +593,15 @@ void BJobWidget::processDotJobsResponse(const QString &jsonData)
     m_filterComboModel->updateJobNamesFromDotCommand(jsonData);
 
     // Update job name combo box
-    QString currentNameFilter = m_nameFilter->currentText();
+    int savedNameIndex = BSettings::instance().jobsFilterCombobox("name", 0);
     m_nameFilter->clear();
     m_nameFilter->addItem("");  // Empty option to show all
     m_nameFilter->addItems(m_filterComboModel->jobNames());
-    m_nameFilter->setCurrentText(currentNameFilter);  // Restore previous filter
+
+    // Restore saved index if valid
+    if (savedNameIndex >= 0 && savedNameIndex < m_nameFilter->count()) {
+        m_nameFilter->setCurrentIndex(savedNameIndex);
+    }
 
 #ifdef IS_DEVELOPER
     qDebug() << "✓ Job name filter updated with" << m_filterComboModel->jobNames().size() << "jobs";
@@ -492,11 +618,15 @@ void BJobWidget::processDotClientsResponse(const QString &jsonData)
     m_filterComboModel->updateClientNamesFromDotCommand(jsonData);
 
     // Update client name combo box
-    QString currentClientFilter = m_clientFilter->currentText();
+    int savedClientIndex = BSettings::instance().jobsFilterCombobox("client", 0);
     m_clientFilter->clear();
     m_clientFilter->addItem("");  // Empty option to show all
     m_clientFilter->addItems(m_filterComboModel->clientNames());
-    m_clientFilter->setCurrentText(currentClientFilter);  // Restore previous filter
+
+    // Restore saved index if valid
+    if (savedClientIndex >= 0 && savedClientIndex < m_clientFilter->count()) {
+        m_clientFilter->setCurrentIndex(savedClientIndex);
+    }
 
 #ifdef IS_DEVELOPER
     qDebug() << "✓ Client name filter updated with" << m_filterComboModel->clientNames().size() << "clients";
@@ -555,11 +685,31 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
         // Create checkbox
         QString checkboxText = QString("%1 (%2)").arg(levelName).arg(levelCode);
         QCheckBox *checkbox = new QCheckBox(checkboxText, this);
-        checkbox->setChecked(true);  // Default: all checked
 
-        // Connect to filter timer
-        connect(checkbox, &QCheckBox::toggled, this, [this]() {
+        // Apply background color based on level
+        QColor levelColor = BLevelColors::getLevelColor(levelCode);
+        if (levelColor.isValid()) {
+            // Create a stylesheet with the level color as background
+            QString styleSheet = QString(
+                "QCheckBox { "
+                "  background-color: rgb(%1, %2, %3); "
+                "  padding: 3px; "
+                "  border-radius: 3px; "
+                "}"
+            ).arg(levelColor.red()).arg(levelColor.green()).arg(levelColor.blue());
+            checkbox->setStyleSheet(styleSheet);
+        }
+
+        // Restore state from settings (default to checked)
+        QString checkboxKey = QString("level_%1").arg(levelCode);
+        checkbox->setChecked(BSettings::instance().jobsFilterCheckbox(checkboxKey, true));
+
+        // Connect to filter timer and save state
+        connect(checkbox, &QCheckBox::toggled, this, [this, levelCode, checkboxKey](bool checked) {
             m_filterTimer->start();
+
+            // Save current level filter state
+            BSettings::instance().setJobsFilterCheckbox(checkboxKey, checked);
         });
 
         // Add to layout and map
@@ -569,6 +719,144 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
 
 #ifdef IS_DEVELOPER
     qDebug() << "✓ Created" << m_levelCheckboxes.size() << "level filter checkboxes";
+#endif
+}
+
+void BJobWidget::processDotFilesetsResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Processing .filesets response";
+#endif
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "BJobWidget: Failed to parse .filesets response:" << parseError.errorString();
+        return;
+    }
+
+    if (!doc.isObject()) {
+        qWarning() << "BJobWidget: .filesets response is not a JSON object";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonArray filesetsArray = result["filesets"].toArray();
+
+    // Clear and populate fileset names
+    m_filesetNames.clear();
+    for (const QJsonValue &filesetVal : filesetsArray) {
+        if (!filesetVal.isObject()) {
+            continue;
+        }
+
+        QJsonObject fileset = filesetVal.toObject();
+        QString name = fileset["name"].toString();
+        if (!name.isEmpty()) {
+            m_filesetNames.append(name);
+        }
+    }
+
+    // Update combo box
+    m_filesetCombo->clear();
+    m_filesetCombo->addItems(m_filesetNames);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Loaded" << m_filesetNames.size() << "filesets";
+#endif
+}
+
+void BJobWidget::processDotStoragesResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Processing .storages response";
+#endif
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "BJobWidget: Failed to parse .storages response:" << parseError.errorString();
+        return;
+    }
+
+    if (!doc.isObject()) {
+        qWarning() << "BJobWidget: .storages response is not a JSON object";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonArray storagesArray = result["storages"].toArray();
+
+    // Clear and populate storage names
+    m_storageNames.clear();
+    for (const QJsonValue &storageVal : storagesArray) {
+        if (!storageVal.isObject()) {
+            continue;
+        }
+
+        QJsonObject storage = storageVal.toObject();
+        QString name = storage["name"].toString();
+        if (!name.isEmpty()) {
+            m_storageNames.append(name);
+        }
+    }
+
+    // Update combo box
+    m_storageCombo->clear();
+    m_storageCombo->addItems(m_storageNames);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Loaded" << m_storageNames.size() << "storages";
+#endif
+}
+
+void BJobWidget::processDotPoolsResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Processing .pools response";
+#endif
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "BJobWidget: Failed to parse .pools response:" << parseError.errorString();
+        return;
+    }
+
+    if (!doc.isObject()) {
+        qWarning() << "BJobWidget: .pools response is not a JSON object";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonArray poolsArray = result["pools"].toArray();
+
+    // Clear and populate pool names
+    m_poolNames.clear();
+    for (const QJsonValue &poolVal : poolsArray) {
+        if (!poolVal.isObject()) {
+            continue;
+        }
+
+        QJsonObject pool = poolVal.toObject();
+        QString name = pool["name"].toString();
+        if (!name.isEmpty()) {
+            m_poolNames.append(name);
+        }
+    }
+
+    // Update combo box
+    m_poolCombo->clear();
+    m_poolCombo->addItems(m_poolNames);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Loaded" << m_poolNames.size() << "pools";
 #endif
 }
 
@@ -632,20 +920,28 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
     m_filterComboModel->updateFromJobsArray(jobsArray);
 
     // Update combo boxes with new data
-    QString currentNameFilter = m_nameFilter->currentText();
-    QString currentClientFilter = m_clientFilter->currentText();
+    int savedNameIndex = BSettings::instance().jobsFilterCombobox("name", 0);
+    int savedClientIndex = BSettings::instance().jobsFilterCombobox("client", 0);
 
     // Update job name combo box
     m_nameFilter->clear();
     m_nameFilter->addItem("");  // Empty option to show all
     m_nameFilter->addItems(m_filterComboModel->jobNames());
-    m_nameFilter->setCurrentText(currentNameFilter);  // Restore previous filter
+
+    // Restore saved index if valid
+    if (savedNameIndex >= 0 && savedNameIndex < m_nameFilter->count()) {
+        m_nameFilter->setCurrentIndex(savedNameIndex);
+    }
 
     // Update client name combo box
     m_clientFilter->clear();
     m_clientFilter->addItem("");  // Empty option to show all
     m_clientFilter->addItems(m_filterComboModel->clientNames());
-    m_clientFilter->setCurrentText(currentClientFilter);  // Restore previous filter
+
+    // Restore saved index if valid
+    if (savedClientIndex >= 0 && savedClientIndex < m_clientFilter->count()) {
+        m_clientFilter->setCurrentIndex(savedClientIndex);
+    }
 
 #ifdef IS_DEVELOPER
     qDebug() << "✓ Filter combo boxes updated with"
@@ -662,11 +958,67 @@ void BJobWidget::onJobSelectionChanged()
     bool hasSelection = !m_tableView->selectedJobIds().isEmpty();
     m_cancelJobButton->setEnabled(hasSelection);
     m_detailsButton->setEnabled(hasSelection);
+
+    // Update job info combo boxes based on selection
+    if (hasSelection) {
+        // Get the first selected job
+        QJsonObject selectedJob = m_tableView->getSelectedJob();
+
+        if (!selectedJob.isEmpty()) {
+            // Extract fileset, storage, pool from selected job
+            QString fileset = selectedJob["fileset"].toString();
+            QString storage = selectedJob["storage"].toString();
+            QString pool = selectedJob["pool"].toString();
+
+            // Show only the fileset that belongs to this job
+            m_filesetCombo->clear();
+            if (!fileset.isEmpty()) {
+                m_filesetCombo->addItem(fileset);
+                m_filesetCombo->setCurrentIndex(0);
+            }
+
+            // Show only the storage that belongs to this job
+            m_storageCombo->clear();
+            if (!storage.isEmpty()) {
+                m_storageCombo->addItem(storage);
+                m_storageCombo->setCurrentIndex(0);
+            }
+
+            // Show only the pool that belongs to this job
+            m_poolCombo->clear();
+            if (!pool.isEmpty()) {
+                m_poolCombo->addItem(pool);
+                m_poolCombo->setCurrentIndex(0);
+            }
+
+            // Enable combo boxes (visual feedback)
+            m_filesetCombo->setEnabled(true);
+            m_storageCombo->setEnabled(true);
+            m_poolCombo->setEnabled(true);
+
+            // Load job log for selected job
+            loadSelectedJobLog();
+        }
+    } else {
+        // No selection - clear and disable combo boxes
+        m_filesetCombo->clear();
+        m_storageCombo->clear();
+        m_poolCombo->clear();
+
+        m_filesetCombo->setEnabled(false);
+        m_storageCombo->setEnabled(false);
+        m_poolCombo->setEnabled(false);
+
+        // Clear log display
+        m_logModel->clear();
+        m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+    }
 }
 
 void BJobWidget::onJobDoubleClicked(const QJsonObject &job)
 {
-    BJobDetailsDialog dialog(job, m_director, this);
+    // Pass this BJobWidget for shared log model access
+    BJobDetailsDialog dialog(job, this, m_director, this);
     dialog.exec();
 }
 
@@ -817,6 +1169,80 @@ void BJobWidget::do_toggleFilters(bool visible)
     }
 }
 
+void BJobWidget::loadSelectedJobLog()
+{
+    QJsonObject selectedJob = m_tableView->getSelectedJob();
+    if (selectedJob.isEmpty()) {
+        return;
+    }
+
+    QString jobId = selectedJob["jobid"].toString();
+    QString jobName = selectedJob["name"].toString();
+
+    if (jobId.isEmpty()) {
+        return;
+    }
+
+    // Update title label
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Lädt...").arg(jobName).arg(jobId));
+
+    // Clear current log
+    m_logModel->clear();
+
+    // Connect to Director signal if not already connected
+    if (m_director) {
+        connect(m_director, &BDirector::jsonResponse,
+                this, &BJobWidget::onJobLogReceived,
+                Qt::UniqueConnection);
+
+        // Request job log
+        QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
+                                  Q_ARG(QString, jobId));
+    }
+}
+
+void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonData)
+{
+    // Check if this is a job log response
+    if (!command.contains("list joblog")) {
+        return;
+    }
+
+    QJsonObject selectedJob = m_tableView->getSelectedJob();
+    if (selectedJob.isEmpty()) {
+        return;
+    }
+
+    QString jobId = selectedJob["jobid"].toString();
+    QString jobName = selectedJob["name"].toString();
+
+    // Check if this log is for the currently selected job
+    if (!command.contains(jobId)) {
+        return;
+    }
+
+    // Parse and display the log
+    if (m_logModel->parseJsonResponse(jsonData)) {
+        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
+                                 .arg(jobName)
+                                 .arg(jobId)
+                                 .arg(m_logModel->rowCount()));
+    } else {
+        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Fehler beim Laden")
+                                 .arg(jobName)
+                                 .arg(jobId));
+    }
+}
+
+void BJobWidget::setLogViewVisible(bool visible)
+{
+    if (m_logContainer) {
+        m_logContainer->setVisible(visible);
+    }
+}
+
 void BJobWidget::clearData()
 {
 #ifdef IS_DEVELOPER
@@ -829,15 +1255,27 @@ void BJobWidget::clearData()
     // Clear combo boxes
     m_nameFilter->clear();
     m_clientFilter->clear();
+    m_filesetCombo->clear();
+    m_storageCombo->clear();
+    m_poolCombo->clear();
 
     // Clear filter model
     m_filterComboModel->clear();
+
+    // Clear data lists
+    m_filesetNames.clear();
+    m_storageNames.clear();
+    m_poolNames.clear();
 
     // Clear dynamic level checkboxes
     for (auto it = m_levelCheckboxes.begin(); it != m_levelCheckboxes.end(); ++it) {
         it.value()->deleteLater();
     }
     m_levelCheckboxes.clear();
+
+    // Clear log
+    m_logModel->clear();
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
 
     // Clear stream reader
     m_streamReader->clear();

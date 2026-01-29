@@ -56,6 +56,10 @@ private slots:
     void onExportSettings();
     void onImportSettings();
     void onClearStoredConnections();
+    void onChooseColorFull();
+    void onChooseColorIncremental();
+    void onChooseColorDifferential();
+    void onChooseColorVirtualFull();
 
 private:
     void setupUI();
@@ -106,6 +110,12 @@ private:
     QSpinBox *m_fontSizeSpin;
     QCheckBox *m_animationsCheck;
     QCheckBox *m_compactModeCheck;
+
+    // Level Color Buttons
+    QPushButton *m_colorButtonFull;
+    QPushButton *m_colorButtonIncremental;
+    QPushButton *m_colorButtonDifferential;
+    QPushButton *m_colorButtonVirtualFull;
     
     // Behavior-Einstellungen
     QCheckBox *m_confirmJobCancelCheck;

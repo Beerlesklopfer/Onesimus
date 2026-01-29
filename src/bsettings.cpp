@@ -1,5 +1,6 @@
 #include "bsettings.h"
 #include <QDebug>
+#include <QDateTime>
 
 // ============================================================================
 // Singleton Implementation
@@ -264,6 +265,34 @@ void BSettings::setAppearanceCompactMode(bool compact)
     emit appearanceSettingsChanged();
 }
 
+QColor BSettings::levelColor(const QString& level) const
+{
+    // Default colors for each level
+    QColor defaultColor;
+    if (level == "F") {
+        defaultColor = QColor(200, 220, 255);  // Light blue - Full backup
+    } else if (level == "I") {
+        defaultColor = QColor(200, 255, 200);  // Light green - Incremental
+    } else if (level == "D") {
+        defaultColor = QColor(255, 240, 200);  // Light orange - Differential
+    } else if (level == "V") {
+        defaultColor = QColor(230, 200, 255);  // Light purple - Virtual Full
+    } else {
+        return QColor();  // Invalid color for unknown levels
+    }
+
+    QString key = QString("Appearance/level_color_%1").arg(level);
+    QString colorString = value(key, defaultColor.name()).toString();
+    return QColor(colorString);
+}
+
+void BSettings::setLevelColor(const QString& level, const QColor& color)
+{
+    QString key = QString("Appearance/level_color_%1").arg(level);
+    setValue(key, color.name());
+    emit appearanceSettingsChanged();
+}
+
 // ========================================================================
 // Behavior Settings
 // ========================================================================
@@ -394,6 +423,123 @@ bool BSettings::jobsAutoRefresh() const
 void BSettings::setJobsAutoRefresh(bool enabled)
 {
     setValue("Widgets/Jobs/auto_refresh", enabled);
+}
+
+// Jobs Widget Filters
+QMap<QString, bool> BSettings::jobsFilterCheckboxes() const
+{
+    QMap<QString, bool> checkboxes;
+
+    // Load all saved checkboxes from settings
+    // Note: We can't use beginGroup/endGroup in const methods
+    // So we'll iterate through all keys and filter for our prefix
+    QStringList allKeys = m_settings.allKeys();
+    QString prefix = "Widgets/Jobs/FilterCheckboxes/";
+
+    for (const QString &key : allKeys) {
+        if (key.startsWith(prefix)) {
+            QString shortKey = key.mid(prefix.length());
+            checkboxes[shortKey] = m_settings.value(key, true).toBool();
+        }
+    }
+
+    return checkboxes;
+}
+
+void BSettings::setJobsFilterCheckboxes(const QMap<QString, bool>& checkboxes)
+{
+    // Clear existing checkboxes
+    m_settings.beginGroup("Widgets/Jobs/FilterCheckboxes");
+    m_settings.remove("");  // Remove all keys in this group
+    m_settings.endGroup();
+
+    // Save all checkboxes
+    for (auto it = checkboxes.constBegin(); it != checkboxes.constEnd(); ++it) {
+        setValue(QString("Widgets/Jobs/FilterCheckboxes/%1").arg(it.key()), it.value());
+    }
+}
+
+bool BSettings::jobsFilterCheckbox(const QString& key, bool defaultValue) const
+{
+    return value(QString("Widgets/Jobs/FilterCheckboxes/%1").arg(key), defaultValue).toBool();
+}
+
+void BSettings::setJobsFilterCheckbox(const QString& key, bool value)
+{
+    setValue(QString("Widgets/Jobs/FilterCheckboxes/%1").arg(key), value);
+}
+
+QMap<QString, int> BSettings::jobsFilterComboboxes() const
+{
+    QMap<QString, int> comboboxes;
+
+    // Load all saved comboboxes from settings
+    // Note: We can't use beginGroup/endGroup in const methods
+    // So we'll iterate through all keys and filter for our prefix
+    QStringList allKeys = m_settings.allKeys();
+    QString prefix = "Widgets/Jobs/FilterComboboxes/";
+
+    for (const QString &key : allKeys) {
+        if (key.startsWith(prefix)) {
+            QString shortKey = key.mid(prefix.length());
+            comboboxes[shortKey] = m_settings.value(key, 0).toInt();
+        }
+    }
+
+    return comboboxes;
+}
+
+void BSettings::setJobsFilterComboboxes(const QMap<QString, int>& comboboxes)
+{
+    // Clear existing comboboxes
+    m_settings.beginGroup("Widgets/Jobs/FilterComboboxes");
+    m_settings.remove("");  // Remove all keys in this group
+    m_settings.endGroup();
+
+    // Save all comboboxes
+    for (auto it = comboboxes.constBegin(); it != comboboxes.constEnd(); ++it) {
+        setValue(QString("Widgets/Jobs/FilterComboboxes/%1").arg(it.key()), it.value());
+    }
+}
+
+int BSettings::jobsFilterCombobox(const QString& key, int defaultValue) const
+{
+    return value(QString("Widgets/Jobs/FilterComboboxes/%1").arg(key), defaultValue).toInt();
+}
+
+void BSettings::setJobsFilterCombobox(const QString& key, int value)
+{
+    setValue(QString("Widgets/Jobs/FilterComboboxes/%1").arg(key), value);
+}
+
+bool BSettings::jobsFilterDateEnabled() const
+{
+    return value("Widgets/Jobs/filter_date_enabled", false).toBool();
+}
+
+void BSettings::setJobsFilterDateEnabled(bool enabled)
+{
+    setValue("Widgets/Jobs/filter_date_enabled", enabled);
+}
+
+QDateTime BSettings::jobsFilterDateFrom() const
+{
+    return value("Widgets/Jobs/filter_date_from", QDateTime::currentDateTime().addDays(-30)).toDateTime();
+}
+
+void BSettings::setJobsFilterDateFrom(const QDateTime& dateTime)
+{
+    setValue("Widgets/Jobs/filter_date_from", dateTime);
+}
+
+QDateTime BSettings::jobsFilterDateTo() const
+{
+    return value("Widgets/Jobs/filter_date_to", QDateTime::currentDateTime()).toDateTime();
+}
+
+void BSettings::setJobsFilterDateTo(const QDateTime& dateTime)
+{
+    setValue("Widgets/Jobs/filter_date_to", dateTime);
 }
 
 // Clients Widget State

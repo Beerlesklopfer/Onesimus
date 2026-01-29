@@ -11,12 +11,13 @@
 #include <QLabel>
 #include <QCheckBox>
 #include <QMap>
+#include <QListView>
 #include "jobs/bjsonjobview.h"
 #include "bjsonstreamreader.h"
 #include "bpaginationwidget.h"
 #include "jobs/bjobsstatisticswidget.h"
+#include "jobs/bjobmodels.h"
 #include "bdirector.h"
-#include "jobs/bfiltercombomodel.h"
 
 /**
  * @brief Integrated job widget using enhanced BJsonJobView with BDirector backend
@@ -66,7 +67,10 @@ public:
      * @param director Pointer to BDirector
      * @since 2.0
      */
-    void setDirector(BDirector *director) { m_director = director; }
+    void setDirector(BDirector *director) {
+        m_director = director;
+        m_tableView->setDirector(director);
+    }
 
     /**
      * @brief Triggers run job action (public interface to private slot)
@@ -98,6 +102,27 @@ public:
      */
     void clearData();
 
+    /**
+     * @brief Shows or hides the job log view
+     * @param visible True to show, false to hide
+     * @since 2.8
+     */
+    void setLogViewVisible(bool visible);
+
+    /**
+     * @brief Returns the log view widget
+     * @return Pointer to log view
+     * @since 2.8
+     */
+    QListView* logView() const { return m_logView; }
+
+    /**
+     * @brief Returns the log model
+     * @return Pointer to log model
+     * @since 2.8
+     */
+    BJobLogModel* logModel() const { return m_logModel; }
+
 public slots:
     /**
      * @brief Processes JSON response data from BDirector
@@ -126,6 +151,27 @@ public slots:
      * @since 2.7
      */
     void processDotLevelsResponse(const QString &jsonData);
+
+    /**
+     * @brief Processes .filesets dot-command response
+     * @param jsonData JSON response from .filesets command
+     * @since 2.8
+     */
+    void processDotFilesetsResponse(const QString &jsonData);
+
+    /**
+     * @brief Processes .storages dot-command response
+     * @param jsonData JSON response from .storages command
+     * @since 2.8
+     */
+    void processDotStoragesResponse(const QString &jsonData);
+
+    /**
+     * @brief Processes .pools dot-command response
+     * @param jsonData JSON response from .pools command
+     * @since 2.8
+     */
+    void processDotPoolsResponse(const QString &jsonData);
 
     /**
      * @brief Updates UI based on connection state
@@ -224,6 +270,20 @@ private slots:
      */
     void do_toggleFilters(bool visible);
 
+    /**
+     * @brief Processes job log response for the selected job
+     * @param command The command that was sent
+     * @param jsonData JSON response containing job log
+     * @since 2.8
+     */
+    void onJobLogReceived(const QString &command, const QString &jsonData);
+
+    /**
+     * @brief Loads the job log for the currently selected job
+     * @since 2.8
+     */
+    void loadSelectedJobLog();
+
 private:
     /**
      * @brief Sets up the user interface
@@ -260,11 +320,22 @@ private:
     BPaginationWidget *m_paginationWidget;  ///< Pagination controls
     BJobsStatisticsWidget *m_statsWidget;       ///< Statistics display (optional)
 
+    // Job Log Display
+    QListView *m_logView;                   ///< Log view for selected job
+    BJobLogModel *m_logModel;               ///< Log model
+    QLabel *m_logTitleLabel;                ///< Title label for log section
+    QWidget *m_logContainer;                ///< Container for log section
+
     // Integrated filter controls (from BJobsFilterWidget)
     QComboBox *m_nameFilter;                ///< Job name filter (editable combo box)
     QComboBox *m_clientFilter;              ///< Client name filter (editable combo box)
     BFilterComboModel *m_filterComboModel;  ///< Model for combo box data
-    
+
+    // Configuration data combo boxes (display selected job info)
+    QComboBox *m_filesetCombo;              ///< FileSet combo box (read-only, shows current selection)
+    QComboBox *m_storageCombo;              ///< Storage combo box (read-only, shows current selection)
+    QComboBox *m_poolCombo;                 ///< Pool combo box (read-only, shows current selection)
+
     QCheckBox *m_statusSuccess;             ///< Filter: Successful (T)
     QCheckBox *m_statusWarning;             ///< Filter: Warning (W)
     QCheckBox *m_statusFailed;              ///< Filter: Failed (f)
@@ -297,6 +368,17 @@ private:
     bool m_filtersVisible;                  ///< Filter visibility state
 
     BDirector *m_director;                  ///< Director connection for job operations
+
+    // Central data storage (loaded on connect, available for dialogs)
+    QStringList m_filesetNames;             ///< All available fileset names
+    QStringList m_storageNames;             ///< All available storage names
+    QStringList m_poolNames;                ///< All available pool names
+
+public:
+    // Accessor methods for other dialogs to use
+    const QStringList& filesetNames() const { return m_filesetNames; }
+    const QStringList& storageNames() const { return m_storageNames; }
+    const QStringList& poolNames() const { return m_poolNames; }
 };
 
 #endif // BJOBWIDGET_H

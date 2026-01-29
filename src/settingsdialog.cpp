@@ -10,6 +10,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
+#include <QColorDialog>
 
 SettingsDialog::SettingsDialog(BDirector *director, QWidget *parent)
     : QDialog(parent)
@@ -396,6 +397,42 @@ void SettingsDialog::createAppearancePage()
     uiLayout->addWidget(m_compactModeCheck);
 
     layout->addWidget(uiGroup);
+
+    // Backup Level Colors
+    QGroupBox *levelColorsGroup = new QGroupBox("Backup-Level Farben");
+    levelColorsGroup->setObjectName("settingsGroup");
+    QFormLayout *levelColorsLayout = new QFormLayout(levelColorsGroup);
+    levelColorsLayout->setSpacing(12);
+
+    // Full Backup Color
+    m_colorButtonFull = new QPushButton();
+    m_colorButtonFull->setMinimumSize(80, 30);
+    m_colorButtonFull->setCursor(Qt::PointingHandCursor);
+    connect(m_colorButtonFull, &QPushButton::clicked, this, &SettingsDialog::onChooseColorFull);
+    levelColorsLayout->addRow("Full (F):", m_colorButtonFull);
+
+    // Incremental Backup Color
+    m_colorButtonIncremental = new QPushButton();
+    m_colorButtonIncremental->setMinimumSize(80, 30);
+    m_colorButtonIncremental->setCursor(Qt::PointingHandCursor);
+    connect(m_colorButtonIncremental, &QPushButton::clicked, this, &SettingsDialog::onChooseColorIncremental);
+    levelColorsLayout->addRow("Incremental (I):", m_colorButtonIncremental);
+
+    // Differential Backup Color
+    m_colorButtonDifferential = new QPushButton();
+    m_colorButtonDifferential->setMinimumSize(80, 30);
+    m_colorButtonDifferential->setCursor(Qt::PointingHandCursor);
+    connect(m_colorButtonDifferential, &QPushButton::clicked, this, &SettingsDialog::onChooseColorDifferential);
+    levelColorsLayout->addRow("Differential (D):", m_colorButtonDifferential);
+
+    // Virtual Full Backup Color
+    m_colorButtonVirtualFull = new QPushButton();
+    m_colorButtonVirtualFull->setMinimumSize(80, 30);
+    m_colorButtonVirtualFull->setCursor(Qt::PointingHandCursor);
+    connect(m_colorButtonVirtualFull, &QPushButton::clicked, this, &SettingsDialog::onChooseColorVirtualFull);
+    levelColorsLayout->addRow("Virtual Full (V):", m_colorButtonVirtualFull);
+
+    layout->addWidget(levelColorsGroup);
 
     layout->addStretch();
 
@@ -829,6 +866,31 @@ void SettingsDialog::loadSettings()
     m_animationsCheck->setChecked(settings.appearanceAnimations());
     m_compactModeCheck->setChecked(settings.appearanceCompactMode());
 
+    // Level Colors
+    QColor colorFull = settings.levelColor("F");
+    if (colorFull.isValid()) {
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorFull.name());
+        m_colorButtonFull->setStyleSheet(styleSheet);
+    }
+
+    QColor colorIncremental = settings.levelColor("I");
+    if (colorIncremental.isValid()) {
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorIncremental.name());
+        m_colorButtonIncremental->setStyleSheet(styleSheet);
+    }
+
+    QColor colorDifferential = settings.levelColor("D");
+    if (colorDifferential.isValid()) {
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorDifferential.name());
+        m_colorButtonDifferential->setStyleSheet(styleSheet);
+    }
+
+    QColor colorVirtualFull = settings.levelColor("V");
+    if (colorVirtualFull.isValid()) {
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorVirtualFull.name());
+        m_colorButtonVirtualFull->setStyleSheet(styleSheet);
+    }
+
     // Behavior
     m_confirmJobCancelCheck->setChecked(settings.behaviorConfirmJobCancel());
     m_autoRefreshCheck->setChecked(settings.behaviorAutoRefresh());
@@ -1030,5 +1092,61 @@ void SettingsDialog::onClearStoredConnections()
         loadSettings();
         QMessageBox::information(this, "Gelöscht",
             "Alle gespeicherten Verbindungsinformationen wurden gelöscht.");
+    }
+}
+
+void SettingsDialog::onChooseColorFull()
+{
+    QColor currentColor = BSettings::instance().levelColor("F");
+    QColor newColor = QColorDialog::getColor(currentColor, this, "Farbe für Full Backup wählen");
+
+    if (newColor.isValid() && newColor != currentColor) {
+        BSettings::instance().setLevelColor("F", newColor);
+
+        // Update button color
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
+        m_colorButtonFull->setStyleSheet(styleSheet);
+    }
+}
+
+void SettingsDialog::onChooseColorIncremental()
+{
+    QColor currentColor = BSettings::instance().levelColor("I");
+    QColor newColor = QColorDialog::getColor(currentColor, this, "Farbe für Incremental Backup wählen");
+
+    if (newColor.isValid() && newColor != currentColor) {
+        BSettings::instance().setLevelColor("I", newColor);
+
+        // Update button color
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
+        m_colorButtonIncremental->setStyleSheet(styleSheet);
+    }
+}
+
+void SettingsDialog::onChooseColorDifferential()
+{
+    QColor currentColor = BSettings::instance().levelColor("D");
+    QColor newColor = QColorDialog::getColor(currentColor, this, "Farbe für Differential Backup wählen");
+
+    if (newColor.isValid() && newColor != currentColor) {
+        BSettings::instance().setLevelColor("D", newColor);
+
+        // Update button color
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
+        m_colorButtonDifferential->setStyleSheet(styleSheet);
+    }
+}
+
+void SettingsDialog::onChooseColorVirtualFull()
+{
+    QColor currentColor = BSettings::instance().levelColor("V");
+    QColor newColor = QColorDialog::getColor(currentColor, this, "Farbe für Virtual Full Backup wählen");
+
+    if (newColor.isValid() && newColor != currentColor) {
+        BSettings::instance().setLevelColor("V", newColor);
+
+        // Update button color
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
+        m_colorButtonVirtualFull->setStyleSheet(styleSheet);
     }
 }

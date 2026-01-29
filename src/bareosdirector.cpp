@@ -654,6 +654,7 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
     }
 
     // API-Response (JSON)?
+    // First try direct match
     if (message.startsWith("{") || message.startsWith("[")) {
 #ifdef IS_DEVELOPER
         qDebug() << "📄 JSON Response:";
@@ -661,8 +662,38 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
 #endif
         emit jsonResponse(m_lastCommand, message);
     } else {
-        emit commandResponse(m_lastCommand, message);
-        return;
+        // Try to find JSON after trimming and removing leading garbage
+        QString cleaned = message.trimmed();
+
+        // Remove BOM if present
+        if (!cleaned.isEmpty() && cleaned.at(0) == QChar(0xFEFF)) {
+            cleaned = cleaned.mid(1);
+        }
+
+        // Find first JSON delimiter
+        int jsonStart = -1;
+        for (int i = 0; i < cleaned.length(); ++i) {
+            QChar c = cleaned.at(i);
+            if (c == '{' || c == '[') {
+                jsonStart = i;
+                break;
+            }
+        }
+
+        // If we found JSON after some garbage, extract and emit as jsonResponse
+        if (jsonStart > 0) {
+            qDebug() << "BareosDirector: Found JSON at position" << jsonStart << "- removing leading garbage";
+            QString jsonPart = cleaned.mid(jsonStart);
+#ifdef IS_DEVELOPER
+            qDebug() << "📄 JSON Response (cleaned):";
+            qDebug() << jsonPart;
+#endif
+            emit jsonResponse(m_lastCommand, jsonPart);
+        } else {
+            // Not JSON, emit as command response
+            emit commandResponse(m_lastCommand, message);
+            return;
+        }
     }
 
     // Status-Nachricht (1000, 1002, etc.)?

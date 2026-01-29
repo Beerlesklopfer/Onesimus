@@ -68,6 +68,15 @@ MainWindow::MainWindow(QWidget *parent)
         m_toggleStatisticsAction->setChecked(visible);
         // Save statistics widget visibility state
         BSettings::instance().setStatisticsWidgetVisible(visible);
+
+        if (!visible) {
+            // Restore previous window size when hiding statistics
+            if (!m_sizeBeforeStatistics.isEmpty()) {
+                QTimer::singleShot(100, this, [this]() {
+                    resize(m_sizeBeforeStatistics);
+                });
+            }
+        }
     });
 
     connect(m_director, &BDirector::disconnected, this, [this]() {
@@ -314,7 +323,23 @@ void MainWindow::createActions()
     m_toggleStatisticsAction->setIcon(QIcon::fromTheme("view-statistics"));
     m_toggleStatisticsAction->setShortcut(QKeySequence("Ctrl+Shift+S"));
     connect(m_toggleStatisticsAction, &QAction::toggled, this, [this](bool checked) {
+        if (checked) {
+            // Save current window size before showing statistics
+            m_sizeBeforeStatistics = size();
+        }
         m_statisticsDock->setVisible(checked);
+    });
+
+    m_toggleJobLogAction = new QAction("Job Log anzeigen", this);
+    m_toggleJobLogAction->setCheckable(true);
+    m_toggleJobLogAction->setChecked(true);  // Standardmäßig sichtbar
+    m_toggleJobLogAction->setEnabled(false);  // Nur bei Verbindung aktiv
+    m_toggleJobLogAction->setIcon(QIcon::fromTheme("view-list-details"));
+    m_toggleJobLogAction->setShortcut(QKeySequence("Ctrl+Shift+L"));
+    connect(m_toggleJobLogAction, &QAction::toggled, this, [this](bool checked) {
+        if (m_jobWidget) {
+            m_jobWidget->setLogViewVisible(checked);
+        }
     });
 
     // Jobs Actions
@@ -401,6 +426,7 @@ void MainWindow::createMenus()
     // Ansicht Menü
     m_viewMenu = menuBar()->addMenu("Ansicht");
     m_viewMenu->addAction(m_toggleStatisticsAction);
+    m_viewMenu->addAction(m_toggleJobLogAction);
 
     // Jobs Menü
     m_jobsMenu = menuBar()->addMenu("Jobs");
@@ -453,6 +479,12 @@ void MainWindow::createToolBar()
 
     connect(m_toggleStatisticsButton, &QPushButton::clicked, this, [this]() {
         bool isVisible = m_statisticsDock->isVisible();
+
+        if (!isVisible) {
+            // Save current window size before showing statistics
+            m_sizeBeforeStatistics = size();
+        }
+
         m_statisticsDock->setVisible(!isVisible);
         m_toggleStatisticsButton->setText(isVisible ? "Statistiken ▶" : "Statistiken ▼");
 
@@ -797,13 +829,21 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     m_refreshAction->setEnabled(connected);
     m_toggleStatisticsAction->setEnabled(connected);  // ✅ Statistiken nur bei Verbindung
     m_toggleStatisticsButton->setEnabled(connected);  // ✅ Toolbar-Button synchronisieren
+    m_toggleJobLogAction->setEnabled(connected);  // ✅ Job Log nur bei Verbindung
     m_tabWidget->setEnabled(connected);
 
     // Update job menu actions
     m_refreshJobsAction->setEnabled(connected);
     m_exportJobsJsonAction->setEnabled(connected);
     m_exportJobsCsvAction->setEnabled(connected);
-    // Job control actions (run, cancel, details) werden durch Job-Widget Selection gesteuert
+
+    // Job control actions
+    m_runJobAction->setEnabled(connected);  // Run job can be used without selection (enter job name)
+    // Cancel and Details require job selection, so they stay disabled until selection changes
+    if (!connected) {
+        m_cancelJobAction->setEnabled(false);
+        m_jobDetailsAction->setEnabled(false);
+    }
 
     // Update client menu actions
     m_refreshClientsAction->setEnabled(connected);

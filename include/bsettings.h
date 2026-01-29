@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QSettings>
 #include <QString>
+#include <QColor>
 
 /**
  * @brief Centralized settings management for Onesimus
@@ -94,6 +95,10 @@ public:
     bool appearanceCompactMode() const;
     void setAppearanceCompactMode(bool compact);
 
+    // Level Colors
+    QColor levelColor(const QString& level) const;
+    void setLevelColor(const QString& level, const QColor& color);
+
     // ========================================================================
     // Behavior Settings
     // ========================================================================
@@ -139,6 +144,26 @@ public:
 
     bool jobsAutoRefresh() const;
     void setJobsAutoRefresh(bool enabled);
+
+    // Jobs Widget Filters
+    QMap<QString, bool> jobsFilterCheckboxes() const;
+    void setJobsFilterCheckboxes(const QMap<QString, bool>& checkboxes);
+    bool jobsFilterCheckbox(const QString& key, bool defaultValue = true) const;
+    void setJobsFilterCheckbox(const QString& key, bool value);
+
+    QMap<QString, int> jobsFilterComboboxes() const;
+    void setJobsFilterComboboxes(const QMap<QString, int>& comboboxes);
+    int jobsFilterCombobox(const QString& key, int defaultValue = 0) const;
+    void setJobsFilterCombobox(const QString& key, int value);
+
+    bool jobsFilterDateEnabled() const;
+    void setJobsFilterDateEnabled(bool enabled);
+
+    QDateTime jobsFilterDateFrom() const;
+    void setJobsFilterDateFrom(const QDateTime& dateTime);
+
+    QDateTime jobsFilterDateTo() const;
+    void setJobsFilterDateTo(const QDateTime& dateTime);
 
     // Clients Widget State
     bool clientsShowOffline() const;

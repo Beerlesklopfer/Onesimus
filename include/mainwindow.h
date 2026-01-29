@@ -127,6 +127,7 @@ private:
     QAction *m_cancelJobAction;
     QAction *m_jobDetailsAction;
     QAction *m_refreshJobsAction;
+    QAction *m_toggleJobLogAction;
     QAction *m_exportJobsJsonAction;
     QAction *m_exportJobsCsvAction;
 
@@ -156,6 +157,9 @@ private:
 
     // Auto-refresh
     QTimer *m_autoRefreshTimer;
+
+    // Window size management
+    QSize m_sizeBeforeStatistics;  ///< Fenstergröße vor Einblendung der Statistiken
 };
 
 #endif // MAINWINDOW_H

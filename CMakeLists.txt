@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Onesimus VERSION 1.0.0 LANGUAGES CXX)
+project(onesimus VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -355,15 +355,14 @@ set(SOURCES
     src/settingsdialog.cpp
     src/storagewidget.cpp
 
-    src/jobs/bfiltercombomodel.cpp
+    src/jobs/bjobmodels.cpp
     src/jobs/bjobdetailsdialog.cpp
-    src/jobs/bjoblogmodel.cpp
-    src/jobs/bjobsfiltermodel.cpp
+    src/jobs/bjoblogdialog.cpp
     src/jobs/bjobsfilterwidget.cpp
-    src/jobs/bjobsmodel.cpp
     src/jobs/bjobsstatisticswidget.cpp
     src/jobs/bjobwidget.cpp
     src/jobs/bjsonjobview.cpp
+    src/jobs/bnewjobdialog.cpp
 
     src/schedules/bschedulewidget.cpp
     src/schedules/bweeklyplanner.cpp
@@ -403,16 +402,16 @@ set(HEADERS
     include/version.h
 
     include/jobs/bcheckboxdelegate.h
-    include/jobs/bfiltercombomodel.h
+    include/jobs/bjobmodels.h
     include/jobs/bjobdetailsdialog.h
-    include/jobs/bjoblogmodel.h
-    include/jobs/bjobsfiltermodel.h
+    include/jobs/bjoblogdialog.h
     include/jobs/bjobsfilterwidget.h
-    include/jobs/bjobsmodel.h
     include/jobs/bjobsstatisticswidget.h
     include/jobs/bjobwidget.h
     include/jobs/bjsonjobview.h
     include/jobs/bviewpresets.h
+    include/jobs/blevelcolors.h
+    include/jobs/bnewjobdialog.h
 
     include/clients/bclientsmodel.h
     include/clients/bclientswidget.h
@@ -606,4 +605,147 @@ if(USE_STATIC_OPENSSL AND WIN32)
         message(STATUS "========================================")
         message(STATUS "")
     endif()
+endif()
+
+# ============================================================================
+# Windows Deployment (windeployqt)
+# ============================================================================
+
+if(WIN32)
+    # Find windeployqt
+    get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(QT_BIN_DIR ${QT_QMAKE_EXECUTABLE} DIRECTORY)
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${QT_BIN_DIR})
+
+    if(WINDEPLOYQT_EXECUTABLE)
+        message(STATUS "")
+        message(STATUS "========================================")
+        message(STATUS "Windows Deployment")
+        message(STATUS "========================================")
+        message(STATUS "  windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
+        message(STATUS "")
+        message(STATUS "After building, run:")
+        message(STATUS "  nmake deploy")
+        message(STATUS "  nmake package  (to create installer)")
+        message(STATUS "========================================")
+        message(STATUS "")
+
+        # Custom target for deployment
+        add_custom_target(deploy
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/deploy"
+            COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/deploy/"
+            COMMAND ${WINDEPLOYQT_EXECUTABLE} --release --no-translations "${CMAKE_BINARY_DIR}/deploy/${PROJECT_NAME}.exe"
+            DEPENDS ${PROJECT_NAME}
+            COMMENT "Running windeployqt to collect Qt dependencies..."
+        )
+    endif()
+endif()
+
+# ============================================================================
+# Linux AppImage
+# ============================================================================
+
+if(UNIX AND NOT APPLE)
+    message(STATUS "")
+    message(STATUS "========================================")
+    message(STATUS "Linux Deployment (AppImage)")
+    message(STATUS "========================================")
+    message(STATUS "After building, run:")
+    message(STATUS "  make appimage")
+    message(STATUS "========================================")
+    message(STATUS "")
+
+    # Custom target for AppImage creation
+    add_custom_target(appimage
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/AppDir/usr/bin"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/AppDir/usr/share/applications"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/AppDir/usr/share/icons/hicolor/256x256/apps"
+        COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/AppDir/usr/bin/"
+        COMMAND ${CMAKE_COMMAND} -E echo "[Desktop Entry]\\nType=Application\\nName=Onesimus\\nExec=${PROJECT_NAME}\\nIcon=${PROJECT_NAME}\\nCategories=Utility;" > "${CMAKE_BINARY_DIR}/AppDir/usr/share/applications/${PROJECT_NAME}.desktop"
+        COMMAND ${CMAKE_COMMAND} -E echo "AppImage target prepared. Download linuxdeploy from https://github.com/linuxdeploy/linuxdeploy/releases"
+        COMMAND ${CMAKE_COMMAND} -E echo "Then run: linuxdeploy --appdir AppDir --plugin qt --output appimage"
+        DEPENDS ${PROJECT_NAME}
+        COMMENT "Preparing AppImage directory structure..."
+        VERBATIM
+    )
+endif()
+
+# ============================================================================
+# macOS Deployment (macdeployqt)
+# ============================================================================
+
+if(APPLE)
+    # Find macdeployqt
+    get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
+    get_filename_component(QT_BIN_DIR ${QT_QMAKE_EXECUTABLE} DIRECTORY)
+    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS ${QT_BIN_DIR})
+
+    if(MACDEPLOYQT_EXECUTABLE)
+        message(STATUS "")
+        message(STATUS "========================================")
+        message(STATUS "macOS Deployment")
+        message(STATUS "========================================")
+        message(STATUS "  macdeployqt: ${MACDEPLOYQT_EXECUTABLE}")
+        message(STATUS "")
+        message(STATUS "After building, run:")
+        message(STATUS "  make deploy")
+        message(STATUS "  make dmg (to create DMG)")
+        message(STATUS "========================================")
+        message(STATUS "")
+
+        # Custom target for deployment
+        add_custom_target(deploy
+            COMMAND ${MACDEPLOYQT_EXECUTABLE} "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../.." -always-overwrite
+            DEPENDS ${PROJECT_NAME}
+            COMMENT "Running macdeployqt to collect Qt dependencies..."
+        )
+
+        # Custom target for DMG creation
+        add_custom_target(dmg
+            COMMAND ${MACDEPLOYQT_EXECUTABLE} "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../.." -dmg
+            DEPENDS deploy
+            COMMENT "Creating DMG installer..."
+        )
+    endif()
+endif()
+
+# ============================================================================
+# CPack Configuration (Windows Installer)
+# ============================================================================
+
+include(CPack)
+
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VENDOR "Bernau Family")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Onesimus - Bareos Management Tool")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
+
+if(WIN32)
+    # NSIS Generator for Windows
+    set(CPACK_GENERATOR "NSIS")
+    set(CPACK_NSIS_DISPLAY_NAME "${PROJECT_NAME}")
+    set(CPACK_NSIS_PACKAGE_NAME "${PROJECT_NAME}")
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
+    set(CPACK_NSIS_MODIFY_PATH ON)
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/resources/icon.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/resources/icon.ico")
+
+    # Install the deployed files
+    install(DIRECTORY "${CMAKE_BINARY_DIR}/deploy/" DESTINATION bin)
+elseif(APPLE)
+    # DMG Generator for macOS
+    set(CPACK_GENERATOR "DragNDrop")
+    set(CPACK_DMG_VOLUME_NAME "${PROJECT_NAME}")
+    set(CPACK_DMG_FORMAT "UDZO")
+elseif(UNIX)
+    # DEB and RPM for Linux
+    set(CPACK_GENERATOR "DEB;RPM")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joerg Bernau <joerg@bernau.family>")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6, libqt6gui6, libqt6widgets6, libqt6network6")
+    set(CPACK_RPM_PACKAGE_LICENSE "Proprietary")
+    set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= 6.2")
 endif()

@@ -8,7 +8,7 @@
 #include <QSpinBox>
 #include <QPushButton>
 #include <QGroupBox>
-#include "bjobsfiltermodel.h"
+#include "jobs/bjobmodels.h"
 
 /**
  * @brief Widget providing UI controls for filtering jobs

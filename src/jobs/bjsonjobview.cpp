@@ -1,5 +1,6 @@
 #include "jobs/bjsonjobview.h"
 #include "jobs/bjobdetailsdialog.h"
+#include "jobs/bjoblogdialog.h"
 #include <QHeaderView>
 #include <QMouseEvent>
 #include <QContextMenuEvent>
@@ -18,6 +19,7 @@ BJsonJobView::BJsonJobView(QWidget *parent)
     , m_liveUpdateTimer(new QTimer(this))
     , m_columnConfig(new BColumnConfiguration(this))
     , m_autoSaveTimer(new QTimer(this))
+    , m_director(nullptr)
 {
     // Setup filter model
     m_filterModel->setSourceModel(m_model);
@@ -188,6 +190,27 @@ void BJsonJobView::appendJobsData(const QJsonArray &jobs)
 QSet<QString> BJsonJobView::selectedJobIds() const
 {
     return m_model->selectedJobIds();
+}
+
+QJsonObject BJsonJobView::getSelectedJob() const
+{
+    QSet<QString> selectedIds = selectedJobIds();
+    if (selectedIds.isEmpty()) {
+        return QJsonObject();
+    }
+
+    // Get first selected job ID
+    QString firstJobId = *selectedIds.begin();
+
+    // Find the job in the model
+    for (int row = 0; row < m_model->rowCount(); ++row) {
+        QJsonObject job = m_model->jobAt(row);
+        if (job["jobid"].toString() == firstJobId) {
+            return job;
+        }
+    }
+
+    return QJsonObject();
 }
 
 void BJsonJobView::clearSelection()
@@ -501,10 +524,15 @@ void BJsonJobView::viewJobLog()
     QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
     QJsonObject job = m_model->jobAt(sourceIndex.row());
 
-    QString jobId = job["jobid"].toString();
+    if (!m_director) {
+        QMessageBox::warning(this, tr("Keine Verbindung"),
+                           tr("Keine Verbindung zum Director verfügbar."));
+        return;
+    }
 
-    // Request job log from Director
-    emit jobActionRequested("list", QString("joblog jobid=%1").arg(jobId));
+    // Open job log dialog
+    BJobLogDialog dialog(job, m_director, this);
+    dialog.exec();
 }
 
 void BJsonJobView::saveViewPreset(const QString &name)

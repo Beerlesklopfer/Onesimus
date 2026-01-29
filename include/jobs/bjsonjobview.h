@@ -4,8 +4,7 @@
 #include <QTableView>
 #include <QMenu>
 #include <QTimer>
-#include "bjobsmodel.h"
-#include "bjobsfiltermodel.h"
+#include "jobs/bjobmodels.h"
 #include "bcheckboxdelegate.h"
 #include "bcheckableheaderview.h"
 #include "bviewpresets.h"
@@ -67,7 +66,14 @@ public:
      * @since 1.0
      */
     QSet<QString> selectedJobIds() const;
-    
+
+    /**
+     * @brief Returns the first selected job as JSON object
+     * @return QJsonObject of first selected job, or empty object if none selected
+     * @since 2.8
+     */
+    QJsonObject getSelectedJob() const;
+
     /**
      * @brief Clears all selections
      * @since 1.0
@@ -128,6 +134,13 @@ public:
      * @since 2.4
      */
     void restoreLastState();
+
+    /**
+     * @brief Sets the Director connection for job operations
+     * @param director Pointer to BDirector
+     * @since 2.8
+     */
+    void setDirector(class BDirector *director) { m_director = director; }
 
 public slots:
     /**
@@ -231,6 +244,7 @@ private:
     QTimer *m_liveUpdateTimer;              ///< Timer for live updates
     BColumnConfiguration *m_columnConfig;   ///< Column configuration manager
     QTimer *m_autoSaveTimer;                ///< Auto-save timer for column changes
+    class BDirector *m_director;            ///< Director connection for job operations
     
     // Context menu actions
     QAction *m_actionDetails;               ///< Show details action
