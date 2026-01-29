@@ -1,51 +1,48 @@
-#ifndef DIRECTOR_H
-#define DIRECTOR_H
+#ifndef BDIRECTOR_H
+#define BDIRECTOR_H
+
+#include <QObject>
+#include <QThread>
 
 // ============================================================================
 // Backend-Auswahl über Präprozessor
 // ============================================================================
-// USE_BACULA_ONLY  -> Bacula Backend (BaculaAuth)
-// USE_BAREOS_ONLY  -> Bareos Backend (BareosAuth)
+// USE_BACULA_ONLY  -> Bacula Backend (BaculaDirector)
+// USE_BAREOS_ONLY  -> Bareos Backend (BareosDirector)
 // Wenn keines definiert ist, wird standardmäßig Bareos verwendet
 // ============================================================================
 
 #ifdef USE_BACULA_ONLY
-#include "baculaauth.h"
-#define AUTH_CLASS BaculaAuth
+// TODO: Implement BaculaDirector
+// #include "baculadirector.h"
+// #define DIRECTOR_CLASS BaculaDirector
+#error "Bacula backend not yet implemented. Please use Bareos (default) or implement BaculaDirector first."
 #elif defined(USE_BAREOS_ONLY)
-#include "bareosauth.h"
-#define AUTH_CLASS BareosAuth
+#include "bareosdirector.h"
+#define DIRECTOR_CLASS BareosDirector
 #else
 // Default: Bareos
-#include "bareosauth.h"
-#define AUTH_CLASS BareosAuth
+#include "bareosdirector.h"
+#define DIRECTOR_CLASS BareosDirector
 #define USE_BAREOS_ONLY
 #endif
 
-#include <QObject>
-#include <QString>
-#include <QByteArray>
-#include <QTimer>
-#include <QSettings>
-#include <QSslSocket>
-#include <QSslConfiguration>
-#include <QSslCertificate>
-#include <QSslKey>
-#include <QFile>
-#include <QDateTime>
-#include <QRegularExpression>
-#include <QMetaObject>
-#include <QThread>
-#include <QMutex>
-#include <QMutexLocker>
-#include <QWaitCondition>
-
 /**
- * @file director.h
- * @brief Qt-based Bacula/Bareos Director Communication Interface
+ * @file bdirector.h
+ * @brief Wrapper class for Bareos/Bacula Director communication
  *
- * This class provides a high-level interface for communicating with
- * Bacula or Bareos Director daemons via bconsole protocol.
+ * This class provides a thread-safe wrapper around the actual director implementations.
+ * It runs in the main thread and forwards all calls to the actual director instance
+ * which runs in its own worker thread.
+ *
+ * The backend (Bacula or Bareos) is determined at compile time via:
+ * - USE_BACULA_ONLY: Uses BaculaDirector (not yet implemented)
+ * - USE_BAREOS_ONLY: Uses BareosDirector (default)
+ *
+ * Architecture:
+ * - BDirector: Wrapper (runs in MainThread)
+ * - BareosDirector/BaculaDirector: Implementation (runs in WorkerThread)
+ * - Auth: Authentication (runs in WorkerThread)
  *
  * @author Joerg Bernau <Joerg@bernau.family>
  * @date 2025
@@ -53,481 +50,249 @@
  */
 
 /**
- * @class Director
- * @brief Main interface for Bacula/Bareos Director communication
+ * @class BDirector
+ * @brief Thread-safe wrapper for Director communication
  *
- * The Director class manages connections, authentication, and command
- * execution with Bacula/Bareos Director daemons. It supports both
- * plain TCP and TLS-encrypted connections.
+ * This class wraps the actual director implementation and provides thread-safe
+ * access from the main thread. All method calls are forwarded to the director
+ * instance running in a worker thread.
  *
- * ## Features
- * - Automatic backend selection (Bacula/Bareos) at compile time
- * - TLS/SSL support with certificate and PSK authentication
- * - CRAM-MD5 authentication
- * - Asynchronous command execution
- * - Type-safe command enum
- * - Connection settings persistence
- *
- * ## Backend Selection
- * The backend is selected at compile time via preprocessor defines:
- * - `USE_BACULA_ONLY`: Uses BaculaAuth backend
- * - `USE_BAREOS_ONLY`: Uses BareosAuth backend (default)
- *
- * ## Usage Example
+ * Usage Example:
  * @code
- * Director *director = new Director(this);
- *
- * // Configure TLS
- * Director::TLSConfig tlsConfig;
- * tlsConfig.tlsEnable = true;
- * tlsConfig.tlsPSKEnable = true;
- * director->setTLSConfig(tlsConfig);
+ * BDirector *director = new BDirector(this);
  *
  * // Connect signals
- * connect(director, &Director::connected, this, &MyClass::onConnected);
- * connect(director, &Director::commandResponse, this, &MyClass::onResponse);
+ * connect(director, &BDirector::connected, this, &MyClass::onConnected);
+ * connect(director, &BDirector::jsonResponse, this, &MyClass::onResponse);
  *
  * // Connect to Director
  * director->connect("192.168.1.10", 9101, "bareos-dir", "mypassword");
  *
- * // Send commands using enum
- * director->doSendCommand(Director::Command::ListJobs);
- * director->doSendCommand(Director::Command::StatusDirector);
- * director->doSendCommand(Director::Command::ListJobsLast, "50");
+ * // Send commands
+ * director->doSendCommand(BDirector::Command::ListJobs);
  * @endcode
- *
- * @since 1.0.0
- * @version 1.0.0
  */
-class BDirector : public QThread
+class BDirector : public QObject
 {
     Q_OBJECT
 
 public:
-    /**
-     * @enum ConnectionState
-     * @brief Current connection state
-     */
-    enum ConnectionState {
-        Disconnected,    ///< Not connected
-        Connecting,      ///< TCP connection in progress
-        Authenticating,  ///< CRAM-MD5 authentication in progress
-        Ready            ///< Connected and authenticated, ready for commands
-    };
+    // Re-export types from the actual director implementation (BareosDirector or BaculaDirector)
+    using ConnectionState = DIRECTOR_CLASS::ConnectionState;
+    using ApiMode = DIRECTOR_CLASS::ApiMode;
+    using Command = DIRECTOR_CLASS::Command;
+    using JobStatus = DIRECTOR_CLASS::JobStatus;
+    using TLSConfig = DIRECTOR_CLASS::TLSConfig;
+    using VolumeInfo = DIRECTOR_CLASS::VolumeInfo;
+    using JobInfo = DIRECTOR_CLASS::JobInfo;
+    using ClientInfo = DIRECTOR_CLASS::ClientInfo;
 
     /**
-     * @enum ApiMode
-     * @brief API output modes for Director responses
+     * @brief Constructor
+     * @param parent Parent QObject
      *
-     * Controls the format of Director responses. Different modes provide
-     * different levels of structure and machine-readability.
-     *
-     * @see https://docs.bareos.org/DeveloperGuide/api.html
+     * Creates the wrapper and the underlying BareosDirector instance.
+     * The director thread is started automatically.
      */
-    enum ApiMode {
-        Off = 0,         ///< No API mode (human-readable text)
-        Json = 1,        ///< Compact JSON output
-        JsonPretty = 2   ///< Pretty-printed JSON output
-    };
-
-    /**
-     * @enum Command
-     * @brief Bareos/Bacula Director commands
-     *
-     * Standard bconsole commands that can be sent to the Director.
-     * Commands are grouped by functionality.
-     */
-    enum class Command {
-        // Connection & Session
-        ApiMode,            ///< .api [mode] - Set API output mode
-        Quit,               ///< quit - Close connection
-        Exit,               ///< exit - Alias for quit
-
-        // Status Commands
-        StatusDirector,     ///< status director
-        StatusClient,       ///< status client=<name>
-        StatusStorage,      ///< status storage=<name>
-        StatusScheduler,    ///< status scheduler
-        StatusRunning,      ///< status running
-        StatusSubscriptions,///< status subscriptions (Bareos only)
-
-        // List Commands
-        ListJobs,           ///< list jobs
-        ListJobsLast,       ///< list jobs last=<n>
-        ListJobId,          ///< list joblog jobid=<id>
-        ListClients,        ///< list clients
-        ListPools,          ///< list pools
-        ListVolumes,        ///< list volumes
-        ListVolumePool,     ///< list volumes pool=<name>
-        ListMedia,          ///< list media
-        ListFileSets,       ///< list filesets
-        ListFiles,          ///< list files jobid=<id>
-        ListNextVolume,     ///< list nextvol job=<name>
-        ListBackups,        ///< list backups
-        ListBackupsClient,  ///< list backups client=<name>
-
-        // Job Control
-        Run,                ///< run job=<name>
-        RunYes,             ///< run job=<name> yes
-        Cancel,             ///< cancel jobid=<id>
-        Delete,             ///< delete job jobid=<id>
-        Disable,            ///< disable job=<name>
-        Enable,             ///< enable job=<name>
-        Rerun,              ///< rerun jobid=<id>
-
-        // Restore
-        Restore,            ///< restore
-        RestoreAll,         ///< restore all
-        RestoreSelect,      ///< restore select
-
-        // Volume Management
-        Label,              ///< label
-        Relabel,            ///< relabel
-        Mount,              ///< mount storage=<name>
-        Unmount,            ///< unmount storage=<name>
-        Release,            ///< release storage=<name>
-        Update,             ///< update
-        UpdateVolume,       ///< update volume=<name>
-        Purge,              ///< purge volume=<name>
-        Prune,              ///< prune
-        PruneFiles,         ///< prune files
-        PruneJobs,          ///< prune jobs
-        PruneVolume,        ///< prune volume
-
-        // Console Commands
-        Show,               ///< show
-        ShowJobs,           ///< show jobs
-        ShowClients,        ///< show clients
-        ShowFilesets,       ///< show filesets
-        ShowSchedules,      ///< show schedules
-        ShowPools,          ///< show pools
-        ShowStorages,       ///< show storages
-        ShowCatalogs,       ///< show catalogs
-        ShowMessages,       ///< show messages
-        ShowAll,            ///< show all
-
-        // Messages
-        Messages,           ///< messages
-
-        // Catalog
-        SqlQuery,           ///< sqlquery
-        Query,              ///< query
-
-        // Testing & Debugging
-        Estimate,           ///< estimate
-        Time,               ///< time
-        Trace,              ///< trace on|off
-        Version,            ///< version
-        Memory,             ///< memory
-
-        // Configuration
-        Reload,             ///< reload
-        Configure,          ///< configure (Bareos only)
-        Export,             ///< export (Bareos only)
-        Import,             ///< import (Bareos only)
-
-        // Help
-        Help,               ///< help
-
-        // Custom
-        Custom              ///< Custom command string
-    };
-    Q_ENUM(Command)
-
-    /**
-     * @enum JobStatus
-     * @brief Backup job status codes
-     */
-    enum JobStatus {
-        Created,      ///< Job created but not started
-        Running,      ///< Job is currently running
-        Blocked,      ///< Job is blocked (waiting for resource)
-        Terminated,   ///< Job terminated (may be success or error)
-        Waiting,      ///< Job waiting to start
-        Successful,   ///< Job completed successfully
-        Error,        ///< Job completed with errors
-        Fatal,        ///< Job failed fatally
-        Canceled,     ///< Job was canceled
-        Unknown       ///< Unknown status
-    };
-
-    /**
-     * @struct JobInfo
-     * @brief Information about a backup job
-     */
-    struct JobInfo {
-        quint64 jobId;          ///< Job ID
-        QString name;           ///< Job name
-        QString type;           ///< Job type (B=Backup, R=Restore, etc.)
-        QString level;          ///< Backup level (F/I/D)
-        QString clientName;     ///< Client name
-        QString status;         ///< Job status (C/R/T/W/f/E/e/A)
-        QDateTime startTime;    ///< Start time
-        QString duration;       ///< Duration string
-        qint64 jobBytes;        ///< Bytes backed up
-        qint64 jobFiles;        ///< Files backed up
-    };
-
-    /**
-     * @struct ClientInfo
-     * @brief Information about a backup client
-     */
-    struct ClientInfo {
-        QString name;
-        QString address;
-        int port;
-        QString os;
-        bool autoprune;
-        int fileRetention;
-        int jobRetention;
-    };
-
-    /**
-     * @struct TLSConfig
-     * @brief TLS/SSL configuration
-     */
-    struct TLSConfig {
-        bool tlsEnable;
-        bool tlsRequire;
-        bool tlsPSKEnable;
-        bool tlsVerifyPeer;
-
-        QSharedPointer<QFile> tlsCaCertFile;
-
-#ifdef Q_OS_WINDOWS
-        QSharedPointer<QFile> tlsPfxFile;
-        QString tlsPfxPassword;
-#else
-        QSharedPointer<QFile> tlsCertFile;
-        QSharedPointer<QFile> tlsKeyFile;
-#endif
-
-#ifdef Q_OS_WINDOWS
-        TLSConfig() :
-            tlsEnable(false),
-            tlsRequire(false),
-            tlsVerifyPeer(false),
-            tlsPSKEnable(false),
-            tlsCaCertFile(new QFile("")),
-            tlsPfxFile(new QFile("")),
-            tlsPfxPassword("") {}
-#else
-        TLSConfig() :
-            tlsEnable(false),
-            tlsRequire(false),
-            tlsVerifyPeer(false),
-            tlsPSKEnable(false),
-            tlsCaCertFile(new QFile("")),
-            tlsCertFile(new QFile("")),
-            tlsKeyFile(new QFile("")){}
-#endif
-    };
-
-    /**
-     * @struct VolumeInfo
-     * @brief Information about a storage volume
-     */
-    struct VolumeInfo {
-        QString volumeName;
-        QString poolName;
-        QString mediaType;
-        QString status;
-        qint64 volumeBytes;
-        qint64 maxVolumeBytes;
-        int volRetention;
-    };
-
     explicit BDirector(QObject *parent = nullptr);
+
+    /**
+     * @brief Destructor
+     *
+     * Stops the director thread and cleans up resources.
+     */
     ~BDirector();
 
     // ========================================================================
-    // Backend Information
+    // Information Methods
     // ========================================================================
 
+    /**
+     * @brief Get the backup system name
+     * @return "Bareos" or "Bacula"
+     */
     QString backupSystemName() const;
 
-    // ========================================================================
-    // Connection Management
-    // ========================================================================
-
-    void connect(const QString &host, int port, const QString &directorName,
-                 const QString &password);
-    void disconnect();
+    /**
+     * @brief Check if connected to Director
+     * @return true if connected and authenticated
+     */
     bool isConnected() const;
+
+    /**
+     * @brief Get current connection state
+     * @return Current connection state
+     */
     ConnectionState connectionState() const;
 
-    // ========================================================================
-    // TLS Configuration
-    // ========================================================================
-
-    void setTLSConfig(const TLSConfig &config);
-    TLSConfig *tlsConfig() const;
-
-    // ========================================================================
-    // Connection Settings Persistence
-    // ========================================================================
-
-    void saveConnectionSettings();
-    void loadConnectionSettings();
-    bool hasStoredConnection() const;
-
-    // ========================================================================
-    // Command Sending
-    // ========================================================================
-
-
-    // ========================================================================
-    // API Mode
-    // ========================================================================
-
-    void setApiMode(ApiMode mode);
+    /**
+     * @brief Get current API mode
+     * @return Current API mode
+     */
     ApiMode apiMode() const;
 
-signals:
-    void authentificationSucceeded(const bool result, const QString &msg);
-    void protocolError(const QString &msg);
+    /**
+     * @brief Get TLS configuration
+     * @return Pointer to TLS configuration
+     */
+    TLSConfig *tlsConfig() const;
 
+    /**
+     * @brief Check if connection settings are stored
+     * @return true if settings exist
+     */
+    bool hasStoredConnection() const;
+
+    /**
+     * @brief Get pointer to underlying director instance
+     * @return Pointer to director instance (BareosDirector or BaculaDirector)
+     * @warning Only use for signal connections, not for direct method calls!
+     */
+    DIRECTOR_CLASS *director() const { return m_director; }
+
+signals:
+    // ========================================================================
+    // Signals (forwarded from BareosDirector)
+    // ========================================================================
+
+    /**
+     * @brief Emitted when connection is established
+     */
+    void connected();
+
+    /**
+     * @brief Emitted when disconnected
+     */
     void disconnected();
 
     /**
-     * @brief Emitted when a JSON response is received from the Director
-     * @param command The command that was sent (e.g., "list jobs")
-     * @param jsonData The JSON response data
+     * @brief Emitted when authentication completes
+     * @param success true if successful
+     * @param message Director version or error message
      */
-    void jsonResponse(const QString &command, const QString &jsonData);
+    void authentificationSucceeded(bool success, const QString &message);
 
     /**
-     * @brief Emitted when a text response is received from the Director
+     * @brief Emitted on protocol errors
+     * @param error Error message
+     */
+    void protocolError(const QString &error);
+
+    /**
+     * @brief Emitted on status messages
+     * @param status Status message
+     */
+    void statusMessage(const QString &status);
+
+    /**
+     * @brief Emitted when JSON response received
      * @param command The command that was sent
-     * @param response The text response
+     * @param response JSON response
+     */
+    void jsonResponse(const QString &command, const QString &response);
+
+    /**
+     * @brief Emitted when text response received
+     * @param command The command that was sent
+     * @param response Text response
      */
     void commandResponse(const QString &command, const QString &response);
 
-    // void jobsReceived(const QList<BDirector::JobInfo> &jobs);
-    // void clientsReceived(const QList<BDirector::ClientInfo> &clients);
-    // void volumesReceived(const QList<BDirector::VolumeInfo> &volumes);
-    void jobStatusChanged(int jobId, BDirector::JobStatus status);
-    void authenticationRequired();
-    void statusMessage(const QString &message);
+    /**
+     * @brief Emitted on command errors
+     * @param command The command that failed
+     * @param error Error message
+     */
     void commandError(const QString &command, const QString &error);
 
 public slots:
+    // ========================================================================
+    // Connection Management (thread-safe)
+    // ========================================================================
 
     /**
-     * @brief Sends a raw command string to the Director
+     * @brief Connect to Director
+     * @param host Hostname or IP address
+     * @param port Port number (default 9101)
+     * @param directorName Director name
+     * @param password Director password (for CRAM-MD5 or PSK)
      *
-     * @param command Command string (without newline)
-     * @deprecated
-     *
-     * @since 1.0.0
+     * Thread-safe: Forwards call to director's thread
      */
-    void doSendCommand(Command cmd, quint64);
+    void connect(const QString &host, int port, const QString &directorName,
+                const QString &password);
 
     /**
-     * @brief Sends a command using Command enum
+     * @brief Disconnect from Director
      *
-     * @param cmd Command enum value
-     * @param args Optional command arguments
-     *
-     * @since 1.0.0
+     * Thread-safe: Forwards call to director's thread
      */
-    void doSendCommand(const BDirector::Command cmd, const QString &args = QString());
+    void disconnect();
 
-protected:
     /**
-     * @brief Thread-Hauptschleife
-     *
-     * Erstellt Socket und startet Event-Loop für asynchrone Operationen
+     * @brief Set TLS configuration
+     * @param config TLS configuration
      */
-    void run() override;
-
-private slots:
-    void onConnected();
-    void onDisconnected();
-    void onReadyRead();
-    void onBytesWritten(qint64 bytes);
-    void onError(QAbstractSocket::SocketError error);
-    void onSslErrors(const QList<QSslError> &errors);
-    void onEncrypted();
-    void onAuthenticationSucceeded(const QString directorVersion);
-    void onAuthenticationFailed(const QString &reason);
-    void onAuthStatusMessage(const QString &message);
-
-private:
-    const QString commandToString(Command cmd, const QString &args = QString());
-    bool setupTLSConnection();
-    bool loadTLSCertificates(QSslConfiguration &sslConfig);
-    void startAuthentication();
-    void processResponse(const QByteArray &data);
-    QString parseResponse(const QByteArray &data);
-    JobStatus parseJobStatus(const QString &status);
-    QString jobStatusToString(JobStatus status);
-    void connectSocketSignals();
-    void disconnectAllSignals();
-    void processDirectorMessage(const QString &message, bool isSignal);
+    void setTLSConfig(const TLSConfig &config);
 
     /**
-     * @brief Sends a raw command string to the Director
+     * @brief Set API mode
+     * @param mode API mode (Off, Json, JsonPretty)
+     */
+    void setApiMode(ApiMode mode);
+
+    /**
+     * @brief Load saved connection settings
+     */
+    void loadConnectionSettings();
+
+    /**
+     * @brief Save connection settings
+     */
+    void saveConnectionSettings();
+
+    // ========================================================================
+    // Command Sending (thread-safe)
+    // ========================================================================
+
+    /**
+     * @brief Send command to Director
+     * @param cmd Command enum
+     * @param args Command arguments (optional)
      *
-     * @param command Command string (without newline)
-     * @deprecated
+     * Thread-safe: Forwards call to director's thread
+     */
+    void doSendCommand(const Command cmd, const QString &args = QString());
+
+    /**
+     * @brief Send raw command string
+     * @param command Command string
      *
-     * @since 1.0.0
+     * Thread-safe: Forwards call to director's thread
      */
     void sendCommand(const QString &command);
 
-    inline QString unbashSpaces(const QString &str)
-    {
-        QString result = str;
-        result = result.replace('\x1E', ' ')
-                    .replace(QChar(0x001E), "") // Record Separator
-                    .replace('\x01', ' ');    // Bareos space encoding
-        return result;
-    }
-
-
     // ========================================================================
-    // Member Variables
+    // Helper Methods
     // ========================================================================
 
-    ConnectionState m_connectionState;
-    QSslSocket *m_socket;
-    QString m_directorName;
-    QString m_password;
-    QString m_host;
-    int m_port;
-    QByteArray m_receiveBuffer;
-    QByteArray m_readBuffer;
-    QByteArray m_writeBuffer;
-    TLSConfig *m_tlsConfig;
-    QString m_directorVersion;
-    AUTH_CLASS *m_auth;
-    bool m_connected;
-    QString m_lastCommand;
-    ApiMode m_apiMode;
+    /**
+     * @brief Parse job status string
+     * @param status Status string (e.g., "T", "Running")
+     * @return JobStatus enum value
+     */
+    static JobStatus parseJobStatus(const QString &status);
 
-    quint64 m_lastSentSize;
+    /**
+     * @brief Convert job status to string
+     * @param status JobStatus enum value
+     * @return Status string
+     */
+    static QString jobStatusToString(JobStatus status);
 
-    // Signal connections
-    QMetaObject::Connection m_connSocketConnected;
-    QMetaObject::Connection m_connSocketDisconnected;
-    QMetaObject::Connection m_connSocketReadyRead;
-    QMetaObject::Connection m_connSocketError;
-    QMetaObject::Connection m_connSocketSslErrors;
-    QMetaObject::Connection m_connSocketEncrypted;
-    QMetaObject::Connection m_connAuthSucceeded;
-    QMetaObject::Connection m_connAuthFailed;
-    QMetaObject::Connection m_connAuthStatus;
-    QMetaObject::Connection m_connReadyRead;
-    QMetaObject::Connection m_connBytesWritten;
-
-    // Thread-Safety
-    mutable QMutex m_connectionMutex;  ///< Schützt Socket-Operationen
-    mutable QMutex m_stateMutex;       ///< Schützt m_connectionState, m_connected
-    mutable QMutex m_authMutex;        ///< Mutex für Authentifizierung-Wait
-    QWaitCondition m_authCondition;    ///< Wait Condition für Authentifizierung
-    bool m_initialized;                ///< Socket initialisiert?
-    bool m_authCompleted;              ///< Authentifizierung abgeschlossen (Erfolg oder Fehler)
+private:
+    DIRECTOR_CLASS *m_director;  ///< Underlying director instance (runs in worker thread)
+    QThread *m_workerThread;     ///< Worker thread for director and auth
 };
 
-#endif // DIRECTOR_H
+#endif // BDIRECTOR_H

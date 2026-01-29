@@ -1,1256 +1,320 @@
 /**
- * @file director.cpp
- * @brief Implementation of Director class for Bacula/Bareos communication
+ * @file bdirector.cpp
+ * @brief Implementation of BDirector wrapper class
  *
- * The backend (Bacula or Bareos) is determined at compile time via:
- * - USE_BACULA_ONLY: Uses BaculaAuth
- * - USE_BAREOS_ONLY: Uses BareosAuth (default)
+ * This wrapper runs in the MainThread and forwards all calls thread-safely
+ * to the director instance (BareosDirector or BaculaDirector) which runs
+ * in its own worker thread.
  *
- * @note m_backupSystem is deprecated and only kept for backward compatibility.
- *       Use the compile-time constant BACKUP_SYSTEM_NAME instead.
+ * The backend is selected at compile time via preprocessor defines:
+ * - USE_BACULA_ONLY: Uses BaculaDirector (not yet implemented)
+ * - USE_BAREOS_ONLY: Uses BareosDirector (default)
  *
  * @author Joerg Bernau <Joerg@bernau.family>
  * @date 2025
  * @version 1.0.0
  */
 
-#include <bdirector.h>
-#include "version.h"
-
-#include <QApplication>
+#include "bdirector.h"
 #include <QDebug>
-#include <QNetworkRequest>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QAuthenticator>
-#include <QUrlQuery>
-#include <QSslCipher>
-#include <QSslError>
-
-// ============================================================================
-// Compile-time backend identification
-// ============================================================================
-#ifdef USE_BACULA_ONLY
-static const char* BACKUP_SYSTEM_NAME = "Bacula";
-#else
-static const char* BACKUP_SYSTEM_NAME = "Bareos";
-#endif
 
 // ============================================================================
 // Constructor / Destructor
 // ============================================================================
 
 BDirector::BDirector(QObject *parent)
-    : QThread(parent)
-    , m_connectionState(Disconnected)
-    , m_socket(nullptr)
-    , m_port(9101)
-    , m_directorVersion("0.0.0")
-    , m_auth(nullptr)
-    , m_connected(false)
-    , m_apiMode(ApiMode::Json)  // API mode enabled by default
-    , m_lastSentSize(0)
-    , m_initialized(false)
-    , m_authCompleted(false)
+    : QObject(parent)
+    , m_director(nullptr)
+    , m_workerThread(nullptr)
 {
-    m_tlsConfig = new TLSConfig();
-    // Socket wird in run() erstellt (im Thread-Kontext)
-}
+#ifdef IS_DEVELOPER
+    qDebug() << "BDirector: Creating wrapper (MainThread)";
+    qDebug() << "  MainThread ID:" << QThread::currentThreadId();
+#endif
 
-void BDirector::run()
-{
-    qDebug() << "========================================";
-    qDebug() << "BDIRECTOR THREAD STARTED";
-    qDebug() << "  Thread ID:" << QThread::currentThreadId();
-    qDebug() << "========================================";
+    // Create worker thread
+    m_workerThread = new QThread(this);
+    m_workerThread->setObjectName("BareosWorkerThread");
 
-    // Erstelle Socket im Thread-Kontext
-    m_socket = new QSslSocket();
+    // Create director instance (BareosDirector or BaculaDirector based on compile-time selection)
+    m_director = new DIRECTOR_CLASS();
 
-    // Verbinde Socket-Signale
-    connectSocketSignals();
+    // Move director to worker thread BEFORE connecting signals
+    // This ensures the director lives in the worker thread
+    m_director->moveToThread(m_workerThread);
 
-    m_initialized = true;
-    qDebug() << "  ✓ Socket created and signals connected";
+#ifdef IS_DEVELOPER
+    qDebug() << "  Director moved to worker thread";
+#endif
 
-    // Starte Event-Loop (blockiert bis quit() aufgerufen wird)
-    exec();
+    // Forward all signals from director to BDirector wrapper
+    // Qt automatically handles thread-safety for signal forwarding (signals are queued connections)
 
-    // Cleanup nach Event-Loop
-    qDebug() << "  Cleaning up thread resources...";
+    QObject::connect(m_director, &DIRECTOR_CLASS::disconnected,
+                     this, &BDirector::disconnected);
 
-    if (m_auth) {
-        m_auth->deleteLater();
-        m_auth = nullptr;
-    }
+    QObject::connect(m_director, &DIRECTOR_CLASS::authentificationSucceeded,
+                     this, &BDirector::authentificationSucceeded);
 
-    if (m_socket) {
-        if (m_socket->state() == QAbstractSocket::ConnectedState) {
-            m_socket->disconnectFromHost();
-            m_socket->waitForDisconnected(1000);
-        }
-        delete m_socket;
-        m_socket = nullptr;
-    }
+    // Emit connected() when authentication succeeds
+    QObject::connect(m_director, &DIRECTOR_CLASS::authentificationSucceeded,
+                     this, [this](bool success, const QString &) {
+                         if (success) {
+                             emit connected();
+                         }
+                     });
 
-    qDebug() << "  ✓ Thread cleanup complete";
-    qDebug() << "========================================";
+    QObject::connect(m_director, &DIRECTOR_CLASS::protocolError,
+                     this, &BDirector::protocolError);
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::statusMessage,
+                     this, &BDirector::statusMessage);
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::jsonResponse,
+                     this, &BDirector::jsonResponse);
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::commandResponse,
+                     this, &BDirector::commandResponse);
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::commandError,
+                     this, &BDirector::commandError);
+
+    // Initialize director in worker thread (creates socket and auth)
+    // Use QueuedConnection to ensure it runs in worker thread
+    QObject::connect(m_workerThread, &QThread::started,
+                     m_director, &DIRECTOR_CLASS::initialize);
+
+    // Start the worker thread
+    m_workerThread->start();
+
+#ifdef IS_DEVELOPER
+    qDebug() << "BDirector: Wrapper created, worker thread started";
+#endif
 }
 
 BDirector::~BDirector()
 {
-    qDebug() << "BDirector: Destructor called";
+#ifdef IS_DEVELOPER
+    qDebug() << "BDirector: Destructor - stopping worker thread";
+#endif
 
-    // Stoppe Thread
-    if (isRunning()) {
-        quit();
-        wait(3000);
-        if (isRunning()) {
-            terminate();
-            wait();
+    if (m_workerThread) {
+        // Stop thread gracefully
+        m_workerThread->quit();
+        m_workerThread->wait(3000);
+
+        if (m_workerThread->isRunning()) {
+            qWarning() << "BDirector: Worker thread still running, terminating...";
+            m_workerThread->terminate();
+            m_workerThread->wait();
         }
+
+#ifdef IS_DEVELOPER
+        qDebug() << "BDirector: Worker thread stopped";
+#endif
     }
 
-    // Clean up
-    delete m_tlsConfig;
-    m_tlsConfig = nullptr;
+    // Director will be deleted automatically when thread is deleted
+    // because it's parented to the thread via moveToThread
+    if (m_director) {
+        m_director->deleteLater();
+        m_director = nullptr;
+    }
+
+    // Thread is parented to this, so it will be deleted automatically
+    // but we can delete it explicitly for clarity
+    if (m_workerThread) {
+        delete m_workerThread;
+        m_workerThread = nullptr;
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "BDirector: Destructor complete";
+#endif
 }
 
 // ============================================================================
-// Backend Information
+// Information Methods
 // ============================================================================
 
 QString BDirector::backupSystemName() const
 {
-    return QString(BACKUP_SYSTEM_NAME);
+    if (m_director) {
+        return m_director->backupSystemName();
+    }
+    return QString();
+}
+
+bool BDirector::isConnected() const
+{
+    if (m_director) {
+        return m_director->isConnected();
+    }
+    return false;
+}
+
+BDirector::ConnectionState BDirector::connectionState() const
+{
+    if (m_director) {
+        return m_director->connectionState();
+    }
+    return DIRECTOR_CLASS::Disconnected;
+}
+
+BDirector::ApiMode BDirector::apiMode() const
+{
+    if (m_director) {
+        return m_director->apiMode();
+    }
+    return DIRECTOR_CLASS::ApiMode::Off;
+}
+
+BDirector::TLSConfig *BDirector::tlsConfig() const
+{
+    if (m_director) {
+        return m_director->tlsConfig();
+    }
+    return nullptr;
+}
+
+bool BDirector::hasStoredConnection() const
+{
+    if (m_director) {
+        return m_director->hasStoredConnection();
+    }
+    return false;
 }
 
 // ============================================================================
-// Connection Management
+// Connection Management (thread-safe forwarding)
 // ============================================================================
 
 void BDirector::connect(const QString &host, int port, const QString &directorName,
                        const QString &password)
 {
-    QMutexLocker locker(&m_connectionMutex);
-
-    if (!m_initialized || !m_socket) {
-        qCritical() << "Socket not initialized! Thread not running?";
-        emit protocolError("Internal error: Socket not initialized");
+    if (!m_director) {
+        qCritical() << "BDirector::connect: No director instance!";
         return;
     }
 
-    qDebug() << "========================================";
-    qDebug() << "CONNECTING TO" << backupSystemName() << "DIRECTOR" << directorName;
-    qDebug() << "========================================";
-    qDebug() << "Host:" << host;
-    qDebug() << "Port:" << port;
-    qDebug() << "Password present:" << (!password.isEmpty());
-    qDebug() << "Thread:" << QThread::currentThreadId();
-    qDebug() << "========================================";
+#ifdef IS_DEVELOPER
+    qDebug() << "BDirector::connect: Forwarding to director thread";
+#endif
 
-    // Abort existing connection
-    if (m_socket->state() != QAbstractSocket::UnconnectedState) {
-        m_socket->abort();
-        m_socket->waitForDisconnected(1000);
-    }
-
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Connecting;
-        m_connected = false;
-    }
-
-    m_host = host;
-    m_port = port;
-    m_directorName = directorName;
-    m_password = password;
-
-    qDebug() << "Connecting via plain TCP...";
-    if (m_tlsConfig->tlsEnable) {
-        qDebug() << "(TLS/PSK will be negotiated during authentication)";
-    }
-
-    // Connect via TCP - TLS comes during authentication
-    m_socket->connectToHost(host, port);
+    // Thread-safe: Use QMetaObject::invokeMethod with Qt::QueuedConnection
+    QMetaObject::invokeMethod(m_director, "connect",
+                              Qt::QueuedConnection,
+                              Q_ARG(QString, host),
+                              Q_ARG(int, port),
+                              Q_ARG(QString, directorName),
+                              Q_ARG(QString, password));
 }
 
 void BDirector::disconnect()
 {
-    // Cleanup authentication
-    if (m_auth) {
-        // Disconnect auth signals
-        QObject::disconnect(m_connAuthSucceeded);
-        QObject::disconnect(m_connAuthFailed);
-        QObject::disconnect(m_connAuthStatus);
-
-        m_auth->deleteLater();
-        m_auth = nullptr;
+    if (!m_director) {
+        qCritical() << "BDirector::disconnect: No director instance!";
+        return;
     }
 
-    // Disconnect socket
-    if (m_socket->state() == QAbstractSocket::ConnectedState) {
-        sendCommand("quit");
-        m_socket->disconnectFromHost();
-    }
+#ifdef IS_DEVELOPER
+    qDebug() << "BDirector::disconnect: Forwarding to director thread";
+#endif
 
-    m_connected = false;
-    m_connectionState = Disconnected;
+    // Thread-safe: Use QMetaObject::invokeMethod
+    QMetaObject::invokeMethod(m_director, "disconnect",
+                              Qt::QueuedConnection);
 }
-
-bool BDirector::isConnected() const
-{
-    QMutexLocker locker(&m_stateMutex);
-    return m_connected && m_connectionState == Ready;
-}
-
-BDirector::ConnectionState BDirector::connectionState() const
-{
-    QMutexLocker locker(&m_stateMutex);
-    return m_connectionState;
-}
-
-// ============================================================================
-// TLS Configuration
-// ============================================================================
 
 void BDirector::setTLSConfig(const TLSConfig &config)
 {
-    if (!m_tlsConfig) {
-        m_tlsConfig = new TLSConfig();
+    if (!m_director) {
+        qCritical() << "BDirector::setTLSConfig: No director instance!";
+        return;
     }
-    *m_tlsConfig = config;
-}
 
-BDirector::TLSConfig *BDirector::tlsConfig() const
-{
-    if (m_tlsConfig) {
-        return m_tlsConfig;
-    }
-    return new TLSConfig();
-}
-
-// ============================================================================
-// Signal Management
-// ============================================================================
-
-void BDirector::connectSocketSignals()
-{
-    // SSL/TLS signals
-    m_connSocketEncrypted = QObject::connect(m_socket, &QSslSocket::encrypted,
-                                    this, &BDirector::onEncrypted);
-
-    m_connSocketSslErrors = QObject::connect(m_socket,
-                                    QOverload<const QList<QSslError>&>::of(&QSslSocket::sslErrors),
-                                    this, &BDirector::onSslErrors);
-
-    // Basic socket signals
-    m_connSocketConnected = QObject::connect(m_socket, &QSslSocket::connected,
-                                    this, &BDirector::onConnected);
-
-    m_connSocketDisconnected = QObject::connect(m_socket, &QSslSocket::disconnected,
-                                       this, &BDirector::onDisconnected);
-
-    m_connSocketReadyRead = QObject::connect(m_socket, &QSslSocket::readyRead,
-                                    this, &BDirector::onReadyRead);
-
-    m_connSocketError = QObject::connect(m_socket, &QSslSocket::errorOccurred,
-                                this, &BDirector::onError);
-
-    // Debug signals
-#ifdef IS_DEVELOPER
-    QObject::connect(m_socket, &QSslSocket::stateChanged, this,
-            [this](QAbstractSocket::SocketState state) {
-                qDebug() << "Socket state changed to:" << state;
-            });
-
-    QObject::connect(m_socket, &QAbstractSocket::errorOccurred, this,
-            [this](QAbstractSocket::SocketError socketError) {
-                QString errorMsg;
-                switch(socketError) {
-                case QAbstractSocket::ConnectionRefusedError:
-                    errorMsg = "Connection refused - is Director running?";
-                    break;
-                case QAbstractSocket::HostNotFoundError:
-                    errorMsg = "Host not found - check hostname";
-                    break;
-                case QAbstractSocket::SocketTimeoutError:
-                    errorMsg = "Connection timeout - server not responding";
-                    break;
-                case QAbstractSocket::NetworkError:
-                    errorMsg = "Network error - check network connection";
-                    break;
-                default:
-                    errorMsg = m_socket->errorString();
-                }
-                qCritical() << "Socket error:" << errorMsg;
-                emit protocolError(errorMsg);
-            });
-
-    QObject::connect(m_socket, &QSslSocket::modeChanged, this,
-            [this](QSslSocket::SslMode mode) {
-                qDebug() << "========================================";
-                qDebug() << "SSL MODE CHANGED";
-                qDebug() << "  Mode:" << (mode == QSslSocket::UnencryptedMode ?
-                                              "Unencrypted" : "SslClientMode/SslServerMode");
-                qDebug() << "========================================";
-            });
-
-    QObject::connect(m_socket, &QSslSocket::encryptedBytesWritten, this,
-            [this](qint64 written) {
-                qDebug() << "Encrypted bytes written:" << written;
-            });
-
-    QObject::connect(m_socket, &QSslSocket::peerVerifyError, this,
-            [this](const QSslError &error) {
-                qDebug() << "⚠ Peer verify error:" << error.errorString();
-            });
-#endif
-}
-
-void BDirector::disconnectAllSignals()
-{
-    // Disconnect socket signals
-    QObject::disconnect(m_connSocketConnected);
-    QObject::disconnect(m_connSocketDisconnected);
-    QObject::disconnect(m_connSocketReadyRead);
-    QObject::disconnect(m_connSocketError);
-    QObject::disconnect(m_connSocketSslErrors);
-    QObject::disconnect(m_connSocketEncrypted);
-
-    // Disconnect auth signals (if still connected)
-    QObject::disconnect(m_connAuthSucceeded);
-    QObject::disconnect(m_connAuthFailed);
-    QObject::disconnect(m_connAuthStatus);
-}
-
-BDirector::ApiMode BDirector::apiMode() const
-{
-    return m_apiMode;
+    // This is safe to call directly as it only sets member variables
+    m_director->setTLSConfig(config);
 }
 
 void BDirector::setApiMode(ApiMode mode)
 {
-    m_apiMode = mode;
-
-    QString modeStr;
-    switch (mode) {
-    case ApiMode::Off:
-        modeStr = "0";
-        break;
-    case ApiMode::Json:
-        modeStr = "1";
-        break;
-    case ApiMode::JsonPretty:
-        modeStr = "2";
-        break;
-    }
-
-#ifdef IS_DEVELOPER
-    qDebug() << "Setting API mode to:" << modeStr;
-#endif
-
-    doSendCommand(Command::ApiMode, modeStr);
-}
-// ============================================================================
-// Socket Event Handlers
-// ============================================================================
-
-void BDirector::onConnected()
-{
-    qDebug() << "========================================";
-    qDebug() << "TCP CONNECTED";
-    qDebug() << "========================================";
-
-    startAuthentication();
-}
-
-void BDirector::onEncrypted()
-{
-    qDebug() << "========================================";
-    qDebug() << "✓ PSK-TLS HANDSHAKE SUCCESSFUL";
-    qDebug() << "========================================";
-    qDebug() << "  Encrypted: true";
-    qDebug() << "  Protocol:" << m_socket->sessionProtocol();
-    qDebug() << "  Cipher:" << m_socket->sessionCipher().name();
-
-    if (!m_socket->peerCertificate().isNull()) {
-        qDebug() << "  Peer Certificate:";
-        qDebug() << "    Subject:" << m_socket->peerCertificate().subjectInfo(QSslCertificate::CommonName);
-    }
-    qDebug() << "========================================";
-
-    // IMPORTANT: Do NOT call startAuthentication() here!
-    // For PSK-TLS, authentication continues in BareosAuth::onEncrypted()
-    // For non-PSK, startAuthentication() is called from onConnected()
-}
-
-void BDirector::onSslErrors(const QList<QSslError> &errors)
-{
-    qWarning() << "========================================";
-    qWarning() << "SSL ERRORS OCCURRED (" << errors.size() << "errors)";
-    qWarning() << "========================================";
-
-    for (const QSslError &error : errors) {
-        qWarning() << "  Error:" << error.errorString();
-        qWarning() << "  Error Type:" << error.error();
-        if (!error.certificate().isNull()) {
-            qWarning() << "  Certificate:";
-            qWarning() << "    Subject:" << error.certificate().subjectInfo(QSslCertificate::CommonName);
-            qWarning() << "    Issuer:" << error.certificate().issuerInfo(QSslCertificate::CommonName);
-            qWarning() << "    Valid from:" << error.certificate().effectiveDate();
-            qWarning() << "    Valid until:" << error.certificate().expiryDate();
-        }
-    }
-
-    qWarning() << "========================================";
-
-    if (!m_password.isEmpty()) {
-        qWarning() << "⚠ PSK-Mode: Ignoring SSL errors (this is normal for PSK)";
-        m_socket->ignoreSslErrors();
-    } else if (!m_tlsConfig->tlsVerifyPeer) {
-        qWarning() << "⚠ Peer verification disabled - ignoring SSL errors";
-        m_socket->ignoreSslErrors();
-    } else {
-        qCritical() << "✗ SSL errors with peer verification enabled - connection will fail";
-        m_connectionState = Disconnected;
-        QString errorSummary = QString("%1 SSL error(s): %2")
-                                   .arg(errors.size())
-                                   .arg(errors.first().errorString());
-        emit protocolError("SSL error: " + errorSummary);
-    }
-}
-
-void BDirector::onDisconnected()
-{
-    qDebug() << "========================================";
-    qDebug() << "CONNECTION CLOSED";
-    qDebug() << "========================================";
-
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connected = false;
-        m_connectionState = Disconnected;
-    }
-
-    // Cleanup
-    if (m_auth) {
-        // Disconnect auth signals
-        QObject::disconnect(m_connAuthSucceeded);
-        QObject::disconnect(m_connAuthFailed);
-        QObject::disconnect(m_connAuthStatus);
-
-        m_auth->deleteLater();
-        m_auth = nullptr;
-    }
-
-    emit disconnected();
-}
-
-void BDirector::onBytesWritten(qint64 bytes){
-
-    // During authentication, the Auth class handles all data
-    // This should never happen, for that the connection to this
-    // slot is beed done after authentifcatuion
-    if (m_connectionState == Authenticating) {
-        // Auth class reads directly from socket
-        return;
-    }
-}
-
-void BDirector::onReadyRead()
-{
-    if (m_connectionState == Authenticating) {
-        qWarning() << "⚠ readyRead during authentication - should not happen!";
+    if (!m_director) {
+        qCritical() << "BDirector::setApiMode: No director instance!";
         return;
     }
 
-    // Lese neue Daten
-    QByteArray newData = m_socket->readAll();
-    m_receiveBuffer.append(newData);
-
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-    qDebug() << "<<<< Received" << newData.size() << "bytes";
-    qDebug() << "     Buffer total:" << m_receiveBuffer.size() << "bytes";
-#endif
-
-    // Verarbeite alle vollständigen Pakete im Buffer
-    while (m_receiveBuffer.size() >= 4) {
-        // Lese 4-Byte Message-Length Header (signed 32-bit big-endian)
-        qint32 messageLength = 0;
-        memcpy(&messageLength, m_receiveBuffer.constData(), 4);
-        messageLength = qFromBigEndian(messageLength);
-
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-        qDebug() << "     Message length from header:" << messageLength;
-        qDebug() << "     First 20 bytes (hex):" << m_receiveBuffer.left(20).toHex(' ');
-#endif
-
-#ifdef IS_DEVELOPER
-        if (messageLength > 100000 || messageLength < -100) {
-            qCritical() << "⚠ SUSPICIOUS MESSAGE LENGTH!" << messageLength;
-            qCritical() << "   Buffer content (first 100 bytes hex):" << m_receiveBuffer.left(100).toHex(' ');
-            qCritical() << "   Buffer content (as string):" << QString::fromLatin1(m_receiveBuffer.left(100));
-            // Clear buffer and break to avoid infinite loop
-            m_receiveBuffer.clear();
-            break;
-        }
-#endif
-
-        // Negative Länge = Signal-Nachricht (z.B. Prompt)
-        bool isSignal = (messageLength < 0);
-        qint32 absLength = qAbs(messageLength);
-
-        // Prüfe ob vollständiges Paket vorhanden (4 Bytes Header + Payload)
-        if (m_receiveBuffer.size() < 4 + absLength) {
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-            qDebug() << "     Waiting for more data..."
-                     << "Have:" << m_receiveBuffer.size()
-                     << "Need:" << (4 + absLength);
-#endif
-            break;  // Warte auf mehr Daten
-        }
-
-        // Extrahiere Nachricht (ohne Header)
-        QByteArray message = m_receiveBuffer.mid(4, absLength);
-
-        // ✅ KRITISCH: Signal-Pakete können verschachtelte Header enthalten!
-        // Bareos sendet manchmal Signale, deren Payload weitere Paket-Header enthält.
-        // In diesem Fall überspringen wir nur den Signal-Header (4 Bytes), nicht das Payload!
-        if (isSignal && message.size() >= 4) {
-            // Prüfe ob die ersten 4 Bytes ein Header sein könnten
-            // Entweder: 00 00 xx xx (Datenpaket) oder ff ff xx xx (weiteres Signal)
-            unsigned char byte0 = (unsigned char)message[0];
-            unsigned char byte1 = (unsigned char)message[1];
-
-            if ((byte0 == 0x00 && byte1 == 0x00) || (byte0 == 0xff && byte1 == 0xff)) {
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-                qDebug() << "⚠ Signal contains embedded header(s) - removing only signal header (4 bytes)";
-                qDebug() << "  Embedded header:" << message.left(4).toHex(' ');
-#endif
-                // Entferne NUR den Signal-Header, lasse das Payload für das nächste Paket
-                m_receiveBuffer.remove(0, 4);
-                continue;  // Lese das eingebettete Paket im nächsten Loop
-            }
-        }
-
-        message.replace(0x01, ' ');
-
-        // Entferne verarbeitetes Paket aus Buffer (Header + Payload)
-        m_receiveBuffer.remove(0, 4 + absLength);
-
-        // Konvertiere zu String
-        QString messageStr = QString::fromUtf8(message).trimmed();
-
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-        qDebug() << "✓ Complete message received:";
-        qDebug() << "  Signal:" << isSignal;
-        qDebug() << "  Length:" << absLength;
-        if (messageStr.size() > 200) {
-            qDebug() << "  Content (first 200 chars):" << messageStr.left(200);
-        } else {
-            qDebug() << "  Content:" << messageStr;
-        }
-#endif
-
-        // Verarbeite Nachricht (ignoriere leere Signal-Prompts wie "*")
-        if (!isSignal || !messageStr.isEmpty()) {
-            processDirectorMessage(unbashSpaces(messageStr), isSignal);
-        }
-    }
-}
-
-void BDirector::processDirectorMessage(const QString &message, bool isSignal)
-{
-    // Ignoriere leere Nachrichten
-    if (message.isEmpty()) {
-        return;
-    }
-
-    // API-Response (JSON)?
-    if (message.startsWith("{") || message.startsWith("[")) {
-#ifdef IS_DEVELOPER
-        qDebug() << "📄 JSON Response:";
-        qDebug() << message;
-#endif
-        emit jsonResponse(m_lastCommand, message);
-    } else {
-        emit commandResponse(m_lastCommand, message);
-        return;
-    }
-
-    // Status-Nachricht (1000, 1002, etc.)?
-    QRegularExpression statusRe("^(\\d+)(\\n+)");
-    QRegularExpressionMatch match = statusRe.match(message);
-    if (match.hasMatch()) {
-        int statusCode = match.captured(1).toInt();
-
-        // 1000 = OK
-        // 1002 = Info message
-        // 2xxx = Error
-
-        if (statusCode >= 2000) {
-            qWarning() << "⚠ Director error:" << message;
-            emit commandError(m_lastCommand, message);
-            return;
-        } else {
-#ifdef IS_DEVELOPER
-            qDebug() << "ℹ Director status:" << message;
-#endif
-
-            switch (statusCode) {
-            case 1000:
-                // 1000 OK - Command successful
-#ifdef IS_DEVELOPER
-                qDebug() << "✓ Command OK";
-#endif
-                emit statusMessage("OK");
-                break;
-            case 1002:
-                // 1002 = Prompt received
-                emit statusMessage(match.captured(3));
-#ifdef IS_DEVELOPER
-                qDebug() << "✓ Director ready (prompt received)";
-#endif
-                break;
-            default:
-                emit statusMessage(message);
-            }
-        }
-    }
-
-    // Prompt "*" oder andere Text-Nachrichten
-    if (isSignal || message == "*") {
-        return;
-    }
-
-    // Normale Text-Antwort
-#ifdef IS_DEVELOPER
-    qDebug() << "📝 Text response:" << message;
-#endif
-    // emit commandResponse(m_lastCommand, message);
-}
-
-void BDirector::onError(QAbstractSocket::SocketError error)
-{
-    Q_UNUSED(error);
-    QString errorMsg = QString("Socket error: %1").arg(m_socket->errorString());
-
-    qCritical() << errorMsg;
-    m_connectionState = Disconnected;
-    emit protocolError(errorMsg);
-}
-
-// ============================================================================
-// TLS Setup
-// ============================================================================
-
-bool BDirector::setupTLSConnection()
-{
-    qDebug() << "========================================";
-    qDebug() << "TLS CONFIGURATION";
-    qDebug() << "========================================";
-
-    QSslConfiguration sslConfig = m_socket->sslConfiguration();
-
-    // Load certificates
-    if (!loadTLSCertificates(sslConfig)) {
-        qCritical() << "Failed to load TLS certificates";
-        return false;
-    }
-
-    // Set peer verification mode
-    if (m_tlsConfig->tlsVerifyPeer) {
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
-        qDebug() << "Peer verification: ENABLED";
-    } else {
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-        qDebug() << "Peer verification: DISABLED";
-    }
-
-    // Set TLS version
-    sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
-    qDebug() << "TLS Protocol: TLS 1.2 or later";
-
-    // Apply configuration
-    m_socket->setSslConfiguration(sslConfig);
-
-    qDebug() << "✓ TLS configuration complete";
-    qDebug() << "========================================";
-
-    return true;
-}
-
-bool BDirector::loadTLSCertificates(QSslConfiguration &sslConfig)
-{
-    // Load CA certificate
-    if (m_tlsConfig->tlsCaCertFile && !m_tlsConfig->tlsCaCertFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsCaCertFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open CA certificate:" << m_tlsConfig->tlsCaCertFile->fileName();
-            return false;
-        }
-
-        QList<QSslCertificate> caCerts = QSslCertificate::fromDevice(m_tlsConfig->tlsCaCertFile.data(), QSsl::Pem);
-        m_tlsConfig->tlsCaCertFile->close();
-
-        if (caCerts.isEmpty()) {
-            qCritical() << "No CA certificates found in:" << m_tlsConfig->tlsCaCertFile->fileName();
-            return false;
-        }
-
-        sslConfig.setCaCertificates(caCerts);
-    }
-
-#ifdef Q_OS_WINDOWS
-    // Windows: Load PKCS#12 file
-    if (m_tlsConfig->tlsPfxFile && !m_tlsConfig->tlsPfxFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsPfxFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open PFX file:" << m_tlsConfig->tlsPfxFile->fileName();
-            return false;
-        }
-
-        QSslCertificate certificate;
-        QSslKey privateKey;
-        QList<QSslCertificate> caCerts;
-
-        bool imported = QSslCertificate::importPkcs12(
-            m_tlsConfig->tlsPfxFile.data(),
-            &privateKey,
-            &certificate,
-            &caCerts,
-            m_tlsConfig->tlsPfxPassword.toUtf8()
-            );
-
-        m_tlsConfig->tlsPfxFile->close();
-
-        if (!imported) {
-            qCritical() << "Failed to import PKCS#12 certificate";
-            return false;
-        }
-
-        if (certificate.isNull() || privateKey.isNull()) {
-            qCritical() << "Certificate or private key is null";
-            return false;
-        }
-
-        sslConfig.setLocalCertificate(certificate);
-        sslConfig.setPrivateKey(privateKey);
-
-        if (!caCerts.isEmpty()) {
-            sslConfig.setCaCertificates(caCerts);
-        }
-    }
-#else
-    // Linux: Load separate PEM files
-    if (m_tlsConfig->tlsCertFile && !m_tlsConfig->tlsCertFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsCertFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open certificate file:" << m_tlsConfig->tlsCertFile->fileName();
-            return false;
-        }
-
-        QSslCertificate certificate(m_tlsConfig->tlsCertFile.data(), QSsl::Pem);
-        m_tlsConfig->tlsCertFile->close();
-
-        if (certificate.isNull()) {
-            qCritical() << "Failed to load certificate";
-            return false;
-        }
-
-        sslConfig.setLocalCertificate(certificate);
-        qDebug() << "✓ Certificate loaded:" << m_tlsConfig->tlsCertFile->fileName();
-    }
-
-    if (m_tlsConfig->tlsKeyFile && !m_tlsConfig->tlsKeyFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsKeyFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open key file:" << m_tlsConfig->tlsKeyFile->fileName();
-            return false;
-        }
-
-        QSslKey privateKey(m_tlsConfig->tlsKeyFile.data(), QSsl::Rsa, QSsl::Pem);
-        m_tlsConfig->tlsKeyFile->close();
-
-        if (privateKey.isNull()) {
-            qCritical() << "Failed to load private key";
-            return false;
-        }
-
-        sslConfig.setPrivateKey(privateKey);
-        qDebug() << "✓ Private key loaded:" << m_tlsConfig->tlsKeyFile->fileName();
-    }
-#endif
-
-    return true;
-}
-
-// ============================================================================
-// Authentication
-// ============================================================================
-
-void BDirector::startAuthentication()
-{
-    qDebug() << "========================================";
-    qDebug() << "STARTING AUTHENTICATION";
-    qDebug() << "========================================";
-
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Authenticating;
-    }
-
-    {
-        QMutexLocker authLocker(&m_authMutex);
-        m_authCompleted = false;
-    }
-
-    // Create appropriate auth class based on AUTH_CLASS macro
-    // AUTH_CLASS is defined in director.h as BaculaAuth or BareosAuth
-    m_auth = new AUTH_CLASS(m_socket, this);
-
-    // Connect authentication signals and store connections
-    m_connAuthSucceeded = QObject::connect(m_auth, &AUTH_CLASS::authenticationSucceeded,
-                                  this, &BDirector::onAuthenticationSucceeded);
-
-    m_connAuthFailed = QObject::connect(m_auth, &AUTH_CLASS::authenticationFailed,
-                               this, &BDirector::onAuthenticationFailed);
-
-    m_connAuthStatus = QObject::connect(m_auth, &AUTH_CLASS::statusMessage,
-                               this, &BDirector::onAuthStatusMessage);
-
-    // Use PSK if password present
-    bool usePSK = !m_password.isEmpty() && m_tlsConfig->tlsEnable;
-
-    qDebug() << "PSK will be used:" << usePSK << "(password present:" << !m_password.isEmpty() << ")";
-
-    // Start authentication
-    bool authenticated = m_auth->authenticateDirector(
-        m_directorName,
-        PROJECT_NAME,
-        m_password,
-        m_tlsConfig->tlsEnable,
-        m_tlsConfig->tlsRequire,
-        m_tlsConfig->tlsVerifyPeer,
-        usePSK
-        );
-
-    if (!authenticated) {
-        qCritical() << "Failed to start authentication:" << m_auth->getErrorMessage();
-        onAuthenticationFailed(m_auth->getErrorMessage());
-    }
-}
-
-void BDirector::onAuthenticationSucceeded(const QString directorVersion)
-{
-#ifdef IS_DEVELOPER
-    qDebug() << "========================================";
-    qDebug() << "✓ AUTHENTICATION SUCCESSFUL";
-    qDebug() << "  Encryption:" << (m_socket->sessionCipher().name().isEmpty() ? "None" : m_socket->sessionCipher().name());
-    qDebug() << "  Director Version:" << directorVersion;
-    qDebug() << "========================================";
-#endif
-
-    // ✅ Disconnect auth signals - authentication complete
-    QObject::disconnect(m_connAuthSucceeded);
-    QObject::disconnect(m_connAuthFailed);
-    QObject::disconnect(m_connAuthStatus);
-
-    m_directorVersion = directorVersion;
-
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Ready;
-        m_connected = true;
-    }
-
-    // Cleanup auth object
-    m_auth->deleteLater();
-    m_auth = nullptr;
-
-    // Parse version
-    QRegularExpression versionRx(
-        R"((\d+)\.(\d+)\.(\d+))",
-        QRegularExpression::CaseInsensitiveOption);
-
-    QRegularExpressionMatch match = versionRx.match(directorVersion);
-
-    if (match.hasMatch())
-    {
-        int major = match.captured(1).toInt();
-        int minor = match.captured(2).toInt();
-        int patch = match.captured(3).toInt();
-
-#ifdef IS_DEVELOPER
-        qDebug() << "  Parsed version:" << major << "." << minor << "." << patch;
-
-        // Enable compression if Director supports it
-        //@TODO !!!
-        if (major >= 1) {
-            qDebug() << "  Director supports compression";
-        }
-#endif
-    }
-
-    // Save connection settings
-    saveConnectionSettings();
-
-    // ✅ Signale sind bereits in connectSocketSignals() verbunden!
-    // KEIN erneutes Connect nötig (würde zu doppelten Aufrufen führen)
-
-    // ✅ WICHTIG: Aktiviere JSON API-Modus SOFORT nach Authentifizierung
-    // Dies muss VOR allen anderen Befehlen passieren!
-    if (m_apiMode != ApiMode::Off) {
-#ifdef IS_DEVELOPER
-        qDebug() << "========================================";
-        qDebug() << "ACTIVATING JSON API MODE";
-        qDebug() << "  Mode:" << static_cast<int>(m_apiMode);
-        qDebug() << "========================================";
-#endif
-        // Sende .api 2 Befehl für JSON Pretty-Print Modus
-        sendCommand(".api 2");
-    }
-
-    // ✅ Emit signals NACH dem API-Modus
-    emit authentificationSucceeded(true, directorVersion);
-
-    // Verwende QTimer für Keep-Alive
-    QTimer *keepAliveTimer = new QTimer(this);
-    QObject::connect(keepAliveTimer, &QTimer::timeout, [this]() {
-        if (m_socket->isOpen()) {
-            sendCommand(".message\n");  // Keep connection alive
-        }
-#ifdef IS_DEVELOPER
-        qDebug() << ".";
-#endif
-    });
-    // keepAliveTimer->start(3000);
-
-#ifdef IS_DEVELOPER
-    qDebug() << "✓ Connection established and ready";
-#endif
-
-    // ✅ Signalisiere Authentifizierung abgeschlossen
-    {
-        QMutexLocker authLocker(&m_authMutex);
-        m_authCompleted = true;
-        m_authCondition.wakeAll();
-    }
-}
-
-void BDirector::onAuthenticationFailed(const QString &reason)
-{
-    qCritical() << "========================================";
-    qCritical() << "✗ AUTHENTICATION FAILED";
-    qCritical() << "  Reason:" << reason;
-    qCritical() << "========================================";
-
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Disconnected;
-        m_connected = false;
-    }
-
-    // ✅ Disconnect auth signals
-    QObject::disconnect(m_connAuthSucceeded);
-    QObject::disconnect(m_connAuthFailed);
-    QObject::disconnect(m_connAuthStatus);
-
-    // Cleanup
-    if (m_auth) {
-        m_auth->deleteLater();
-        m_auth = nullptr;
-    }
-
-    // Disconnect socket
-    m_socket->disconnectFromHost();
-
-    emit authentificationSucceeded(false, reason);
-    emit protocolError(reason);
-
-    // ✅ Signalisiere Authentifizierung abgeschlossen (mit Fehler)
-    {
-        QMutexLocker authLocker(&m_authMutex);
-        m_authCompleted = true;
-        m_authCondition.wakeAll();
-    }
-}
-
-void BDirector::onAuthStatusMessage(const QString &message)
-{
-    qDebug() << "[Auth]" << message;
-    emit statusMessage(message);
-}
-
-// ============================================================================
-// Command Handling
-// ============================================================================
-
-void BDirector::sendCommand(const QString &command)
-{
-    if (m_connectionState != Ready && m_socket->state() != QAbstractSocket::ConnectedState) {
-        qWarning() << "Cannot send command - not ready (state:" << m_connectionState << ")";
-        emit statusMessage("Nicht bereit");
-        return;
-    }
-
-    QString msg = command;
-    if (!msg.endsWith('\n')) {
-        msg += '\n';
-    }
-
-#ifdef IS_DEVELOPER
-    qDebug() << ">>> Sending command:" << command;
-#endif
-
-    // ✅ KORREKT: Identisch zu BareosAuth::send()
-    QByteArray packet = msg.toUtf8();
-    qint32 len = packet.size();
-    m_lastSentSize = len + 4;
-
-    // Big-Endian System (SPARC, PowerPC, MIPS BE, etc.)
-    #if Q_BYTE_ORDER == Q_BIG_ENDIAN
-        packet.prepend(reinterpret_cast<const char*>(&len), 4);
-    // Little-Endian System (x86, x86-64, ARM LE, etc.)
-    #else
-        qint32 lenBE = qToBigEndian(len);
-        packet.prepend(reinterpret_cast<const char*>(&lenBE), 4);
-    #endif
-
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-    qDebug() << "  Packet size:" << packet.size() << "bytes (4 header + " << len << " payload)";
-#endif
-
-    // Send over the socket
-    qint64 written = m_socket->write(packet);
-
-    if (written != packet.size()) {
-        qCritical() << "Failed to send complete command! Written:" << written << "Expected:" << packet.size();
-        emit statusMessage("Fehler beim Senden");
-    } else {
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-        qDebug() << "✓ Command sent successfully (" << written << "bytes)";
-#endif
-        emit statusMessage(QString("Befehl '%1' gesendet").arg(command));
-    }
-
-    m_lastCommand = command;
-}
-
-//@deprecated
-void BDirector::doSendCommand(Command cmd, quint64){ commandToString(cmd); }
-
-void BDirector::doSendCommand(const Command cmd, const QString &args){ 
-    const QString cmdStr = commandToString(cmd, args); 
-    sendCommand(cmdStr);
-}
-
-// ============================================================================
-// Command Helpers
-// ============================================================================
-const QString BDirector::commandToString(Command cmd, const QString &args)
-{
-    QString command;
-
-    switch (cmd) {
-    case Command::ApiMode:
-        // ✅ Intelligente API-Modus-Verarbeitung
-        if (args.isEmpty()) {
-            command = ".api 1";  // Default: JSON
-        } else {
-            bool ok;
-            int mode = args.toInt(&ok);
-            if (ok) {
-                // Numerischer Modus
-                command = QString(".api %1").arg(mode);
-            } else {
-                // String-Modus (on, off, json, json_pretty)
-                command = QString(".api %1").arg(args);
-            }
-        }
-        break;
-
-    // Connection & Session
-    case Command::Quit:             command = "quit"; break;
-    case Command::Exit:             command = "exit"; break;
-
-    // Status Commands
-    case Command::StatusDirector:   command = "status director"; break;
-    case Command::StatusClient:     command = QString("status client=%1").arg(args); break;
-    case Command::StatusStorage:    command = QString("status storage=%1").arg(args); break;
-    case Command::StatusScheduler:  command = "status scheduler"; break;
-    case Command::StatusRunning:    command = "status running"; break;
-    case Command::StatusSubscriptions: command = "status subscriptions"; break;
-
-    // List Commands
-    case Command::ListJobs:         command = "list jobs"; break;
-    case Command::ListJobsLast:     command = QString("list jobs last=%1").arg(args.isEmpty() ? "100" : args); break;
-    case Command::ListJobId:        command = QString("list joblog jobid=%1").arg(args); break;
-    case Command::ListClients:      command = "list clients"; break;
-    case Command::ListPools:        command = "list pools"; break;
-    case Command::ListVolumes:      command = "list volumes"; break;
-    case Command::ListVolumePool:   command = QString("list volumes pool=%1").arg(args); break;
-    case Command::ListMedia:        command = "list media"; break;
-    case Command::ListFileSets:     command = "list filesets"; break;
-    case Command::ListFiles:        command = QString("list files jobid=%1").arg(args); break;
-    case Command::ListNextVolume:   command = QString("list nextvol job=%1").arg(args); break;
-    case Command::ListBackups:      command = "list backups"; break;
-    case Command::ListBackupsClient: command = QString("list backups client=%1").arg(args); break;
-
-    // Job Control
-    case Command::Run:              command = QString("run job=%1").arg(args); break;
-    case Command::RunYes:           command = QString("run job=%1 yes").arg(args); break;
-    case Command::Cancel:           command = QString("cancel jobid=%1").arg(args); break;
-    case Command::Delete:           command = QString("delete job jobid=%1").arg(args); break;
-    case Command::Disable:          command = QString("disable job=%1").arg(args); break;
-    case Command::Enable:           command = QString("enable job=%1").arg(args); break;
-    case Command::Rerun:            command = QString("rerun jobid=%1").arg(args); break;
-
-    // Restore
-    case Command::Restore:          command = "restore"; break;
-    case Command::RestoreAll:       command = "restore all"; break;
-    case Command::RestoreSelect:    command = "restore select"; break;
-
-    // Volume Management
-    case Command::Label:            command = QString("label %1").arg(args); break;
-    case Command::Relabel:          command = QString("relabel %1").arg(args); break;
-    case Command::Mount:            command = QString("mount storage=%1").arg(args); break;
-    case Command::Unmount:          command = QString("unmount storage=%1").arg(args); break;
-    case Command::Release:          command = QString("release storage=%1").arg(args); break;
-    case Command::Update:           command = "update"; break;
-    case Command::UpdateVolume:     command = QString("update volume=%1").arg(args); break;
-    case Command::Purge:            command = QString("purge volume=%1").arg(args); break;
-    case Command::Prune:            command = "prune"; break;
-    case Command::PruneFiles:       command = "prune files"; break;
-    case Command::PruneJobs:        command = "prune jobs"; break;
-    case Command::PruneVolume:      command = QString("prune volume=%1").arg(args); break;
-
-    // Console Commands
-    case Command::Show:             command = QString("show %1").arg(args); break;
-    case Command::ShowJobs:         command = "show jobs"; break;
-    case Command::ShowClients:      command = "show clients"; break;
-    case Command::ShowFilesets:     command = "show filesets"; break;
-    case Command::ShowSchedules:    command = "show schedules"; break;
-    case Command::ShowPools:        command = "show pools"; break;
-    case Command::ShowStorages:     command = "show storages"; break;
-    case Command::ShowCatalogs:     command = "show catalogs"; break;
-    case Command::ShowMessages:     command = "show messages"; break;
-    case Command::ShowAll:          command = "show all"; break;
-
-    // Messages
-    case Command::Messages:         command = "messages"; break;
-
-    // Catalog
-    case Command::SqlQuery:         command = QString("sqlquery %1").arg(args); break;
-    case Command::Query:            command = QString("query %1").arg(args); break;
-
-    // Testing & Debugging
-    case Command::Estimate:         command = QString("estimate %1").arg(args); break;
-    case Command::Time:             command = "time"; break;
-    case Command::Trace:            command = QString("trace %1").arg(args.isEmpty() ? "on" : args); break;
-    case Command::Version:          command = "version"; break;
-    case Command::Memory:           command = "memory"; break;
-
-    // Configuration
-    case Command::Reload:           command = "reload"; break;
-    case Command::Configure:        command = QString("configure %1").arg(args); break;
-    case Command::Export:           command = QString("export %1").arg(args); break;
-    case Command::Import:           command = QString("import %1").arg(args); break;
-
-    // Help
-    case Command::Help:             command = "help"; break;
-
-    // Custom
-    case Command::Custom:           command = args; break;
-
-    default:
-        qWarning() << "Unknown Command:" << static_cast<int>(cmd);
-        command = args;
-        break;
-    }
-
-    return command;
-}
-
-
-// ============================================================================
-// Settings Management
-// ============================================================================
-
-void BDirector::saveConnectionSettings()
-{
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-    settings.beginGroup("BaculaConnection");
-    settings.setValue("host", m_host);
-    settings.setValue("port", m_port);
-    settings.setValue("directorName", m_directorName);
-    settings.setValue("tlsEnable", m_tlsConfig->tlsEnable);
-    settings.setValue("tlsRequire", m_tlsConfig->tlsRequire);
-    settings.setValue("tlsVerifyPeer", m_tlsConfig->tlsVerifyPeer);
-
-    // Don't save passwords or certificate paths for security
-    settings.endGroup();
-
-    qDebug() << "Connection settings saved";
+    // Thread-safe: Use QMetaObject::invokeMethod
+    QMetaObject::invokeMethod(m_director, "setApiMode",
+                              Qt::QueuedConnection,
+                              Q_ARG(DIRECTOR_CLASS::ApiMode, mode));
 }
 
 void BDirector::loadConnectionSettings()
 {
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-    settings.beginGroup("BaculaConnection");
-    m_host = settings.value("host").toString();
-    m_port = settings.value("port", 9101).toInt();
-    m_directorName = settings.value("directorName").toString();
-    m_tlsConfig->tlsEnable = settings.value("tlsEnable", false).toBool();
-    m_tlsConfig->tlsRequire = settings.value("tlsRequire", false).toBool();
-    m_tlsConfig->tlsVerifyPeer = settings.value("tlsVerifyPeer", false).toBool();
-    settings.endGroup();
+    if (!m_director) {
+        qCritical() << "BDirector::loadConnectionSettings: No director instance!";
+        return;
+    }
 
-    qDebug() << "Connection settings loaded";
+    // Thread-safe: Use QMetaObject::invokeMethod
+    QMetaObject::invokeMethod(m_director, "loadConnectionSettings",
+                              Qt::QueuedConnection);
 }
 
-bool BDirector::hasStoredConnection() const
+void BDirector::saveConnectionSettings()
 {
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-    settings.beginGroup("BaculaConnection");
-    bool hasConnection = settings.contains("host") && settings.contains("port");
-    settings.endGroup();
-    return hasConnection;
+    if (!m_director) {
+        qCritical() << "BDirector::saveConnectionSettings: No director instance!";
+        return;
+    }
+
+    // Thread-safe: Use QMetaObject::invokeMethod
+    QMetaObject::invokeMethod(m_director, "saveConnectionSettings",
+                              Qt::QueuedConnection);
 }
 
 // ============================================================================
-// Helper Methods
+// Command Sending (thread-safe forwarding)
+// ============================================================================
+
+void BDirector::doSendCommand(const Command cmd, const QString &args)
+{
+    if (!m_director) {
+        qCritical() << "BDirector::doSendCommand: No director instance!";
+        return;
+    }
+
+    // Thread-safe: Use QMetaObject::invokeMethod
+    QMetaObject::invokeMethod(m_director, "doSendCommand",
+                              Qt::QueuedConnection,
+                              Q_ARG(DIRECTOR_CLASS::Command, cmd),
+                              Q_ARG(QString, args));
+}
+
+void BDirector::sendCommand(const QString &command)
+{
+    if (!m_director) {
+        qCritical() << "BDirector::sendCommand: No director instance!";
+        return;
+    }
+
+    // Thread-safe: Use QMetaObject::invokeMethod
+    QMetaObject::invokeMethod(m_director, "sendCommand",
+                              Qt::QueuedConnection,
+                              Q_ARG(QString, command));
+}
+
+// ============================================================================
+// Helper Methods (static - can be called directly)
 // ============================================================================
 
 BDirector::JobStatus BDirector::parseJobStatus(const QString &status)
 {
-    QString s = status.toUpper();
-
-    if (s == "C" || s == "CREATED") return Created;
-    if (s == "R" || s == "RUNNING") return Running;
-    if (s == "B" || s == "BLOCKED") return Blocked;
-    if (s == "T" || s == "TERMINATED") return Terminated;
-    if (s == "W" || s == "WAITING") return Waiting;
-    if (s == "S" || s == "SUCCESSFUL") return Successful;
-    if (s == "E" || s == "ERROR") return Error;
-    if (s == "F" || s == "FATAL") return Fatal;
-    if (s == "A" || s == "CANCELED") return Canceled;
-
-    return Unknown;
+    return DIRECTOR_CLASS::parseJobStatus(status);
 }
 
 QString BDirector::jobStatusToString(JobStatus status)
 {
-    switch (status) {
-    case Created: return "Created";
-    case Running: return "Running";
-    case Blocked: return "Blocked";
-    case Terminated: return "Terminated";
-    case Waiting: return "Waiting";
-    case Successful: return "Successful";
-    case Error: return "Error";
-    case Fatal: return "Fatal";
-    case Canceled: return "Canceled";
-    default: return "Unknown";
-    }
+    return DIRECTOR_CLASS::jobStatusToString(status);
 }
-
-

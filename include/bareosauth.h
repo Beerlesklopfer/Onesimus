@@ -566,6 +566,18 @@ private:
     BareosTLSRequirementResult testTLSRequirement();
 
     /**
+     * @brief Sets up certificate-based TLS encryption
+     *
+     * Configures the socket for certificate-based TLS and starts the handshake.
+     * Used for traditional TLS authentication with X.509 certificates.
+     *
+     * @return true if TLS setup initiated successfully
+     *
+     * @since 1.0.0
+     */
+    bool setupCertificateTLS();
+
+    /**
      * @brief Sets up TLS-PSK encryption
      *
      * Configures the socket for PSK-TLS and starts the handshake.
@@ -886,6 +898,15 @@ private slots:
      * @since 1.0.0
      */
     void onSslErrors(const QList<QSslError> &errors);
+
+    /**
+     * @brief Handles SSL errors during certificate-based TLS handshake
+     *
+     * @param errors List of SSL errors
+     *
+     * @since 1.0.0
+     */
+    void onSslErrorsCertificate(const QList<QSslError> &errors);
 
     /**
      * @brief Handles PSK authentication request

@@ -195,17 +195,14 @@ void BJobDetailsDialog::setupLogTab()
 
     // Job Log List View (MVC pattern)
     m_logListView = new QListView(logWidget);
-    m_logModel = new QStandardItemModel(this);
+    m_logModel = new BJobLogModel(this);
     m_logListView->setModel(m_logModel);
     m_logListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_logListView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_logListView->setFont(QFont("Courier", 9));
     m_logListView->setAlternatingRowColors(true);
 
     // Add initial loading message
-    QStandardItem *loadingItem = new QStandardItem("Loading job log...");
-    loadingItem->setForeground(QBrush(Qt::gray));
-    m_logModel->appendRow(loadingItem);
+    m_logModel->setLogLines({tr("Loading job log...")});
 
     logLayout->addWidget(m_logListView);
 
@@ -265,17 +262,22 @@ void BJobDetailsDialog::loadFilesFromDirector()
 
     qDebug() << "Loading files for JobID:" << m_jobId;
 
-    // Use Bvfs API for file listing (works with JSON API mode)
-    // Step 1: Update bvfs cache for this job
-    m_director->doSendCommand(BDirector::Command::Custom, QString(".bvfs_update jobid=%1").arg(m_jobId));
+    // BVFS API correct sequence:
+    // Step 1: Get all related jobids (for incremental/differential backups)
+    // Thread-safe: Use queued connection to send command to Director thread
+    QMetaObject::invokeMethod(m_director, "doSendCommand",
+                              Qt::QueuedConnection,
+                              Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                              Q_ARG(QString, QString(".bvfs_get_jobids jobid=%1").arg(m_jobId)));
 
-    // Step 2: List files using bvfs (will be triggered after cache update)
-    QTimer::singleShot(500, this, [this]() {
-        m_director->doSendCommand(BDirector::Command::Custom, QString(".bvfs_lsfiles jobid=%1 path=/").arg(m_jobId));
-    });
+    // Steps 2 & 3 will be triggered in onFilesDataReceived() after we receive the jobids
 
     // Request job log
-    m_director->doSendCommand(BDirector::Command::ListJobId, QString::number(m_jobId));
+    // Thread-safe: Use queued connection to send command to Director thread
+    QMetaObject::invokeMethod(m_director, "doSendCommand",
+                              Qt::QueuedConnection,
+                              Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
+                              Q_ARG(QString, QString::number(m_jobId)));
 }
 
 void BJobDetailsDialog::onFilesDataReceived(const QString &command, const QString &jsonData)
@@ -285,44 +287,96 @@ void BJobDetailsDialog::onFilesDataReceived(const QString &command, const QStrin
         return;
     }
 
-    if (command.contains("bvfs_lsfiles") || command.contains("list files")) {
-        qDebug() << "Received files data:" << jsonData.left(200);
+    // Step 1: Process bvfs_get_jobids response
+    if (command.contains("bvfs_get_jobids")) {
+        qDebug() << "Received jobids data:" << jsonData.left(200);
+
+        // Parse JSON to extract jobids
+        QJsonParseError error;
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
+
+        if (error.error != QJsonParseError::NoError) {
+            qWarning() << "JSON parse error for jobids:" << error.errorString();
+            m_loadingProgress->setFormat("Error getting job IDs");
+            return;
+        }
+
+        // Extract jobids from response
+        // Expected format: {"result": {"jobids": "12,11,10"}} or similar
+        if (doc.isObject()) {
+            QJsonObject root = doc.object();
+            if (root.contains("result") && root["result"].isObject()) {
+                QJsonObject result = root["result"].toObject();
+                if (result.contains("jobids")) {
+                    m_bvfsJobIds = result["jobids"].toString();
+                    qDebug() << "Got BVFS JobIDs:" << m_bvfsJobIds;
+
+                    // Step 2: Update BVFS cache with all jobids
+                    // Thread-safe: Use queued connection to send command to Director thread
+                    QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                              Qt::QueuedConnection,
+                                              Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                              Q_ARG(QString, QString(".bvfs_update jobid=%1").arg(m_bvfsJobIds)));
+
+                    // Step 3: List directories (triggered after short delay)
+                    QTimer::singleShot(300, this, [this]() {
+                        // Thread-safe: Use queued connection to send command to Director thread
+                        QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                                  Qt::QueuedConnection,
+                                                  Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                                  Q_ARG(QString, QString(".bvfs_lsdirs jobid=%1 path=/").arg(m_bvfsJobIds)));
+                    });
+                }
+            }
+        }
+        return;
+    }
+
+    // Step 3: Process bvfs_lsdirs response (directory structure)
+    if (command.contains("bvfs_lsdirs")) {
+        qDebug() << "Received directories data:" << jsonData.left(200);
 
         // Parse JSON
         QJsonParseError error;
         QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
 
         if (error.error != QJsonParseError::NoError) {
-            qWarning() << "JSON parse error:" << error.errorString();
-            m_loadingProgress->setFormat("Error parsing file data");
+            qWarning() << "JSON parse error for directories:" << error.errorString();
+            m_loadingProgress->setFormat("Error parsing directory data");
             return;
         }
 
-        QJsonArray filesArray;
-        if (doc.isArray()) {
-            filesArray = doc.array();
-        } else if (doc.isObject()) {
+        QJsonArray dirsArray;
+        if (doc.isObject()) {
             QJsonObject root = doc.object();
             // Bvfs API response structure
             if (root.contains("result") && root["result"].isObject()) {
                 QJsonObject result = root["result"].toObject();
-                if (result.contains("files") && result["files"].isArray()) {
-                    filesArray = result["files"].toArray();
-                    qDebug() << "Found" << filesArray.size() << "files in Bvfs response";
+                if (result.contains("directories") && result["directories"].isArray()) {
+                    dirsArray = result["directories"].toArray();
+                    qDebug() << "Found" << dirsArray.size() << "directories in Bvfs response";
                 }
-            } else if (root.contains("files")) {
-                filesArray = root["files"].toArray();
+            } else if (root.contains("directories")) {
+                dirsArray = root["directories"].toArray();
             }
         }
 
-        if (filesArray.isEmpty()) {
-            qWarning() << "No files found in response";
+        if (dirsArray.isEmpty()) {
+            qWarning() << "No directories found in response";
             qDebug() << "Full JSON:" << jsonData;
-            m_loadingProgress->setFormat("No files found for this job");
+            m_loadingProgress->setFormat("No directories found for this job");
         } else {
-            populateFileTree(filesArray);
+            populateFileTree(dirsArray);
         }
         m_loadingProgress->setVisible(false);
+        return;
+    }
+
+    // Process bvfs_lsfiles response (if needed for file details)
+    if (command.contains("bvfs_lsfiles")) {
+        qDebug() << "Received files data:" << jsonData.left(200);
+        // TODO: Handle file listing when user clicks on a directory
+        return;
     }
 }
 
@@ -333,153 +387,71 @@ void BJobDetailsDialog::onJobLogReceived(const QString &command, const QString &
         qDebug() << "Received job log data for job" << m_jobId;
         qDebug() << "Log size:" << response.size() << "bytes";
 
-        // Clear existing log entries
-        m_logModel->clear();
-
-        if (response.isEmpty()) {
-            QStandardItem *item = new QStandardItem(tr("No log data available for this job."));
-            item->setForeground(QBrush(Qt::gray));
-            m_logModel->appendRow(item);
-            return;
-        }
-
-        // Try to parse as JSON first
-        QJsonParseError parseError;
-        QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &parseError);
-
-        if (parseError.error == QJsonParseError::NoError) {
-            // Successfully parsed as JSON - extract log entries
-            QStringList logLines;
-
-            if (doc.isObject()) {
-                QJsonObject root = doc.object();
-
-                // Try to find log data in various possible structures
-                // Structure 1: { "result": { "joblog": [...] } }
-                if (root.contains("result") && root["result"].isObject()) {
-                    QJsonObject result = root["result"].toObject();
-                    if (result.contains("joblog") && result["joblog"].isArray()) {
-                        QJsonArray logArray = result["joblog"].toArray();
-                        for (const QJsonValue &val : logArray) {
-                            logLines.append(val.toString());
-                        }
-                    }
-                }
-                // Structure 2: { "joblog": [...] }
-                else if (root.contains("joblog") && root["joblog"].isArray()) {
-                    QJsonArray logArray = root["joblog"].toArray();
-                    for (const QJsonValue &val : logArray) {
-                        logLines.append(val.toString());
-                    }
-                }
-                // Structure 3: { "log": [...] }
-                else if (root.contains("log") && root["log"].isArray()) {
-                    QJsonArray logArray = root["log"].toArray();
-                    for (const QJsonValue &val : logArray) {
-                        logLines.append(val.toString());
-                    }
-                }
-            }
-            // Structure 4: Direct array of log lines
-            else if (doc.isArray()) {
-                QJsonArray logArray = doc.array();
-                for (const QJsonValue &val : logArray) {
-                    logLines.append(val.toString());
-                }
-            }
-
-            if (!logLines.isEmpty()) {
-                // Populate model with log entries
-                for (const QString &line : logLines) {
-                    QStandardItem *item = new QStandardItem(line);
-                    item->setFont(QFont("Courier", 9));
-                    m_logModel->appendRow(item);
-                }
-            } else {
-                QStandardItem *item = new QStandardItem(tr("No log entries found in JSON response."));
-                item->setForeground(QBrush(Qt::gray));
-                m_logModel->appendRow(item);
-            }
-        } else {
-            // Not JSON, display as plain text - split by lines
-            QStringList lines = response.split('\n');
-            for (const QString &line : lines) {
-                QStandardItem *item = new QStandardItem(line);
-                item->setFont(QFont("Courier", 9));
-                m_logModel->appendRow(item);
-            }
-        }
+        // Let the model parse the JSON response
+        m_logModel->parseJsonResponse(response);
     }
 }
 
-void BJobDetailsDialog::populateFileTree(const QJsonArray &filesArray)
+void BJobDetailsDialog::populateFileTree(const QJsonArray &dirsArray)
 {
-    qDebug() << "Populating file tree with" << filesArray.size() << "files";
+    qDebug() << "Populating file tree with" << dirsArray.size() << "directories";
 
     m_treeModel->clear();
     m_treeModel->setHorizontalHeaderLabels({"Directory Structure"});
 
-    if (filesArray.isEmpty()) {
-        QStandardItem *rootItem = new QStandardItem("No files found");
+    if (dirsArray.isEmpty()) {
+        QStandardItem *rootItem = new QStandardItem("No directories found");
         m_treeModel->appendRow(rootItem);
         return;
     }
 
-    // Build directory tree structure
+    // Build directory tree structure from BVFS lsdirs response
     QMap<QString, QStandardItem*> pathMap;
     QStandardItem *rootItem = new QStandardItem("/");
     rootItem->setData("/", Qt::UserRole);  // Store full path
+    rootItem->setIcon(QIcon::fromTheme("folder"));
     m_treeModel->appendRow(rootItem);
     pathMap["/"] = rootItem;
 
-    // Process each file and build tree
-    for (const QJsonValue &fileVal : filesArray) {
-        QJsonObject fileObj = fileVal.toObject();
+    // Process each directory from BVFS response
+    for (const QJsonValue &dirVal : dirsArray) {
+        QJsonObject dirObj = dirVal.toObject();
 
-        // Bvfs API uses "name" field, not "filename"
-        QString filename = fileObj["name"].toString();
+        // BVFS lsdirs returns: PathId, FilenameId, Name, JobId, LStat
+        QString dirName = dirObj["Name"].toString();
 
-        // If "name" is not available, try "filename" for compatibility
-        if (filename.isEmpty()) {
-            filename = fileObj["filename"].toString();
-        }
-
-        if (filename.isEmpty()) {
-            qDebug() << "Skipping file with no name:" << fileObj;
+        if (dirName.isEmpty()) {
+            qDebug() << "Skipping directory with no name:" << dirObj;
             continue;
         }
 
-        qDebug() << "Processing file:" << filename;
+        qDebug() << "Processing directory:" << dirName;
+
+        // dirName is typically the full path like "/home/user/documents/"
+        // Remove trailing slash if present
+        if (dirName.endsWith('/') && dirName != "/") {
+            dirName.chop(1);
+        }
 
         // Split path into components
-        QStringList pathParts = filename.split('/', Qt::SkipEmptyParts);
+        QStringList pathParts = dirName.split('/', Qt::SkipEmptyParts);
 
         QString currentPath = "";
         QStandardItem *parentItem = rootItem;
 
         // Build directory structure
         for (int i = 0; i < pathParts.size(); ++i) {
-            bool isLastPart = (i == pathParts.size() - 1);
             QString part = pathParts[i];
             currentPath += "/" + part;
 
             if (!pathMap.contains(currentPath)) {
                 QStandardItem *item = new QStandardItem(part);
                 item->setData(currentPath, Qt::UserRole);  // Store full path
+                item->setIcon(QIcon::fromTheme("folder"));
 
-                if (isLastPart) {
-                    // This is a file
-                    item->setIcon(QIcon::fromTheme("text-x-generic"));
-
-                    // Add file size if available from stat
-                    if (fileObj.contains("stat") && fileObj["stat"].isObject()) {
-                        QJsonObject stat = fileObj["stat"].toObject();
-                        qint64 size = stat["size"].toInteger();
-                        item->setData(size, Qt::UserRole + 1);  // Store size
-                    }
-                } else {
-                    // This is a directory
-                    item->setIcon(QIcon::fromTheme("folder"));
+                // Store BVFS PathId for later file queries
+                if (dirObj.contains("PathId")) {
+                    item->setData(dirObj["PathId"].toInt(), Qt::UserRole + 1);
                 }
 
                 parentItem->appendRow(item);

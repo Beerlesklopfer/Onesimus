@@ -28,6 +28,20 @@ public:
     void updateFromJobsArray(const QJsonArray &jobsArray);
 
     /**
+     * @brief Updates job names from .jobs dot-command response
+     * @param dotJobsResponse JSON response from .jobs command
+     * @since 2.5
+     */
+    void updateJobNamesFromDotCommand(const QString &dotJobsResponse);
+
+    /**
+     * @brief Updates client names from .clients dot-command response
+     * @param dotClientsResponse JSON response from .clients command
+     * @since 2.5
+     */
+    void updateClientNamesFromDotCommand(const QString &dotClientsResponse);
+
+    /**
      * @brief Returns list of unique job names
      * @return QStringList of job names, sorted alphabetically
      */

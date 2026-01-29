@@ -24,6 +24,24 @@ else()
     message(STATUS "Packet debugging: DISABLED (use -DDEBUG_PACKETS=ON to enable)")
 endif()
 
+# Option für detailliertes JSON Debugging (getrennt von IS_DEVELOPER)
+option(DEBUG_JSON "Enable detailed JSON message debugging output" OFF)
+if(DEBUG_JSON)
+    add_compile_definitions(DEBUG_JSON)
+    message(STATUS "JSON debugging: ENABLED")
+else()
+    message(STATUS "JSON debugging: DISABLED (use -DDEBUG_JSON=ON to enable)")
+endif()
+
+# Option für JSON Logging zu Datei (getrennt von IS_DEVELOPER)
+option(LOG_JSON "Enable JSON logging to file" OFF)
+if(LOG_JSON)
+    add_compile_definitions(LOG_JSON)
+    message(STATUS "JSON logging: ENABLED")
+else()
+    message(STATUS "JSON logging: DISABLED (use -DLOG_JSON=ON to enable)")
+endif()
+
 # ============================================================================
 # Backup System Auswahl
 # ============================================================================
@@ -332,19 +350,29 @@ set(SOURCES
     src/btranslations.cpp
     src/clientwidget.cpp
     src/bdirector.cpp
+    src/bareosdirector.cpp
+    src/bsettings.cpp
     src/settingsdialog.cpp
     src/storagewidget.cpp
 
     src/jobs/bfiltercombomodel.cpp
     src/jobs/bjobdetailsdialog.cpp
+    src/jobs/bjoblogmodel.cpp
     src/jobs/bjobsfiltermodel.cpp
     src/jobs/bjobsfilterwidget.cpp
     src/jobs/bjobsmodel.cpp
     src/jobs/bjobsstatisticswidget.cpp
     src/jobs/bjobwidget.cpp
     src/jobs/bjsonjobview.cpp
+
+    src/schedules/bschedulewidget.cpp
+    src/schedules/bweeklyplanner.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
+
+    src/clients/bclientsmodel.cpp
+    src/clients/bclientswidget.cpp
+    src/clients/bclientdetailsdialog.cpp
 )
 
 # Header-Dateien
@@ -355,6 +383,8 @@ set(HEADERS
     include/storagewidget.h
     include/settingsdialog.h
     include/bdirector.h
+    include/bareosdirector.h
+    include/bsettings.h
     include/version.h
     include/baculaauth.h
     include/bareosauth.h
@@ -366,6 +396,7 @@ set(HEADERS
     include/btranslations.h
     include/clientwidget.h
     include/bdirector.h
+    include/bareosdirector.h
     include/mainwindow.h
     include/settingsdialog.h
     include/storagewidget.h
@@ -374,13 +405,21 @@ set(HEADERS
     include/jobs/bcheckboxdelegate.h
     include/jobs/bfiltercombomodel.h
     include/jobs/bjobdetailsdialog.h
+    include/jobs/bjoblogmodel.h
     include/jobs/bjobsfiltermodel.h
     include/jobs/bjobsfilterwidget.h
     include/jobs/bjobsmodel.h
     include/jobs/bjobsstatisticswidget.h
     include/jobs/bjobwidget.h
     include/jobs/bjsonjobview.h
-    include/jobs/bviewpresets.h)
+    include/jobs/bviewpresets.h
+
+    include/clients/bclientsmodel.h
+    include/clients/bclientswidget.h
+
+    include/schedules/bschedulewidget.h
+    include/schedules/bweeklyplanner.h
+    include/clients/bclientdetailsdialog.h)
 
 # Bacula-spezifische Dateien
 if(USE_BACULA_ONLY)

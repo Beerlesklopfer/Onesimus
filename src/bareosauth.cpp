@@ -69,6 +69,7 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     m_readyReadConn = QObject::connect(m_socket, &QSslSocket::readyRead, this, &BareosAuth::onReadyRead);
     m_bytesWrittenConn = QObject::connect(m_socket, &QSslSocket::bytesWritten, this, &BareosAuth::onBytesWritten);
 
+#ifdef IS_DEVELOPER
     qDebug() << "========================================";
     qDebug() << "BAREOS AUTHENTICATION START";
     qDebug() << "========================================";
@@ -79,10 +80,13 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     qDebug() << "  TLS Require        : " << tlsVerifyPeer;
     qDebug() << "  TLS-PSK Enable     : " << tlsPSKEnable;
     qDebug() << "  BareosAuth Version : " << version();
+#endif
 
     // Calculate TLS needs
     m_tlsLocalNeed = calculateTLSNeed(tlsEnable, tlsRequire);
+#ifdef IS_DEVELOPER
     qDebug() << "  Local TLS need:" << m_tlsLocalNeed;
+#endif
 
     // Start authentication timeout
     m_authTimer->start(BAREOS_AUTH_TIMEOUT);
@@ -106,9 +110,9 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
 
     m_cramState = BCramState::CRAM_IDLE;
 
+    // PSK Auth (Bareos 18.2+)
     if (tlsPSKEnable && !password.isEmpty())
     {
-
         emit statusMessage("Setting up TLS-PSK...");
 
         if (!setupPSKTLS())
@@ -117,19 +121,28 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
             return false;
         }
 
-        if (send() != BnetStatus::Ok)
-        {
-            m_errorMessage = "Failed to send Hello message";
-            emit authenticationFailed(m_errorMessage);
-            return false;
-        }
-
-        emit statusMessage(QString("Sending: %1 with PSK").arg(m_writeBuffer));
-        m_cramState = BCramState::CRAM_HELLO_SENT;
+        // ✅ Hello wird in onEncrypted() nach TLS-Handshake gesendet
+        // m_writeBuffer wurde bereits vorbereitet (Zeile 102-106)
+        emit statusMessage("Starting TLS-PSK handshake...");
 
         return true;
     }
-    // Bareos <= 18.2.1 sequence: Hello + CRAM-MD5
+    // Certificate-based TLS (Bareos <= 18.2.1 oder explizit konfiguriert)
+    else if (tlsEnable && !password.isEmpty())
+    {
+        emit statusMessage("Setting up certificate-based TLS...");
+
+        if (!setupCertificateTLS())
+        {
+            return false;
+        }
+
+        // ✅ Hello wird in onEncrypted() nach TLS-Handshake gesendet
+        emit statusMessage("Starting TLS handshake...");
+
+        return true;
+    }
+    // Legacy mode: Kein TLS
     else if (!password.isEmpty())
     {
         // Legacy mode: Hello + CRAM-MD5 + TLS (if required)
@@ -202,12 +215,80 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
 }
 
 // ============================================================================
-// TLS-PSK Setup
+// TLS Setup Methods
 // ============================================================================
+
+bool BareosAuth::setupCertificateTLS()
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "Setting up certificate-based TLS...";
+#endif
+
+    // Connect encrypted signal for continuing after TLS
+    m_encryptedConn = QObject::connect(m_socket, &QSslSocket::encrypted,
+            this, &BareosAuth::onEncrypted);
+
+    // Connect SSL error handler
+    m_sslErrorsConn = QObject::connect(m_socket, QOverload<const QList<QSslError> &>::of(&QSslSocket::sslErrors),
+            this, &BareosAuth::onSslErrorsCertificate);
+
+    // Configure SSL for certificate-based authentication
+    QSslConfiguration sslConfig = m_socket->sslConfiguration();
+
+    // Set protocol to TLS 1.2 or later
+    sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
+
+    // ✅ Peer verification basierend auf Konfiguration
+    if (m_tlsVerifyPeer)
+    {
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
+#ifdef IS_DEVELOPER
+        qDebug() << "  Peer verification: ENABLED (Certificate mode)";
+#endif
+    }
+    else
+    {
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+#ifdef IS_DEVELOPER
+        qDebug() << "  Peer verification: DISABLED (Certificate mode without verification)";
+#endif
+    }
+
+    // TODO: Zertifikate laden, falls konfiguriert
+    // if (!m_tlsCertFile.isEmpty()) {
+    //     QList<QSslCertificate> localCerts = QSslCertificate::fromPath(m_tlsCertFile);
+    //     sslConfig.setLocalCertificateChain(localCerts);
+    // }
+    //
+    // if (!m_tlsKeyFile.isEmpty()) {
+    //     QFile keyFile(m_tlsKeyFile);
+    //     if (keyFile.open(QIODevice::ReadOnly)) {
+    //         QSslKey key(&keyFile, QSsl::Rsa);
+    //         sslConfig.setPrivateKey(key);
+    //     }
+    // }
+    //
+    // if (!m_tlsCaFile.isEmpty()) {
+    //     QList<QSslCertificate> caCerts = QSslCertificate::fromPath(m_tlsCaFile);
+    //     sslConfig.setCaCertificates(caCerts);
+    // }
+
+    m_socket->setSslConfiguration(sslConfig);
+
+    // Start TLS handshake
+#ifdef IS_DEVELOPER
+    qDebug() << "Starting TLS handshake (certificate mode)...";
+#endif
+    m_socket->startClientEncryption();
+
+    return true;
+}
 
 bool BareosAuth::setupPSKTLS()
 {
+#ifdef IS_DEVELOPER
     qDebug() << "Setting up TLS-PSK...";
+#endif
 
     // Connect PSK signal
     m_pskConn = QObject::connect(m_socket, &QSslSocket::preSharedKeyAuthenticationRequired,
@@ -227,14 +308,30 @@ bool BareosAuth::setupPSKTLS()
     // Set protocol to TLS 1.2 or later
     sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
 
-    // For PSK, we don't verify peer certificates
-    if (m_tlsVerifyPeer || m_tlsPSKEnable)
+    // ✅ RICHTIG: Für PSK keine Peer-Verifikation, für Zertifikate je nach Konfiguration
+    if (m_tlsPSKEnable)
     {
+        // PSK braucht keine Zertifikat-Verifikation
         sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+#ifdef IS_DEVELOPER
+        qDebug() << "  Peer verification: DISABLED (PSK mode)";
+#endif
+    }
+    else if (m_tlsVerifyPeer)
+    {
+        // Zertifikat-basierte TLS mit Verifikation
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
+#ifdef IS_DEVELOPER
+        qDebug() << "  Peer verification: ENABLED (Certificate mode)";
+#endif
     }
     else
     {
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
+        // Zertifikat-basierte TLS ohne Verifikation
+        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+#ifdef IS_DEVELOPER
+        qDebug() << "  Peer verification: DISABLED (Certificate mode without verification)";
+#endif
     }
 
     // Set PSK ciphers - Bareos prefers these
@@ -249,7 +346,9 @@ bool BareosAuth::setupPSKTLS()
         if (name.contains("PSK", Qt::CaseInsensitive))
         {
             pskCiphers.append(cipher);
+#ifdef IS_DEVELOPER
             qDebug() << "  Adding PSK cipher:" << name;
+#endif
         }
     }
 
@@ -267,7 +366,9 @@ bool BareosAuth::setupPSKTLS()
     m_socket->setSslConfiguration(sslConfig);
 
     // Start TLS handshake
+#ifdef IS_DEVELOPER
     qDebug() << "Starting TLS-PSK handshake...";
+#endif
     m_socket->startClientEncryption();
 
     return true;
@@ -275,9 +376,11 @@ bool BareosAuth::setupPSKTLS()
 
 void BareosAuth::onPreSharedKeyAuthenticationRequired(QSslPreSharedKeyAuthenticator *authenticator)
 {
+#ifdef IS_DEVELOPER
     qDebug() << "========================================";
     qDebug() << "PSK AUTHENTICATION REQUIRED";
     qDebug() << "========================================";
+#endif
 
     handlePskAuthenticator(authenticator);
 }
@@ -287,18 +390,23 @@ void BareosAuth::handlePskAuthenticator(QSslPreSharedKeyAuthenticator *authentic
     // Bareos PSK identity format: R_CONSOLE::ConsoleName
     QString identity = QString("%1::%2").arg(BAREOS_R_CONSOLE, m_consoleName);
 
+#ifdef IS_DEVELOPER
     qDebug() << "  Identity hint from server:" << authenticator->identityHint();
     qDebug() << "  Setting identity:" << identity;
     qDebug() << "  PSK key length:" << m_password.length() << "bytes";
+#endif
 
     authenticator->setIdentity(identity.toLatin1());
     authenticator->setPreSharedKey(m_password);
 
+#ifdef IS_DEVELOPER
     qDebug() << "PSK credentials set";
+#endif
 }
 
 void BareosAuth::onEncrypted()
 {
+#ifdef IS_DEVELOPER
     qDebug() << "========================================";
     qDebug() << "TLS-PSK HANDSHAKE SUCCESSFUL";
     qDebug() << "========================================";
@@ -306,40 +414,36 @@ void BareosAuth::onEncrypted()
     qDebug() << "  Protocol:" << m_socket->sessionProtocol();
     qDebug() << "  Cipher:" << m_socket->sessionCipher().name();
     qDebug() << "========================================";
+#endif
 
     m_tlsStarted = true;
 
-    // Perform CRAM-MD5 authentication over TLS
-    emit statusMessage("Performing CRAM-MD5 authentication...");
+    // ✅ Nach PSK-TLS: Jetzt Hello senden und CRAM-MD5 starten
+    emit statusMessage("TLS established, sending Hello packet...");
 
-    // Wait for Director banner
-    QByteArray response;
-    // if (brecv(response, 5000) != BnetStatus::Ok)
-    // {
-    //     m_errorMessage = "No response from Director after authentication";
-    //     emit authenticationFailed(m_errorMessage);
-    //     return;
-    // }
+    // m_writeBuffer wurde bereits in authenticateDirector() vorbereitet (Zeile 102-105)
+    // Format: "Hello <consoleName> onesimus version <version>"
 
-    qDebug() << "<<< Director banner:" << response;
+#ifdef IS_DEVELOPER
+    qDebug() << "Sending Hello packet:" << m_writeBuffer;
+#endif
 
-    // Parse version
-    if (!parseDirectorVersion(response))
+    if (send() != BnetStatus::Ok)
     {
-        qWarning() << "Could not parse Director version";
+        m_errorMessage = "Failed to send Hello message after TLS handshake";
+        emit authenticationFailed(m_errorMessage);
+        return;
     }
 
-    // Success!
-    stopAuthTimeout();
-    m_authSuccess = true;
+    // ✅ State-Machine starten: Warten auf Director Challenge
+    m_cramState = BCramState::CRAM_HELLO_SENT;
 
-    qDebug() << "========================================";
-    qDebug() << "BAREOS AUTHENTICATION SUCCESSFUL";
-    qDebug() << "  Director Version:" << m_directorVersionString;
-    qDebug() << "  Encryption:" << m_socket->sessionCipher().name();
-    qDebug() << "========================================";
+#ifdef IS_DEVELOPER
+    qDebug() << "  ✓ Hello sent, waiting for Director challenge...";
+    qDebug() << "  State changed -> CRAM_HELLO_SENT";
+#endif
 
-    emit authenticationSucceeded(m_directorVersionString);
+    emit statusMessage("Waiting for Director challenge...");
 }
 
 void BareosAuth::onSslErrors(const QList<QSslError> &errors)
@@ -354,14 +458,42 @@ void BareosAuth::onSslErrors(const QList<QSslError> &errors)
     // This is normal for PSK authentication
     if (m_tlsPSKEnable)
     {
+#ifdef IS_DEVELOPER
         qDebug() << "Ignoring SSL errors for PSK mode (this is normal)";
+#endif
         m_socket->ignoreSslErrors();
+    }
+}
+
+void BareosAuth::onSslErrorsCertificate(const QList<QSslError> &errors)
+{
+    qWarning() << "SSL Errors during certificate-based TLS handshake:";
+    for (const QSslError &error : errors)
+    {
+        qWarning() << "  -" << error.errorString();
+    }
+
+    // Bei Zertifikat-basierter TLS: Nur ignorieren wenn VerifyPeer deaktiviert
+    if (!m_tlsVerifyPeer)
+    {
+#ifdef IS_DEVELOPER
+        qDebug() << "Ignoring SSL errors (peer verification disabled)";
+#endif
+        m_socket->ignoreSslErrors();
+    }
+    else
+    {
+        // Peer verification aktiviert - Fehler sind kritisch
+        m_errorMessage = QString("SSL/TLS Error: %1").arg(errors.first().errorString());
+        emit authenticationFailed(m_errorMessage);
     }
 }
 
 bool BareosAuth::cramMD5Response(const QByteArray challenge)
 {
+#ifdef IS_DEVELOPER
     qDebug() << "Processing Director challenge:" << challenge;
+#endif
 
     QRegularExpression challengeRx(
         R"(auth\s+cram-md5(c?)\s+(<[^>]+>)\s+ssl=(\d+))",
@@ -384,19 +516,25 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
     m_isCompatible = !match.captured(1).isEmpty();
     m_directorChallenge = match.captured(2);
 
+#ifdef IS_DEVELOPER
     qDebug() << "  Director challenge:" << directorChallenge;
     qDebug() << "  Compatible mode:" << m_isCompatible;
     qDebug() << "  Remote TLS need:" << m_tlsRemoteNeed;
     qDebug() << "  Password (hex):" << m_password.toHex();
+#endif
 
     // Berechne HMAC
     const QByteArray hmac = hmac_md5(directorChallenge, m_password.toHex());
 
+#ifdef IS_DEVELOPER
     qDebug() << "  HMAC (raw hex):" << hmac.toHex();
+#endif
 
     m_writeBuffer = base64Encode(hmac);
 
+#ifdef IS_DEVELOPER
     qDebug() << "  HMAC (base64):" << m_writeBuffer;
+#endif
 
     // ✅ Sende NUR die HMAC-Response
     if (send() != BnetStatus::Ok)
@@ -407,7 +545,9 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
         return false;
     }
 
+#ifdef IS_DEVELOPER
     qDebug() << "  ✓ HMAC response sent";
+#endif
 
     emit statusMessage("CRAM-MD5 response sent successfully");
     return true;
@@ -430,7 +570,9 @@ bool BareosAuth::cramMD5Challenge()
     m_clientChallenge.append(m_consoleName.toLatin1());
     m_clientChallenge.append('>');
 
+#ifdef IS_DEVELOPER
     qDebug() << "  Sending client challenge:" << m_clientChallenge;
+#endif
 
     // Nachricht vorbereiten
     m_writeBuffer = QByteArray("auth cram-md5 ");
@@ -438,7 +580,9 @@ bool BareosAuth::cramMD5Challenge()
     m_writeBuffer.append(" ssl=");
     m_writeBuffer.append(QByteArray::number(m_tlsLocalNeed));
 
+#ifdef IS_DEVELOPER
     qDebug() << "  Full message:" << m_writeBuffer;
+#endif
 
     if (send() != BnetStatus::Ok)
     {
@@ -446,7 +590,9 @@ bool BareosAuth::cramMD5Challenge()
         return false;
     }
 
+#ifdef IS_DEVELOPER
     qDebug() << "  ✓ Client challenge sent";
+#endif
 
     emit statusMessage("Client challenge sent successfully");
     return true;

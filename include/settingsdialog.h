@@ -17,6 +17,7 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QRadioButton>
 #include "bdirector.h"
 
 namespace Ui {
@@ -61,7 +62,6 @@ private:
     void createSidebar();
     void createContentPages();
     void createConnectionPage();
-    void createTLSPage();
     void createAppearancePage();
     void createBehaviorPage();
     void createAdvancedPage();
@@ -79,7 +79,6 @@ private:
     
     // Settings-Seiten
     QWidget *m_connectionPage;
-    QWidget *m_tlsPage;
     QWidget *m_appearancePage;
     QWidget *m_behaviorPage;
     QWidget *m_advancedPage;
@@ -93,8 +92,10 @@ private:
     QCheckBox *m_autoConnectCheck;
     QSpinBox *m_connectionTimeoutSpin;
 
-    // TLS-Einstellungen
-    QCheckBox *m_tlsEnabledCheck;
+    // TLS-Einstellungen (checkable GroupBox mit RadioButtons)
+    QGroupBox *m_tlsGroupBox;
+    QRadioButton *m_tlsPSKRadio;
+    QRadioButton *m_tlsCertificateRadio;
     QLineEdit *m_caCertEdit;
     QLineEdit *m_clientCertEdit;
     QLineEdit *m_clientKeyEdit;

@@ -1,5 +1,6 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
+#include "bsettings.h"
 
 #include <QFormLayout>
 #include <QGroupBox>
@@ -98,19 +99,15 @@ void SettingsDialog::createSidebar()
     QListWidgetItem *connectionItem = new QListWidgetItem("🔌 Verbindung");
     connectionItem->setData(Qt::UserRole, "connection");
     m_categoryList->addItem(connectionItem);
-    
-    QListWidgetItem *tlsItem = new QListWidgetItem("🔒 TLS/SSL");
-    tlsItem->setData(Qt::UserRole, "tls");
-    m_categoryList->addItem(tlsItem);
-    
+
     QListWidgetItem *appearanceItem = new QListWidgetItem("🎨 Erscheinungsbild");
     appearanceItem->setData(Qt::UserRole, "appearance");
     m_categoryList->addItem(appearanceItem);
-    
+
     QListWidgetItem *behaviorItem = new QListWidgetItem("⚙️ Verhalten");
     behaviorItem->setData(Qt::UserRole, "behavior");
     m_categoryList->addItem(behaviorItem);
-    
+
     QListWidgetItem *advancedItem = new QListWidgetItem("🔧 Erweitert");
     advancedItem->setData(Qt::UserRole, "advanced");
     m_categoryList->addItem(advancedItem);
@@ -119,7 +116,6 @@ void SettingsDialog::createSidebar()
 void SettingsDialog::createContentPages()
 {
     createConnectionPage();
-    createTLSPage();
     createAppearancePage();
     createBehaviorPage();
     createAdvancedPage();
@@ -128,9 +124,18 @@ void SettingsDialog::createContentPages()
 void SettingsDialog::createConnectionPage()
 {
     m_connectionPage = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(m_connectionPage);
+
+    // Create scroll area
+    QScrollArea *scrollArea = new QScrollArea(m_connectionPage);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    // Content widget inside scroll area
+    QWidget *contentWidget = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(contentWidget);
     layout->setSpacing(20);
-    
+
     // Titel
     QLabel *titleLabel = new QLabel("Verbindungseinstellungen");
     titleLabel->setObjectName("pageTitle");
@@ -176,20 +181,119 @@ void SettingsDialog::createConnectionPage()
     bconsoleLayout->addRow("Passwort:", m_passwordEdit);
     
     layout->addWidget(bconsoleGroup);
-    
+
+    // TLS Info-Label (angezeigt wenn TLS deaktiviert ist)
+    QLabel *tlsWarningLabel = new QLabel(
+        "⚠️ TLS verschlüsselt die Kommunikation mit dem Director.\n"
+        "Für Produktionsumgebungen wird TLS dringend empfohlen!");
+    tlsWarningLabel->setObjectName("warningLabel");
+    tlsWarningLabel->setWordWrap(true);
+    layout->addWidget(tlsWarningLabel);
+
+    // TLS/SSL-Einstellungen (checkable GroupBox)
+    m_tlsGroupBox = new QGroupBox("TLS/SSL-Verschlüsselung");
+    m_tlsGroupBox->setObjectName("settingsGroup");
+    m_tlsGroupBox->setCheckable(true);
+    m_tlsGroupBox->setChecked(true);  // Initial: TLS aktiviert
+    QVBoxLayout *tlsLayout = new QVBoxLayout(m_tlsGroupBox);
+    tlsLayout->setSpacing(12);
+
+    // Verbinde Signal um Warnung anzuzeigen/verstecken
+    tlsWarningLabel->setVisible(!m_tlsGroupBox->isChecked());
+    connect(m_tlsGroupBox, &QGroupBox::toggled, [tlsWarningLabel](bool checked) {
+        tlsWarningLabel->setVisible(!checked);
+    });
+
+    // Authentifizierungsmethode
+    QLabel *authMethodLabel = new QLabel("Authentifizierungsmethode:");
+    authMethodLabel->setStyleSheet("font-weight: bold;");
+    tlsLayout->addWidget(authMethodLabel);
+
+    m_tlsPSKRadio = new QRadioButton("PSK (Pre-Shared Key) - Standard für Bareos 18.2+");
+    m_tlsPSKRadio->setChecked(true);
+    tlsLayout->addWidget(m_tlsPSKRadio);
+
+    m_tlsCertificateRadio = new QRadioButton("Zertifikat-basierte TLS-Authentifizierung");
+    tlsLayout->addWidget(m_tlsCertificateRadio);
+
+    // Zertifikat-Einstellungen (nur für Certificate-Modus)
+    QWidget *certWidget = new QWidget();
+    QFormLayout *certLayout = new QFormLayout(certWidget);
+    certLayout->setSpacing(12);
+
+#ifndef Q_OS_WINDOWS
+    // Linux: Separate PEM-Dateien
+    // CA Certificate
+    QHBoxLayout *caLayout = new QHBoxLayout();
+    m_caCertEdit = new QLineEdit();
+    m_caCertEdit->setPlaceholderText("Pfad zum CA-Zertifikat (.pem)");
+    QPushButton *caBrowse = new QPushButton("Durchsuchen...");
+    caBrowse->setObjectName("browseButton");
+    connect(caBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseCACert);
+    caLayout->addWidget(m_caCertEdit);
+    caLayout->addWidget(caBrowse);
+    certLayout->addRow("CA Certificate:", caLayout);
+
+    // Client Certificate
+    QHBoxLayout *clientCertLayout = new QHBoxLayout();
+    m_clientCertEdit = new QLineEdit();
+    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pem)");
+    QPushButton *clientCertBrowse = new QPushButton("Durchsuchen...");
+    clientCertBrowse->setObjectName("browseButton");
+    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
+    clientCertLayout->addWidget(m_clientCertEdit);
+    clientCertLayout->addWidget(clientCertBrowse);
+    certLayout->addRow("Client Certificate:", clientCertLayout);
+
+    // Private Key
+    QHBoxLayout *keyLayout = new QHBoxLayout();
+    m_clientKeyEdit = new QLineEdit();
+    m_clientKeyEdit->setPlaceholderText("Pfad zum Private Key (.pem, .key)");
+    QPushButton *keyBrowse = new QPushButton("Durchsuchen...");
+    keyBrowse->setObjectName("browseButton");
+    connect(keyBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientKey);
+    keyLayout->addWidget(m_clientKeyEdit);
+    keyLayout->addWidget(keyBrowse);
+    certLayout->addRow("Private Key:", keyLayout);
+#else
+    // Windows: PFX-Datei
+    QHBoxLayout *clientCertLayout = new QHBoxLayout();
+    m_clientCertEdit = new QLineEdit();
+    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pfx)");
+    QPushButton *clientCertBrowse = new QPushButton("Durchsuchen...");
+    clientCertBrowse->setObjectName("browseButton");
+    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
+    clientCertLayout->addWidget(m_clientCertEdit);
+    clientCertLayout->addWidget(clientCertBrowse);
+    certLayout->addRow("PFX Certificate:", clientCertLayout);
+#endif
+
+    // Peer Verification
+    m_verifyPeerCheck = new QCheckBox("Server-Zertifikat validieren (empfohlen)");
+    m_verifyPeerCheck->setChecked(true);
+    certLayout->addRow("", m_verifyPeerCheck);
+
+    certWidget->setEnabled(false);  // Standardmäßig deaktiviert (PSK ist ausgewählt)
+    tlsLayout->addWidget(certWidget);
+
+    // Certificate-Felder nur aktivieren wenn Certificate-Radio ausgewählt
+    connect(m_tlsCertificateRadio, &QRadioButton::toggled, certWidget, &QWidget::setEnabled);
+
+    layout->addWidget(m_tlsGroupBox);
+
     // Verbindungsoptionen
     QGroupBox *optionsGroup = new QGroupBox("Verbindungsoptionen");
     optionsGroup->setObjectName("settingsGroup");
     QVBoxLayout *optionsLayout = new QVBoxLayout(optionsGroup);
     optionsLayout->setSpacing(12);
-    
+
     m_savePasswordCheck = new QCheckBox("Passwort speichern");
     m_savePasswordCheck->setChecked(true);
     optionsLayout->addWidget(m_savePasswordCheck);
-    
+
     m_autoConnectCheck = new QCheckBox("Automatisch beim Start verbinden");
     optionsLayout->addWidget(m_autoConnectCheck);
-    
+
     QHBoxLayout *timeoutLayout = new QHBoxLayout();
     QLabel *timeoutLabel = new QLabel("Verbindungs-Timeout:");
     m_connectionTimeoutSpin = new QSpinBox();
@@ -200,7 +304,7 @@ void SettingsDialog::createConnectionPage()
     timeoutLayout->addWidget(m_connectionTimeoutSpin);
     timeoutLayout->addStretch();
     optionsLayout->addLayout(timeoutLayout);
-    
+
     layout->addWidget(optionsGroup);
     
     // Buttons
@@ -219,132 +323,35 @@ void SettingsDialog::createConnectionPage()
     buttonLayout->addStretch();
     buttonLayout->addWidget(clearBtn);
     optionsLayout->addLayout(buttonLayout);
-    
+
     layout->addStretch();
-    
+
+    // Set content widget to scroll area
+    scrollArea->setWidget(contentWidget);
+
+    // Add scroll area to page
+    QVBoxLayout *pageLayout = new QVBoxLayout(m_connectionPage);
+    pageLayout->setContentsMargins(0, 0, 0, 0);
+    pageLayout->addWidget(scrollArea);
+
     m_contentStack->addWidget(m_connectionPage);
-}
-
-void SettingsDialog::createTLSPage()
-{
-    m_tlsPage = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(m_tlsPage);
-    layout->setSpacing(20);
-    
-    // Titel
-    QLabel *titleLabel = new QLabel("TLS/SSL Verschlüsselung");
-    titleLabel->setObjectName("pageTitle");
-    layout->addWidget(titleLabel);
-    
-    // TLS aktivieren
-    m_tlsEnabledCheck = new QCheckBox("TLS/SSL-Verschlüsselung verwenden");
-    m_tlsEnabledCheck->setObjectName("prominentCheckbox");
-    layout->addWidget(m_tlsEnabledCheck);
-
-    QFormLayout *certLayout = new QFormLayout(this);
-    certLayout->setSpacing(12);
-
-#ifndef Q_OS_WINDOWS
-    // Zertifikat-Pfade
-    QGroupBox *certGroup = new QGroupBox("Zertifikate");
-    certGroup->setObjectName("settingsGroup");
-    
-    // CA Certificate
-    QHBoxLayout *caLayout = new QHBoxLayout();
-    m_caCertEdit = new QLineEdit();
-    m_caCertEdit->setPlaceholderText("Pfad zum CA-Zertifikat (.pem)");
-    QPushButton *caBrowse = new QPushButton("Durchsuchen...");
-    caBrowse->setObjectName("browseButton");
-    connect(caBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseCACert);
-    caLayout->addWidget(m_caCertEdit);
-    caLayout->addWidget(caBrowse);
-    certLayout->addRow("CA Certificate:", caLayout);
-    
-    // Client Certificate
-    QHBoxLayout *clientCertLayout = new QHBoxLayout();
-    m_clientCertEdit = new QLineEdit();
-    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pem)");
-    QPushButton *clientCertBrowse = new QPushButton("Durchsuchen...");
-    clientCertBrowse->setObjectName("browseButton");
-    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
-    clientCertLayout->addWidget(m_clientCertEdit);
-    clientCertLayout->addWidget(clientCertBrowse);
-    certLayout->addRow("Client Certificate:", clientCertLayout);
-    
-    // Private Key
-    QHBoxLayout *keyLayout = new QHBoxLayout();
-    m_clientKeyEdit = new QLineEdit();
-    m_clientKeyEdit->setPlaceholderText("Pfad zum Private Key (.pem, .key)");
-    QPushButton *keyBrowse = new QPushButton("Durchsuchen...");
-    keyBrowse->setObjectName("browseButton");
-    connect(keyBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientKey);
-    keyLayout->addWidget(m_clientKeyEdit);
-    keyLayout->addWidget(keyBrowse);
-    certLayout->addRow("Private Key:", keyLayout);
-    
-    layout->addWidget(certGroup);
-#endif
-
-    // TLS-Optionen
-    QGroupBox *tlsOptionsGroup = new QGroupBox("TLS-Optionen");
-    tlsOptionsGroup->setObjectName("settingsGroup");
-    QVBoxLayout *tlsOptionsLayout = new QVBoxLayout(tlsOptionsGroup);
-
-#ifdef Q_OS_WINDOWS
-    // Client Certificate
-    QHBoxLayout *clientCertLayout = new QHBoxLayout();
-    m_clientCertEdit = new QLineEdit();
-#ifdef Q_OS_WINDOWS
-    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pfx)");
-#else
-    m_clientCertEdit->setPlaceholderText("Pfad zum Client-Zertifikat (*.pem *.crt *.cert)");
-#endif
-    QPushButton *clientCertBrowse = new QPushButton("Durchsuchen...");
-    clientCertBrowse->setObjectName("browseButton");
-    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
-    clientCertLayout->addWidget(m_clientCertEdit);
-    clientCertLayout->addWidget(clientCertBrowse);
-#endif
-
-#ifdef Q_OS_WINDOWS
-    tlsOptionsLayout->addLayout(clientCertLayout);
-#endif
-
-    m_verifyPeerCheck = new QCheckBox("Server-Zertifikat validieren (empfohlen)");
-    m_verifyPeerCheck->setChecked(true);
-    tlsOptionsLayout->addWidget(m_verifyPeerCheck);
-    
-    QLabel *infoLabel = new QLabel(
-        "ℹ️ TLS verschlüsselt die Kommunikation mit dem Bacula Director.\n"
-        "Für Produktionsumgebungen wird TLS dringend empfohlen.");
-    infoLabel->setObjectName("infoLabel");
-    infoLabel->setWordWrap(true);
-    tlsOptionsLayout->addWidget(infoLabel);
-
-    layout->addWidget(tlsOptionsGroup);
-    
-    // TLS-Felder aktivieren/deaktivieren
-    auto updateTlsFields = [=]() {
-        bool enabled = m_tlsEnabledCheck->isChecked();
-#ifndef Q_OS_WINDOWS
-        certGroup->setEnabled(enabled);
-#endif
-        tlsOptionsGroup->setEnabled(enabled);
-    };
-    connect(m_tlsEnabledCheck, &QCheckBox::toggled, updateTlsFields);
-    updateTlsFields();
-    
-    layout->addStretch();
-    
-    m_contentStack->addWidget(m_tlsPage);
 }
 
 void SettingsDialog::createAppearancePage()
 {
     m_appearancePage = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(m_appearancePage);
+
+    // Create scroll area
+    QScrollArea *scrollArea = new QScrollArea(m_appearancePage);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    // Content widget inside scroll area
+    QWidget *contentWidget = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(contentWidget);
     layout->setSpacing(20);
-    
+
     // Titel
     QLabel *titleLabel = new QLabel("Erscheinungsbild");
     titleLabel->setObjectName("pageTitle");
@@ -387,20 +394,37 @@ void SettingsDialog::createAppearancePage()
     
     m_compactModeCheck = new QCheckBox("Kompakter Modus");
     uiLayout->addWidget(m_compactModeCheck);
-    
+
     layout->addWidget(uiGroup);
-    
+
     layout->addStretch();
-    
+
+    // Set content widget to scroll area
+    scrollArea->setWidget(contentWidget);
+
+    // Add scroll area to page
+    QVBoxLayout *pageLayout = new QVBoxLayout(m_appearancePage);
+    pageLayout->setContentsMargins(0, 0, 0, 0);
+    pageLayout->addWidget(scrollArea);
+
     m_contentStack->addWidget(m_appearancePage);
 }
 
 void SettingsDialog::createBehaviorPage()
 {
     m_behaviorPage = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(m_behaviorPage);
+
+    // Create scroll area
+    QScrollArea *scrollArea = new QScrollArea(m_behaviorPage);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    // Content widget inside scroll area
+    QWidget *contentWidget = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(contentWidget);
     layout->setSpacing(20);
-    
+
     // Titel
     QLabel *titleLabel = new QLabel("Verhalten");
     titleLabel->setObjectName("pageTitle");
@@ -448,20 +472,37 @@ void SettingsDialog::createBehaviorPage()
     m_maxJobsDisplaySpin->setValue(100);
     m_maxJobsDisplaySpin->setSuffix(" Jobs");
     displayLayout->addRow("Maximale Jobs:", m_maxJobsDisplaySpin);
-    
+
     layout->addWidget(displayGroup);
-    
+
     layout->addStretch();
-    
+
+    // Set content widget to scroll area
+    scrollArea->setWidget(contentWidget);
+
+    // Add scroll area to page
+    QVBoxLayout *pageLayout = new QVBoxLayout(m_behaviorPage);
+    pageLayout->setContentsMargins(0, 0, 0, 0);
+    pageLayout->addWidget(scrollArea);
+
     m_contentStack->addWidget(m_behaviorPage);
 }
 
 void SettingsDialog::createAdvancedPage()
 {
     m_advancedPage = new QWidget();
-    QVBoxLayout *layout = new QVBoxLayout(m_advancedPage);
+
+    // Create scroll area
+    QScrollArea *scrollArea = new QScrollArea(m_advancedPage);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    // Content widget inside scroll area
+    QWidget *contentWidget = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(contentWidget);
     layout->setSpacing(20);
-    
+
     // Titel
     QLabel *titleLabel = new QLabel("Erweiterte Einstellungen");
     titleLabel->setObjectName("pageTitle");
@@ -516,9 +557,17 @@ void SettingsDialog::createAdvancedPage()
     warningLabel->setObjectName("warningLabel");
     warningLabel->setWordWrap(true);
     layout->addWidget(warningLabel);
-    
+
     layout->addStretch();
-    
+
+    // Set content widget to scroll area
+    scrollArea->setWidget(contentWidget);
+
+    // Add scroll area to page
+    QVBoxLayout *pageLayout = new QVBoxLayout(m_advancedPage);
+    pageLayout->setContentsMargins(0, 0, 0, 0);
+    pageLayout->addWidget(scrollArea);
+
     m_contentStack->addWidget(m_advancedPage);
 }
 
@@ -742,96 +791,102 @@ void SettingsDialog::applyModernStyle()
 
 void SettingsDialog::loadSettings()
 {
-    QSettings settings("Bacula", "Onesimus");
-    
+    BSettings& settings = BSettings::instance();
+
     // Verbindung
-    m_hostEdit->setText(settings.value("Connection/bconsole_host", "localhost").toString());
-    m_portSpin->setValue(settings.value("Connection/bconsole_port", 9101).toInt());
-    m_directorEdit->setText(settings.value("Connection/bconsole_director", "bacula-dir").toString());
-    m_passwordEdit->setText(settings.value("Connection/bconsole_password").toString());
-    m_savePasswordCheck->setChecked(settings.value("Connection/save_password", true).toBool());
-    m_autoConnectCheck->setChecked(settings.value("Connection/auto_connect", false).toBool());
-    m_connectionTimeoutSpin->setValue(settings.value("Connection/connection_timeout", 30).toInt());
-    
-#ifndef Q_OS_WINDOWS
+    m_hostEdit->setText(settings.connectionHost());
+    m_portSpin->setValue(settings.connectionPort());
+    m_directorEdit->setText(settings.connectionDirector());
+    m_passwordEdit->setText(settings.connectionPassword());
+    m_savePasswordCheck->setChecked(settings.connectionSavePassword());
+    m_autoConnectCheck->setChecked(settings.connectionAutoConnect());
+    m_connectionTimeoutSpin->setValue(settings.connectionTimeout());
+
     // TLS
-    m_tlsEnabledCheck->setChecked(settings.value("Connection/tls_enabled", false).toBool());
-    m_caCertEdit->setText(settings.value("Connection/tls_ca_cert").toString());
-    m_clientCertEdit->setText(settings.value("Connection/tls_cert").toString());
-    m_clientKeyEdit->setText(settings.value("Connection/tls_key").toString());
+    m_tlsGroupBox->setChecked(settings.tlsEnabled());
+    bool usePSK = settings.tlsUsePSK();
+    if (usePSK) {
+        m_tlsPSKRadio->setChecked(true);
+    } else {
+        m_tlsCertificateRadio->setChecked(true);
+    }
+
+#ifndef Q_OS_WINDOWS
+    m_caCertEdit->setText(settings.tlsCaCertFile());
+    m_clientCertEdit->setText(settings.tlsCertFile());
+    m_clientKeyEdit->setText(settings.tlsKeyFile());
 #else
-    m_clientCertEdit->setText(settings.value("Connection/tls_pfx").toString());
+    m_clientCertEdit->setText(settings.tlsPfxFile());
 #endif
 
-    m_verifyPeerCheck->setChecked(settings.value("Connection/tls_verify_peer", true).toBool());
-    
+    m_verifyPeerCheck->setChecked(settings.tlsVerifyPeer());
+
     // Appearance
-    QString theme = settings.value("Appearance/theme", "dark").toString();
+    QString theme = settings.appearanceTheme();
     int themeIndex = m_themeCombo->findData(theme);
     if (themeIndex >= 0) m_themeCombo->setCurrentIndex(themeIndex);
-    m_fontSizeSpin->setValue(settings.value("Appearance/font_size", 10).toInt());
-    m_animationsCheck->setChecked(settings.value("Appearance/animations", true).toBool());
-    m_compactModeCheck->setChecked(settings.value("Appearance/compact_mode", false).toBool());
-    
+    m_fontSizeSpin->setValue(settings.appearanceFontSize());
+    m_animationsCheck->setChecked(settings.appearanceAnimations());
+    m_compactModeCheck->setChecked(settings.appearanceCompactMode());
+
     // Behavior
-    m_confirmJobCancelCheck->setChecked(settings.value("Behavior/confirm_job_cancel", true).toBool());
-    m_autoRefreshCheck->setChecked(settings.value("Behavior/auto_refresh", false).toBool());
-    m_refreshIntervalSpin->setValue(settings.value("Behavior/refresh_interval", 30).toInt());
-    m_maxJobsDisplaySpin->setValue(settings.value("Behavior/max_jobs_display", 100).toInt());
-    
+    m_confirmJobCancelCheck->setChecked(settings.behaviorConfirmJobCancel());
+    m_autoRefreshCheck->setChecked(settings.behaviorAutoRefresh());
+    m_refreshIntervalSpin->setValue(settings.behaviorRefreshInterval());
+    m_maxJobsDisplaySpin->setValue(settings.behaviorMaxJobsDisplay());
+
     // Advanced
-    m_debugLoggingCheck->setChecked(settings.value("Advanced/debug_logging", false).toBool());
-    m_logFileEdit->setText(settings.value("Advanced/log_file", "bacula-qt-ui.log").toString());
-    m_maxLogSizeSpin->setValue(settings.value("Advanced/max_log_size", 10).toInt());
-    m_enableTooltipsCheck->setChecked(settings.value("Advanced/enable_tooltips", true).toBool());
+    m_debugLoggingCheck->setChecked(settings.advancedDebugLogging());
+    m_logFileEdit->setText(settings.advancedLogFile());
+    m_maxLogSizeSpin->setValue(settings.advancedMaxLogSize());
+    m_enableTooltipsCheck->setChecked(settings.advancedEnableTooltips());
 }
 
 void SettingsDialog::saveSettings()
 {
-    QSettings settings("Bacula", "Onesimus");
-    
+    BSettings& settings = BSettings::instance();
+
     // Verbindung
-    settings.setValue("Connection/bconsole_host", m_hostEdit->text());
-    settings.setValue("Connection/bconsole_port", m_portSpin->value());
-    settings.setValue("Connection/bconsole_director", m_directorEdit->text());
-    if (m_savePasswordCheck->isChecked()) {
-        settings.setValue("Connection/bconsole_password", m_passwordEdit->text());
-    } else {
-        settings.remove("Connection/bconsole_password");
-    }
-    settings.setValue("Connection/save_password", m_savePasswordCheck->isChecked());
-    settings.setValue("Connection/auto_connect", m_autoConnectCheck->isChecked());
-    settings.setValue("Connection/connection_timeout", m_connectionTimeoutSpin->value());
-    
+    settings.setConnectionHost(m_hostEdit->text());
+    settings.setConnectionPort(m_portSpin->value());
+    settings.setConnectionDirector(m_directorEdit->text());
+    settings.setConnectionSavePassword(m_savePasswordCheck->isChecked());
+    settings.setConnectionPassword(m_passwordEdit->text());  // Will only save if savePassword is true
+    settings.setConnectionAutoConnect(m_autoConnectCheck->isChecked());
+    settings.setConnectionTimeout(m_connectionTimeoutSpin->value());
+
     // TLS
-    settings.setValue("Connection/tls_enabled", m_tlsEnabledCheck->isChecked());
+    settings.setTlsEnabled(m_tlsGroupBox->isChecked());
+    settings.setTlsUsePSK(m_tlsPSKRadio->isChecked());
 #ifndef Q_OS_WINDOWS
-    settings.setValue("Connection/tls_ca_cert_file", m_caCertEdit->text());
-    settings.setValue("Connection/tls_cert_file", m_clientCertEdit->text());
-    settings.setValue("Connection/tls_key_file", m_clientKeyEdit->text());
+    settings.setTlsCaCertFile(m_caCertEdit->text());
+    settings.setTlsCertFile(m_clientCertEdit->text());
+    settings.setTlsKeyFile(m_clientKeyEdit->text());
 #else
-    settings.setValue("Connection/tls_pfx_file", m_clientCertEdit->text());
+    settings.setTlsPfxFile(m_clientCertEdit->text());
 #endif
-    settings.setValue("Connection/tls_verify_peer", m_verifyPeerCheck->isChecked());
-    
+    settings.setTlsVerifyPeer(m_verifyPeerCheck->isChecked());
+
     // Appearance
-    settings.setValue("Appearance/theme", m_themeCombo->currentData().toString());
-    settings.setValue("Appearance/font_size", m_fontSizeSpin->value());
-    settings.setValue("Appearance/animations", m_animationsCheck->isChecked());
-    settings.setValue("Appearance/compact_mode", m_compactModeCheck->isChecked());
-    
+    settings.setAppearanceTheme(m_themeCombo->currentData().toString());
+    settings.setAppearanceFontSize(m_fontSizeSpin->value());
+    settings.setAppearanceAnimations(m_animationsCheck->isChecked());
+    settings.setAppearanceCompactMode(m_compactModeCheck->isChecked());
+
     // Behavior
-    settings.setValue("Behavior/confirm_job_cancel", m_confirmJobCancelCheck->isChecked());
-    settings.setValue("Behavior/auto_refresh", m_autoRefreshCheck->isChecked());
-    settings.setValue("Behavior/refresh_interval", m_refreshIntervalSpin->value());
-    settings.setValue("Behavior/max_jobs_display", m_maxJobsDisplaySpin->value());
-    
+    settings.setBehaviorConfirmJobCancel(m_confirmJobCancelCheck->isChecked());
+    settings.setBehaviorAutoRefresh(m_autoRefreshCheck->isChecked());
+    settings.setBehaviorRefreshInterval(m_refreshIntervalSpin->value());
+    settings.setBehaviorMaxJobsDisplay(m_maxJobsDisplaySpin->value());
+
     // Advanced
-    settings.setValue("Advanced/debug_logging", m_debugLoggingCheck->isChecked());
-    settings.setValue("Advanced/log_file", m_logFileEdit->text());
-    settings.setValue("Advanced/max_log_size", m_maxLogSizeSpin->value());
-    settings.setValue("Advanced/enable_tooltips", m_enableTooltipsCheck->isChecked());
-    
+    settings.setAdvancedDebugLogging(m_debugLoggingCheck->isChecked());
+    settings.setAdvancedLogFile(m_logFileEdit->text());
+    settings.setAdvancedMaxLogSize(m_maxLogSizeSpin->value());
+    settings.setAdvancedEnableTooltips(m_enableTooltipsCheck->isChecked());
+
+    settings.sync();
+
     emit settingsChanged();
 }
 
@@ -860,12 +915,11 @@ void SettingsDialog::onResetToDefaultsClicked()
         "Möchten Sie wirklich alle Einstellungen auf die Standardwerte zurücksetzen?\n"
         "Diese Aktion kann nicht rückgängig gemacht werden.",
         QMessageBox::Yes | QMessageBox::No);
-    
+
     if (ret == QMessageBox::Yes) {
-        QSettings settings("Bacula", "Onesimus");
-        settings.clear();
+        BSettings::instance().resetToDefaults();
         loadSettings();
-        QMessageBox::information(this, "Zurückgesetzt", 
+        QMessageBox::information(this, "Zurückgesetzt",
             "Alle Einstellungen wurden auf die Standardwerte zurückgesetzt.");
     }
 }
@@ -952,15 +1006,29 @@ void SettingsDialog::onClearStoredConnections()
         "Möchten Sie wirklich alle gespeicherten Verbindungsinformationen löschen?\n"
         "Dies beinhaltet Passwörter und Zertifikatspfade.",
         QMessageBox::Yes | QMessageBox::No);
-    
+
     if (ret == QMessageBox::Yes) {
-        QSettings settings("Bacula", "Onesimus");
-        settings.beginGroup("Connection");
-        settings.remove("");
-        settings.endGroup();
-        
+        BSettings& settings = BSettings::instance();
+
+        // Clear all connection settings
+        settings.setConnectionHost("");
+        settings.setConnectionPort(9101);
+        settings.setConnectionDirector("bareos-dir");
+        settings.setConnectionPassword("");
+        settings.setConnectionSavePassword(true);
+        settings.setConnectionAutoConnect(false);
+        settings.setConnectionTimeout(30);
+        settings.setTlsEnabled(true);
+        settings.setTlsUsePSK(true);
+        settings.setTlsCaCertFile("");
+        settings.setTlsCertFile("");
+        settings.setTlsKeyFile("");
+        settings.setTlsPfxFile("");
+        settings.setTlsVerifyPeer(true);
+        settings.sync();
+
         loadSettings();
-        QMessageBox::information(this, "Gelöscht", 
+        QMessageBox::information(this, "Gelöscht",
             "Alle gespeicherten Verbindungsinformationen wurden gelöscht.");
     }
 }

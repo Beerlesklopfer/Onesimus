@@ -37,7 +37,7 @@ QJsonArray BJsonStreamReader::jobsArray() const
 {
     // Case 1: Direct array (Bareos format)
     if (m_jsonDocument.isArray()) {
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
         qDebug() << "BJsonStreamReader: JSON is direct array";
 #endif
         return m_jsonDocument.array();
@@ -45,7 +45,7 @@ QJsonArray BJsonStreamReader::jobsArray() const
 
     // Case 2: Object with nested structure
     if (!m_jsonDocument.isObject()) {
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
         qDebug() << "BJsonStreamReader: JSON is neither array nor object";
 #endif
         return QJsonArray();
@@ -53,7 +53,7 @@ QJsonArray BJsonStreamReader::jobsArray() const
 
     QJsonObject root = m_jsonDocument.object();
 
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
     qDebug() << "BJsonStreamReader: JSON root keys:" << root.keys();
 #endif
 
@@ -61,7 +61,7 @@ QJsonArray BJsonStreamReader::jobsArray() const
     if (root.contains("result") && root["result"].isObject()) {
         QJsonObject result = root["result"].toObject();
         if (result.contains("jobs") && result["jobs"].isArray()) {
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
             qDebug() << "BJsonStreamReader: Found jobs in result.jobs";
 #endif
             return result["jobs"].toArray();
@@ -70,13 +70,13 @@ QJsonArray BJsonStreamReader::jobsArray() const
 
     // Try: root -> jobs directly
     if (root.contains("jobs") && root["jobs"].isArray()) {
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
         qDebug() << "BJsonStreamReader: Found jobs in root.jobs";
 #endif
         return root["jobs"].toArray();
     }
 
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
     qDebug() << "BJsonStreamReader: No jobs array found";
 #endif
 

@@ -1,26 +1,39 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "jobs/bjobwidget.h"
-#include "clientwidget.h"
+#include "jobs/bjobsstatisticswidget.h"
+#include "clients/bclientswidget.h"
 #include "storagewidget.h"
+#include "schedules/bschedulewidget.h"
 #include "settingsdialog.h"
+#include "bsettings.h"
 
-#include <QMessageBox>
-#include <QInputDialog>
-#include <QDialog>
-#include <QFormLayout>
-#include <QLineEdit>
-#include <QSpinBox>
-#include <QDialogButtonBox>
-#include <QRadioButton>
-#include <QGroupBox>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QSettings>
+#include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
+#include <QDateTime>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDockWidget>
 #include <QFileDialog>
-#include <QPushButton>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QInputDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QFile>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QSettings>
+#include <QSpinBox>
+#include <QTabWidget>
+#include <QTextStream>
+#include <QToolBar>
+#include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -28,6 +41,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_director(nullptr)
     , m_statusLabel(nullptr)
     , m_connectionLabel(nullptr)
+    , m_autoRefreshTimer(nullptr)
 {
     ui->setupUi(this);
     
@@ -40,17 +54,16 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_director = new BDirector(this);
 
-    // ✅ Starte BDirector-Thread (erstellt Socket im Thread-Kontext)
-    m_director->start();
-
     setupUI();
     createActions();
     createMenus();
     createToolBar();
 
-    // ✅ Synchronisiere DockWidget-Sichtbarkeit mit Action
+    // ✅ Synchronisiere DockWidget-Sichtbarkeit mit Action und speichere in Settings
     connect(m_statisticsDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
         m_toggleStatisticsAction->setChecked(visible);
+        // Save statistics widget visibility state
+        BSettings::instance().setStatisticsWidgetVisible(visible);
     });
 
     connect(m_director, &BDirector::disconnected, this, [this]() {
@@ -68,7 +81,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // ✅ Route JSON responses to appropriate widgets based on command
     connect(m_director, &BDirector::jsonResponse, this, [this](const QString &command, const QString &jsonData) {
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
         qDebug() << "========================================";
         qDebug() << "MainWindow: JSON RESPONSE FOR COMMAND:" << command;
         qDebug() << "  Data size:" << jsonData.size() << "bytes";
@@ -81,16 +94,42 @@ MainWindow::MainWindow(QWidget *parent)
             qDebug() << "→ Routing jobs data to JobWidget";
 #endif
             m_jobWidget->processJsonResponse(jsonData);
+        } else if (command.contains("list joblog")) {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Job log response (handled by job details dialog)";
+#endif
+            // Job log responses are handled directly by BJobDetailsDialog
+            // No routing needed here
         } else if (command.contains("list clients")) {
 #ifdef IS_DEVELOPER
-            qDebug() << "→ Routing clients data to ClientWidget (not yet implemented)";
+            qDebug() << "→ Routing clients data to ClientWidget";
 #endif
-            // TODO: m_clientWidget->processJsonResponse(jsonData);
+            m_clientWidget->processJsonResponse(jsonData);
         } else if (command.contains("list volumes") || command.contains("list media")) {
 #ifdef IS_DEVELOPER
-            qDebug() << "→ Routing volumes data to StorageWidget (not yet implemented)";
+            qDebug() << "→ Routing volumes data to StorageWidget";
 #endif
-            // TODO: m_storageWidget->processJsonResponse(jsonData);
+            m_storageWidget->processJsonResponse(jsonData);
+        } else if (command == ".jobs") {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Routing .jobs dot-command response to JobWidget";
+#endif
+            m_jobWidget->processDotJobsResponse(jsonData);
+        } else if (command == ".clients") {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Routing .clients dot-command response to JobWidget";
+#endif
+            m_jobWidget->processDotClientsResponse(jsonData);
+        } else if (command == ".levels") {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Routing .levels dot-command response to JobWidget";
+#endif
+            m_jobWidget->processDotLevelsResponse(jsonData);
+        } else if (command == ".schedule") {
+#ifdef IS_DEVELOPER
+            qDebug() << "→ Routing .schedule dot-command response to ScheduleWidget";
+#endif
+            m_scheduleWidget->processDotScheduleResponse(jsonData);
         } else {
 #ifdef IS_DEVELOPER
             qDebug() << "⚠ Unhandled command response:" << command;
@@ -105,18 +144,34 @@ MainWindow::MainWindow(QWidget *parent)
             m_statusLabel, &QLabel::setText);
 
     // Connect ClientWidget signals
-    // connect(m_clientWidget, &ClientWidget::sendCommand,
-    //         m_director, &BDirector::sendCommand);
+    connect(m_clientWidget, &BClientsWidget::sendCommand, this, &MainWindow::onSendCommand);
 
-    // connect(m_clientWidget, &ClientWidget::statusMessageChanged,
-    //         m_statusLabel, &QLabel::setText);
+    connect(m_clientWidget, &BClientsWidget::statusMessageChanged,
+            m_statusLabel, &QLabel::setText);
 
-    // Connect Storagewidget signals
-    // connect(m_storageWidget, &StorageWidget::sendCommand,
-    //         m_director, &Director::sendCommand);
+    // Connect StorageWidget signals
+    connect(m_storageWidget, &StorageWidget::sendCommand, this, &MainWindow::onSendCommand);
 
-    // connect(m_storageWidget, &StorageWidget::statusMessageChanged,
-    //         m_statusLabel, &QLabel::setText);
+    connect(m_storageWidget, &StorageWidget::statusMessageChanged,
+            m_statusLabel, &QLabel::setText);
+
+    // Connect ScheduleWidget signals
+    connect(m_scheduleWidget, &BScheduleWidget::sendCommand, this, &MainWindow::onSendCommand);
+
+    connect(m_scheduleWidget, &BScheduleWidget::statusMessageChanged,
+            m_statusLabel, &QLabel::setText);
+
+    // Setup auto-refresh timer
+    m_autoRefreshTimer = new QTimer(this);
+    connect(m_autoRefreshTimer, &QTimer::timeout, this, &MainWindow::onRefreshAll);
+
+    // Connect to BSettings signals for auto-refresh
+    connect(&BSettings::instance(), &BSettings::autoRefreshSettingsChanged,
+            this, &MainWindow::onAutoRefreshSettingsChanged);
+
+    // Initialize auto-refresh from settings
+    BSettings& settings = BSettings::instance();
+    onAutoRefreshSettingsChanged(settings.behaviorAutoRefresh(), settings.behaviorRefreshInterval());
 
     onAuthentificationSucceeded(false, tr("Nicht verbunden"));
     loadAndConnectLastUsed();
@@ -139,12 +194,18 @@ void MainWindow::setupUI()
     m_tabWidget->addTab(m_jobWidget, "Jobs");
 
     // Client-Widget
-    m_clientWidget = new ClientWidget(m_director, this);
+    m_clientWidget = new BClientsWidget(this);
+    m_clientWidget->setDirector(m_director);
     m_tabWidget->addTab(m_clientWidget, "Clients");
     
     // Storage-Widget
     m_storageWidget = new StorageWidget(m_director, this);
     m_tabWidget->addTab(m_storageWidget, "Storage/Volumes");
+
+    // Schedule-Widget
+    m_scheduleWidget = new BScheduleWidget(this);
+    m_scheduleWidget->setDirector(m_director);
+    m_tabWidget->addTab(m_scheduleWidget, "Schedules");
 
     m_tabWidget->setEnabled(false);
 
@@ -167,8 +228,10 @@ void MainWindow::setupUI()
     m_statisticsDock->setMinimumWidth(300);
     m_statisticsDock->setMaximumWidth(300);
 
-    // Standardmäßig versteckt (wird bei Verbindung angezeigt)
-    m_statisticsDock->setVisible(false);
+    // Lade gespeicherten Sichtbarkeitszustand (oder standardmäßig versteckt)
+    bool statsVisible = BSettings::instance().statisticsWidgetVisible();
+    m_statisticsDock->setVisible(statsVisible);
+    m_toggleStatisticsAction->setChecked(statsVisible);
 
     // Statusleiste
     m_statusLabel = new QLabel("Bereit", this);
@@ -186,9 +249,9 @@ void MainWindow::createActions()
     m_connectAction->setShortcut(QKeySequence("Ctrl+O"));
     connect(m_connectAction, &QAction::triggered, this, &MainWindow::onConnectTriggered);
     
-    m_connectLastAction = new QAction("Letzte Verbindung", this);
-    m_connectLastAction->setIcon(QIcon::fromTheme("document-open-recent"));
-    m_connectLastAction->setShortcut(QKeySequence("Ctrl+L"));
+    m_connectLastAction = new QAction("Reconnect", this);
+    m_connectLastAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_connectLastAction->setShortcut(QKeySequence("Ctrl+R"));
     m_connectLastAction->setEnabled(m_director->hasStoredConnection());
     connect(m_connectLastAction, &QAction::triggered, this, &MainWindow::onConnectLastUsed);
     
@@ -202,7 +265,7 @@ void MainWindow::createActions()
     m_refreshAction->setShortcut(QKeySequence("F5"));
     m_refreshAction->setEnabled(false);
     connect(m_refreshAction, &QAction::triggered, this, &MainWindow::onRefreshAll);
-    
+
     m_settingsAction = new QAction("Einstellungen", this);
     m_settingsAction->setIcon(QIcon::fromTheme("preferences-system"));
     m_settingsAction->setShortcut(QKeySequence("Ctrl+,"));
@@ -215,6 +278,30 @@ void MainWindow::createActions()
     m_aboutAction = new QAction("Über", this);
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAboutTriggered);
 
+    // Bearbeiten Actions
+    m_copyAction = new QAction("Kopieren", this);
+    m_copyAction->setIcon(QIcon::fromTheme("edit-copy"));
+    m_copyAction->setShortcut(QKeySequence::Copy);
+    m_copyAction->setEnabled(false);
+    connect(m_copyAction, &QAction::triggered, this, &MainWindow::onCopyTriggered);
+
+    m_selectAllAction = new QAction("Alles auswählen", this);
+    m_selectAllAction->setIcon(QIcon::fromTheme("edit-select-all"));
+    m_selectAllAction->setShortcut(QKeySequence::SelectAll);
+    m_selectAllAction->setEnabled(false);
+    connect(m_selectAllAction, &QAction::triggered, this, &MainWindow::onSelectAllTriggered);
+
+    m_clearSelectionAction = new QAction("Auswahl aufheben", this);
+    m_clearSelectionAction->setIcon(QIcon::fromTheme("edit-clear"));
+    m_clearSelectionAction->setEnabled(false);
+    connect(m_clearSelectionAction, &QAction::triggered, this, &MainWindow::onClearSelectionTriggered);
+
+    m_findAction = new QAction("Suchen...", this);
+    m_findAction->setIcon(QIcon::fromTheme("edit-find"));
+    m_findAction->setShortcut(QKeySequence::Find);
+    m_findAction->setEnabled(false);
+    connect(m_findAction, &QAction::triggered, this, &MainWindow::onFindTriggered);
+
     // Ansicht Actions
     m_toggleStatisticsAction = new QAction("Statistiken anzeigen", this);
     m_toggleStatisticsAction->setCheckable(true);
@@ -225,6 +312,64 @@ void MainWindow::createActions()
     connect(m_toggleStatisticsAction, &QAction::toggled, this, [this](bool checked) {
         m_statisticsDock->setVisible(checked);
     });
+
+    // Jobs Actions
+    m_runJobAction = new QAction("Job ausführen", this);
+    m_runJobAction->setIcon(QIcon::fromTheme("media-playback-start"));
+    m_runJobAction->setEnabled(false);
+    connect(m_runJobAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerRunJob);
+
+    m_cancelJobAction = new QAction("Job abbrechen", this);
+    m_cancelJobAction->setIcon(QIcon::fromTheme("process-stop"));
+    m_cancelJobAction->setEnabled(false);
+    connect(m_cancelJobAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerCancelJob);
+
+    m_jobDetailsAction = new QAction("Details anzeigen", this);
+    m_jobDetailsAction->setIcon(QIcon::fromTheme("document-properties"));
+    m_jobDetailsAction->setEnabled(false);
+    connect(m_jobDetailsAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerShowDetails);
+
+    m_refreshJobsAction = new QAction("Jobs aktualisieren", this);
+    m_refreshJobsAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshJobsAction->setShortcut(QKeySequence("Ctrl+Shift+J"));
+    m_refreshJobsAction->setEnabled(false);
+    connect(m_refreshJobsAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerRefresh);
+
+    m_exportJobsJsonAction = new QAction("Jobs als JSON exportieren...", this);
+    m_exportJobsJsonAction->setIcon(QIcon::fromTheme("document-save"));
+    m_exportJobsJsonAction->setEnabled(false);
+    connect(m_exportJobsJsonAction, &QAction::triggered, this, &MainWindow::onExportSettingsTriggered);
+
+    m_exportJobsCsvAction = new QAction("Jobs als CSV exportieren...", this);
+    m_exportJobsCsvAction->setIcon(QIcon::fromTheme("text-csv"));
+    m_exportJobsCsvAction->setEnabled(false);
+    connect(m_exportJobsCsvAction, &QAction::triggered, this, &MainWindow::onImportSettingsTriggered);
+
+    // Clients Actions
+    m_refreshClientsAction = new QAction("Clients aktualisieren", this);
+    m_refreshClientsAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshClientsAction->setShortcut(QKeySequence("Ctrl+Shift+C"));
+    m_refreshClientsAction->setEnabled(false);
+    connect(m_refreshClientsAction, &QAction::triggered, m_clientWidget, &BClientsWidget::triggerRefresh);
+
+    m_clientDetailsAction = new QAction("Client-Details anzeigen", this);
+    m_clientDetailsAction->setIcon(QIcon::fromTheme("document-properties"));
+    m_clientDetailsAction->setEnabled(false);
+    // TODO: Connect to client details dialog when implemented
+
+    // Storage Actions
+    m_refreshStorageAction = new QAction("Storage aktualisieren", this);
+    m_refreshStorageAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshStorageAction->setShortcut(QKeySequence("Ctrl+Shift+V"));
+    m_refreshStorageAction->setEnabled(false);
+    connect(m_refreshStorageAction, &QAction::triggered, m_storageWidget, &StorageWidget::triggerRefresh);
+
+    // Schedule Actions
+    m_refreshSchedulesAction = new QAction("Schedules aktualisieren", this);
+    m_refreshSchedulesAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshSchedulesAction->setShortcut(QKeySequence("Ctrl+Shift+D"));
+    m_refreshSchedulesAction->setEnabled(false);
+    connect(m_refreshSchedulesAction, &QAction::triggered, m_scheduleWidget, &BScheduleWidget::triggerRefresh);
 }
 
 void MainWindow::createMenus()
@@ -240,9 +385,43 @@ void MainWindow::createMenus()
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_exitAction);
 
+    // Bearbeiten Menü
+    m_editMenu = menuBar()->addMenu("Bearbeiten");
+    m_editMenu->addAction(m_copyAction);
+    m_editMenu->addSeparator();
+    m_editMenu->addAction(m_selectAllAction);
+    m_editMenu->addAction(m_clearSelectionAction);
+    m_editMenu->addSeparator();
+    m_editMenu->addAction(m_findAction);
+
     // Ansicht Menü
     m_viewMenu = menuBar()->addMenu("Ansicht");
     m_viewMenu->addAction(m_toggleStatisticsAction);
+
+    // Jobs Menü
+    m_jobsMenu = menuBar()->addMenu("Jobs");
+    m_jobsMenu->addAction(m_runJobAction);
+    m_jobsMenu->addAction(m_cancelJobAction);
+    m_jobsMenu->addAction(m_jobDetailsAction);
+    m_jobsMenu->addSeparator();
+    m_jobsMenu->addAction(m_refreshJobsAction);
+    m_jobsMenu->addSeparator();
+    m_jobsMenu->addAction(m_exportJobsJsonAction);
+    m_jobsMenu->addAction(m_exportJobsCsvAction);
+
+    // Clients Menü
+    m_clientsMenu = menuBar()->addMenu("Clients");
+    m_clientsMenu->addAction(m_clientDetailsAction);
+    m_clientsMenu->addSeparator();
+    m_clientsMenu->addAction(m_refreshClientsAction);
+
+    // Storage Menü
+    m_storageMenu = menuBar()->addMenu("Storage");
+    m_storageMenu->addAction(m_refreshStorageAction);
+
+    // Schedules Menü
+    m_schedulesMenu = menuBar()->addMenu("Schedules");
+    m_schedulesMenu->addAction(m_refreshSchedulesAction);
 
     m_helpMenu = menuBar()->addMenu("Hilfe");
     m_helpMenu->addAction(m_aboutAction);
@@ -291,33 +470,35 @@ void MainWindow::showConnectionDialog()
 {
     QDialog dialog(this);
     dialog.setWindowTitle("Bareos Director Verbindung");
-    dialog.resize(500, 400);
+    dialog.resize(550, 600);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
+    mainLayout->setSpacing(15);
 
     // Lade gespeicherte Einstellungen
     m_director->loadConnectionSettings();
 
-#if USE_BACULA
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-#elif defined(USE_BAREOS)
-    QSettings settings("Bareos", QCoreApplication::applicationName());
-#endif
-
-settings.beginGroup("Connection");
+    BSettings& settings = BSettings::instance();
 
     // Bconsole-Verbindungsfelder
-    QGroupBox *connectionGroup = new QGroupBox("Bareos Director", &dialog);
+    QGroupBox *connectionGroup = new QGroupBox("Director-Verbindung", &dialog);
     QFormLayout *connectionLayout = new QFormLayout(connectionGroup);
+    connectionLayout->setSpacing(12);
 
-    QLineEdit *hostEdit = new QLineEdit(settings.value("host", "localhost").toString(), &dialog);
+    QLineEdit *hostEdit = new QLineEdit(settings.connectionHost(), &dialog);
+    hostEdit->setPlaceholderText("z.B. 192.168.1.100 oder bareos-dir.local");
+
     QSpinBox *portSpin = new QSpinBox(&dialog);
     portSpin->setRange(1, 65535);
-    portSpin->setValue(settings.value("port", 9101).toInt());
-    QLineEdit *directorEdit = new QLineEdit(settings.value("director", "bareos-dir").toString(), &dialog);
+    portSpin->setValue(settings.connectionPort());
+
+    QLineEdit *directorEdit = new QLineEdit(settings.connectionDirector(), &dialog);
+    directorEdit->setPlaceholderText("bareos-dir");
+
     QLineEdit *passwordEdit = new QLineEdit(&dialog);
     passwordEdit->setEchoMode(QLineEdit::Password);
-    passwordEdit->setText(settings.value("password").toString());
+    passwordEdit->setText(settings.connectionPassword());
+    passwordEdit->setPlaceholderText("••••••••");
 
     connectionLayout->addRow("Host:", hostEdit);
     connectionLayout->addRow("Port:", portSpin);
@@ -326,142 +507,120 @@ settings.beginGroup("Connection");
 
     mainLayout->addWidget(connectionGroup);
 
-    // ####### TLS-Konfiguration #######
-    QGroupBox *tlsGroup = new QGroupBox("TLS Konfiguration", &dialog);
-    QFormLayout *tlsLayout = new QFormLayout(tlsGroup);
+    // TLS Warning Label (angezeigt wenn TLS deaktiviert ist)
+    QLabel *tlsWarningLabel = new QLabel(
+        "⚠️ TLS verschlüsselt die Kommunikation mit dem Director.\n"
+        "Für Produktionsumgebungen wird TLS dringend empfohlen!", &dialog);
+    tlsWarningLabel->setStyleSheet(
+        "QLabel { background-color: #3a2d1a; border-left: 3px solid #8f6a2d; "
+        "padding: 12px; border-radius: 4px; color: #e8d9c4; }");
+    tlsWarningLabel->setWordWrap(true);
+    mainLayout->addWidget(tlsWarningLabel);
 
-    // TLS Enable - Bareos 18.2+ verwendet standardmäßig TLS-PSK
-    QCheckBox *tlsEnableCheckBox = new QCheckBox("TLS aktivieren", &dialog);
-    tlsEnableCheckBox->setChecked(settings.value("tls_enabled", true).toBool());
-    tlsLayout->addRow("", tlsEnableCheckBox);
+    // TLS/SSL-Einstellungen (checkable GroupBox)
+    QGroupBox *tlsGroupBox = new QGroupBox("TLS/SSL-Verschlüsselung", &dialog);
+    tlsGroupBox->setCheckable(true);
+    tlsGroupBox->setChecked(settings.tlsEnabled());
+    QVBoxLayout *tlsLayout = new QVBoxLayout(tlsGroupBox);
+    tlsLayout->setSpacing(12);
 
-    // TLS Require
-    QCheckBox *tlsRequireCheckBox = new QCheckBox("TLS erzwingen", &dialog);
-    tlsRequireCheckBox->setChecked(settings.value("tls_require", true).toBool());
-    tlsLayout->addRow("", tlsRequireCheckBox);
+    // Authentifizierungsmethode
+    QLabel *authMethodLabel = new QLabel("Authentifizierungsmethode:");
+    authMethodLabel->setStyleSheet("font-weight: bold;");
+    tlsLayout->addWidget(authMethodLabel);
 
-    // TLS-PSK - Standard für Bareos 18.2+
-    QCheckBox *tlsPSKEnableCheckBox = new QCheckBox("TLS-PSK verwenden (empfohlen für Bareos 18.2+)", &dialog);
-    tlsPSKEnableCheckBox->setChecked(settings.value("tls_psk_enabled", true).toBool());
-    tlsLayout->addRow("", tlsPSKEnableCheckBox);
+    QRadioButton *tlsPSKRadio = new QRadioButton("PSK (Pre-Shared Key) - Standard für Bareos 18.2+", &dialog);
+    bool usePSK = settings.tlsUsePSK();
+    tlsPSKRadio->setChecked(usePSK);
+    tlsLayout->addWidget(tlsPSKRadio);
 
-    // Verify Peer
-    QCheckBox *tlsVerifyPeerCheckBox = new QCheckBox("Gegenstelle verifizieren", &dialog);
-    tlsVerifyPeerCheckBox->setChecked(settings.value("tls_verify_peer", false).toBool());
-    tlsLayout->addRow("", tlsVerifyPeerCheckBox);
+    QRadioButton *tlsCertificateRadio = new QRadioButton("Zertifikat-basierte TLS-Authentifizierung", &dialog);
+    tlsCertificateRadio->setChecked(!usePSK);
+    tlsLayout->addWidget(tlsCertificateRadio);
 
-    // CA Certificate
-    QLineEdit *caCertEdit = new QLineEdit(settings.value("tls_ca_cert_file").toString(), &dialog);
-    QPushButton *caCertBrowse = new QPushButton("...", &dialog);
-    caCertBrowse->setMaximumWidth(30);
+    // Zertifikat-Einstellungen (nur für Certificate-Modus)
+    QWidget *certWidget = new QWidget(&dialog);
+    QFormLayout *certLayout = new QFormLayout(certWidget);
+    certLayout->setSpacing(12);
+
+#ifndef Q_OS_WINDOWS
+    // Linux: Separate PEM-Dateien
+    QLineEdit *caCertEdit = new QLineEdit(settings.tlsCaCertFile(), &dialog);
+    caCertEdit->setPlaceholderText("Pfad zum CA-Zertifikat (.pem)");
+    QPushButton *caCertBrowse = new QPushButton("Durchsuchen...", &dialog);
     QHBoxLayout *caCertLayout = new QHBoxLayout();
     caCertLayout->addWidget(caCertEdit);
     caCertLayout->addWidget(caCertBrowse);
-    tlsLayout->addRow("CA Zertifikat:", caCertLayout);
+    certLayout->addRow("CA Certificate:", caCertLayout);
 
-    connect(caCertBrowse, &QPushButton::clicked, [&]() {
+    connect(caCertBrowse, &QPushButton::clicked, [&, caCertEdit]() {
         QString file = QFileDialog::getOpenFileName(&dialog, "CA-Zertifikat wählen",
                                                     QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
         if (!file.isEmpty()) caCertEdit->setText(file);
     });
 
-#ifdef Q_OS_WINDOWS
-    // Windows: PFX-Format
-    QLineEdit *pfxFileEdit = new QLineEdit(settings.value("tls_pfx_file").toString(), &dialog);
-    QPushButton *pfxBrowse = new QPushButton("...", &dialog);
-    pfxBrowse->setMaximumWidth(30);
-    QHBoxLayout *pfxLayout = new QHBoxLayout();
-    pfxLayout->addWidget(pfxFileEdit);
-    pfxLayout->addWidget(pfxBrowse);
-    tlsLayout->addRow("PFX Zertifikat:", pfxLayout);
+    QLineEdit *certEdit = new QLineEdit(settings.tlsCertFile(), &dialog);
+    certEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pem)");
+    QPushButton *certBrowse = new QPushButton("Durchsuchen...", &dialog);
+    QHBoxLayout *certEditLayout = new QHBoxLayout();
+    certEditLayout->addWidget(certEdit);
+    certEditLayout->addWidget(certBrowse);
+    certLayout->addRow("Client Certificate:", certEditLayout);
 
-    QLineEdit *pfxPasswordEdit = new QLineEdit(settings.value("tls_pfx_password").toString(), &dialog);
-    pfxPasswordEdit->setEchoMode(QLineEdit::Password);
-    tlsLayout->addRow("PFX Passwort:", pfxPasswordEdit);
-
-    connect(pfxBrowse, &QPushButton::clicked, [&]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "PFX-Zertifikat wählen",
-                                                    QString(), "PKCS#12 (*.pfx *.p12);;Alle Dateien (*)");
-        if (!file.isEmpty()) pfxFileEdit->setText(file);
-    });
-
-    // TLS-Felder aktivieren/deaktivieren
-    auto updateTlsFields = [=]() {
-        bool enabled = tlsEnableCheckBox->isChecked();
-        bool isPSK = tlsPSKEnableCheckBox->isChecked();
-        // Bei PSK werden keine Zertifikatdateien benötigt
-        bool needsCerts = enabled && !isPSK;
-
-        tlsRequireCheckBox->setEnabled(enabled);
-        tlsPSKEnableCheckBox->setEnabled(enabled);
-        tlsVerifyPeerCheckBox->setEnabled(enabled && !isPSK);
-        caCertEdit->setEnabled(needsCerts);
-        caCertBrowse->setEnabled(needsCerts);
-        pfxFileEdit->setEnabled(needsCerts);
-        pfxBrowse->setEnabled(needsCerts);
-        pfxPasswordEdit->setEnabled(needsCerts);
-    };
-#else
-    // Linux: PEM-Format
-    QLineEdit *certEdit = new QLineEdit(settings.value("tls_cert_file").toString(), &dialog);
-    QPushButton *certBrowse = new QPushButton("...", &dialog);
-    certBrowse->setMaximumWidth(30);
-    QHBoxLayout *certLayout = new QHBoxLayout();
-    certLayout->addWidget(certEdit);
-    certLayout->addWidget(certBrowse);
-    tlsLayout->addRow("Zertifikat:", certLayout);
-
-    QLineEdit *keyEdit = new QLineEdit(settings.value("tls_key_file").toString(), &dialog);
-    QPushButton *keyBrowse = new QPushButton("...", &dialog);
-    keyBrowse->setMaximumWidth(30);
-    QHBoxLayout *keyLayout = new QHBoxLayout();
-    keyLayout->addWidget(keyEdit);
-    keyLayout->addWidget(keyBrowse);
-    tlsLayout->addRow("Private Key:", keyLayout);
-
-    connect(certBrowse, &QPushButton::clicked, [&]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "Zertifikat wählen",
+    connect(certBrowse, &QPushButton::clicked, [&, certEdit]() {
+        QString file = QFileDialog::getOpenFileName(&dialog, "Client-Zertifikat wählen",
                                                     QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
         if (!file.isEmpty()) certEdit->setText(file);
     });
 
-    connect(keyBrowse, &QPushButton::clicked, [&]() {
+    QLineEdit *keyEdit = new QLineEdit(settings.tlsKeyFile(), &dialog);
+    keyEdit->setPlaceholderText("Pfad zum Private Key (.pem, .key)");
+    QPushButton *keyBrowse = new QPushButton("Durchsuchen...", &dialog);
+    QHBoxLayout *keyEditLayout = new QHBoxLayout();
+    keyEditLayout->addWidget(keyEdit);
+    keyEditLayout->addWidget(keyBrowse);
+    certLayout->addRow("Private Key:", keyEditLayout);
+
+    connect(keyBrowse, &QPushButton::clicked, [&, keyEdit]() {
         QString file = QFileDialog::getOpenFileName(&dialog, "Private Key wählen",
                                                     QString(), "Keys (*.pem *.key);;Alle Dateien (*)");
         if (!file.isEmpty()) keyEdit->setText(file);
     });
+#else
+    // Windows: PFX-Datei
+    QLineEdit *pfxFileEdit = new QLineEdit(settings.tlsPfxFile(), &dialog);
+    pfxFileEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pfx)");
+    QPushButton *pfxBrowse = new QPushButton("Durchsuchen...", &dialog);
+    QHBoxLayout *pfxLayout = new QHBoxLayout();
+    pfxLayout->addWidget(pfxFileEdit);
+    pfxLayout->addWidget(pfxBrowse);
+    certLayout->addRow("PFX Certificate:", pfxLayout);
 
-    // TLS-Felder aktivieren/deaktivieren
-    auto updateTlsFields = [=]() {
-        bool enabled = tlsEnableCheckBox->isChecked();
-        bool isPSK = tlsPSKEnableCheckBox->isChecked();
-        // Bei PSK werden keine Zertifikatdateien benötigt
-        bool needsCerts = enabled && !isPSK;
-
-        tlsRequireCheckBox->setEnabled(enabled);
-        tlsPSKEnableCheckBox->setEnabled(enabled);
-        tlsVerifyPeerCheckBox->setEnabled(enabled && !isPSK);
-        caCertEdit->setEnabled(needsCerts);
-        caCertBrowse->setEnabled(needsCerts);
-        certEdit->setEnabled(needsCerts);
-        certBrowse->setEnabled(needsCerts);
-        keyEdit->setEnabled(needsCerts);
-        keyBrowse->setEnabled(needsCerts);
-    };
+    connect(pfxBrowse, &QPushButton::clicked, [&, pfxFileEdit]() {
+        QString file = QFileDialog::getOpenFileName(&dialog, "PFX-Zertifikat wählen",
+                                                    QString(), "PKCS#12 (*.pfx *.p12);;Alle Dateien (*)");
+        if (!file.isEmpty()) pfxFileEdit->setText(file);
+    });
 #endif
 
-    updateTlsFields();
-    connect(tlsEnableCheckBox, &QCheckBox::toggled, updateTlsFields);
-    connect(tlsPSKEnableCheckBox, &QCheckBox::toggled, updateTlsFields);
+    // Peer Verification
+    QCheckBox *verifyPeerCheck = new QCheckBox("Server-Zertifikat validieren (empfohlen)", &dialog);
+    verifyPeerCheck->setChecked(settings.tlsVerifyPeer());
+    certLayout->addRow("", verifyPeerCheck);
 
-    mainLayout->addWidget(tlsGroup);
+    certWidget->setEnabled(!usePSK);  // Deaktiviert wenn PSK ausgewählt
+    tlsLayout->addWidget(certWidget);
 
-    // Hinweis für Bareos
-    QLabel *hintLabel = new QLabel(
-        "<i>Hinweis: Bareos 18.2+ verwendet standardmäßig TLS-PSK.<br>"
-        "Bei TLS-PSK wird das Director-Passwort als Pre-Shared Key verwendet.</i>", &dialog);
-    hintLabel->setWordWrap(true);
-    mainLayout->addWidget(hintLabel);
+    // Certificate-Felder nur aktivieren wenn Certificate-Radio ausgewählt
+    connect(tlsCertificateRadio, &QRadioButton::toggled, certWidget, &QWidget::setEnabled);
+
+    mainLayout->addWidget(tlsGroupBox);
+
+    // Verbinde Signal um Warnung anzuzeigen/verstecken
+    tlsWarningLabel->setVisible(!tlsGroupBox->isChecked());
+    connect(tlsGroupBox, &QGroupBox::toggled, [tlsWarningLabel](bool checked) {
+        tlsWarningLabel->setVisible(!checked);
+    });
 
     // Buttons
     QDialogButtonBox *buttonBox = new QDialogButtonBox(
@@ -472,56 +631,49 @@ settings.beginGroup("Connection");
 
     if (dialog.exec() == QDialog::Accepted) {
         // Speichere Einstellungen
-        settings.setValue("host", hostEdit->text());
-        settings.setValue("port", portSpin->value());
-        settings.setValue("director", directorEdit->text());
-        settings.setValue("password", passwordEdit->text());
-        settings.setValue("tls_enabled", tlsEnableCheckBox->isChecked());
-        settings.setValue("tls_require", tlsRequireCheckBox->isChecked());
-        settings.setValue("tls_psk_enabled", tlsPSKEnableCheckBox->isChecked());
-        settings.setValue("tls_verify_peer", tlsVerifyPeerCheckBox->isChecked());
-        settings.setValue("tls_ca_cert_file", caCertEdit->text());
+        settings.setConnectionHost(hostEdit->text());
+        settings.setConnectionPort(portSpin->value());
+        settings.setConnectionDirector(directorEdit->text());
+        settings.setConnectionPassword(passwordEdit->text());
+        settings.setTlsEnabled(tlsGroupBox->isChecked());
+        settings.setTlsUsePSK(tlsPSKRadio->isChecked());
 
-#ifdef Q_OS_WINDOWS
-        settings.setValue("tls_pfx_file", pfxFileEdit->text());
-        settings.setValue("tls_pfx_password", pfxPasswordEdit->text());
+#ifndef Q_OS_WINDOWS
+        settings.setTlsCaCertFile(caCertEdit->text());
+        settings.setTlsCertFile(certEdit->text());
+        settings.setTlsKeyFile(keyEdit->text());
 #else
-        settings.setValue("tls_cert_file", certEdit->text());
-        settings.setValue("tls_key_file", keyEdit->text());
+        settings.setTlsPfxFile(pfxFileEdit->text());
 #endif
-        settings.endGroup();
+        settings.setTlsVerifyPeer(verifyPeerCheck->isChecked());
+        settings.sync();
 
         // TLS-Konfiguration setzen
-        m_director->tlsConfig()->tlsEnable = tlsEnableCheckBox->isChecked();
-        m_director->tlsConfig()->tlsRequire = tlsRequireCheckBox->isChecked();
-        m_director->tlsConfig()->tlsPSKEnable = tlsPSKEnableCheckBox->isChecked();
-        m_director->tlsConfig()->tlsVerifyPeer = tlsVerifyPeerCheckBox->isChecked();
+        m_director->tlsConfig()->tlsEnable = tlsGroupBox->isChecked();
+        m_director->tlsConfig()->tlsPSKEnable = tlsPSKRadio->isChecked();
+        m_director->tlsConfig()->tlsVerifyPeer = verifyPeerCheck->isChecked();
 
+#ifndef Q_OS_WINDOWS
         if (!caCertEdit->text().isEmpty()) {
             m_director->tlsConfig()->tlsCaCertFile->setFileName(caCertEdit->text());
         }
-
-#ifdef Q_OS_WINDOWS
-        if (!pfxFileEdit->text().isEmpty()) {
-            m_director->tlsConfig()->tlsPfxFile->setFileName(pfxFileEdit->text());
-            m_director->tlsConfig()->tlsPfxPassword = pfxPasswordEdit->text();
-        }
-#else
         if (!certEdit->text().isEmpty()) {
             m_director->tlsConfig()->tlsCertFile->setFileName(certEdit->text());
         }
         if (!keyEdit->text().isEmpty()) {
             m_director->tlsConfig()->tlsKeyFile->setFileName(keyEdit->text());
         }
+#else
+        if (!pfxFileEdit->text().isEmpty()) {
+            m_director->tlsConfig()->tlsPfxFile->setFileName(pfxFileEdit->text());
+        }
 #endif
 
-        // Verbindung herstellen
-        m_director->connect(
-            hostEdit->text(),
-            portSpin->value(),
-            directorEdit->text(),
-            passwordEdit->text()
-            );
+        // Verbindung herstellen - Thread-safe via helper slot
+        onDirectorConnect(hostEdit->text(),
+                          portSpin->value(),
+                          directorEdit->text(),
+                          passwordEdit->text());
 
         m_statusLabel->setText("Verbindung wird hergestellt...");
     }
@@ -624,15 +776,17 @@ void MainWindow::onSettingsTriggered()
     if (dialog.exec() == QDialog::Accepted) {
         // Einstellungen wurden geändert
         m_statusLabel->setText("Einstellungen gespeichert");
-        
-        // Optional: Einstellungen neu laden
-        // z.B. Auto-Refresh aktivieren/deaktivieren
+
+        // Settings are automatically applied via BSettings signals
+        // Auto-refresh is handled by onAutoRefreshSettingsChanged slot
     }
 }
 
 void MainWindow::onAuthentificationSucceeded(const bool connected, const QString msg)
 {
+#ifdef IS_DEVELOPER
     qDebug() << "####################################";
+#endif
     // Update Actions
     m_connectAction->setDisabled(connected);
     m_disconnectAction->setEnabled(connected);
@@ -641,6 +795,26 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     m_toggleStatisticsButton->setEnabled(connected);  // ✅ Toolbar-Button synchronisieren
     m_tabWidget->setEnabled(connected);
 
+    // Update job menu actions
+    m_refreshJobsAction->setEnabled(connected);
+    m_exportJobsJsonAction->setEnabled(connected);
+    m_exportJobsCsvAction->setEnabled(connected);
+    // Job control actions (run, cancel, details) werden durch Job-Widget Selection gesteuert
+
+    // Update client menu actions
+    m_refreshClientsAction->setEnabled(connected);
+
+    // Update storage menu actions
+    m_refreshStorageAction->setEnabled(connected);
+
+    // Update schedule menu actions
+    m_refreshSchedulesAction->setEnabled(connected);
+
+    // Update widget connection states
+    m_jobWidget->setConnectionState(connected);
+    m_storageWidget->setConnectionState(connected);
+    m_scheduleWidget->setConnectionState(connected);
+
     if (connected) {
         // Zeige Version an wenn vorhanden
         QString statusText = QString("Verbunden BAREOS (v%1)").arg(msg);
@@ -648,13 +822,30 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
         m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
         m_statusLabel->setText("Verbunden - Lade Daten...");
 
-        // ✅ Zeige Statistics DockWidget bei Verbindung
-        m_statisticsDock->setVisible(true);
-        m_toggleStatisticsAction->setChecked(true);
-        m_toggleStatisticsButton->setText("Statistiken ▼");  // ✅ Button-Text aktualisieren
+        // ✅ Stelle gespeicherten Statistics-DockWidget-Zustand wieder her
+        bool statsVisible = BSettings::instance().statisticsWidgetVisible();
+        m_statisticsDock->setVisible(statsVisible);
+        m_toggleStatisticsAction->setChecked(statsVisible);
+        m_toggleStatisticsButton->setText(statsVisible ? "Statistiken ▼" : "Statistiken ▶");
 
-        // Refresh mit kleiner Verzögerung, damit API-Modus aktiviert wird
-        QTimer::singleShot(100, this, [this]() {
+        // Enable edit menu actions
+        m_copyAction->setEnabled(true);
+        m_selectAllAction->setEnabled(true);
+        m_clearSelectionAction->setEnabled(true);
+        m_findAction->setEnabled(true);
+
+        // Start auto-refresh if enabled in settings
+        BSettings& settings = BSettings::instance();
+        if (settings.behaviorAutoRefresh()) {
+            m_autoRefreshTimer->start(settings.behaviorRefreshInterval() * 1000);
+#ifdef IS_DEVELOPER
+            qDebug() << "MainWindow: Auto-refresh started (interval:" << settings.behaviorRefreshInterval() << "seconds)";
+#endif
+        }
+
+        // Refresh mit Verzögerung, damit API-Modus aktiviert wird
+        // 300ms sollte ausreichen für API-Modus Aktivierung + erste Signale
+        QTimer::singleShot(300, this, [this]() {
             onRefreshAll();
         });
     } else {
@@ -666,6 +857,24 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
         m_statisticsDock->setVisible(false);
         m_toggleStatisticsAction->setChecked(false);
         m_toggleStatisticsButton->setText("Statistiken ▶");  // ✅ Button-Text aktualisieren
+
+        // Disable edit menu actions
+        m_copyAction->setEnabled(false);
+        m_selectAllAction->setEnabled(false);
+        m_clearSelectionAction->setEnabled(false);
+        m_findAction->setEnabled(false);
+
+        // Stop auto-refresh when disconnected
+        m_autoRefreshTimer->stop();
+#ifdef IS_DEVELOPER
+        qDebug() << "MainWindow: Auto-refresh stopped (disconnected)";
+#endif
+
+        // Clear all widget data on disconnect
+        m_jobWidget->clearData();
+        m_clientWidget->clearData();
+        m_storageWidget->clearData();
+        m_scheduleWidget->clearData();
     }
 }
 
@@ -687,8 +896,17 @@ void MainWindow::onRefreshAll()
 
     m_statusLabel->setText("Aktualisiere Daten...");
 
-    m_director->doSendCommand(BDirector::Command::ListJobs, "");
-    // m_director->listClients();
+    // Thread-safe: Use helper slots to send commands
+    onSendCommand(BDirector::Command::ListJobs, "");
+    onSendCommand(BDirector::Command::ListClients, "");
+
+    // ✅ Request filter data using dot-commands
+    // These provide ALL configured jobs/clients/levels/schedules, not just executed ones
+    onSendCommand(BDirector::Command::DotJobs, "");
+    onSendCommand(BDirector::Command::DotClients, "");
+    onSendCommand(BDirector::Command::DotLevels, "");
+    onSendCommand(BDirector::Command::DotSchedule, "");
+
     // m_director->listVolumes();
 
     // ✅ Status nach kurzer Zeit zurücksetzen
@@ -713,62 +931,88 @@ void MainWindow::onConnectLastUsed()
 
 void MainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)
 {
-    if (m_director) {
-        m_director->doSendCommand(cmd, args);
+    if (!m_director) {
+        qWarning() << "MainWindow::onSendCommand: No director instance!";
+        return;
     }
+
+    // Thread-safe: Use queued connection to send command to Director thread
+    QMetaObject::invokeMethod(m_director, "doSendCommand",
+                              Qt::QueuedConnection,
+                              Q_ARG(BDirector::Command, cmd),
+                              Q_ARG(QString, args));
+}
+
+void MainWindow::onDirectorConnect(const QString &host, int port, const QString &directorName, const QString &password)
+{
+    if (!m_director) {
+        qWarning() << "MainWindow::onDirectorConnect: No director instance!";
+        return;
+    }
+
+    // Thread-safe: Use queued connection to connect in Director thread
+    QMetaObject::invokeMethod(m_director, "connect",
+                              Qt::QueuedConnection,
+                              Q_ARG(QString, host),
+                              Q_ARG(int, port),
+                              Q_ARG(QString, directorName),
+                              Q_ARG(QString, password));
+}
+
+void MainWindow::onDirectorDisconnect()
+{
+    if (!m_director) {
+        qWarning() << "MainWindow::onDirectorDisconnect: No director instance!";
+        return;
+    }
+
+    // Thread-safe: Use queued connection to disconnect in Director thread
+    QMetaObject::invokeMethod(m_director, "disconnect",
+                              Qt::QueuedConnection);
 }
 
 void MainWindow::loadAndConnectLastUsed()
 {
-    if (!m_director->hasStoredConnection()) {
+    BSettings& settings = BSettings::instance();
+
+    if (!settings.hasStoredConnection()) {
         return;
     }
 
-#if USE_BACULA
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-#elif defined(USE_BAREOS)
-    QSettings settings("Bareos", QCoreApplication::applicationName());
-#endif
-
-    settings.beginGroup("Connection");
-
     // Lade gespeicherte Verbindungsdaten
-    QString host = settings.value("host", "localhost").toString();
-    int port = settings.value("port", 9101).toInt();
-    QString director = settings.value("director", "bareos-dir").toString();
-    QString password = settings.value("password").toString();
-
-    settings.endGroup();
+    QString host = settings.connectionHost();
+    int port = settings.connectionPort();
+    QString director = settings.connectionDirector();
+    QString password = settings.connectionPassword();
 
     // Prüfe ob Passwort vorhanden ist
     if (password.isEmpty() || host.isEmpty() || director.isEmpty()) {
+#ifdef IS_DEVELOPER
         qDebug() << "Keine vollständigen Verbindungsdaten gespeichert - Automatische Verbindung übersprungen";
+#endif
         m_connectLastAction->setEnabled(true);
         return;
     }
 
     // Lade TLS-Konfiguration
-    settings.beginGroup("Connection");
+    m_director->tlsConfig()->tlsEnable = settings.tlsEnabled();
+    m_director->tlsConfig()->tlsRequire = settings.tlsEnabled();
+    m_director->tlsConfig()->tlsPSKEnable = settings.tlsUsePSK();
+    m_director->tlsConfig()->tlsVerifyPeer = settings.tlsVerifyPeer();
 
-    m_director->tlsConfig()->tlsEnable = settings.value("tls_enabled", true).toBool();
-    m_director->tlsConfig()->tlsRequire = settings.value("tls_require", true).toBool();
-    m_director->tlsConfig()->tlsPSKEnable = settings.value("tls_psk_enabled", true).toBool();
-    m_director->tlsConfig()->tlsVerifyPeer = settings.value("tls_verify_peer", false).toBool();
-
-    QString caCertFile = settings.value("tls_ca_cert_file").toString();
+    QString caCertFile = settings.tlsCaCertFile();
     if (!caCertFile.isEmpty()) {
         m_director->tlsConfig()->tlsCaCertFile->setFileName(caCertFile);
     }
 
 #ifdef Q_OS_WINDOWS
-    QString pfxFile = settings.value("tls_pfx_file").toString();
+    QString pfxFile = settings.tlsPfxFile();
     if (!pfxFile.isEmpty()) {
         m_director->tlsConfig()->tlsPfxFile->setFileName(pfxFile);
-        m_director->tlsConfig()->tlsPfxPassword = settings.value("tls_pfx_password").toString();
     }
 #else
-    QString certFile = settings.value("tls_cert_file").toString();
-    QString keyFile = settings.value("tls_key_file").toString();
+    QString certFile = settings.tlsCertFile();
+    QString keyFile = settings.tlsKeyFile();
     if (!certFile.isEmpty()) {
         m_director->tlsConfig()->tlsCertFile->setFileName(certFile);
     }
@@ -777,15 +1021,15 @@ void MainWindow::loadAndConnectLastUsed()
     }
 #endif
 
-    settings.endGroup();
-
-    // Stelle Verbindung her
+    // Stelle Verbindung her - Thread-safe via helper slot
+#ifdef IS_DEVELOPER
     qDebug() << "Automatische Wiederherstellung der letzten Verbindung:" << host << ":" << port;
+#endif
     m_director->setTLSConfig(*m_director->tlsConfig());
-    m_director->connect(host, port, director, password);
+    onDirectorConnect(host, port, director, password);
     m_statusLabel->setText(QString("Verbindung wird automatisch hergestellt zu %1...").arg(host));
 
-    // Aktualisiere "Letzte Verbindung" Button Status
+    // Aktualisiere "Reconnect" Button Status
     m_connectLastAction->setEnabled(true);
 }
 
@@ -797,4 +1041,136 @@ BDirector *MainWindow::director() const
 void MainWindow::setDirector(BDirector *newDirector)
 {
     m_director = newDirector;
+}
+
+void MainWindow::onCopyTriggered()
+{
+    // Get the currently active tab
+    QWidget *currentWidget = m_tabWidget->currentWidget();
+
+    if (currentWidget == m_jobWidget) {
+        // Copy selected job data
+        BJsonJobView *tableView = m_jobWidget->tableView();
+        if (tableView && tableView->selectionModel()->hasSelection()) {
+            QModelIndexList selectedIndexes = tableView->selectionModel()->selectedRows();
+            QString copyText;
+
+            for (const QModelIndex &index : selectedIndexes) {
+                for (int col = 0; col < tableView->model()->columnCount(); ++col) {
+                    QModelIndex cellIndex = tableView->model()->index(index.row(), col);
+                    copyText += tableView->model()->data(cellIndex).toString();
+                    if (col < tableView->model()->columnCount() - 1) {
+                        copyText += "\t";
+                    }
+                }
+                copyText += "\n";
+            }
+
+            QApplication::clipboard()->setText(copyText);
+            m_statusLabel->setText(tr("%1 Zeile(n) kopiert").arg(selectedIndexes.count()));
+        }
+    } else if (currentWidget == m_clientWidget) {
+        // Copy selected client data
+        if (m_clientWidget->model()) {
+            // TODO: Implement client data copy
+            m_statusLabel->setText(tr("Client-Daten kopieren noch nicht implementiert"));
+        }
+    }
+}
+
+void MainWindow::onSelectAllTriggered()
+{
+    // Get the currently active tab
+    QWidget *currentWidget = m_tabWidget->currentWidget();
+
+    if (currentWidget == m_jobWidget) {
+        // Select all jobs
+        m_jobWidget->tableView()->jobsModel()->selectAll();
+        m_statusLabel->setText(tr("Alle Jobs ausgewählt"));
+    } else if (currentWidget == m_clientWidget) {
+        // TODO: Implement select all for clients
+        m_statusLabel->setText(tr("Alle Clients auswählen noch nicht implementiert"));
+    }
+}
+
+void MainWindow::onClearSelectionTriggered()
+{
+    // Get the currently active tab
+    QWidget *currentWidget = m_tabWidget->currentWidget();
+
+    if (currentWidget == m_jobWidget) {
+        // Clear job selection
+        m_jobWidget->tableView()->jobsModel()->clearSelection();
+        m_statusLabel->setText(tr("Auswahl aufgehoben"));
+    } else if (currentWidget == m_clientWidget) {
+        // TODO: Implement clear selection for clients
+        m_statusLabel->setText(tr("Auswahl für Clients aufheben noch nicht implementiert"));
+    }
+}
+
+void MainWindow::onFindTriggered()
+{
+    // Get the currently active tab
+    QWidget *currentWidget = m_tabWidget->currentWidget();
+
+    if (currentWidget == m_jobWidget) {
+        // Info: User kann Filter mit dem Toggle-Button in der Job-Ansicht nutzen
+        QMessageBox::information(this, tr("Suchen"),
+            tr("Verwenden Sie die Filter-Optionen in der Job-Ansicht,\n"
+               "um nach bestimmten Jobs zu suchen.\n\n"
+               "Verfügbare Filter:\n"
+               "• Job-Name\n"
+               "• Client-Name\n"
+               "• Status (Erfolg, Warnung, Fehler)\n"
+               "• Level (Full, Incremental, Differential)\n"
+               "• Datums-Bereich"));
+    } else if (currentWidget == m_clientWidget) {
+        QMessageBox::information(this, tr("Suchen"),
+            tr("Verwenden Sie die Filter-ComboBox in der Client-Ansicht,\n"
+               "um nach bestimmten Clients zu suchen."));
+    }
+}
+
+void MainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "MainWindow: Auto-refresh settings changed:"
+             << "enabled=" << enabled << "interval=" << intervalSeconds << "seconds";
+#endif
+
+    if (enabled && m_director->isConnected()) {
+        // Start or restart timer with new interval
+        m_autoRefreshTimer->start(intervalSeconds * 1000);
+        m_statusLabel->setText(QString("Auto-Refresh aktiviert (%1s)").arg(intervalSeconds));
+    } else {
+        // Stop timer
+        m_autoRefreshTimer->stop();
+        if (!enabled && m_director->isConnected()) {
+            m_statusLabel->setText("Auto-Refresh deaktiviert");
+        }
+    }
+}
+
+void MainWindow::onExportSettingsTriggered()
+{
+    if (!m_director->isConnected()) {
+        QMessageBox::warning(this, "Nicht verbunden", "Bitte stellen Sie zuerst eine Verbindung zum Director her.");
+        return;
+    }
+
+    // Export all jobs to JSON
+    m_jobWidget->tableView()->exportToJson(false);
+    m_statusLabel->setText("Jobs als JSON exportiert");
+}
+
+void MainWindow::onImportSettingsTriggered()
+{
+    if (!m_director->isConnected()) {
+        QMessageBox::warning(this, "Nicht verbunden", "Bitte stellen Sie zuerst eine Verbindung zum Director her.");
+        return;
+    }
+
+    // Export all jobs to CSV
+    m_jobWidget->tableView()->exportToCsv(false);
+    m_statusLabel->setText("Jobs als CSV exportiert");
 }

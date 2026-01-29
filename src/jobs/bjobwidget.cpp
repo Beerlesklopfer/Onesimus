@@ -24,9 +24,7 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_statusWarning(new QCheckBox(tr("Warning (W)"), this))
     , m_statusFailed(new QCheckBox(tr("Failed (f)"), this))
     , m_statusError(new QCheckBox(tr("Error (E)"), this))
-    , m_levelFull(new QCheckBox(tr("Full (F)"), this))
-    , m_levelIncremental(new QCheckBox(tr("Incremental (I)"), this))
-    , m_levelDifferential(new QCheckBox(tr("Differential (D)"), this))
+    , m_levelCheckboxLayout(new QVBoxLayout())
     , m_dateEnabled(new QCheckBox(tr("Enable Date Filter"), this))
     , m_dateFrom(new QDateTimeEdit(this))
     , m_dateTo(new QDateTimeEdit(this))
@@ -41,10 +39,9 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
-    m_levelFull->setChecked(true);
-    m_levelIncremental->setChecked(true);
-    m_levelDifferential->setChecked(true);
-    
+
+    // Level checkboxes will be populated dynamically from .levels command
+
     // Setup date time edits
     m_dateFrom->setCalendarPopup(true);
     m_dateFrom->setDateTime(QDateTime::currentDateTime().addDays(-30));
@@ -92,12 +89,7 @@ BJobWidget::BJobWidget(QWidget *parent)
             this, [this]() { m_filterTimer->start(); });
     connect(m_statusError, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
-    connect(m_levelFull, &QCheckBox::toggled,
-            this, [this]() { m_filterTimer->start(); });
-    connect(m_levelIncremental, &QCheckBox::toggled,
-            this, [this]() { m_filterTimer->start(); });
-    connect(m_levelDifferential, &QCheckBox::toggled,
-            this, [this]() { m_filterTimer->start(); });
+    // Level checkbox connections will be established dynamically when created
     connect(m_dateEnabled, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
     connect(m_dateFrom, &QDateTimeEdit::dateTimeChanged,
@@ -152,18 +144,6 @@ void BJobWidget::setupUI()
     toolbarLayout->addWidget(m_runJobButton);
     toolbarLayout->addWidget(m_cancelJobButton);
     toolbarLayout->addWidget(m_detailsButton);
-
-    toolbarLayout->addSpacing(20);
-
-    // Export buttons
-    m_exportJsonButton = new QPushButton("Export JSON", this);
-    m_exportCsvButton = new QPushButton("Export CSV", this);
-
-    m_exportJsonButton->setIcon(QIcon::fromTheme("document-save"));
-    m_exportCsvButton->setIcon(QIcon::fromTheme("text-csv"));
-
-    toolbarLayout->addWidget(m_exportJsonButton);
-    toolbarLayout->addWidget(m_exportCsvButton);
 
     toolbarLayout->addSpacing(20);
 
@@ -223,9 +203,13 @@ void BJobWidget::setupUI()
     QGroupBox *levelGroup = new QGroupBox(tr("Backup Level"), this);
     QVBoxLayout *levelLayout = new QVBoxLayout(levelGroup);
 
-    levelLayout->addWidget(m_levelFull);
-    levelLayout->addWidget(m_levelIncremental);
-    levelLayout->addWidget(m_levelDifferential);
+    // Add placeholder label (will be replaced with checkboxes from .levels command)
+    QLabel *levelPlaceholder = new QLabel(tr("Wird geladen..."), this);
+    levelPlaceholder->setObjectName("levelPlaceholder");
+    levelLayout->addWidget(levelPlaceholder);
+
+    // Set the dynamic layout
+    levelLayout->addLayout(m_levelCheckboxLayout);
 
     filterGroupLayout->addWidget(levelGroup);
 
@@ -282,11 +266,6 @@ void BJobWidget::setupUI()
             this, &BJobWidget::onShowDetailsClicked);
     connect(m_refreshButton, &QPushButton::clicked,
             this, &BJobWidget::onRefreshClicked);
-
-    connect(m_exportJsonButton, &QPushButton::clicked,
-            [this]() { m_tableView->exportToJson(false); });
-    connect(m_exportCsvButton, &QPushButton::clicked,
-            [this]() { m_tableView->exportToCsv(false); });
 
     connect(m_autoRefreshCheck, &QCheckBox::toggled,
             this, &BJobWidget::toggleAutoRefresh);
@@ -412,6 +391,158 @@ void BJobWidget::onShowDetailsClicked()
     }
 }
 
+void BJobWidget::setConnectionState(bool connected)
+{
+    // Enable/disable buttons based on connection state
+    m_refreshButton->setEnabled(connected);
+
+    bool hasSelection = !m_tableView->selectedJobIds().isEmpty();
+    m_runJobButton->setEnabled(connected && hasSelection);
+    m_cancelJobButton->setEnabled(connected && hasSelection);
+    m_detailsButton->setEnabled(connected && hasSelection);
+
+    // ✅ Request filter data from Director when connected
+    // Note: Filter data will be requested automatically by onRefreshAll()
+    // which is called after API mode is properly activated
+    if (!connected) {
+        // Clear combo boxes when disconnected
+        m_nameFilter->clear();
+        m_clientFilter->clear();
+    }
+}
+
+void BJobWidget::requestFilterData()
+{
+    if (!m_director) {
+        qWarning() << "BJobWidget::requestFilterData: No director set";
+        return;
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Requesting filter data using dot-commands (.jobs, .clients, .levels)";
+#endif
+
+    // Send .jobs command to get all configured jobs
+    emit sendCommand(BDirector::Command::DotJobs, "");
+
+    // Send .clients command to get all configured clients
+    emit sendCommand(BDirector::Command::DotClients, "");
+
+    // Send .levels command to get all backup levels
+    emit sendCommand(BDirector::Command::DotLevels, "");
+}
+
+void BJobWidget::processDotJobsResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Processing .jobs response";
+#endif
+
+    // Update job names in filter model
+    m_filterComboModel->updateJobNamesFromDotCommand(jsonData);
+
+    // Update job name combo box
+    QString currentNameFilter = m_nameFilter->currentText();
+    m_nameFilter->clear();
+    m_nameFilter->addItem("");  // Empty option to show all
+    m_nameFilter->addItems(m_filterComboModel->jobNames());
+    m_nameFilter->setCurrentText(currentNameFilter);  // Restore previous filter
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Job name filter updated with" << m_filterComboModel->jobNames().size() << "jobs";
+#endif
+}
+
+void BJobWidget::processDotClientsResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Processing .clients response";
+#endif
+
+    // Update client names in filter model
+    m_filterComboModel->updateClientNamesFromDotCommand(jsonData);
+
+    // Update client name combo box
+    QString currentClientFilter = m_clientFilter->currentText();
+    m_clientFilter->clear();
+    m_clientFilter->addItem("");  // Empty option to show all
+    m_clientFilter->addItems(m_filterComboModel->clientNames());
+    m_clientFilter->setCurrentText(currentClientFilter);  // Restore previous filter
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Client name filter updated with" << m_filterComboModel->clientNames().size() << "clients";
+#endif
+}
+
+void BJobWidget::processDotLevelsResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Processing .levels response";
+#endif
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "BJobWidget: Failed to parse .levels response:" << parseError.errorString();
+        return;
+    }
+
+    if (!doc.isObject()) {
+        qWarning() << "BJobWidget: .levels response is not a JSON object";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonArray levelsArray = result["levels"].toArray();
+
+    // Clear existing level checkboxes
+    for (auto it = m_levelCheckboxes.begin(); it != m_levelCheckboxes.end(); ++it) {
+        it.value()->deleteLater();
+    }
+    m_levelCheckboxes.clear();
+
+    // Remove placeholder label if it exists
+    QLabel *placeholder = findChild<QLabel*>("levelPlaceholder");
+    if (placeholder) {
+        placeholder->deleteLater();
+    }
+
+    // Create checkboxes for each level
+    for (const QJsonValue &levelVal : levelsArray) {
+        if (!levelVal.isObject()) {
+            continue;
+        }
+
+        QJsonObject level = levelVal.toObject();
+        QString levelCode = level["level"].toString();        // e.g., "F", "I", "D"
+        QString levelName = level["description"].toString();  // e.g., "Full", "Incremental", "Differential"
+
+        if (levelCode.isEmpty() || levelName.isEmpty()) {
+            continue;
+        }
+
+        // Create checkbox
+        QString checkboxText = QString("%1 (%2)").arg(levelName).arg(levelCode);
+        QCheckBox *checkbox = new QCheckBox(checkboxText, this);
+        checkbox->setChecked(true);  // Default: all checked
+
+        // Connect to filter timer
+        connect(checkbox, &QCheckBox::toggled, this, [this]() {
+            m_filterTimer->start();
+        });
+
+        // Add to layout and map
+        m_levelCheckboxLayout->addWidget(checkbox);
+        m_levelCheckboxes.insert(levelCode, checkbox);
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "✓ Created" << m_levelCheckboxes.size() << "level filter checkboxes";
+#endif
+}
+
 void BJobWidget::onRefreshClicked()
 {
     m_refreshButton->setEnabled(false);
@@ -421,7 +552,7 @@ void BJobWidget::onRefreshClicked()
 
 void BJobWidget::processJsonResponse(const QString &jsonData)
 {
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
     qDebug() << "========================================";
     qDebug() << "BJobWidget: Processing JSON response";
     qDebug() << "  Data size:" << jsonData.size() << "bytes";
@@ -447,14 +578,14 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
         return;
     }
 
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
     qDebug() << "✓ JSON parsed successfully";
 #endif
 
     // Get jobs array
     QJsonArray jobsArray = m_streamReader->jobsArray();
 
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
     qDebug() << "✓ Extracted" << jobsArray.size() << "jobs from JSON";
     if (jobsArray.isEmpty()) {
         qWarning() << "⚠ Jobs array is empty! Check JSON structure.";
@@ -584,13 +715,15 @@ void BJobWidget::applyFilters()
     if (m_statusError->isChecked()) statusSet.insert("E");
     
     filterModel->setStatusFilter(statusSet);
-    
-    // Apply level filter - build QSet from checkboxes
+
+    // Apply level filter - build QSet from dynamic checkboxes
     QSet<QString> levelSet;
-    if (m_levelFull->isChecked()) levelSet.insert("F");
-    if (m_levelIncremental->isChecked()) levelSet.insert("I");
-    if (m_levelDifferential->isChecked()) levelSet.insert("D");
-    
+    for (auto it = m_levelCheckboxes.constBegin(); it != m_levelCheckboxes.constEnd(); ++it) {
+        if (it.value()->isChecked()) {
+            levelSet.insert(it.key());  // Insert the level code (e.g., "F", "I", "D")
+        }
+    }
+
     filterModel->setLevelFilter(levelSet);
     
     // Apply date range filter
@@ -624,12 +757,12 @@ void BJobWidget::clearFilters()
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
-    
-    // Check all level filters
-    m_levelFull->setChecked(true);
-    m_levelIncremental->setChecked(true);
-    m_levelDifferential->setChecked(true);
-    
+
+    // Check all level filters (dynamic)
+    for (auto it = m_levelCheckboxes.constBegin(); it != m_levelCheckboxes.constEnd(); ++it) {
+        it.value()->setChecked(true);
+    }
+
     // Disable date filter
     m_dateEnabled->setChecked(false);
     
@@ -652,5 +785,36 @@ void BJobWidget::do_toggleFilters(bool visible)
     } else {
         m_toggleFiltersButton->setText(tr("Filter"));
         m_toggleFiltersButton->setToolTip(tr("Filter einblenden"));
+    }
+}
+
+void BJobWidget::clearData()
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Clearing all data";
+#endif
+
+    // Clear table model by setting empty array
+    m_tableView->jobsModel()->setJobs(QJsonArray());
+
+    // Clear combo boxes
+    m_nameFilter->clear();
+    m_clientFilter->clear();
+
+    // Clear filter model
+    m_filterComboModel->clear();
+
+    // Clear dynamic level checkboxes
+    for (auto it = m_levelCheckboxes.begin(); it != m_levelCheckboxes.end(); ++it) {
+        it.value()->deleteLater();
+    }
+    m_levelCheckboxes.clear();
+
+    // Clear stream reader
+    m_streamReader->clear();
+
+    // Reset statistics
+    if (m_statsWidget) {
+        // Statistics will automatically update from empty model
     }
 }

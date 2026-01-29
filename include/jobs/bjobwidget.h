@@ -10,6 +10,7 @@
 #include <QLineEdit>
 #include <QLabel>
 #include <QCheckBox>
+#include <QMap>
 #include "jobs/bjsonjobview.h"
 #include "bjsonstreamreader.h"
 #include "bpaginationwidget.h"
@@ -67,6 +68,36 @@ public:
      */
     void setDirector(BDirector *director) { m_director = director; }
 
+    /**
+     * @brief Triggers run job action (public interface to private slot)
+     * @since 2.6
+     */
+    void triggerRunJob() { onRunJobClicked(); }
+
+    /**
+     * @brief Triggers cancel job action (public interface to private slot)
+     * @since 2.6
+     */
+    void triggerCancelJob() { onCancelJobClicked(); }
+
+    /**
+     * @brief Triggers show details action (public interface to private slot)
+     * @since 2.6
+     */
+    void triggerShowDetails() { onShowDetailsClicked(); }
+
+    /**
+     * @brief Triggers refresh action (public interface to private slot)
+     * @since 2.6
+     */
+    void triggerRefresh() { onRefreshClicked(); }
+
+    /**
+     * @brief Clears all data from the widget (tables, combo boxes, etc.)
+     * @since 2.6
+     */
+    void clearData();
+
 public slots:
     /**
      * @brief Processes JSON response data from BDirector
@@ -74,6 +105,40 @@ public slots:
      * @since 2.0
      */
     void processJsonResponse(const QString &jsonData);
+
+    /**
+     * @brief Processes .jobs dot-command response
+     * @param jsonData JSON response from .jobs command
+     * @since 2.5
+     */
+    void processDotJobsResponse(const QString &jsonData);
+
+    /**
+     * @brief Processes .clients dot-command response
+     * @param jsonData JSON response from .clients command
+     * @since 2.5
+     */
+    void processDotClientsResponse(const QString &jsonData);
+
+    /**
+     * @brief Processes .levels dot-command response
+     * @param jsonData JSON response from .levels command
+     * @since 2.7
+     */
+    void processDotLevelsResponse(const QString &jsonData);
+
+    /**
+     * @brief Updates UI based on connection state
+     * @param connected True if connected to Director, false otherwise
+     * @since 2.0
+     */
+    void setConnectionState(bool connected);
+
+    /**
+     * @brief Requests job names and client names from Director using dot-commands
+     * @since 2.5
+     */
+    void requestFilterData();
 
 signals:
     void statusMessageChanged(const QString &message);
@@ -204,11 +269,11 @@ private:
     QCheckBox *m_statusWarning;             ///< Filter: Warning (W)
     QCheckBox *m_statusFailed;              ///< Filter: Failed (f)
     QCheckBox *m_statusError;               ///< Filter: Error (E)
-    
-    QCheckBox *m_levelFull;                 ///< Filter: Full backup (F)
-    QCheckBox *m_levelIncremental;          ///< Filter: Incremental (I)
-    QCheckBox *m_levelDifferential;         ///< Filter: Differential (D)
-    
+
+    // Dynamic level checkboxes (populated from .levels dot-command)
+    QMap<QString, QCheckBox*> m_levelCheckboxes;  ///< Map of level code -> checkbox (e.g., "F" -> Full checkbox)
+    QVBoxLayout *m_levelCheckboxLayout;            ///< Layout containing level checkboxes
+
     QCheckBox *m_dateEnabled;               ///< Enable date range filter
     QDateTimeEdit *m_dateFrom;              ///< Date range start
     QDateTimeEdit *m_dateTo;                ///< Date range end
@@ -220,9 +285,7 @@ private:
     QPushButton *m_cancelJobButton;         ///< Cancel job button
     QPushButton *m_detailsButton;           ///< Show details button
     QPushButton *m_refreshButton;           ///< Refresh button
-    QPushButton *m_exportJsonButton;        ///< Export JSON button
-    QPushButton *m_exportCsvButton;         ///< Export CSV button
-    
+
     // Auto-refresh controls
     QCheckBox *m_autoRefreshCheck;          ///< Auto-refresh checkbox
     QComboBox *m_refreshIntervalCombo;      ///< Refresh interval selector

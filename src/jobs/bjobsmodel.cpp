@@ -141,7 +141,19 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
         }
         return tooltip;
     }
-    
+
+    // Text alignment
+    if (role == Qt::TextAlignmentRole) {
+        // Center Type and Level columns
+        if (index.column() == COL_TYPE || index.column() == COL_LEVEL) {
+            return int(Qt::AlignCenter);
+        }
+        // Right-align JobID, Files and Bytes columns
+        if (index.column() == COL_JOBID || index.column() == COL_FILES || index.column() == COL_BYTES) {
+            return int(Qt::AlignRight | Qt::AlignVCenter);
+        }
+    }
+
     return QVariant();
 }
 

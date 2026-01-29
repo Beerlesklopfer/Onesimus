@@ -69,17 +69,33 @@ BJsonJobView::BJsonJobView(QWidget *parent)
     setContextMenuPolicy(Qt::DefaultContextMenu);
     
     // Configure headers
-    horizontalHeader()->setStretchLastSection(true);
-    horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    horizontalHeader()->setStretchLastSection(false);
     horizontalHeader()->setSectionsMovable(true);  // Enable drag & drop reordering
     horizontalHeader()->setDragEnabled(true);
     horizontalHeader()->setDragDropMode(QAbstractItemView::InternalMove);
     verticalHeader()->setVisible(false);
-    
+
+    // Set column resize modes
+    // Fixed width columns
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_SELECTED, QHeaderView::Fixed);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_JOBID, QHeaderView::Fixed);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_CLIENT, QHeaderView::Interactive);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_STARTTIME, QHeaderView::Interactive);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_ENDTIME, QHeaderView::Interactive);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_DURATION, QHeaderView::Fixed);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_TYPE, QHeaderView::Fixed);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_LEVEL, QHeaderView::Fixed);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_FILES, QHeaderView::Fixed);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_BYTES, QHeaderView::Fixed);
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_STATUS, QHeaderView::Fixed);
+
+    // Job Name column stretches to fill available space
+    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_NAME, QHeaderView::Stretch);
+
     // Set column widths
     setColumnWidth(BJobsModel::COL_SELECTED, 40);
     setColumnWidth(BJobsModel::COL_JOBID, 60);
-    setColumnWidth(BJobsModel::COL_NAME, 150);
+    // COL_NAME will stretch automatically
     setColumnWidth(BJobsModel::COL_CLIENT, 100);
     setColumnWidth(BJobsModel::COL_STARTTIME, 150);
     setColumnWidth(BJobsModel::COL_ENDTIME, 150);

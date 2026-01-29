@@ -16,6 +16,7 @@
 #include <QTextEdit>
 #include <QProgressBar>
 #include "bdirector.h"
+#include "bjoblogmodel.h"
 
 /**
  * @brief Dialog to display detailed information about a backup job
@@ -64,12 +65,13 @@ private:
 
     // Log Tab
     QListView *m_logListView;
-    QStandardItemModel *m_logModel;
+    BJobLogModel *m_logModel;
 
     // Data
     QJsonObject m_job;
     BDirector *m_director;
     quint64 m_jobId;
+    QString m_bvfsJobIds;  // Comma-separated list of jobids from bvfs_get_jobids
 };
 
 #endif // BJOBDETAILSDIALOG_H
