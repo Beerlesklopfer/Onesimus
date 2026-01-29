@@ -21,7 +21,7 @@ The script:
 # 1. Install prerequisites
 sudo apt-get update
 sudo apt-get install -y build-essential cmake git qt6-base-dev qt6-tools-dev \
-    libqt6network6-dev perl imagemagick
+    qt6-tools-dev-tools libqt6network6-dev perl imagemagick
 
 # 2. Clone repository
 git clone <your-repo> onesimus
@@ -55,6 +55,7 @@ sudo apt-get install -y \
     git \
     qt6-base-dev \
     qt6-tools-dev \
+    qt6-tools-dev-tools \
     qt6-base-dev-tools \
     libqt6network6-dev \
     perl \
@@ -63,7 +64,12 @@ sudo apt-get install -y \
 ```
 
 **Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
-**Note:** qt6-base-dev includes most modules, but explicit Network -dev package ensures headers are available
+
+**Important packages:**
+- **qt6-base-dev**: Qt6 base development files (Core, Gui, Widgets)
+- **qt6-tools-dev**: Qt6 tools including Designer, UIC
+- **qt6-tools-dev-tools**: Qt6 LinguistTools (lupdate, lrelease) for translations
+- **libqt6network6-dev**: Qt6 Network module development files
 
 ### Fedora/RHEL/CentOS
 
@@ -74,6 +80,7 @@ sudo dnf install -y \
     git \
     qt6-qtbase-devel \
     qt6-qttools-devel \
+    qt6-linguist \
     qt6-qtbase-network-devel \
     perl \
     make \
@@ -81,7 +88,12 @@ sudo dnf install -y \
 ```
 
 **Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
-**Note:** qt6-qtbase-devel includes Core, Gui, and Widgets; Network requires explicit package
+
+**Important packages:**
+- **qt6-qtbase-devel**: Qt6 base development files (Core, Gui, Widgets)
+- **qt6-qttools-devel**: Qt6 tools including Designer, UIC
+- **qt6-linguist**: Qt6 LinguistTools (lupdate, lrelease) for translations
+- **qt6-qtbase-network-devel**: Qt6 Network module development files
 
 ### Arch Linux
 
@@ -97,7 +109,12 @@ sudo pacman -S --needed \
 ```
 
 **Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
-**Note:** qt6-base includes Core, Gui, Widgets, and Network modules with headers (Arch packages everything together)
+
+**Important packages:**
+- **qt6-base**: Qt6 base (Core, Gui, Widgets, Network) with headers
+- **qt6-tools**: Qt6 tools including Designer, UIC, and LinguistTools (lupdate, lrelease) for translations
+
+**Note:** Arch packages Qt6 modules comprehensively, so qt6-tools includes LinguistTools automatically
 
 ### openSUSE
 
@@ -108,6 +125,7 @@ sudo zypper install -y \
     git \
     qt6-base-devel \
     qt6-tools-devel \
+    qt6-linguist-devel \
     qt6-network-devel \
     perl \
     make \
@@ -115,7 +133,12 @@ sudo zypper install -y \
 ```
 
 **Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
-**Note:** Explicit Network -devel package ensures all headers are available
+
+**Important packages:**
+- **qt6-base-devel**: Qt6 base development files (Core, Gui, Widgets)
+- **qt6-tools-devel**: Qt6 tools including Designer, UIC
+- **qt6-linguist-devel**: Qt6 LinguistTools (lupdate, lrelease) for translations
+- **qt6-network-devel**: Qt6 Network module development files
 
 ## 🎯 Build Options
 

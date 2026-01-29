@@ -36,7 +36,11 @@ public:
 private slots:
     void onConnectTriggered();
     void onDisconnectTriggered();
+    void onToggleConnectionTriggered();
     void onAboutTriggered();
+    void onDocumentationTriggered();
+    void onReportBugTriggered();
+    void onKeyboardShortcutsTriggered();
     void onSettingsTriggered();
     void onExportSettingsTriggered();
     void onImportSettingsTriggered();
@@ -114,10 +118,16 @@ private:
     QAction *m_connectAction;
     QAction *m_connectLastAction;
     QAction *m_disconnectAction;
+    QAction *m_toggleConnectionAction;  // Toggle between connect/disconnect
+    QAction *m_reconnectAction;         // Reconnect to last used connection
     QAction *m_refreshAction;
     QAction *m_settingsAction;
     QAction *m_exitAction;
     QAction *m_aboutAction;
+    QAction *m_aboutQtAction;
+    QAction *m_documentationAction;
+    QAction *m_reportBugAction;
+    QAction *m_keyboardShortcutsAction;
     QAction *m_toggleStatisticsAction;
     QAction *m_toggleThemeAction;
 

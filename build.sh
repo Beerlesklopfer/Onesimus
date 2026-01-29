@@ -20,7 +20,20 @@ fi
 # Prüfe ob Qt6 verfügbar ist
 if ! command -v qmake6 &> /dev/null && ! command -v qmake &> /dev/null; then
     echo "WARNUNG: Qt6 möglicherweise nicht installiert!"
-    echo "Installation: sudo apt-get install qt6-base-dev"
+    echo "Installation: sudo apt-get install qt6-base-dev qt6-tools-dev"
+fi
+
+# Prüfe ob Qt6 LinguistTools verfügbar sind
+if ! command -v lupdate &> /dev/null && ! command -v lupdate-qt6 &> /dev/null; then
+    echo "WARNUNG: Qt6 LinguistTools (lupdate/lrelease) nicht gefunden!"
+    echo "Installation:"
+    echo "  Ubuntu/Debian: sudo apt-get install qt6-tools-dev-tools"
+    echo "  Fedora/RHEL:   sudo dnf install qt6-linguist"
+    echo "  Arch:          sudo pacman -S qt6-tools (bereits enthalten)"
+    echo "  openSUSE:      sudo zypper install qt6-linguist-devel"
+    echo ""
+    echo "Hinweis: LinguistTools wird für Übersetzungen benötigt"
+    echo ""
 fi
 
 # Git-Submodule initialisieren
@@ -99,7 +112,7 @@ echo "================================"
 echo "Build erfolgreich abgeschlossen!"
 echo "================================"
 echo ""
-echo "Ausführbare Datei: ./build/Onesimus"
+echo "Ausführbare Datei: ./build/onesimus"
 echo ""
 
 if [ "$USE_STATIC_OPENSSL" = "ON" ]; then
@@ -108,7 +121,7 @@ if [ "$USE_STATIC_OPENSSL" = "ON" ]; then
 fi
 
 echo ""
-echo "Programm starten mit: ./build/Onesimus"
+echo "Programm starten mit: ./build/onesimus"
 echo "Oder installieren mit: cd build && sudo make install"
 echo ""
 

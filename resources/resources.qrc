@@ -6,5 +6,10 @@
     <qresource prefix="/icons">
         <file>icons/sun.png</file>
         <file>icons/moon.png</file>
+        <file>icons/connect.png</file>
+        <file>icons/disconnect.png</file>
+        <file>icons/reconnect.png</file>
+        <file>icons/exit.png</file>
+        <file>icons/refresh.png</file>
     </qresource>
 </RCC>

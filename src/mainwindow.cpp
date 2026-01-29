@@ -12,6 +12,7 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QDateTime>
+#include <QDesktopServices>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDockWidget>
@@ -31,8 +32,10 @@
 #include <QSettings>
 #include <QSpinBox>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QTextStream>
 #include <QToolBar>
+#include <QUrl>
 #include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -303,6 +306,19 @@ void MainWindow::createActions()
     m_disconnectAction->setEnabled(false);
     connect(m_disconnectAction, &QAction::triggered, this, &MainWindow::onDisconnectTriggered);
 
+    // Toggle Connection Action (for toolbar)
+    m_toggleConnectionAction = new QAction(tr("Connect"), this);
+    m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/connect.png"));
+    m_toggleConnectionAction->setToolTip(tr("Connect to Director"));
+    connect(m_toggleConnectionAction, &QAction::triggered, this, &MainWindow::onToggleConnectionTriggered);
+
+    // Reconnect Action (for toolbar)
+    m_reconnectAction = new QAction(tr("Reconnect"), this);
+    m_reconnectAction->setIcon(QIcon(":/icons/icons/reconnect.png"));
+    m_reconnectAction->setToolTip(tr("Reconnect to last used connection"));
+    m_reconnectAction->setEnabled(m_director->hasStoredConnection());
+    connect(m_reconnectAction, &QAction::triggered, this, &MainWindow::onConnectLastUsed);
+
     m_refreshAction = new QAction(tr("Refresh"), this);
     m_refreshAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshAction->setShortcut(QKeySequence("F5"));
@@ -315,11 +331,31 @@ void MainWindow::createActions()
     connect(m_settingsAction, &QAction::triggered, this, &MainWindow::onSettingsTriggered);
 
     m_exitAction = new QAction(tr("Exit"), this);
+    m_exitAction->setIcon(QIcon(":/icons/icons/exit.png"));
     m_exitAction->setShortcut(QKeySequence("Ctrl+Q"));
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
 
-    m_aboutAction = new QAction(tr("About"), this);
+    m_aboutAction = new QAction(tr("About Onesimus"), this);
+    m_aboutAction->setIcon(QIcon::fromTheme("help-about"));
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAboutTriggered);
+
+    m_aboutQtAction = new QAction(tr("About Qt"), this);
+    m_aboutQtAction->setIcon(QIcon::fromTheme("help-about"));
+    connect(m_aboutQtAction, &QAction::triggered, qApp, &QApplication::aboutQt);
+
+    m_documentationAction = new QAction(tr("Online Documentation"), this);
+    m_documentationAction->setIcon(QIcon::fromTheme("help-contents"));
+    m_documentationAction->setShortcut(QKeySequence::HelpContents);
+    connect(m_documentationAction, &QAction::triggered, this, &MainWindow::onDocumentationTriggered);
+
+    m_reportBugAction = new QAction(tr("Report a Bug..."), this);
+    m_reportBugAction->setIcon(QIcon::fromTheme("tools-report-bug"));
+    connect(m_reportBugAction, &QAction::triggered, this, &MainWindow::onReportBugTriggered);
+
+    m_keyboardShortcutsAction = new QAction(tr("Keyboard Shortcuts"), this);
+    m_keyboardShortcutsAction->setIcon(QIcon::fromTheme("preferences-desktop-keyboard"));
+    m_keyboardShortcutsAction->setShortcut(QKeySequence("Ctrl+?"));
+    connect(m_keyboardShortcutsAction, &QAction::triggered, this, &MainWindow::onKeyboardShortcutsTriggered);
 
     // Edit Actions
     m_copyAction = new QAction(tr("Copy"), this);
@@ -499,7 +535,13 @@ void MainWindow::createMenus()
     m_schedulesMenu->addAction(m_refreshSchedulesAction);
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
+    m_helpMenu->addAction(m_documentationAction);
+    m_helpMenu->addAction(m_keyboardShortcutsAction);
+    m_helpMenu->addSeparator();
+    m_helpMenu->addAction(m_reportBugAction);
+    m_helpMenu->addSeparator();
     m_helpMenu->addAction(m_aboutAction);
+    m_helpMenu->addAction(m_aboutQtAction);
 
     // Add theme toggle button to the right side of menu bar
     QWidget *spacer = new QWidget();
@@ -516,16 +558,21 @@ void MainWindow::createMenus()
 void MainWindow::createToolBar()
 {
     m_mainToolBar = addToolBar(tr("Main Toolbar"));
-    m_mainToolBar->addAction(m_connectAction);
-    m_mainToolBar->addAction(m_connectLastAction);
-    m_mainToolBar->addAction(m_disconnectAction);
-    m_mainToolBar->addSeparator();
-    m_mainToolBar->addAction(m_refreshAction);
 
-    // Spacer to position toggle button on the right
+    // Exit button first
+    m_mainToolBar->addAction(m_exitAction);
+
+    // Spacer to push connection buttons to the right
     QWidget *spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     m_mainToolBar->addWidget(spacer);
+
+    // Connection control buttons on the right
+    m_mainToolBar->addAction(m_toggleConnectionAction);
+    m_mainToolBar->addAction(m_reconnectAction);
+    m_mainToolBar->addSeparator();
+    m_mainToolBar->addAction(m_refreshAction);
+    m_mainToolBar->addSeparator();
 
     // Toggle button for statistics
     m_toggleStatisticsButton = new QPushButton(tr("Statistics ▼"), this);
@@ -776,6 +823,17 @@ void MainWindow::onDisconnectTriggered()
     m_statusLabel->setText("Getrennt");
 }
 
+void MainWindow::onToggleConnectionTriggered()
+{
+    if (m_director->isConnected()) {
+        // Currently connected, so disconnect
+        onDisconnectTriggered();
+    } else {
+        // Currently disconnected, so show connection dialog
+        onConnectTriggered();
+    }
+}
+
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -862,6 +920,130 @@ void MainWindow::onAboutTriggered()
     aboutDialog.exec();
 }
 
+void MainWindow::onDocumentationTriggered()
+{
+    // Open online documentation in default browser
+    QString docUrl = "https://github.com/Beerlesklopfer/Onesimus/wiki";
+    if (!QDesktopServices::openUrl(QUrl(docUrl))) {
+        QMessageBox::information(this, tr("Documentation"),
+            tr("Could not open browser. Please visit:\n%1").arg(docUrl));
+    }
+}
+
+void MainWindow::onReportBugTriggered()
+{
+    // Open GitHub issues page in default browser
+    QString issuesUrl = "https://github.com/Beerlesklopfer/Onesimus/issues";
+    if (!QDesktopServices::openUrl(QUrl(issuesUrl))) {
+        QMessageBox::information(this, tr("Report Bug"),
+            tr("Could not open browser. Please visit:\n%1").arg(issuesUrl));
+    }
+}
+
+void MainWindow::onKeyboardShortcutsTriggered()
+{
+    // Create dialog showing keyboard shortcuts
+    QDialog shortcutsDialog(this);
+    shortcutsDialog.setWindowTitle(tr("Keyboard Shortcuts"));
+    shortcutsDialog.setMinimumSize(600, 500);
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(&shortcutsDialog);
+
+    // Title
+    QLabel *titleLabel = new QLabel("<h2>" + tr("Keyboard Shortcuts") + "</h2>");
+    titleLabel->setAlignment(Qt::AlignCenter);
+    mainLayout->addWidget(titleLabel);
+
+    // Create tab widget for different categories
+    QTabWidget *tabWidget = new QTabWidget();
+
+    // File shortcuts
+    QWidget *fileTab = new QWidget();
+    QVBoxLayout *fileLayout = new QVBoxLayout(fileTab);
+    QTextEdit *fileText = new QTextEdit();
+    fileText->setReadOnly(true);
+    fileText->setHtml(
+        "<table width='100%' cellpadding='5'>"
+        "<tr><td width='50%'><b>" + tr("Connect") + "</b></td><td>Ctrl+O</td></tr>"
+        "<tr><td><b>" + tr("Reconnect") + "</b></td><td>Ctrl+R</td></tr>"
+        "<tr><td><b>" + tr("Refresh") + "</b></td><td>F5</td></tr>"
+        "<tr><td><b>" + tr("Settings") + "</b></td><td>Ctrl+,</td></tr>"
+        "<tr><td><b>" + tr("Exit") + "</b></td><td>Ctrl+Q</td></tr>"
+        "</table>"
+    );
+    fileLayout->addWidget(fileText);
+    tabWidget->addTab(fileTab, tr("File"));
+
+    // Edit shortcuts
+    QWidget *editTab = new QWidget();
+    QVBoxLayout *editLayout = new QVBoxLayout(editTab);
+    QTextEdit *editText = new QTextEdit();
+    editText->setReadOnly(true);
+    editText->setHtml(
+        "<table width='100%' cellpadding='5'>"
+        "<tr><td width='50%'><b>" + tr("Copy") + "</b></td><td>Ctrl+C</td></tr>"
+        "<tr><td><b>" + tr("Select All") + "</b></td><td>Ctrl+A</td></tr>"
+        "<tr><td><b>" + tr("Find") + "</b></td><td>Ctrl+F</td></tr>"
+        "</table>"
+    );
+    editLayout->addWidget(editText);
+    tabWidget->addTab(editTab, tr("Edit"));
+
+    // View shortcuts
+    QWidget *viewTab = new QWidget();
+    QVBoxLayout *viewLayout = new QVBoxLayout(viewTab);
+    QTextEdit *viewText = new QTextEdit();
+    viewText->setReadOnly(true);
+    viewText->setHtml(
+        "<table width='100%' cellpadding='5'>"
+        "<tr><td width='50%'><b>" + tr("Show Statistics") + "</b></td><td>Ctrl+Shift+S</td></tr>"
+        "<tr><td><b>" + tr("Show Job Log") + "</b></td><td>Ctrl+Shift+L</td></tr>"
+        "<tr><td><b>" + tr("Toggle Theme") + "</b></td><td>Ctrl+Shift+T</td></tr>"
+        "</table>"
+    );
+    viewLayout->addWidget(viewText);
+    tabWidget->addTab(viewTab, tr("View"));
+
+    // Jobs shortcuts
+    QWidget *jobsTab = new QWidget();
+    QVBoxLayout *jobsLayout = new QVBoxLayout(jobsTab);
+    QTextEdit *jobsText = new QTextEdit();
+    jobsText->setReadOnly(true);
+    jobsText->setHtml(
+        "<table width='100%' cellpadding='5'>"
+        "<tr><td width='50%'><b>" + tr("Refresh Jobs") + "</b></td><td>Ctrl+Shift+J</td></tr>"
+        "<tr><td><b>" + tr("Refresh Clients") + "</b></td><td>Ctrl+Shift+C</td></tr>"
+        "<tr><td><b>" + tr("Refresh Storage") + "</b></td><td>Ctrl+Shift+V</td></tr>"
+        "<tr><td><b>" + tr("Refresh Schedules") + "</b></td><td>Ctrl+Shift+D</td></tr>"
+        "</table>"
+    );
+    jobsLayout->addWidget(jobsText);
+    tabWidget->addTab(jobsTab, tr("Data"));
+
+    // Help shortcuts
+    QWidget *helpTab = new QWidget();
+    QVBoxLayout *helpLayout = new QVBoxLayout(helpTab);
+    QTextEdit *helpText = new QTextEdit();
+    helpText->setReadOnly(true);
+    helpText->setHtml(
+        "<table width='100%' cellpadding='5'>"
+        "<tr><td width='50%'><b>" + tr("Help Contents") + "</b></td><td>F1</td></tr>"
+        "<tr><td><b>" + tr("Keyboard Shortcuts") + "</b></td><td>Ctrl+?</td></tr>"
+        "</table>"
+    );
+    helpLayout->addWidget(helpText);
+    tabWidget->addTab(helpTab, tr("Help"));
+
+    mainLayout->addWidget(tabWidget);
+
+    // Close button
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close);
+    connect(buttonBox, &QDialogButtonBox::rejected, &shortcutsDialog, &QDialog::accept);
+    mainLayout->addWidget(buttonBox);
+
+    shortcutsDialog.exec();
+}
+
 void MainWindow::onSettingsTriggered()
 {
     SettingsDialog dialog(m_director, this);
@@ -887,6 +1069,15 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     m_toggleStatisticsButton->setEnabled(connected);  // ✅ Toolbar-Button synchronisieren
     m_toggleJobLogAction->setEnabled(connected);  // ✅ Job Log nur bei Verbindung
     m_tabWidget->setEnabled(connected);
+
+    // Update toggle connection button icon and tooltip
+    if (connected) {
+        m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/disconnect.png"));
+        m_toggleConnectionAction->setToolTip(tr("Disconnect from Director"));
+    } else {
+        m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/connect.png"));
+        m_toggleConnectionAction->setToolTip(tr("Connect to Director"));
+    }
 
     // Update job menu actions
     m_refreshJobsAction->setEnabled(connected);
