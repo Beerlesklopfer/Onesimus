@@ -485,6 +485,32 @@ void BSettings::setLevelColor(const QString& level, const QColor& color)
     emit appearanceSettingsChanged();
 }
 
+QColor BSettings::statusBarConnectedColor() const
+{
+    // Default: bright green visible on blue status bar
+    QString colorString = value("Appearance/statusbar_connected_color", "#7fff7f").toString();
+    return QColor(colorString);
+}
+
+void BSettings::setStatusBarConnectedColor(const QColor& color)
+{
+    setValue("Appearance/statusbar_connected_color", color.name());
+    emit appearanceSettingsChanged();
+}
+
+QColor BSettings::statusBarDisconnectedColor() const
+{
+    // Default: gray
+    QString colorString = value("Appearance/statusbar_disconnected_color", "#aaaaaa").toString();
+    return QColor(colorString);
+}
+
+void BSettings::setStatusBarDisconnectedColor(const QColor& color)
+{
+    setValue("Appearance/statusbar_disconnected_color", color.name());
+    emit appearanceSettingsChanged();
+}
+
 // ========================================================================
 // Behavior Settings
 // ========================================================================

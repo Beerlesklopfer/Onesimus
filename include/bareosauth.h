@@ -214,6 +214,7 @@ enum class BAuthState
     AUTH_IDLE,                  /**< Startzustand, noch kein Hello gesendet */
     WAIT_FOR_CHALLENGE,         /**< Hello gesendet, warte auf Director-Challenge */
     COMPUTING_RESPONSE,         /**< Director-Challenge empfangen, berechne HMAC-Response */
+    WAIT_FOR_OK_AUTH,           /**< HMAC-Response gesendet, warte auf "1000 OK auth" vom Director */
     WAIT_FOR_DIRECTOR_HMAC,     /**< Unsere Challenge gesendet, warte auf Director's HMAC-Antwort */
     WAIT_FOR_FINAL_OK,          /**< "1000 OK auth" gesendet, warte auf Director's finale Bestätigung */
     AUTH_SUCCESS,               /**< Authentifizierung erfolgreich abgeschlossen */

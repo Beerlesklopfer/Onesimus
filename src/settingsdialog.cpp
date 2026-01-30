@@ -542,6 +542,30 @@ void SettingsDialog::createAppearancePage()
 
     layout->addWidget(languageGroup);
 
+    // Status Bar Colors
+    QGroupBox *statusBarColorsGroup = new QGroupBox(tr("Status Bar Colors"));
+    statusBarColorsGroup->setObjectName("settingsGroup");
+    QFormLayout *statusBarColorsLayout = new QFormLayout(statusBarColorsGroup);
+    statusBarColorsLayout->setSpacing(12);
+
+    // Connected Color
+    m_colorButtonConnected = new QPushButton();
+    m_colorButtonConnected->setMinimumSize(80, 30);
+    m_colorButtonConnected->setCursor(Qt::PointingHandCursor);
+    m_colorButtonConnected->setToolTip(tr("Color shown when connected to Director"));
+    connect(m_colorButtonConnected, &QPushButton::clicked, this, &SettingsDialog::onChooseColorConnected);
+    statusBarColorsLayout->addRow(tr("Connected:"), m_colorButtonConnected);
+
+    // Disconnected Color
+    m_colorButtonDisconnected = new QPushButton();
+    m_colorButtonDisconnected->setMinimumSize(80, 30);
+    m_colorButtonDisconnected->setCursor(Qt::PointingHandCursor);
+    m_colorButtonDisconnected->setToolTip(tr("Color shown when not connected"));
+    connect(m_colorButtonDisconnected, &QPushButton::clicked, this, &SettingsDialog::onChooseColorDisconnected);
+    statusBarColorsLayout->addRow(tr("Disconnected:"), m_colorButtonDisconnected);
+
+    layout->addWidget(statusBarColorsGroup);
+
     // Backup Level Colors
     QGroupBox *levelColorsGroup = new QGroupBox(tr("Backup Level Colors"));
     levelColorsGroup->setObjectName("settingsGroup");
@@ -1086,6 +1110,19 @@ void SettingsDialog::loadSettings()
         m_colorButtonVirtualFull->setStyleSheet(styleSheet);
     }
 
+    // Status Bar Colors
+    QColor colorConnected = settings.statusBarConnectedColor();
+    if (colorConnected.isValid()) {
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorConnected.name());
+        m_colorButtonConnected->setStyleSheet(styleSheet);
+    }
+
+    QColor colorDisconnected = settings.statusBarDisconnectedColor();
+    if (colorDisconnected.isValid()) {
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorDisconnected.name());
+        m_colorButtonDisconnected->setStyleSheet(styleSheet);
+    }
+
     // Behavior
     m_confirmJobCancelCheck->setChecked(settings.behaviorConfirmJobCancel());
     m_confirmJobStartCheck->setChecked(settings.behaviorConfirmJobStart());
@@ -1393,6 +1430,34 @@ void SettingsDialog::onChooseColorVirtualFull()
         // Update button color
         QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
         m_colorButtonVirtualFull->setStyleSheet(styleSheet);
+    }
+}
+
+void SettingsDialog::onChooseColorConnected()
+{
+    QColor currentColor = BSettings::instance().statusBarConnectedColor();
+    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Connected Status"));
+
+    if (newColor.isValid() && newColor != currentColor) {
+        BSettings::instance().setStatusBarConnectedColor(newColor);
+
+        // Update button color
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
+        m_colorButtonConnected->setStyleSheet(styleSheet);
+    }
+}
+
+void SettingsDialog::onChooseColorDisconnected()
+{
+    QColor currentColor = BSettings::instance().statusBarDisconnectedColor();
+    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Disconnected Status"));
+
+    if (newColor.isValid() && newColor != currentColor) {
+        BSettings::instance().setStatusBarDisconnectedColor(newColor);
+
+        // Update button color
+        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
+        m_colorButtonDisconnected->setStyleSheet(styleSheet);
     }
 }
 

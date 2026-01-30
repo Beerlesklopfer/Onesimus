@@ -429,3 +429,23 @@ QLabel {
     color: #000000;
     background-color: transparent;
 }
+
+/* Status Bar Labels */
+QStatusBar QLabel#connectionLabel {
+    color: #ffffff;
+    font-weight: bold;
+    padding: 2px 8px;
+}
+
+QStatusBar QLabel#connectionLabel[connected="true"] {
+    color: #90ff90;
+}
+
+QStatusBar QLabel#connectionLabel[connected="false"] {
+    color: #cccccc;
+}
+
+QStatusBar QLabel#statusLabel {
+    color: #ffffff;
+    padding: 2px 8px;
+}

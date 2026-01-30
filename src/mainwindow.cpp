@@ -35,6 +35,7 @@
 #include <QRadioButton>
 #include <QSettings>
 #include <QSpinBox>
+#include <QStyle>
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QTextStream>
@@ -90,10 +91,8 @@ MainWindow::MainWindow(QWidget *parent)
         onAuthentificationSucceeded(false, "");
     });
 
-    // ✅ Verbinde statusMessage Signal
-    connect(m_director, &BDirector::statusMessage, this, [this](const QString &msg) {
-        m_statusLabel->setText(msg);
-    });
+    // ✅ statusMessage Signal wird erst nach erfolgreicher Auth verbunden
+    // (siehe onAuthentificationSucceeded), um Auth-Fehler nicht in der Statuszeile anzuzeigen
 
     connect(m_director, &BDirector::authentificationSucceeded,  this, &MainWindow::onAuthentificationSucceeded);
 
@@ -403,10 +402,14 @@ void MainWindow::setupUI()
 
     // Status bar
     m_statusLabel = new QLabel(tr("Ready"), this);
+    m_statusLabel->setObjectName("statusLabel");
     statusBar()->addWidget(m_statusLabel);
 
     m_connectionLabel = new QLabel(tr("Not connected"), this);
-    m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
+    m_connectionLabel->setObjectName("connectionLabel");
+    m_connectionLabel->setProperty("connected", false);
+    QColor disconnectedColor = BSettings::instance().statusBarDisconnectedColor();
+    m_connectionLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(disconnectedColor.name()));
     statusBar()->addPermanentWidget(m_connectionLabel);
 }
 
@@ -1215,10 +1218,17 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     m_scheduleWidget->setConnectionState(connected);
 
     if (connected) {
-        // Show version if available
-        QString statusText = QString(tr("Connected BAREOS (v%1)")).arg(msg);
-        m_connectionLabel->setText(statusText);
-        m_connectionLabel->setStyleSheet("color: green; font-weight: bold;");
+        // ✅ Jetzt erst statusMessage Signal verbinden (nach erfolgreicher Auth)
+        m_statusMessageConnection = connect(m_director, &BDirector::statusMessage,
+                                             this, [this](const QString &msg) {
+            m_statusLabel->setText(msg);
+        });
+
+        // Show version only with connected color from settings
+        m_connectionLabel->setText(msg);
+        m_connectionLabel->setProperty("connected", true);
+        QColor connectedColor = BSettings::instance().statusBarConnectedColor();
+        m_connectionLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(connectedColor.name()));
         m_statusLabel->setText(tr("Connected - Loading data..."));
 
         // Restore saved Statistics DockWidget state
@@ -1245,8 +1255,15 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
         // Note: Resource loading and initial refresh is now handled by the state machine.
         // The allResourcesLoaded() signal will trigger onRefreshAll() when ready.
     } else {
-        m_connectionLabel->setText(msg);
-        m_connectionLabel->setStyleSheet("color: red; font-weight: bold;");
+        // ✅ statusMessage Signal trennen bei Disconnect
+        QObject::disconnect(m_statusMessageConnection);
+
+        // m_connectionLabel zeigt nur Verbindungsstatus, keine Fehlermeldungen
+        // (Fehlermeldungen werden über MessageBox angezeigt)
+        m_connectionLabel->setText(tr("Not connected"));
+        m_connectionLabel->setProperty("connected", false);
+        QColor disconnectedColor = BSettings::instance().statusBarDisconnectedColor();
+        m_connectionLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(disconnectedColor.name()));
         m_statusLabel->setText("");
 
         // Hide Statistics DockWidget on disconnect

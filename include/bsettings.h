@@ -180,6 +180,13 @@ public:
     QColor levelColor(const QString& level) const;
     void setLevelColor(const QString& level, const QColor& color);
 
+    // Status Bar Colors
+    QColor statusBarConnectedColor() const;
+    void setStatusBarConnectedColor(const QColor& color);
+
+    QColor statusBarDisconnectedColor() const;
+    void setStatusBarDisconnectedColor(const QColor& color);
+
     // ========================================================================
     // Behavior Settings
     // ========================================================================

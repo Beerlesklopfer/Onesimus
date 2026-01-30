@@ -101,7 +101,8 @@ private:
 
     Ui::MainWindow *ui;
     BDirector *m_director;
-    
+    QMetaObject::Connection m_statusMessageConnection;  ///< Connection for statusMessage signal (only after auth)
+
     // Widgets
     QTabWidget *m_tabWidget;
     BJobWidget *m_jobWidget;

@@ -514,11 +514,41 @@ void BareosAuth::onSslErrorsCertificate(const QList<QSslError> &errors)
         qDebug() << "Ignoring SSL errors (peer verification disabled)";
 #endif
         m_socket->ignoreSslErrors();
+        return;
     }
-    else
+
+    // ✅ Bareos verwendet Daemon-Namen in Zertifikaten, nicht Hostnamen
+    // Daher ignorieren wir HostNameMismatch, prüfen aber andere Fehler
+    QList<QSslError> criticalErrors;
+    QList<QSslError> ignorableErrors;
+
+    for (const QSslError &error : errors)
     {
-        // Peer verification aktiviert - Fehler sind kritisch
-        m_errorMessage = QString("SSL/TLS Error: %1").arg(errors.first().errorString());
+        if (error.error() == QSslError::HostNameMismatch)
+        {
+            // Hostname-Mismatch ist bei Bareos normal (Zertifikat hat Daemon-Namen)
+            ignorableErrors.append(error);
+#ifdef IS_DEVELOPER
+            qDebug() << "  Ignoring HostNameMismatch (Bareos uses daemon names in certificates)";
+#endif
+        }
+        else
+        {
+            // Andere Fehler sind kritisch
+            criticalErrors.append(error);
+        }
+    }
+
+    // Ignorierbare Fehler dem Socket mitteilen
+    if (!ignorableErrors.isEmpty())
+    {
+        m_socket->ignoreSslErrors(ignorableErrors);
+    }
+
+    // Bei kritischen Fehlern: Authentifizierung abbrechen
+    if (!criticalErrors.isEmpty())
+    {
+        m_errorMessage = QString("SSL/TLS Error: %1").arg(criticalErrors.first().errorString());
         emit authenticationFailed(m_errorMessage);
     }
 }
@@ -537,7 +567,37 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
 
     if (!match.hasMatch())
     {
-        m_errorMessage = QString("Challenge mismatch. Received:\n%1\n").arg(QString(challenge));
+        // ✅ Prüfe ob der Director eine Fehlermeldung gesendet hat
+        QString response = QString::fromLatin1(challenge).trimmed();
+
+        if (response.startsWith("1999") || response.contains("denied", Qt::CaseInsensitive) ||
+            response.contains("failed", Qt::CaseInsensitive) || response.contains("rejected", Qt::CaseInsensitive))
+        {
+            // Director hat eine Fehlermeldung gesendet - zeige sie dem Benutzer
+            m_errorMessage = tr("Director rejected connection: %1").arg(response);
+
+            // Zusätzliche Hinweise basierend auf der Fehlermeldung
+            if (response.contains("TLS", Qt::CaseInsensitive) ||
+                response.contains("configuration mismatch", Qt::CaseInsensitive) ||
+                response.contains("ssl", Qt::CaseInsensitive))
+            {
+                m_errorMessage += tr("\n\nHint: The Director requires TLS encryption. "
+                                     "Please use PSK or Certificate authentication instead of Legacy mode.");
+            }
+        }
+        else if (response.isEmpty())
+        {
+            m_errorMessage = tr("Director sent empty response.\n\n"
+                                "This usually means the Director requires TLS encryption "
+                                "but Legacy (unencrypted) mode was used.\n"
+                                "Please try PSK or Certificate authentication.");
+        }
+        else
+        {
+            // Unbekanntes Format
+            m_errorMessage = tr("Unexpected response from Director:\n%1").arg(response);
+        }
+
         emit authenticationFailed(m_errorMessage);
         qCritical() << m_errorMessage;
         return false;
@@ -564,7 +624,8 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
     qDebug() << "  HMAC (raw hex):" << hmac.toHex();
 #endif
 
-    m_writeBuffer = base64Encode(hmac);
+    // ✅ Verwende den gleichen Modus wie der Director (cram-md5 vs cram-md5c)
+    m_writeBuffer = base64Encode(hmac, m_isCompatible);
 
 #ifdef IS_DEVELOPER
     qDebug() << "  HMAC (base64):" << m_writeBuffer;
@@ -609,7 +670,12 @@ bool BareosAuth::cramMD5Challenge()
 #endif
 
     // Nachricht vorbereiten (mit Newline am Ende!)
-    m_writeBuffer = QByteArray("auth cram-md5 ");
+    // ✅ Verwende den gleichen Modus wie der Director (cram-md5 vs cram-md5c)
+    if (m_isCompatible) {
+        m_writeBuffer = QByteArray("auth cram-md5c ");
+    } else {
+        m_writeBuffer = QByteArray("auth cram-md5 ");
+    }
     m_writeBuffer.append(m_clientChallenge);
     m_writeBuffer.append(" ssl=");
     m_writeBuffer.append(QByteArray::number(m_tlsLocalNeed));
@@ -627,9 +693,15 @@ bool BareosAuth::cramMD5Challenge()
 
 #ifdef IS_DEVELOPER
     qDebug() << "  ✓ Client challenge sent";
+    qDebug() << "  Socket state:" << m_socket->state();
+    qDebug() << "  Socket encrypted:" << m_socket->isEncrypted();
+    qDebug() << "  Bytes to write:" << m_socket->bytesToWrite();
 #endif
 
-    emit statusMessage("Client challenge sent successfully");
+    emit statusMessage(QString("Client challenge sent. Socket: %1, BytesToWrite: %2")
+                       .arg(m_socket->state())
+                       .arg(m_socket->bytesToWrite()));
+
     return true;
 }
 
@@ -666,6 +738,9 @@ BareosAuth::BnetStatus BareosAuth::send()
 
     // Send over the socket
     m_lastSentSize = m_socket->write(m_writeBuffer);
+
+    // Note: Don't use flush() here - it blocks the async state machine!
+    // The data will be sent when the event loop processes the socket.
 
     if (len+4 != m_writeBuffer.size()) {
         qCritical() << "Failed to send complete command! Written:" << m_lastSentSize << "Expected:" << m_writeBuffer.size();
@@ -890,46 +965,68 @@ bool BareosAuth::verifyDirectorResponse(const QByteArray &response)
     qDebug() << "  Trimmed response:" << trimmedResponse;
 #endif
 
-    // Decode Director's HMAC
-    QByteArray decodedHMAC = base64Decode(trimmedResponse, m_isCompatible);
-
-#ifdef IS_DEVELOPER
-    qDebug() << "  Director HMAC (base64):" << trimmedResponse;
-    qDebug() << "  Director HMAC (decoded hex):" << decodedHMAC.toHex();
-#endif
-
     // ✅ Berechne erwarteten HMAC basierend auf UNSERER Challenge
     QByteArray expectedHMAC = hmac_md5(m_clientChallenge, m_password.toHex());
 
 #ifdef IS_DEVELOPER
     qDebug() << "  Our challenge was:" << m_clientChallenge;
     qDebug() << "  Expected HMAC (hex):" << expectedHMAC.toHex();
-    qDebug() << "  Password (hex):" << m_password.toHex();
 #endif
 
-    // ✅ Vergleiche
-    if (decodedHMAC == expectedHMAC) {
+    // ✅ Bareos probiert BEIDE Base64-Varianten (siehe cram_md5.cc Zeile 131-142)
+    // Erste Variante: mit m_isCompatible
+    QByteArray expectedBase64 = base64Encode(expectedHMAC, m_isCompatible);
+
 #ifdef IS_DEVELOPER
-        qDebug() << "  ✓ Director HMAC verified successfully";
+    qDebug() << "  Expected (compatible=" << m_isCompatible << "):" << expectedBase64;
+    qDebug() << "  Received:" << trimmedResponse;
+#endif
+
+    if (trimmedResponse == expectedBase64) {
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ Director HMAC verified successfully (compatible mode)";
 #endif
         return true;
-    } else {
-        qWarning() << "  ✗ Director HMAC verification failed";
-        qWarning() << "    Expected:" << expectedHMAC.toHex();
-        qWarning() << "    Received:" << decodedHMAC.toHex();
-        return false;
     }
+
+    // Zweite Variante: mit !m_isCompatible (Fallback wie Bareos)
+    QByteArray expectedBase64Alt = base64Encode(expectedHMAC, !m_isCompatible);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Expected (compatible=" << !m_isCompatible << "):" << expectedBase64Alt;
+#endif
+
+    if (trimmedResponse == expectedBase64Alt) {
+#ifdef IS_DEVELOPER
+        qDebug() << "  ✓ Director HMAC verified successfully (alternate mode)";
+#endif
+        return true;
+    }
+
+    qWarning() << "  ✗ Director HMAC verification failed";
+    qWarning() << "    Received:" << trimmedResponse;
+    qWarning() << "    Expected (compat):" << expectedBase64;
+    qWarning() << "    Expected (non-compat):" << expectedBase64Alt;
+    return false;
 }
 
 bool BareosAuth::hasCompleteMessage()
 {
     if (m_readBuffer.size() < 4) {
+#ifdef IS_DEVELOPER
+        qDebug() << "  hasCompleteMessage: buffer too small:" << m_readBuffer.size() << "bytes";
+#endif
         return false;
     }
 
     qint32 msgLen = qFromBigEndian<qint32>(
         reinterpret_cast<const uchar*>(m_readBuffer.constData())
         );
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  hasCompleteMessage: msgLen=" << msgLen << ", buffer=" << m_readBuffer.size();
+    qDebug() << "  hasCompleteMessage: header bytes (hex):" << m_readBuffer.left(4).toHex();
+#endif
 
     return m_readBuffer.size() >= (msgLen + 4);
 }
@@ -1027,68 +1124,56 @@ void BareosAuth::onReadyRead()
         }
         break;
 
-    case BAuthState::COMPUTING_RESPONSE:
+    case BAuthState::WAIT_FOR_OK_AUTH:
     {
-        // Director antwortet SCHNELL nach unserer HMAC-Antwort
-        // Wir müssen die Antwort hier verarbeiten, nicht erst in WAIT_FOR_DIRECTOR_HMAC
+        // Wir haben unsere HMAC-Response gesendet und warten auf "1000 OK auth"
+        // (siehe Bareos cram_md5.cc Zeile 240: "1000 OK auth\n")
 #ifdef IS_DEVELOPER
-        qDebug() << "  Received Director response while in COMPUTING_RESPONSE";
-        qDebug() << "  Response:" << message;
+        qDebug() << "  Waiting for '1000 OK auth' from Director";
+        qDebug() << "  Received:" << message;
 #endif
 
         QString msgStr = QString::fromLatin1(message).trimmed();
 
-        if (msgStr.startsWith("1000 OK")) {
-            // Director macht KEINE bidirektionale Authentifizierung
+        if (msgStr.startsWith("1000 OK auth")) {
+            // Director hat unsere HMAC-Response akzeptiert
+            // Jetzt senden wir unsere eigene Challenge (bidirektionale Auth)
 #ifdef IS_DEVELOPER
-            qDebug() << "  Director accepted our HMAC (unidirectional auth)";
+            qDebug() << "  ✓ Director accepted our HMAC";
+            qDebug() << "  Sending our challenge now (bidirectional auth)...";
 #endif
 
-            if (msgStr.contains("bareos-dir") || msgStr.contains("Version")) {
-                // Finale Banner - Auth komplett!
-                m_authSuccess = true;
-                m_authState = BAuthState::AUTH_SUCCESS;
-                stopAuthTimeout();
-                emit authenticationSucceeded(msgStr);
-#ifdef IS_DEVELOPER
-                qDebug() << "  ✓ Authentication complete!";
-#endif
-            } else {
-                // "1000 OK auth" - warte auf finales Banner
-                m_authState = BAuthState::WAIT_FOR_FINAL_OK;
-#ifdef IS_DEVELOPER
-                qDebug() << "  State changed -> WAIT_FOR_FINAL_OK";
-#endif
-            }
-        } else if (msgStr.startsWith("auth cram-md5")) {
-            // Director will bidirektionale Auth - er sendet uns seine Challenge
-#ifdef IS_DEVELOPER
-            qDebug() << "  Director requests bidirectional auth";
-#endif
-            // TODO: Implement bidirectional auth if needed
-            // For now, send our challenge back
             if (cramMD5Challenge()) {
                 m_authState = BAuthState::WAIT_FOR_DIRECTOR_HMAC;
+#ifdef IS_DEVELOPER
+                qDebug() << "  State changed -> WAIT_FOR_DIRECTOR_HMAC";
+#endif
             } else {
                 m_authState = BAuthState::AUTH_FAILED;
                 emit authenticationFailed(m_errorMessage);
             }
-        } else {
-            // Möglicherweise Director's HMAC auf unsere Challenge (falls wir sie schon gesendet haben)
+        } else if (msgStr.contains("bareos-dir") || msgStr.contains("Version")) {
+            // Director sendet direkt das finale Banner (unidirektionale Auth)
 #ifdef IS_DEVELOPER
-            qDebug() << "  Processing as Director's HMAC response";
+            qDebug() << "  ✓ Director sent final banner (unidirectional auth)";
 #endif
-            if (!verifyDirectorResponse(message)) {
-                qWarning() << "  HMAC verification failed, continuing anyway";
-            }
-
-            m_writeBuffer = QByteArray("1000 OK auth\n");
-            if (send() == BnetStatus::Ok) {
-                m_authState = BAuthState::WAIT_FOR_FINAL_OK;
-            } else {
-                m_authState = BAuthState::AUTH_FAILED;
-                emit authenticationFailed("Failed to send OK");
-            }
+            m_authSuccess = true;
+            m_authState = BAuthState::AUTH_SUCCESS;
+            stopAuthTimeout();
+            disconnectSignals();
+            emit statusMessage("Connected");
+            emit authenticationSucceeded(msgStr);
+        } else if (msgStr.startsWith("1999")) {
+            // Authentifizierung fehlgeschlagen
+            m_errorMessage = QString("Director rejected authentication: %1").arg(msgStr);
+            m_authState = BAuthState::AUTH_FAILED;
+            emit authenticationFailed(m_errorMessage);
+        } else {
+#ifdef IS_DEVELOPER
+            qWarning() << "  Unexpected response in WAIT_FOR_OK_AUTH:" << message;
+#endif
+            // Versuche trotzdem weiterzumachen
+            m_errorMessage = QString("Unexpected response: %1").arg(msgStr);
         }
         break;
     }
@@ -1252,26 +1337,22 @@ void BareosAuth::onBytesWritten(qint64 bytesWritten)
         break;
 
     case BAuthState::COMPUTING_RESPONSE:
-        // HMAC-Response wurde gesendet, jetzt unsere Challenge senden (bidirektionale Auth)
+        // HMAC-Response wurde gesendet, jetzt auf "1000 OK auth" vom Director warten
+        // (siehe Bareos cram_md5.cc Zeile 233-240: bs_->recv() nach send())
+        m_authState = BAuthState::WAIT_FOR_OK_AUTH;
 #ifdef IS_DEVELOPER
-        qDebug() << "  ✓ HMAC response sent, now sending our challenge for bidirectional auth...";
+        qDebug() << "  ✓ HMAC response sent, waiting for '1000 OK auth' from Director...";
+        qDebug() << "  State changed -> WAIT_FOR_OK_AUTH";
 #endif
-
-        if (cramMD5Challenge()) {
-            m_authState = BAuthState::WAIT_FOR_DIRECTOR_HMAC;
-#ifdef IS_DEVELOPER
-            qDebug() << "  State changed -> WAIT_FOR_DIRECTOR_HMAC";
-#endif
-        } else {
-            m_authState = BAuthState::AUTH_FAILED;
-            emit authenticationFailed(m_errorMessage);
-        }
         break;
 
     case BAuthState::WAIT_FOR_DIRECTOR_HMAC:
         // Challenge wurde gesendet, warte auf Director's Response
 #ifdef IS_DEVELOPER
         qDebug() << "  ✓ Client challenge sent, waiting for Director response...";
+        qDebug() << "    Socket state:" << m_socket->state();
+        qDebug() << "    Bytes available:" << m_socket->bytesAvailable();
+        qDebug() << "    ReadBuffer size:" << m_readBuffer.size();
 #endif
         break;
 

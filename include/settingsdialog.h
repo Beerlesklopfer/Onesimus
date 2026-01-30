@@ -77,6 +77,10 @@ private slots:
     void onChooseColorDifferential();
     void onChooseColorVirtualFull();
 
+    // Status Bar Color slots
+    void onChooseColorConnected();
+    void onChooseColorDisconnected();
+
 private:
     void setupUI();
     void createSidebar();
@@ -146,6 +150,10 @@ private:
     QPushButton *m_colorButtonIncremental;
     QPushButton *m_colorButtonDifferential;
     QPushButton *m_colorButtonVirtualFull;
+
+    // Status Bar Color Buttons
+    QPushButton *m_colorButtonConnected;
+    QPushButton *m_colorButtonDisconnected;
     
     // Behavior-Einstellungen
     QCheckBox *m_confirmJobCancelCheck;

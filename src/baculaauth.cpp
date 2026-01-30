@@ -485,7 +485,7 @@ bool BaculaAuth::sendBaculaMessage(const QString &message)
     qDebug() << "    Total packet size:" << packet.size() << "bytes";
 
     qint64 written = m_socket->write(packet);
-    m_socket->flush();
+    // Note: Don't use flush() - it blocks the async state machine!
 
     if (written != packet.size()) {
         m_errorMessage = QString("Failed to send packet: wrote %1 of %2 bytes")
