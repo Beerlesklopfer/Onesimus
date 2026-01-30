@@ -1,18 +1,18 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef BMAINWINDOW_H
+#define BMAINWINDOW_H
 
 #include <QMainWindow>
 #include <QTimer>
 #include <QDebug>
 #include "bdirector.h"
 
-// Debug logging prefixes for App/MainWindow
+// Debug logging prefixes for App/BMainWindow
 #define APP_DEBUG qDebug().nospace() << "[App] "
 #define APP_WARNING qWarning().nospace() << "[App] "
 #define APP_CRITICAL qCritical().nospace() << "[App] "
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
+namespace Ui { class BMainWindow; }
 QT_END_NAMESPACE
 
 // Forward declarations
@@ -28,13 +28,13 @@ class QMenu;
 class QToolBar;
 class QPushButton;
 
-class MainWindow : public QMainWindow
+class BMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    BMainWindow(QWidget *parent = nullptr);
+    ~BMainWindow();
 
     BDirector *director() const;
     void setDirector(BDirector *newDirector);
@@ -106,7 +106,7 @@ private:
     void loadAndConnectLastUsed();
     void applyTheme(const QString &themeName);
 
-    Ui::MainWindow *ui;
+    Ui::BMainWindow *ui;
     BDirector *m_director;
     QMetaObject::Connection m_statusMessageConnection;  ///< Connection for statusMessage signal (only after auth)
 
@@ -196,4 +196,4 @@ private:
     QSize m_sizeBeforeStatistics;  ///< Fenstergröße vor Einblendung der Statistiken
 };
 
-#endif // MAINWINDOW_H
+#endif // BMAINWINDOW_H

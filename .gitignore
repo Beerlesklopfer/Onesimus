@@ -57,6 +57,15 @@ bacula-certs-windows/
 *.pfx
 *.p12
 
+# Allow test certificates
+!test/bareos-dir.d/tls/*.pem
+!test/bareos-dir.d/tls/*.key
+
+# Test output files
+test/test_results.log
+test/bareos-dir-test.pid
+test/runtime
+
 CERT_CREATION_README.md
 QUICK_VS_ENV.txt
 WINDOWS_TLS_FIX.md

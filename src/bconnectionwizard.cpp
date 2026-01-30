@@ -6,6 +6,8 @@
 #include "bconnectionwizard.h"
 #include "bareosdirector.h"
 #include "bcertificategenerator.h"
+#include "bprofilesettingsdialog.h"
+#include "bconfigexporter.h"
 #include "bsettings.h"
 
 #include <QVBoxLayout>
@@ -14,18 +16,24 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QComboBox>
 #include <QRandomGenerator>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QTcpSocket>
+#include <QClipboard>
+#include <QApplication>
+#include <QTabWidget>
 
 // ============================================================================
 // BConnectionWizard
 // ============================================================================
 
-BConnectionWizard::BConnectionWizard(QWidget *parent)
+BConnectionWizard::BConnectionWizard(BConnectionWizardData *wizardData, QWidget *parent)
     : QWizard(parent)
+    , m_wizardData(wizardData)
 {
     setWindowTitle(tr("Connection Setup"));
     setWizardStyle(QWizard::ModernStyle);
@@ -37,6 +45,7 @@ BConnectionWizard::BConnectionWizard(QWidget *parent)
     setPage(Page_Credentials, new CredentialsPage(this));
     setPage(Page_AuthMethod, new AuthMethodPage(this));
     setPage(Page_TLS, new TLSPage(this));
+    setPage(Page_ConfigPreview, new ConfigPreviewPage(this));
     setPage(Page_Test, new TestPage(this));
     setPage(Page_ConsoleSetup, new ConsoleSetupPage(this));
     setPage(Page_ProfileName, new ProfileNamePage(this));
@@ -50,35 +59,77 @@ BConnectionProfile BConnectionWizard::profile() const
 {
     BConnectionProfile p = m_profile;
 
-    p.name = field("profileName").toString();
-    p.host = field("host").toString();
-    p.port = field("port").toInt();
-    p.directorName = field("directorName").toString();
-    p.consoleName = field("consoleName").toString();
+    // Use wizard data struct if available (preserves values across page navigation)
+    if (m_wizardData) {
+        p.name = m_wizardData->profileName;
+        p.host = m_wizardData->host;
+        p.port = m_wizardData->port;
+        p.directorName = m_wizardData->directorName;
+        p.consoleName = m_wizardData->consoleName;
 
-    if (field("savePassword").toBool()) {
-        p.password = field("password").toString();
-    } else {
-        p.password.clear();
-    }
+        qDebug() << "[ConnectionWizard] Using wizardData - savePassword:" << m_wizardData->savePassword;
 
-    QString auth = field("authMethod").toString();
-    if (auth == "legacy") {
-        p.legacyAuth = true;
-        p.tlsEnabled = false;
-        p.tlsUsePSK = false;
-    } else if (auth == "psk") {
-        p.legacyAuth = false;
-        p.tlsEnabled = true;
-        p.tlsUsePSK = true;
+        if (m_wizardData->savePassword) {
+            p.password = m_wizardData->password;
+            qDebug() << "[ConnectionWizard] Password saved to profile";
+        } else {
+            p.password.clear();
+            qDebug() << "[ConnectionWizard] Password cleared from profile";
+        }
+
+        QString auth = m_wizardData->authMethod;
+        if (auth == "legacy") {
+            p.legacyAuth = true;
+            p.tlsEnabled = false;
+            p.tlsUsePSK = false;
+        } else if (auth == "psk") {
+            p.legacyAuth = false;
+            p.tlsEnabled = true;
+            p.tlsUsePSK = true;
+        } else {
+            p.legacyAuth = false;
+            p.tlsEnabled = true;
+            p.tlsUsePSK = false;
+            p.tlsCaCertFile = m_wizardData->tlsCaCertFile;
+            p.tlsCertFile = m_wizardData->tlsCertFile;
+            p.tlsKeyFile = m_wizardData->tlsKeyFile;
+            p.tlsVerifyPeer = true;
+        }
     } else {
-        p.legacyAuth = false;
-        p.tlsEnabled = true;
-        p.tlsUsePSK = false;
-        p.tlsCaCertFile = field("caCert").toString();
-        p.tlsCertFile = field("clientCert").toString();
-        p.tlsKeyFile = field("clientKey").toString();
-        p.tlsVerifyPeer = true;
+        // Fallback to field values (for backward compatibility)
+        p.name = field("profileName").toString();
+        p.host = field("host").toString();
+        p.port = field("port").toInt();
+        p.directorName = field("directorName").toString();
+        p.consoleName = field("consoleName").toString();
+
+        bool savePasswordChecked = field("savePassword").toBool();
+        qDebug() << "[ConnectionWizard] Using fields - savePassword:" << savePasswordChecked;
+
+        if (savePasswordChecked) {
+            p.password = field("password").toString();
+        } else {
+            p.password.clear();
+        }
+
+        QString auth = field("authMethod").toString();
+        if (auth == "legacy") {
+            p.legacyAuth = true;
+            p.tlsEnabled = false;
+            p.tlsUsePSK = false;
+        } else if (auth == "psk") {
+            p.legacyAuth = false;
+            p.tlsEnabled = true;
+            p.tlsUsePSK = true;
+        } else {
+            p.legacyAuth = false;
+            p.tlsEnabled = true;
+            p.tlsUsePSK = false;
+            p.tlsCaCertFile = field("caCert").toString();
+            p.tlsCertFile = field("clientCert").toString();
+            p.tlsKeyFile = field("clientKey").toString();
+            p.tlsVerifyPeer = true;
+        }
     }
 
     return p;
@@ -151,6 +202,8 @@ WelcomePage::WelcomePage(QWidget *parent)
 
 ServerPage::ServerPage(QWidget *parent)
     : QAPage(tr("Where is your Bareos Director?"), parent)
+    , m_checkInProgress(false)
+    , m_checkCompleted(false)
 {
     auto *form = new QFormLayout();
 
@@ -166,6 +219,26 @@ ServerPage::ServerPage(QWidget *parent)
 
     m_layout->addLayout(form);
 
+    // Check button and status
+    auto *checkLayout = new QHBoxLayout();
+    m_checkButton = new QPushButton(tr("Check Server"), this);
+    m_checkButton->setToolTip(tr("Check if the server is reachable and detect supported authentication methods"));
+    checkLayout->addWidget(m_checkButton);
+
+    m_progressBar = new QProgressBar(this);
+    m_progressBar->setRange(0, 0);
+    m_progressBar->setMaximumWidth(100);
+    m_progressBar->setVisible(false);
+    checkLayout->addWidget(m_progressBar);
+
+    checkLayout->addStretch();
+    m_layout->addLayout(checkLayout);
+
+    m_statusLabel = new QLabel(this);
+    m_statusLabel->setWordWrap(true);
+    m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_layout->addWidget(m_statusLabel);
+
     // Config file path hint
     auto *configLabel = new QLabel(this);
     configLabel->setWordWrap(true);
@@ -180,11 +253,139 @@ ServerPage::ServerPage(QWidget *parent)
     registerField("port", m_portSpin);
 
     connect(m_hostEdit, &QLineEdit::textChanged, this, &ServerPage::completeChanged);
+    connect(m_hostEdit, &QLineEdit::textChanged, this, [this]() {
+        m_checkCompleted = false;
+        m_statusLabel->clear();
+    });
+    connect(m_portSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this]() {
+        m_checkCompleted = false;
+        m_statusLabel->clear();
+    });
+    connect(m_checkButton, &QPushButton::clicked, this, &ServerPage::onCheckClicked);
 }
 
 bool ServerPage::isComplete() const
 {
     return !m_hostEdit->text().trimmed().isEmpty();
+}
+
+bool ServerPage::validatePage()
+{
+    // If check not done yet, do it now
+    if (!m_checkCompleted && !m_checkInProgress) {
+        checkCapabilities();
+        return false;  // Will proceed when check completes
+    }
+
+    // Save values to wizard data struct
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (wiz && wiz->wizardData()) {
+        wiz->wizardData()->host = m_hostEdit->text().trimmed();
+        wiz->wizardData()->port = m_portSpin->value();
+    }
+
+    return m_checkCompleted;
+}
+
+void ServerPage::onCheckClicked()
+{
+    if (!m_checkInProgress) {
+        checkCapabilities();
+    }
+}
+
+void ServerPage::checkCapabilities()
+{
+    if (m_checkInProgress) return;
+
+    QString host = m_hostEdit->text().trimmed();
+    int port = m_portSpin->value();
+
+    if (host.isEmpty()) {
+        m_statusLabel->setText(tr("Please enter a hostname."));
+        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+        return;
+    }
+
+    m_checkInProgress = true;
+    m_checkButton->setEnabled(false);
+    m_progressBar->setVisible(true);
+    m_statusLabel->setText(tr("Checking server %1:%2...").arg(host).arg(port));
+    m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+
+    // Simple TCP connection check first
+    auto *socket = new QTcpSocket(this);
+
+    connect(socket, &QTcpSocket::connected, this, [this, socket]() {
+        socket->disconnectFromHost();
+        socket->deleteLater();
+        onCheckComplete(true);
+    });
+
+    connect(socket, &QTcpSocket::errorOccurred, this, [this, socket](QAbstractSocket::SocketError error) {
+        Q_UNUSED(error)
+        QString errMsg = socket->errorString();
+        socket->deleteLater();
+        m_statusLabel->setText(tr("Server unreachable: %1").arg(errMsg));
+        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+        m_checkInProgress = false;
+        m_checkButton->setEnabled(true);
+        m_progressBar->setVisible(false);
+    });
+
+    // Timeout after 10 seconds
+    QTimer::singleShot(10000, socket, [this, socket]() {
+        if (m_checkInProgress && socket->state() != QAbstractSocket::ConnectedState) {
+            socket->abort();
+            socket->deleteLater();
+            m_statusLabel->setText(tr("Connection timeout"));
+            m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+            m_checkInProgress = false;
+            m_checkButton->setEnabled(true);
+            m_progressBar->setVisible(false);
+        }
+    });
+
+    socket->connectToHost(host, port);
+}
+
+void ServerPage::onCheckComplete(bool reachable)
+{
+    m_checkInProgress = false;
+    m_checkButton->setEnabled(true);
+    m_progressBar->setVisible(false);
+
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (!wiz) return;
+
+    BConnectionWizard::ServerCapabilities caps;
+    caps.checked = true;
+    caps.reachable = reachable;
+
+    if (reachable) {
+        // Server is reachable - assume modern Bareos with PSK support
+        // The actual auth test will happen on the Test page
+        caps.supportsPSK = true;
+        caps.supportsCert = true;
+        caps.supportsLegacy = true;  // We'll let the user choose but warn them
+
+        m_statusLabel->setText(tr("Server reachable. Click Next to configure authentication."));
+        m_statusLabel->setStyleSheet("color: #008000; font-style: italic;");
+        m_checkCompleted = true;
+    } else {
+        caps.lastError = tr("Server not reachable");
+        m_statusLabel->setText(tr("Server not reachable on this port."));
+        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+        m_checkCompleted = false;
+    }
+
+    wiz->setCapabilities(caps);
+    emit completeChanged();
+
+    // Auto-advance if validation was pending
+    if (m_checkCompleted) {
+        wizard()->next();
+    }
 }
 
 // ============================================================================
@@ -244,6 +445,20 @@ bool CredentialsPage::isComplete() const
            !m_passwordEdit->text().isEmpty();
 }
 
+bool CredentialsPage::validatePage()
+{
+    // Save values to wizard data struct
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (wiz && wiz->wizardData()) {
+        wiz->wizardData()->directorName = m_directorEdit->text().trimmed();
+        wiz->wizardData()->consoleName = m_consoleEdit->text().trimmed();
+        wiz->wizardData()->password = m_passwordEdit->text();
+        wiz->wizardData()->savePassword = m_saveCheck->isChecked();
+        qDebug() << "[CredentialsPage] Saving to wizardData - savePassword:" << m_saveCheck->isChecked();
+    }
+    return true;
+}
+
 // ============================================================================
 // AuthMethodPage
 // ============================================================================
@@ -266,6 +481,13 @@ AuthMethodPage::AuthMethodPage(QWidget *parent)
     m_group->addButton(m_legacyRadio, 2);
     m_layout->addWidget(m_legacyRadio);
 
+    // Capability info label (shown after server check)
+    m_capabilityLabel = new QLabel(this);
+    m_capabilityLabel->setWordWrap(true);
+    m_capabilityLabel->setStyleSheet("color: #666; font-size: 11px; margin-top: 10px;");
+    m_capabilityLabel->setVisible(false);
+    m_layout->addWidget(m_capabilityLabel);
+
     setHint(tr("TLS-PSK is the default for Bareos 18.2+."));
     m_layout->addStretch();
 
@@ -273,12 +495,84 @@ AuthMethodPage::AuthMethodPage(QWidget *parent)
     connect(m_group, &QButtonGroup::idClicked, this, &AuthMethodPage::onSelectionChanged);
 }
 
+void AuthMethodPage::initializePage()
+{
+    // Get capabilities from wizard
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+
+    // Update UI based on detected capabilities
+    updateCapabilityHints();
+
+    // Restore radio button selection from stored field value
+    QString auth = field("authMethod").toString();
+    if (auth == "legacy" && m_legacyRadio->isEnabled()) {
+        m_legacyRadio->setChecked(true);
+    } else if (auth == "cert") {
+        m_certRadio->setChecked(true);
+    } else {
+        m_pskRadio->setChecked(true);
+    }
+    onSelectionChanged();  // Update hint text
+}
+
+void AuthMethodPage::updateCapabilityHints()
+{
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (!wiz) return;
+
+    auto caps = wiz->capabilities();
+
+    if (!caps.checked) {
+        // No capability check performed yet
+        m_capabilityLabel->setVisible(false);
+        m_pskRadio->setEnabled(true);
+        m_certRadio->setEnabled(true);
+        m_legacyRadio->setEnabled(true);
+        return;
+    }
+
+    // Show capability info
+    m_capabilityLabel->setVisible(true);
+
+    if (caps.reachable) {
+        // If server supports PSK, disable legacy for security
+        if (caps.supportsPSK) {
+            m_legacyRadio->setEnabled(false);
+            m_legacyRadio->setText(tr("Legacy (no encryption) - disabled, use TLS"));
+            m_capabilityLabel->setText(tr("Server supports TLS encryption. "
+                                          "Legacy mode is disabled for security reasons."));
+            m_capabilityLabel->setStyleSheet("color: #008000; font-size: 11px; margin-top: 10px;");
+
+            // If legacy was selected, switch to PSK
+            if (m_legacyRadio->isChecked()) {
+                m_pskRadio->setChecked(true);
+            }
+        } else {
+            // Server doesn't support PSK (older Bareos/Bacula?)
+            m_legacyRadio->setEnabled(true);
+            m_legacyRadio->setText(tr("Legacy (no encryption)"));
+            m_pskRadio->setEnabled(caps.supportsPSK);
+
+            if (!caps.supportsPSK) {
+                m_pskRadio->setText(tr("TLS-PSK - not available on this server"));
+                m_capabilityLabel->setText(tr("This server doesn't appear to support TLS-PSK. "
+                                              "Consider upgrading to Bareos 18.2 or later."));
+                m_capabilityLabel->setStyleSheet("color: #c08000; font-size: 11px; margin-top: 10px;");
+            }
+        }
+    } else {
+        // Server not reachable
+        m_capabilityLabel->setText(tr("Server check failed: %1").arg(caps.lastError));
+        m_capabilityLabel->setStyleSheet("color: #c00000; font-size: 11px; margin-top: 10px;");
+    }
+}
+
 int AuthMethodPage::nextId() const
 {
     if (m_certRadio->isChecked()) {
         return BConnectionWizard::Page_TLS;
     }
-    return BConnectionWizard::Page_Test;
+    return BConnectionWizard::Page_ConfigPreview;
 }
 
 void AuthMethodPage::onSelectionChanged()
@@ -294,6 +588,12 @@ void AuthMethodPage::onSelectionChanged()
         m_hintLabel->setStyleSheet("color: #c00000; font-style: italic; font-weight: bold;");
     }
     setField("authMethod", authMethod());
+
+    // Save to wizard data struct
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (wiz && wiz->wizardData()) {
+        wiz->wizardData()->authMethod = authMethod();
+    }
 }
 
 QString AuthMethodPage::authMethod() const
@@ -371,6 +671,15 @@ bool TLSPage::validatePage()
         QMessageBox::warning(this, tr("Not Found"), tr("One or more certificate files not found."));
         return false;
     }
+
+    // Save to wizard data struct
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (wiz && wiz->wizardData()) {
+        wiz->wizardData()->tlsCaCertFile = ca;
+        wiz->wizardData()->tlsCertFile = cert;
+        wiz->wizardData()->tlsKeyFile = key;
+    }
+
     return true;
 }
 
@@ -400,6 +709,187 @@ void TLSPage::generateCertificates()
         m_clientCertEdit->setText(dialog.clientCertPath());
         m_clientKeyEdit->setText(dialog.clientKeyPath());
     }
+}
+
+// ============================================================================
+// ConfigPreviewPage
+// ============================================================================
+
+ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
+    : QAPage(tr("Server Configuration Preview"), parent)
+{
+    m_questionLabel->setText(tr("Copy this configuration to your Bareos Director"));
+
+    auto *tabs = new QTabWidget(this);
+
+    // Console config tab
+    auto *consoleWidget = new QWidget();
+    auto *consoleLayout = new QVBoxLayout(consoleWidget);
+    consoleLayout->setContentsMargins(5, 5, 5, 5);
+
+    auto *consoleLabel = new QLabel(tr("Console resource for the Director:"), consoleWidget);
+    consoleLabel->setStyleSheet("font-weight: bold;");
+    consoleLayout->addWidget(consoleLabel);
+
+    auto *consolePath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/console/&lt;name&gt;.conf"), consoleWidget);
+    consolePath->setStyleSheet("color: #666; font-size: 10px;");
+    consoleLayout->addWidget(consolePath);
+
+    m_consoleConfigEdit = new QTextEdit(consoleWidget);
+    m_consoleConfigEdit->setReadOnly(true);
+    m_consoleConfigEdit->setFont(QFont("monospace", 9));
+    m_consoleConfigEdit->setMinimumHeight(150);
+    consoleLayout->addWidget(m_consoleConfigEdit);
+
+    m_copyConsoleButton = new QPushButton(tr("Copy to Clipboard"), consoleWidget);
+    m_copyConsoleButton->setIcon(QIcon::fromTheme("edit-copy"));
+    connect(m_copyConsoleButton, &QPushButton::clicked, this, &ConfigPreviewPage::onCopyConsoleConfig);
+    consoleLayout->addWidget(m_copyConsoleButton);
+
+    tabs->addTab(consoleWidget, tr("Console Config"));
+
+    // Director hint tab (optional settings for Director resource)
+    auto *directorWidget = new QWidget();
+    auto *directorLayout = new QVBoxLayout(directorWidget);
+    directorLayout->setContentsMargins(5, 5, 5, 5);
+
+    auto *directorLabel = new QLabel(tr("Director resource TLS settings (if needed):"), directorWidget);
+    directorLabel->setStyleSheet("font-weight: bold;");
+    directorLayout->addWidget(directorLabel);
+
+    auto *directorPath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"), directorWidget);
+    directorPath->setStyleSheet("color: #666; font-size: 10px;");
+    directorLayout->addWidget(directorPath);
+
+    m_directorConfigEdit = new QTextEdit(directorWidget);
+    m_directorConfigEdit->setReadOnly(true);
+    m_directorConfigEdit->setFont(QFont("monospace", 9));
+    m_directorConfigEdit->setMinimumHeight(150);
+    directorLayout->addWidget(m_directorConfigEdit);
+
+    m_copyDirectorButton = new QPushButton(tr("Copy to Clipboard"), directorWidget);
+    m_copyDirectorButton->setIcon(QIcon::fromTheme("edit-copy"));
+    connect(m_copyDirectorButton, &QPushButton::clicked, this, &ConfigPreviewPage::onCopyDirectorConfig);
+    directorLayout->addWidget(m_copyDirectorButton);
+
+    tabs->addTab(directorWidget, tr("Director TLS"));
+
+    m_layout->addWidget(tabs);
+
+    setHint(tr("After copying, paste this into your Bareos Director config and restart bareos-dir."));
+}
+
+void ConfigPreviewPage::initializePage()
+{
+    updateConfigs();
+}
+
+int ConfigPreviewPage::nextId() const
+{
+    return BConnectionWizard::Page_Test;
+}
+
+void ConfigPreviewPage::updateConfigs()
+{
+    // Build a temporary profile with current wizard values
+    QString consoleName = field("consoleName").toString();
+    QString password = field("password").toString();
+    QString authMethod = field("authMethod").toString();
+
+    // Generate Console config
+    QString consoleConfig;
+    consoleConfig += QString("Console {\n");
+    consoleConfig += QString("  Name = \"%1\"\n").arg(consoleName);
+    consoleConfig += QString("  Password = \"%1\"\n").arg(password);
+
+    if (authMethod == "legacy") {
+        consoleConfig += QString("  TLS Enable = no\n");
+    } else if (authMethod == "psk") {
+        consoleConfig += QString("  TLS Enable = yes\n");
+        consoleConfig += QString("  TLS Require = no\n");
+        consoleConfig += QString("  TLS Verify Peer = no\n");
+    } else {
+        // Certificate mode
+        consoleConfig += QString("  TLS Enable = yes\n");
+        consoleConfig += QString("  TLS Require = yes\n");
+        consoleConfig += QString("  TLS Verify Peer = yes\n");
+        QString caCert = field("caCert").toString();
+        QString clientCert = field("clientCert").toString();
+        QString clientKey = field("clientKey").toString();
+        if (!caCert.isEmpty())
+            consoleConfig += QString("  TLS CA Certificate File = \"%1\"\n").arg(caCert);
+        if (!clientCert.isEmpty())
+            consoleConfig += QString("  TLS Certificate = \"%1\"\n").arg(clientCert);
+        if (!clientKey.isEmpty())
+            consoleConfig += QString("  TLS Key = \"%1\"\n").arg(clientKey);
+    }
+
+    consoleConfig += QString("\n  # ACLs - adjust as needed\n");
+    consoleConfig += QString("  CommandACL = *all*\n");
+    consoleConfig += QString("  ClientAcl = *all*\n");
+    consoleConfig += QString("  JobAcl = *all*\n");
+    consoleConfig += QString("  StorageAcl = *all*\n");
+    consoleConfig += QString("  ScheduleAcl = *all*\n");
+    consoleConfig += QString("  PoolAcl = *all*\n");
+    consoleConfig += QString("  FileSetAcl = *all*\n");
+    consoleConfig += QString("  CatalogAcl = *all*\n");
+    consoleConfig += QString("}\n");
+
+    m_consoleConfigEdit->setPlainText(consoleConfig);
+
+    // Generate Director TLS hints
+    QString directorConfig;
+    directorConfig += QString("# Add/modify these TLS settings in your Director resource:\n\n");
+
+    if (authMethod == "legacy") {
+        directorConfig += QString("Director {\n");
+        directorConfig += QString("  # ... other settings ...\n");
+        directorConfig += QString("  TLS Enable = no\n");
+        directorConfig += QString("}\n");
+    } else if (authMethod == "psk") {
+        directorConfig += QString("Director {\n");
+        directorConfig += QString("  # ... other settings ...\n");
+        directorConfig += QString("  TLS Enable = yes\n");
+        directorConfig += QString("  TLS Require = no      # Allow both TLS and non-TLS\n");
+        directorConfig += QString("  # TLS-PSK uses the Console password for encryption\n");
+        directorConfig += QString("}\n");
+    } else {
+        directorConfig += QString("Director {\n");
+        directorConfig += QString("  # ... other settings ...\n");
+        directorConfig += QString("  TLS Enable = yes\n");
+        directorConfig += QString("  TLS Require = yes\n");
+        directorConfig += QString("  TLS CA Certificate File = \"/etc/bareos/ssl/ca.pem\"\n");
+        directorConfig += QString("  TLS Certificate = \"/etc/bareos/ssl/bareos-dir.pem\"\n");
+        directorConfig += QString("  TLS Key = \"/etc/bareos/ssl/bareos-dir-key.pem\"\n");
+        directorConfig += QString("}\n");
+    }
+
+    directorConfig += QString("\n# After changes, restart the Director:\n");
+    directorConfig += QString("# sudo systemctl restart bareos-dir\n");
+
+    m_directorConfigEdit->setPlainText(directorConfig);
+}
+
+void ConfigPreviewPage::onCopyConsoleConfig()
+{
+    QClipboard *clipboard = QApplication::clipboard();
+    clipboard->setText(m_consoleConfigEdit->toPlainText());
+
+    m_copyConsoleButton->setText(tr("Copied!"));
+    QTimer::singleShot(2000, this, [this]() {
+        m_copyConsoleButton->setText(tr("Copy to Clipboard"));
+    });
+}
+
+void ConfigPreviewPage::onCopyDirectorConfig()
+{
+    QClipboard *clipboard = QApplication::clipboard();
+    clipboard->setText(m_directorConfigEdit->toPlainText());
+
+    m_copyDirectorButton->setText(tr("Copied!"));
+    QTimer::singleShot(2000, this, [this]() {
+        m_copyDirectorButton->setText(tr("Copy to Clipboard"));
+    });
 }
 
 // ============================================================================
@@ -544,7 +1034,16 @@ void TestPage::stopTest()
 
 void TestPage::appendLog(const QString &msg, bool err)
 {
-    m_logEdit->append(QString("<span style='color:%1;'>%2</span>").arg(err ? "#c00000" : "#333", msg));
+    // Use palette-aware colors for dark/light theme compatibility
+    QString color;
+    if (err) {
+        color = "#dc3545";  // Bootstrap red - visible in both themes
+    } else {
+        // Use the window text color from the palette
+        QColor textColor = palette().color(QPalette::WindowText);
+        color = textColor.name();
+    }
+    m_logEdit->append(QString("<span style='color:%1;'>%2</span>").arg(color, msg));
 }
 
 void TestPage::onTestClicked()
@@ -631,6 +1130,17 @@ ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
     selectLayout->addStretch();
     m_layout->addLayout(selectLayout);
 
+    // Console details display (shown when selecting existing console)
+    m_consoleDetails = new QTextEdit(this);
+    m_consoleDetails->setReadOnly(true);
+    m_consoleDetails->setMaximumHeight(100);
+    m_consoleDetails->setPlaceholderText(tr("Select a console to view its configuration..."));
+    m_consoleDetails->setStyleSheet("font-family: monospace; font-size: 9pt;");
+    auto *detailsLayout = new QHBoxLayout();
+    detailsLayout->setContentsMargins(25, 0, 0, 0);
+    detailsLayout->addWidget(m_consoleDetails);
+    m_layout->addLayout(detailsLayout);
+
     // Option 2: Create new console
     m_createNewRadio = new QRadioButton(tr("Create new console"), this);
     m_group->addButton(m_createNewRadio, 1);
@@ -657,19 +1167,25 @@ ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
     m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
     m_layout->addWidget(m_statusLabel);
 
-    setHint(tr("You can use your entered console, select an existing one, or create a new one."));
+    setHint(tr("Modify an existing console or create a new one on the director."));
     m_layout->addStretch();
 
     connect(m_group, &QButtonGroup::idClicked, this, &ConsoleSetupPage::onSelectionChanged);
     connect(m_refreshButton, &QPushButton::clicked, this, &ConsoleSetupPage::onRefreshClicked);
     connect(m_generatePasswordButton, &QPushButton::clicked, this, &ConsoleSetupPage::onGeneratePasswordClicked);
+    connect(m_consoleCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ConsoleSetupPage::onConsoleSelected);
 }
 
 void ConsoleSetupPage::initializePage()
 {
     m_consolesLoaded = false;
     m_consoleCombo->clear();
+    m_consoleDetails->clear();
     m_statusLabel->clear();
+
+    // Set up initial visibility based on selection
+    bool modifyMode = m_modifyExistingRadio->isChecked();
+    m_consoleDetails->setVisible(modifyMode);
 
     // Auto-load consoles when page is shown
     loadConsoles();
@@ -713,6 +1229,7 @@ void ConsoleSetupPage::onSelectionChanged()
 
     m_consoleCombo->setEnabled(modifyMode);
     m_refreshButton->setEnabled(modifyMode);
+    m_consoleDetails->setVisible(modifyMode);
     m_newNameEdit->setEnabled(createMode);
     m_newPasswordEdit->setEnabled(createMode);
     m_generatePasswordButton->setEnabled(createMode);
@@ -728,6 +1245,120 @@ void ConsoleSetupPage::onRefreshClicked()
 void ConsoleSetupPage::onGeneratePasswordClicked()
 {
     generatePassword();
+}
+
+void ConsoleSetupPage::onConsoleSelected(int index)
+{
+    if (index < 0 || m_consoleCombo->currentText().isEmpty()) {
+        m_consoleDetails->clear();
+        return;
+    }
+
+    // Fetch details for the selected console
+    loadConsoleDetails(m_consoleCombo->currentText());
+    emit completeChanged();
+}
+
+void ConsoleSetupPage::loadConsoleDetails(const QString &name)
+{
+    if (name.isEmpty()) return;
+
+    m_consoleDetails->setPlainText(tr("Loading details for %1...").arg(name));
+
+    // Create a new director connection to fetch console details
+    auto *detailDirector = new BareosDirector(this);
+    detailDirector->initialize();
+
+    connect(detailDirector, &BareosDirector::jsonResponse, this, [this, detailDirector, name](const QString &cmd, const QString &json) {
+        Q_UNUSED(cmd)
+
+        QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+        if (!doc.isObject()) {
+            m_consoleDetails->setPlainText(tr("Failed to parse response"));
+            detailDirector->disconnect();
+            detailDirector->deleteLater();
+            return;
+        }
+
+        QJsonObject root = doc.object();
+        QJsonObject result = root["result"].toObject();
+
+        // Look for console details in the result
+        if (result.contains("consoles")) {
+            QJsonArray consoles = result["consoles"].toArray();
+            QString details;
+            for (const QJsonValue &v : consoles) {
+                QJsonObject console = v.toObject();
+                if (console["name"].toString() == name) {
+                    // Format the console details
+                    details += tr("Name: %1\n").arg(console["name"].toString());
+                    if (console.contains("description"))
+                        details += tr("Description: %1\n").arg(console["description"].toString());
+                    if (console.contains("tlsenable"))
+                        details += tr("TLS Enabled: %1\n").arg(console["tlsenable"].toBool() ? "Yes" : "No");
+                    if (console.contains("tlspskenable"))
+                        details += tr("TLS-PSK: %1\n").arg(console["tlspskenable"].toBool() ? "Yes" : "No");
+                    if (console.contains("profile"))
+                        details += tr("Profile: %1\n").arg(console["profile"].toString());
+                    if (console.contains("jobacl"))
+                        details += tr("Job ACL: %1\n").arg(console["jobacl"].toVariant().toStringList().join(", "));
+                    break;
+                }
+            }
+            if (!details.isEmpty()) {
+                m_consoleDetails->setPlainText(details);
+            } else {
+                m_consoleDetails->setPlainText(tr("No details found for %1").arg(name));
+            }
+        }
+
+        detailDirector->disconnect();
+        detailDirector->deleteLater();
+    });
+
+    connect(detailDirector, &BareosDirector::allResourcesLoaded, detailDirector, [detailDirector, name]() {
+        detailDirector->sendRawCommand(QString("show console=%1").arg(name));
+    });
+
+    connect(detailDirector, &BareosDirector::protocolError, this, [this, detailDirector](const QString &err) {
+        m_consoleDetails->setPlainText(tr("Error: %1").arg(err));
+        detailDirector->disconnect();
+        detailDirector->deleteLater();
+    });
+
+    // Configure TLS same as main director
+    BareosDirector::TLSConfig tls;
+    QString auth = field("authMethod").toString();
+    if (auth == "legacy") {
+        tls.tlsEnable = false;
+        tls.tlsRequire = false;
+        tls.tlsPSKEnable = false;
+    } else if (auth == "psk") {
+        tls.tlsEnable = true;
+        tls.tlsRequire = true;
+        tls.tlsPSKEnable = true;
+        tls.tlsVerifyPeer = false;
+    } else {
+        tls.tlsEnable = true;
+        tls.tlsRequire = true;
+        tls.tlsPSKEnable = false;
+        tls.tlsVerifyPeer = true;
+        QString ca = field("caCert").toString();
+        QString cert = field("clientCert").toString();
+        QString key = field("clientKey").toString();
+        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
+        if (!cert.isEmpty()) tls.tlsCertFile = QSharedPointer<QFile>(new QFile(cert));
+        if (!key.isEmpty()) tls.tlsKeyFile = QSharedPointer<QFile>(new QFile(key));
+    }
+    detailDirector->setTLSConfig(tls);
+
+    QString host = field("host").toString();
+    int port = field("port").toInt();
+    QString dir = field("directorName").toString();
+    QString con = field("consoleName").toString();
+    QString pwd = field("password").toString();
+
+    detailDirector->connect(host, port, dir, con, pwd);
 }
 
 void ConsoleSetupPage::loadConsoles()
@@ -932,6 +1563,26 @@ ProfileNamePage::ProfileNamePage(QWidget *parent)
     m_connectCheck->setChecked(true);
     m_layout->addWidget(m_connectCheck);
 
+    m_layout->addSpacing(20);
+
+    // Buttons in horizontal layout
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+
+    // Advanced Settings button
+    m_advancedButton = new QPushButton(tr("Advanced Settings..."), this);
+    m_advancedButton->setToolTip(tr("Configure TLS options, ACLs, and other advanced settings"));
+    connect(m_advancedButton, &QPushButton::clicked, this, &ProfileNamePage::onAdvancedSettingsClicked);
+    buttonLayout->addWidget(m_advancedButton);
+
+    // Export Config button
+    m_exportButton = new QPushButton(tr("Export Config..."), this);
+    m_exportButton->setToolTip(tr("Export Bareos configuration files as zip archive"));
+    connect(m_exportButton, &QPushButton::clicked, this, &ProfileNamePage::onExportConfigClicked);
+    buttonLayout->addWidget(m_exportButton);
+
+    buttonLayout->addStretch();
+    m_layout->addLayout(buttonLayout);
+
     setHint(tr("This name helps identify the connection."));
     m_layout->addStretch();
 
@@ -942,6 +1593,85 @@ ProfileNamePage::ProfileNamePage(QWidget *parent)
 
 void ProfileNamePage::initializePage()
 {
-    QString host = field("host").toString();
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    QString host = wiz && wiz->wizardData() ? wiz->wizardData()->host : field("host").toString();
     if (m_edit->text().isEmpty() && !host.isEmpty()) m_edit->setText(host);
+}
+
+bool ProfileNamePage::validatePage()
+{
+    // Save to wizard data struct
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (wiz && wiz->wizardData()) {
+        wiz->wizardData()->profileName = m_edit->text().trimmed();
+        wiz->wizardData()->setAsDefault = m_defaultCheck->isChecked();
+        wiz->wizardData()->connectNow = m_connectCheck->isChecked();
+    }
+    return true;
+}
+
+void ProfileNamePage::onAdvancedSettingsClicked()
+{
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (!wiz) return;
+
+    // Get current profile from wizard
+    BConnectionProfile profile = wiz->profile();
+
+    // Open the advanced settings dialog
+    BProfileSettingsDialog dialog(profile, this);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        // Update the wizard's profile with the advanced settings
+        wiz->setProfile(dialog.profile());
+    }
+}
+
+void ProfileNamePage::onExportConfigClicked()
+{
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (!wiz) return;
+
+    // Get current profile from wizard
+    BConnectionProfile profile = wiz->profile();
+
+    // Ask for export mode
+    QStringList options;
+    options << tr("Console only (for existing Director)");
+    options << tr("Console + Profile (with ACLs)");
+    options << tr("Full configuration (new installation)");
+
+    bool ok;
+    QString selected = QInputDialog::getItem(this,
+                                              tr("Export Configuration"),
+                                              tr("Select export mode:"),
+                                              options, 0, false, &ok);
+    if (!ok) return;
+
+    BConfigExporter::ExportMode mode = BConfigExporter::ExportConsoleOnly;
+    if (selected == options[1]) {
+        mode = BConfigExporter::ExportWithProfile;
+    } else if (selected == options[2]) {
+        mode = BConfigExporter::ExportFull;
+    }
+
+    // Ask for file location
+    QString defaultName = QString("bareos-config-%1.zip").arg(profile.consoleName);
+    QString filename = QFileDialog::getSaveFileName(this,
+                                                     tr("Export Configuration"),
+                                                     defaultName,
+                                                     tr("Zip Archives (*.zip)"));
+    if (filename.isEmpty()) return;
+
+    // Export
+    if (BConfigExporter::exportToArchive(profile, filename, mode)) {
+        QMessageBox::information(this, tr("Export Successful"),
+                                 tr("Configuration exported to:\n%1\n\n"
+                                    "Extract to your Bareos server's root directory and "
+                                    "restart the Director.").arg(filename));
+    } else {
+        QMessageBox::warning(this, tr("Export Failed"),
+                             tr("Failed to export configuration:\n%1")
+                             .arg(BConfigExporter::lastError()));
+    }
 }

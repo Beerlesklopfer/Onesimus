@@ -361,8 +361,9 @@ bool BareosAuth::setupPSKTLS()
     // Configure SSL for PSK
     QSslConfiguration sslConfig = m_socket->sslConfiguration();
 
-    // Set protocol to TLS 1.2 or later
-    sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
+    // Force TLSv1.2 to ensure preSharedKeyAuthenticationRequired signal works
+    // Qt's PSK callback may not work reliably with TLSv1.3
+    sslConfig.setProtocol(QSsl::TlsV1_2);
 
     // ✅ RICHTIG: Für PSK keine Peer-Verifikation, für Zertifikate je nach Konfiguration
     if (m_tlsPSKEnable)
@@ -390,15 +391,16 @@ bool BareosAuth::setupPSKTLS()
 #endif
     }
 
-    // Set PSK ciphers - Bareos prefers these
-    // Note: Qt may not support all of these depending on OpenSSL version
+    // Set explicit PSK ciphers to ensure PSK callback is triggered
+    // We must use TLSv1.2 PSK ciphers (names contain "PSK")
+    // Qt's preSharedKeyAuthenticationRequired doesn't work with TLSv1.3
     QList<QSslCipher> pskCiphers;
     QList<QSslCipher> availableCiphers = QSslConfiguration::supportedCiphers();
 
     for (const QSslCipher &cipher : availableCiphers)
     {
         QString name = cipher.name();
-        // Select PSK ciphers
+        // Select only TLSv1.2 PSK ciphers
         if (name.contains("PSK", Qt::CaseInsensitive))
         {
             pskCiphers.append(cipher);
@@ -412,7 +414,6 @@ bool BareosAuth::setupPSKTLS()
     {
         AUTH_WARNING << "WARNING: No PSK ciphers available!";
         AUTH_WARNING << "Make sure OpenSSL was compiled with PSK support";
-        // Continue anyway - Qt might still handle it
     }
     else
     {
@@ -443,17 +444,27 @@ void BareosAuth::onPreSharedKeyAuthenticationRequired(QSslPreSharedKeyAuthentica
 
 void BareosAuth::handlePskAuthenticator(QSslPreSharedKeyAuthenticator *authenticator)
 {
-    // Bareos PSK identity format: R_CONSOLE::ConsoleName
-    QString identity = QString("%1::%2").arg(BAREOS_R_CONSOLE, m_consoleName);
+    // Bareos PSK identity format: R_CONSOLE<RS>ConsoleName
+    // where <RS> is ASCII Record Separator (0x1e)
+    // See: bareos/core/src/lib/tls_openssl_private.cc - psk_server_cb()
+    QByteArray identity;
+    identity.append(BAREOS_R_CONSOLE);
+    identity.append('\x1e');  // ASCII Record Separator
+    identity.append(m_consoleName.toLatin1());
 
 #ifdef IS_DEVELOPER
     AUTH_DEBUG << "  Identity hint from server:" << authenticator->identityHint();
     AUTH_DEBUG << "  Setting identity:" << identity;
-    AUTH_DEBUG << "  PSK key length:" << m_password.length() << "bytes";
+    AUTH_DEBUG << "  Identity (hex):" << identity.toHex();
+    AUTH_DEBUG << "  PSK key (hex):" << m_password.toHex();
 #endif
 
-    authenticator->setIdentity(identity.toLatin1());
-    authenticator->setPreSharedKey(m_password);
+    // Bareos expects the PSK key as hex representation of MD5(password)
+    // Not the raw MD5 bytes, but the 32-character hex string
+    QByteArray pskKey = m_password.toHex();
+
+    authenticator->setIdentity(identity);
+    authenticator->setPreSharedKey(pskKey);
 
 #ifdef IS_DEVELOPER
     AUTH_DEBUG << "PSK credentials set";

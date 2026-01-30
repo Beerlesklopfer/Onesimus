@@ -1,11 +1,11 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include "bmainwindow.h"
+#include "ui_bmainwindow.h"
 #include "jobs/bjobwidget.h"
 #include "jobs/bjobsstatisticswidget.h"
 #include "clients/bclientswidget.h"
 #include "storagewidget.h"
 #include "schedules/bschedulewidget.h"
-#include "settingsdialog.h"
+#include "bsettingsdialog.h"
 #include "bcleanupdialog.h"
 #include "bconnectionwizard.h"
 #include "bsettings.h"
@@ -44,9 +44,9 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
-MainWindow::MainWindow(QWidget *parent)
+BMainWindow::BMainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+    , ui(new Ui::BMainWindow)
     , m_director(nullptr)
     , m_statusLabel(nullptr)
     , m_connectionLabel(nullptr)
@@ -95,9 +95,9 @@ MainWindow::MainWindow(QWidget *parent)
     // ✅ statusMessage Signal wird erst nach erfolgreicher Auth verbunden
     // (siehe onAuthentificationSucceeded), um Auth-Fehler nicht in der Statuszeile anzuzeigen
 
-    connect(m_director, &BDirector::authentificationSucceeded,  this, &MainWindow::onAuthentificationSucceeded);
+    connect(m_director, &BDirector::authentificationSucceeded,  this, &BMainWindow::onAuthentificationSucceeded);
 
-    connect(m_director, &BDirector::protocolError, this, &MainWindow::onConnectionError);
+    connect(m_director, &BDirector::protocolError, this, &BMainWindow::onConnectionError);
 
     // ✅ Handle non-JSON command responses (for debugging)
     connect(m_director, &BDirector::commandResponse, this, [this](const QString &command, const QString &response) {
@@ -205,6 +205,11 @@ MainWindow::MainWindow(QWidget *parent)
             m_jobWidget->processDotPoolsResponse(jsonData);
             routed = true;
         }
+        if (result.contains("jobtotals")) {
+            qWarning() << "→ Routing jobtotals data to JobWidget (detected by JSON content)";
+            m_jobWidget->processJobTotalsResponse(jsonData);
+            routed = true;
+        }
         if (result.contains("schedules")) {
             qWarning() << "→ Routing schedules data to ScheduleWidget (detected by JSON content)";
             m_scheduleWidget->processDotScheduleResponse(jsonData);
@@ -276,36 +281,36 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     // Connect Jobwidget signals
-    connect(m_jobWidget, &BJobWidget::sendCommand, this, &MainWindow::onSendCommand);
+    connect(m_jobWidget, &BJobWidget::sendCommand, this, &BMainWindow::onSendCommand);
 
     QObject::connect(m_jobWidget, &BJobWidget::statusMessageChanged,
             m_statusLabel, &QLabel::setText);
 
     // Connect ClientWidget signals
-    connect(m_clientWidget, &BClientsWidget::sendCommand, this, &MainWindow::onSendCommand);
+    connect(m_clientWidget, &BClientsWidget::sendCommand, this, &BMainWindow::onSendCommand);
 
     connect(m_clientWidget, &BClientsWidget::statusMessageChanged,
             m_statusLabel, &QLabel::setText);
 
     // Connect StorageWidget signals
-    connect(m_storageWidget, &StorageWidget::sendCommand, this, &MainWindow::onSendCommand);
+    connect(m_storageWidget, &StorageWidget::sendCommand, this, &BMainWindow::onSendCommand);
 
     connect(m_storageWidget, &StorageWidget::statusMessageChanged,
             m_statusLabel, &QLabel::setText);
 
     // Connect ScheduleWidget signals
-    connect(m_scheduleWidget, &BScheduleWidget::sendCommand, this, &MainWindow::onSendCommand);
+    connect(m_scheduleWidget, &BScheduleWidget::sendCommand, this, &BMainWindow::onSendCommand);
 
     connect(m_scheduleWidget, &BScheduleWidget::statusMessageChanged,
             m_statusLabel, &QLabel::setText);
 
     // Setup auto-refresh timer
     m_autoRefreshTimer = new QTimer(this);
-    connect(m_autoRefreshTimer, &QTimer::timeout, this, &MainWindow::onRefreshAll);
+    connect(m_autoRefreshTimer, &QTimer::timeout, this, &BMainWindow::onRefreshAll);
 
     // Connect to BSettings signals for auto-refresh
     connect(&BSettings::instance(), &BSettings::autoRefreshSettingsChanged,
-            this, &MainWindow::onAutoRefreshSettingsChanged);
+            this, &BMainWindow::onAutoRefreshSettingsChanged);
 
     // Initialize auto-refresh from settings
     BSettings& settings = BSettings::instance();
@@ -319,13 +324,13 @@ MainWindow::MainWindow(QWidget *parent)
     applyTheme(savedTheme);
 }
 
-MainWindow::~MainWindow()
+BMainWindow::~BMainWindow()
 {
     m_director->saveConnectionSettings();
     delete ui;
 }
 
-void MainWindow::applyTheme(const QString &themeName)
+void BMainWindow::applyTheme(const QString &themeName)
 {
     QString themePath;
 
@@ -351,7 +356,7 @@ void MainWindow::applyTheme(const QString &themeName)
     }
 }
 
-void MainWindow::setupUI()
+void BMainWindow::setupUI()
 {
     // Zentrales Widget mit Tabs
     m_tabWidget = new QTabWidget(this);
@@ -414,47 +419,47 @@ void MainWindow::setupUI()
     statusBar()->addPermanentWidget(m_connectionLabel);
 }
 
-void MainWindow::createActions()
+void BMainWindow::createActions()
 {
     m_connectAction = new QAction(tr("Connect"), this);
     m_connectAction->setIcon(QIcon::fromTheme("network-connect"));
     m_connectAction->setShortcut(QKeySequence("Ctrl+O"));
-    connect(m_connectAction, &QAction::triggered, this, &MainWindow::onConnectTriggered);
+    connect(m_connectAction, &QAction::triggered, this, &BMainWindow::onConnectTriggered);
 
     m_connectLastAction = new QAction(tr("Reconnect"), this);
     m_connectLastAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_connectLastAction->setShortcut(QKeySequence("Ctrl+R"));
     m_connectLastAction->setEnabled(m_director->hasStoredConnection());
-    connect(m_connectLastAction, &QAction::triggered, this, &MainWindow::onConnectLastUsed);
+    connect(m_connectLastAction, &QAction::triggered, this, &BMainWindow::onConnectLastUsed);
 
     m_disconnectAction = new QAction(tr("Disconnect"), this);
     m_disconnectAction->setIcon(QIcon::fromTheme("network-disconnect"));
     m_disconnectAction->setEnabled(false);
-    connect(m_disconnectAction, &QAction::triggered, this, &MainWindow::onDisconnectTriggered);
+    connect(m_disconnectAction, &QAction::triggered, this, &BMainWindow::onDisconnectTriggered);
 
     // Toggle Connection Action (for toolbar)
     m_toggleConnectionAction = new QAction(tr("Connect"), this);
     m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/connect.png"));
     m_toggleConnectionAction->setToolTip(tr("Connect to Director"));
-    connect(m_toggleConnectionAction, &QAction::triggered, this, &MainWindow::onToggleConnectionTriggered);
+    connect(m_toggleConnectionAction, &QAction::triggered, this, &BMainWindow::onToggleConnectionTriggered);
 
     // Reconnect Action (for toolbar)
     m_reconnectAction = new QAction(tr("Reconnect"), this);
     m_reconnectAction->setIcon(QIcon(":/icons/icons/reconnect.png"));
     m_reconnectAction->setToolTip(tr("Reconnect to last used connection"));
     m_reconnectAction->setEnabled(m_director->hasStoredConnection());
-    connect(m_reconnectAction, &QAction::triggered, this, &MainWindow::onConnectLastUsed);
+    connect(m_reconnectAction, &QAction::triggered, this, &BMainWindow::onConnectLastUsed);
 
     m_refreshAction = new QAction(tr("Refresh"), this);
     m_refreshAction->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshAction->setShortcut(QKeySequence("F5"));
     m_refreshAction->setEnabled(false);
-    connect(m_refreshAction, &QAction::triggered, this, &MainWindow::onRefreshAll);
+    connect(m_refreshAction, &QAction::triggered, this, &BMainWindow::onRefreshAll);
 
     m_settingsAction = new QAction(tr("Settings"), this);
     m_settingsAction->setIcon(QIcon::fromTheme("preferences-system"));
     m_settingsAction->setShortcut(QKeySequence("Ctrl+,"));
-    connect(m_settingsAction, &QAction::triggered, this, &MainWindow::onSettingsTriggered);
+    connect(m_settingsAction, &QAction::triggered, this, &BMainWindow::onSettingsTriggered);
 
     m_exitAction = new QAction(tr("Exit"), this);
     m_exitAction->setIcon(QIcon(":/icons/icons/exit.png"));
@@ -463,45 +468,45 @@ void MainWindow::createActions()
 
     m_aboutAction = new QAction(tr("About Onesimus"), this);
     m_aboutAction->setIcon(QIcon::fromTheme("help-about"));
-    connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAboutTriggered);
+    connect(m_aboutAction, &QAction::triggered, this, &BMainWindow::onAboutTriggered);
 
     m_documentationAction = new QAction(tr("Online Documentation"), this);
     m_documentationAction->setIcon(QIcon::fromTheme("help-contents"));
     m_documentationAction->setShortcut(QKeySequence::HelpContents);
-    connect(m_documentationAction, &QAction::triggered, this, &MainWindow::onDocumentationTriggered);
+    connect(m_documentationAction, &QAction::triggered, this, &BMainWindow::onDocumentationTriggered);
 
     m_reportBugAction = new QAction(tr("Report a Bug..."), this);
     m_reportBugAction->setIcon(QIcon::fromTheme("tools-report-bug"));
-    connect(m_reportBugAction, &QAction::triggered, this, &MainWindow::onReportBugTriggered);
+    connect(m_reportBugAction, &QAction::triggered, this, &BMainWindow::onReportBugTriggered);
 
     m_keyboardShortcutsAction = new QAction(tr("Keyboard Shortcuts"), this);
     m_keyboardShortcutsAction->setIcon(QIcon::fromTheme("preferences-desktop-keyboard"));
     m_keyboardShortcutsAction->setShortcut(QKeySequence("Ctrl+?"));
-    connect(m_keyboardShortcutsAction, &QAction::triggered, this, &MainWindow::onKeyboardShortcutsTriggered);
+    connect(m_keyboardShortcutsAction, &QAction::triggered, this, &BMainWindow::onKeyboardShortcutsTriggered);
 
     // Edit Actions
     m_copyAction = new QAction(tr("Copy"), this);
     m_copyAction->setIcon(QIcon::fromTheme("edit-copy"));
     m_copyAction->setShortcut(QKeySequence::Copy);
     m_copyAction->setEnabled(false);
-    connect(m_copyAction, &QAction::triggered, this, &MainWindow::onCopyTriggered);
+    connect(m_copyAction, &QAction::triggered, this, &BMainWindow::onCopyTriggered);
 
     m_selectAllAction = new QAction(tr("Select All"), this);
     m_selectAllAction->setIcon(QIcon::fromTheme("edit-select-all"));
     m_selectAllAction->setShortcut(QKeySequence::SelectAll);
     m_selectAllAction->setEnabled(false);
-    connect(m_selectAllAction, &QAction::triggered, this, &MainWindow::onSelectAllTriggered);
+    connect(m_selectAllAction, &QAction::triggered, this, &BMainWindow::onSelectAllTriggered);
 
     m_clearSelectionAction = new QAction(tr("Clear Selection"), this);
     m_clearSelectionAction->setIcon(QIcon::fromTheme("edit-clear"));
     m_clearSelectionAction->setEnabled(false);
-    connect(m_clearSelectionAction, &QAction::triggered, this, &MainWindow::onClearSelectionTriggered);
+    connect(m_clearSelectionAction, &QAction::triggered, this, &BMainWindow::onClearSelectionTriggered);
 
     m_findAction = new QAction(tr("Find..."), this);
     m_findAction->setIcon(QIcon::fromTheme("edit-find"));
     m_findAction->setShortcut(QKeySequence::Find);
     m_findAction->setEnabled(false);
-    connect(m_findAction, &QAction::triggered, this, &MainWindow::onFindTriggered);
+    connect(m_findAction, &QAction::triggered, this, &BMainWindow::onFindTriggered);
 
     // View Actions
     m_toggleStatisticsAction = new QAction(tr("Show Statistics"), this);
@@ -543,7 +548,7 @@ void MainWindow::createActions()
         m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.png"));
     }
 
-    connect(m_toggleThemeAction, &QAction::triggered, this, &MainWindow::onToggleTheme);
+    connect(m_toggleThemeAction, &QAction::triggered, this, &BMainWindow::onToggleTheme);
 
     // Jobs Actions
     m_runJobAction = new QAction(tr("Run Job"), this);
@@ -570,12 +575,12 @@ void MainWindow::createActions()
     m_exportJobsJsonAction = new QAction(tr("Export Jobs as JSON..."), this);
     m_exportJobsJsonAction->setIcon(QIcon::fromTheme("document-save"));
     m_exportJobsJsonAction->setEnabled(false);
-    connect(m_exportJobsJsonAction, &QAction::triggered, this, &MainWindow::onExportSettingsTriggered);
+    connect(m_exportJobsJsonAction, &QAction::triggered, this, &BMainWindow::onExportSettingsTriggered);
 
     m_exportJobsCsvAction = new QAction(tr("Export Jobs as CSV..."), this);
     m_exportJobsCsvAction->setIcon(QIcon::fromTheme("text-csv"));
     m_exportJobsCsvAction->setEnabled(false);
-    connect(m_exportJobsCsvAction, &QAction::triggered, this, &MainWindow::onImportSettingsTriggered);
+    connect(m_exportJobsCsvAction, &QAction::triggered, this, &BMainWindow::onImportSettingsTriggered);
 
     // Clients Actions
     m_refreshClientsAction = new QAction(tr("Refresh Clients"), this);
@@ -608,15 +613,15 @@ void MainWindow::createActions()
     m_cleanupDatabaseAction->setIcon(QIcon::fromTheme("edit-clear"));
     m_cleanupDatabaseAction->setToolTip(tr("Clean up old backups and free disk space"));
     m_cleanupDatabaseAction->setEnabled(false);
-    connect(m_cleanupDatabaseAction, &QAction::triggered, this, &MainWindow::onCleanupDatabase);
+    connect(m_cleanupDatabaseAction, &QAction::triggered, this, &BMainWindow::onCleanupDatabase);
 
     m_connectionWizardAction = new QAction(tr("Connection Wizard..."), this);
     m_connectionWizardAction->setIcon(QIcon::fromTheme("network-server"));
     m_connectionWizardAction->setToolTip(tr("Set up a new director connection"));
-    connect(m_connectionWizardAction, &QAction::triggered, this, &MainWindow::onConnectionWizard);
+    connect(m_connectionWizardAction, &QAction::triggered, this, &BMainWindow::onConnectionWizard);
 }
 
-void MainWindow::createMenus()
+void BMainWindow::createMenus()
 {
     m_fileMenu = menuBar()->addMenu(tr("File"));
     m_fileMenu->addAction(m_connectAction);
@@ -694,7 +699,7 @@ void MainWindow::createMenus()
     menuBar()->setCornerWidget(themeToolbar, Qt::TopRightCorner);
 }
 
-void MainWindow::createToolBar()
+void BMainWindow::createToolBar()
 {
     m_mainToolBar = addToolBar(tr("Main Toolbar"));
 
@@ -739,12 +744,12 @@ void MainWindow::createToolBar()
     m_mainToolBar->addWidget(m_toggleStatisticsButton);
 }
 
-void MainWindow::onConnectTriggered()
+void BMainWindow::onConnectTriggered()
 {
     showConnectionDialog();
 }
 
-void MainWindow::showConnectionDialog()
+void BMainWindow::showConnectionDialog()
 {
     BSettings& settings = BSettings::instance();
 
@@ -892,7 +897,7 @@ void MainWindow::showConnectionDialog()
         QApplication::setOverrideCursor(Qt::WaitCursor);
     }
 }
-void MainWindow::onDisconnectTriggered()
+void BMainWindow::onDisconnectTriggered()
 {
     // Restore cursor if still waiting
     while (QApplication::overrideCursor()) {
@@ -903,7 +908,7 @@ void MainWindow::onDisconnectTriggered()
     m_statusLabel->setText("Getrennt");
 }
 
-void MainWindow::onToggleConnectionTriggered()
+void BMainWindow::onToggleConnectionTriggered()
 {
     if (m_director->isConnected()) {
         // Currently connected, so disconnect
@@ -921,7 +926,7 @@ void MainWindow::onToggleConnectionTriggered()
 #include <QPushButton>
 #include <QPixmap>
 
-void MainWindow::onAboutTriggered()
+void BMainWindow::onAboutTriggered()
 {
     // Dialog erstellen
     QDialog aboutDialog(this);
@@ -1027,7 +1032,7 @@ void MainWindow::onAboutTriggered()
     aboutDialog.exec();
 }
 
-void MainWindow::onDocumentationTriggered()
+void BMainWindow::onDocumentationTriggered()
 {
     // Open online documentation in default browser
     QString docUrl = "https://github.com/Beerlesklopfer/Onesimus/wiki";
@@ -1037,7 +1042,7 @@ void MainWindow::onDocumentationTriggered()
     }
 }
 
-void MainWindow::onReportBugTriggered()
+void BMainWindow::onReportBugTriggered()
 {
     // Open GitHub issues page in default browser
     QString issuesUrl = "https://github.com/Beerlesklopfer/Onesimus/issues";
@@ -1047,7 +1052,7 @@ void MainWindow::onReportBugTriggered()
     }
 }
 
-void MainWindow::onKeyboardShortcutsTriggered()
+void BMainWindow::onKeyboardShortcutsTriggered()
 {
     // Create dialog showing keyboard shortcuts
     QDialog shortcutsDialog(this);
@@ -1151,7 +1156,7 @@ void MainWindow::onKeyboardShortcutsTriggered()
     shortcutsDialog.exec();
 }
 
-void MainWindow::onSettingsTriggered()
+void BMainWindow::onSettingsTriggered()
 {
     // Get available levels from JobWidget's level model (if connected)
     QList<QPair<QString, QString>> availableLevels;
@@ -1162,7 +1167,7 @@ void MainWindow::onSettingsTriggered()
         }
     }
 
-    SettingsDialog dialog(m_director, availableLevels, this);
+    BSettingsDialog dialog(m_director, availableLevels, this);
     if (dialog.exec() == QDialog::Accepted) {
         // Einstellungen wurden geändert
         m_statusLabel->setText("Einstellungen gespeichert");
@@ -1172,7 +1177,7 @@ void MainWindow::onSettingsTriggered()
     }
 }
 
-void MainWindow::onAuthentificationSucceeded(const bool connected, const QString msg)
+void BMainWindow::onAuthentificationSucceeded(const bool connected, const QString msg)
 {
 #ifdef IS_DEVELOPER
     qDebug() << "####################################";
@@ -1299,7 +1304,7 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
     }
 }
 
-void MainWindow::onConnectionError(const QString &error)
+void BMainWindow::onConnectionError(const QString &error)
 {
     // Restore cursor on error
     QApplication::restoreOverrideCursor();
@@ -1308,7 +1313,7 @@ void MainWindow::onConnectionError(const QString &error)
     m_statusLabel->setText(tr("Error: ") + error);
 }
 
-void MainWindow::onRefreshAll()
+void BMainWindow::onRefreshAll()
 {
 #ifdef IS_DEVELOPER
     qDebug() << "Refresh clicked";
@@ -1344,7 +1349,7 @@ void MainWindow::onRefreshAll()
     });
 }
 
-void MainWindow::onConnectLastUsed()
+void BMainWindow::onConnectLastUsed()
 {
     BConnectionProfile profile = BSettings::instance().lastUsedProfile();
     if (!profile.isValid()) {
@@ -1357,10 +1362,10 @@ void MainWindow::onConnectLastUsed()
     loadAndConnectLastUsed();
 }
 
-void MainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)
+void BMainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)
 {
     if (!m_director) {
-        qWarning() << "MainWindow::onSendCommand: No director instance!";
+        qWarning() << "BMainWindow::onSendCommand: No director instance!";
         return;
     }
 
@@ -1371,11 +1376,11 @@ void MainWindow::onSendCommand(const BDirector::Command cmd, const QString &args
                               Q_ARG(QString, args));
 }
 
-void MainWindow::onDirectorConnect(const QString &host, int port, const QString &directorName,
+void BMainWindow::onDirectorConnect(const QString &host, int port, const QString &directorName,
                                    const QString &consoleName, const QString &password)
 {
     if (!m_director) {
-        qWarning() << "MainWindow::onDirectorConnect: No director instance!";
+        qWarning() << "BMainWindow::onDirectorConnect: No director instance!";
         return;
     }
 
@@ -1389,10 +1394,10 @@ void MainWindow::onDirectorConnect(const QString &host, int port, const QString 
                               Q_ARG(QString, password));
 }
 
-void MainWindow::onDirectorDisconnect()
+void BMainWindow::onDirectorDisconnect()
 {
     if (!m_director) {
-        qWarning() << "MainWindow::onDirectorDisconnect: No director instance!";
+        qWarning() << "BMainWindow::onDirectorDisconnect: No director instance!";
         return;
     }
 
@@ -1401,7 +1406,7 @@ void MainWindow::onDirectorDisconnect()
                               Qt::QueuedConnection);
 }
 
-void MainWindow::loadAndConnectLastUsed()
+void BMainWindow::loadAndConnectLastUsed()
 {
     BSettings& settings = BSettings::instance();
 
@@ -1464,17 +1469,17 @@ void MainWindow::loadAndConnectLastUsed()
     m_connectLastAction->setEnabled(true);
 }
 
-BDirector *MainWindow::director() const
+BDirector *BMainWindow::director() const
 {
     return m_director;
 }
 
-void MainWindow::setDirector(BDirector *newDirector)
+void BMainWindow::setDirector(BDirector *newDirector)
 {
     m_director = newDirector;
 }
 
-void MainWindow::onCopyTriggered()
+void BMainWindow::onCopyTriggered()
 {
     // Get the currently active tab
     QWidget *currentWidget = m_tabWidget->currentWidget();
@@ -1509,7 +1514,7 @@ void MainWindow::onCopyTriggered()
     }
 }
 
-void MainWindow::onSelectAllTriggered()
+void BMainWindow::onSelectAllTriggered()
 {
     // Get the currently active tab
     QWidget *currentWidget = m_tabWidget->currentWidget();
@@ -1524,7 +1529,7 @@ void MainWindow::onSelectAllTriggered()
     }
 }
 
-void MainWindow::onClearSelectionTriggered()
+void BMainWindow::onClearSelectionTriggered()
 {
     // Get the currently active tab
     QWidget *currentWidget = m_tabWidget->currentWidget();
@@ -1539,7 +1544,7 @@ void MainWindow::onClearSelectionTriggered()
     }
 }
 
-void MainWindow::onFindTriggered()
+void BMainWindow::onFindTriggered()
 {
     // Get the currently active tab
     QWidget *currentWidget = m_tabWidget->currentWidget();
@@ -1562,7 +1567,7 @@ void MainWindow::onFindTriggered()
     }
 }
 
-void MainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds)
+void BMainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds)
 {
 #ifdef IS_DEVELOPER
     qDebug() << "MainWindow: Auto-refresh settings changed:"
@@ -1582,7 +1587,7 @@ void MainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds)
     }
 }
 
-void MainWindow::onToggleTheme()
+void BMainWindow::onToggleTheme()
 {
     // Get current theme
     QString currentTheme = BSettings::instance().appearanceTheme();
@@ -1607,7 +1612,7 @@ void MainWindow::onToggleTheme()
     BSettings::instance().setAppearanceTheme(newTheme);
 }
 
-void MainWindow::onExportSettingsTriggered()
+void BMainWindow::onExportSettingsTriggered()
 {
     if (!m_director->isConnected()) {
         QMessageBox::warning(this, tr("Not Connected"), tr("Please connect to the Director first."));
@@ -1619,7 +1624,7 @@ void MainWindow::onExportSettingsTriggered()
     m_statusLabel->setText("Jobs als JSON exportiert");
 }
 
-void MainWindow::onImportSettingsTriggered()
+void BMainWindow::onImportSettingsTriggered()
 {
     if (!m_director->isConnected()) {
         QMessageBox::warning(this, tr("Not Connected"), tr("Please connect to the Director first."));
@@ -1631,7 +1636,7 @@ void MainWindow::onImportSettingsTriggered()
     m_statusLabel->setText("Jobs als CSV exportiert");
 }
 
-void MainWindow::onCleanupDatabase()
+void BMainWindow::onCleanupDatabase()
 {
     if (!m_director->isConnected()) {
         QMessageBox::warning(this, tr("Not Connected"),
@@ -1656,24 +1661,27 @@ void MainWindow::onCleanupDatabase()
     dialog->exec();
 }
 
-void MainWindow::onConnectionWizard()
+void BMainWindow::onConnectionWizard()
 {
-    BConnectionWizard wizard(this);
+    // Create wizard data struct to preserve values across page navigation
+    BConnectionWizardData *wizardData = new BConnectionWizardData();
+
+    BConnectionWizard wizard(wizardData, this);
 
     if (wizard.exec() == QDialog::Accepted) {
         // Save the profile
         BConnectionProfile profile = wizard.profile();
         BSettings::instance().addConnectionProfile(profile);
 
-        // Set as default if requested
-        if (wizard.field("setDefault").toBool()) {
+        // Set as default if requested (use wizardData for reliable value)
+        if (wizardData->setAsDefault) {
             BSettings::instance().setLastUsedProfileId(profile.id);
         }
 
         m_statusLabel->setText(tr("Connection profile '%1' saved").arg(profile.name));
 
-        // Connect now if requested
-        if (wizard.field("connectNow").toBool()) {
+        // Connect now if requested (use wizardData for reliable value)
+        if (wizardData->connectNow) {
             // Configure TLS
             BDirector::TLSConfig tlsConfig;
             if (profile.legacyAuth) {
@@ -1704,4 +1712,8 @@ void MainWindow::onConnectionWizard()
                               profile.consoleName, profile.password);
         }
     }
+
+    // Clean up wizard data after wizard completes (success or cancel)
+    delete wizardData;
+    wizardData = nullptr;
 }

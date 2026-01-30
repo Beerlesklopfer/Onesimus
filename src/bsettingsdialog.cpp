@@ -1,5 +1,5 @@
-#include "settingsdialog.h"
-#include "ui_settingsdialog.h"
+#include "bsettingsdialog.h"
+#include "ui_bsettingsdialog.h"
 #include "bsettings.h"
 #include "btranslations.h"
 #include "bconnectionprofile.h"
@@ -16,11 +16,11 @@
 #include <QFile>
 #include <QColorDialog>
 
-SettingsDialog::SettingsDialog(BDirector *director,
+BSettingsDialog::BSettingsDialog(BDirector *director,
                                const QList<QPair<QString, QString>> &availableLevels,
                                QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::SettingsDialog)
+    , ui(new Ui::BSettingsDialog)
     , m_director(director)
     , m_categoryList(nullptr)
     , m_contentStack(nullptr)
@@ -64,12 +64,12 @@ SettingsDialog::SettingsDialog(BDirector *director,
     // applyModernStyle();
 }
 
-SettingsDialog::~SettingsDialog()
+BSettingsDialog::~BSettingsDialog()
 {
     delete ui;
 }
 
-void SettingsDialog::setupUI()
+void BSettingsDialog::setupUI()
 {
     // Main layout
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
@@ -113,16 +113,16 @@ void SettingsDialog::setupUI()
     mainLayout->addWidget(contentWidget, 1);
 
     // Connect signals
-    connect(m_categoryList, &QListWidget::currentRowChanged, this, &SettingsDialog::onCategoryChanged);
-    connect(m_applyButton, &QPushButton::clicked, this, &SettingsDialog::onApplyClicked);
-    connect(m_cancelButton, &QPushButton::clicked, this, &SettingsDialog::onCancelClicked);
-    connect(m_resetButton, &QPushButton::clicked, this, &SettingsDialog::onResetToDefaultsClicked);
+    connect(m_categoryList, &QListWidget::currentRowChanged, this, &BSettingsDialog::onCategoryChanged);
+    connect(m_applyButton, &QPushButton::clicked, this, &BSettingsDialog::onApplyClicked);
+    connect(m_cancelButton, &QPushButton::clicked, this, &BSettingsDialog::onCancelClicked);
+    connect(m_resetButton, &QPushButton::clicked, this, &BSettingsDialog::onResetToDefaultsClicked);
 
     // Select first category
     m_categoryList->setCurrentRow(0);
 }
 
-void SettingsDialog::createSidebar()
+void BSettingsDialog::createSidebar()
 {
     m_categoryList = new QListWidget(this);
     m_categoryList->setObjectName("categoryList");
@@ -148,7 +148,7 @@ void SettingsDialog::createSidebar()
     m_categoryList->addItem(advancedItem);
 }
 
-void SettingsDialog::createContentPages()
+void BSettingsDialog::createContentPages()
 {
     createConnectionPage();
     createAppearancePage();
@@ -156,7 +156,7 @@ void SettingsDialog::createContentPages()
     createAdvancedPage();
 }
 
-void SettingsDialog::createConnectionPage()
+void BSettingsDialog::createConnectionPage()
 {
     m_connectionPage = new QWidget();
 
@@ -213,12 +213,12 @@ void SettingsDialog::createConnectionPage()
     layout->addWidget(profilesGroup);
 
     // Connect profile list signals
-    connect(m_profileList, &QListWidget::currentRowChanged, this, &SettingsDialog::onProfileSelectionChanged);
-    connect(m_profileList, &QListWidget::itemDoubleClicked, this, &SettingsDialog::onEditProfile);
-    connect(m_addProfileButton, &QPushButton::clicked, this, &SettingsDialog::onAddProfile);
-    connect(m_editProfileButton, &QPushButton::clicked, this, &SettingsDialog::onEditProfile);
-    connect(m_duplicateProfileButton, &QPushButton::clicked, this, &SettingsDialog::onDuplicateProfile);
-    connect(m_deleteProfileButton, &QPushButton::clicked, this, &SettingsDialog::onDeleteProfile);
+    connect(m_profileList, &QListWidget::currentRowChanged, this, &BSettingsDialog::onProfileSelectionChanged);
+    connect(m_profileList, &QListWidget::itemDoubleClicked, this, &BSettingsDialog::onEditProfile);
+    connect(m_addProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onAddProfile);
+    connect(m_editProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onEditProfile);
+    connect(m_duplicateProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onDuplicateProfile);
+    connect(m_deleteProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onDeleteProfile);
 
     // ========================================================================
     // Profile Details (shown when a profile is selected)
@@ -342,7 +342,7 @@ void SettingsDialog::createConnectionPage()
     m_caCertEdit->setPlaceholderText(tr("Path to CA certificate (.pem)"));
     QPushButton *caBrowse = new QPushButton(tr("Browse..."));
     caBrowse->setObjectName("browseButton");
-    connect(caBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseCACert);
+    connect(caBrowse, &QPushButton::clicked, this, &BSettingsDialog::onBrowseCACert);
     caLayout->addWidget(m_caCertEdit);
     caLayout->addWidget(caBrowse);
     certLayout->addRow(tr("CA Certificate:"), caLayout);
@@ -352,7 +352,7 @@ void SettingsDialog::createConnectionPage()
     m_clientCertEdit->setPlaceholderText(tr("Path to client certificate (.pem)"));
     QPushButton *clientCertBrowse = new QPushButton(tr("Browse..."));
     clientCertBrowse->setObjectName("browseButton");
-    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
+    connect(clientCertBrowse, &QPushButton::clicked, this, &BSettingsDialog::onBrowseClientCert);
     clientCertLayout->addWidget(m_clientCertEdit);
     clientCertLayout->addWidget(clientCertBrowse);
     certLayout->addRow(tr("Client Certificate:"), clientCertLayout);
@@ -362,7 +362,7 @@ void SettingsDialog::createConnectionPage()
     m_clientKeyEdit->setPlaceholderText(tr("Path to private key (.pem, .key)"));
     QPushButton *keyBrowse = new QPushButton(tr("Browse..."));
     keyBrowse->setObjectName("browseButton");
-    connect(keyBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientKey);
+    connect(keyBrowse, &QPushButton::clicked, this, &BSettingsDialog::onBrowseClientKey);
     keyLayout->addWidget(m_clientKeyEdit);
     keyLayout->addWidget(keyBrowse);
     certLayout->addRow(tr("Private Key:"), keyLayout);
@@ -373,7 +373,7 @@ void SettingsDialog::createConnectionPage()
     m_clientCertEdit->setPlaceholderText(tr("Path to client certificate (.pfx)"));
     QPushButton *clientCertBrowse = new QPushButton(tr("Browse..."));
     clientCertBrowse->setObjectName("browseButton");
-    connect(clientCertBrowse, &QPushButton::clicked, this, &SettingsDialog::onBrowseClientCert);
+    connect(clientCertBrowse, &QPushButton::clicked, this, &BSettingsDialog::onBrowseClientCert);
     clientCertLayout->addWidget(m_clientCertEdit);
     clientCertLayout->addWidget(clientCertBrowse);
     certLayout->addRow(tr("PFX Certificate:"), clientCertLayout);
@@ -421,7 +421,7 @@ void SettingsDialog::createConnectionPage()
     QPushButton *saveProfileBtn = new QPushButton(tr("Save Profile"));
     saveProfileBtn->setObjectName("applyButton");
     saveProfileBtn->setToolTip(tr("Save changes to this connection profile"));
-    connect(saveProfileBtn, &QPushButton::clicked, this, &SettingsDialog::saveCurrentProfile);
+    connect(saveProfileBtn, &QPushButton::clicked, this, &BSettingsDialog::saveCurrentProfile);
     detailsLayout->addWidget(saveProfileBtn);
 
     // Initially hide details until a profile is selected
@@ -435,8 +435,8 @@ void SettingsDialog::createConnectionPage()
     QPushButton *exportBtn = new QPushButton(tr("Export All Profiles"));
     QPushButton *importBtn = new QPushButton(tr("Import Profiles"));
 
-    connect(exportBtn, &QPushButton::clicked, this, &SettingsDialog::onExportSettings);
-    connect(importBtn, &QPushButton::clicked, this, &SettingsDialog::onImportSettings);
+    connect(exportBtn, &QPushButton::clicked, this, &BSettingsDialog::onExportSettings);
+    connect(importBtn, &QPushButton::clicked, this, &BSettingsDialog::onImportSettings);
 
     buttonLayout->addWidget(exportBtn);
     buttonLayout->addWidget(importBtn);
@@ -456,7 +456,7 @@ void SettingsDialog::createConnectionPage()
     m_contentStack->addWidget(m_connectionPage);
 }
 
-void SettingsDialog::createAppearancePage()
+void BSettingsDialog::createAppearancePage()
 {
     m_appearancePage = new QWidget();
 
@@ -553,7 +553,7 @@ void SettingsDialog::createAppearancePage()
     m_colorButtonConnected->setMinimumSize(80, 30);
     m_colorButtonConnected->setCursor(Qt::PointingHandCursor);
     m_colorButtonConnected->setToolTip(tr("Color shown when connected to Director"));
-    connect(m_colorButtonConnected, &QPushButton::clicked, this, &SettingsDialog::onChooseColorConnected);
+    connect(m_colorButtonConnected, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorConnected);
     statusBarColorsLayout->addRow(tr("Connected:"), m_colorButtonConnected);
 
     // Disconnected Color
@@ -561,7 +561,7 @@ void SettingsDialog::createAppearancePage()
     m_colorButtonDisconnected->setMinimumSize(80, 30);
     m_colorButtonDisconnected->setCursor(Qt::PointingHandCursor);
     m_colorButtonDisconnected->setToolTip(tr("Color shown when not connected"));
-    connect(m_colorButtonDisconnected, &QPushButton::clicked, this, &SettingsDialog::onChooseColorDisconnected);
+    connect(m_colorButtonDisconnected, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorDisconnected);
     statusBarColorsLayout->addRow(tr("Disconnected:"), m_colorButtonDisconnected);
 
     layout->addWidget(statusBarColorsGroup);
@@ -576,28 +576,28 @@ void SettingsDialog::createAppearancePage()
     m_colorButtonFull = new QPushButton();
     m_colorButtonFull->setMinimumSize(80, 30);
     m_colorButtonFull->setCursor(Qt::PointingHandCursor);
-    connect(m_colorButtonFull, &QPushButton::clicked, this, &SettingsDialog::onChooseColorFull);
+    connect(m_colorButtonFull, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorFull);
     levelColorsLayout->addRow("Full (F):", m_colorButtonFull);
 
     // Incremental Backup Color
     m_colorButtonIncremental = new QPushButton();
     m_colorButtonIncremental->setMinimumSize(80, 30);
     m_colorButtonIncremental->setCursor(Qt::PointingHandCursor);
-    connect(m_colorButtonIncremental, &QPushButton::clicked, this, &SettingsDialog::onChooseColorIncremental);
+    connect(m_colorButtonIncremental, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorIncremental);
     levelColorsLayout->addRow("Incremental (I):", m_colorButtonIncremental);
 
     // Differential Backup Color
     m_colorButtonDifferential = new QPushButton();
     m_colorButtonDifferential->setMinimumSize(80, 30);
     m_colorButtonDifferential->setCursor(Qt::PointingHandCursor);
-    connect(m_colorButtonDifferential, &QPushButton::clicked, this, &SettingsDialog::onChooseColorDifferential);
+    connect(m_colorButtonDifferential, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorDifferential);
     levelColorsLayout->addRow("Differential (D):", m_colorButtonDifferential);
 
     // Virtual Full Backup Color
     m_colorButtonVirtualFull = new QPushButton();
     m_colorButtonVirtualFull->setMinimumSize(80, 30);
     m_colorButtonVirtualFull->setCursor(Qt::PointingHandCursor);
-    connect(m_colorButtonVirtualFull, &QPushButton::clicked, this, &SettingsDialog::onChooseColorVirtualFull);
+    connect(m_colorButtonVirtualFull, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorVirtualFull);
     levelColorsLayout->addRow("Virtual Full (V):", m_colorButtonVirtualFull);
 
     layout->addWidget(levelColorsGroup);
@@ -615,7 +615,7 @@ void SettingsDialog::createAppearancePage()
     m_contentStack->addWidget(m_appearancePage);
 }
 
-void SettingsDialog::createBehaviorPage()
+void BSettingsDialog::createBehaviorPage()
 {
     m_behaviorPage = new QWidget();
 
@@ -732,7 +732,7 @@ void SettingsDialog::createBehaviorPage()
     m_contentStack->addWidget(m_behaviorPage);
 }
 
-void SettingsDialog::createAdvancedPage()
+void BSettingsDialog::createAdvancedPage()
 {
     m_advancedPage = new QWidget();
 
@@ -815,11 +815,11 @@ void SettingsDialog::createAdvancedPage()
     m_contentStack->addWidget(m_advancedPage);
 }
 
-void SettingsDialog::applyModernStyle()
+void BSettingsDialog::applyModernStyle()
 {
     setStyleSheet(R"(
         /* Main Dialog */
-        SettingsDialog {
+        BSettingsDialog {
             background-color: #1a1d23;
             color: #e4e6eb;
         }
@@ -1033,7 +1033,7 @@ void SettingsDialog::applyModernStyle()
     )");
 }
 
-void SettingsDialog::loadSettings()
+void BSettingsDialog::loadSettings()
 {
     BSettings& settings = BSettings::instance();
 
@@ -1143,7 +1143,7 @@ void SettingsDialog::loadSettings()
     m_enableTooltipsCheck->setChecked(settings.advancedEnableTooltips());
 }
 
-void SettingsDialog::saveSettings()
+void BSettingsDialog::saveSettings()
 {
     BSettings& settings = BSettings::instance();
 
@@ -1233,12 +1233,12 @@ void SettingsDialog::saveSettings()
     emit settingsChanged();
 }
 
-void SettingsDialog::onCategoryChanged(int index)
+void BSettingsDialog::onCategoryChanged(int index)
 {
     m_contentStack->setCurrentIndex(index);
 }
 
-void SettingsDialog::onApplyClicked()
+void BSettingsDialog::onApplyClicked()
 {
     saveSettings();
     QMessageBox::information(this, tr("Settings"),
@@ -1247,12 +1247,12 @@ void SettingsDialog::onApplyClicked()
     accept();
 }
 
-void SettingsDialog::onCancelClicked()
+void BSettingsDialog::onCancelClicked()
 {
     reject();
 }
 
-void SettingsDialog::onResetToDefaultsClicked()
+void BSettingsDialog::onResetToDefaultsClicked()
 {
     int ret = QMessageBox::question(this, tr("Reset"),
         tr("Do you really want to reset all settings to default values?\n"
@@ -1267,7 +1267,7 @@ void SettingsDialog::onResetToDefaultsClicked()
     }
 }
 
-void SettingsDialog::onBrowseCACert()
+void BSettingsDialog::onBrowseCACert()
 {
     QString file = QFileDialog::getOpenFileName(this, tr("Select CA Certificate"),
         QString(), tr("Certificates (*.pem *.crt *.cert);;All Files (*)"));
@@ -1276,7 +1276,7 @@ void SettingsDialog::onBrowseCACert()
     }
 }
 
-void SettingsDialog::onBrowseClientCert()
+void BSettingsDialog::onBrowseClientCert()
 {
     QString file = QFileDialog::getOpenFileName(this, tr("Select Client Certificate"),
 #ifdef Q_OS_WINDOWS
@@ -1289,7 +1289,7 @@ void SettingsDialog::onBrowseClientCert()
     }
 }
 
-void SettingsDialog::onBrowseClientKey()
+void BSettingsDialog::onBrowseClientKey()
 {
     QString file = QFileDialog::getOpenFileName(this, tr("Select Private Key"),
         QString(), tr("Keys (*.pem *.key);;All Files (*)"));
@@ -1298,13 +1298,13 @@ void SettingsDialog::onBrowseClientKey()
     }
 }
 
-void SettingsDialog::onExportSettings()
+void BSettingsDialog::onExportSettings()
 {
     QString file = QFileDialog::getSaveFileName(this, tr("Export Settings"),
         "bacula-settings.json", "JSON (*.json)");
 
     if (!file.isEmpty()) {
-        QSettings settings("Bacula", "Onesimus");
+        QSettings settings;
         QJsonObject json;
 
         foreach (QString key, settings.allKeys()) {
@@ -1321,7 +1321,7 @@ void SettingsDialog::onExportSettings()
     }
 }
 
-void SettingsDialog::onImportSettings()
+void BSettingsDialog::onImportSettings()
 {
     QString file = QFileDialog::getOpenFileName(this, tr("Import Settings"),
         QString(), "JSON (*.json)");
@@ -1332,7 +1332,7 @@ void SettingsDialog::onImportSettings()
             QJsonDocument doc = QJsonDocument::fromJson(inFile.readAll());
             QJsonObject json = doc.object();
 
-            QSettings settings("Bacula", "Onesimus");
+            QSettings settings;
             for (auto it = json.begin(); it != json.end(); ++it) {
                 settings.setValue(it.key(), it.value().toString());
             }
@@ -1343,7 +1343,7 @@ void SettingsDialog::onImportSettings()
     }
 }
 
-void SettingsDialog::onClearStoredConnections()
+void BSettingsDialog::onClearStoredConnections()
 {
     int profileCount = BSettings::instance().connectionProfiles().count();
     if (profileCount == 0) {
@@ -1377,7 +1377,7 @@ void SettingsDialog::onClearStoredConnections()
     }
 }
 
-void SettingsDialog::onChooseColorFull()
+void BSettingsDialog::onChooseColorFull()
 {
     QColor currentColor = BSettings::instance().levelColor("F");
     QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Full Backup"));
@@ -1391,7 +1391,7 @@ void SettingsDialog::onChooseColorFull()
     }
 }
 
-void SettingsDialog::onChooseColorIncremental()
+void BSettingsDialog::onChooseColorIncremental()
 {
     QColor currentColor = BSettings::instance().levelColor("I");
     QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Incremental Backup"));
@@ -1405,7 +1405,7 @@ void SettingsDialog::onChooseColorIncremental()
     }
 }
 
-void SettingsDialog::onChooseColorDifferential()
+void BSettingsDialog::onChooseColorDifferential()
 {
     QColor currentColor = BSettings::instance().levelColor("D");
     QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Differential Backup"));
@@ -1419,7 +1419,7 @@ void SettingsDialog::onChooseColorDifferential()
     }
 }
 
-void SettingsDialog::onChooseColorVirtualFull()
+void BSettingsDialog::onChooseColorVirtualFull()
 {
     QColor currentColor = BSettings::instance().levelColor("V");
     QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Virtual Full Backup"));
@@ -1433,7 +1433,7 @@ void SettingsDialog::onChooseColorVirtualFull()
     }
 }
 
-void SettingsDialog::onChooseColorConnected()
+void BSettingsDialog::onChooseColorConnected()
 {
     QColor currentColor = BSettings::instance().statusBarConnectedColor();
     QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Connected Status"));
@@ -1447,7 +1447,7 @@ void SettingsDialog::onChooseColorConnected()
     }
 }
 
-void SettingsDialog::onChooseColorDisconnected()
+void BSettingsDialog::onChooseColorDisconnected()
 {
     QColor currentColor = BSettings::instance().statusBarDisconnectedColor();
     QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Disconnected Status"));
@@ -1465,7 +1465,7 @@ void SettingsDialog::onChooseColorDisconnected()
 // Connection Profile Management
 // ============================================================================
 
-void SettingsDialog::onProfileSelectionChanged()
+void BSettingsDialog::onProfileSelectionChanged()
 {
     int currentRow = m_profileList->currentRow();
     bool hasSelection = (currentRow >= 0);
@@ -1534,7 +1534,7 @@ void SettingsDialog::onProfileSelectionChanged()
     }
 }
 
-void SettingsDialog::onAddProfile()
+void BSettingsDialog::onAddProfile()
 {
     // Create a new profile with defaults
     BConnectionProfile profile = BConnectionProfile::create(tr("New Connection"));
@@ -1555,7 +1555,7 @@ void SettingsDialog::onAddProfile()
     m_profileNameEdit->selectAll();
 }
 
-void SettingsDialog::onEditProfile()
+void BSettingsDialog::onEditProfile()
 {
     // Just ensure the profile is selected and details are visible
     if (m_profileList->currentRow() >= 0) {
@@ -1564,7 +1564,7 @@ void SettingsDialog::onEditProfile()
     }
 }
 
-void SettingsDialog::onDeleteProfile()
+void BSettingsDialog::onDeleteProfile()
 {
     int currentRow = m_profileList->currentRow();
     if (currentRow < 0) return;
@@ -1595,7 +1595,7 @@ void SettingsDialog::onDeleteProfile()
     }
 }
 
-void SettingsDialog::onDuplicateProfile()
+void BSettingsDialog::onDuplicateProfile()
 {
     int currentRow = m_profileList->currentRow();
     if (currentRow < 0) return;
@@ -1625,7 +1625,7 @@ void SettingsDialog::onDuplicateProfile()
     m_profileList->setCurrentItem(newItem);
 }
 
-void SettingsDialog::saveCurrentProfile()
+void BSettingsDialog::saveCurrentProfile()
 {
     if (m_currentProfileId.isEmpty()) return;
 

@@ -1465,7 +1465,20 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::StatusSubscriptions: command = "status subscriptions"; break;
 
     // List Commands
-    case Command::ListJobs:         command = "list jobs days=7"; break;
+    case Command::ListJobs: {
+        // Args format: "limit" or "limit,offset"
+        if (args.isEmpty()) {
+            command = "list jobs limit=100";
+        } else if (args.contains(',')) {
+            QStringList parts = args.split(',');
+            QString limit = parts.at(0);
+            QString offset = parts.size() > 1 ? parts.at(1) : "0";
+            command = QString("list jobs limit=%1 offset=%2").arg(limit, offset);
+        } else {
+            command = QString("list jobs limit=%1").arg(args);
+        }
+        break;
+    }
     case Command::ListJobsLast:     command = QString("list jobs last=%1").arg(args.isEmpty() ? "100" : args); break;
     case Command::ListJobId:        command = QString("list joblog jobid=%1").arg(args); break;
     case Command::ListClients:      command = "list clients"; break;
@@ -1478,6 +1491,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::ListNextVolume:   command = QString("list nextvol job=%1").arg(args); break;
     case Command::ListBackups:      command = "list backups"; break;
     case Command::ListBackupsClient: command = QString("list backups client=%1").arg(args); break;
+    case Command::ListJobTotals:    command = "list jobtotals"; break;
 
     // Job Control
     case Command::Run:              command = QString("run job=%1").arg(args); break;

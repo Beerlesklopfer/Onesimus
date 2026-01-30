@@ -18,7 +18,7 @@
  *
  * @par Key Differences from Bacula:
  * - TLS-PSK is established BEFORE CRAM-MD5 authentication (since Bareos 18.2)
- * - Resource names use format: R_DIRECTOR::name, R_CONSOLE::name, etc.
+ * - PSK identity format: R_CONSOLE<RS>name (where RS is ASCII Record Separator 0x1e)
  * - Supports PAM authentication (optional)
  * - SSL parameter values: 0=none, 1=optional, 2=required (same as Bacula)
  *
@@ -358,8 +358,9 @@ public:
      * @note On failure, emits authenticationFailed() signal
      *
      * @par TLS-PSK Identity Format:
-     * For Bareos, the PSK identity format is: R_CONSOLE::ConsoleName
-     * Example: R_CONSOLE::*UserAgent*
+     * For Bareos, the PSK identity format is: R_CONSOLE<RS>ConsoleName
+     * where <RS> is ASCII Record Separator (0x1e)
+     * Example: R_CONSOLE\x1etest-psk
      *
      * @see getErrorMessage()
      * @see authenticationSucceeded()
@@ -610,7 +611,7 @@ private:
      * @brief Sets up TLS-PSK encryption
      *
      * Configures the socket for PSK-TLS and starts the handshake.
-     * The PSK identity is: R_CONSOLE::ConsoleName
+     * The PSK identity is: R_CONSOLE<RS>ConsoleName (where RS = 0x1e)
      * The PSK key is: MD5(password)
      *
      * @return true if PSK setup initiated successfully

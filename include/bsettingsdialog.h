@@ -1,5 +1,5 @@
-#ifndef SETTINGSDIALOG_H
-#define SETTINGSDIALOG_H
+#ifndef BSETTINGSDIALOG_H
+#define BSETTINGSDIALOG_H
 
 #include <QDialog>
 #include <QVBoxLayout>
@@ -21,7 +21,7 @@
 #include "bdirector.h"
 
 namespace Ui {
-class SettingsDialog;
+class BSettingsDialog;
 }
 
 /**
@@ -30,7 +30,7 @@ class SettingsDialog;
  * Design: Industriell-dunkel mit klaren Kategorien
  * Layout: Sidebar-Navigation + Content-Bereich
  */
-class SettingsDialog : public QDialog
+class BSettingsDialog : public QDialog
 {
     Q_OBJECT
 
@@ -41,10 +41,10 @@ public:
      * @param availableLevels List of available backup levels from Director (code, name pairs)
      * @param parent Parent widget
      */
-    explicit SettingsDialog(BDirector *director,
+    explicit BSettingsDialog(BDirector *director,
                            const QList<QPair<QString, QString>> &availableLevels = QList<QPair<QString, QString>>(),
                            QWidget *parent = nullptr);
-    ~SettingsDialog();
+    ~BSettingsDialog();
 
     // Einstellungen laden/speichern
     void loadSettings();
@@ -91,7 +91,7 @@ private:
     void createAdvancedPage();
     void applyModernStyle();
     
-    Ui::SettingsDialog *ui;
+    Ui::BSettingsDialog *ui;
     BDirector *m_director;
     
     // UI-Komponenten
@@ -175,4 +175,4 @@ private:
     QComboBox *m_backupSystemCombo;
 };
 
-#endif // SETTINGSDIALOG_H
+#endif // BSETTINGSDIALOG_H

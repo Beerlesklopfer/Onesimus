@@ -250,6 +250,13 @@ public:
     bool jobsAutoRefresh() const;
     void setJobsAutoRefresh(bool enabled);
 
+    // Jobs Pagination
+    bool jobsPaginationEnabled() const;
+    void setJobsPaginationEnabled(bool enabled);
+
+    int jobsPaginationPageSize() const;
+    void setJobsPaginationPageSize(int pageSize);
+
     // Jobs Widget Filters
     QMap<QString, bool> jobsFilterCheckboxes() const;
     void setJobsFilterCheckboxes(const QMap<QString, bool>& checkboxes);

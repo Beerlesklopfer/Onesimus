@@ -428,6 +428,10 @@ void BJobWidget::setupUI()
     // Pagination
     m_paginationWidget->setModel(m_tableView->jobsModel());
 
+    // Connect pagination for server-side pagination
+    connect(m_paginationWidget, &BPaginationWidget::pageRequested,
+            this, &BJobWidget::onPageRequested);
+
     // Button signals
     connect(m_refreshButton, &QPushButton::clicked,
             this, &BJobWidget::onRefreshClicked);
@@ -830,11 +834,83 @@ void BJobWidget::processDotPoolsResponse(const QString &jsonData)
 #endif
 }
 
+void BJobWidget::processJobTotalsResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Processing list jobtotals response";
+#endif
+
+    // Parse JSON to extract total job count
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "Failed to parse jobtotals response:" << parseError.errorString();
+        m_refreshButton->setEnabled(true);
+        return;
+    }
+
+    if (!doc.isObject()) {
+        qWarning() << "Jobtotals response is not a JSON object";
+        m_refreshButton->setEnabled(true);
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // Look for jobtotals array in the result
+    int totalJobs = 0;
+    if (result.contains("jobtotals")) {
+        QJsonArray jobtotals = result["jobtotals"].toArray();
+        // Sum up all job counts from the totals
+        for (const QJsonValue &v : jobtotals) {
+            QJsonObject total = v.toObject();
+            if (total.contains("jobs")) {
+                totalJobs += total["jobs"].toInt();
+            }
+        }
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Total jobs from jobtotals:" << totalJobs;
+#endif
+
+    // Update pagination widget with total count
+    m_paginationWidget->setTotalJobCount(totalJobs);
+
+    // Now fetch the first page of jobs
+    int pageSize = m_paginationWidget->pageSize();
+    emit sendCommand(BDirector::Command::ListJobs, QString("%1,0").arg(pageSize));
+}
+
+void BJobWidget::onPageRequested(int page, int pageSize)
+{
+#ifdef IS_DEVELOPER
+    qDebug() << "BJobWidget: Page requested - page:" << page << "pageSize:" << pageSize;
+#endif
+
+    m_refreshButton->setEnabled(false);
+    emit statusMessageChanged(tr("Lade Seite %1...").arg(page + 1));
+
+    // Calculate offset and fetch jobs
+    int offset = page * pageSize;
+    emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(pageSize).arg(offset));
+}
+
 void BJobWidget::onRefreshClicked()
 {
     m_refreshButton->setEnabled(false);
-    emit statusMessageChanged("Aktualisiere Job-Liste...");
-    emit sendCommand(BDirector::Command::ListJobs, "100");
+    emit statusMessageChanged(tr("Aktualisiere Job-Liste..."));
+
+    if (m_paginationWidget->isPaginationEnabled()) {
+        // Server-side pagination: First fetch job totals to know total count
+        emit sendCommand(BDirector::Command::ListJobTotals, "");
+    } else {
+        // No pagination: Use the max jobs setting from BSettings
+        int maxJobs = BSettings::instance().behaviorMaxJobsDisplay();
+        emit sendCommand(BDirector::Command::ListJobs, QString::number(maxJobs));
+    }
 }
 
 void BJobWidget::processJsonResponse(const QString &jsonData)

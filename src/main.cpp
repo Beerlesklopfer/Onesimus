@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "bmainwindow.h"
 #include "btranslations.h"
 #include "bsettings.h"
 #include <QApplication>
@@ -318,8 +318,13 @@ int main(int argc, char *argv[])
 
     app.setApplicationName(PROJECT_NAME);
     app.setApplicationVersion(PROJECT_VERSION);
-    app.setOrganizationName("Bacula");
+#ifdef USE_BACULA
+    app.setOrganizationName("bacula");
     app.setOrganizationDomain("bacula.org");
+#else
+    app.setOrganizationName("bareos");
+    app.setOrganizationDomain("bareos.org");
+#endif
 
     // Command-Line parsen
     CommandLineOptions options = parseCommandLine(app);
@@ -422,7 +427,7 @@ int main(int argc, char *argv[])
     // Initialize translation system BEFORE creating MainWindow
     BTranslations::instance()->setLanguage(language);
 
-    MainWindow w;
+    BMainWindow w;
 
     // Auto-Connect
     if (options.autoConnect) {

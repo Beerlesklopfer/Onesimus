@@ -236,6 +236,7 @@ public:
         ListNextVolume,     ///< list nextvol job=<name>
         ListBackups,        ///< list backups
         ListBackupsClient,  ///< list backups client=<name>
+        ListJobTotals,      ///< list jobtotals - Get total job count for pagination
 
         // Job Control
         Run,                ///< run job=<name>

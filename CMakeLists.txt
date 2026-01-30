@@ -358,7 +358,7 @@ include_directories(
 # Quell-Dateien
 set(SOURCES
     src/main.cpp
-    src/mainwindow.cpp
+    src/bmainwindow.cpp
     src/baculaauth.cpp
     src/bareosauth.cpp
 
@@ -373,10 +373,12 @@ set(SOURCES
     src/bsettings.cpp
     src/bbasemodels.cpp
     src/bresourcemodels.cpp
-    src/settingsdialog.cpp
+    src/bsettingsdialog.cpp
     src/bcleanupdialog.cpp
     src/bconnectionwizard.cpp
     src/bcertificategenerator.cpp
+    src/bprofilesettingsdialog.cpp
+    src/bconfigexporter.cpp
     src/storagewidget.cpp
 
     src/jobs/bjobmodels.cpp
@@ -400,14 +402,16 @@ set(SOURCES
 
 # Header-Dateien
 set(HEADERS
-    include/mainwindow.h
+    include/bmainwindow.h
     include/bcheckableheaderview.h
     include/clientwidget.h
     include/storagewidget.h
-    include/settingsdialog.h
+    include/bsettingsdialog.h
     include/bcleanupdialog.h
     include/bconnectionwizard.h
     include/bcertificategenerator.h
+    include/bprofilesettingsdialog.h
+    include/bconfigexporter.h
     include/bdirector.h
     include/bareosdirector.h
     include/bsettings.h
@@ -463,11 +467,11 @@ endif()
 
 # UI-Dateien
 set(UI_FILES
-    ui/mainwindow.ui
+    ui/bmainwindow.ui
     ui/jobwidget.ui
     ui/clientwidget.ui
     ui/storagewidget.ui
-    ui/settingsdialog.ui
+    ui/bsettingsdialog.ui
 )
 
 # ============================================================================
@@ -529,6 +533,7 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Gui
+    Qt6::GuiPrivate
     Qt6::Widgets
     Qt6::Network
 )

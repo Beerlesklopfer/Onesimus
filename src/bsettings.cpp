@@ -18,7 +18,7 @@ BSettings& BSettings::instance()
 BSettings::BSettings()
     : QObject(nullptr)
 #if USE_BACULA
-    , m_settings("Bacula", "Onesimus")  // Bacula organization name
+    , m_settings()  // Uses QCoreApplication::organizationName() and applicationName()
 #elif defined(USE_BAREOS)
     , m_settings("Bareos", "Onesimus")  // Bareos organization name
 #else
@@ -665,6 +665,27 @@ bool BSettings::jobsAutoRefresh() const
 void BSettings::setJobsAutoRefresh(bool enabled)
 {
     setValue("Widgets/Jobs/auto_refresh", enabled);
+}
+
+// Jobs Pagination
+bool BSettings::jobsPaginationEnabled() const
+{
+    return value("Widgets/Jobs/pagination_enabled", false).toBool();
+}
+
+void BSettings::setJobsPaginationEnabled(bool enabled)
+{
+    setValue("Widgets/Jobs/pagination_enabled", enabled);
+}
+
+int BSettings::jobsPaginationPageSize() const
+{
+    return value("Widgets/Jobs/pagination_page_size", 50).toInt();
+}
+
+void BSettings::setJobsPaginationPageSize(int pageSize)
+{
+    setValue("Widgets/Jobs/pagination_page_size", pageSize);
 }
 
 // Jobs Widget Filters

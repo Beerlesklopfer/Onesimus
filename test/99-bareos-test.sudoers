@@ -1,0 +1,11 @@
+# Sudoers file for Bareos authentication testing
+# Install with: sudo cp test/99-bareos-test.sudoers /etc/sudoers.d/99-bareos-test
+# Remove with: sudo rm /etc/sudoers.d/99-bareos-test
+
+# Allow running bareos-dir and bconsole without password for testing
+# Run as bareos user for proper database access
+joerg.bernau ALL=(bareos) NOPASSWD: /usr/sbin/bareos-dir
+joerg.bernau ALL=(ALL) NOPASSWD: /usr/sbin/bconsole
+joerg.bernau ALL=(ALL) NOPASSWD: /bin/kill
+joerg.bernau ALL=(ALL) NOPASSWD: /bin/cp
+joerg.bernau ALL=(ALL) NOPASSWD: /bin/chown

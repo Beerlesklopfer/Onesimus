@@ -174,6 +174,21 @@ public slots:
     void processDotPoolsResponse(const QString &jsonData);
 
     /**
+     * @brief Processes list jobtotals response for server-side pagination
+     * @param jsonData JSON response from list jobtotals command
+     * @since 2.9
+     */
+    void processJobTotalsResponse(const QString &jsonData);
+
+    /**
+     * @brief Handles page request from pagination widget
+     * @param page Page number (0-indexed)
+     * @param pageSize Number of items per page
+     * @since 2.9
+     */
+    void onPageRequested(int page, int pageSize);
+
+    /**
      * @brief Updates UI based on connection state
      * @param connected True if connected to Director, false otherwise
      * @since 2.0

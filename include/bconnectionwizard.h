@@ -1,6 +1,6 @@
 /**
  * @file bconnectionwizard.h
- * @brief Director Configuration Wizard (Q&A Style)
+ * @brief Director Connection Wizard (Q&A Style)
  */
 
 #ifndef BCONNECTIONWIZARD_H
@@ -26,8 +26,41 @@
 class BareosDirector;
 
 /**
+ * @struct BConnectionWizardData
+ * @brief Struct to preserve wizard data across page navigation
+ *
+ * This struct is used to store wizard input values so they persist
+ * even when navigating back and forth between pages. MainWindow holds
+ * a pointer to this struct until the wizard completes successfully.
+ */
+struct BConnectionWizardData {
+    // Server page
+    QString host;
+    int port = 9101;
+
+    // Credentials page
+    QString directorName;
+    QString consoleName;
+    QString password;
+    bool savePassword = true;
+
+    // Auth method page
+    QString authMethod = "psk";  // "psk", "cert", or "legacy"
+
+    // TLS page (for cert mode)
+    QString tlsCaCertFile;
+    QString tlsCertFile;
+    QString tlsKeyFile;
+
+    // Profile page
+    QString profileName;
+    bool setAsDefault = true;
+    bool connectNow = true;
+};
+
+/**
  * @class BConnectionWizard
- * @brief Q&A wizard for director configuration
+ * @brief Q&A wizard for director connection configuration
  *
  * Pages:
  *   1. Welcome
@@ -37,6 +70,9 @@ class BareosDirector;
  *   5. TLS (only if cert auth selected)
  *   6. Test
  *   7. ProfileName
+ *
+ * The wizard uses a BConnectionWizardData pointer to preserve data across
+ * page navigation. MainWindow owns this data and clears it on success.
  */
 class BConnectionWizard : public QWizard
 {
@@ -49,19 +85,46 @@ public:
         Page_Credentials,
         Page_AuthMethod,
         Page_TLS,
+        Page_ConfigPreview,
         Page_Test,
         Page_ConsoleSetup,
         Page_ProfileName
     };
 
-    explicit BConnectionWizard(QWidget *parent = nullptr);
+    /**
+     * @brief Detected server capabilities
+     */
+    struct ServerCapabilities {
+        bool checked = false;           ///< Has capability check been done?
+        bool reachable = false;         ///< Is server reachable on the port?
+        bool supportsPSK = false;       ///< Does server support TLS-PSK?
+        bool supportsCert = false;      ///< Does server support TLS with certificates?
+        bool supportsLegacy = false;    ///< Does server support legacy (no TLS)?
+        QString detectedVersion;        ///< Detected Bareos/Bacula version
+        QString lastError;              ///< Last error during detection
+    };
+
+    /**
+     * @brief Construct wizard with external data storage
+     * @param wizardData Pointer to data struct owned by caller (e.g., MainWindow)
+     * @param parent Parent widget
+     */
+    explicit BConnectionWizard(BConnectionWizardData *wizardData = nullptr, QWidget *parent = nullptr);
     ~BConnectionWizard() override;
 
     BConnectionProfile profile() const;
     void setProfile(const BConnectionProfile &profile);
 
+    ServerCapabilities capabilities() const { return m_capabilities; }
+    void setCapabilities(const ServerCapabilities &caps) { m_capabilities = caps; }
+
+    /// Access the wizard data struct
+    BConnectionWizardData *wizardData() const { return m_wizardData; }
+
 private:
     BConnectionProfile m_profile;
+    ServerCapabilities m_capabilities;
+    BConnectionWizardData *m_wizardData;  ///< External data storage (not owned)
 };
 
 // Base class for Q&A pages
@@ -91,9 +154,19 @@ class ServerPage : public QAPage
 public:
     explicit ServerPage(QWidget *parent = nullptr);
     bool isComplete() const override;
+    bool validatePage() override;
 private:
     QLineEdit *m_hostEdit;
     QSpinBox *m_portSpin;
+    QPushButton *m_checkButton;
+    QLabel *m_statusLabel;
+    QProgressBar *m_progressBar;
+    bool m_checkInProgress;
+    bool m_checkCompleted;
+    void checkCapabilities();
+    void onCheckComplete(bool reachable);
+private slots:
+    void onCheckClicked();
 };
 
 class CredentialsPage : public QAPage
@@ -102,6 +175,7 @@ class CredentialsPage : public QAPage
 public:
     explicit CredentialsPage(QWidget *parent = nullptr);
     bool isComplete() const override;
+    bool validatePage() override;
 private:
     QLineEdit *m_directorEdit;
     QLineEdit *m_consoleEdit;
@@ -114,6 +188,7 @@ class AuthMethodPage : public QAPage
     Q_OBJECT
 public:
     explicit AuthMethodPage(QWidget *parent = nullptr);
+    void initializePage() override;
     int nextId() const override;
     QString authMethod() const;
 private:
@@ -121,6 +196,8 @@ private:
     QRadioButton *m_legacyRadio;
     QRadioButton *m_certRadio;
     QButtonGroup *m_group;
+    QLabel *m_capabilityLabel;
+    void updateCapabilityHints();
 private slots:
     void onSelectionChanged();
 };
@@ -144,6 +221,24 @@ private slots:
     void browseClientCert();
     void browseClientKey();
     void generateCertificates();
+};
+
+class ConfigPreviewPage : public QAPage
+{
+    Q_OBJECT
+public:
+    explicit ConfigPreviewPage(QWidget *parent = nullptr);
+    void initializePage() override;
+    int nextId() const override;
+private:
+    QTextEdit *m_consoleConfigEdit;
+    QTextEdit *m_directorConfigEdit;
+    QPushButton *m_copyConsoleButton;
+    QPushButton *m_copyDirectorButton;
+    void updateConfigs();
+private slots:
+    void onCopyConsoleConfig();
+    void onCopyDirectorConfig();
 };
 
 class TestPage : public QWizardPage
@@ -190,6 +285,7 @@ private:
     QRadioButton *m_createNewRadio;
     QButtonGroup *m_group;
     QComboBox *m_consoleCombo;
+    QTextEdit *m_consoleDetails;
     QLineEdit *m_newNameEdit;
     QLineEdit *m_newPasswordEdit;
     QPushButton *m_generatePasswordButton;
@@ -198,11 +294,13 @@ private:
     BareosDirector *m_director;
     bool m_consolesLoaded;
     void loadConsoles();
+    void loadConsoleDetails(const QString &name);
     void generatePassword();
     void createConsole();
 private slots:
     void onSelectionChanged();
     void onRefreshClicked();
+    void onConsoleSelected(int index);
     void onGeneratePasswordClicked();
     void onJsonResponse(const QString &cmd, const QString &json);
 };
@@ -213,10 +311,16 @@ class ProfileNamePage : public QAPage
 public:
     explicit ProfileNamePage(QWidget *parent = nullptr);
     void initializePage() override;
+    bool validatePage() override;
+private slots:
+    void onAdvancedSettingsClicked();
+    void onExportConfigClicked();
 private:
     QLineEdit *m_edit;
     QCheckBox *m_defaultCheck;
     QCheckBox *m_connectCheck;
+    QPushButton *m_advancedButton;
+    QPushButton *m_exportButton;
 };
 
 #endif // BCONNECTIONWIZARD_H
