@@ -119,6 +119,7 @@ Disconnected → Connecting → Authenticating → SettingApiMode
 | `status` | Status Director abfragen |
 | `jobs` | Job-Liste abrufen (.jobs) |
 | `clients` | Client-Liste abrufen (.clients) |
+| `bvfs` | BVFS (Backup Virtual File System) erkunden |
 | `interactive` | Interaktiver Modus |
 
 **Verwendung:**
@@ -146,6 +147,61 @@ Optionen:
 
 # Jobs auflisten
 ./director_test --legacy -P "mypassword" --verbose jobs
+
+# BVFS erkunden
+./director_test --legacy -P "mypassword" --verbose bvfs
+```
+
+### BVFS Explorer
+
+Der `bvfs` Befehl erkundet das Backup Virtual File System:
+
+1. **Jobs abrufen** - Findet aktuelle Backup-Jobs mit JobIDs
+2. **Cache aktualisieren** - `.bvfs_update jobid=<id>`
+3. **Restore-Chain ermitteln** - `.bvfs_get_jobids jobid=<id> all`
+4. **Verzeichnisse auflisten** - `.bvfs_lsdirs jobid=<ids> path=/`
+5. **Dateien auflisten** - `.bvfs_lsfiles jobid=<ids> path=/`
+6. **Datei-Versionen anzeigen** - `.bvfs_versions client=<c> pathid=<id> filename=<f>`
+
+**Ausgabe-Beispiel:**
+```
+=== BVFS Explorer ===
+[BVFS] Step 1: Getting recent backup jobs...
+
+[BVFS] Recent Backup Jobs:
+  JobId | Name                | Client              | Level | Status | StartTime
+  ------|---------------------|---------------------|-------|--------|--------------------
+    123 | BackupClient1       | client1-fd          | F     | T      | 2026-01-30 02:00:00
+
+[BVFS] Step 2: Updating BVFS cache for JobId 123...
+[BVFS] Cache updated successfully
+
+[BVFS] Step 3: Getting restore chain JobIDs...
+[BVFS] Restore chain JobIDs: 123,122,121
+
+[BVFS] Step 4: Listing directories at root (/)...
+[BVFS] Directories at /:
+  PathId | Name
+  -------|--------------------
+       1 | etc
+       2 | var
+       3 | home
+
+[BVFS] Step 5: Listing files...
+[BVFS] Files:
+  FileId | Name                          | Size       | MTime
+  -------|-------------------------------|------------|--------------------
+     456 | passwd                        |       2048 | 2026-01-29 10:30:00
+
+[BVFS] Step 6: Getting versions of file: passwd
+[BVFS] File Versions:
+  JobId | FileId | MTime               | Size
+  ------|--------|---------------------|------------
+    123 |    456 | 2026-01-29 10:30:00 |       2048
+    120 |    400 | 2026-01-22 10:30:00 |       2000
+
+====================================
+[BVFS] Exploration complete
 ```
 
 ### director_test.sh

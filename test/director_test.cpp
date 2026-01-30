@@ -26,6 +26,7 @@
  *   status       Connect, auth, then send 'status director'
  *   jobs         Connect, auth, then send '.jobs'
  *   clients      Connect, auth, then send '.clients'
+ *   bvfs         Explore BVFS (Backup Virtual File System)
  *   interactive  Connect, auth, then enter interactive mode
  *
  * Options:
@@ -197,6 +198,12 @@ private slots:
                 .arg(command).arg(json.size());
         }
 
+        // Handle BVFS responses
+        if (m_pendingCommand.startsWith("bvfs_")) {
+            processBvfsResponse(json);
+            return;
+        }
+
         if (m_pendingCommand == "jobs" || m_pendingCommand == "clients") {
             parseAndShowSummary(json);
             finishTest(true);
@@ -247,9 +254,329 @@ private slots:
         } else if (m_config.command == "clients") {
             m_pendingCommand = "clients";
             m_director->doSendCommand(BareosDirector::Command::ListClients, "");
+        } else if (m_config.command == "bvfs") {
+            startBvfsExplorer();
         } else if (m_config.command == "interactive") {
             startInteractiveMode();
         }
+    }
+
+    /**
+     * @brief Start BVFS (Backup Virtual File System) exploration
+     *
+     * BVFS allows browsing backup files in the catalog.
+     * Workflow:
+     *   1. Get list of backup jobs to find JobIDs
+     *   2. Update BVFS cache for selected job
+     *   3. Get all related JobIDs for restore chain
+     *   4. List directories at root (/)
+     *   5. List files in a directory
+     *   6. Show versions of a file
+     */
+    void startBvfsExplorer()
+    {
+        qDebug() << "\n=== BVFS Explorer ===";
+        qDebug() << "Exploring Backup Virtual File System";
+        qDebug() << "====================================\n";
+
+        // Step 1: Get recent backup jobs to find a JobID
+        qDebug() << "[BVFS] Step 1: Getting recent backup jobs...";
+        m_bvfsState = BvfsState::GettingJobs;
+        m_pendingCommand = "bvfs_getjobs";
+
+        // Use SQL query to get recent successful backup jobs
+        // Note: Need JOIN with Client table to get client name
+        m_director->sendRawCommand(
+            ".sql query=\"SELECT j.JobId, j.Name, c.Name AS Client, j.Level, j.JobStatus, j.StartTime "
+            "FROM Job j LEFT JOIN Client c ON j.ClientId = c.ClientId "
+            "WHERE j.Type='B' AND j.JobStatus IN ('T','W') "
+            "ORDER BY j.JobId DESC LIMIT 10\""
+        );
+    }
+
+    /**
+     * @brief Process BVFS JSON response based on current state
+     */
+    void processBvfsResponse(const QString &json)
+    {
+        QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+        if (!doc.isObject()) {
+            qDebug() << "[BVFS] Error: Invalid JSON response";
+            finishTest(false);
+            return;
+        }
+
+        QJsonObject root = doc.object();
+        QJsonObject result = root["result"].toObject();
+
+        switch (m_bvfsState) {
+        case BvfsState::GettingJobs:
+            handleBvfsJobsResponse(result);
+            break;
+        case BvfsState::UpdatingCache:
+            handleBvfsCacheUpdated(result);
+            break;
+        case BvfsState::GettingJobIds:
+            handleBvfsJobIdsResponse(result);
+            break;
+        case BvfsState::ListingDirs:
+            handleBvfsDirsResponse(result);
+            break;
+        case BvfsState::ListingFiles:
+            handleBvfsFilesResponse(result);
+            break;
+        case BvfsState::GettingVersions:
+            handleBvfsVersionsResponse(result);
+            break;
+        default:
+            break;
+        }
+    }
+
+    void handleBvfsJobsResponse(const QJsonObject &result)
+    {
+        // Parse SQL query result
+        QJsonArray queryResult = result["query"].toArray();
+        if (queryResult.isEmpty()) {
+            qDebug() << "[BVFS] No backup jobs found in catalog";
+            finishTest(false);
+            return;
+        }
+
+        qDebug() << "\n[BVFS] Recent Backup Jobs:";
+        qDebug() << "  JobId | Name                | Client              | Level | Status | StartTime";
+        qDebug() << "  ------|---------------------|---------------------|-------|--------|--------------------";
+
+        int selectedJobId = 0;
+        QString selectedClient;
+
+        for (const QJsonValue &val : queryResult) {
+            QJsonObject job = val.toObject();
+            int jobId = job["jobid"].toString().toInt();
+            QString name = job["name"].toString().left(19);
+            QString client = job["client"].toString().left(19);
+            QString level = job["level"].toString();
+            QString status = job["jobstatus"].toString();
+            QString startTime = job["starttime"].toString().left(19);
+
+            qDebug().noquote() << QString("  %1 | %2 | %3 | %4     | %5      | %6")
+                .arg(jobId, 5)
+                .arg(name, -19)
+                .arg(client, -19)
+                .arg(level)
+                .arg(status)
+                .arg(startTime);
+
+            // Select first job for exploration
+            if (selectedJobId == 0) {
+                selectedJobId = jobId;
+                selectedClient = job["client"].toString();
+            }
+        }
+
+        if (selectedJobId == 0) {
+            qDebug() << "\n[BVFS] No suitable job found";
+            finishTest(false);
+            return;
+        }
+
+        m_bvfsJobId = selectedJobId;
+        m_bvfsClient = selectedClient;
+
+        // Step 2: Update BVFS cache for this job
+        qDebug() << "\n[BVFS] Step 2: Updating BVFS cache for JobId" << m_bvfsJobId << "...";
+        m_bvfsState = BvfsState::UpdatingCache;
+        m_pendingCommand = "bvfs_update";
+        m_director->sendRawCommand(QString(".bvfs_update jobid=%1").arg(m_bvfsJobId));
+    }
+
+    void handleBvfsCacheUpdated(const QJsonObject &result)
+    {
+        Q_UNUSED(result)
+        qDebug() << "[BVFS] Cache updated successfully";
+
+        // Step 3: Get all JobIDs for the restore chain
+        qDebug() << "\n[BVFS] Step 3: Getting restore chain JobIDs...";
+        m_bvfsState = BvfsState::GettingJobIds;
+        m_pendingCommand = "bvfs_getjobids";
+        m_director->sendRawCommand(QString(".bvfs_get_jobids jobid=%1 all").arg(m_bvfsJobId));
+    }
+
+    void handleBvfsJobIdsResponse(const QJsonObject &result)
+    {
+        // Parse jobids response - format: [{"id": "123"}, {"id": "456"}, ...]
+        QJsonArray jobids = result["jobids"].toArray();
+        if (jobids.isEmpty()) {
+            // Fallback to original job
+            m_bvfsJobIds << QString::number(m_bvfsJobId);
+        } else {
+            for (const QJsonValue &val : jobids) {
+                // Each entry is an object with "id" field
+                QJsonObject obj = val.toObject();
+                QString id = obj["id"].toString();
+                if (!id.isEmpty()) {
+                    m_bvfsJobIds << id;
+                }
+            }
+        }
+
+        // Fallback if still empty
+        if (m_bvfsJobIds.isEmpty()) {
+            m_bvfsJobIds << QString::number(m_bvfsJobId);
+        }
+
+        qDebug() << "[BVFS] Restore chain JobIDs:" << m_bvfsJobIds.join(",");
+
+        // Step 4: List directories at root
+        qDebug() << "\n[BVFS] Step 4: Listing directories at root (/)...";
+        m_bvfsState = BvfsState::ListingDirs;
+        m_pendingCommand = "bvfs_lsdirs";
+        m_director->sendRawCommand(
+            QString(".bvfs_lsdirs jobid=%1 path=/ limit=20").arg(m_bvfsJobIds.join(","))
+        );
+    }
+
+    void handleBvfsDirsResponse(const QJsonObject &result)
+    {
+        QJsonArray dirs = result["directories"].toArray();
+        qDebug() << "\n[BVFS] Directories at /:";
+        qDebug() << "  PathId | Name";
+        qDebug() << "  -------|--------------------";
+
+        QString firstDir;
+        int firstPathId = 0;
+
+        for (const QJsonValue &val : dirs) {
+            QJsonObject dir = val.toObject();
+            int pathId = dir["pathid"].toString().toInt();
+            QString name = dir["name"].toString();
+
+            // Skip . and ..
+            if (name == "." || name == "..") continue;
+
+            qDebug().noquote() << QString("  %1 | %2")
+                .arg(pathId, 6)
+                .arg(name);
+
+            if (firstDir.isEmpty() && !name.isEmpty()) {
+                firstDir = name;
+                firstPathId = pathId;
+            }
+        }
+
+        if (dirs.isEmpty()) {
+            qDebug() << "  (no directories found)";
+        }
+
+        // Step 5: List files in first directory or root
+        qDebug() << "\n[BVFS] Step 5: Listing files...";
+        m_bvfsState = BvfsState::ListingFiles;
+        m_pendingCommand = "bvfs_lsfiles";
+        m_bvfsPathId = firstPathId > 0 ? firstPathId : 1;
+
+        QString path = firstPathId > 0 ? QString("pathid=%1").arg(firstPathId) : "path=/";
+        m_director->sendRawCommand(
+            QString(".bvfs_lsfiles jobid=%1 %2 limit=20").arg(m_bvfsJobIds.join(","), path)
+        );
+    }
+
+    void handleBvfsFilesResponse(const QJsonObject &result)
+    {
+        QJsonArray files = result["files"].toArray();
+        qDebug() << "\n[BVFS] Files:";
+        qDebug() << "  FileId | Name                          | Size       | MTime";
+        qDebug() << "  -------|-------------------------------|------------|--------------------";
+
+        QString firstFile;
+        int firstFileId = 0;
+
+        for (const QJsonValue &val : files) {
+            QJsonObject file = val.toObject();
+            int fileId = file["fileid"].toString().toInt();
+            QString name = file["name"].toString().left(29);
+            qint64 size = file["stat"].toObject()["st_size"].toVariant().toLongLong();
+            QString mtime = file["stat"].toObject()["st_mtime"].toString().left(19);
+
+            qDebug().noquote() << QString("  %1 | %2 | %3 | %4")
+                .arg(fileId, 6)
+                .arg(name, -29)
+                .arg(size, 10)
+                .arg(mtime);
+
+            if (firstFile.isEmpty() && fileId > 0) {
+                firstFile = file["name"].toString();
+                firstFileId = fileId;
+            }
+        }
+
+        if (files.isEmpty()) {
+            qDebug() << "  (no files found)";
+            finishBvfsExplorer();
+            return;
+        }
+
+        // Step 6: Get versions of first file
+        if (!firstFile.isEmpty() && m_bvfsPathId > 0) {
+            qDebug() << "\n[BVFS] Step 6: Getting versions of file:" << firstFile;
+            m_bvfsState = BvfsState::GettingVersions;
+            m_pendingCommand = "bvfs_versions";
+            m_director->sendRawCommand(
+                QString(".bvfs_versions jobid=0 client=%1 pathid=%2 filename=%3")
+                    .arg(m_bvfsClient)
+                    .arg(m_bvfsPathId)
+                    .arg(firstFile)
+            );
+        } else {
+            finishBvfsExplorer();
+        }
+    }
+
+    void handleBvfsVersionsResponse(const QJsonObject &result)
+    {
+        QJsonArray versions = result["versions"].toArray();
+        qDebug() << "\n[BVFS] File Versions:";
+        qDebug() << "  JobId | FileId | MTime               | Size";
+        qDebug() << "  ------|--------|---------------------|------------";
+
+        for (const QJsonValue &val : versions) {
+            QJsonObject ver = val.toObject();
+            int jobId = ver["jobid"].toString().toInt();
+            int fileId = ver["fileid"].toString().toInt();
+            QString mtime = ver["mtime"].toString().left(19);
+            qint64 size = ver["stat"].toObject()["st_size"].toVariant().toLongLong();
+
+            qDebug().noquote() << QString("  %1 | %2 | %3 | %4")
+                .arg(jobId, 5)
+                .arg(fileId, 6)
+                .arg(mtime, -19)
+                .arg(size, 10);
+        }
+
+        if (versions.isEmpty()) {
+            qDebug() << "  (no versions found)";
+        }
+
+        finishBvfsExplorer();
+    }
+
+    void finishBvfsExplorer()
+    {
+        qDebug() << "\n====================================";
+        qDebug() << "[BVFS] Exploration complete";
+        qDebug() << "";
+        qDebug() << "BVFS Commands Summary:";
+        qDebug() << "  .bvfs_update jobid=<id>           - Update BVFS cache";
+        qDebug() << "  .bvfs_get_jobids jobid=<id> [all] - Get restore chain";
+        qDebug() << "  .bvfs_lsdirs jobid=<ids> path=/   - List directories";
+        qDebug() << "  .bvfs_lsfiles jobid=<ids> path=/  - List files";
+        qDebug() << "  .bvfs_versions client=<c> ...     - Get file versions";
+        qDebug() << "  .bvfs_restore path=<p> ...        - Mark for restore";
+        qDebug() << "  .bvfs_cleanup path=<p>            - Cleanup temp data";
+        qDebug() << "  .bvfs_clear_cache yes             - Clear entire cache";
+        qDebug() << "====================================";
+
+        m_bvfsState = BvfsState::Done;
+        finishTest(true);
     }
 
     void startInteractiveMode()
@@ -390,6 +717,23 @@ private:
     bool m_reachedReady = false;
     bool m_testComplete = false;
     bool m_interactive = false;
+
+    // BVFS exploration state
+    enum class BvfsState {
+        Idle,
+        GettingJobs,
+        UpdatingCache,
+        GettingJobIds,
+        ListingDirs,
+        ListingFiles,
+        GettingVersions,
+        Done
+    };
+    BvfsState m_bvfsState = BvfsState::Idle;
+    int m_bvfsJobId = 0;
+    QString m_bvfsClient;
+    QStringList m_bvfsJobIds;
+    int m_bvfsPathId = 0;
 };
 
 #include "director_test.moc"
@@ -415,7 +759,7 @@ int main(int argc, char *argv[])
     parser.addOption({"verbose", "Verbose output"});
 
     parser.addPositionalArgument("command",
-        "Test command: connect, status, jobs, clients, interactive",
+        "Test command: connect, status, jobs, clients, bvfs, interactive",
         "[command]");
 
     parser.process(app);
@@ -440,7 +784,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    QStringList validCommands = {"connect", "status", "jobs", "clients", "interactive"};
+    QStringList validCommands = {"connect", "status", "jobs", "clients", "bvfs", "interactive"};
     if (!validCommands.contains(config.command)) {
         qCritical() << "Error: Invalid command:" << config.command;
         qCritical() << "Valid:" << validCommands.join(", ");
