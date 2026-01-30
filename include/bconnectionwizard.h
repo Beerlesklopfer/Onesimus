@@ -90,6 +90,7 @@ class ServerPage : public QAPage
     Q_OBJECT
 public:
     explicit ServerPage(QWidget *parent = nullptr);
+    bool isComplete() const override;
 private:
     QLineEdit *m_hostEdit;
     QSpinBox *m_portSpin;

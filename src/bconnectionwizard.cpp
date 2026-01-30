@@ -176,8 +176,15 @@ ServerPage::ServerPage(QWidget *parent)
     setHint(tr("The default port is 9101."));
     m_layout->addStretch();
 
-    registerField("host*", m_hostEdit);
+    registerField("host", m_hostEdit);
     registerField("port", m_portSpin);
+
+    connect(m_hostEdit, &QLineEdit::textChanged, this, &ServerPage::completeChanged);
+}
+
+bool ServerPage::isComplete() const
+{
+    return !m_hostEdit->text().trimmed().isEmpty();
 }
 
 // ============================================================================
