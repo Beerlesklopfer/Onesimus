@@ -8,6 +8,8 @@
 #include "settingsdialog.h"
 #include "bcleanupdialog.h"
 #include "bsettings.h"
+#include "bconnectionprofile.h"
+#include "version.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -19,6 +21,7 @@
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QFrame>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -150,6 +153,9 @@ MainWindow::MainWindow(QWidget *parent)
 #ifdef IS_DEVELOPER
         qDebug() << "MainWindow: All resources loaded - refreshing views";
 #endif
+        // Restore cursor - loading complete
+        QApplication::restoreOverrideCursor();
+
         // Trigger UI refresh now that all resources are available
         onRefreshAll();
     });
@@ -455,10 +461,6 @@ void MainWindow::createActions()
     m_aboutAction->setIcon(QIcon::fromTheme("help-about"));
     connect(m_aboutAction, &QAction::triggered, this, &MainWindow::onAboutTriggered);
 
-    m_aboutQtAction = new QAction(tr("About Qt"), this);
-    m_aboutQtAction->setIcon(QIcon::fromTheme("help-about"));
-    connect(m_aboutQtAction, &QAction::triggered, qApp, &QApplication::aboutQt);
-
     m_documentationAction = new QAction(tr("Online Documentation"), this);
     m_documentationAction->setIcon(QIcon::fromTheme("help-contents"));
     m_documentationAction->setShortcut(QKeySequence::HelpContents);
@@ -668,7 +670,6 @@ void MainWindow::createMenus()
     m_helpMenu->addAction(m_reportBugAction);
     m_helpMenu->addSeparator();
     m_helpMenu->addAction(m_aboutAction);
-    m_helpMenu->addAction(m_aboutQtAction);
 
     // Add theme toggle button to the right side of menu bar
     QWidget *spacer = new QWidget();
@@ -734,225 +735,159 @@ void MainWindow::onConnectTriggered()
 
 void MainWindow::showConnectionDialog()
 {
-    QDialog dialog(this);
-    dialog.setWindowTitle("Bareos Director Verbindung");
-    dialog.resize(550, 600);
-
-    QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
-    mainLayout->setSpacing(15);
-
-    // Lade gespeicherte Einstellungen
-    m_director->loadConnectionSettings();
-
     BSettings& settings = BSettings::instance();
 
-    // Bconsole-Verbindungsfelder
-    QGroupBox *connectionGroup = new QGroupBox("Director-Verbindung", &dialog);
-    QFormLayout *connectionLayout = new QFormLayout(connectionGroup);
-    connectionLayout->setSpacing(12);
+    // Migrate old settings if needed
+    settings.migrateOldConnectionSettings();
 
-    QLineEdit *hostEdit = new QLineEdit(settings.connectionHost(), &dialog);
-    hostEdit->setPlaceholderText("z.B. 192.168.1.100 oder bareos-dir.local");
+    // Get available profiles
+    QList<BConnectionProfile> profiles = settings.connectionProfiles();
 
-    QSpinBox *portSpin = new QSpinBox(&dialog);
-    portSpin->setRange(1, 65535);
-    portSpin->setValue(settings.connectionPort());
+    // If no profiles exist, open settings dialog to create one
+    if (profiles.isEmpty()) {
+        QMessageBox::information(this, tr("No Connection Profiles"),
+            tr("No connection profiles found.\n\n"
+               "Please create a connection profile in Settings first."));
+        onSettingsTriggered();
+        return;
+    }
 
-    QLineEdit *directorEdit = new QLineEdit(settings.connectionDirector(), &dialog);
-    directorEdit->setPlaceholderText("bareos-dir");
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Connect to Director"));
+    dialog.resize(450, 250);
 
-    QLineEdit *consoleEdit = new QLineEdit(settings.connectionConsole(), &dialog);
-    consoleEdit->setPlaceholderText("onesimus");
-    consoleEdit->setToolTip("Konsolenname für Authentifizierung (z.B. 'admin' oder 'onesimus')");
+    QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
+    mainLayout->setSpacing(20);
 
-    QLineEdit *passwordEdit = new QLineEdit(&dialog);
-    passwordEdit->setEchoMode(QLineEdit::Password);
-    passwordEdit->setText(settings.connectionPassword());
-    passwordEdit->setPlaceholderText("••••••••");
+    // Title
+    QLabel *titleLabel = new QLabel(tr("Select Connection Profile"));
+    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold;");
+    mainLayout->addWidget(titleLabel);
 
-    connectionLayout->addRow("Host:", hostEdit);
-    connectionLayout->addRow("Port:", portSpin);
-    connectionLayout->addRow("Director Name:", directorEdit);
-    connectionLayout->addRow("Console Name:", consoleEdit);
-    connectionLayout->addRow("Passwort:", passwordEdit);
+    // Profile selection
+    QGroupBox *profileGroup = new QGroupBox(tr("Connection Profile"), &dialog);
+    QVBoxLayout *profileLayout = new QVBoxLayout(profileGroup);
+    profileLayout->setSpacing(12);
 
-    mainLayout->addWidget(connectionGroup);
+    QComboBox *profileCombo = new QComboBox(&dialog);
+    QString lastUsedId = settings.lastUsedProfileId();
+    int selectedIndex = 0;
 
-    // TLS Warning Label (angezeigt wenn TLS deaktiviert ist)
-    QLabel *tlsWarningLabel = new QLabel(
-        "⚠️ TLS verschlüsselt die Kommunikation mit dem Director.\n"
-        "Für Produktionsumgebungen wird TLS dringend empfohlen!", &dialog);
-    tlsWarningLabel->setStyleSheet(
-        "QLabel { background-color: #3a2d1a; border-left: 3px solid #8f6a2d; "
-        "padding: 12px; border-radius: 4px; color: #e8d9c4; }");
-    tlsWarningLabel->setWordWrap(true);
-    mainLayout->addWidget(tlsWarningLabel);
+    for (int i = 0; i < profiles.size(); ++i) {
+        const BConnectionProfile &profile = profiles[i];
+        profileCombo->addItem(profile.displayName(), profile.id);
+        if (profile.id == lastUsedId) {
+            selectedIndex = i;
+        }
+    }
+    profileCombo->setCurrentIndex(selectedIndex);
+    profileLayout->addWidget(profileCombo);
 
-    // TLS/SSL-Einstellungen (checkable GroupBox)
-    QGroupBox *tlsGroupBox = new QGroupBox("TLS/SSL-Verschlüsselung", &dialog);
-    tlsGroupBox->setCheckable(true);
-    tlsGroupBox->setChecked(settings.tlsEnabled());
-    QVBoxLayout *tlsLayout = new QVBoxLayout(tlsGroupBox);
-    tlsLayout->setSpacing(12);
+    // Profile info label
+    QLabel *infoLabel = new QLabel(&dialog);
+    infoLabel->setStyleSheet("color: #888; font-style: italic;");
+    infoLabel->setWordWrap(true);
+    profileLayout->addWidget(infoLabel);
 
-    // Authentifizierungsmethode
-    QLabel *authMethodLabel = new QLabel("Authentifizierungsmethode:");
-    authMethodLabel->setStyleSheet("font-weight: bold;");
-    tlsLayout->addWidget(authMethodLabel);
+    // Update info when profile changes
+    auto updateInfo = [&profiles, profileCombo, infoLabel]() {
+        QString profileId = profileCombo->currentData().toString();
+        for (const BConnectionProfile &p : profiles) {
+            if (p.id == profileId) {
+                QString authMethod = p.legacyAuth ? "Legacy (unencrypted)" :
+                                     (p.tlsUsePSK ? "TLS-PSK" : "TLS Certificate");
+                infoLabel->setText(QString("%1:%2 - %3")
+                    .arg(p.host).arg(p.port).arg(authMethod));
+                break;
+            }
+        }
+    };
+    connect(profileCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            &dialog, updateInfo);
+    updateInfo();
 
-    QRadioButton *tlsPSKRadio = new QRadioButton("PSK (Pre-Shared Key) - Standard für Bareos 18.2+", &dialog);
-    bool usePSK = settings.tlsUsePSK();
-    tlsPSKRadio->setChecked(usePSK);
-    tlsLayout->addWidget(tlsPSKRadio);
+    mainLayout->addWidget(profileGroup);
 
-    QRadioButton *tlsCertificateRadio = new QRadioButton("Zertifikat-basierte TLS-Authentifizierung", &dialog);
-    tlsCertificateRadio->setChecked(!usePSK);
-    tlsLayout->addWidget(tlsCertificateRadio);
-
-    // Zertifikat-Einstellungen (nur für Certificate-Modus)
-    QWidget *certWidget = new QWidget(&dialog);
-    QFormLayout *certLayout = new QFormLayout(certWidget);
-    certLayout->setSpacing(12);
-
-#ifndef Q_OS_WINDOWS
-    // Linux: Separate PEM-Dateien
-    QLineEdit *caCertEdit = new QLineEdit(settings.tlsCaCertFile(), &dialog);
-    caCertEdit->setPlaceholderText("Pfad zum CA-Zertifikat (.pem)");
-    QPushButton *caCertBrowse = new QPushButton("Durchsuchen...", &dialog);
-    QHBoxLayout *caCertLayout = new QHBoxLayout();
-    caCertLayout->addWidget(caCertEdit);
-    caCertLayout->addWidget(caCertBrowse);
-    certLayout->addRow("CA Certificate:", caCertLayout);
-
-    connect(caCertBrowse, &QPushButton::clicked, [&, caCertEdit]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "CA-Zertifikat wählen",
-                                                    QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
-        if (!file.isEmpty()) caCertEdit->setText(file);
+    // Manage profiles link
+    QHBoxLayout *linkLayout = new QHBoxLayout();
+    QPushButton *manageBtn = new QPushButton(tr("Manage Profiles..."), &dialog);
+    manageBtn->setFlat(true);
+    manageBtn->setStyleSheet("color: #4a90d9; text-decoration: underline;");
+    manageBtn->setCursor(Qt::PointingHandCursor);
+    connect(manageBtn, &QPushButton::clicked, [this, &dialog]() {
+        dialog.reject();
+        onSettingsTriggered();
     });
+    linkLayout->addStretch();
+    linkLayout->addWidget(manageBtn);
+    mainLayout->addLayout(linkLayout);
 
-    QLineEdit *certEdit = new QLineEdit(settings.tlsCertFile(), &dialog);
-    certEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pem)");
-    QPushButton *certBrowse = new QPushButton("Durchsuchen...", &dialog);
-    QHBoxLayout *certEditLayout = new QHBoxLayout();
-    certEditLayout->addWidget(certEdit);
-    certEditLayout->addWidget(certBrowse);
-    certLayout->addRow("Client Certificate:", certEditLayout);
-
-    connect(certBrowse, &QPushButton::clicked, [&, certEdit]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "Client-Zertifikat wählen",
-                                                    QString(), "Zertifikate (*.pem *.crt *.cert);;Alle Dateien (*)");
-        if (!file.isEmpty()) certEdit->setText(file);
-    });
-
-    QLineEdit *keyEdit = new QLineEdit(settings.tlsKeyFile(), &dialog);
-    keyEdit->setPlaceholderText("Pfad zum Private Key (.pem, .key)");
-    QPushButton *keyBrowse = new QPushButton("Durchsuchen...", &dialog);
-    QHBoxLayout *keyEditLayout = new QHBoxLayout();
-    keyEditLayout->addWidget(keyEdit);
-    keyEditLayout->addWidget(keyBrowse);
-    certLayout->addRow("Private Key:", keyEditLayout);
-
-    connect(keyBrowse, &QPushButton::clicked, [&, keyEdit]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "Private Key wählen",
-                                                    QString(), "Keys (*.pem *.key);;Alle Dateien (*)");
-        if (!file.isEmpty()) keyEdit->setText(file);
-    });
-#else
-    // Windows: PFX-Datei
-    QLineEdit *pfxFileEdit = new QLineEdit(settings.tlsPfxFile(), &dialog);
-    pfxFileEdit->setPlaceholderText("Pfad zum Client-Zertifikat (.pfx)");
-    QPushButton *pfxBrowse = new QPushButton("Durchsuchen...", &dialog);
-    QHBoxLayout *pfxLayout = new QHBoxLayout();
-    pfxLayout->addWidget(pfxFileEdit);
-    pfxLayout->addWidget(pfxBrowse);
-    certLayout->addRow("PFX Certificate:", pfxLayout);
-
-    connect(pfxBrowse, &QPushButton::clicked, [&, pfxFileEdit]() {
-        QString file = QFileDialog::getOpenFileName(&dialog, "PFX-Zertifikat wählen",
-                                                    QString(), "PKCS#12 (*.pfx *.p12);;Alle Dateien (*)");
-        if (!file.isEmpty()) pfxFileEdit->setText(file);
-    });
-#endif
-
-    // Peer Verification
-    QCheckBox *verifyPeerCheck = new QCheckBox("Server-Zertifikat validieren (empfohlen)", &dialog);
-    verifyPeerCheck->setChecked(settings.tlsVerifyPeer());
-    certLayout->addRow("", verifyPeerCheck);
-
-    certWidget->setEnabled(!usePSK);  // Deaktiviert wenn PSK ausgewählt
-    tlsLayout->addWidget(certWidget);
-
-    // Certificate-Felder nur aktivieren wenn Certificate-Radio ausgewählt
-    connect(tlsCertificateRadio, &QRadioButton::toggled, certWidget, &QWidget::setEnabled);
-
-    mainLayout->addWidget(tlsGroupBox);
-
-    // Verbinde Signal um Warnung anzuzeigen/verstecken
-    tlsWarningLabel->setVisible(!tlsGroupBox->isChecked());
-    connect(tlsGroupBox, &QGroupBox::toggled, [tlsWarningLabel](bool checked) {
-        tlsWarningLabel->setVisible(!checked);
-    });
+    mainLayout->addStretch();
 
     // Buttons
-    QDialogButtonBox *buttonBox = new QDialogButtonBox(
-        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(&dialog);
+    QPushButton *connectBtn = buttonBox->addButton(tr("Connect"), QDialogButtonBox::AcceptRole);
+    connectBtn->setDefault(true);
+    buttonBox->addButton(QDialogButtonBox::Cancel);
     connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     mainLayout->addWidget(buttonBox);
 
     if (dialog.exec() == QDialog::Accepted) {
-        // Speichere Einstellungen
-        settings.setConnectionHost(hostEdit->text());
-        settings.setConnectionPort(portSpin->value());
-        settings.setConnectionDirector(directorEdit->text());
-        settings.setConnectionConsole(consoleEdit->text());
-        settings.setConnectionPassword(passwordEdit->text());
-        settings.setTlsEnabled(tlsGroupBox->isChecked());
-        settings.setTlsUsePSK(tlsPSKRadio->isChecked());
+        QString profileId = profileCombo->currentData().toString();
+        BConnectionProfile profile = settings.connectionProfile(profileId);
 
-#ifndef Q_OS_WINDOWS
-        settings.setTlsCaCertFile(caCertEdit->text());
-        settings.setTlsCertFile(certEdit->text());
-        settings.setTlsKeyFile(keyEdit->text());
-#else
-        settings.setTlsPfxFile(pfxFileEdit->text());
-#endif
-        settings.setTlsVerifyPeer(verifyPeerCheck->isChecked());
+        if (!profile.isValid()) {
+            QMessageBox::critical(this, tr("Error"),
+                tr("Selected profile is invalid."));
+            return;
+        }
+
+        // Save as last used
+        settings.setLastUsedProfileId(profileId);
         settings.sync();
 
-        // TLS-Konfiguration setzen
-        m_director->tlsConfig()->tlsEnable = tlsGroupBox->isChecked();
-        m_director->tlsConfig()->tlsPSKEnable = tlsPSKRadio->isChecked();
-        m_director->tlsConfig()->tlsVerifyPeer = verifyPeerCheck->isChecked();
+        // Configure TLS
+        m_director->tlsConfig()->tlsEnable = profile.tlsEnabled;
+        m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
+        m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
 
 #ifndef Q_OS_WINDOWS
-        if (!caCertEdit->text().isEmpty()) {
-            m_director->tlsConfig()->tlsCaCertFile->setFileName(caCertEdit->text());
+        if (!profile.tlsCaCertFile.isEmpty()) {
+            m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
         }
-        if (!certEdit->text().isEmpty()) {
-            m_director->tlsConfig()->tlsCertFile->setFileName(certEdit->text());
+        if (!profile.tlsCertFile.isEmpty()) {
+            m_director->tlsConfig()->tlsCertFile->setFileName(profile.tlsCertFile);
         }
-        if (!keyEdit->text().isEmpty()) {
-            m_director->tlsConfig()->tlsKeyFile->setFileName(keyEdit->text());
+        if (!profile.tlsKeyFile.isEmpty()) {
+            m_director->tlsConfig()->tlsKeyFile->setFileName(profile.tlsKeyFile);
         }
 #else
-        if (!pfxFileEdit->text().isEmpty()) {
-            m_director->tlsConfig()->tlsPfxFile->setFileName(pfxFileEdit->text());
+        if (!profile.tlsPfxFile.isEmpty()) {
+            m_director->tlsConfig()->tlsPfxFile->setFileName(profile.tlsPfxFile);
         }
 #endif
 
-        // Verbindung herstellen - Thread-safe via helper slot
-        onDirectorConnect(hostEdit->text(),
-                          portSpin->value(),
-                          directorEdit->text(),
-                          consoleEdit->text(),
-                          passwordEdit->text());
+        // Connect using profile data
+        onDirectorConnect(profile.host,
+                          profile.port,
+                          profile.directorName,
+                          profile.consoleName,
+                          profile.password);
 
-        m_statusLabel->setText("Verbindung wird hergestellt...");
+        m_statusLabel->setText(tr("Connecting to %1...").arg(profile.name));
+
+        // Show wait cursor until all resources are loaded
+        QApplication::setOverrideCursor(Qt::WaitCursor);
     }
 }
 void MainWindow::onDisconnectTriggered()
 {
+    // Restore cursor if still waiting
+    while (QApplication::overrideCursor()) {
+        QApplication::restoreOverrideCursor();
+    }
+
     m_director->disconnect();
     m_statusLabel->setText("Getrennt");
 }
@@ -979,77 +914,104 @@ void MainWindow::onAboutTriggered()
 {
     // Dialog erstellen
     QDialog aboutDialog(this);
-    aboutDialog.setWindowTitle("Über Onesimus");
-    aboutDialog.setMinimumSize(400, 300);
+    aboutDialog.setWindowTitle(tr("About Onesimus"));
+    aboutDialog.setMinimumSize(500, 450);
 
     // Hauptlayout
     QVBoxLayout* mainLayout = new QVBoxLayout(&aboutDialog);
+    mainLayout->setSpacing(15);
 
-    // Überschrift
-    QLabel* titleLabel = new QLabel("<h2>Onesimus v1.0</h2>");
-    titleLabel->setAlignment(Qt::AlignCenter);
-    mainLayout->addWidget(titleLabel);
-
-    // Horizontaler Container für Bild + Text
-    QHBoxLayout* contentLayout = new QHBoxLayout();
+    // Horizontaler Container für Logo + Title
+    QHBoxLayout* headerLayout = new QHBoxLayout();
 
     // Logo
     QLabel* logoLabel = new QLabel();
 #if USE_BACULA
-    logoLabel->setPixmap(QPixmap(":/images/logo_bacula.png").scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    logoLabel->setPixmap(QPixmap(":/images/logo_bacula.png").scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 #elif defined(USE_BAREOS)
-    logoLabel->setPixmap(QPixmap(":/images/logo_bareos.png").scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    logoLabel->setPixmap(QPixmap(":/images/logo_bareos.png").scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 #endif
-    contentLayout->addWidget(logoLabel);
+    headerLayout->addWidget(logoLabel);
 
-    // Text neben dem Bild
-    QLabel* textLabel = new QLabel();
+    // Title and version
+    QVBoxLayout* titleLayout = new QVBoxLayout();
+    QLabel* titleLabel = new QLabel("<h1 style='margin:0;'>Onesimus</h1>");
+    titleLayout->addWidget(titleLabel);
+
+    QLabel* versionLabel = new QLabel(QString("<p style='color:#666; margin:0;'>Version %1</p>").arg(PROJECT_VERSION));
+    titleLayout->addWidget(versionLabel);
+
 #if USE_BACULA
-    textLabel->setText("<p>Eine moderne Qt-Oberfläche für Bacula Backup</p>");
+    QLabel* subtitleLabel = new QLabel("<p style='margin:0;'>Modern Qt6 GUI for Bacula Backup</p>");
 #elif defined(USE_BAREOS)
-    textLabel->setText("<p>Eine moderne Qt-Oberfläche für Bareos Backup</p>");
+    QLabel* subtitleLabel = new QLabel("<p style='margin:0;'>Modern Qt6 GUI for Bareos Backup</p>");
 #endif
-    textLabel->setWordWrap(true);
-    contentLayout->addWidget(textLabel);
+    titleLayout->addWidget(subtitleLabel);
+    titleLayout->addStretch();
 
-    mainLayout->addLayout(contentLayout);
+    headerLayout->addLayout(titleLayout);
+    headerLayout->addStretch();
+    mainLayout->addLayout(headerLayout);
 
-    // Unterstützte Features
-    QLabel* featuresLabel = new QLabel(
-        "<p>Unterstützt:</p>"
-        "<ul>"
-        "<li>Console TCP-Verbindungen über SSL/TLS</li>"
-        "<li>Job-Verwaltung</li>"
-        "<li>Client-Verwaltung</li>"
-        "<li>Storage/Volume-Verwaltung</li>"
-        "</ul>"
-        "<p>© 2026</p>"
+    // Separator
+    QFrame* line = new QFrame();
+    line->setFrameShape(QFrame::HLine);
+    line->setFrameShadow(QFrame::Sunken);
+    mainLayout->addWidget(line);
+
+    // Description
+    QLabel* descLabel = new QLabel(
+        "<p>Onesimus is a modern, user-friendly graphical interface for managing "
+        "backup systems. It provides real-time job monitoring, client management, "
+        "and storage administration through a clean, intuitive interface.</p>"
     );
-    featuresLabel->setWordWrap(true);
-    mainLayout->addWidget(featuresLabel);
+    descLabel->setWordWrap(true);
+    mainLayout->addWidget(descLabel);
 
-    // Horizontaler Container für Buttons
+    // Copyright and Author
+    QLabel* copyrightLabel = new QLabel(
+        "<p><b>Author:</b> Jörg Bernau &lt;joerg@bernau.family&gt;</p>"
+        "<p><b>Copyright:</b> © 2026 Jörg Bernau. All rights reserved.</p>"
+        "<p><b>Website:</b> <a href='https://github.com/Beerlesklopfer/Onesimus'>github.com/Beerlesklopfer/Onesimus</a></p>"
+    );
+    copyrightLabel->setWordWrap(true);
+    copyrightLabel->setOpenExternalLinks(true);
+    mainLayout->addWidget(copyrightLabel);
+
+    // License
+    QLabel* licenseLabel = new QLabel(
+        "<p><b>License:</b> MIT License</p>"
+        "<p style='font-size:9pt; color:#666;'>"
+        "Permission is hereby granted, free of charge, to any person obtaining a copy "
+        "of this software and associated documentation files, to deal in the Software "
+        "without restriction, including without limitation the rights to use, copy, modify, "
+        "merge, publish, distribute, sublicense, and/or sell copies of the Software.</p>"
+        "<p style='font-size:9pt; color:#666;'>"
+        "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.</p>"
+    );
+    licenseLabel->setWordWrap(true);
+    mainLayout->addWidget(licenseLabel);
+
+    // Acknowledgments
+    QLabel* ackLabel = new QLabel(
+        "<p style='font-size:9pt;'><b>Built with:</b> Qt " + QString(qVersion()) + ", OpenSSL</p>"
+    );
+    ackLabel->setWordWrap(true);
+    mainLayout->addWidget(ackLabel);
+
+    mainLayout->addStretch();
+
+    // Close Button
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    
-    // Schließen-Button
-    QPushButton* closeButton = new QPushButton("Schließen");
+    buttonLayout->addStretch();
+
+    QPushButton* closeButton = new QPushButton(tr("Close"));
+    closeButton->setDefault(true);
     QObject::connect(closeButton, &QPushButton::clicked, &aboutDialog, &QDialog::accept);
     buttonLayout->addWidget(closeButton);
 
-    // Über Qt Button mit Qt-Logo
-    QPushButton* aboutQtButton = new QPushButton("Über Qt");
-
-    // Qt-Logo aus Ressourcen (oder Standard Qt Icon verwenden)
-    QPixmap qtLogo(":/icons/qt_logo.png"); // Füge das Qt-Logo in deine Ressourcen hinzu
-    aboutQtButton->setIcon(QIcon(qtLogo));
-    aboutQtButton->setIconSize(QSize(24, 24));
-
-    QObject::connect(aboutQtButton, &QPushButton::clicked, this, &QApplication::aboutQt);
-    buttonLayout->addWidget(aboutQtButton);
-
-    // Buttons zum Hauptlayout hinzufügen, zentriert
     mainLayout->addLayout(buttonLayout);
-    
+
     // Dialog anzeigen (modal)
     aboutDialog.exec();
 }
@@ -1180,7 +1142,16 @@ void MainWindow::onKeyboardShortcutsTriggered()
 
 void MainWindow::onSettingsTriggered()
 {
-    SettingsDialog dialog(m_director, this);
+    // Get available levels from JobWidget's level model (if connected)
+    QList<QPair<QString, QString>> availableLevels;
+    if (m_jobWidget && m_jobWidget->levelModel()) {
+        QStringList levelNames = m_jobWidget->levelModel()->levelDescriptions();
+        for (const QString &name : levelNames) {
+            availableLevels.append({name, name});
+        }
+    }
+
+    SettingsDialog dialog(m_director, availableLevels, this);
     if (dialog.exec() == QDialog::Accepted) {
         // Einstellungen wurden geändert
         m_statusLabel->setText("Einstellungen gespeichert");
@@ -1305,6 +1276,9 @@ void MainWindow::onAuthentificationSucceeded(const bool connected, const QString
 
 void MainWindow::onConnectionError(const QString &error)
 {
+    // Restore cursor on error
+    QApplication::restoreOverrideCursor();
+
     QMessageBox::critical(this, tr("Connection Error"), error);
     m_statusLabel->setText(tr("Error: ") + error);
 }
@@ -1347,13 +1321,14 @@ void MainWindow::onRefreshAll()
 
 void MainWindow::onConnectLastUsed()
 {
-    if (!m_director->hasStoredConnection()) {
+    BConnectionProfile profile = BSettings::instance().lastUsedProfile();
+    if (!profile.isValid()) {
         QMessageBox::information(this, tr("No Saved Connection"),
             tr("No previous connection found. Please use 'Connect' to establish a new connection."));
         return;
     }
-    
-    m_statusLabel->setText("Verbinde mit letzter Konfiguration...");
+
+    m_statusLabel->setText(tr("Connecting to %1...").arg(profile.name));
     loadAndConnectLastUsed();
 }
 
@@ -1405,62 +1380,62 @@ void MainWindow::loadAndConnectLastUsed()
 {
     BSettings& settings = BSettings::instance();
 
-    if (!settings.hasStoredConnection()) {
+    // Migrate old settings if needed
+    settings.migrateOldConnectionSettings();
+
+    // Check if auto-connect is enabled
+    if (!settings.connectionAutoConnect()) {
+        m_connectLastAction->setEnabled(!settings.lastUsedProfileId().isEmpty());
         return;
     }
 
-    // Lade gespeicherte Verbindungsdaten
-    QString host = settings.connectionHost();
-    int port = settings.connectionPort();
-    QString director = settings.connectionDirector();
-    QString console = settings.connectionConsole();
-    QString password = settings.connectionPassword();
+    // Get last used profile
+    BConnectionProfile profile = settings.lastUsedProfile();
 
-    // Prüfe ob Passwort vorhanden ist
-    if (password.isEmpty() || host.isEmpty() || director.isEmpty()) {
+    if (!profile.isValid() || profile.host.isEmpty() || profile.password.isEmpty()) {
 #ifdef IS_DEVELOPER
-        qDebug() << "Keine vollständigen Verbindungsdaten gespeichert - Automatische Verbindung übersprungen";
+        qDebug() << "No valid last-used profile - skipping auto-connect";
 #endif
-        m_connectLastAction->setEnabled(true);
+        m_connectLastAction->setEnabled(!settings.lastUsedProfileId().isEmpty());
         return;
     }
 
-    // Lade TLS-Konfiguration
-    m_director->tlsConfig()->tlsEnable = settings.tlsEnabled();
-    m_director->tlsConfig()->tlsRequire = settings.tlsEnabled();
-    m_director->tlsConfig()->tlsPSKEnable = settings.tlsUsePSK();
-    m_director->tlsConfig()->tlsVerifyPeer = settings.tlsVerifyPeer();
+    // Configure TLS
+    m_director->tlsConfig()->tlsEnable = profile.tlsEnabled;
+    m_director->tlsConfig()->tlsRequire = profile.tlsEnabled;
+    m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
+    m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
 
-    QString caCertFile = settings.tlsCaCertFile();
-    if (!caCertFile.isEmpty()) {
-        m_director->tlsConfig()->tlsCaCertFile->setFileName(caCertFile);
+#ifndef Q_OS_WINDOWS
+    if (!profile.tlsCaCertFile.isEmpty()) {
+        m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
     }
-
-#ifdef Q_OS_WINDOWS
-    QString pfxFile = settings.tlsPfxFile();
-    if (!pfxFile.isEmpty()) {
-        m_director->tlsConfig()->tlsPfxFile->setFileName(pfxFile);
+    if (!profile.tlsCertFile.isEmpty()) {
+        m_director->tlsConfig()->tlsCertFile->setFileName(profile.tlsCertFile);
+    }
+    if (!profile.tlsKeyFile.isEmpty()) {
+        m_director->tlsConfig()->tlsKeyFile->setFileName(profile.tlsKeyFile);
     }
 #else
-    QString certFile = settings.tlsCertFile();
-    QString keyFile = settings.tlsKeyFile();
-    if (!certFile.isEmpty()) {
-        m_director->tlsConfig()->tlsCertFile->setFileName(certFile);
-    }
-    if (!keyFile.isEmpty()) {
-        m_director->tlsConfig()->tlsKeyFile->setFileName(keyFile);
+    if (!profile.tlsPfxFile.isEmpty()) {
+        m_director->tlsConfig()->tlsPfxFile->setFileName(profile.tlsPfxFile);
     }
 #endif
 
-    // Stelle Verbindung her - Thread-safe via helper slot
 #ifdef IS_DEVELOPER
-    qDebug() << "Automatische Wiederherstellung der letzten Verbindung:" << host << ":" << port;
+    qDebug() << "Auto-connecting to last used profile:" << profile.name
+             << "(" << profile.host << ":" << profile.port << ")";
 #endif
-    m_director->setTLSConfig(*m_director->tlsConfig());
-    onDirectorConnect(host, port, director, console, password);
-    m_statusLabel->setText(QString("Verbindung wird automatisch hergestellt zu %1...").arg(host));
 
-    // Aktualisiere "Reconnect" Button Status
+    m_director->setTLSConfig(*m_director->tlsConfig());
+    onDirectorConnect(profile.host, profile.port, profile.directorName,
+                      profile.consoleName, profile.password);
+    m_statusLabel->setText(tr("Auto-connecting to %1...").arg(profile.name));
+
+    // Show wait cursor until all resources are loaded
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
+    // Update "Reconnect" button status
     m_connectLastAction->setEnabled(true);
 }
 

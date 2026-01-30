@@ -14,13 +14,13 @@
 #include <QCheckBox>
 #include <QDateTimeEdit>
 #include <QListView>
+#include <QScrollArea>
 
 BJobWidget::BJobWidget(QWidget *parent)
     : QWidget(parent)
     , m_tableView(new BJsonJobView(this))
     , m_streamReader(new BJsonStreamReader(this))
     , m_paginationWidget(new BPaginationWidget(this))
-    , m_statsWidget(nullptr)   // Optional
     , m_logView(new QListView(this))
     , m_logModel(new BJobLogModel(this))
     , m_logTitleLabel(new QLabel(this))
@@ -258,22 +258,9 @@ void BJobWidget::setupUI()
 
     toolbarLayout->addSpacing(10);
 
-    // Job control buttons
-    m_runJobButton = new QPushButton("Job ausführen", this);
-    m_cancelJobButton = new QPushButton("Job abbrechen", this);
-    m_detailsButton = new QPushButton("Details", this);
+    // Refresh button
     m_refreshButton = new QPushButton("Aktualisieren", this);
-
-    m_runJobButton->setIcon(QIcon::fromTheme("media-playback-start"));
-    m_cancelJobButton->setIcon(QIcon::fromTheme("process-stop"));
-    m_detailsButton->setIcon(QIcon::fromTheme("document-properties"));
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
-
-    toolbarLayout->addWidget(m_runJobButton);
-    toolbarLayout->addWidget(m_cancelJobButton);
-    toolbarLayout->addWidget(m_detailsButton);
-
-    toolbarLayout->addSpacing(20);
 
     // Auto-refresh controls
     m_autoRefreshCheck = new QCheckBox("Auto-Refresh", this);
@@ -330,7 +317,19 @@ void BJobWidget::setupUI()
 
     // Level filters
     QGroupBox *levelGroup = new QGroupBox(tr("Backup Level"), this);
-    QVBoxLayout *levelLayout = new QVBoxLayout(levelGroup);
+    QVBoxLayout *levelGroupLayout = new QVBoxLayout(levelGroup);
+    levelGroupLayout->setContentsMargins(0, 0, 0, 0);
+
+    // Create scroll area for level checkboxes
+    QScrollArea *levelScrollArea = new QScrollArea(this);
+    levelScrollArea->setWidgetResizable(true);
+    levelScrollArea->setFrameShape(QFrame::NoFrame);
+    levelScrollArea->setMaximumHeight(150);  // Limit height to ~5 checkboxes
+
+    // Create widget to hold the checkboxes
+    QWidget *levelScrollWidget = new QWidget(this);
+    QVBoxLayout *levelLayout = new QVBoxLayout(levelScrollWidget);
+    levelLayout->setContentsMargins(5, 5, 5, 5);
 
     // Add placeholder label (will be replaced with checkboxes from .levels command)
     QLabel *levelPlaceholder = new QLabel(tr("Wird geladen..."), this);
@@ -339,6 +338,10 @@ void BJobWidget::setupUI()
 
     // Set the dynamic layout
     levelLayout->addLayout(m_levelCheckboxLayout);
+    levelLayout->addStretch();
+
+    levelScrollArea->setWidget(levelScrollWidget);
+    levelGroupLayout->addWidget(levelScrollArea);
 
     filterGroupLayout->addWidget(levelGroup);
 
@@ -426,12 +429,6 @@ void BJobWidget::setupUI()
     m_paginationWidget->setModel(m_tableView->jobsModel());
 
     // Button signals
-    connect(m_runJobButton, &QPushButton::clicked,
-            this, &BJobWidget::onRunJobClicked);
-    connect(m_cancelJobButton, &QPushButton::clicked,
-            this, &BJobWidget::onCancelJobClicked);
-    connect(m_detailsButton, &QPushButton::clicked,
-            this, &BJobWidget::onShowDetailsClicked);
     connect(m_refreshButton, &QPushButton::clicked,
             this, &BJobWidget::onRefreshClicked);
 
@@ -444,10 +441,6 @@ void BJobWidget::setupUI()
                     toggleAutoRefresh(true);
                 }
             });
-
-    // Initial button states
-    m_cancelJobButton->setEnabled(false);
-    m_detailsButton->setEnabled(false);
 }
 
 void BJobWidget::onJobsReceived(const QList<BDirector::JobInfo> &jobs)
@@ -563,11 +556,6 @@ void BJobWidget::setConnectionState(bool connected)
 {
     // Enable/disable buttons based on connection state
     m_refreshButton->setEnabled(connected);
-
-    bool hasSelection = !m_tableView->selectedJobIds().isEmpty();
-    m_runJobButton->setEnabled(connected && hasSelection);
-    m_cancelJobButton->setEnabled(connected && hasSelection);
-    m_detailsButton->setEnabled(connected && hasSelection);
 
     // ✅ Request filter data from Director when connected
     // Note: Filter data will be requested automatically by onRefreshAll()
@@ -705,8 +693,9 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
     // Parse response using model
     m_levelModel->parseLevels(jsonData);
 
-    // Clear existing level checkboxes
+    // Clear existing level checkboxes - must remove from layout BEFORE deleteLater
     for (auto it = m_levelCheckboxes.begin(); it != m_levelCheckboxes.end(); ++it) {
+        m_levelCheckboxLayout->removeWidget(it.value());
         it.value()->deleteLater();
     }
     m_levelCheckboxes.clear();
@@ -724,12 +713,25 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
     qWarning() << "  Level codes:" << levelCodes;
     qWarning() << "  Level descriptions:" << levelDescriptions;
 
-    // Create checkboxes for each level
+    // Get visible levels from settings
+    QStringList visibleLevels = BSettings::instance().visibleLevels();
+
+    // Create checkboxes for each level (skip duplicates and non-visible levels)
     for (int i = 0; i < levelCodes.size() && i < levelDescriptions.size(); ++i) {
         QString levelCode = levelCodes[i];
         QString levelName = levelDescriptions[i];
 
         if (levelCode.isEmpty() || levelName.isEmpty()) {
+            continue;
+        }
+
+        // Skip if checkbox for this level already exists
+        if (m_levelCheckboxes.contains(levelCode)) {
+            continue;
+        }
+
+        // Skip if level is not in visible levels (filter by level name)
+        if (!visibleLevels.contains(levelName)) {
             continue;
         }
 
@@ -957,11 +959,7 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
 
 void BJobWidget::onJobSelectionChanged()
 {
-
     bool hasSelection = !m_tableView->selectedJobIds().isEmpty();
-
-    m_cancelJobButton->setEnabled(hasSelection);
-    m_detailsButton->setEnabled(hasSelection);
 
     // Update job info combo boxes based on selection
     if (hasSelection) {
@@ -982,44 +980,53 @@ void BJobWidget::onJobSelectionChanged()
 
             // Update FileSet combo - fill with all filesets and select current job's fileset
             m_filesetCombo->clear();
+            m_filesetCombo->addItem("");  // Empty placeholder at index 0
             m_filesetCombo->addItems(m_filesetModel->filesetNames());
             if (!fileset.isEmpty()) {
                 int index = m_filesetCombo->findText(fileset);
                 if (index >= 0) {
                     m_filesetCombo->setCurrentIndex(index);
                 } else {
+                    // Value not in list - add it and select
                     m_filesetCombo->addItem(fileset);
                     m_filesetCombo->setCurrentIndex(m_filesetCombo->count() - 1);
                 }
             } else {
+                m_filesetCombo->setCurrentIndex(0);  // Show empty placeholder
             }
 
             // Update Storage combo - fill with all storages and select current job's storage
             m_storageCombo->clear();
+            m_storageCombo->addItem("");  // Empty placeholder at index 0
             m_storageCombo->addItems(m_storageModel->storageNames());
             if (!storage.isEmpty()) {
                 int index = m_storageCombo->findText(storage);
                 if (index >= 0) {
                     m_storageCombo->setCurrentIndex(index);
                 } else {
+                    // Value not in list - add it and select
                     m_storageCombo->addItem(storage);
                     m_storageCombo->setCurrentIndex(m_storageCombo->count() - 1);
                 }
             } else {
+                m_storageCombo->setCurrentIndex(0);  // Show empty placeholder
             }
 
             // Update Pool combo - fill with all pools and select current job's pool
             m_poolCombo->clear();
+            m_poolCombo->addItem("");  // Empty placeholder at index 0
             m_poolCombo->addItems(m_poolModel->poolNames());
             if (!pool.isEmpty()) {
                 int index = m_poolCombo->findText(pool);
                 if (index >= 0) {
                     m_poolCombo->setCurrentIndex(index);
                 } else {
+                    // Value not in list - add it and select
                     m_poolCombo->addItem(pool);
                     m_poolCombo->setCurrentIndex(m_poolCombo->count() - 1);
                 }
             } else {
+                m_poolCombo->setCurrentIndex(0);  // Show empty placeholder
             }
 
             // Enable combo boxes (visual feedback)
@@ -1097,44 +1104,53 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
 
     // Update FileSet combo - fill with all filesets and select current job's fileset
     m_filesetCombo->clear();
+    m_filesetCombo->addItem("");  // Empty placeholder at index 0
     m_filesetCombo->addItems(m_filesetModel->filesetNames());
     if (!fileset.isEmpty()) {
         int index = m_filesetCombo->findText(fileset);
         if (index >= 0) {
             m_filesetCombo->setCurrentIndex(index);
         } else {
+            // Value not in list - add it and select
             m_filesetCombo->addItem(fileset);
             m_filesetCombo->setCurrentIndex(m_filesetCombo->count() - 1);
         }
     } else {
+        m_filesetCombo->setCurrentIndex(0);  // Show empty placeholder
     }
 
     // Update Storage combo - fill with all storages and select current job's storage
     m_storageCombo->clear();
+    m_storageCombo->addItem("");  // Empty placeholder at index 0
     m_storageCombo->addItems(m_storageModel->storageNames());
     if (!storage.isEmpty()) {
         int index = m_storageCombo->findText(storage);
         if (index >= 0) {
             m_storageCombo->setCurrentIndex(index);
         } else {
+            // Value not in list - add it and select
             m_storageCombo->addItem(storage);
             m_storageCombo->setCurrentIndex(m_storageCombo->count() - 1);
         }
     } else {
+        m_storageCombo->setCurrentIndex(0);  // Show empty placeholder
     }
 
     // Update Pool combo - fill with all pools and select current job's pool
     m_poolCombo->clear();
+    m_poolCombo->addItem("");  // Empty placeholder at index 0
     m_poolCombo->addItems(m_poolModel->poolNames());
     if (!pool.isEmpty()) {
         int index = m_poolCombo->findText(pool);
         if (index >= 0) {
             m_poolCombo->setCurrentIndex(index);
         } else {
+            // Value not in list - add it and select
             m_poolCombo->addItem(pool);
             m_poolCombo->setCurrentIndex(m_poolCombo->count() - 1);
         }
     } else {
+        m_poolCombo->setCurrentIndex(0);  // Show empty placeholder
     }
 
     // Enable combo boxes
@@ -1364,12 +1380,31 @@ void BJobWidget::loadSelectedJobLog()
 
 void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonData)
 {
+    // Content-based detection: Check if JSON contains "joblog" key
+    // This is more reliable than command string matching due to race conditions
+    // when multiple commands are in flight (m_lastCommand can be overwritten)
 
-    // Check if this is a job log response
-    if (!command.contains("list joblog")) {
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        return;  // Not valid JSON
+    }
+
+    if (!doc.isObject()) {
         return;
     }
 
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // Check for "joblog" key in result (content-based detection)
+    if (!result.contains("joblog")) {
+        // Also try command-based detection as fallback
+        if (!command.contains("list joblog")) {
+            return;  // Not a job log response
+        }
+    }
 
     QJsonObject selectedJob = m_tableView->getSelectedJob();
     if (selectedJob.isEmpty()) {
@@ -1378,13 +1413,6 @@ void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonDat
 
     QString jobId = selectedJob["jobid"].toString();
     QString jobName = selectedJob["name"].toString();
-
-
-    // Check if this log is for the currently selected job
-    if (!command.contains(jobId)) {
-        return;
-    }
-
 
     // Parse and display the log
     if (m_logModel->parseJsonResponse(jsonData)) {
@@ -1444,9 +1472,14 @@ void BJobWidget::clearData()
 
     // Clear stream reader
     m_streamReader->clear();
+}
 
-    // Reset statistics
-    if (m_statsWidget) {
-        // Statistics will automatically update from empty model
-    }
+QStringList BJobWidget::jobNames() const
+{
+    return m_filterComboModel ? m_filterComboModel->jobNames() : QStringList();
+}
+
+QStringList BJobWidget::clientNames() const
+{
+    return m_filterComboModel ? m_filterComboModel->clientNames() : QStringList();
 }

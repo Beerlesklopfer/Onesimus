@@ -1,6 +1,9 @@
 #include "bsettings.h"
 #include <QDebug>
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 // ============================================================================
 // Singleton Implementation
@@ -173,6 +176,17 @@ void BSettings::setTlsUsePSK(bool usePSK)
     emit connectionSettingsChanged();
 }
 
+bool BSettings::legacyAuth() const
+{
+    return value("Connection/legacy_auth", false).toBool();
+}
+
+void BSettings::setLegacyAuth(bool legacy)
+{
+    setValue("Connection/legacy_auth", legacy);
+    emit connectionSettingsChanged();
+}
+
 QString BSettings::tlsCaCertFile() const
 {
     return value("Connection/tls_ca_cert_file").toString();
@@ -226,6 +240,157 @@ void BSettings::setTlsVerifyPeer(bool verify)
 {
     setValue("Connection/tls_verify_peer", verify);
     emit connectionSettingsChanged();
+}
+
+// ========================================================================
+// Connection Profiles
+// ========================================================================
+
+QList<BConnectionProfile> BSettings::connectionProfiles() const
+{
+    QList<BConnectionProfile> profiles;
+
+    QByteArray jsonData = value("ConnectionProfiles/data").toByteArray();
+    if (jsonData.isEmpty()) {
+        return profiles;
+    }
+
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+    if (!doc.isArray()) {
+        return profiles;
+    }
+
+    QJsonArray array = doc.array();
+    for (const QJsonValue &val : array) {
+        if (val.isObject()) {
+            profiles.append(BConnectionProfile::fromJson(val.toObject()));
+        }
+    }
+
+    return profiles;
+}
+
+void BSettings::setConnectionProfiles(const QList<BConnectionProfile> &profiles)
+{
+    QJsonArray array;
+    for (const BConnectionProfile &profile : profiles) {
+        array.append(profile.toJson());
+    }
+
+    QJsonDocument doc(array);
+    setValue("ConnectionProfiles/data", doc.toJson(QJsonDocument::Compact));
+    emit connectionSettingsChanged();
+}
+
+void BSettings::addConnectionProfile(const BConnectionProfile &profile)
+{
+    QList<BConnectionProfile> profiles = connectionProfiles();
+    profiles.append(profile);
+    setConnectionProfiles(profiles);
+}
+
+bool BSettings::updateConnectionProfile(const BConnectionProfile &profile)
+{
+    QList<BConnectionProfile> profiles = connectionProfiles();
+    for (int i = 0; i < profiles.size(); ++i) {
+        if (profiles[i].id == profile.id) {
+            profiles[i] = profile;
+            setConnectionProfiles(profiles);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BSettings::removeConnectionProfile(const QString &profileId)
+{
+    QList<BConnectionProfile> profiles = connectionProfiles();
+    for (int i = 0; i < profiles.size(); ++i) {
+        if (profiles[i].id == profileId) {
+            profiles.removeAt(i);
+            setConnectionProfiles(profiles);
+
+            // Clear last used if this profile was removed
+            if (lastUsedProfileId() == profileId) {
+                setLastUsedProfileId(QString());
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+BConnectionProfile BSettings::connectionProfile(const QString &profileId) const
+{
+    QList<BConnectionProfile> profiles = connectionProfiles();
+    for (const BConnectionProfile &profile : profiles) {
+        if (profile.id == profileId) {
+            return profile;
+        }
+    }
+    return BConnectionProfile();  // Invalid profile
+}
+
+QString BSettings::lastUsedProfileId() const
+{
+    return value("ConnectionProfiles/lastUsed").toString();
+}
+
+void BSettings::setLastUsedProfileId(const QString &profileId)
+{
+    setValue("ConnectionProfiles/lastUsed", profileId);
+}
+
+BConnectionProfile BSettings::lastUsedProfile() const
+{
+    QString id = lastUsedProfileId();
+    if (id.isEmpty()) {
+        return BConnectionProfile();
+    }
+    return connectionProfile(id);
+}
+
+void BSettings::migrateOldConnectionSettings()
+{
+    // Check if we already have profiles
+    if (!connectionProfiles().isEmpty()) {
+        return;  // Already migrated
+    }
+
+    // Check if old settings exist
+    QString host = connectionHost();
+    if (host.isEmpty() || host == "localhost") {
+        // No meaningful old settings to migrate
+        return;
+    }
+
+#ifdef IS_DEVELOPER
+    qDebug() << "Migrating old connection settings to profile system...";
+#endif
+
+    // Create a profile from old settings
+    BConnectionProfile profile = BConnectionProfile::create(tr("Default"));
+    profile.host = host;
+    profile.port = connectionPort();
+    profile.directorName = connectionDirector();
+    profile.consoleName = connectionConsole();
+    profile.password = connectionPassword();
+    profile.legacyAuth = legacyAuth();
+    profile.tlsEnabled = tlsEnabled();
+    profile.tlsUsePSK = tlsUsePSK();
+    profile.tlsCaCertFile = tlsCaCertFile();
+    profile.tlsCertFile = tlsCertFile();
+    profile.tlsKeyFile = tlsKeyFile();
+    profile.tlsPfxFile = tlsPfxFile();
+    profile.tlsVerifyPeer = tlsVerifyPeer();
+
+    // Save the profile
+    addConnectionProfile(profile);
+    setLastUsedProfileId(profile.id);
+
+#ifdef IS_DEVELOPER
+    qDebug() << "  Created profile:" << profile.name << "with id:" << profile.id;
+#endif
 }
 
 // ========================================================================
@@ -323,6 +488,19 @@ void BSettings::setLevelColor(const QString& level, const QColor& color)
 // ========================================================================
 // Behavior Settings
 // ========================================================================
+
+QStringList BSettings::visibleLevels() const
+{
+    // Default: Full, Incremental, Differential, VirtualFull
+    QStringList defaultLevels = {"Full", "Incremental", "Differential", "VirtualFull"};
+    return value("Behavior/visible_levels", defaultLevels).toStringList();
+}
+
+void BSettings::setVisibleLevels(const QStringList &levels)
+{
+    setValue("Behavior/visible_levels", levels);
+    emit behaviorSettingsChanged();
+}
 
 bool BSettings::behaviorConfirmJobCancel() const
 {

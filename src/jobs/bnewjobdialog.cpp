@@ -126,11 +126,7 @@ void BNewJobDialog::createBasicTab()
     jobLayout->addRow("Client:", m_clientCombo);
 
     m_levelCombo = new QComboBox();
-    m_levelCombo->addItem("Full", "Full");
-    m_levelCombo->addItem("Incremental", "Incremental");
-    m_levelCombo->addItem("Differential", "Differential");
-    m_levelCombo->addItem("VirtualFull", "VirtualFull");
-    m_levelCombo->setCurrentIndex(0);
+    // Levels are populated in loadConfigurationDataFromJobWidget() based on settings
     connect(m_levelCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BNewJobDialog::onLevelChanged);
     jobLayout->addRow("Level:", m_levelCombo);
@@ -240,29 +236,20 @@ void BNewJobDialog::loadConfigurationDataFromJobWidget()
     m_statusLabel->setText("Lade Konfigurationsdaten vom JobWidget...");
     m_statusLabel->setStyleSheet("color: blue;");
 
-    // Connect to Director signals for job and client data
-    if (m_director) {
-        connect(m_director, &BDirector::jsonResponse,
-                this, &BNewJobDialog::onJsonResponse);
-
-        // Request job and client data from Director
-        QMetaObject::invokeMethod(m_director, "doSendCommand",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(BDirector::Command, BDirector::Command::DotJobs),
-                                  Q_ARG(QString, ""));
-
-        QMetaObject::invokeMethod(m_director, "doSendCommand",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(BDirector::Command, BDirector::Command::DotClients),
-                                  Q_ARG(QString, ""));
-    }
-
-    // Get filesets, storages, and pools directly from JobWidget
+    // Get all data directly from JobWidget (already loaded during connection)
+    m_jobNames = m_jobWidget->jobNames();
+    m_clientNames = m_jobWidget->clientNames();
     m_filesetNames = m_jobWidget->filesetNames();
     m_storageNames = m_jobWidget->storageNames();
     m_poolNames = m_jobWidget->poolNames();
 
     // Populate combo boxes with data from JobWidget
+    m_jobCombo->clear();
+    m_jobCombo->addItems(m_jobNames);
+
+    m_clientCombo->clear();
+    m_clientCombo->addItems(m_clientNames);
+
     m_filesetCombo->clear();
     m_filesetCombo->addItems(m_filesetNames);
 
@@ -272,10 +259,29 @@ void BNewJobDialog::loadConfigurationDataFromJobWidget()
     m_poolCombo->clear();
     m_poolCombo->addItems(m_poolNames);
 
-    if (!m_filesetNames.isEmpty() && !m_storageNames.isEmpty() && !m_poolNames.isEmpty()) {
-        m_statusLabel->setText("✓ Konfigurationsdaten geladen");
-        m_statusLabel->setStyleSheet("color: green;");
+    // Populate level combo based on visible levels from settings
+    m_levelCombo->clear();
+    QStringList visibleLevels = BSettings::instance().visibleLevels();
+    for (const QString &level : visibleLevels) {
+        m_levelCombo->addItem(level, level);
     }
+    if (m_levelCombo->count() > 0) {
+        m_levelCombo->setCurrentIndex(0);
+    }
+
+    // Update status based on loaded data
+    if (!m_jobNames.isEmpty()) {
+        m_statusLabel->setText(QString("✓ %1 Jobs, %2 Clients geladen")
+                               .arg(m_jobNames.size())
+                               .arg(m_clientNames.size()));
+        m_statusLabel->setStyleSheet("color: green;");
+        m_dataLoaded = true;
+    } else {
+        m_statusLabel->setText("⚠ Keine Jobs verfügbar - Verbindung prüfen");
+        m_statusLabel->setStyleSheet("color: orange;");
+    }
+
+    buildRunCommand();
 }
 
 void BNewJobDialog::onJsonResponse(const QString &command, const QString &jsonData)

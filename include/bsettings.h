@@ -5,6 +5,7 @@
 #include <QSettings>
 #include <QString>
 #include <QColor>
+#include "bconnectionprofile.h"
 
 /**
  * @brief Centralized settings management for Onesimus
@@ -67,6 +68,10 @@ public:
     bool tlsUsePSK() const;
     void setTlsUsePSK(bool usePSK);
 
+    // Legacy Authentication (CRAM-MD5 without encryption)
+    bool legacyAuth() const;
+    void setLegacyAuth(bool legacy);
+
     QString tlsCaCertFile() const;
     void setTlsCaCertFile(const QString& path);
 
@@ -81,6 +86,75 @@ public:
 
     bool tlsVerifyPeer() const;
     void setTlsVerifyPeer(bool verify);
+
+    // ========================================================================
+    // Connection Profiles
+    // ========================================================================
+
+    /**
+     * @brief Get all saved connection profiles
+     * @return List of connection profiles
+     */
+    QList<BConnectionProfile> connectionProfiles() const;
+
+    /**
+     * @brief Save all connection profiles
+     * @param profiles List of profiles to save
+     */
+    void setConnectionProfiles(const QList<BConnectionProfile> &profiles);
+
+    /**
+     * @brief Add a new connection profile
+     * @param profile Profile to add
+     */
+    void addConnectionProfile(const BConnectionProfile &profile);
+
+    /**
+     * @brief Update an existing connection profile
+     * @param profile Profile with updated data (matched by id)
+     * @return true if profile was found and updated
+     */
+    bool updateConnectionProfile(const BConnectionProfile &profile);
+
+    /**
+     * @brief Remove a connection profile
+     * @param profileId ID of the profile to remove
+     * @return true if profile was found and removed
+     */
+    bool removeConnectionProfile(const QString &profileId);
+
+    /**
+     * @brief Get a connection profile by ID
+     * @param profileId ID of the profile
+     * @return Profile if found, invalid profile otherwise
+     */
+    BConnectionProfile connectionProfile(const QString &profileId) const;
+
+    /**
+     * @brief Get the last used connection profile ID
+     * @return Profile ID or empty string if none
+     */
+    QString lastUsedProfileId() const;
+
+    /**
+     * @brief Set the last used connection profile ID
+     * @param profileId Profile ID
+     */
+    void setLastUsedProfileId(const QString &profileId);
+
+    /**
+     * @brief Get the last used connection profile
+     * @return Profile if found, invalid profile otherwise
+     */
+    BConnectionProfile lastUsedProfile() const;
+
+    /**
+     * @brief Migrate old single-connection settings to a profile
+     *
+     * Call this once to convert existing settings to the new profile system.
+     * Creates a "Default" profile from the old settings if they exist.
+     */
+    void migrateOldConnectionSettings();
 
     // ========================================================================
     // Appearance Settings
@@ -109,6 +183,20 @@ public:
     // ========================================================================
     // Behavior Settings
     // ========================================================================
+
+    /**
+     * @brief Returns the list of visible backup level codes
+     * @return QStringList of level codes (e.g., "F", "I", "D", "V")
+     * @since 2.9
+     */
+    QStringList visibleLevels() const;
+
+    /**
+     * @brief Sets the list of visible backup level codes
+     * @param levels List of level codes to show in UI
+     * @since 2.9
+     */
+    void setVisibleLevels(const QStringList &levels);
 
     bool behaviorConfirmJobCancel() const;
     void setBehaviorConfirmJobCancel(bool confirm);

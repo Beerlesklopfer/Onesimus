@@ -2,8 +2,11 @@
 #include "ui_settingsdialog.h"
 #include "bsettings.h"
 #include "btranslations.h"
+#include "bconnectionprofile.h"
 
 #include <QFormLayout>
+#include <QSet>
+#include <algorithm>
 #include <QGroupBox>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -13,14 +16,44 @@
 #include <QFile>
 #include <QColorDialog>
 
-SettingsDialog::SettingsDialog(BDirector *director, QWidget *parent)
+SettingsDialog::SettingsDialog(BDirector *director,
+                               const QList<QPair<QString, QString>> &availableLevels,
+                               QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::SettingsDialog)
     , m_director(director)
     , m_categoryList(nullptr)
     , m_contentStack(nullptr)
+    , m_availableLevels(availableLevels)
+    , m_levelsLayout(nullptr)
 {
     ui->setupUi(this);
+
+    // Use default levels if none provided from Director
+    if (m_availableLevels.isEmpty()) {
+        m_availableLevels = {
+            {"Full", "Full"},
+            {"Incremental", "Incremental"},
+            {"Differential", "Differential"},
+            {"VirtualFull", "VirtualFull"}
+        };
+    } else {
+        // Remove duplicates and sort
+        QSet<QString> seen;
+        QList<QPair<QString, QString>> uniqueLevels;
+        for (const auto &level : m_availableLevels) {
+            if (!seen.contains(level.first)) {
+                seen.insert(level.first);
+                uniqueLevels.append(level);
+            }
+        }
+        // Sort alphabetically by name
+        std::sort(uniqueLevels.begin(), uniqueLevels.end(),
+                  [](const QPair<QString, QString> &a, const QPair<QString, QString> &b) {
+                      return a.first < b.first;
+                  });
+        m_availableLevels = uniqueLevels;
+    }
 
     setWindowTitle(tr("Settings"));
     resize(900, 600);
@@ -139,33 +172,82 @@ void SettingsDialog::createConnectionPage()
     layout->setSpacing(20);
 
     // Title
-    QLabel *titleLabel = new QLabel(tr("Connection Settings"));
+    QLabel *titleLabel = new QLabel(tr("Connection Manager"));
     titleLabel->setObjectName("pageTitle");
     layout->addWidget(titleLabel);
 
-    // Backup System Selection
-    QGroupBox *systemGroup = new QGroupBox(tr("Backup System"));
-    systemGroup->setObjectName("settingsGroup");
-    QVBoxLayout *systemLayout = new QVBoxLayout(systemGroup);
-    systemLayout->setSpacing(12);
+    // ========================================================================
+    // Connection Profiles List
+    // ========================================================================
+    QGroupBox *profilesGroup = new QGroupBox(tr("Saved Connections"));
+    profilesGroup->setObjectName("settingsGroup");
+    QVBoxLayout *profilesLayout = new QVBoxLayout(profilesGroup);
+    profilesLayout->setSpacing(12);
 
-    QLabel *systemInfoLabel = new QLabel(
-        tr("ℹ️ Bareos is a fork of Bacula with additional features.\n"
-        "Both systems use compatible protocols."));
-    systemInfoLabel->setObjectName("infoLabel");
-    systemInfoLabel->setWordWrap(true);
-    systemLayout->addWidget(systemInfoLabel);
+    // Profile list
+    m_profileList = new QListWidget();
+    m_profileList->setMinimumHeight(120);
+    m_profileList->setMaximumHeight(180);
+    m_profileList->setSelectionMode(QAbstractItemView::SingleSelection);
+    profilesLayout->addWidget(m_profileList);
 
-    layout->addWidget(systemGroup);
+    // Profile buttons
+    QHBoxLayout *profileButtonLayout = new QHBoxLayout();
+    m_addProfileButton = new QPushButton(tr("+ Add"));
+    m_addProfileButton->setToolTip(tr("Add a new connection profile"));
+    m_editProfileButton = new QPushButton(tr("Edit"));
+    m_editProfileButton->setEnabled(false);
+    m_duplicateProfileButton = new QPushButton(tr("Duplicate"));
+    m_duplicateProfileButton->setEnabled(false);
+    m_deleteProfileButton = new QPushButton(tr("Delete"));
+    m_deleteProfileButton->setObjectName("dangerButton");
+    m_deleteProfileButton->setEnabled(false);
 
-    // Bconsole Settings
-    QGroupBox *bconsoleGroup = new QGroupBox(tr("Director Connection (Bconsole)"));
+    profileButtonLayout->addWidget(m_addProfileButton);
+    profileButtonLayout->addWidget(m_editProfileButton);
+    profileButtonLayout->addWidget(m_duplicateProfileButton);
+    profileButtonLayout->addStretch();
+    profileButtonLayout->addWidget(m_deleteProfileButton);
+    profilesLayout->addLayout(profileButtonLayout);
+
+    layout->addWidget(profilesGroup);
+
+    // Connect profile list signals
+    connect(m_profileList, &QListWidget::currentRowChanged, this, &SettingsDialog::onProfileSelectionChanged);
+    connect(m_profileList, &QListWidget::itemDoubleClicked, this, &SettingsDialog::onEditProfile);
+    connect(m_addProfileButton, &QPushButton::clicked, this, &SettingsDialog::onAddProfile);
+    connect(m_editProfileButton, &QPushButton::clicked, this, &SettingsDialog::onEditProfile);
+    connect(m_duplicateProfileButton, &QPushButton::clicked, this, &SettingsDialog::onDuplicateProfile);
+    connect(m_deleteProfileButton, &QPushButton::clicked, this, &SettingsDialog::onDeleteProfile);
+
+    // ========================================================================
+    // Profile Details (shown when a profile is selected)
+    // ========================================================================
+    m_profileDetailsWidget = new QWidget();
+    QVBoxLayout *detailsLayout = new QVBoxLayout(m_profileDetailsWidget);
+    detailsLayout->setContentsMargins(0, 0, 0, 0);
+    detailsLayout->setSpacing(20);
+
+    // Profile Name
+    QGroupBox *nameGroup = new QGroupBox(tr("Profile"));
+    nameGroup->setObjectName("settingsGroup");
+    QFormLayout *nameLayout = new QFormLayout(nameGroup);
+    nameLayout->setSpacing(12);
+
+    m_profileNameEdit = new QLineEdit();
+    m_profileNameEdit->setPlaceholderText(tr("e.g. Production Server, Test Environment"));
+    nameLayout->addRow(tr("Profile Name:"), m_profileNameEdit);
+
+    detailsLayout->addWidget(nameGroup);
+
+    // Director Connection Settings
+    QGroupBox *bconsoleGroup = new QGroupBox(tr("Director Connection"));
     bconsoleGroup->setObjectName("settingsGroup");
     QFormLayout *bconsoleLayout = new QFormLayout(bconsoleGroup);
     bconsoleLayout->setSpacing(12);
 
     m_hostEdit = new QLineEdit();
-    m_hostEdit->setPlaceholderText(tr("e.g. 192.168.1.100 or bacula-dir.local"));
+    m_hostEdit->setPlaceholderText(tr("e.g. 192.168.1.100 or bareos-dir.local"));
     bconsoleLayout->addRow(tr("Host:"), m_hostEdit);
 
     m_portSpin = new QSpinBox();
@@ -187,50 +269,74 @@ void SettingsDialog::createConnectionPage()
     m_passwordEdit->setPlaceholderText("••••••••");
     bconsoleLayout->addRow(tr("Password:"), m_passwordEdit);
 
-    layout->addWidget(bconsoleGroup);
+    detailsLayout->addWidget(bconsoleGroup);
 
-    // TLS Info Label (shown when TLS is disabled)
+    // TLS Warning Label (shown when Legacy is selected)
     QLabel *tlsWarningLabel = new QLabel(
         tr("⚠️ TLS encrypts communication with the Director.\n"
         "TLS is strongly recommended for production environments!"));
     tlsWarningLabel->setObjectName("warningLabel");
     tlsWarningLabel->setWordWrap(true);
-    layout->addWidget(tlsWarningLabel);
+    tlsWarningLabel->setVisible(false);
+    detailsLayout->addWidget(tlsWarningLabel);
 
-    // TLS/SSL Settings (checkable GroupBox)
-    m_tlsGroupBox = new QGroupBox(tr("TLS/SSL Encryption"));
+    // Authentication & Encryption Settings
+    m_tlsGroupBox = new QGroupBox(tr("Authentication & Encryption"));
     m_tlsGroupBox->setObjectName("settingsGroup");
-    m_tlsGroupBox->setCheckable(true);
-    m_tlsGroupBox->setChecked(true);  // Initial: TLS enabled
     QVBoxLayout *tlsLayout = new QVBoxLayout(m_tlsGroupBox);
     tlsLayout->setSpacing(12);
-
-    // Connect signal to show/hide warning
-    tlsWarningLabel->setVisible(!m_tlsGroupBox->isChecked());
-    connect(m_tlsGroupBox, &QGroupBox::toggled, [tlsWarningLabel](bool checked) {
-        tlsWarningLabel->setVisible(!checked);
-    });
 
     // Authentication Method
     QLabel *authMethodLabel = new QLabel(tr("Authentication Method:"));
     authMethodLabel->setStyleSheet("font-weight: bold;");
     tlsLayout->addWidget(authMethodLabel);
 
+    m_tlsLegacyRadio = new QRadioButton(tr("Legacy (CRAM-MD5 without TLS) - For older Directors"));
+    m_tlsLegacyRadio->setToolTip(tr("Use plain CRAM-MD5 authentication without encryption.\n"
+                                     "Only use this for older Bareos/Bacula Directors that don't support TLS."));
+    tlsLayout->addWidget(m_tlsLegacyRadio);
+
     m_tlsPSKRadio = new QRadioButton(tr("PSK (Pre-Shared Key) - Standard for Bareos 18.2+"));
     m_tlsPSKRadio->setChecked(true);
+    m_tlsPSKRadio->setToolTip(tr("TLS encryption with Pre-Shared Key authentication.\n"
+                                  "This is the recommended method for modern Bareos installations."));
     tlsLayout->addWidget(m_tlsPSKRadio);
 
     m_tlsCertificateRadio = new QRadioButton(tr("Certificate-based TLS Authentication"));
+    m_tlsCertificateRadio->setToolTip(tr("TLS encryption with X.509 certificates.\n"
+                                          "Requires CA certificate and client certificate/key files."));
     tlsLayout->addWidget(m_tlsCertificateRadio);
 
+    // Connect signal to show warning when legacy is selected
+    connect(m_tlsLegacyRadio, &QRadioButton::toggled, this, [this, tlsWarningLabel](bool checked) {
+        tlsWarningLabel->setVisible(checked);
+        if (checked) {
+            QMessageBox::StandardButton reply = QMessageBox::warning(
+                this,
+                tr("Security Warning"),
+                tr("⚠️ Legacy Authentication Warning\n\n"
+                   "You are about to enable Legacy Authentication (CRAM-MD5 without TLS).\n\n"
+                   "This means:\n"
+                   "• Your password will be transmitted WITHOUT encryption\n"
+                   "• All backup data could be intercepted\n"
+                   "• This is only intended for older Directors without TLS support\n\n"
+                   "Are you sure you want to use Legacy Authentication?"),
+                QMessageBox::Yes | QMessageBox::No,
+                QMessageBox::No
+            );
+            if (reply != QMessageBox::Yes) {
+                m_tlsPSKRadio->setChecked(true);
+            }
+        }
+    });
+
     // Certificate Settings (only for Certificate mode)
-    QWidget *certWidget = new QWidget();
-    QFormLayout *certLayout = new QFormLayout(certWidget);
+    m_certWidget = new QWidget();
+    QFormLayout *certLayout = new QFormLayout(m_certWidget);
     certLayout->setSpacing(12);
 
 #ifndef Q_OS_WINDOWS
     // Linux: Separate PEM files
-    // CA Certificate
     QHBoxLayout *caLayout = new QHBoxLayout();
     m_caCertEdit = new QLineEdit();
     m_caCertEdit->setPlaceholderText(tr("Path to CA certificate (.pem)"));
@@ -241,7 +347,6 @@ void SettingsDialog::createConnectionPage()
     caLayout->addWidget(caBrowse);
     certLayout->addRow(tr("CA Certificate:"), caLayout);
 
-    // Client Certificate
     QHBoxLayout *clientCertLayout = new QHBoxLayout();
     m_clientCertEdit = new QLineEdit();
     m_clientCertEdit->setPlaceholderText(tr("Path to client certificate (.pem)"));
@@ -252,7 +357,6 @@ void SettingsDialog::createConnectionPage()
     clientCertLayout->addWidget(clientCertBrowse);
     certLayout->addRow(tr("Client Certificate:"), clientCertLayout);
 
-    // Private Key
     QHBoxLayout *keyLayout = new QHBoxLayout();
     m_clientKeyEdit = new QLineEdit();
     m_clientKeyEdit->setPlaceholderText(tr("Path to private key (.pem, .key)"));
@@ -275,26 +379,23 @@ void SettingsDialog::createConnectionPage()
     certLayout->addRow(tr("PFX Certificate:"), clientCertLayout);
 #endif
 
-    // Peer Verification
     m_verifyPeerCheck = new QCheckBox(tr("Verify server certificate (recommended)"));
     m_verifyPeerCheck->setChecked(true);
     certLayout->addRow("", m_verifyPeerCheck);
 
-    certWidget->setEnabled(false);  // Disabled by default (PSK is selected)
-    tlsLayout->addWidget(certWidget);
+    m_certWidget->setEnabled(false);
+    tlsLayout->addWidget(m_certWidget);
+    connect(m_tlsCertificateRadio, &QRadioButton::toggled, m_certWidget, &QWidget::setEnabled);
 
-    // Only enable certificate fields when Certificate radio is selected
-    connect(m_tlsCertificateRadio, &QRadioButton::toggled, certWidget, &QWidget::setEnabled);
-
-    layout->addWidget(m_tlsGroupBox);
+    detailsLayout->addWidget(m_tlsGroupBox);
 
     // Connection Options
-    QGroupBox *optionsGroup = new QGroupBox(tr("Connection Options"));
+    QGroupBox *optionsGroup = new QGroupBox(tr("Options"));
     optionsGroup->setObjectName("settingsGroup");
     QVBoxLayout *optionsLayout = new QVBoxLayout(optionsGroup);
     optionsLayout->setSpacing(12);
 
-    m_savePasswordCheck = new QCheckBox(tr("Save password"));
+    m_savePasswordCheck = new QCheckBox(tr("Save password in profile"));
     m_savePasswordCheck->setChecked(true);
     optionsLayout->addWidget(m_savePasswordCheck);
 
@@ -312,24 +413,35 @@ void SettingsDialog::createConnectionPage()
     timeoutLayout->addStretch();
     optionsLayout->addLayout(timeoutLayout);
 
-    layout->addWidget(optionsGroup);
+    detailsLayout->addWidget(optionsGroup);
 
-    // Buttons
+    detailsLayout->addStretch();
+
+    // Save profile button - slim, full width at bottom
+    QPushButton *saveProfileBtn = new QPushButton(tr("Save Profile"));
+    saveProfileBtn->setObjectName("applyButton");
+    saveProfileBtn->setToolTip(tr("Save changes to this connection profile"));
+    connect(saveProfileBtn, &QPushButton::clicked, this, &SettingsDialog::saveCurrentProfile);
+    detailsLayout->addWidget(saveProfileBtn);
+
+    // Initially hide details until a profile is selected
+    m_profileDetailsWidget->setVisible(false);
+    layout->addWidget(m_profileDetailsWidget);
+
+    // ========================================================================
+    // Import/Export Buttons
+    // ========================================================================
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    QPushButton *exportBtn = new QPushButton(tr("Export Settings"));
-    QPushButton *importBtn = new QPushButton(tr("Import Settings"));
-    QPushButton *clearBtn = new QPushButton(tr("Clear Stored Connections"));
-    clearBtn->setObjectName("dangerButton");
+    QPushButton *exportBtn = new QPushButton(tr("Export All Profiles"));
+    QPushButton *importBtn = new QPushButton(tr("Import Profiles"));
 
     connect(exportBtn, &QPushButton::clicked, this, &SettingsDialog::onExportSettings);
     connect(importBtn, &QPushButton::clicked, this, &SettingsDialog::onImportSettings);
-    connect(clearBtn, &QPushButton::clicked, this, &SettingsDialog::onClearStoredConnections);
 
     buttonLayout->addWidget(exportBtn);
     buttonLayout->addWidget(importBtn);
     buttonLayout->addStretch();
-    buttonLayout->addWidget(clearBtn);
-    optionsLayout->addLayout(buttonLayout);
+    layout->addLayout(buttonLayout);
 
     layout->addStretch();
 
@@ -547,6 +659,41 @@ void SettingsDialog::createBehaviorPage()
     displayLayout->addRow(tr("Maximum Jobs:"), m_maxJobsDisplaySpin);
 
     layout->addWidget(displayGroup);
+
+    // Visible Backup Levels (dynamic from Director)
+    QGroupBox *levelsGroup = new QGroupBox(tr("Visible Backup Levels"));
+    levelsGroup->setObjectName("settingsGroup");
+    m_levelsLayout = new QVBoxLayout(levelsGroup);
+
+    QLabel *levelsInfoLabel = new QLabel(
+        tr("Select which backup levels appear in the Run Backup dialog:"));
+    levelsInfoLabel->setWordWrap(true);
+    m_levelsLayout->addWidget(levelsInfoLabel);
+
+    // Tooltips for common levels
+    QMap<QString, QString> levelTooltips = {
+        {"Full", tr("Complete backup of all files")},
+        {"Incremental", tr("Backup files changed since last backup")},
+        {"Differential", tr("Backup files changed since last Full backup")},
+        {"VirtualFull", tr("Consolidate incremental backups into a synthetic full")},
+        {"Data", tr("Data-level backup (rarely used)")}
+    };
+
+    // Create checkboxes dynamically from available levels
+    for (const auto &level : m_availableLevels) {
+        QString levelName = level.first;
+        QCheckBox *checkbox = new QCheckBox(levelName);
+
+        // Set tooltip if available
+        if (levelTooltips.contains(levelName)) {
+            checkbox->setToolTip(levelTooltips[levelName]);
+        }
+
+        m_levelCheckboxes[levelName] = checkbox;
+        m_levelsLayout->addWidget(checkbox);
+    }
+
+    layout->addWidget(levelsGroup);
 
     layout->addStretch();
 
@@ -866,34 +1013,38 @@ void SettingsDialog::loadSettings()
 {
     BSettings& settings = BSettings::instance();
 
-    // Connection
-    m_hostEdit->setText(settings.connectionHost());
-    m_portSpin->setValue(settings.connectionPort());
-    m_directorEdit->setText(settings.connectionDirector());
-    m_consoleEdit->setText(settings.connectionConsole());
-    m_passwordEdit->setText(settings.connectionPassword());
+    // ========================================================================
+    // Connection Profiles
+    // ========================================================================
+
+    // Migrate old settings if needed
+    settings.migrateOldConnectionSettings();
+
+    // Load profiles into list
+    m_profileList->clear();
+    QList<BConnectionProfile> profiles = settings.connectionProfiles();
+    QString lastUsedId = settings.lastUsedProfileId();
+
+    for (const BConnectionProfile &profile : profiles) {
+        QListWidgetItem *item = new QListWidgetItem(profile.displayName());
+        item->setData(Qt::UserRole, profile.id);
+        m_profileList->addItem(item);
+
+        // Select the last used profile
+        if (profile.id == lastUsedId) {
+            m_profileList->setCurrentItem(item);
+        }
+    }
+
+    // If no profile was selected, select the first one
+    if (m_profileList->currentRow() < 0 && m_profileList->count() > 0) {
+        m_profileList->setCurrentRow(0);
+    }
+
+    // Global connection options (not per-profile)
     m_savePasswordCheck->setChecked(settings.connectionSavePassword());
     m_autoConnectCheck->setChecked(settings.connectionAutoConnect());
     m_connectionTimeoutSpin->setValue(settings.connectionTimeout());
-
-    // TLS
-    m_tlsGroupBox->setChecked(settings.tlsEnabled());
-    bool usePSK = settings.tlsUsePSK();
-    if (usePSK) {
-        m_tlsPSKRadio->setChecked(true);
-    } else {
-        m_tlsCertificateRadio->setChecked(true);
-    }
-
-#ifndef Q_OS_WINDOWS
-    m_caCertEdit->setText(settings.tlsCaCertFile());
-    m_clientCertEdit->setText(settings.tlsCertFile());
-    m_clientKeyEdit->setText(settings.tlsKeyFile());
-#else
-    m_clientCertEdit->setText(settings.tlsPfxFile());
-#endif
-
-    m_verifyPeerCheck->setChecked(settings.tlsVerifyPeer());
 
     // Appearance
     QString theme = settings.appearanceTheme();
@@ -942,6 +1093,12 @@ void SettingsDialog::loadSettings()
     m_refreshIntervalSpin->setValue(settings.behaviorRefreshInterval());
     m_maxJobsDisplaySpin->setValue(settings.behaviorMaxJobsDisplay());
 
+    // Visible Backup Levels (dynamic)
+    QStringList visibleLevels = settings.visibleLevels();
+    for (auto it = m_levelCheckboxes.constBegin(); it != m_levelCheckboxes.constEnd(); ++it) {
+        it.value()->setChecked(visibleLevels.contains(it.key()));
+    }
+
     // Advanced
     m_debugLoggingCheck->setChecked(settings.advancedDebugLogging());
     m_logFileEdit->setText(settings.advancedLogFile());
@@ -953,27 +1110,50 @@ void SettingsDialog::saveSettings()
 {
     BSettings& settings = BSettings::instance();
 
-    // Connection
-    settings.setConnectionHost(m_hostEdit->text());
-    settings.setConnectionPort(m_portSpin->value());
-    settings.setConnectionDirector(m_directorEdit->text());
-    settings.setConnectionConsole(m_consoleEdit->text());
+    // ========================================================================
+    // Connection Profiles
+    // ========================================================================
+
+    // Save the currently edited profile (if any)
+    if (!m_currentProfileId.isEmpty()) {
+        BConnectionProfile profile = settings.connectionProfile(m_currentProfileId);
+        if (profile.isValid()) {
+            profile.name = m_profileNameEdit->text().trimmed();
+            if (profile.name.isEmpty()) {
+                profile.name = tr("Unnamed Connection");
+            }
+            profile.host = m_hostEdit->text().trimmed();
+            profile.port = m_portSpin->value();
+            profile.directorName = m_directorEdit->text().trimmed();
+            profile.consoleName = m_consoleEdit->text().trimmed();
+
+            if (m_savePasswordCheck->isChecked()) {
+                profile.password = m_passwordEdit->text();
+            } else {
+                profile.password.clear();
+            }
+
+            profile.legacyAuth = m_tlsLegacyRadio->isChecked();
+            profile.tlsEnabled = !m_tlsLegacyRadio->isChecked();
+            profile.tlsUsePSK = m_tlsPSKRadio->isChecked();
+
+#ifndef Q_OS_WINDOWS
+            profile.tlsCaCertFile = m_caCertEdit->text();
+            profile.tlsCertFile = m_clientCertEdit->text();
+            profile.tlsKeyFile = m_clientKeyEdit->text();
+#else
+            profile.tlsPfxFile = m_clientCertEdit->text();
+#endif
+            profile.tlsVerifyPeer = m_verifyPeerCheck->isChecked();
+
+            settings.updateConnectionProfile(profile);
+        }
+    }
+
+    // Save global connection options
     settings.setConnectionSavePassword(m_savePasswordCheck->isChecked());
-    settings.setConnectionPassword(m_passwordEdit->text());  // Will only save if savePassword is true
     settings.setConnectionAutoConnect(m_autoConnectCheck->isChecked());
     settings.setConnectionTimeout(m_connectionTimeoutSpin->value());
-
-    // TLS
-    settings.setTlsEnabled(m_tlsGroupBox->isChecked());
-    settings.setTlsUsePSK(m_tlsPSKRadio->isChecked());
-#ifndef Q_OS_WINDOWS
-    settings.setTlsCaCertFile(m_caCertEdit->text());
-    settings.setTlsCertFile(m_clientCertEdit->text());
-    settings.setTlsKeyFile(m_clientKeyEdit->text());
-#else
-    settings.setTlsPfxFile(m_clientCertEdit->text());
-#endif
-    settings.setTlsVerifyPeer(m_verifyPeerCheck->isChecked());
 
     // Appearance
     settings.setAppearanceTheme(m_themeCombo->currentData().toString());
@@ -995,6 +1175,15 @@ void SettingsDialog::saveSettings()
     settings.setBehaviorAutoRefresh(m_autoRefreshCheck->isChecked());
     settings.setBehaviorRefreshInterval(m_refreshIntervalSpin->value());
     settings.setBehaviorMaxJobsDisplay(m_maxJobsDisplaySpin->value());
+
+    // Visible Backup Levels (dynamic)
+    QStringList visibleLevels;
+    for (auto it = m_levelCheckboxes.constBegin(); it != m_levelCheckboxes.constEnd(); ++it) {
+        if (it.value()->isChecked()) {
+            visibleLevels << it.key();
+        }
+    }
+    settings.setVisibleLevels(visibleLevels);
 
     // Advanced
     settings.setAdvancedDebugLogging(m_debugLoggingCheck->isChecked());
@@ -1119,35 +1308,35 @@ void SettingsDialog::onImportSettings()
 
 void SettingsDialog::onClearStoredConnections()
 {
-    int ret = QMessageBox::warning(this, tr("Clear Connections"),
-        tr("Do you really want to delete all stored connection information?\n"
-        "This includes passwords and certificate paths."),
-        QMessageBox::Yes | QMessageBox::No);
+    int profileCount = BSettings::instance().connectionProfiles().count();
+    if (profileCount == 0) {
+        QMessageBox::information(this, tr("No Profiles"),
+            tr("There are no connection profiles to delete."));
+        return;
+    }
+
+    int ret = QMessageBox::warning(this, tr("Clear All Profiles"),
+        tr("Do you really want to delete all %1 connection profile(s)?\n\n"
+           "This includes all passwords and certificate paths.\n"
+           "This action cannot be undone.").arg(profileCount),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
 
     if (ret == QMessageBox::Yes) {
         BSettings& settings = BSettings::instance();
 
-        // Clear all connection settings
-        settings.setConnectionHost("");
-        settings.setConnectionPort(9101);
-        settings.setConnectionDirector("bareos-dir");
-        settings.setConnectionConsole("onesimus");
-        settings.setConnectionPassword("");
-        settings.setConnectionSavePassword(true);
-        settings.setConnectionAutoConnect(false);
-        settings.setConnectionTimeout(30);
-        settings.setTlsEnabled(true);
-        settings.setTlsUsePSK(true);
-        settings.setTlsCaCertFile("");
-        settings.setTlsCertFile("");
-        settings.setTlsKeyFile("");
-        settings.setTlsPfxFile("");
-        settings.setTlsVerifyPeer(true);
+        // Clear all profiles
+        settings.setConnectionProfiles(QList<BConnectionProfile>());
+        settings.setLastUsedProfileId(QString());
         settings.sync();
 
-        loadSettings();
+        // Clear the list
+        m_profileList->clear();
+        m_currentProfileId.clear();
+        m_profileDetailsWidget->setVisible(false);
+
         QMessageBox::information(this, tr("Deleted"),
-            tr("All stored connection information has been deleted."));
+            tr("All connection profiles have been deleted."));
     }
 }
 
@@ -1205,4 +1394,220 @@ void SettingsDialog::onChooseColorVirtualFull()
         QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
         m_colorButtonVirtualFull->setStyleSheet(styleSheet);
     }
+}
+
+// ============================================================================
+// Connection Profile Management
+// ============================================================================
+
+void SettingsDialog::onProfileSelectionChanged()
+{
+    int currentRow = m_profileList->currentRow();
+    bool hasSelection = (currentRow >= 0);
+
+    // Enable/disable buttons based on selection
+    m_editProfileButton->setEnabled(hasSelection);
+    m_duplicateProfileButton->setEnabled(hasSelection);
+    m_deleteProfileButton->setEnabled(hasSelection);
+
+    // Show/hide details widget
+    m_profileDetailsWidget->setVisible(hasSelection);
+
+    if (hasSelection) {
+        // Load the selected profile into the form
+        QListWidgetItem *item = m_profileList->currentItem();
+        if (item) {
+            QString profileId = item->data(Qt::UserRole).toString();
+            BConnectionProfile profile = BSettings::instance().connectionProfile(profileId);
+
+            if (profile.isValid()) {
+                m_currentProfileId = profileId;
+
+                // Block signals to prevent triggering saves
+                QSignalBlocker blocker1(m_profileNameEdit);
+                QSignalBlocker blocker2(m_hostEdit);
+                QSignalBlocker blocker3(m_portSpin);
+                QSignalBlocker blocker4(m_directorEdit);
+                QSignalBlocker blocker5(m_consoleEdit);
+                QSignalBlocker blocker6(m_passwordEdit);
+                QSignalBlocker blocker7(m_tlsLegacyRadio);
+                QSignalBlocker blocker8(m_tlsPSKRadio);
+                QSignalBlocker blocker9(m_tlsCertificateRadio);
+
+                m_profileNameEdit->setText(profile.name);
+                m_hostEdit->setText(profile.host);
+                m_portSpin->setValue(profile.port);
+                m_directorEdit->setText(profile.directorName);
+                m_consoleEdit->setText(profile.consoleName);
+                m_passwordEdit->setText(profile.password);
+
+                // Auth method
+                if (profile.legacyAuth) {
+                    m_tlsLegacyRadio->setChecked(true);
+                } else if (profile.tlsUsePSK) {
+                    m_tlsPSKRadio->setChecked(true);
+                } else {
+                    m_tlsCertificateRadio->setChecked(true);
+                }
+
+                // TLS certificates
+#ifndef Q_OS_WINDOWS
+                m_caCertEdit->setText(profile.tlsCaCertFile);
+                m_clientCertEdit->setText(profile.tlsCertFile);
+                m_clientKeyEdit->setText(profile.tlsKeyFile);
+#else
+                m_clientCertEdit->setText(profile.tlsPfxFile);
+#endif
+                m_verifyPeerCheck->setChecked(profile.tlsVerifyPeer);
+
+                // Manually enable/disable certWidget since signals were blocked
+                m_certWidget->setEnabled(m_tlsCertificateRadio->isChecked());
+            }
+        }
+    } else {
+        m_currentProfileId.clear();
+    }
+}
+
+void SettingsDialog::onAddProfile()
+{
+    // Create a new profile with defaults
+    BConnectionProfile profile = BConnectionProfile::create(tr("New Connection"));
+
+    // Add to settings
+    BSettings::instance().addConnectionProfile(profile);
+
+    // Add to list
+    QListWidgetItem *item = new QListWidgetItem(profile.displayName());
+    item->setData(Qt::UserRole, profile.id);
+    m_profileList->addItem(item);
+
+    // Select the new profile
+    m_profileList->setCurrentItem(item);
+
+    // Focus the name edit for immediate renaming
+    m_profileNameEdit->setFocus();
+    m_profileNameEdit->selectAll();
+}
+
+void SettingsDialog::onEditProfile()
+{
+    // Just ensure the profile is selected and details are visible
+    if (m_profileList->currentRow() >= 0) {
+        m_profileDetailsWidget->setVisible(true);
+        m_profileNameEdit->setFocus();
+    }
+}
+
+void SettingsDialog::onDeleteProfile()
+{
+    int currentRow = m_profileList->currentRow();
+    if (currentRow < 0) return;
+
+    QListWidgetItem *item = m_profileList->currentItem();
+    if (!item) return;
+
+    QString profileId = item->data(Qt::UserRole).toString();
+    QString profileName = item->text();
+
+    int ret = QMessageBox::question(this, tr("Delete Profile"),
+        tr("Do you really want to delete the connection profile \"%1\"?\n\n"
+           "This action cannot be undone.").arg(profileName),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+
+    if (ret == QMessageBox::Yes) {
+        // Remove from settings
+        BSettings::instance().removeConnectionProfile(profileId);
+
+        // Remove from list
+        delete m_profileList->takeItem(currentRow);
+
+        // Clear current profile ID
+        if (m_currentProfileId == profileId) {
+            m_currentProfileId.clear();
+        }
+    }
+}
+
+void SettingsDialog::onDuplicateProfile()
+{
+    int currentRow = m_profileList->currentRow();
+    if (currentRow < 0) return;
+
+    QListWidgetItem *item = m_profileList->currentItem();
+    if (!item) return;
+
+    QString profileId = item->data(Qt::UserRole).toString();
+    BConnectionProfile original = BSettings::instance().connectionProfile(profileId);
+
+    if (!original.isValid()) return;
+
+    // Create a copy with a new ID
+    BConnectionProfile copy = original;
+    copy.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    copy.name = tr("%1 (Copy)").arg(original.name);
+
+    // Add to settings
+    BSettings::instance().addConnectionProfile(copy);
+
+    // Add to list
+    QListWidgetItem *newItem = new QListWidgetItem(copy.displayName());
+    newItem->setData(Qt::UserRole, copy.id);
+    m_profileList->addItem(newItem);
+
+    // Select the new profile
+    m_profileList->setCurrentItem(newItem);
+}
+
+void SettingsDialog::saveCurrentProfile()
+{
+    if (m_currentProfileId.isEmpty()) return;
+
+    BConnectionProfile profile = BSettings::instance().connectionProfile(m_currentProfileId);
+    if (!profile.isValid()) return;
+
+    // Update from form fields
+    profile.name = m_profileNameEdit->text().trimmed();
+    if (profile.name.isEmpty()) {
+        profile.name = tr("Unnamed Connection");
+    }
+    profile.host = m_hostEdit->text().trimmed();
+    profile.port = m_portSpin->value();
+    profile.directorName = m_directorEdit->text().trimmed();
+    profile.consoleName = m_consoleEdit->text().trimmed();
+
+    if (m_savePasswordCheck->isChecked()) {
+        profile.password = m_passwordEdit->text();
+    } else {
+        profile.password.clear();
+    }
+
+    // Auth method
+    profile.legacyAuth = m_tlsLegacyRadio->isChecked();
+    profile.tlsEnabled = !m_tlsLegacyRadio->isChecked();
+    profile.tlsUsePSK = m_tlsPSKRadio->isChecked();
+
+    // TLS certificates
+#ifndef Q_OS_WINDOWS
+    profile.tlsCaCertFile = m_caCertEdit->text();
+    profile.tlsCertFile = m_clientCertEdit->text();
+    profile.tlsKeyFile = m_clientKeyEdit->text();
+#else
+    profile.tlsPfxFile = m_clientCertEdit->text();
+#endif
+    profile.tlsVerifyPeer = m_verifyPeerCheck->isChecked();
+
+    // Save to settings
+    BSettings::instance().updateConnectionProfile(profile);
+
+    // Update list item text
+    QListWidgetItem *item = m_profileList->currentItem();
+    if (item) {
+        item->setText(profile.displayName());
+    }
+
+    // Show confirmation
+    QMessageBox::information(this, tr("Profile Saved"),
+        tr("Connection profile \"%1\" has been saved.").arg(profile.name));
 }

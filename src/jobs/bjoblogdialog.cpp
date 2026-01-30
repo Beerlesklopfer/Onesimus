@@ -5,6 +5,8 @@
 #include <QDebug>
 #include <QApplication>
 #include <QClipboard>
+#include <QJsonDocument>
+#include <QJsonParseError>
 
 BJobLogDialog::BJobLogDialog(const QJsonObject &job, BDirector *director, QWidget *parent)
     : QDialog(parent)
@@ -122,22 +124,43 @@ void BJobLogDialog::loadJobLog()
 
 void BJobLogDialog::onJobLogReceived(const QString &command, const QString &response)
 {
-    // Check if this response is for our job
-    // Command format: "list joblog jobid=123"
-    if (command.contains("list joblog") && command.contains(QString::number(m_jobId))) {
-        if (response.isEmpty()) {
-            m_logModel->setLogLines({tr("Keine Log-Daten empfangen.")});
-            return;
-        }
+    // Content-based detection: Check if JSON contains "joblog" key
+    // This is more reliable than command string matching due to race conditions
+    // when multiple commands are in flight (m_lastCommand can be overwritten)
 
-        // Parse and display the log
-        m_logModel->parseJsonResponse(response);
-        m_logListView->scrollToTop();
-
-        // Disconnect after receiving response (we only need it once)
-        disconnect(m_director, &BDirector::jsonResponse,
-                  this, &BJobLogDialog::onJobLogReceived);
+    if (response.isEmpty()) {
+        return;
     }
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        return;  // Not valid JSON
+    }
+
+    if (!doc.isObject()) {
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // Check for "joblog" key in result (content-based detection)
+    if (!result.contains("joblog")) {
+        // Also try command-based detection as fallback
+        if (!command.contains("list joblog")) {
+            return;  // Not a job log response
+        }
+    }
+
+    // Parse and display the log
+    m_logModel->parseJsonResponse(response);
+    m_logListView->scrollToTop();
+
+    // Disconnect after receiving response (we only need it once)
+    disconnect(m_director, &BDirector::jsonResponse,
+              this, &BJobLogDialog::onJobLogReceived);
 }
 
 void BJobLogDialog::onCopySelected()

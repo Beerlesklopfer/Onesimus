@@ -16,7 +16,6 @@
 #include "jobs/bjsonjobview.h"
 #include "bjsonstreamreader.h"
 #include "bpaginationwidget.h"
-#include "jobs/bjobsstatisticswidget.h"
 #include "jobs/bjobmodels.h"
 #include "bresourcemodels.h"
 #include "bdirector.h"
@@ -56,13 +55,6 @@ public:
      * @since 2.0
      */
     BJsonJobView* tableView() const { return m_tableView; }
-    
-    /**
-     * @brief Returns the statistics widget
-     * @return Pointer to BJobsStatisticsWidget
-     * @since 2.0
-     */
-    BJobsStatisticsWidget* statisticsWidget() const { return m_statsWidget; }
 
     /**
      * @brief Sets the director for job operations
@@ -328,7 +320,6 @@ private:
     BJsonJobView *m_tableView;            ///< Main table view
     BJsonStreamReader *m_streamReader;      ///< JSON stream reader
     BPaginationWidget *m_paginationWidget;  ///< Pagination controls
-    BJobsStatisticsWidget *m_statsWidget;       ///< Statistics display (optional)
 
     // Job Log Display
     QListView *m_logView;                   ///< Log view for selected job
@@ -361,11 +352,8 @@ private:
     QDateTimeEdit *m_dateTo;                ///< Date range end
 
     QTimer *m_filterTimer;                  ///< Debounce timer for filters
-    
+
     // Toolbar buttons
-    QPushButton *m_runJobButton;            ///< Run job button
-    QPushButton *m_cancelJobButton;         ///< Cancel job button
-    QPushButton *m_detailsButton;           ///< Show details button
     QPushButton *m_refreshButton;           ///< Refresh button
 
     // Auto-refresh controls
@@ -399,6 +387,10 @@ public:
     QStringList filesetNames() const { return m_filesetModel ? m_filesetModel->filesetNames() : QStringList(); }
     QStringList storageNames() const { return m_storageModel ? m_storageModel->storageNames() : QStringList(); }
     QStringList poolNames() const { return m_poolModel ? m_poolModel->poolNames() : QStringList(); }
+
+    // Job and Client names from filterComboModel
+    QStringList jobNames() const;
+    QStringList clientNames() const;
 };
 
 #endif // BJOBWIDGET_H

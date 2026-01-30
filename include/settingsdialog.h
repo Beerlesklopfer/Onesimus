@@ -35,7 +35,15 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit SettingsDialog(BDirector *director, QWidget *parent = nullptr);
+    /**
+     * @brief Constructs the settings dialog
+     * @param director Pointer to BDirector (for connection settings)
+     * @param availableLevels List of available backup levels from Director (code, name pairs)
+     * @param parent Parent widget
+     */
+    explicit SettingsDialog(BDirector *director,
+                           const QList<QPair<QString, QString>> &availableLevels = QList<QPair<QString, QString>>(),
+                           QWidget *parent = nullptr);
     ~SettingsDialog();
 
     // Einstellungen laden/speichern
@@ -56,6 +64,14 @@ private slots:
     void onExportSettings();
     void onImportSettings();
     void onClearStoredConnections();
+
+    // Connection Profile Management
+    void onProfileSelectionChanged();
+    void onAddProfile();
+    void onEditProfile();
+    void onDeleteProfile();
+    void onDuplicateProfile();
+    void saveCurrentProfile();
     void onChooseColorFull();
     void onChooseColorIncremental();
     void onChooseColorDifferential();
@@ -87,7 +103,17 @@ private:
     QWidget *m_behaviorPage;
     QWidget *m_advancedPage;
     
-    // Verbindungseinstellungen
+    // Connection Profile Management
+    QListWidget *m_profileList;
+    QPushButton *m_addProfileButton;
+    QPushButton *m_editProfileButton;
+    QPushButton *m_deleteProfileButton;
+    QPushButton *m_duplicateProfileButton;
+    QWidget *m_profileDetailsWidget;
+    QString m_currentProfileId;
+
+    // Verbindungseinstellungen (for current profile)
+    QLineEdit *m_profileNameEdit;
     QLineEdit *m_hostEdit;
     QSpinBox *m_portSpin;
     QLineEdit *m_directorEdit;
@@ -99,8 +125,10 @@ private:
 
     // TLS-Einstellungen (checkable GroupBox mit RadioButtons)
     QGroupBox *m_tlsGroupBox;
+    QRadioButton *m_tlsLegacyRadio;
     QRadioButton *m_tlsPSKRadio;
     QRadioButton *m_tlsCertificateRadio;
+    QWidget *m_certWidget;          ///< Container for certificate fields
     QLineEdit *m_caCertEdit;
     QLineEdit *m_clientCertEdit;
     QLineEdit *m_clientKeyEdit;
@@ -125,6 +153,11 @@ private:
     QCheckBox *m_autoRefreshCheck;
     QSpinBox *m_refreshIntervalSpin;
     QSpinBox *m_maxJobsDisplaySpin;
+
+    // Visible Backup Levels (dynamic from Director)
+    QList<QPair<QString, QString>> m_availableLevels;  ///< Available levels (name, name) from Director
+    QMap<QString, QCheckBox*> m_levelCheckboxes;       ///< Dynamic checkboxes for each level
+    QVBoxLayout *m_levelsLayout;                       ///< Layout for level checkboxes
     
     // Advanced-Einstellungen
     QCheckBox *m_debugLoggingCheck;

@@ -8,6 +8,7 @@
 #include <QSpinBox>
 #include <QPushButton>
 #include <QGroupBox>
+#include <QToolBox>
 #include "jobs/bjobmodels.h"
 
 /**
@@ -62,11 +63,17 @@ signals:
      */
     void filtersCleared();
 
+private slots:
+    void onToolBoxChanged(int index);
+
 private:
     void setupUi();
     void connectSignals();
-    
+
     BJobsFilterModel *m_filterModel;    ///< The filter model to control
+
+    // QToolBox for accordion-style filter sections
+    QToolBox *m_toolBox;                ///< Container for filter sections
     
     // Text filters
     QLineEdit *m_nameFilter;            ///< Job name filter input

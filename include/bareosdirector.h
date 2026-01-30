@@ -709,8 +709,6 @@ private:
     // ========================================================================
 
     const QString commandToString(Command cmd, const QString &args = QString());
-    bool setupTLSConnection();
-    bool loadTLSCertificates(QSslConfiguration &sslConfig);
     void startAuthentication();
     void processResponse(const QByteArray &data);
     QString parseResponse(const QByteArray &data);

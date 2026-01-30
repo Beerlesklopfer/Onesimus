@@ -300,6 +300,12 @@ static const QMap<BareosDirector::ResourceLoadState, QString> s_loadStateNames =
 void BareosDirector::markResourceLoaded(ResourceType resourceType)
 {
     ResourceLoadState oldState = m_resourceStates.value(resourceType, ResourceLoadState::Initial);
+
+    // Skip if already loaded - prevents duplicate state transitions
+    if (oldState == ResourceLoadState::Loaded) {
+        return;
+    }
+
     m_resourceStates[resourceType] = ResourceLoadState::Loaded;
     m_resourceErrors.remove(resourceType);
 
@@ -973,6 +979,12 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
         detectAndMarkResourceLoaded(message);
 
         emit jsonResponse(m_lastCommand, message);
+
+        // State Machine: Check if .api command completed while in SettingApiMode
+        if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
+            qDebug() << "STATE MACHINE: API mode confirmed (clean JSON), starting resource loading";
+            startResourceLoading();
+        }
     } else {
         // Try to find JSON after trimming and removing leading garbage
         QString cleaned = message.trimmed();
@@ -1083,147 +1095,6 @@ void BareosDirector::onError(QAbstractSocket::SocketError error)
 }
 
 // ============================================================================
-// TLS Setup
-// ============================================================================
-
-bool BareosDirector::setupTLSConnection()
-{
-    qDebug() << "========================================";
-    qDebug() << "TLS CONFIGURATION";
-    qDebug() << "========================================";
-
-    QSslConfiguration sslConfig = m_socket->sslConfiguration();
-
-    // Load certificates
-    if (!loadTLSCertificates(sslConfig)) {
-        qCritical() << "Failed to load TLS certificates";
-        return false;
-    }
-
-    // Set peer verification mode
-    if (m_tlsConfig->tlsVerifyPeer) {
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
-        qDebug() << "Peer verification: ENABLED";
-    } else {
-        sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
-        qDebug() << "Peer verification: DISABLED";
-    }
-
-    // Set TLS version
-    sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
-    qDebug() << "TLS Protocol: TLS 1.2 or later";
-
-    // Apply configuration
-    m_socket->setSslConfiguration(sslConfig);
-
-    qDebug() << "✓ TLS configuration complete";
-    qDebug() << "========================================";
-
-    return true;
-}
-
-bool BareosDirector::loadTLSCertificates(QSslConfiguration &sslConfig)
-{
-    // Load CA certificate
-    if (m_tlsConfig->tlsCaCertFile && !m_tlsConfig->tlsCaCertFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsCaCertFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open CA certificate:" << m_tlsConfig->tlsCaCertFile->fileName();
-            return false;
-        }
-
-        QList<QSslCertificate> caCerts = QSslCertificate::fromDevice(m_tlsConfig->tlsCaCertFile.data(), QSsl::Pem);
-        m_tlsConfig->tlsCaCertFile->close();
-
-        if (caCerts.isEmpty()) {
-            qCritical() << "No CA certificates found in:" << m_tlsConfig->tlsCaCertFile->fileName();
-            return false;
-        }
-
-        sslConfig.setCaCertificates(caCerts);
-    }
-
-#ifdef Q_OS_WINDOWS
-    // Windows: Load PKCS#12 file
-    if (m_tlsConfig->tlsPfxFile && !m_tlsConfig->tlsPfxFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsPfxFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open PFX file:" << m_tlsConfig->tlsPfxFile->fileName();
-            return false;
-        }
-
-        QSslCertificate certificate;
-        QSslKey privateKey;
-        QList<QSslCertificate> caCerts;
-
-        bool imported = QSslCertificate::importPkcs12(
-            m_tlsConfig->tlsPfxFile.data(),
-            &privateKey,
-            &certificate,
-            &caCerts,
-            m_tlsConfig->tlsPfxPassword.toUtf8()
-            );
-
-        m_tlsConfig->tlsPfxFile->close();
-
-        if (!imported) {
-            qCritical() << "Failed to import PKCS#12 certificate";
-            return false;
-        }
-
-        if (certificate.isNull() || privateKey.isNull()) {
-            qCritical() << "Certificate or private key is null";
-            return false;
-        }
-
-        sslConfig.setLocalCertificate(certificate);
-        sslConfig.setPrivateKey(privateKey);
-
-        if (!caCerts.isEmpty()) {
-            sslConfig.setCaCertificates(caCerts);
-        }
-    }
-#else
-    // Linux: Load separate PEM files
-    if (m_tlsConfig->tlsCertFile && !m_tlsConfig->tlsCertFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsCertFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open certificate file:" << m_tlsConfig->tlsCertFile->fileName();
-            return false;
-        }
-
-        QSslCertificate certificate(m_tlsConfig->tlsCertFile.data(), QSsl::Pem);
-        m_tlsConfig->tlsCertFile->close();
-
-        if (certificate.isNull()) {
-            qCritical() << "Failed to load certificate";
-            return false;
-        }
-
-        sslConfig.setLocalCertificate(certificate);
-        qDebug() << "✓ Certificate loaded:" << m_tlsConfig->tlsCertFile->fileName();
-    }
-
-    if (m_tlsConfig->tlsKeyFile && !m_tlsConfig->tlsKeyFile->fileName().isEmpty()) {
-        if (!m_tlsConfig->tlsKeyFile->open(QIODevice::ReadOnly)) {
-            qCritical() << "Failed to open key file:" << m_tlsConfig->tlsKeyFile->fileName();
-            return false;
-        }
-
-        QSslKey privateKey(m_tlsConfig->tlsKeyFile.data(), QSsl::Rsa, QSsl::Pem);
-        m_tlsConfig->tlsKeyFile->close();
-
-        if (privateKey.isNull()) {
-            qCritical() << "Failed to load private key";
-            return false;
-        }
-
-        sslConfig.setPrivateKey(privateKey);
-        qDebug() << "✓ Private key loaded:" << m_tlsConfig->tlsKeyFile->fileName();
-    }
-#endif
-
-    return true;
-}
-
-// ============================================================================
 // Authentication
 // ============================================================================
 
@@ -1243,6 +1114,14 @@ void BareosDirector::startAuthentication()
         m_authCompleted = false;
     }
 
+    // IMPORTANT: Disconnect our readyRead handler during authentication
+    // BareosAuth has its own readyRead handler - having both connected
+    // causes signal conflicts where BareosDirector steals data meant for BareosAuth
+    QObject::disconnect(m_connSocketReadyRead);
+#ifdef IS_DEVELOPER
+    qDebug() << "  Disconnected BareosDirector::onReadyRead during authentication";
+#endif
+
     // Create appropriate auth class based on AUTH_CLASS macro
     // AUTH_CLASS is defined in director.h as BaculaAuth or BareosAuth
     m_auth = new AUTH_CLASS(m_socket, this);
@@ -1257,10 +1136,27 @@ void BareosDirector::startAuthentication()
     m_connAuthStatus = QObject::connect(m_auth, &AUTH_CLASS::statusMessage,
                                this, &BareosDirector::onAuthStatusMessage);
 
-    // Use PSK if password present
-    bool usePSK = !m_password.isEmpty() && m_tlsConfig->tlsEnable;
+    // Use PSK if password present and PSK is enabled
+    bool usePSK = !m_password.isEmpty() && m_tlsConfig->tlsEnable && m_tlsConfig->tlsPSKEnable;
 
-    qDebug() << "PSK will be used:" << usePSK << "(password present:" << !m_password.isEmpty() << ")";
+    qDebug() << "PSK will be used:" << usePSK << "(password present:" << !m_password.isEmpty()
+             << ", tlsPSKEnable:" << m_tlsConfig->tlsPSKEnable << ")";
+
+    // Set certificate files for TLS-Certificate mode (non-PSK)
+#ifndef Q_OS_WINDOWS
+    if (m_tlsConfig->tlsEnable && !m_tlsConfig->tlsPSKEnable) {
+        QString caPath = m_tlsConfig->tlsCaCertFile ? m_tlsConfig->tlsCaCertFile->fileName() : QString();
+        QString certPath = m_tlsConfig->tlsCertFile ? m_tlsConfig->tlsCertFile->fileName() : QString();
+        QString keyPath = m_tlsConfig->tlsKeyFile ? m_tlsConfig->tlsKeyFile->fileName() : QString();
+
+        qDebug() << "Setting certificate files for TLS-Certificate mode:";
+        qDebug() << "  CA:" << caPath;
+        qDebug() << "  Cert:" << certPath;
+        qDebug() << "  Key:" << keyPath;
+
+        m_auth->setCertificateFiles(caPath, certPath, keyPath);
+    }
+#endif
 
     // Start authentication
     bool authenticated = m_auth->authenticateDirector(
@@ -1306,6 +1202,15 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
     // Cleanup auth object
     m_auth->deleteLater();
     m_auth = nullptr;
+
+    // IMPORTANT: Reconnect our readyRead handler now that authentication is complete
+    // This must happen BEFORE sending any commands (like .api 2)
+    m_connSocketReadyRead = QObject::connect(m_socket, &QSslSocket::readyRead,
+                                    this, &BareosDirector::onReadyRead,
+                                    Qt::DirectConnection);
+#ifdef IS_DEVELOPER
+    qDebug() << "  Reconnected BareosDirector::onReadyRead after authentication";
+#endif
 
     // Parse version
     QRegularExpression versionRx(
@@ -1409,6 +1314,11 @@ void BareosDirector::onAuthenticationFailed(const QString &reason)
         m_auth->deleteLater();
         m_auth = nullptr;
     }
+
+    // Reconnect our readyRead handler for consistency (even though we're disconnecting)
+    m_connSocketReadyRead = QObject::connect(m_socket, &QSslSocket::readyRead,
+                                    this, &BareosDirector::onReadyRead,
+                                    Qt::DirectConnection);
 
     // Disconnect socket
     m_socket->disconnectFromHost();
@@ -1558,7 +1468,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::StatusSubscriptions: command = "status subscriptions"; break;
 
     // List Commands
-    case Command::ListJobs:         command = "list jobs"; break;
+    case Command::ListJobs:         command = "list jobs days=7"; break;
     case Command::ListJobsLast:     command = QString("list jobs last=%1").arg(args.isEmpty() ? "100" : args); break;
     case Command::ListJobId:        command = QString("list joblog jobid=%1").arg(args); break;
     case Command::ListClients:      command = "list clients"; break;

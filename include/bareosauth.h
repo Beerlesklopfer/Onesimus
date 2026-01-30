@@ -197,32 +197,32 @@ enum BareosTLSRequirementResult
 };
 
 /**
- * @brief States for the CRAM-MD5 bidirectional handshake.
+ * @brief Zustände der Bareos-Authentifizierung (CRAM-MD5 Handshake).
  *
  * Diese Enum beschreibt alle möglichen Zustände während
- * der Authentifizierung zwischen Bareos Client und Director.
+ * der bidirektionalen Authentifizierung zwischen Client und Director.
  *
- * Die Zustände berücksichtigen sowohl den Empfang als auch
- * das Senden von Challenges und Responses.
+ * Ablauf:
+ *   AUTH_IDLE → WAIT_FOR_CHALLENGE → COMPUTING_RESPONSE
+ *   → WAIT_FOR_DIRECTOR_HMAC → WAIT_FOR_FINAL_OK → AUTH_SUCCESS
  *
  * @since 1.0.0
- * @version 1.0.0
  */
-enum class BCramState
+enum class BAuthState
 {
-    CRAM_IDLE,                        /**< Initialzustand, noch kein Hello gesendet */
-    CRAM_HELLO_SENT,                  /**< Client hat Hello gesendet, wartet auf Director-Challenge */
-    CRAM_WAITING_DIRECTOR_CHALLENGE,  /**< Client wartet aktiv auf Challenge vom Director */
-    CRAM_DIRECTOR_CHALLENGE_RECEIVED, /**< Challenge vom Director empfangen, HMAC noch nicht gesendet */
-    CRAM_CLIENT_RESPONSE_SENT,        /**< Client hat HMAC-Response auf Director-Challenge gesendet */
-    CRAM_SENDING_CLIENT_CHALLENGE,    /**< Client wartet aktiv auf Challenge vom Director */
-    CRAM_CLIENT_CHALLENGE_SENT,       /**< Challenge vom Director empfangen, HMAC noch nicht gesendet */
-    // CRAM_DIRECTOR_RESPONSE_RECEIVED,  /**< Client hat HMAC-Response auf Director-Challenge gesendet */
-    CRAM_AUTHENTICATED,               /**< Director, Klient hat die Response akzeptiert (1000 OK), Auth erfolgreich */
-    CRAM_FAILED,                      /**< Timeout oder Netzwerk-/Protokollfehler, Auth fehlgeschlagen */
-    CRAM_FORMAT_MISMATCH,
-    CRAM_WRONG_HASH,
-    CRAM_REPLAY_ATTACK
+    // Normale Zustände im Auth-Flow
+    AUTH_IDLE,                  /**< Startzustand, noch kein Hello gesendet */
+    WAIT_FOR_CHALLENGE,         /**< Hello gesendet, warte auf Director-Challenge */
+    COMPUTING_RESPONSE,         /**< Director-Challenge empfangen, berechne HMAC-Response */
+    WAIT_FOR_DIRECTOR_HMAC,     /**< Unsere Challenge gesendet, warte auf Director's HMAC-Antwort */
+    WAIT_FOR_FINAL_OK,          /**< "1000 OK auth" gesendet, warte auf Director's finale Bestätigung */
+    AUTH_SUCCESS,               /**< Authentifizierung erfolgreich abgeschlossen */
+
+    // Fehlerzustände
+    AUTH_FAILED,                /**< Authentifizierung fehlgeschlagen (allgemein) */
+    AUTH_ERROR_FORMAT,          /**< Protokoll-/Formatfehler */
+    AUTH_ERROR_HASH,            /**< HMAC-Verifikation fehlgeschlagen */
+    AUTH_ERROR_REPLAY           /**< Replay-Angriff erkannt */
 };
 
 /**
@@ -416,6 +416,24 @@ public:
      */
     static int versionNumber() { return BAREOSAUTH_VERSION; }
 
+    /**
+     * @brief Sets the certificate files for TLS-Certificate mode
+     *
+     * @param caCertFile Path to CA certificate file (.pem)
+     * @param clientCertFile Path to client certificate file (.pem)
+     * @param clientKeyFile Path to client private key file (.pem/.key)
+     *
+     * @since 1.0.0
+     */
+    void setCertificateFiles(const QString &caCertFile,
+                             const QString &clientCertFile,
+                             const QString &clientKeyFile)
+    {
+        m_tlsCaFile = caCertFile;
+        m_tlsCertFile = clientCertFile;
+        m_tlsKeyFile = clientKeyFile;
+    }
+
     enum class BnetStatus
     {
         Ok,         // Normale Daten
@@ -529,7 +547,7 @@ private:
     QString m_consoleName;  ///< Console name for authentication
     QByteArray m_password;  ///< Password for CRAM-MD5 and PSK
 
-    BCramState m_cramState; ///< State mache flags of handshake
+    BAuthState m_authState; ///< Aktueller Zustand der Authentifizierung
     int m_tlsLocalNeed;     ///< Local TLS requirement level
     int m_tlsRemoteNeed;    ///< Remote TLS requirement level
 
@@ -540,6 +558,11 @@ private:
 
     bool m_tlsStarted;       ///< TLS encryption active flag
     bool m_authSuccess;      ///< Authentication success flag
+
+    // Certificate paths for TLS-Certificate mode
+    QString m_tlsCaFile;     ///< Path to CA certificate file
+    QString m_tlsCertFile;   ///< Path to client certificate file
+    QString m_tlsKeyFile;    ///< Path to client private key file
     /// @}
 
     /// @name TLS/PSK Helper Methods

@@ -10,6 +10,6 @@
 #define HOST_OS                 ""
 #define DISTNAME                ""
 #define DISTVER                 ""
-#define PROG_COPYRIGHT          "Copyright (C) %d-2025 Joerg Bernau.\n"
+#define PROG_COPYRIGHT          "Copyright (C) 2026 Joerg Bernau.\n"
 
 
