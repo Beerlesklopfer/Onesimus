@@ -95,6 +95,7 @@ private slots:
 
     // Tools slots
     void onCleanupDatabase();
+    void onConnectionWizard();
 
 private:
     void setupUI();
@@ -168,6 +169,7 @@ private:
 
     // Tools Actions
     QAction *m_cleanupDatabaseAction;
+    QAction *m_connectionWizardAction;
 
     // Menus
     QMenu *m_fileMenu;

@@ -375,6 +375,8 @@ set(SOURCES
     src/bresourcemodels.cpp
     src/settingsdialog.cpp
     src/bcleanupdialog.cpp
+    src/bconnectionwizard.cpp
+    src/bcertificategenerator.cpp
     src/storagewidget.cpp
 
     src/jobs/bjobmodels.cpp
@@ -404,6 +406,8 @@ set(HEADERS
     include/storagewidget.h
     include/settingsdialog.h
     include/bcleanupdialog.h
+    include/bconnectionwizard.h
+    include/bcertificategenerator.h
     include/bdirector.h
     include/bareosdirector.h
     include/bsettings.h

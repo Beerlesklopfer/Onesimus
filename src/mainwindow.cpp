@@ -7,6 +7,7 @@
 #include "schedules/bschedulewidget.h"
 #include "settingsdialog.h"
 #include "bcleanupdialog.h"
+#include "bconnectionwizard.h"
 #include "bsettings.h"
 #include "bconnectionprofile.h"
 #include "version.h"
@@ -608,6 +609,11 @@ void MainWindow::createActions()
     m_cleanupDatabaseAction->setToolTip(tr("Clean up old backups and free disk space"));
     m_cleanupDatabaseAction->setEnabled(false);
     connect(m_cleanupDatabaseAction, &QAction::triggered, this, &MainWindow::onCleanupDatabase);
+
+    m_connectionWizardAction = new QAction(tr("Connection Wizard..."), this);
+    m_connectionWizardAction->setIcon(QIcon::fromTheme("network-server"));
+    m_connectionWizardAction->setToolTip(tr("Set up a new director connection"));
+    connect(m_connectionWizardAction, &QAction::triggered, this, &MainWindow::onConnectionWizard);
 }
 
 void MainWindow::createMenus()
@@ -664,6 +670,8 @@ void MainWindow::createMenus()
 
     // Tools Menu
     m_toolsMenu = menuBar()->addMenu(tr("Tools"));
+    m_toolsMenu->addAction(m_connectionWizardAction);
+    m_toolsMenu->addSeparator();
     m_toolsMenu->addAction(m_cleanupDatabaseAction);
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
@@ -1646,4 +1654,54 @@ void MainWindow::onCleanupDatabase()
     connect(dialog, &BCleanupDialog::cleanupCompleted, jobsModel, &BJobsModel::removeJobsByIds);
 
     dialog->exec();
+}
+
+void MainWindow::onConnectionWizard()
+{
+    BConnectionWizard wizard(this);
+
+    if (wizard.exec() == QDialog::Accepted) {
+        // Save the profile
+        BConnectionProfile profile = wizard.profile();
+        BSettings::instance().addConnectionProfile(profile);
+
+        // Set as default if requested
+        if (wizard.field("setDefault").toBool()) {
+            BSettings::instance().setLastUsedProfileId(profile.id);
+        }
+
+        m_statusLabel->setText(tr("Connection profile '%1' saved").arg(profile.name));
+
+        // Connect now if requested
+        if (wizard.field("connectNow").toBool()) {
+            // Configure TLS
+            BDirector::TLSConfig tlsConfig;
+            if (profile.legacyAuth) {
+                tlsConfig.tlsEnable = false;
+                tlsConfig.tlsRequire = false;
+                tlsConfig.tlsPSKEnable = false;
+            } else if (profile.tlsUsePSK) {
+                tlsConfig.tlsEnable = true;
+                tlsConfig.tlsRequire = true;
+                tlsConfig.tlsPSKEnable = true;
+                tlsConfig.tlsVerifyPeer = false;
+            } else {
+                tlsConfig.tlsEnable = true;
+                tlsConfig.tlsRequire = true;
+                tlsConfig.tlsPSKEnable = false;
+                tlsConfig.tlsVerifyPeer = profile.tlsVerifyPeer;
+                if (!profile.tlsCaCertFile.isEmpty())
+                    tlsConfig.tlsCaCertFile = QSharedPointer<QFile>(new QFile(profile.tlsCaCertFile));
+                if (!profile.tlsCertFile.isEmpty())
+                    tlsConfig.tlsCertFile = QSharedPointer<QFile>(new QFile(profile.tlsCertFile));
+                if (!profile.tlsKeyFile.isEmpty())
+                    tlsConfig.tlsKeyFile = QSharedPointer<QFile>(new QFile(profile.tlsKeyFile));
+            }
+            m_director->setTLSConfig(tlsConfig);
+
+            // Connect
+            onDirectorConnect(profile.host, profile.port, profile.directorName,
+                              profile.consoleName, profile.password);
+        }
+    }
 }
