@@ -3,7 +3,13 @@
 
 #include <QMainWindow>
 #include <QTimer>
+#include <QDebug>
 #include "bdirector.h"
+
+// Debug logging prefixes for App/MainWindow
+#define APP_DEBUG qDebug().nospace() << "[App] "
+#define APP_WARNING qWarning().nospace() << "[App] "
+#define APP_CRITICAL qCritical().nospace() << "[App] "
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }

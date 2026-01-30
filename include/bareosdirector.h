@@ -42,6 +42,11 @@
 #include <QSet>
 #include <QMap>
 
+// Debug logging prefixes
+#define DIR_DEBUG qDebug().nospace() << "[Dir] "
+#define DIR_WARNING qWarning().nospace() << "[Dir] "
+#define DIR_CRITICAL qCritical().nospace() << "[Dir] "
+
 /**
  * @file director.h
  * @brief Qt-based Bacula/Bareos Director Communication Interface

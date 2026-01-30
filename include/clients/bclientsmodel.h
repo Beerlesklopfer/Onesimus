@@ -4,6 +4,12 @@
 #include <QAbstractTableModel>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QDebug>
+
+// Debug logging prefixes for Clients Model
+#define CLIENTS_DEBUG qDebug().nospace() << "[Clients] "
+#define CLIENTS_WARNING qWarning().nospace() << "[Clients] "
+#define CLIENTS_CRITICAL qCritical().nospace() << "[Clients] "
 
 /**
  * @brief Table model for Bareos/Bacula backup clients

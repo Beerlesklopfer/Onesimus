@@ -13,12 +13,18 @@
 #include <QMap>
 #include <QJsonObject>
 #include <QListView>
+#include <QDebug>
 #include "jobs/bjsonjobview.h"
 #include "bjsonstreamreader.h"
 #include "bpaginationwidget.h"
 #include "jobs/bjobmodels.h"
 #include "bresourcemodels.h"
 #include "bdirector.h"
+
+// Debug logging prefixes for Job Widget
+#define JOBWIDGET_DEBUG qDebug().nospace() << "[JobWidget] "
+#define JOBWIDGET_WARNING qWarning().nospace() << "[JobWidget] "
+#define JOBWIDGET_CRITICAL qCritical().nospace() << "[JobWidget] "
 
 /**
  * @brief Integrated job widget using enhanced BJsonJobView with BDirector backend

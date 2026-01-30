@@ -74,11 +74,11 @@ BareosDirector::BareosDirector(QObject *parent)
 
 void BareosDirector::initialize()
 {
-    qDebug() << "========================================";
-    qDebug() << "BAREOSDIRECTOR INITIALIZATION";
-    qDebug() << "  Thread ID:" << QThread::currentThreadId();
-    qDebug() << "  Object thread affinity:" << this->thread();
-    qDebug() << "========================================";
+    DIR_DEBUG << "========================================";
+    DIR_DEBUG << "INITIALIZATION";
+    DIR_DEBUG << "  Thread ID:" << QThread::currentThreadId();
+    DIR_DEBUG << "  Object thread affinity:" << this->thread();
+    DIR_DEBUG << "========================================";
 
     // Create socket in this thread (worker thread)
     // Socket will inherit thread affinity from this QObject
@@ -88,21 +88,21 @@ void BareosDirector::initialize()
     connectSocketSignals();
 
     m_initialized = true;
-    qDebug() << "  ✓ Socket created with correct thread affinity";
-    qDebug() << "  ✓ Socket thread:" << m_socket->thread();
-    qDebug() << "  ✓ BareosDirector thread:" << this->thread();
-    qDebug() << "========================================";
+    DIR_DEBUG << "  ✓ Socket created with correct thread affinity";
+    DIR_DEBUG << "  ✓ Socket thread:" << m_socket->thread();
+    DIR_DEBUG << "  ✓ BareosDirector thread:" << this->thread();
+    DIR_DEBUG << "========================================";
 }
 
 BareosDirector::~BareosDirector()
 {
-    qDebug() << "BareosDirector: Destructor called";
+    DIR_DEBUG << "Destructor called";
 
-    // Cleanup socket and auth
+    // Cleanup socket
     if (m_socket) {
-        if (m_socket->state() == QAbstractSocket::ConnectedState) {
-            m_socket->disconnectFromHost();
-            m_socket->waitForDisconnected(1000);
+        // abort() immediately closes without waiting - cleaner for destructor
+        if (m_socket->state() != QAbstractSocket::UnconnectedState) {
+            m_socket->abort();
         }
         m_socket->deleteLater();
         m_socket = nullptr;
@@ -117,7 +117,7 @@ BareosDirector::~BareosDirector()
     delete m_tlsConfig;
     m_tlsConfig = nullptr;
 
-    qDebug() << "BareosDirector: Destructor complete";
+    DIR_DEBUG << "Destructor complete";
 }
 
 // ============================================================================
@@ -139,25 +139,25 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     QMutexLocker locker(&m_connectionMutex);
 
     if (!m_initialized || !m_socket) {
-        qCritical() << "Socket not initialized! Thread not running?";
+        DIR_CRITICAL << "Socket not initialized! Thread not running?";
         emit protocolError("Internal error: Socket not initialized");
         return;
     }
 
-    qDebug() << "========================================";
-    qDebug() << "CONNECTING TO" << backupSystemName() << "DIRECTOR" << directorName;
-    qDebug() << "========================================";
-    qDebug() << "Host:" << host;
-    qDebug() << "Port:" << port;
-    qDebug() << "Console:" << consoleName;
-    qDebug() << "Password present:" << (!password.isEmpty());
-    qDebug() << "Thread:" << QThread::currentThreadId();
-    qDebug() << "========================================";
+    DIR_DEBUG << "========================================";
+    DIR_DEBUG << "CONNECTING TO " << backupSystemName() << " DIRECTOR " << directorName;
+    DIR_DEBUG << "========================================";
+    DIR_DEBUG << "Host: " << host;
+    DIR_DEBUG << "Port: " << port;
+    DIR_DEBUG << "Console: " << consoleName;
+    DIR_DEBUG << "Password present: " << (!password.isEmpty());
+    DIR_DEBUG << "Thread: " << QThread::currentThreadId();
+    DIR_DEBUG << "========================================";
 
     // Abort existing connection
+    // Note: abort() immediately closes the socket synchronously (no need for waitForDisconnected)
     if (m_socket->state() != QAbstractSocket::UnconnectedState) {
         m_socket->abort();
-        m_socket->waitForDisconnected(1000);
     }
 
     {
@@ -172,9 +172,9 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     m_consoleName = consoleName;
     m_password = password;
 
-    qDebug() << "Connecting via plain TCP...";
+    DIR_DEBUG << "Connecting via plain TCP...";
     if (m_tlsConfig->tlsEnable) {
-        qDebug() << "(TLS/PSK will be negotiated during authentication)";
+        DIR_DEBUG << "(TLS/PSK will be negotiated during authentication)";
     }
 
     // Connect via TCP - TLS comes during authentication
@@ -266,7 +266,7 @@ void BareosDirector::setState(ConnectionState newState)
         {ConnectionError, "ConnectionError"}
     };
 
-    qDebug() << "STATE MACHINE:" << stateNames.value(oldState, "?")
+    DIR_DEBUG << "STATE MACHINE: " << stateNames.value(oldState, "?")
              << "->" << stateNames.value(newState, "?");
 
     emit connectionStateChanged(oldState, newState);
@@ -318,7 +318,7 @@ void BareosDirector::markResourceLoaded(ResourceType resourceType)
     }
     int total = m_requiredResources.size();
 
-    qDebug() << "RESOURCE:" << s_resourceNames.value(resourceType, "?")
+    DIR_DEBUG << "RESOURCE: " << s_resourceNames.value(resourceType, "?")
              << s_loadStateNames.value(oldState) << "->" << "Loaded"
              << "(" << loaded << "/" << total << ")";
 
@@ -328,7 +328,7 @@ void BareosDirector::markResourceLoaded(ResourceType resourceType)
 
     // Check if all resources are ready
     if (allResourcesReady()) {
-        qDebug() << "STATE MACHINE: All resources loaded - transitioning to Ready";
+        DIR_DEBUG << "STATE MACHINE: All resources loaded - transitioning to Ready";
         setState(Ready);
         emit allResourcesLoaded();
     }
@@ -365,7 +365,7 @@ void BareosDirector::reloadResource(ResourceType type)
     ResourceLoadState oldState = m_resourceStates.value(type, ResourceLoadState::Initial);
     m_resourceStates[type] = ResourceLoadState::Reloading;
 
-    qDebug() << "RESOURCE:" << s_resourceNames.value(type, "?")
+    DIR_DEBUG << "RESOURCE: " << s_resourceNames.value(type, "?")
              << s_loadStateNames.value(oldState) << "->" << "Reloading";
 
     emit resourceStateChanged(type, ResourceLoadState::Reloading);
@@ -480,8 +480,8 @@ void BareosDirector::detectAndMarkResourceLoaded(const QString &jsonData)
 
 void BareosDirector::startResourceLoading()
 {
-    qDebug() << "STATE MACHINE: Starting resource loading...";
-    qDebug() << "  Required resources:" << m_requiredResources.size();
+    DIR_DEBUG << "STATE MACHINE: Starting resource loading...";
+    DIR_DEBUG << "  Required resources: " << m_requiredResources.size();
 
     setState(LoadingResources);
 
@@ -680,21 +680,21 @@ void BareosDirector::setApiMode(ApiMode mode)
 
 void BareosDirector::onConnected()
 {
-    qDebug() << "========================================";
-    qDebug() << "TCP CONNECTED";
-    qDebug() << "========================================";
+    DIR_DEBUG << "========================================";
+    DIR_DEBUG << "TCP CONNECTED";
+    DIR_DEBUG << "========================================";
 
     startAuthentication();
 }
 
 void BareosDirector::onEncrypted()
 {
-    qDebug() << "========================================";
-    qDebug() << "✓ PSK-TLS HANDSHAKE SUCCESSFUL";
-    qDebug() << "========================================";
-    qDebug() << "  Encrypted: true";
-    qDebug() << "  Protocol:" << m_socket->sessionProtocol();
-    qDebug() << "  Cipher:" << m_socket->sessionCipher().name();
+    DIR_DEBUG << "========================================";
+    DIR_DEBUG << "✓ PSK-TLS HANDSHAKE SUCCESSFUL";
+    DIR_DEBUG << "========================================";
+    DIR_DEBUG << "  Encrypted: true";
+    DIR_DEBUG << "  Protocol: " << m_socket->sessionProtocol();
+    DIR_DEBUG << "  Cipher: " << m_socket->sessionCipher().name();
 
     if (!m_socket->peerCertificate().isNull()) {
         qDebug() << "  Peer Certificate:";
@@ -745,9 +745,9 @@ void BareosDirector::onSslErrors(const QList<QSslError> &errors)
 
 void BareosDirector::onDisconnected()
 {
-    qDebug() << "========================================";
-    qDebug() << "CONNECTION CLOSED";
-    qDebug() << "========================================";
+    DIR_DEBUG << "========================================";
+    DIR_DEBUG << "CONNECTION CLOSED";
+    DIR_DEBUG << "========================================";
 
     {
         QMutexLocker stateLocker(&m_stateMutex);
@@ -920,15 +920,13 @@ void BareosDirector::onReadyRead()
         // In diesem Fall überspringen wir nur den Signal-Header (4 Bytes), nicht das Payload!
         if (isSignal && message.size() >= 4) {
             // Prüfe ob die ersten 4 Bytes ein Header sein könnten
-            // Entweder: 00 00 xx xx (Datenpaket) oder ff ff xx xx (weiteres Signal)
+            // - Data packets start with 0x00 (positive length in big-endian)
+            // - Signal packets start with 0xff (negative length in big-endian, two's complement)
             unsigned char byte0 = (unsigned char)message[0];
-            unsigned char byte1 = (unsigned char)message[1];
 
-            if ((byte0 == 0x00 && byte1 == 0x00) || (byte0 == 0xff && byte1 == 0xff)) {
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-                qDebug() << "⚠ Signal contains embedded header(s) - removing only signal header (4 bytes)";
-                qDebug() << "  Embedded header:" << message.left(4).toHex(' ');
-#endif
+            if (byte0 == 0x00 || byte0 == 0xff) {
+                DIR_DEBUG << "Signal contains embedded header - removing only signal header (4 bytes)";
+                DIR_DEBUG << "  Embedded header: " << message.left(4).toHex(' ');
                 // Entferne NUR den Signal-Header, lasse das Payload für das nächste Paket
                 m_receiveBuffer.remove(0, 4);
                 continue;  // Lese das eingebettete Paket im nächsten Loop
@@ -982,7 +980,7 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
 
         // State Machine: Check if .api command completed while in SettingApiMode
         if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
-            qDebug() << "STATE MACHINE: API mode confirmed (clean JSON), starting resource loading";
+            DIR_DEBUG << "STATE MACHINE: API mode confirmed (clean JSON), starting resource loading";
             startResourceLoading();
         }
     } else {
@@ -1006,7 +1004,6 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
 
         // If we found JSON after some garbage, extract and emit as jsonResponse
         if (jsonStart > 0) {
-            qDebug() << "BareosDirector: Found JSON at position" << jsonStart << "- removing leading garbage";
             QString jsonPart = cleaned.mid(jsonStart);
 #ifdef IS_DEVELOPER
             qDebug() << "📄 JSON Response (cleaned):";
@@ -1016,7 +1013,7 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
 
             // State Machine: Check if .api command completed while in SettingApiMode
             if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
-                qDebug() << "STATE MACHINE: API mode confirmed (JSON response), starting resource loading";
+                DIR_DEBUG << "STATE MACHINE: API mode confirmed (JSON response), starting resource loading";
                 startResourceLoading();
             }
         } else {
@@ -1025,7 +1022,7 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
 
             // State Machine: Check if .api command completed while in SettingApiMode
             if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
-                qDebug() << "STATE MACHINE: API mode confirmed, starting resource loading";
+                DIR_DEBUG << "STATE MACHINE: API mode confirmed, starting resource loading";
                 startResourceLoading();
             }
             return;
@@ -1346,11 +1343,6 @@ void BareosDirector::onAuthStatusMessage(const QString &message)
 
 void BareosDirector::sendCommand(const QString &command)
 {
-#ifdef IS_DEVELOPER
-    qDebug() << ">>> sendCommand() called from thread:" << QThread::currentThreadId();
-    qDebug() << ">>> BareosDirector runs in thread:" << this->thread();
-#endif
-
     // Allow commands in Ready, SettingApiMode (for .api), and LoadingResources (for dot-commands)
     bool canSend = (m_connectionState == Ready ||
                     m_connectionState == SettingApiMode ||
@@ -1577,8 +1569,8 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
 
 void BareosDirector::saveConnectionSettings()
 {
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-    settings.beginGroup("BaculaConnection");
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    settings.beginGroup("Connection");
     settings.setValue("host", m_host);
     settings.setValue("port", m_port);
     settings.setValue("directorName", m_directorName);
@@ -1594,8 +1586,8 @@ void BareosDirector::saveConnectionSettings()
 
 void BareosDirector::loadConnectionSettings()
 {
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-    settings.beginGroup("BaculaConnection");
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    settings.beginGroup("Connection");
     m_host = settings.value("host").toString();
     m_port = settings.value("port", 9101).toInt();
     m_directorName = settings.value("directorName").toString();
@@ -1609,8 +1601,8 @@ void BareosDirector::loadConnectionSettings()
 
 bool BareosDirector::hasStoredConnection() const
 {
-    QSettings settings("Bacula", QCoreApplication::applicationName());
-    settings.beginGroup("BaculaConnection");
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    settings.beginGroup("Connection");
     bool hasConnection = settings.contains("host") && settings.contains("port");
     settings.endGroup();
     return hasConnection;

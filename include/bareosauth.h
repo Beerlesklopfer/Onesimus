@@ -48,6 +48,11 @@
 constexpr int PAD_LEN = 64; // HMAC block size
 constexpr int SIG_LEN = 16; // MD5 output size
 
+// Debug logging prefixes for Auth
+#define AUTH_DEBUG qDebug().nospace() << "[Auth] "
+#define AUTH_WARNING qWarning().nospace() << "[Auth] "
+#define AUTH_CRITICAL qCritical().nospace() << "[Auth] "
+
 static uint8_t constexpr base64_digits[64]
     = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
        'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',

@@ -8,6 +8,12 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QString>
+#include <QDebug>
+
+// Debug logging prefixes for Models
+#define MODEL_DEBUG qDebug().nospace() << "[Model] "
+#define MODEL_WARNING qWarning().nospace() << "[Model] "
+#define MODEL_CRITICAL qCritical().nospace() << "[Model] "
 
 // ============================================================================
 // BListModel - Base class for list models with JSON support

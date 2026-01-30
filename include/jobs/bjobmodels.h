@@ -9,6 +9,12 @@
 #include <QSet>
 #include <QDateTime>
 #include <QFont>
+#include <QDebug>
+
+// Debug logging prefixes for Job Models
+#define JOBS_DEBUG qDebug().nospace() << "[Jobs] "
+#define JOBS_WARNING qWarning().nospace() << "[Jobs] "
+#define JOBS_CRITICAL qCritical().nospace() << "[Jobs] "
 
 // ============================================================================
 // BJobsModel - Main table model for displaying backup jobs

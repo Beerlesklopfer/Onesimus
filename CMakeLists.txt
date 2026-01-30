@@ -731,6 +731,89 @@ if(APPLE)
 endif()
 
 # ============================================================================
+# Test Executables
+# ============================================================================
+
+# bareosauth_lib - Object library for BareosAuth (shared between main and test)
+add_library(bareosauth_lib OBJECT
+    src/bareosauth.cpp
+    include/bareosauth.h
+)
+
+target_include_directories(bareosauth_lib PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(bareosauth_lib PUBLIC
+    Qt6::Core
+    Qt6::Network
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+if(USE_STATIC_OPENSSL)
+    add_dependencies(bareosauth_lib openssl_build)
+endif()
+
+# bareosauth_test - Test using BareosAuth class
+add_executable(bareosauth_test
+    test/bareosauth_test.cpp
+)
+
+target_link_libraries(bareosauth_test PRIVATE
+    bareosauth_lib
+    Qt6::Core
+    Qt6::Network
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+# bareosdirector_lib - Object library for BareosDirector (shared between main and test)
+add_library(bareosdirector_lib OBJECT
+    src/bareosdirector.cpp
+    src/bareosauth.cpp
+    src/bjsonstreamreader.cpp
+    include/bareosdirector.h
+    include/bareosauth.h
+    include/bjsonstreamreader.h
+)
+
+target_include_directories(bareosdirector_lib PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(bareosdirector_lib PUBLIC
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Network
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+if(USE_STATIC_OPENSSL)
+    add_dependencies(bareosdirector_lib openssl_build)
+endif()
+
+# director_test - BareosDirector state machine test
+add_executable(director_test
+    test/director_test.cpp
+)
+
+target_link_libraries(director_test PRIVATE
+    bareosdirector_lib
+    Qt6::Core
+    Qt6::Network
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+message(STATUS "")
+message(STATUS "Test executables:")
+message(STATUS "  bareosauth_test  - BareosAuth class test")
+message(STATUS "  director_test    - BareosDirector state machine test")
+message(STATUS "")
+
+# ============================================================================
 # CPack Configuration (Windows Installer)
 # ============================================================================
 
