@@ -12,6 +12,27 @@
   <img src="https://img.shields.io/badge/i18n-6%20Languages-blue" alt="6 Languages">
 </p>
 
+## 🆕 What's New (2026-01-30)
+
+### New Features
+- **Connection Wizard** - Step-by-step wizard for Director connection setup with auto-detection
+- **TLS Certificate Authentication** - Full X.509 certificate support alongside TLS-PSK
+- **Connection Profiles** - Save and manage multiple Director connections
+- **Director Configuration Export** - Export console configurations for Bareos server setup
+- **Old Job Cleanup Dialog** - Clean up old jobs from the catalog with filters
+
+### Improvements
+- Refactored codebase (`mainwindow` → `bmainwindow`, `settingsdialog` → `bsettingsdialog`)
+- Improved wizard data persistence across page navigation
+- Enhanced status bar with configurable colors
+- Better debug logging with component prefixes
+- Complete German translation
+
+### Test Infrastructure
+- Comprehensive test suite with authentication and state-machine tests
+- Test data generator for realistic Bareos database entries
+- Support for Legacy, TLS-PSK, and TLS-Certificate authentication modes
+
 ## ✨ Features
 
 ### 🎨 User Interface
@@ -57,9 +78,12 @@
 - ~~**Schedule Control:** Enable/disable schedules~~ *(not yet implemented)*
 
 ### 🔐 Security & Connection
+- **Connection Wizard:** Step-by-step setup with auto-detection of server capabilities
+- **Connection Profiles:** Save and manage multiple Director connections
 - **TLS/SSL Encryption:** Secure connections with OpenSSL 3.6
-- **Dual Authentication:** PSK (Pre-Shared Key) or certificate-based
+- **Triple Authentication:** Legacy (CRAM-MD5), TLS-PSK, or X.509 Certificates
 - **Certificate Management:** CA, client certificate and key files
+- **Director Config Export:** Export console configurations for Bareos server
 - **Windows PFX Support:** Native .pfx file support on Windows
 - **Connection Timeout:** Configurable timeout settings
 - **Auto-Connect:** Automatic connection on startup (optional)
@@ -256,42 +280,68 @@ Create certificates with:
 
 ```
 onesimus/
-├── include/              # Header files
-│   ├── mainwindow.h      # Main window
-│   ├── settingsdialog.h  # Settings dialog
-│   ├── bdirector.h       # Director base class
-│   ├── bareosdirector.h  # Bareos-specific
-│   ├── bbasemodels.h     # Base models (List, Table, Tree)
-│   ├── bresourcemodels.h # Resource models (Fileset, Storage, Pool, Level)
-│   ├── btranslations.h   # i18n system
-│   ├── bsettings.h       # Settings management
-│   ├── clientwidget.h    # Client widget
-│   ├── storagewidget.h   # Storage widget
-│   └── jobs/             # Job-specific headers
-│       ├── bjobmodels.h  # Job models
-│       └── bjobwidget.h  # Job widget
-├── src/                  # Implementations
-│   ├── main.cpp          # Entry point with i18n init
-│   ├── mainwindow.cpp    # Main window logic
-│   ├── settingsdialog.cpp# Settings dialog logic
-│   ├── bdirector.cpp     # Director communication
-│   ├── bareosdirector.cpp# Bareos JSON-RPC
-│   ├── bbasemodels.cpp   # Base model implementations
-│   ├── bresourcemodels.cpp# Resource model implementations
-│   ├── btranslations.cpp # i18n implementation
-│   ├── bjsonstreamreader.cpp # JSON stream parser
-│   └── jobs/             # Job implementations
-├── translations/         # Qt Linguist .ts files
-│   ├── onesimus_de.ts    # German
-│   ├── onesimus_en.ts    # English
-│   ├── onesimus_es.ts    # Spanish
-│   ├── onesimus_fr.ts    # French
-│   ├── onesimus_it.ts    # Italian
-│   └── onesimus_ru.ts    # Russian
-├── ui/                   # Qt UI files (if used)
-├── external/             # Git submodules
-│   └── openssl/          # OpenSSL 3.6
-└── CMakeLists.txt        # Build configuration
+├── include/                    # Header files
+│   ├── bmainwindow.h           # Main window
+│   ├── bsettingsdialog.h       # Settings dialog
+│   ├── bconnectionwizard.h     # Connection wizard
+│   ├── bcleanupdialog.h        # Job cleanup dialog
+│   ├── bprofilesettingsdialog.h# Profile settings
+│   ├── bconfigexporter.h       # Config export
+│   ├── bcertificategenerator.h # Certificate generator
+│   ├── bdirector.h             # Director base class
+│   ├── bareosdirector.h        # Bareos-specific
+│   ├── bareosauth.h            # Bareos authentication
+│   ├── bbasemodels.h           # Base models (List, Table, Tree)
+│   ├── bresourcemodels.h       # Resource models (Fileset, Storage, Pool, Level)
+│   ├── btranslations.h         # i18n system
+│   ├── bsettings.h             # Settings management
+│   ├── clientwidget.h          # Client widget
+│   ├── storagewidget.h         # Storage widget
+│   └── jobs/                   # Job-specific headers
+│       ├── bjobmodels.h        # Job models
+│       └── bjobwidget.h        # Job widget
+├── src/                        # Implementations
+│   ├── main.cpp                # Entry point with i18n init
+│   ├── bmainwindow.cpp         # Main window logic
+│   ├── bsettingsdialog.cpp     # Settings dialog logic
+│   ├── bconnectionwizard.cpp   # Connection wizard logic
+│   ├── bcleanupdialog.cpp      # Job cleanup logic
+│   ├── bprofilesettingsdialog.cpp # Profile settings
+│   ├── bconfigexporter.cpp     # Config export logic
+│   ├── bcertificategenerator.cpp # Certificate generation
+│   ├── bdirector.cpp           # Director communication
+│   ├── bareosdirector.cpp      # Bareos JSON-RPC
+│   ├── bareosauth.cpp          # Bareos CRAM-MD5/TLS auth
+│   ├── bbasemodels.cpp         # Base model implementations
+│   ├── bresourcemodels.cpp     # Resource model implementations
+│   ├── btranslations.cpp       # i18n implementation
+│   ├── bjsonstreamreader.cpp   # JSON stream parser
+│   └── jobs/                   # Job implementations
+├── test/                       # Test suite
+│   ├── bareosauth_test.cpp     # Auth class tests
+│   ├── director_test.cpp       # State-machine tests
+│   ├── bareos_auth.sh          # Auth test script
+│   ├── director_test.sh        # Director test script
+│   ├── run_all_tests.sh        # Full test runner
+│   ├── generate_bareos_testdata.py # Test data generator
+│   ├── configs/                # Console configurations
+│   └── bareos-dir.d/           # Test director config
+├── translations/               # Qt Linguist .ts files
+│   ├── onesimus_de.ts          # German (complete)
+│   ├── onesimus_en.ts          # English
+│   ├── onesimus_es.ts          # Spanish
+│   ├── onesimus_fr.ts          # French
+│   ├── onesimus_it.ts          # Italian
+│   └── onesimus_ru.ts          # Russian
+├── ui/                         # Qt UI files
+│   ├── bmainwindow.ui          # Main window UI
+│   ├── bsettingsdialog.ui      # Settings dialog UI
+│   ├── jobwidget.ui            # Job widget UI
+│   ├── clientwidget.ui         # Client widget UI
+│   └── storagewidget.ui        # Storage widget UI
+├── external/                   # Git submodules
+│   └── openssl/                # OpenSSL 3.6
+└── CMakeLists.txt              # Build configuration
 ```
 
 ### Architecture
@@ -372,6 +422,20 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 
 ## 🔄 Version History
 
+### v1.1.0 (January 2026)
+- ✅ Connection Wizard with step-by-step Director setup
+- ✅ TLS Certificate Authentication (X.509) alongside TLS-PSK
+- ✅ Connection Profiles for multiple Directors
+- ✅ Director Configuration Export for server setup
+- ✅ Old Job Cleanup Dialog with filters
+- ✅ Refactored codebase (bmainwindow, bsettingsdialog naming convention)
+- ✅ Comprehensive test suite (bareosauth_test, director_test)
+- ✅ Test data generator for Bareos database
+- ✅ Complete German translation
+- ✅ Enhanced status bar with configurable colors
+- ✅ Improved wizard data persistence
+- ✅ Better debug logging with component prefixes
+
 ### v1.0.0 (January 2026)
 - ✅ Renamed to "Onesimus"
 - ✅ Internationalization (i18n): 6 languages with automatic language detection
@@ -387,7 +451,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - ✅ Cross-platform build scripts (Windows/Linux/macOS)
 - ✅ Comprehensive documentation
 
-### Planned Features (v1.1+)
+### Planned Features (v1.2+)
 - 🔜 Live job monitoring with progress bars
 - 🔜 Job start/stop/cancel functions
 - 🔜 Volume management (label, mount, unmount)
@@ -395,6 +459,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - 🔜 Backup job templates
 - 🔜 Email notifications
 - 🔜 Dashboard with overview
+- 🔜 Restore wizard with BVFS browser
 
 ---
 
