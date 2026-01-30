@@ -17,6 +17,10 @@ BJobDetailsDialog::BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidg
     , m_jobWidget(jobWidget)
     , m_director(director)
     , m_jobId(job["jobid"].toString().toULongLong())
+    , m_currentPath("/")
+    , m_currentPathId(0)
+    , m_clientName(job["client"].toString())
+    , m_bvfsState(BvfsState::Idle)
 {
     setupUi(job);
 
@@ -71,6 +75,21 @@ void BJobDetailsDialog::setupFilesTab()
 {
     QWidget *filesTab = new QWidget();
     QVBoxLayout *filesLayout = new QVBoxLayout(filesTab);
+
+    // Toolbar with options
+    QHBoxLayout *toolbarLayout = new QHBoxLayout();
+
+    // Checkbox: Show files from all related jobs (full restore chain)
+    m_allJobsCheckBox = new QCheckBox(tr("Show files from all related jobs (full restore chain)"), filesTab);
+    m_allJobsCheckBox->setToolTip(tr("When checked, shows files from all incremental/differential backups.\n"
+                                      "When unchecked, shows only files from this specific job."));
+    m_allJobsCheckBox->setChecked(true);  // Default: show all jobs for complete view
+    connect(m_allJobsCheckBox, &QCheckBox::toggled,
+            this, &BJobDetailsDialog::onAllJobsToggled);
+    toolbarLayout->addWidget(m_allJobsCheckBox);
+    toolbarLayout->addStretch();
+
+    filesLayout->addLayout(toolbarLayout);
 
     // Loading indicator
     m_loadingProgress = new QProgressBar(filesTab);
@@ -274,24 +293,54 @@ void BJobDetailsDialog::loadFilesFromDirector()
         return;
     }
 
+    bool useAllJobs = m_allJobsCheckBox->isChecked();
+
     qDebug() << "========================================";
     qDebug() << "BVFS: Starting file load for JobID:" << m_jobId;
+    qDebug() << "BVFS: Client:" << m_clientName;
+    qDebug() << "BVFS: Mode:" << (useAllJobs ? "All related jobs" : "Current job only");
     qDebug() << "========================================";
 
-    // BVFS API correct sequence:
-    // Step 1: Get all related jobids (for incremental/differential backups)
-    QString getJobIdsCmd = QString(".bvfs_get_jobids jobid=%1").arg(m_jobId);
-    qDebug() << "BVFS: Step 1 - Sending command:" << getJobIdsCmd;
+    if (useAllJobs) {
+        // Mode: Show all related jobs (full restore chain)
+        // Step 1: Get all related jobids (for incremental/differential backups)
+        m_bvfsState = BvfsState::GettingJobIds;
+        QString getJobIdsCmd = QString(".bvfs_get_jobids jobid=%1 all").arg(m_jobId);
+        qDebug() << "BVFS: Step 1 - Sending command:" << getJobIdsCmd;
 
-    // Thread-safe: Use queued connection to send command to Director thread
-    QMetaObject::invokeMethod(m_director, "doSendCommand",
-                              Qt::QueuedConnection,
-                              Q_ARG(BDirector::Command, BDirector::Command::Custom),
-                              Q_ARG(QString, getJobIdsCmd));
+        QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                  Q_ARG(QString, getJobIdsCmd));
+        // Steps 2 & 3 will be triggered in onFilesDataReceived()
+    } else {
+        // Mode: Show only current job files
+        // Skip bvfs_get_jobids and use only this job's ID
+        m_bvfsJobIds = QString::number(m_jobId);
+        qDebug() << "BVFS: Using single job ID:" << m_bvfsJobIds;
 
-    // Steps 2 & 3 will be triggered in onFilesDataReceived() after we receive the jobids
+        // Step 2: Update BVFS cache
+        m_bvfsState = BvfsState::UpdatingCache;
+        QString updateCmd = QString(".bvfs_update jobid=%1").arg(m_bvfsJobIds);
+        qDebug() << "BVFS: Step 2 - Sending command:" << updateCmd;
 
-    // Note: Job log is no longer loaded here - it's managed by BJobWidget
+        QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                  Q_ARG(QString, updateCmd));
+
+        // Step 3: List directories (triggered after short delay)
+        QTimer::singleShot(300, this, [this]() {
+            m_bvfsState = BvfsState::ListingDirs;
+            QString lsdirsCmd = QString(".bvfs_lsdirs jobid=%1 path=/").arg(m_bvfsJobIds);
+            qDebug() << "BVFS: Step 3 - Sending command:" << lsdirsCmd;
+
+            QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                      Q_ARG(QString, lsdirsCmd));
+        });
+    }
 }
 
 void BJobDetailsDialog::onFilesDataReceived(const QString &command, const QString &jsonData)
@@ -299,137 +348,103 @@ void BJobDetailsDialog::onFilesDataReceived(const QString &command, const QStrin
     qDebug() << "BVFS: onFilesDataReceived called";
     qDebug() << "BVFS:   Command:" << command;
     qDebug() << "BVFS:   Data size:" << jsonData.size() << "bytes";
-    qDebug() << "BVFS:   Looking for JobID:" << m_jobId;
+    qDebug() << "BVFS:   State:" << static_cast<int>(m_bvfsState);
 
-    // Only process if this is for our job
-    if (!command.contains(QString::number(m_jobId))) {
-        qDebug() << "BVFS:   → Not for this job, ignoring";
+    // Parse JSON
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
+
+    if (error.error != QJsonParseError::NoError) {
+        qWarning() << "BVFS: JSON parse error:" << error.errorString();
         return;
     }
 
+    if (!doc.isObject()) {
+        qWarning() << "BVFS: Response is not a JSON object";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
     // Step 1: Process bvfs_get_jobids response
-    if (command.contains("bvfs_get_jobids")) {
+    if (command.contains("bvfs_get_jobids") && m_bvfsState == BvfsState::GettingJobIds) {
         qDebug() << "BVFS: ✓ Step 1 - Processing bvfs_get_jobids response";
-        qDebug() << "BVFS:   First 500 chars:" << jsonData.left(500);
 
-        // Parse JSON to extract jobids
-        QJsonParseError error;
-        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
+        // Bareos returns: {"result": {"jobids": [{"id": "123"}, {"id": "456"}, ...]}}
+        QJsonArray jobidsArray = result["jobids"].toArray();
+        QStringList jobIdList;
 
-        if (error.error != QJsonParseError::NoError) {
-            qWarning() << "BVFS: ✗ JSON parse error for jobids:" << error.errorString();
-            qWarning() << "BVFS:   Offset:" << error.offset;
-            qWarning() << "BVFS:   Near:" << jsonData.mid(qMax(0, error.offset - 50), 100);
-            m_loadingProgress->setFormat("Error getting job IDs");
-            return;
-        }
-
-        qDebug() << "BVFS:   JSON parsed successfully";
-        qDebug() << "BVFS:   Root keys:" << doc.object().keys();
-
-        // Extract jobids from response
-        // Expected format: {"result": {"jobids": "12,11,10"}} or similar
-        if (doc.isObject()) {
-            QJsonObject root = doc.object();
-            if (root.contains("result") && root["result"].isObject()) {
-                QJsonObject result = root["result"].toObject();
-                qDebug() << "BVFS:   Result keys:" << result.keys();
-
-                if (result.contains("jobids")) {
-                    m_bvfsJobIds = result["jobids"].toString();
-                    qDebug() << "BVFS: ✓ Got BVFS JobIDs:" << m_bvfsJobIds;
-
-                    // Step 2: Update BVFS cache with all jobids
-                    QString updateCmd = QString(".bvfs_update jobid=%1").arg(m_bvfsJobIds);
-                    qDebug() << "BVFS: Step 2 - Sending command:" << updateCmd;
-
-                    QMetaObject::invokeMethod(m_director, "doSendCommand",
-                                              Qt::QueuedConnection,
-                                              Q_ARG(BDirector::Command, BDirector::Command::Custom),
-                                              Q_ARG(QString, updateCmd));
-
-                    // Step 3: List directories (triggered after short delay)
-                    QTimer::singleShot(300, this, [this]() {
-                        QString lsdirsCmd = QString(".bvfs_lsdirs jobid=%1 path=/").arg(m_bvfsJobIds);
-                        qDebug() << "BVFS: Step 3 - Sending command:" << lsdirsCmd;
-
-                        QMetaObject::invokeMethod(m_director, "doSendCommand",
-                                                  Qt::QueuedConnection,
-                                                  Q_ARG(BDirector::Command, BDirector::Command::Custom),
-                                                  Q_ARG(QString, lsdirsCmd));
-                    });
-                } else {
-                    qWarning() << "BVFS: ✗ No 'jobids' field in result";
+        if (!jobidsArray.isEmpty()) {
+            for (const QJsonValue &val : jobidsArray) {
+                QJsonObject obj = val.toObject();
+                QString id = obj["id"].toString();
+                if (!id.isEmpty()) {
+                    jobIdList << id;
                 }
-            } else {
-                qWarning() << "BVFS: ✗ No 'result' object in response";
             }
-        } else {
-            qWarning() << "BVFS: ✗ Response is not a JSON object";
         }
+
+        // Fallback to original job ID if no results
+        if (jobIdList.isEmpty()) {
+            jobIdList << QString::number(m_jobId);
+        }
+
+        m_bvfsJobIds = jobIdList.join(",");
+        qDebug() << "BVFS: ✓ Got BVFS JobIDs:" << m_bvfsJobIds;
+
+        // Step 2: Update BVFS cache with all jobids
+        m_bvfsState = BvfsState::UpdatingCache;
+        QString updateCmd = QString(".bvfs_update jobid=%1").arg(m_bvfsJobIds);
+        qDebug() << "BVFS: Step 2 - Sending command:" << updateCmd;
+
+        QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                  Q_ARG(QString, updateCmd));
+
+        // Step 3: List directories (triggered after short delay)
+        QTimer::singleShot(300, this, [this]() {
+            m_bvfsState = BvfsState::ListingDirs;
+            QString lsdirsCmd = QString(".bvfs_lsdirs jobid=%1 path=/").arg(m_bvfsJobIds);
+            qDebug() << "BVFS: Step 3 - Sending command:" << lsdirsCmd;
+
+            QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                      Q_ARG(QString, lsdirsCmd));
+        });
         return;
     }
 
     // Step 3: Process bvfs_lsdirs response (directory structure)
-    if (command.contains("bvfs_lsdirs")) {
+    if (command.contains("bvfs_lsdirs") && m_bvfsState == BvfsState::ListingDirs) {
         qDebug() << "BVFS: ✓ Step 3 - Processing bvfs_lsdirs response";
-        qDebug() << "BVFS:   First 500 chars:" << jsonData.left(500);
 
-        // Parse JSON
-        QJsonParseError error;
-        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
-
-        if (error.error != QJsonParseError::NoError) {
-            qWarning() << "BVFS: ✗ JSON parse error for directories:" << error.errorString();
-            qWarning() << "BVFS:   Offset:" << error.offset;
-            qWarning() << "BVFS:   Near:" << jsonData.mid(qMax(0, error.offset - 50), 100);
-            m_loadingProgress->setFormat("Error parsing directory data");
-            return;
-        }
-
-        qDebug() << "BVFS:   JSON parsed successfully";
-        qDebug() << "BVFS:   Root keys:" << doc.object().keys();
-
-        QJsonArray dirsArray;
-        if (doc.isObject()) {
-            QJsonObject root = doc.object();
-            // Bvfs API response structure
-            if (root.contains("result") && root["result"].isObject()) {
-                QJsonObject result = root["result"].toObject();
-                qDebug() << "BVFS:   Result keys:" << result.keys();
-
-                if (result.contains("directories") && result["directories"].isArray()) {
-                    dirsArray = result["directories"].toArray();
-                    qDebug() << "BVFS: ✓ Found" << dirsArray.size() << "directories in result.directories";
-                } else {
-                    qWarning() << "BVFS: ✗ No 'directories' array in result";
-                }
-            } else if (root.contains("directories")) {
-                dirsArray = root["directories"].toArray();
-                qDebug() << "BVFS: ✓ Found" << dirsArray.size() << "directories (direct)";
-            } else {
-                qWarning() << "BVFS: ✗ No 'result' or 'directories' in response";
-            }
-        } else {
-            qWarning() << "BVFS: ✗ Response is not a JSON object";
-        }
+        QJsonArray dirsArray = result["directories"].toArray();
+        qDebug() << "BVFS: Found" << dirsArray.size() << "directories";
 
         if (dirsArray.isEmpty()) {
-            qWarning() << "BVFS: ✗ No directories found in response";
-            qDebug() << "BVFS:   Full JSON:" << jsonData;
             m_loadingProgress->setFormat("No directories found for this job");
+            qDebug() << "BVFS: No directories - this job may not have file entries in catalog";
         } else {
-            qDebug() << "BVFS: Populating file tree with" << dirsArray.size() << "directories";
             populateFileTree(dirsArray);
         }
+
         m_loadingProgress->setVisible(false);
+        m_bvfsState = BvfsState::Idle;
         return;
     }
 
-    // Process bvfs_lsfiles response (if needed for file details)
-    if (command.contains("bvfs_lsfiles")) {
-        qDebug() << "Received files data:" << jsonData.left(200);
-        // TODO: Handle file listing when user clicks on a directory
+    // Process bvfs_lsfiles response (file listing for selected directory)
+    if (command.contains("bvfs_lsfiles") && m_bvfsState == BvfsState::ListingFiles) {
+        qDebug() << "BVFS: Processing bvfs_lsfiles response";
+
+        QJsonArray filesArray = result["files"].toArray();
+        qDebug() << "BVFS: Found" << filesArray.size() << "files";
+
+        populateFileList(filesArray);
+        m_bvfsState = BvfsState::Idle;
         return;
     }
 }
@@ -437,7 +452,7 @@ void BJobDetailsDialog::onFilesDataReceived(const QString &command, const QStrin
 
 void BJobDetailsDialog::populateFileTree(const QJsonArray &dirsArray)
 {
-    qDebug() << "Populating file tree with" << dirsArray.size() << "directories";
+    qDebug() << "BVFS: Populating file tree with" << dirsArray.size() << "directories";
 
     m_treeModel->clear();
     m_treeModel->setHorizontalHeaderLabels({"Directory Structure"});
@@ -451,24 +466,32 @@ void BJobDetailsDialog::populateFileTree(const QJsonArray &dirsArray)
     // Build directory tree structure from BVFS lsdirs response
     QMap<QString, QStandardItem*> pathMap;
     QStandardItem *rootItem = new QStandardItem("/");
-    rootItem->setData("/", Qt::UserRole);  // Store full path
+    rootItem->setData("/", Qt::UserRole);      // Store full path
+    rootItem->setData(0, Qt::UserRole + 1);    // PathId 0 for root
     rootItem->setIcon(QIcon::fromTheme("folder"));
     m_treeModel->appendRow(rootItem);
     pathMap["/"] = rootItem;
 
     // Process each directory from BVFS response
+    // BVFS lsdirs returns (lowercase): pathid, fileid, name, jobid, lstat, fileindex
     for (const QJsonValue &dirVal : dirsArray) {
         QJsonObject dirObj = dirVal.toObject();
 
-        // BVFS lsdirs returns: PathId, FilenameId, Name, JobId, LStat
-        QString dirName = dirObj["Name"].toString();
+        // Note: Bareos returns lowercase field names
+        QString dirName = dirObj["name"].toString();
+        int pathId = dirObj["pathid"].toString().toInt();
 
-        if (dirName.isEmpty()) {
-            qDebug() << "Skipping directory with no name:" << dirObj;
+        // Skip . and .. directories
+        if (dirName == "." || dirName == "..") {
             continue;
         }
 
-        qDebug() << "Processing directory:" << dirName;
+        if (dirName.isEmpty()) {
+            qDebug() << "BVFS: Skipping directory with no name:" << dirObj;
+            continue;
+        }
+
+        qDebug() << "BVFS: Processing directory:" << dirName << "PathId:" << pathId;
 
         // dirName is typically the full path like "/home/user/documents/"
         // Remove trailing slash if present
@@ -492,9 +515,10 @@ void BJobDetailsDialog::populateFileTree(const QJsonArray &dirsArray)
                 item->setData(currentPath, Qt::UserRole);  // Store full path
                 item->setIcon(QIcon::fromTheme("folder"));
 
-                // Store BVFS PathId for later file queries
-                if (dirObj.contains("PathId")) {
-                    item->setData(dirObj["PathId"].toInt(), Qt::UserRole + 1);
+                // Store BVFS PathId for later file queries (only for the leaf item)
+                if (i == pathParts.size() - 1) {
+                    item->setData(pathId, Qt::UserRole + 1);
+                    qDebug() << "BVFS: Set PathId" << pathId << "for" << currentPath;
                 }
 
                 parentItem->appendRow(item);
@@ -502,11 +526,22 @@ void BJobDetailsDialog::populateFileTree(const QJsonArray &dirsArray)
                 parentItem = item;
             } else {
                 parentItem = pathMap[currentPath];
+                // Update PathId if this is the leaf and we have a valid pathId
+                if (i == pathParts.size() - 1 && pathId > 0) {
+                    parentItem->setData(pathId, Qt::UserRole + 1);
+                }
             }
         }
     }
 
     m_fileTreeView->expandToDepth(1);
+
+    // Auto-select root to load initial file list
+    QModelIndex rootIndex = m_treeModel->index(0, 0);
+    if (rootIndex.isValid()) {
+        m_fileTreeView->setCurrentIndex(rootIndex);
+        onTreeItemClicked(rootIndex);
+    }
 }
 
 void BJobDetailsDialog::onTreeItemClicked(const QModelIndex &index)
@@ -521,29 +556,159 @@ void BJobDetailsDialog::onTreeItemClicked(const QModelIndex &index)
     }
 
     QString selectedPath = item->data(Qt::UserRole).toString();
-    qDebug() << "Tree item clicked:" << selectedPath;
+    int pathId = item->data(Qt::UserRole + 1).toInt();
+    qDebug() << "Tree item clicked:" << selectedPath << "PathId:" << pathId;
+
+    m_currentPath = selectedPath;
+    m_currentPathId = pathId;
+
+    // Load files for this directory via BVFS API
+    loadFilesForDirectory(pathId, selectedPath);
+}
+
+void BJobDetailsDialog::onAllJobsToggled(bool checked)
+{
+    qDebug() << "BVFS: All jobs toggle changed to:" << checked;
+
+    // Clear current data and reload
+    m_treeModel->clear();
+    m_treeModel->setHorizontalHeaderLabels({"Directory Structure"});
+    m_fileListModel->clear();
+    m_fileListModel->setHorizontalHeaderLabels({"Name", "Size", "Type", "Modified"});
+
+    m_loadingProgress->setVisible(true);
+    m_loadingProgress->setFormat("Loading files...");
+
+    // Reload with new job selection
+    loadFilesFromDirector();
+}
+
+void BJobDetailsDialog::loadFilesForDirectory(int pathId, const QString &path)
+{
+    if (!m_director) {
+        qWarning() << "BVFS: No Director connection for file loading";
+        return;
+    }
+
+    // Determine which job IDs to use based on checkbox state
+    QString jobIds;
+    if (m_allJobsCheckBox->isChecked()) {
+        // Use all related jobs (full restore chain)
+        jobIds = m_bvfsJobIds;
+    } else {
+        // Use only the current job
+        jobIds = QString::number(m_jobId);
+    }
+
+    qDebug() << "BVFS: Loading files for path:" << path << "PathId:" << pathId << "JobIds:" << jobIds;
 
     // Clear current file list
     m_fileListModel->clear();
     m_fileListModel->setHorizontalHeaderLabels({"Name", "Size", "Type", "Modified"});
 
-    // Find all files/directories that are direct children of selected path
-    QStandardItem *rootItem = item;
-    int childCount = rootItem->rowCount();
+    // First add subdirectories from tree model
+    QModelIndex currentIndex = m_fileTreeView->currentIndex();
+    if (currentIndex.isValid()) {
+        QStandardItem *item = m_treeModel->itemFromIndex(currentIndex);
+        if (item) {
+            int childCount = item->rowCount();
+            for (int i = 0; i < childCount; ++i) {
+                QStandardItem *childItem = item->child(i);
+                QString childName = childItem->text();
 
-    for (int i = 0; i < childCount; ++i) {
-        QStandardItem *childItem = rootItem->child(i);
-        QString childPath = childItem->data(Qt::UserRole).toString();
-        QString childName = childItem->text();
+                QList<QStandardItem*> row;
+                QStandardItem *nameItem = new QStandardItem(childName);
+                nameItem->setIcon(QIcon::fromTheme("folder"));
+                row << nameItem;
+                row << new QStandardItem("-");  // Size
+                row << new QStandardItem(tr("Directory"));
+                row << new QStandardItem("-");  // Modified
+
+                m_fileListModel->appendRow(row);
+            }
+        }
+    }
+
+    // Now load actual files via BVFS
+    m_bvfsState = BvfsState::ListingFiles;
+
+    // Use path-based query for files in this directory
+    QString lsfilesCmd = QString(".bvfs_lsfiles jobid=%1 path=%2")
+                             .arg(jobIds)
+                             .arg(path);
+    qDebug() << "BVFS: Sending command:" << lsfilesCmd;
+
+    QMetaObject::invokeMethod(m_director, "doSendCommand",
+                              Qt::QueuedConnection,
+                              Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                              Q_ARG(QString, lsfilesCmd));
+}
+
+void BJobDetailsDialog::populateFileList(const QJsonArray &filesArray)
+{
+    qDebug() << "BVFS: Populating file list with" << filesArray.size() << "files";
+
+    // Files are appended after directories (which were added in loadFilesForDirectory)
+    for (const QJsonValue &fileVal : filesArray) {
+        QJsonObject fileObj = fileVal.toObject();
+
+        // BVFS lsfiles returns (lowercase): fileid, pathid, name, jobid, lstat, fileindex, stat
+        QString fileName = fileObj["name"].toString();
+        if (fileName.isEmpty() || fileName == "." || fileName == "..") {
+            continue;
+        }
+
+        // Parse lstat for file size and mtime
+        // lstat format is base64 encoded stat structure, but Bareos also provides "stat" object
+        QJsonObject stat = fileObj["stat"].toObject();
+        qint64 fileSize = stat["size"].toVariant().toLongLong();
+        qint64 mtime = stat["mtime"].toVariant().toLongLong();
+
+        // Format file size
+        QString sizeStr = formatBytes(fileSize);
+
+        // Format modification time
+        QString mtimeStr;
+        if (mtime > 0) {
+            QDateTime dateTime = QDateTime::fromSecsSinceEpoch(mtime);
+            mtimeStr = dateTime.toString("yyyy-MM-dd hh:mm:ss");
+        }
+
+        // Determine file type from stat mode
+        QString fileType = tr("File");
+        int mode = stat["mode"].toInt();
+        if (mode > 0) {
+            // S_IFDIR = 0040000 (directory)
+            // S_IFREG = 0100000 (regular file)
+            // S_IFLNK = 0120000 (symlink)
+            if ((mode & 0170000) == 0040000) {
+                fileType = tr("Directory");
+            } else if ((mode & 0170000) == 0120000) {
+                fileType = tr("Symlink");
+            }
+        }
 
         QList<QStandardItem*> row;
-        row << new QStandardItem(childName);
-        row << new QStandardItem("");  // Size (would need from file data)
-        row << new QStandardItem(childItem->hasChildren() ? "Directory" : "File");
-        row << new QStandardItem("");  // Modified date (would need from file data)
+        QStandardItem *nameItem = new QStandardItem(fileName);
+        if (fileType == tr("Directory")) {
+            nameItem->setIcon(QIcon::fromTheme("folder"));
+        } else if (fileType == tr("Symlink")) {
+            nameItem->setIcon(QIcon::fromTheme("emblem-symbolic-link"));
+        } else {
+            nameItem->setIcon(QIcon::fromTheme("text-x-generic"));
+        }
+        row << nameItem;
+        row << new QStandardItem(sizeStr);
+        row << new QStandardItem(fileType);
+        row << new QStandardItem(mtimeStr);
+
+        // Store file metadata in first item for potential restore selection
+        nameItem->setData(fileObj["fileid"].toString(), Qt::UserRole);
+        nameItem->setData(fileObj["jobid"].toString(), Qt::UserRole + 1);
 
         m_fileListModel->appendRow(row);
     }
 
-    qDebug() << "Populated file list with" << childCount << "items";
+    // Resize columns to content
+    m_fileListView->resizeColumnsToContents();
 }

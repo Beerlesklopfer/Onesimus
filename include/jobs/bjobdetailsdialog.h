@@ -15,6 +15,7 @@
 #include <QStandardItemModel>
 #include <QTextEdit>
 #include <QProgressBar>
+#include <QCheckBox>
 #include "bdirector.h"
 #include "jobs/bjobmodels.h"
 
@@ -41,6 +42,7 @@ public:
 private slots:
     void onTreeItemClicked(const QModelIndex &index);
     void onFilesDataReceived(const QString &command, const QString &jsonData);
+    void onAllJobsToggled(bool checked);
 
 private:
     void setupUi(const QJsonObject &job);
@@ -64,6 +66,7 @@ private:
     QStandardItemModel *m_fileListModel;
     QSplitter *m_filesSplitter;
     QProgressBar *m_loadingProgress;
+    QCheckBox *m_allJobsCheckBox;    // Toggle: show files from all related jobs
 
     // Status Tab
     QWidget *m_statusWidget;
@@ -77,7 +80,24 @@ private:
     BJobWidget *m_jobWidget;    // Access to shared log model
     BDirector *m_director;
     quint64 m_jobId;
-    QString m_bvfsJobIds;  // Comma-separated list of jobids from bvfs_get_jobids
+    QString m_bvfsJobIds;       // Comma-separated list of jobids from bvfs_get_jobids
+    QString m_currentPath;      // Currently selected directory path
+    int m_currentPathId;        // PathId of currently selected directory
+    QString m_clientName;       // Client name for BVFS queries
+
+    // BVFS state tracking
+    enum class BvfsState {
+        Idle,
+        GettingJobIds,
+        UpdatingCache,
+        ListingDirs,
+        ListingFiles
+    };
+    BvfsState m_bvfsState = BvfsState::Idle;
+
+    // Helper methods
+    void loadFilesForDirectory(int pathId, const QString &path);
+    void populateFileList(const QJsonArray &filesArray);
 };
 
 #endif // BJOBDETAILSDIALOG_H

@@ -13,6 +13,7 @@
 #include <QMap>
 #include <QJsonObject>
 #include <QListView>
+#include <QToolBox>
 #include <QDebug>
 #include "jobs/bjsonjobview.h"
 #include "bjsonstreamreader.h"
@@ -386,6 +387,7 @@ private:
     QPushButton *m_toggleFiltersButton;     ///< Toggle filters button
     QPushButton *m_resetFiltersButton;      ///< Reset filters button
     QWidget *m_filterContainer;             ///< Container for all filters
+    QToolBox *m_filterToolBox;              ///< ToolBox for accordion-style filter sections
     bool m_filtersVisible;                  ///< Filter visibility state
 
     BDirector *m_director;                  ///< Director connection for job operations

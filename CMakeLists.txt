@@ -384,7 +384,6 @@ set(SOURCES
     src/jobs/bjobmodels.cpp
     src/jobs/bjobdetailsdialog.cpp
     src/jobs/bjoblogdialog.cpp
-    src/jobs/bjobsfilterwidget.cpp
     src/jobs/bjobsstatisticswidget.cpp
     src/jobs/bjobwidget.cpp
     src/jobs/bjsonjobview.cpp
@@ -429,7 +428,6 @@ set(HEADERS
     include/jobs/bjobmodels.h
     include/jobs/bjobdetailsdialog.h
     include/jobs/bjoblogdialog.h
-    include/jobs/bjobsfilterwidget.h
     include/jobs/bjobsstatisticswidget.h
     include/jobs/bjobwidget.h
     include/jobs/bjsonjobview.h

@@ -1232,8 +1232,16 @@ class BareosTestDataGenerator:
         return f"{bytes_val:.2f} PB"
 
     def generate_backup_schedule(self, server_type: ServerType,
-                                  days_back: int) -> List[Tuple[datetime, str]]:
-        """Generate backup schedule for a server."""
+                                  days_back: int,
+                                  use_differential: bool = False) -> List[Tuple[datetime, str]]:
+        """Generate backup schedule for a server.
+
+        Args:
+            server_type: Type of server for interval calculation
+            days_back: How many days of history to generate
+            use_differential: If True, use Full-Differential-Incremental schedule
+                             (differential mid-week, incrementals on other days)
+        """
         schedule = []
         now = datetime.now()
 
@@ -1243,19 +1251,24 @@ class BareosTestDataGenerator:
                            ServerType.ORACLE_DB, ServerType.MONGODB]:
             full_interval = 1  # Daily full for databases
             incr_interval = 6  # Hours
+            diff_day = None  # No differential for frequent fulls
         elif server_type in [ServerType.NAS_SYNOLOGY, ServerType.NAS_QNAP,
                              ServerType.NAS_NETAPP]:
             full_interval = 7  # Weekly full
             incr_interval = 24
+            diff_day = 3  # Wednesday (0=Monday)
         elif server_type in [ServerType.VMWARE_HOST, ServerType.HYPERV_HOST]:
             full_interval = 7
             incr_interval = 24
+            diff_day = 3  # Wednesday
         elif server_type in [ServerType.MAIL_EXCHANGE, ServerType.MAIL_LINUX]:
             full_interval = 7
             incr_interval = 12
+            diff_day = 3  # Wednesday
         else:
             full_interval = 7  # Weekly full
             incr_interval = 24  # Daily incremental
+            diff_day = 3  # Wednesday
 
         current = now - timedelta(days=days_back)
         last_full = None
@@ -1264,6 +1277,9 @@ class BareosTestDataGenerator:
             if last_full is None or (current - last_full).days >= full_interval:
                 schedule.append((current, self.LEVEL_FULL))
                 last_full = current
+            elif use_differential and diff_day is not None and current.weekday() == diff_day:
+                # Differential on specified day (e.g., Wednesday)
+                schedule.append((current, self.LEVEL_DIFFERENTIAL))
             else:
                 schedule.append((current, self.LEVEL_INCREMENTAL))
             current += timedelta(hours=incr_interval)
@@ -1545,23 +1561,34 @@ class BareosTestDataGenerator:
             job_errors = random.randint(1, 10)
             job_files = random.randint(profile.files_min, profile.files_max)
             size_gb = random.uniform(profile.size_gb_min, profile.size_gb_max)
-            if level != self.LEVEL_FULL:
+            if level == self.LEVEL_INCREMENTAL:
                 size_gb *= profile.incr_ratio
+            elif level == self.LEVEL_DIFFERENTIAL:
+                # Differential is larger than incremental (avg of 3-4 incrementals)
+                size_gb *= profile.incr_ratio * random.uniform(2.5, 4.0)
             job_bytes = int(size_gb * 1024 * 1024 * 1024)
         else:
             status = self.STATUS_OK
             job_errors = 0
             job_files = random.randint(profile.files_min, profile.files_max)
             size_gb = random.uniform(profile.size_gb_min, profile.size_gb_max)
-            if level != self.LEVEL_FULL:
+            if level == self.LEVEL_INCREMENTAL:
                 size_gb *= profile.incr_ratio
                 job_files = int(job_files * profile.incr_ratio)
+            elif level == self.LEVEL_DIFFERENTIAL:
+                # Differential is larger than incremental (avg of 3-4 incrementals)
+                diff_ratio = profile.incr_ratio * random.uniform(2.5, 4.0)
+                size_gb *= diff_ratio
+                job_files = int(job_files * diff_ratio)
             job_bytes = int(size_gb * 1024 * 1024 * 1024)
 
         # Calculate duration
         duration = random.uniform(profile.duration_hours_min, profile.duration_hours_max)
-        if level != self.LEVEL_FULL:
+        if level == self.LEVEL_INCREMENTAL:
             duration *= profile.incr_ratio
+        elif level == self.LEVEL_DIFFERENTIAL:
+            # Differential takes longer than incremental
+            duration *= profile.incr_ratio * random.uniform(2.0, 3.0)
 
         start_time = schedule_time + timedelta(minutes=random.randint(0, 20))
         end_time = start_time + timedelta(hours=duration)
@@ -1840,8 +1867,16 @@ class BareosTestDataGenerator:
                     if status in stats_by_status:
                         stats_by_status[status] += 1
             else:
-                # Traditional backup strategy (Full + Incremental)
-                schedule = self.generate_backup_schedule(server.server_type, days_back)
+                # Traditional backup strategy (Full + Differential + Incremental)
+                # Use differential for server types with weekly full backups
+                use_diff = server.server_type in [
+                    ServerType.NAS_SYNOLOGY, ServerType.NAS_QNAP, ServerType.NAS_NETAPP,
+                    ServerType.VMWARE_HOST, ServerType.HYPERV_HOST,
+                    ServerType.MAIL_EXCHANGE, ServerType.MAIL_LINUX,
+                    ServerType.LINUX_APP, ServerType.LINUX_WEB, ServerType.LINUX_DB,
+                    ServerType.WINDOWS_APP, ServerType.WINDOWS_FILE, ServerType.WINDOWS_DB,
+                ]
+                schedule = self.generate_backup_schedule(server.server_type, days_back, use_differential=use_diff)
 
                 for sched_time, level in schedule:
                     job_id, status = self.generate_job(

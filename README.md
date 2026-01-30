@@ -10,11 +10,29 @@
   <img src="https://img.shields.io/badge/OpenSSL-3.6-orange?logo=openssl" alt="OpenSSL 3.6">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Cross-Platform">
   <img src="https://img.shields.io/badge/i18n-6%20Languages-blue" alt="6 Languages">
+  <img src="https://img.shields.io/badge/Status-Alpha-red" alt="Alpha">
 </p>
+
+---
+
+> **⚠️ ENTWICKLUNGSHINWEIS / DEVELOPMENT NOTICE**
+>
+> **Deutsch:** Dieses Projekt befindet sich in aktiver Entwicklung und dient derzeit nur zu Testzwecken. Es ist **nicht für den produktiven Einsatz** geeignet. Funktionen können sich jederzeit ändern oder unvollständig sein. Nutzung auf eigenes Risiko. Siehe [Haftungsausschluss](https://github.com/Beerlesklopfer/Onesimus/wiki/Disclaimer).
+>
+> **English:** This project is under active development and is currently for **testing purposes only**. It is **not suitable for production use**. Features may change or be incomplete at any time. Use at your own risk. See [Disclaimer](https://github.com/Beerlesklopfer/Onesimus/wiki/Disclaimer).
+>
+> **Aktuelle Entwicklung / Current Development:** [`development` branch](https://github.com/Beerlesklopfer/Onesimus/tree/development)
+
+---
 
 ## 🆕 What's New (2026-01-30)
 
 ### New Features
+- **BVFS File Browser** - Browse backed up files directly in job details dialog
+  - Toggle between "Current Job" and "All Related Jobs" (full restore chain)
+  - Windows Explorer-style tree view with file list
+  - File details: Name, Size, Type, Modification Time
+  - Support for Incremental/Differential backup chains
 - **Connection Wizard** - Step-by-step wizard for Director connection setup with auto-detection
 - **TLS Certificate Authentication** - Full X.509 certificate support alongside TLS-PSK
 - **Connection Profiles** - Save and manage multiple Director connections
@@ -30,6 +48,7 @@
 
 ### Test Infrastructure
 - Comprehensive test suite with authentication and state-machine tests
+- BVFS Explorer test command for learning the BVFS API
 - Test data generator for realistic Bareos database entries
 - Support for Legacy, TLS-PSK, and TLS-Certificate authentication modes
 
@@ -423,13 +442,17 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 ## 🔄 Version History
 
 ### v1.1.0 (January 2026)
+- ✅ BVFS File Browser in Job Details Dialog
+  - Toggle "Current Job" / "All Related Jobs" mode
+  - Windows Explorer-style directory tree and file list
+  - File details with size, type, and modification time
 - ✅ Connection Wizard with step-by-step Director setup
 - ✅ TLS Certificate Authentication (X.509) alongside TLS-PSK
 - ✅ Connection Profiles for multiple Directors
 - ✅ Director Configuration Export for server setup
 - ✅ Old Job Cleanup Dialog with filters
 - ✅ Refactored codebase (bmainwindow, bsettingsdialog naming convention)
-- ✅ Comprehensive test suite (bareosauth_test, director_test)
+- ✅ Comprehensive test suite (bareosauth_test, director_test, BVFS explorer)
 - ✅ Test data generator for Bareos database
 - ✅ Complete German translation
 - ✅ Enhanced status bar with configurable colors
@@ -459,7 +482,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - 🔜 Backup job templates
 - 🔜 Email notifications
 - 🔜 Dashboard with overview
-- 🔜 Restore wizard with BVFS browser
+- 🔜 Restore wizard (BVFS file browser ✅ implemented)
 
 ---
 

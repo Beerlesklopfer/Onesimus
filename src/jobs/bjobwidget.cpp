@@ -15,6 +15,7 @@
 #include <QDateTimeEdit>
 #include <QListView>
 #include <QScrollArea>
+#include <QFontMetrics>
 
 BJobWidget::BJobWidget(QWidget *parent)
     : QWidget(parent)
@@ -44,6 +45,7 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_autoRefreshTimer(new QTimer(this))
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_toggleFiltersButton(new QPushButton(this))
+    , m_filterToolBox(nullptr)  // Will be created in setupUI
     , m_director(nullptr)
     , m_filesetModel(new BFilesetModel(this))
     , m_storageModel(new BStorageModel(this))
@@ -285,97 +287,128 @@ void BJobWidget::setupUI()
     m_splitter->setHandleWidth(3);
     m_splitter->setChildrenCollapsible(true);
 
-    // === FILTER CONTAINER (linke Seite) ===
+    // === FILTER CONTAINER (linke Seite) mit QToolBox ===
     m_filterContainer = new QWidget(this);
     QVBoxLayout *filterLayout = new QVBoxLayout(m_filterContainer);
     filterLayout->setContentsMargins(0, 0, 5, 0);
+    filterLayout->setSpacing(4);
 
-    QGroupBox *filterGroup = new QGroupBox(tr("Filters"), m_filterContainer);
-    QVBoxLayout *filterGroupLayout = new QVBoxLayout(filterGroup);
+    // QToolBox für Akkordeon-Style Filter-Sektionen
+    m_filterToolBox = new QToolBox(this);
+    // Set minimum width relative to font size (~30 average characters)
+    QFontMetrics fm(font());
+    m_filterToolBox->setMinimumWidth(fm.averageCharWidth() * 30);
+
+    // ========================================================================
+    // Page 1: Basis-Filter (Text + Status)
+    // ========================================================================
+    QWidget *basicPage = new QWidget();
+    QVBoxLayout *basicLayout = new QVBoxLayout(basicPage);
+    basicLayout->setContentsMargins(8, 8, 8, 8);
+    basicLayout->setSpacing(8);
 
     // Text filters
-    QGroupBox *textGroup = new QGroupBox(tr("Text Filters"), this);
-    QFormLayout *textLayout = new QFormLayout(textGroup);
-
-    // Placeholder text is set in constructor
+    QFormLayout *textLayout = new QFormLayout();
+    textLayout->setSpacing(4);
     textLayout->addRow(tr("Job Name:"), m_nameFilter);
     textLayout->addRow(tr("Client:"), m_clientFilter);
+    basicLayout->addLayout(textLayout);
 
-    filterGroupLayout->addWidget(textGroup);
+    // Status filters - vertical list layout
+    QLabel *statusLabel = new QLabel(tr("<b>Status:</b>"), this);
+    basicLayout->addWidget(statusLabel);
 
-    // Status filters
-    QGroupBox *statusGroup = new QGroupBox(tr("Status Filters"), this);
-    QVBoxLayout *statusLayout = new QVBoxLayout(statusGroup);
-
+    QVBoxLayout *statusLayout = new QVBoxLayout();
+    statusLayout->setSpacing(4);
     statusLayout->addWidget(m_statusSuccess);
     statusLayout->addWidget(m_statusWarning);
     statusLayout->addWidget(m_statusFailed);
     statusLayout->addWidget(m_statusError);
     statusLayout->addWidget(m_statusZeroBytes);
+    basicLayout->addLayout(statusLayout);
 
-    filterGroupLayout->addWidget(statusGroup);
+    basicLayout->addStretch();
 
-    // Level filters
-    QGroupBox *levelGroup = new QGroupBox(tr("Backup Level"), this);
-    QVBoxLayout *levelGroupLayout = new QVBoxLayout(levelGroup);
-    levelGroupLayout->setContentsMargins(0, 0, 0, 0);
+    m_filterToolBox->addItem(basicPage, QIcon::fromTheme("view-filter"), tr("Basic Filters"));
+
+    // ========================================================================
+    // Page 2: Backup Level (dynamisch)
+    // ========================================================================
+    QWidget *levelPage = new QWidget();
+    QVBoxLayout *levelPageLayout = new QVBoxLayout(levelPage);
+    levelPageLayout->setContentsMargins(8, 8, 8, 8);
+    levelPageLayout->setSpacing(4);
 
     // Create scroll area for level checkboxes
     QScrollArea *levelScrollArea = new QScrollArea(this);
     levelScrollArea->setWidgetResizable(true);
     levelScrollArea->setFrameShape(QFrame::NoFrame);
-    levelScrollArea->setMaximumHeight(150);  // Limit height to ~5 checkboxes
 
     // Create widget to hold the checkboxes
     QWidget *levelScrollWidget = new QWidget(this);
     QVBoxLayout *levelLayout = new QVBoxLayout(levelScrollWidget);
-    levelLayout->setContentsMargins(5, 5, 5, 5);
+    levelLayout->setContentsMargins(0, 0, 0, 0);
+    levelLayout->setSpacing(4);
 
     // Add placeholder label (will be replaced with checkboxes from .levels command)
     QLabel *levelPlaceholder = new QLabel(tr("Wird geladen..."), this);
     levelPlaceholder->setObjectName("levelPlaceholder");
     levelLayout->addWidget(levelPlaceholder);
 
-    // Set the dynamic layout
+    // Set the dynamic layout for level checkboxes
     levelLayout->addLayout(m_levelCheckboxLayout);
     levelLayout->addStretch();
 
     levelScrollArea->setWidget(levelScrollWidget);
-    levelGroupLayout->addWidget(levelScrollArea);
+    levelPageLayout->addWidget(levelScrollArea);
 
-    filterGroupLayout->addWidget(levelGroup);
+    m_filterToolBox->addItem(levelPage, QIcon::fromTheme("folder"), tr("Backup Level"));
 
-    // Job Info (selected job configuration)
-    QGroupBox *jobInfoGroup = new QGroupBox(tr("Selected Job Info"), this);
-    QFormLayout *jobInfoLayout = new QFormLayout(jobInfoGroup);
+    // ========================================================================
+    // Page 3: Zeitraum
+    // ========================================================================
+    QWidget *datePage = new QWidget();
+    QVBoxLayout *datePageLayout = new QVBoxLayout(datePage);
+    datePageLayout->setContentsMargins(8, 8, 8, 8);
+    datePageLayout->setSpacing(8);
 
+    datePageLayout->addWidget(m_dateEnabled);
+
+    QFormLayout *dateFormLayout = new QFormLayout();
+    dateFormLayout->setSpacing(4);
+    dateFormLayout->addRow(tr("From:"), m_dateFrom);
+    dateFormLayout->addRow(tr("To:"), m_dateTo);
+    datePageLayout->addLayout(dateFormLayout);
+
+    datePageLayout->addStretch();
+
+    m_filterToolBox->addItem(datePage, QIcon::fromTheme("x-office-calendar"), tr("Date Range"));
+
+    // ========================================================================
+    // Page 4: Job-Details (ausgewählter Job)
+    // ========================================================================
+    QWidget *jobInfoPage = new QWidget();
+    QVBoxLayout *jobInfoPageLayout = new QVBoxLayout(jobInfoPage);
+    jobInfoPageLayout->setContentsMargins(8, 8, 8, 8);
+    jobInfoPageLayout->setSpacing(4);
+
+    QFormLayout *jobInfoLayout = new QFormLayout();
+    jobInfoLayout->setSpacing(4);
     jobInfoLayout->addRow(tr("FileSet:"), m_filesetCombo);
     jobInfoLayout->addRow(tr("Storage:"), m_storageCombo);
     jobInfoLayout->addRow(tr("Pool:"), m_poolCombo);
+    jobInfoPageLayout->addLayout(jobInfoLayout);
 
-    filterGroupLayout->addWidget(jobInfoGroup);
+    jobInfoPageLayout->addStretch();
 
-    // Date range
-    QGroupBox *dateGroup = new QGroupBox(tr("Date Range"), this);
-    QVBoxLayout *dateLayout = new QVBoxLayout(dateGroup);
+    m_filterToolBox->addItem(jobInfoPage, QIcon::fromTheme("dialog-information"), tr("Job Details"));
 
-    dateLayout->addWidget(m_dateEnabled);
-
-    QFormLayout *dateFormLayout = new QFormLayout();
-    dateFormLayout->addRow(tr("From:"), m_dateFrom);
-    dateFormLayout->addRow(tr("To:"), m_dateTo);
-    dateLayout->addLayout(dateFormLayout);
-
-    filterGroupLayout->addWidget(dateGroup);
+    filterLayout->addWidget(m_filterToolBox, 1);  // Stretch factor 1
 
     // Reset Filters Button
     m_resetFiltersButton = new QPushButton(tr("Filter zurücksetzen"), this);
     m_resetFiltersButton->setIcon(QIcon::fromTheme("edit-clear"));
-    filterGroupLayout->addWidget(m_resetFiltersButton);
-
-    filterGroupLayout->addStretch();
-
-    filterLayout->addWidget(filterGroup);
+    filterLayout->addWidget(m_resetFiltersButton);
 
     m_splitter->addWidget(m_filterContainer);
 
@@ -451,10 +484,13 @@ void BJobWidget::onJobsReceived(const QList<BDirector::JobInfo> &jobs)
 {
     // Convert Director jobs to JSON format
     QJsonArray jsonJobs = convertJobsToJson(jobs);
-    
+
     // Update table view
     m_tableView->setJobsData(jsonJobs);
-    
+
+    // Apply saved filters after loading jobs
+    applyFilters();
+
     // Update status
     emit statusMessageChanged(QString("Aktualisiert: %1 - %2 Jobs geladen")
         .arg(QDateTime::currentDateTime().toString("HH:mm:ss"))
@@ -1031,6 +1067,9 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
 
     emit statusMessageChanged(QString("%1 Jobs geladen").arg(enrichedJobsArray.size()));
     m_refreshButton->setEnabled(true);
+
+    // Apply saved filters after loading jobs
+    applyFilters();
 }
 
 void BJobWidget::onJobSelectionChanged()
