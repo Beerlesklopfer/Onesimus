@@ -165,6 +165,14 @@ ServerPage::ServerPage(QWidget *parent)
     form->addRow(tr("Port:"), m_portSpin);
 
     m_layout->addLayout(form);
+
+    // Config file path hint
+    auto *configLabel = new QLabel(this);
+    configLabel->setWordWrap(true);
+    configLabel->setStyleSheet("color: #666; font-size: 11px;");
+    configLabel->setText(tr("Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"));
+    m_layout->addWidget(configLabel);
+
     setHint(tr("The default port is 9101."));
     m_layout->addStretch();
 
@@ -199,7 +207,17 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     m_saveCheck->setChecked(true);
     m_layout->addWidget(m_saveCheck);
 
-    setHint(tr("These are defined in your Bareos console configuration."));
+    // Config file path hints
+    auto *configLabel = new QLabel(this);
+    configLabel->setWordWrap(true);
+    configLabel->setStyleSheet("color: #666; font-size: 11px;");
+    configLabel->setText(tr(
+        "Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf\n"
+        "Console config: /etc/bareos/bareos-dir.d/console/<name>.conf"
+    ));
+    m_layout->addWidget(configLabel);
+
+    setHint(tr("These must match your Bareos Director configuration."));
     m_layout->addStretch();
 
     registerField("directorName*", m_directorEdit);
