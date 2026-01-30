@@ -638,6 +638,17 @@ public slots:
      */
     static QString jobStatusToString(JobStatus status);
 
+    /**
+     * @brief Sends a raw command string to the Director
+     *
+     * Use this for commands not covered by the Command enum,
+     * such as "show consoles" or "configure add console".
+     *
+     * @param command Command string (without newline)
+     * @since 1.0.0
+     */
+    void sendRawCommand(const QString &command);
+
 public slots:
     /**
      * @brief Initialize director (creates socket and auth in current thread)

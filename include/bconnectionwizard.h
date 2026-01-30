@@ -19,6 +19,7 @@
 #include <QTimer>
 #include <QButtonGroup>
 #include <QVBoxLayout>
+#include <QComboBox>
 
 #include "bconnectionprofile.h"
 
@@ -49,6 +50,7 @@ public:
         Page_AuthMethod,
         Page_TLS,
         Page_Test,
+        Page_ConsoleSetup,
         Page_ProfileName
     };
 
@@ -171,6 +173,37 @@ private slots:
     void onProtocolError(const QString &error);
     void onResourcesLoaded();
     void onTimeout();
+};
+
+class ConsoleSetupPage : public QAPage
+{
+    Q_OBJECT
+public:
+    explicit ConsoleSetupPage(QWidget *parent = nullptr);
+    void initializePage() override;
+    bool validatePage() override;
+    bool isComplete() const override;
+private:
+    QRadioButton *m_useCurrentRadio;
+    QRadioButton *m_selectExistingRadio;
+    QRadioButton *m_createNewRadio;
+    QButtonGroup *m_group;
+    QComboBox *m_consoleCombo;
+    QLineEdit *m_newNameEdit;
+    QLineEdit *m_newPasswordEdit;
+    QPushButton *m_generatePasswordButton;
+    QPushButton *m_refreshButton;
+    QLabel *m_statusLabel;
+    BareosDirector *m_director;
+    bool m_consolesLoaded;
+    void loadConsoles();
+    void generatePassword();
+    void createConsole();
+private slots:
+    void onSelectionChanged();
+    void onRefreshClicked();
+    void onGeneratePasswordClicked();
+    void onJsonResponse(const QString &cmd, const QString &json);
 };
 
 class ProfileNamePage : public QAPage

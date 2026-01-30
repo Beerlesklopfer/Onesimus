@@ -1341,6 +1341,11 @@ void BareosDirector::onAuthStatusMessage(const QString &message)
 // Command Handling
 // ============================================================================
 
+void BareosDirector::sendRawCommand(const QString &command)
+{
+    sendCommand(command);
+}
+
 void BareosDirector::sendCommand(const QString &command)
 {
     // Allow commands in Ready, SettingApiMode (for .api), and LoadingResources (for dot-commands)

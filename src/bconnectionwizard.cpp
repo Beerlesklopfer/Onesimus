@@ -14,6 +14,11 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QMessageBox>
+#include <QComboBox>
+#include <QRandomGenerator>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 // ============================================================================
 // BConnectionWizard
@@ -33,6 +38,7 @@ BConnectionWizard::BConnectionWizard(QWidget *parent)
     setPage(Page_AuthMethod, new AuthMethodPage(this));
     setPage(Page_TLS, new TLSPage(this));
     setPage(Page_Test, new TestPage(this));
+    setPage(Page_ConsoleSetup, new ConsoleSetupPage(this));
     setPage(Page_ProfileName, new ProfileNamePage(this));
 
     m_profile = BConnectionProfile::create(tr("New Connection"));
@@ -421,7 +427,7 @@ void TestPage::initializePage()
 
 void TestPage::cleanupPage() { stopTest(); }
 bool TestPage::isComplete() const { return m_testSucceeded; }
-int TestPage::nextId() const { return BConnectionWizard::Page_ProfileName; }
+int TestPage::nextId() const { return BConnectionWizard::Page_ConsoleSetup; }
 
 void TestPage::startTest()
 {
@@ -560,6 +566,324 @@ void TestPage::onTimeout()
     m_statusLabel->setText(tr("Timed out"));
     m_statusLabel->setStyleSheet("color:#c00000;font-weight:bold;");
     stopTest();
+}
+
+// ============================================================================
+// ConsoleSetupPage
+// ============================================================================
+
+ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
+    : QAPage(tr("Console configuration"), parent)
+    , m_director(nullptr)
+    , m_consolesLoaded(false)
+{
+    m_group = new QButtonGroup(this);
+
+    m_useCurrentRadio = new QRadioButton(tr("Use the console I entered"), this);
+    m_useCurrentRadio->setChecked(true);
+    m_group->addButton(m_useCurrentRadio, 0);
+    m_layout->addWidget(m_useCurrentRadio);
+
+    m_selectExistingRadio = new QRadioButton(tr("Select an existing console from director"), this);
+    m_group->addButton(m_selectExistingRadio, 1);
+    m_layout->addWidget(m_selectExistingRadio);
+
+    auto *selectLayout = new QHBoxLayout();
+    selectLayout->setContentsMargins(25, 0, 0, 0);
+    m_consoleCombo = new QComboBox(this);
+    m_consoleCombo->setEnabled(false);
+    m_consoleCombo->setMinimumWidth(200);
+    selectLayout->addWidget(m_consoleCombo);
+    m_refreshButton = new QPushButton(tr("Refresh"), this);
+    m_refreshButton->setEnabled(false);
+    selectLayout->addWidget(m_refreshButton);
+    selectLayout->addStretch();
+    m_layout->addLayout(selectLayout);
+
+    m_createNewRadio = new QRadioButton(tr("Create a new console on the director"), this);
+    m_group->addButton(m_createNewRadio, 2);
+    m_layout->addWidget(m_createNewRadio);
+
+    auto *createForm = new QFormLayout();
+    createForm->setContentsMargins(25, 0, 0, 0);
+    m_newNameEdit = new QLineEdit(this);
+    m_newNameEdit->setText("onesimus-client");
+    m_newNameEdit->setEnabled(false);
+    createForm->addRow(tr("Name:"), m_newNameEdit);
+
+    auto *pwdLayout = new QHBoxLayout();
+    m_newPasswordEdit = new QLineEdit(this);
+    m_newPasswordEdit->setEnabled(false);
+    pwdLayout->addWidget(m_newPasswordEdit);
+    m_generatePasswordButton = new QPushButton(tr("Generate"), this);
+    m_generatePasswordButton->setEnabled(false);
+    pwdLayout->addWidget(m_generatePasswordButton);
+    createForm->addRow(tr("Password:"), pwdLayout);
+    m_layout->addLayout(createForm);
+
+    m_statusLabel = new QLabel(this);
+    m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_layout->addWidget(m_statusLabel);
+
+    setHint(tr("You can use your entered console, select an existing one, or create a new one."));
+    m_layout->addStretch();
+
+    connect(m_group, &QButtonGroup::idClicked, this, &ConsoleSetupPage::onSelectionChanged);
+    connect(m_refreshButton, &QPushButton::clicked, this, &ConsoleSetupPage::onRefreshClicked);
+    connect(m_generatePasswordButton, &QPushButton::clicked, this, &ConsoleSetupPage::onGeneratePasswordClicked);
+}
+
+void ConsoleSetupPage::initializePage()
+{
+    m_consolesLoaded = false;
+    m_consoleCombo->clear();
+    m_statusLabel->clear();
+
+    // Auto-load consoles when page is shown
+    loadConsoles();
+}
+
+bool ConsoleSetupPage::validatePage()
+{
+    if (m_selectExistingRadio->isChecked()) {
+        if (m_consoleCombo->currentText().isEmpty()) {
+            QMessageBox::warning(this, tr("No Console"), tr("Please select a console."));
+            return false;
+        }
+        // Update wizard fields with selected console
+        wizard()->setField("consoleName", m_consoleCombo->currentText());
+        // Note: password remains the one entered, user must know it
+    } else if (m_createNewRadio->isChecked()) {
+        if (m_newNameEdit->text().trimmed().isEmpty() || m_newPasswordEdit->text().isEmpty()) {
+            QMessageBox::warning(this, tr("Missing"), tr("Please enter a name and password for the new console."));
+            return false;
+        }
+        // Create the console on the director
+        createConsole();
+        // Update wizard fields with new console
+        wizard()->setField("consoleName", m_newNameEdit->text().trimmed());
+        wizard()->setField("password", m_newPasswordEdit->text());
+    }
+    return true;
+}
+
+bool ConsoleSetupPage::isComplete() const
+{
+    if (m_useCurrentRadio->isChecked()) return true;
+    if (m_selectExistingRadio->isChecked()) return !m_consoleCombo->currentText().isEmpty();
+    if (m_createNewRadio->isChecked()) return !m_newNameEdit->text().trimmed().isEmpty() && !m_newPasswordEdit->text().isEmpty();
+    return false;
+}
+
+void ConsoleSetupPage::onSelectionChanged()
+{
+    bool selectMode = m_selectExistingRadio->isChecked();
+    bool createMode = m_createNewRadio->isChecked();
+
+    m_consoleCombo->setEnabled(selectMode);
+    m_refreshButton->setEnabled(selectMode);
+    m_newNameEdit->setEnabled(createMode);
+    m_newPasswordEdit->setEnabled(createMode);
+    m_generatePasswordButton->setEnabled(createMode);
+
+    if (selectMode && !m_consolesLoaded) {
+        loadConsoles();
+    }
+
+    emit completeChanged();
+}
+
+void ConsoleSetupPage::onRefreshClicked()
+{
+    loadConsoles();
+}
+
+void ConsoleSetupPage::onGeneratePasswordClicked()
+{
+    generatePassword();
+}
+
+void ConsoleSetupPage::loadConsoles()
+{
+    m_statusLabel->setText(tr("Loading consoles..."));
+    m_consoleCombo->clear();
+
+    if (m_director) {
+        m_director->disconnect();
+        m_director->deleteLater();
+    }
+
+    m_director = new BareosDirector(this);
+    m_director->initialize();
+
+    connect(m_director, &BareosDirector::jsonResponse, this, &ConsoleSetupPage::onJsonResponse);
+    connect(m_director, &BareosDirector::allResourcesLoaded, this, [this]() {
+        // Send "show consoles" command once connected
+        m_director->sendRawCommand("show consoles");
+    });
+    connect(m_director, &BareosDirector::protocolError, this, [this](const QString &err) {
+        m_statusLabel->setText(tr("Error: %1").arg(err));
+        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+    });
+
+    // Configure TLS same as test page
+    BareosDirector::TLSConfig tls;
+    QString auth = field("authMethod").toString();
+    if (auth == "legacy") {
+        tls.tlsEnable = false;
+        tls.tlsRequire = false;
+        tls.tlsPSKEnable = false;
+    } else if (auth == "psk") {
+        tls.tlsEnable = true;
+        tls.tlsRequire = true;
+        tls.tlsPSKEnable = true;
+        tls.tlsVerifyPeer = false;
+    } else {
+        tls.tlsEnable = true;
+        tls.tlsRequire = true;
+        tls.tlsPSKEnable = false;
+        tls.tlsVerifyPeer = true;
+        QString ca = field("caCert").toString();
+        QString cert = field("clientCert").toString();
+        QString key = field("clientKey").toString();
+        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
+        if (!cert.isEmpty()) tls.tlsCertFile = QSharedPointer<QFile>(new QFile(cert));
+        if (!key.isEmpty()) tls.tlsKeyFile = QSharedPointer<QFile>(new QFile(key));
+    }
+    m_director->setTLSConfig(tls);
+
+    QString host = field("host").toString();
+    int port = field("port").toInt();
+    QString dir = field("directorName").toString();
+    QString con = field("consoleName").toString();
+    QString pwd = field("password").toString();
+
+    m_director->connect(host, port, dir, con, pwd);
+}
+
+void ConsoleSetupPage::onJsonResponse(const QString &cmd, const QString &json)
+{
+    Q_UNUSED(cmd)
+
+    QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+    if (!doc.isObject()) return;
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // Look for "consoles" array in the result
+    if (result.contains("consoles")) {
+        QJsonArray consoles = result["consoles"].toArray();
+        m_consoleCombo->clear();
+        for (const QJsonValue &v : consoles) {
+            QJsonObject console = v.toObject();
+            QString name = console["name"].toString();
+            if (!name.isEmpty()) {
+                m_consoleCombo->addItem(name);
+            }
+        }
+        m_consolesLoaded = true;
+        m_statusLabel->setText(tr("Found %1 console(s)").arg(m_consoleCombo->count()));
+        m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+
+        // Select current console if it exists
+        QString current = field("consoleName").toString();
+        int idx = m_consoleCombo->findText(current);
+        if (idx >= 0) m_consoleCombo->setCurrentIndex(idx);
+
+        emit completeChanged();
+    }
+
+    if (m_director) {
+        m_director->disconnect();
+    }
+}
+
+void ConsoleSetupPage::generatePassword()
+{
+    // Generate a random 24-character password
+    const QString chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
+    QString password;
+    for (int i = 0; i < 24; ++i) {
+        int idx = QRandomGenerator::global()->bounded(chars.length());
+        password.append(chars.at(idx));
+    }
+    m_newPasswordEdit->setText(password);
+    emit completeChanged();
+}
+
+void ConsoleSetupPage::createConsole()
+{
+    // Connect and send configure add console command
+    if (m_director) {
+        m_director->disconnect();
+        m_director->deleteLater();
+    }
+
+    m_director = new BareosDirector(this);
+    m_director->initialize();
+
+    QString newName = m_newNameEdit->text().trimmed();
+    QString newPassword = m_newPasswordEdit->text();
+
+    connect(m_director, &BareosDirector::allResourcesLoaded, this, [this, newName, newPassword]() {
+        // Send configure add console command
+        QString cmd = QString("configure add console name=%1 password=\"%2\" profile=operator tlsenable=false")
+                          .arg(newName, newPassword);
+        m_director->sendRawCommand(cmd);
+        m_statusLabel->setText(tr("Creating console '%1'...").arg(newName));
+    });
+
+    connect(m_director, &BareosDirector::jsonResponse, this, [this, newName](const QString &, const QString &json) {
+        // Check if creation was successful
+        if (json.contains("created") || json.contains("Created")) {
+            m_statusLabel->setText(tr("Console '%1' created successfully!").arg(newName));
+            m_statusLabel->setStyleSheet("color: #008000; font-style: italic;");
+        } else if (json.contains("error") || json.contains("Error")) {
+            m_statusLabel->setText(tr("Failed to create console"));
+            m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+        }
+        if (m_director) m_director->disconnect();
+    });
+
+    connect(m_director, &BareosDirector::protocolError, this, [this](const QString &err) {
+        m_statusLabel->setText(tr("Error: %1").arg(err));
+        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+    });
+
+    // Configure TLS
+    BareosDirector::TLSConfig tls;
+    QString auth = field("authMethod").toString();
+    if (auth == "legacy") {
+        tls.tlsEnable = false;
+        tls.tlsRequire = false;
+        tls.tlsPSKEnable = false;
+    } else if (auth == "psk") {
+        tls.tlsEnable = true;
+        tls.tlsRequire = true;
+        tls.tlsPSKEnable = true;
+        tls.tlsVerifyPeer = false;
+    } else {
+        tls.tlsEnable = true;
+        tls.tlsRequire = true;
+        tls.tlsPSKEnable = false;
+        tls.tlsVerifyPeer = true;
+        QString ca = field("caCert").toString();
+        QString cert = field("clientCert").toString();
+        QString key = field("clientKey").toString();
+        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
+        if (!cert.isEmpty()) tls.tlsCertFile = QSharedPointer<QFile>(new QFile(cert));
+        if (!key.isEmpty()) tls.tlsKeyFile = QSharedPointer<QFile>(new QFile(key));
+    }
+    m_director->setTLSConfig(tls);
+
+    QString host = field("host").toString();
+    int port = field("port").toInt();
+    QString dir = field("directorName").toString();
+    QString con = field("consoleName").toString();
+    QString pwd = field("password").toString();
+
+    m_director->connect(host, port, dir, con, pwd);
 }
 
 // ============================================================================
