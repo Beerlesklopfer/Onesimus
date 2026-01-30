@@ -101,6 +101,7 @@ class CredentialsPage : public QAPage
     Q_OBJECT
 public:
     explicit CredentialsPage(QWidget *parent = nullptr);
+    bool isComplete() const override;
 private:
     QLineEdit *m_directorEdit;
     QLineEdit *m_consoleEdit;
@@ -185,8 +186,7 @@ public:
     bool validatePage() override;
     bool isComplete() const override;
 private:
-    QRadioButton *m_useCurrentRadio;
-    QRadioButton *m_selectExistingRadio;
+    QRadioButton *m_modifyExistingRadio;
     QRadioButton *m_createNewRadio;
     QButtonGroup *m_group;
     QComboBox *m_consoleCombo;

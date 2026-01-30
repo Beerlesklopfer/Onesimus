@@ -227,10 +227,21 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     setHint(tr("These must match your Bareos Director configuration."));
     m_layout->addStretch();
 
-    registerField("directorName*", m_directorEdit);
-    registerField("consoleName*", m_consoleEdit);
-    registerField("password*", m_passwordEdit);
+    registerField("directorName", m_directorEdit);
+    registerField("consoleName", m_consoleEdit);
+    registerField("password", m_passwordEdit);
     registerField("savePassword", m_saveCheck);
+
+    connect(m_directorEdit, &QLineEdit::textChanged, this, &CredentialsPage::completeChanged);
+    connect(m_consoleEdit, &QLineEdit::textChanged, this, &CredentialsPage::completeChanged);
+    connect(m_passwordEdit, &QLineEdit::textChanged, this, &CredentialsPage::completeChanged);
+}
+
+bool CredentialsPage::isComplete() const
+{
+    return !m_directorEdit->text().trimmed().isEmpty() &&
+           !m_consoleEdit->text().trimmed().isEmpty() &&
+           !m_passwordEdit->text().isEmpty();
 }
 
 // ============================================================================
@@ -604,29 +615,25 @@ ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
 {
     m_group = new QButtonGroup(this);
 
-    m_useCurrentRadio = new QRadioButton(tr("Use the console I entered"), this);
-    m_useCurrentRadio->setChecked(true);
-    m_group->addButton(m_useCurrentRadio, 0);
-    m_layout->addWidget(m_useCurrentRadio);
-
-    m_selectExistingRadio = new QRadioButton(tr("Select an existing console from director"), this);
-    m_group->addButton(m_selectExistingRadio, 1);
-    m_layout->addWidget(m_selectExistingRadio);
+    // Option 1: Modify existing console
+    m_modifyExistingRadio = new QRadioButton(tr("Modify existing console"), this);
+    m_modifyExistingRadio->setChecked(true);
+    m_group->addButton(m_modifyExistingRadio, 0);
+    m_layout->addWidget(m_modifyExistingRadio);
 
     auto *selectLayout = new QHBoxLayout();
     selectLayout->setContentsMargins(25, 0, 0, 0);
     m_consoleCombo = new QComboBox(this);
-    m_consoleCombo->setEnabled(false);
     m_consoleCombo->setMinimumWidth(200);
     selectLayout->addWidget(m_consoleCombo);
     m_refreshButton = new QPushButton(tr("Refresh"), this);
-    m_refreshButton->setEnabled(false);
     selectLayout->addWidget(m_refreshButton);
     selectLayout->addStretch();
     m_layout->addLayout(selectLayout);
 
-    m_createNewRadio = new QRadioButton(tr("Create a new console on the director"), this);
-    m_group->addButton(m_createNewRadio, 2);
+    // Option 2: Create new console
+    m_createNewRadio = new QRadioButton(tr("Create new console"), this);
+    m_group->addButton(m_createNewRadio, 1);
     m_layout->addWidget(m_createNewRadio);
 
     auto *createForm = new QFormLayout();
@@ -670,7 +677,7 @@ void ConsoleSetupPage::initializePage()
 
 bool ConsoleSetupPage::validatePage()
 {
-    if (m_selectExistingRadio->isChecked()) {
+    if (m_modifyExistingRadio->isChecked()) {
         if (m_consoleCombo->currentText().isEmpty()) {
             QMessageBox::warning(this, tr("No Console"), tr("Please select a console."));
             return false;
@@ -694,26 +701,21 @@ bool ConsoleSetupPage::validatePage()
 
 bool ConsoleSetupPage::isComplete() const
 {
-    if (m_useCurrentRadio->isChecked()) return true;
-    if (m_selectExistingRadio->isChecked()) return !m_consoleCombo->currentText().isEmpty();
+    if (m_modifyExistingRadio->isChecked()) return !m_consoleCombo->currentText().isEmpty();
     if (m_createNewRadio->isChecked()) return !m_newNameEdit->text().trimmed().isEmpty() && !m_newPasswordEdit->text().isEmpty();
     return false;
 }
 
 void ConsoleSetupPage::onSelectionChanged()
 {
-    bool selectMode = m_selectExistingRadio->isChecked();
+    bool modifyMode = m_modifyExistingRadio->isChecked();
     bool createMode = m_createNewRadio->isChecked();
 
-    m_consoleCombo->setEnabled(selectMode);
-    m_refreshButton->setEnabled(selectMode);
+    m_consoleCombo->setEnabled(modifyMode);
+    m_refreshButton->setEnabled(modifyMode);
     m_newNameEdit->setEnabled(createMode);
     m_newPasswordEdit->setEnabled(createMode);
     m_generatePasswordButton->setEnabled(createMode);
-
-    if (selectMode && !m_consolesLoaded) {
-        loadConsoles();
-    }
 
     emit completeChanged();
 }
