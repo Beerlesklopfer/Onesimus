@@ -6,7 +6,12 @@
   - [ ] Get default FileSet from job configuration
   - [ ] Get default Pool from job configuration
   - [ ] Get default Storage from job configuration
+  - [ ] Get default Client from job configuration
   - [ ] Auto-select these values in the combo boxes
+- [ ] Query job defaults from Director on job selection change
+  - [ ] Use `.jobs` command to get full job configuration
+  - [ ] Parse fileset, pool, storage, client from response
+  - [ ] Update combo boxes with default values
 
 ## Job Management
 
