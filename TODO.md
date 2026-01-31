@@ -29,8 +29,12 @@
 - [ ] Add progress indicator for large restore operations
 - [ ] Improve performance for large directory trees
 
-## General
+## Statistics
+- [ ] Add job tends according to jobs to watch crotical development of storage sapces.
 
+
+## General
+- [ ] In basicfilters => Status the runnig job is missing
 - [ ] Complete remaining translations (ES, FR, IT, RU)
 - [ ] Add Bacula support
 - [ ] Implement live job monitoring with progress bars

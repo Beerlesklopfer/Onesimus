@@ -66,6 +66,10 @@ test/test_results.log
 test/bareos-dir-test.pid
 test/runtime
 
+#Python
+test/__pycache__/
+
+# Sonstiges
 CERT_CREATION_README.md
 QUICK_VS_ENV.txt
 WINDOWS_TLS_FIX.md

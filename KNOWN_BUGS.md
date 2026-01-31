@@ -4,6 +4,17 @@ This document lists known bugs and issues in Onesimus.
 
 ## Current Issues
 
+### Statistics Widget
+- **Description**: verify values.
+- **Workaround**: none
+- **Status**: Under investigation
+
+### Job Tree View
+- **Description**: When a job ha been run the table is not been updated
+- **Workaround**: none, maybe add a filter in basic filters 0> status
+- **Status**: Under development
+
+
 ### Job Tree View
 - **Description**: The job tree view is not fully functional due to ongoing development.
 - **Workaround**: Use the table view for job management.
