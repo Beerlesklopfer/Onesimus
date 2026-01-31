@@ -476,9 +476,10 @@ void BNewJobDialog::onRunClicked()
 
     if (proceed) {
         if (m_director) {
+            // Use Custom command since we build the full "run ..." command ourselves
             QMetaObject::invokeMethod(m_director, "doSendCommand",
                                       Qt::QueuedConnection,
-                                      Q_ARG(BDirector::Command, BDirector::Command::Run),
+                                      Q_ARG(BDirector::Command, BDirector::Command::Custom),
                                       Q_ARG(QString, command));
         }
         accept();
