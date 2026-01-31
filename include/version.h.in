@@ -1,0 +1,38 @@
+#pragma once
+
+// Project version information - auto-generated from CMakeLists.txt
+#define PROJECT_VERSION        "@PROJECT_VERSION@"
+#define PROJECT_VERSION_MAJOR  @PROJECT_VERSION_MAJOR@
+#define PROJECT_VERSION_MINOR  @PROJECT_VERSION_MINOR@
+#define PROJECT_VERSION_PATCH  @PROJECT_VERSION_PATCH@
+#define PROJECT_NAME           "@PROJECT_NAME@"
+
+// Build information
+#define BUILD_NUMBER           @BUILD_NUMBER@
+#define BUILD_DATE             "@BUILD_DATE@"
+#define BUILD_TIME             "@BUILD_TIME@"
+#define BUILD_TIMESTAMP        "@BUILD_TIMESTAMP@"
+#define GIT_COMMIT_HASH        "@GIT_COMMIT_HASH@"
+#define GIT_BRANCH             "@GIT_BRANCH@"
+#define GIT_DESCRIBE           "@GIT_DESCRIBE@"
+
+// Full version string with build number
+#define VERSION_FULL           "@PROJECT_VERSION@.@BUILD_NUMBER@"
+
+// Release date
+#define BDATE                  "@BDATE@"
+#define BDEMO                  ""
+
+// System information
+#define HOST_OS                "@CMAKE_SYSTEM_NAME@"
+#define HOST_ARCH              "@CMAKE_SYSTEM_PROCESSOR@"
+#define DISTNAME               "@DISTNAME@"
+#define DISTVER                "@DISTVER@"
+
+// Build configuration
+#define BUILD_TYPE             "@CMAKE_BUILD_TYPE@"
+#define COMPILER_ID            "@CMAKE_CXX_COMPILER_ID@"
+#define COMPILER_VERSION       "@CMAKE_CXX_COMPILER_VERSION@"
+
+// Copyright
+#define PROG_COPYRIGHT         "Copyright (C) 2025-2026 Joerg Bernau.\n"

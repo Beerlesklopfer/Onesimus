@@ -25,19 +25,33 @@
 
 ---
 
-## 🆕 What's New (2026-01-30)
+## 🆕 What's New (2026-01-31)
 
 ### New Features
+- **Run New Job Dialog** - Create and run backup jobs with a modern dialog interface
+  - Job configuration with Job, Client, Level selection
+  - Resource selection for FileSet, Pool, Storage
+  - Advanced scheduling and bootstrap options
+  - Command preview with validation
 - **BVFS File Browser** - Browse backed up files directly in job details dialog
   - Toggle between "Current Job" and "All Related Jobs" (full restore chain)
   - Windows Explorer-style tree view with file list
   - File details: Name, Size, Type, Modification Time
-  - Support for Incremental/Differential backup chains
+  - Checkbox selection for files and directories with Restore button
+- **Job Delete Options** - Choose between delete (record only) or purge (with volume data)
+  - Dependent job detection for Full backups
+  - Safety confirmations before destructive operations
 - **Connection Wizard** - Step-by-step wizard for Director connection setup with auto-detection
 - **TLS Certificate Authentication** - Full X.509 certificate support alongside TLS-PSK
 - **Connection Profiles** - Save and manage multiple Director connections
-- **Director Configuration Export** - Export console configurations for Bareos server setup
-- **Old Job Cleanup Dialog** - Clean up old jobs from the catalog with filters
+- **About Qt** - Added "About Qt" option in Help menu
+
+### Bug Fixes
+- Fixed: Job log flipping between jobs when rapidly selecting different jobs
+- Fixed: Job log not displaying in BJobWidget bottom panel
+- Fixed: Folder selection in file browser not counting subfolders
+- Fixed: Restore button width too narrow
+- Fixed: Run Job button not being enabled after data loads
 
 ### Improvements
 - Refactored codebase (`mainwindow` → `bmainwindow`, `settingsdialog` → `bsettingsdialog`)
@@ -45,6 +59,7 @@
 - Enhanced status bar with configurable colors
 - Better debug logging with component prefixes
 - Complete German translation
+- English translation for Run New Job dialog
 
 ### Test Infrastructure
 - Comprehensive test suite with authentication and state-machine tests

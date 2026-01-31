@@ -870,6 +870,20 @@ void BSettings::setStatisticsWidgetVisible(bool visible)
 }
 
 // ========================================================================
+// BVFS (Job Details Dialog) Settings
+// ========================================================================
+
+bool BSettings::bvfsShowAllRelatedJobs() const
+{
+    return value("BVFS/showAllRelatedJobs", false).toBool();
+}
+
+void BSettings::setBvfsShowAllRelatedJobs(bool showAll)
+{
+    setValue("BVFS/showAllRelatedJobs", showAll);
+}
+
+// ========================================================================
 // Utility Methods
 // ========================================================================
 

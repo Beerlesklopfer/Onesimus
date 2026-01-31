@@ -58,6 +58,7 @@ private:
     void loadConfigurationDataFromJobWidget();
     void updateJobDefaults();
     void buildRunCommand();
+    void updateButtonState();
 
     BJobWidget *m_jobWidget;
     BDirector *m_director;

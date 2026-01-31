@@ -1,8 +1,98 @@
 cmake_minimum_required(VERSION 3.16)
-project(onesimus VERSION 1.0.0 LANGUAGES CXX)
+project(onesimus VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ============================================================================
+# Version Information Generation (version.h)
+# ============================================================================
+message(STATUS "")
+message(STATUS "========================================")
+message(STATUS "Version Information")
+message(STATUS "========================================")
+
+# Get current date and time
+string(TIMESTAMP BUILD_DATE "%Y-%m-%d")
+string(TIMESTAMP BUILD_TIME "%H:%M:%S")
+string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S")
+string(TIMESTAMP BDATE "%Y.%m")
+
+# Build number management (auto-increment)
+set(BUILD_NUMBER_FILE "${CMAKE_SOURCE_DIR}/.build_number")
+if(EXISTS "${BUILD_NUMBER_FILE}")
+    file(READ "${BUILD_NUMBER_FILE}" BUILD_NUMBER)
+    string(STRIP "${BUILD_NUMBER}" BUILD_NUMBER)
+    math(EXPR BUILD_NUMBER "${BUILD_NUMBER} + 1")
+else()
+    set(BUILD_NUMBER 1)
+endif()
+file(WRITE "${BUILD_NUMBER_FILE}" "${BUILD_NUMBER}")
+message(STATUS "Build number: ${BUILD_NUMBER}")
+
+# Git information
+find_package(Git QUIET)
+if(GIT_FOUND)
+    # Get commit hash
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_COMMIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    # Get branch name
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_BRANCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    # Get git describe (version tag + commits since)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_DESCRIBE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    message(STATUS "Git commit: ${GIT_COMMIT_HASH}")
+    message(STATUS "Git branch: ${GIT_BRANCH}")
+    message(STATUS "Git describe: ${GIT_DESCRIBE}")
+else()
+    set(GIT_COMMIT_HASH "unknown")
+    set(GIT_BRANCH "unknown")
+    set(GIT_DESCRIBE "unknown")
+endif()
+
+# Detect Linux distribution
+set(DISTNAME "")
+set(DISTVER "")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(EXISTS "/etc/os-release")
+        file(STRINGS "/etc/os-release" OS_RELEASE_CONTENTS)
+        foreach(line ${OS_RELEASE_CONTENTS})
+            if(line MATCHES "^NAME=")
+                string(REGEX REPLACE "^NAME=\"?([^\"]*)\"?" "\\1" DISTNAME "${line}")
+            endif()
+            if(line MATCHES "^VERSION_ID=")
+                string(REGEX REPLACE "^VERSION_ID=\"?([^\"]*)\"?" "\\1" DISTVER "${line}")
+            endif()
+        endforeach()
+    endif()
+endif()
+message(STATUS "OS: ${CMAKE_SYSTEM_NAME} (${DISTNAME} ${DISTVER})")
+
+# Configure version.h
+configure_file(
+    "${CMAKE_SOURCE_DIR}/include/version.h.in"
+    "${CMAKE_SOURCE_DIR}/include/version.h"
+    @ONLY
+)
+message(STATUS "Generated: include/version.h")
+message(STATUS "========================================")
+message(STATUS "")
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -383,6 +473,7 @@ set(SOURCES
 
     src/jobs/bjobmodels.cpp
     src/jobs/bjobdetailsdialog.cpp
+    src/jobs/bjobfileswidget.cpp
     src/jobs/bjoblogdialog.cpp
     src/jobs/bjobsstatisticswidget.cpp
     src/jobs/bjobwidget.cpp
@@ -427,6 +518,7 @@ set(HEADERS
     include/jobs/bcheckboxdelegate.h
     include/jobs/bjobmodels.h
     include/jobs/bjobdetailsdialog.h
+    include/jobs/bjobfileswidget.h
     include/jobs/bjoblogdialog.h
     include/jobs/bjobsstatisticswidget.h
     include/jobs/bjobwidget.h

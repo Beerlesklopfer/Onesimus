@@ -1,6 +1,10 @@
 #include "jobs/bjsonjobview.h"
 #include "jobs/bjobdetailsdialog.h"
+#include "jobs/bjobfileswidget.h"
 #include "jobs/bjoblogdialog.h"
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QDialogButtonBox>
 #include <QHeaderView>
 #include <QMouseEvent>
 #include <QContextMenuEvent>
@@ -8,6 +12,10 @@
 #include <QMessageBox>
 #include <QFile>
 #include <QJsonDocument>
+#include <QRadioButton>
+#include <QGroupBox>
+#include <QLabel>
+#include <QPushButton>
 
 BJsonJobView::BJsonJobView(QWidget *parent)
     : QTableView(parent)
@@ -151,9 +159,13 @@ void BJsonJobView::createContextMenu()
     
     m_actionViewLog = m_contextMenu->addAction("View Log...");
     connect(m_actionViewLog, &QAction::triggered, this, &BJsonJobView::viewJobLog);
-    
+
+    m_actionRestoreFiles = m_contextMenu->addAction("Restore Files...");
+    m_actionRestoreFiles->setIcon(QIcon::fromTheme("edit-undo"));
+    connect(m_actionRestoreFiles, &QAction::triggered, this, &BJsonJobView::restoreFiles);
+
     m_contextMenu->addSeparator();
-    
+
     // Export actions
     m_actionExportJson = m_contextMenu->addAction("Export to JSON...");
     connect(m_actionExportJson, &QAction::triggered, 
@@ -459,23 +471,132 @@ void BJsonJobView::deleteJob()
 
     QString jobId = job["jobid"].toString();
     QString jobName = job["name"].toString();
+    QString clientName = job["client"].toString();
+    QString level = job["level"].toString();
+    QString startTime = job["starttime"].toString();
 
-    int ret = QMessageBox::question(this, "Job löschen",
-        QString("Möchten Sie Job %1 (%2) wirklich löschen?\n\n"
-                "WARNUNG: Diese Aktion kann nicht rückgängig gemacht werden!")
-            .arg(jobId)
-            .arg(jobName),
-        QMessageBox::Yes | QMessageBox::No);
+    // Check for dependent jobs (incrementals/differentials that depend on this job)
+    int dependentCount = 0;
+    QStringList dependentJobIds;
 
-    if (ret == QMessageBox::Yes) {
-        // Send delete command to Director
-        emit jobActionRequested("delete", QString("job jobid=%1 yes").arg(jobId));
+    if (level == "F") {  // Full backup - check for dependent incrementals/differentials
+        qint64 thisJobId = jobId.toLongLong();
 
-        // Request refresh after short delay to allow Director to process command
-        QTimer::singleShot(1500, this, [this]() {
-            emit refreshRequested();
-        });
+        for (int i = 0; i < m_model->rowCount(); ++i) {
+            QJsonObject otherJob = m_model->jobAt(i);
+            if (otherJob["name"].toString() == jobName &&
+                otherJob["client"].toString() == clientName) {
+
+                QString otherLevel = otherJob["level"].toString();
+                qint64 otherJobId = otherJob["jobid"].toString().toLongLong();
+
+                // Incremental or Differential jobs with higher ID are likely dependent
+                if ((otherLevel == "I" || otherLevel == "D") && otherJobId > thisJobId) {
+                    dependentCount++;
+                    dependentJobIds << otherJob["jobid"].toString();
+                }
+            }
+        }
     }
+
+    // Create dialog with delete options
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Delete Job"));
+    dialog.setMinimumWidth(450);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+    // Info label
+    QString levelText = (level == "F") ? tr("Full") :
+                        (level == "I") ? tr("Incremental") :
+                        (level == "D") ? tr("Differential") : level;
+
+    QLabel *infoLabel = new QLabel(
+        tr("<b>Job:</b> %1 (ID: %2)<br><b>Client:</b> %3<br><b>Level:</b> %4<br><b>Start:</b> %5")
+            .arg(jobName).arg(jobId).arg(clientName).arg(levelText).arg(startTime));
+    layout->addWidget(infoLabel);
+
+    // Show warning if there are dependent jobs
+    if (dependentCount > 0) {
+        layout->addSpacing(10);
+
+        QLabel *dependentWarning = new QLabel(
+            tr("<div style='background-color: #fff3cd; padding: 10px; border: 1px solid #ffc107; border-radius: 4px;'>"
+               "<b>⚠ Attention:</b> This Full backup has <b>%1</b> dependent Incremental/Differential job(s)!<br><br>"
+               "Deleting this job may make the dependent backups unusable for restore.</div>")
+                .arg(dependentCount));
+        dependentWarning->setWordWrap(true);
+        layout->addWidget(dependentWarning);
+    }
+
+    layout->addSpacing(10);
+
+    // Delete mode selection
+    QGroupBox *modeGroup = new QGroupBox(tr("Delete Mode"), &dialog);
+    QVBoxLayout *modeLayout = new QVBoxLayout(modeGroup);
+
+    QRadioButton *deleteRadio = new QRadioButton(tr("Delete job record only"), modeGroup);
+    deleteRadio->setToolTip(tr("Removes the job entry from the catalog database.\n"
+                               "The backup data on the storage media remains intact."));
+    deleteRadio->setChecked(true);
+
+    QRadioButton *purgeRadio = new QRadioButton(tr("Purge job (delete record and volume data)"), modeGroup);
+    purgeRadio->setToolTip(tr("Removes the job entry AND marks the associated volume data as purgeable.\n"
+                              "This frees up space on the storage media."));
+
+    modeLayout->addWidget(deleteRadio);
+    modeLayout->addWidget(purgeRadio);
+    layout->addWidget(modeGroup);
+
+    // Warning label
+    QLabel *warningLabel = new QLabel(
+        tr("<span style='color: #cc0000;'><b>Warning:</b> This action cannot be undone!</span>"));
+    layout->addWidget(warningLabel);
+
+    layout->addSpacing(10);
+
+    // Buttons
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Delete"));
+    buttonBox->button(QDialogButtonBox::Ok)->setIcon(QIcon::fromTheme("edit-delete"));
+    connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttonBox);
+
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    // Extra confirmation for jobs with dependents
+    if (dependentCount > 0) {
+        int confirm = QMessageBox::warning(this, tr("Confirm Delete"),
+            tr("Are you sure you want to delete this Full backup?\n\n"
+               "This will affect %1 dependent Incremental/Differential backup(s).\n"
+               "These dependent backups may become unusable for restore.").arg(dependentCount),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+
+        if (confirm != QMessageBox::Yes) {
+            return;
+        }
+    }
+
+    // Send appropriate command based on selection
+    if (purgeRadio->isChecked()) {
+        // Purge command removes job and marks volume data as purgeable
+        emit jobActionRequested("delete", QString("job jobid=%1 yes").arg(jobId));
+        // Also purge the job's files from the catalog
+        emit jobActionRequested("purge", QString("jobs jobid=%1 yes").arg(jobId));
+    } else {
+        // Delete only removes the job record
+        emit jobActionRequested("delete", QString("job jobid=%1 yes").arg(jobId));
+    }
+
+    // Request refresh after short delay to allow Director to process command
+    QTimer::singleShot(1500, this, [this]() {
+        emit refreshRequested();
+    });
 }
 
 void BJsonJobView::retryJob()
@@ -559,6 +680,55 @@ void BJsonJobView::viewJobLog()
 
     // Open job log dialog
     BJobLogDialog dialog(job, m_director, this);
+    dialog.exec();
+}
+
+void BJsonJobView::restoreFiles()
+{
+    QModelIndexList selection = selectionModel()->selectedRows();
+    if (selection.isEmpty()) {
+        return;
+    }
+
+    QModelIndex proxyIndex = selection.first();
+    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+    QJsonObject job = m_model->jobAt(sourceIndex.row());
+
+    if (!m_director) {
+        QMessageBox::warning(this, tr("No Connection"),
+                           tr("No Director connection available."));
+        return;
+    }
+
+    // Check if this is a backup job
+    QString jobType = job["type"].toString();
+    if (jobType != "B") {
+        QMessageBox::information(this, tr("Not a Backup Job"),
+                               tr("File restore is only available for backup jobs."));
+        return;
+    }
+
+    // Create dialog with BJobFilesWidget
+    QDialog dialog(this);
+    QString jobName = job["name"].toString();
+    QString jobId = job["jobid"].toString();
+    QString client = job["client"].toString();
+
+    dialog.setWindowTitle(tr("Restore Files: %1 (ID: %2) - Client: %3")
+                              .arg(jobName).arg(jobId).arg(client));
+    dialog.resize(900, 600);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+    // Add the files widget
+    BJobFilesWidget *filesWidget = new BJobFilesWidget(job, m_director, &dialog);
+    layout->addWidget(filesWidget);
+
+    // Button box
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::accept);
+    layout->addWidget(buttonBox);
+
     dialog.exec();
 }
 

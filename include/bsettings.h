@@ -299,6 +299,15 @@ public:
     bool statisticsWidgetVisible() const;
     void setStatisticsWidgetVisible(bool visible);
 
+    // BVFS (Job Details Dialog) Settings
+    /**
+     * @brief Whether to show files from all related jobs by default
+     * @return true to show all related jobs, false for current job only
+     * @since 2.9
+     */
+    bool bvfsShowAllRelatedJobs() const;
+    void setBvfsShowAllRelatedJobs(bool showAll);
+
     // ========================================================================
     // Utility Methods
     // ========================================================================

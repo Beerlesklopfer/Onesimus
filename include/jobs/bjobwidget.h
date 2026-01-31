@@ -348,6 +348,7 @@ private:
     BJobLogModel *m_logModel;               ///< Log model
     QLabel *m_logTitleLabel;                ///< Title label for log section
     QWidget *m_logContainer;                ///< Container for log section
+    QString m_pendingLogJobId;              ///< Job ID of the pending log request
 
     // Integrated filter controls (from BJobsFilterWidget)
     QComboBox *m_nameFilter;                ///< Job name filter (editable combo box)

@@ -1021,36 +1021,118 @@ class BareosTestDataGenerator:
         self.conn.commit()
         return path_id
 
-    def get_or_create_filename(self, filename: str) -> int:
-        """Get or create a filename entry in the Filename table."""
-        if self.db_type == 'postgresql':
-            self.cursor.execute("SELECT filenameid FROM filename WHERE name = %s", (filename,))
-        else:
-            self.cursor.execute("SELECT FilenameId FROM Filename WHERE Name = %s", (filename,))
+    def get_parent_path(self, path: str) -> str:
+        """Get the parent path for a given path.
 
-        result = self.cursor.fetchone()
-        if result:
-            return result[0]
+        For Windows paths like 'C:/Windows/System32/', returns 'C:/Windows/'
+        For Linux paths like '/var/log/', returns '/var/'
+        For root paths like 'C:/' or '/', returns '' (empty root)
+        """
+        if not path or path == '/':
+            return ''  # Root has no parent
 
+        # Remove trailing slash
+        path = path.rstrip('/')
+
+        # Check if this is a Windows drive root (e.g., 'C:')
+        if len(path) == 2 and path[1] == ':':
+            return ''  # Drive letter has empty root as parent
+
+        # Find the last separator
+        last_sep = path.rfind('/')
+        if last_sep == -1:
+            # No slash found - this might be a Windows drive letter without trailing slash
+            if len(path) >= 2 and path[1] == ':':
+                return ''
+            return ''
+
+        # For paths like '/var', last_sep is 0, parent is '/'
+        if last_sep == 0:
+            return '/'
+
+        # For Windows paths like 'C:/Windows', last_sep is 2, parent is 'C:/'
+        if last_sep == 2 and path[1] == ':':
+            return path[:3]  # 'C:/'
+
+        # Normal case: return parent with trailing slash
+        return path[:last_sep] + '/'
+
+    def build_path_hierarchy(self):
+        """Build the PathHierarchy table from existing paths.
+
+        PathHierarchy stores parent-child relationships for BVFS navigation.
+        Each path entry points to its parent path via PPathId.
+
+        For Windows: C:/Windows/System32/ -> C:/Windows/ -> C:/ -> '' (empty root)
+        For Linux: /var/log/ -> /var/ -> / (root)
+
+        Note: This should be called after all files have been generated.
+        """
+        print("Building PathHierarchy table for BVFS navigation...")
+
+        # First, ensure the empty root path exists (for Windows drive letters)
+        root_id = self.get_or_create_path('')
+
+        # Get all paths
         if self.db_type == 'postgresql':
-            self.cursor.execute(
-                "INSERT INTO filename (name) VALUES (%s) RETURNING filenameid",
-                (filename,)
-            )
-            filename_id = self.cursor.fetchone()[0]
+            self.cursor.execute("SELECT pathid, path FROM path")
         else:
-            self.cursor.execute(
-                "INSERT INTO Filename (Name) VALUES (%s)",
-                (filename,)
-            )
-            filename_id = self.cursor.lastrowid
+            self.cursor.execute("SELECT PathId, Path FROM Path")
+
+        paths = self.cursor.fetchall()
+        total_paths = len(paths)
+        print(f"  Processing {total_paths} paths...")
+
+        # Clear existing hierarchy entries (for re-runs)
+        if self.db_type == 'postgresql':
+            self.cursor.execute("DELETE FROM pathhierarchy")
+        else:
+            self.cursor.execute("DELETE FROM PathHierarchy")
+        self.conn.commit()
+
+        # Build a dict of path -> pathid for quick lookup
+        path_to_id = {row[1]: row[0] for row in paths}
+
+        # Process each path and insert hierarchy entries
+        batch_count = 0
+        for path_id, path in paths:
+            parent_path = self.get_parent_path(path)
+
+            # Get or create parent path ID
+            if parent_path in path_to_id:
+                parent_id = path_to_id[parent_path]
+            else:
+                parent_id = self.get_or_create_path(parent_path)
+                path_to_id[parent_path] = parent_id
+
+            # Insert hierarchy entry
+            if self.db_type == 'postgresql':
+                self.cursor.execute("""
+                    INSERT INTO pathhierarchy (pathid, ppathid)
+                    VALUES (%s, %s)
+                    ON CONFLICT (pathid) DO NOTHING
+                """, (path_id, parent_id))
+            else:
+                self.cursor.execute("""
+                    INSERT IGNORE INTO PathHierarchy (PathId, PPathId)
+                    VALUES (%s, %s)
+                """, (path_id, parent_id))
+
+            batch_count += 1
+            if batch_count >= 1000:
+                self.conn.commit()
+                batch_count = 0
 
         self.conn.commit()
-        return filename_id
+        print(f"  PathHierarchy built with {total_paths} entries")
 
-    def insert_file(self, job_id: int, path_id: int, filename_id: int,
+    def insert_file(self, job_id: int, path_id: int, filename: str,
                     file_size: int, mtime: datetime, mark_id: int = 0) -> int:
-        """Insert a file entry into the File table."""
+        """Insert a file entry into the File table.
+
+        Note: Bareos 25.0+ stores filename directly in the file table's 'name' column.
+        Older versions used a separate filename table with filenameid reference.
+        """
         # LStat format: simplified - encode size and mtime
         # In real Bareos this is a base64-encoded stat structure
         mtime_ts = int(mtime.timestamp())
@@ -1058,16 +1140,18 @@ class BareosTestDataGenerator:
         md5 = "0" * 32  # Dummy MD5
 
         if self.db_type == 'postgresql':
+            # Bareos 25.0+ schema: file table has 'name' column directly
             self.cursor.execute("""
-                INSERT INTO file (fileindex, jobid, pathid, filenameid, markid, lstat, md5)
+                INSERT INTO file (fileindex, jobid, pathid, markid, lstat, md5, name)
                 VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING fileid
-            """, (random.randint(1, 999999), job_id, path_id, filename_id, mark_id, lstat, md5))
+            """, (random.randint(1, 999999), job_id, path_id, mark_id, lstat, md5, filename))
             file_id = self.cursor.fetchone()[0]
         else:
+            # MySQL/MariaDB - also updated for Bareos 25.0+ schema
             self.cursor.execute("""
-                INSERT INTO File (FileIndex, JobId, PathId, FilenameId, MarkId, LStat, MD5)
+                INSERT INTO File (FileIndex, JobId, PathId, MarkId, LStat, MD5, Name)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (random.randint(1, 999999), job_id, path_id, filename_id, mark_id, lstat, md5))
+            """, (random.randint(1, 999999), job_id, path_id, mark_id, lstat, md5, filename))
             file_id = self.cursor.lastrowid
 
         return file_id
@@ -1133,12 +1217,12 @@ class BareosTestDataGenerator:
                                             hours=random.randint(0, 23),
                                             minutes=random.randint(0, 59))
 
-            # Get or create path and filename IDs
+            # Get or create path ID and insert file entry
+            # Note: Bareos 25.0+ stores filename directly in file table
             path_id = self.get_or_create_path(path)
-            filename_id = self.get_or_create_filename(filename)
 
-            # Insert file entry
-            self.insert_file(job_id, path_id, filename_id, file_size, mtime)
+            # Insert file entry with filename directly (Bareos 25.0+ schema)
+            self.insert_file(job_id, path_id, filename, file_size, mtime)
             files_created += 1
             batch_count += 1
 
@@ -1919,6 +2003,11 @@ class BareosTestDataGenerator:
         for status, count in stats_by_status.items():
             pct = (count / total_jobs * 100) if total_jobs > 0 else 0
             print(f"  {status_names.get(status, status):10}: {count:4} ({pct:.1f}%)")
+
+        # Build PathHierarchy table for BVFS navigation (only if files were generated)
+        if generate_files:
+            print("\n" + "-" * 60)
+            self.build_path_hierarchy()
 
         print("\n" + "=" * 60)
         print("Test data generation complete!")

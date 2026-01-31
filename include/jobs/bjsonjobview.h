@@ -239,6 +239,7 @@ private slots:
     void retryJob();
     void cancelJob();
     void viewJobLog();
+    void restoreFiles();
     void connectSelectionModel();
 
 private:
@@ -262,6 +263,7 @@ private:
     QAction *m_actionRetry;                 ///< Retry job action
     QAction *m_actionCancel;                ///< Cancel job action
     QAction *m_actionViewLog;               ///< View log action
+    QAction *m_actionRestoreFiles;          ///< Restore files action
     QAction *m_actionExportJson;            ///< Export to JSON action
     QAction *m_actionExportCsv;             ///< Export to CSV action
     QAction *m_actionSelectAll;             ///< Select all action

@@ -438,6 +438,24 @@ public:
     bool isConnected() const;
     ConnectionState connectionState() const;
 
+    /**
+     * @brief Get current host name
+     * @return Host name or empty string if not connected
+     */
+    QString currentHost() const { return m_host; }
+
+    /**
+     * @brief Get current port
+     * @return Port number or 0 if not connected
+     */
+    int currentPort() const { return m_port; }
+
+    /**
+     * @brief Get current director name
+     * @return Director name or empty string if not connected
+     */
+    QString currentDirectorName() const { return m_directorName; }
+
     // ========================================================================
     // TLS Configuration
     // ========================================================================

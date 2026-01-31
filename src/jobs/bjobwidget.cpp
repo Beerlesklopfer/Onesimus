@@ -1280,6 +1280,9 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
         // Clear current log
         m_logModel->clear();
 
+        // Store the job ID we're requesting (for verification in response handler)
+        m_pendingLogJobId = jobId;
+
         // Connect to Director signal if not already connected
         if (m_director) {
             connect(m_director, &BDirector::jsonResponse,
@@ -1291,9 +1294,9 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
                                       Qt::QueuedConnection,
                                       Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
                                       Q_ARG(QString, jobId));
-        } else {
         }
     } else {
+        m_pendingLogJobId.clear();
     }
 
 }
@@ -1467,7 +1470,6 @@ void BJobWidget::loadSelectedJobLog()
     QString jobId = selectedJob["jobid"].toString();
     QString jobName = selectedJob["name"].toString();
 
-
     if (jobId.isEmpty()) {
         return;
     }
@@ -1477,6 +1479,9 @@ void BJobWidget::loadSelectedJobLog()
 
     // Clear current log
     m_logModel->clear();
+
+    // Store the job ID we're requesting (for verification in response handler)
+    m_pendingLogJobId = jobId;
 
     // Connect to Director signal if not already connected
     if (m_director) {
@@ -1489,7 +1494,6 @@ void BJobWidget::loadSelectedJobLog()
                                   Qt::QueuedConnection,
                                   Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
                                   Q_ARG(QString, jobId));
-    } else {
     }
 }
 
@@ -1521,25 +1525,50 @@ void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonDat
         }
     }
 
-    QJsonObject selectedJob = m_tableView->getSelectedJob();
-    if (selectedJob.isEmpty()) {
+    // Verify this response is for the job we requested
+    if (m_pendingLogJobId.isEmpty()) {
+        return;  // No pending request
+    }
+
+    // Get job info from current row to verify it matches our pending request
+    QModelIndex currentIndex = m_tableView->currentIndex();
+    if (!currentIndex.isValid()) {
         return;
     }
 
-    QString jobId = selectedJob["jobid"].toString();
-    QString jobName = selectedJob["name"].toString();
+    QModelIndex sourceIndex = m_tableView->filterModel()->mapToSource(currentIndex);
+    if (!sourceIndex.isValid()) {
+        return;
+    }
+
+    QJsonObject currentJob = m_tableView->jobsModel()->jobAt(sourceIndex.row());
+    if (currentJob.isEmpty()) {
+        return;
+    }
+
+    QString currentJobId = currentJob["jobid"].toString();
+
+    // Only process if this is for the job we requested AND it's still selected
+    if (currentJobId != m_pendingLogJobId) {
+        return;  // Response is for a different job than currently selected
+    }
+
+    QString jobName = currentJob["name"].toString();
+
+    // Clear pending request
+    m_pendingLogJobId.clear();
 
     // Parse and display the log
     if (m_logModel->parseJsonResponse(jsonData)) {
         int lineCount = m_logModel->rowCount();
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
                                  .arg(jobName)
-                                 .arg(jobId)
+                                 .arg(currentJobId)
                                  .arg(lineCount));
     } else {
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Fehler beim Laden")
                                  .arg(jobName)
-                                 .arg(jobId));
+                                 .arg(currentJobId));
     }
 }
 

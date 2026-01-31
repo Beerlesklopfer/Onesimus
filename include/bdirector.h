@@ -352,6 +352,28 @@ public slots:
     void sendCommand(const QString &command);
 
     // ========================================================================
+    // Connection Info (read-only, thread-safe)
+    // ========================================================================
+
+    /**
+     * @brief Get current host name
+     * @return Host name or empty string if not connected
+     */
+    QString currentHost() const;
+
+    /**
+     * @brief Get current port
+     * @return Port number or 0 if not connected
+     */
+    int currentPort() const;
+
+    /**
+     * @brief Get current director name
+     * @return Director name or empty string if not connected
+     */
+    QString currentDirectorName() const;
+
+    // ========================================================================
     // Helper Methods
     // ========================================================================
 

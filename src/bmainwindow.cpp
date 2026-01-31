@@ -470,6 +470,10 @@ void BMainWindow::createActions()
     m_aboutAction->setIcon(QIcon::fromTheme("help-about"));
     connect(m_aboutAction, &QAction::triggered, this, &BMainWindow::onAboutTriggered);
 
+    m_aboutQtAction = new QAction(tr("About Qt"), this);
+    m_aboutQtAction->setIcon(QIcon::fromTheme("help-about"));
+    connect(m_aboutQtAction, &QAction::triggered, qApp, &QApplication::aboutQt);
+
     m_documentationAction = new QAction(tr("Online Documentation"), this);
     m_documentationAction->setIcon(QIcon::fromTheme("help-contents"));
     m_documentationAction->setShortcut(QKeySequence::HelpContents);
@@ -686,6 +690,7 @@ void BMainWindow::createMenus()
     m_helpMenu->addAction(m_reportBugAction);
     m_helpMenu->addSeparator();
     m_helpMenu->addAction(m_aboutAction);
+    m_helpMenu->addAction(m_aboutQtAction);
 
     // Add theme toggle button to the right side of menu bar
     QWidget *spacer = new QWidget();
@@ -954,7 +959,9 @@ void BMainWindow::onAboutTriggered()
     QLabel* titleLabel = new QLabel("<h1 style='margin:0;'>Onesimus</h1>");
     titleLayout->addWidget(titleLabel);
 
-    QLabel* versionLabel = new QLabel(QString("<p style='color:#666; margin:0;'>Version %1</p>").arg(PROJECT_VERSION));
+    QLabel* versionLabel = new QLabel(QString("<p style='color:#666; margin:0;'>Version %1 (Build %2)</p>")
+                                          .arg(PROJECT_VERSION)
+                                          .arg(BUILD_NUMBER));
     titleLayout->addWidget(versionLabel);
 
 #if USE_BACULA
@@ -1008,9 +1015,22 @@ void BMainWindow::onAboutTriggered()
     licenseLabel->setWordWrap(true);
     mainLayout->addWidget(licenseLabel);
 
+    // Build Information
+    QLabel* buildInfoLabel = new QLabel(
+        QString("<p style='font-size:9pt;'><b>Build Date:</b> %1 %2</p>"
+                "<p style='font-size:9pt;'><b>Git:</b> %3 (%4)</p>")
+            .arg(BUILD_DATE)
+            .arg(BUILD_TIME)
+            .arg(GIT_COMMIT_HASH)
+            .arg(GIT_BRANCH)
+    );
+    buildInfoLabel->setWordWrap(true);
+    mainLayout->addWidget(buildInfoLabel);
+
     // Acknowledgments
     QLabel* ackLabel = new QLabel(
-        "<p style='font-size:9pt;'><b>Built with:</b> Qt " + QString(qVersion()) + ", OpenSSL</p>"
+        "<p style='font-size:9pt;'><b>Built with:</b> Qt " + QString(qVersion()) +
+        QString(", OpenSSL, %1 %2</p>").arg(COMPILER_ID).arg(COMPILER_VERSION)
     );
     ackLabel->setWordWrap(true);
     mainLayout->addWidget(ackLabel);
@@ -1237,8 +1257,15 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
             m_statusLabel->setText(msg);
         });
 
-        // Show version only with connected color from settings
-        m_connectionLabel->setText(msg);
+        // Show "Connected to [director] version [version]" in status bar
+        QString directorName = m_director->currentDirectorName();
+        QString connectionInfo;
+        if (!directorName.isEmpty()) {
+            connectionInfo = tr("Connected to %1 version %2").arg(directorName, msg);
+        } else {
+            connectionInfo = tr("Connected: version %1").arg(msg);
+        }
+        m_connectionLabel->setText(connectionInfo);
         m_connectionLabel->setProperty("connected", true);
         QColor connectedColor = BSettings::instance().statusBarConnectedColor();
         m_connectionLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(connectedColor.name()));

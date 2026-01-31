@@ -136,6 +136,7 @@ private:
     QAction *m_settingsAction;
     QAction *m_exitAction;
     QAction *m_aboutAction;
+    QAction *m_aboutQtAction;
     QAction *m_documentationAction;
     QAction *m_reportBugAction;
     QAction *m_keyboardShortcutsAction;

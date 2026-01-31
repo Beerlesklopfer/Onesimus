@@ -20,7 +20,7 @@ BNewJobDialog::BNewJobDialog(BJobWidget *jobWidget, BDirector *director, QWidget
     , m_director(director)
     , m_dataLoaded(false)
 {
-    setWindowTitle("Neuen Job ausführen");
+    setWindowTitle(tr("Run New Job"));
     resize(700, 600);
     setModal(true);
 
@@ -46,7 +46,7 @@ void BNewJobDialog::setupUI()
     mainLayout->setSpacing(10);
 
     // Title
-    QLabel *titleLabel = new QLabel("<h2>Backup Job ausführen</h2>");
+    QLabel *titleLabel = new QLabel("<h2>" + tr("Run Backup Job") + "</h2>");
     mainLayout->addWidget(titleLabel);
 
     // Tab Widget
@@ -56,7 +56,7 @@ void BNewJobDialog::setupUI()
     mainLayout->addWidget(m_tabWidget);
 
     // Command Preview
-    QGroupBox *previewGroup = new QGroupBox("Befehlsvorschau");
+    QGroupBox *previewGroup = new QGroupBox(tr("Command Preview"));
     QVBoxLayout *previewLayout = new QVBoxLayout(previewGroup);
 
     m_commandPreview = new QTextEdit();
@@ -75,9 +75,9 @@ void BNewJobDialog::setupUI()
     // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
 
-    m_estimateButton = new QPushButton("Schätzung");
+    m_estimateButton = new QPushButton(tr("Estimate"));
     m_estimateButton->setIcon(QIcon::fromTheme("accessories-calculator"));
-    m_estimateButton->setToolTip("Geschätzte Dateien und Größe berechnen");
+    m_estimateButton->setToolTip(tr("Calculate estimated files and size"));
     connect(m_estimateButton, &QPushButton::clicked, this, &BNewJobDialog::onEstimateClicked);
     buttonLayout->addWidget(m_estimateButton);
 
@@ -87,7 +87,7 @@ void BNewJobDialog::setupUI()
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
     m_runButton = dialogButtons->button(QDialogButtonBox::Ok);
-    m_runButton->setText("Job ausführen");
+    m_runButton->setText(tr("Run Job"));
     m_runButton->setIcon(QIcon::fromTheme("media-playback-start"));
 
     connect(dialogButtons, &QDialogButtonBox::accepted, this, &BNewJobDialog::onRunClicked);
@@ -109,64 +109,64 @@ void BNewJobDialog::createBasicTab()
     layout->setSpacing(15);
 
     // Job Configuration Group
-    QGroupBox *jobGroup = new QGroupBox("Job Konfiguration");
+    QGroupBox *jobGroup = new QGroupBox(tr("Job Configuration"));
     QFormLayout *jobLayout = new QFormLayout(jobGroup);
     jobLayout->setSpacing(10);
 
     m_jobCombo = new QComboBox();
-    m_jobCombo->setPlaceholderText("Job auswählen...");
+    m_jobCombo->setPlaceholderText(tr("Select job..."));
     connect(m_jobCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BNewJobDialog::onJobChanged);
-    jobLayout->addRow("Job:", m_jobCombo);
+    jobLayout->addRow(tr("Job:"), m_jobCombo);
 
     m_clientCombo = new QComboBox();
-    m_clientCombo->setPlaceholderText("Client auswählen...");
+    m_clientCombo->setPlaceholderText(tr("Select client..."));
     connect(m_clientCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BNewJobDialog::onClientChanged);
-    jobLayout->addRow("Client:", m_clientCombo);
+    jobLayout->addRow(tr("Client:"), m_clientCombo);
 
     m_levelCombo = new QComboBox();
     // Levels are populated in loadConfigurationDataFromJobWidget() based on settings
     connect(m_levelCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BNewJobDialog::onLevelChanged);
-    jobLayout->addRow("Level:", m_levelCombo);
+    jobLayout->addRow(tr("Level:"), m_levelCombo);
 
     layout->addWidget(jobGroup);
 
     // Resources Group
-    QGroupBox *resourcesGroup = new QGroupBox("Ressourcen");
+    QGroupBox *resourcesGroup = new QGroupBox(tr("Resources"));
     QFormLayout *resourcesLayout = new QFormLayout(resourcesGroup);
     resourcesLayout->setSpacing(10);
 
     m_filesetCombo = new QComboBox();
-    m_filesetCombo->setPlaceholderText("FileSet auswählen...");
-    resourcesLayout->addRow("FileSet:", m_filesetCombo);
+    m_filesetCombo->setPlaceholderText(tr("Select FileSet..."));
+    resourcesLayout->addRow(tr("FileSet:"), m_filesetCombo);
 
     m_poolCombo = new QComboBox();
-    m_poolCombo->setPlaceholderText("Pool auswählen...");
-    resourcesLayout->addRow("Pool:", m_poolCombo);
+    m_poolCombo->setPlaceholderText(tr("Select Pool..."));
+    resourcesLayout->addRow(tr("Pool:"), m_poolCombo);
 
     m_storageCombo = new QComboBox();
-    m_storageCombo->setPlaceholderText("Storage auswählen...");
-    resourcesLayout->addRow("Storage:", m_storageCombo);
+    m_storageCombo->setPlaceholderText(tr("Select Storage..."));
+    resourcesLayout->addRow(tr("Storage:"), m_storageCombo);
 
     layout->addWidget(resourcesGroup);
 
     // Priority
-    QGroupBox *optionsGroup = new QGroupBox("Optionen");
+    QGroupBox *optionsGroup = new QGroupBox(tr("Options"));
     QFormLayout *optionsLayout = new QFormLayout(optionsGroup);
 
     m_prioritySpin = new QSpinBox();
     m_prioritySpin->setRange(1, 100);
     m_prioritySpin->setValue(10);
-    m_prioritySpin->setToolTip("Niedrigere Werte = höhere Priorität");
-    optionsLayout->addRow("Priorität:", m_prioritySpin);
+    m_prioritySpin->setToolTip(tr("Lower values = higher priority"));
+    optionsLayout->addRow(tr("Priority:"), m_prioritySpin);
 
     layout->addWidget(optionsGroup);
 
     layout->addStretch();
 
-    m_tabWidget->addTab(basicTab, "Basis");
+    m_tabWidget->addTab(basicTab, tr("Basic"));
 }
 
 void BNewJobDialog::createAdvancedTab()
@@ -176,25 +176,25 @@ void BNewJobDialog::createAdvancedTab()
     layout->setSpacing(15);
 
     // Timing Group
-    QGroupBox *timingGroup = new QGroupBox("Zeitplanung");
+    QGroupBox *timingGroup = new QGroupBox(tr("Scheduling"));
     QFormLayout *timingLayout = new QFormLayout(timingGroup);
 
     m_whenEdit = new QLineEdit();
-    m_whenEdit->setPlaceholderText("z.B. \"2024-01-15 14:30:00\" oder leer für sofort");
-    timingLayout->addRow("Wann:", m_whenEdit);
+    m_whenEdit->setPlaceholderText(tr("e.g. \"2024-01-15 14:30:00\" or empty for immediate"));
+    timingLayout->addRow(tr("When:"), m_whenEdit);
 
     layout->addWidget(timingGroup);
 
     // Bootstrap Group
-    QGroupBox *bootstrapGroup = new QGroupBox("Bootstrap Optionen");
+    QGroupBox *bootstrapGroup = new QGroupBox(tr("Bootstrap Options"));
     QVBoxLayout *bootstrapLayout = new QVBoxLayout(bootstrapGroup);
 
-    m_bootstrapCheck = new QCheckBox("Bootstrap Datei verwenden");
+    m_bootstrapCheck = new QCheckBox(tr("Use Bootstrap file"));
     bootstrapLayout->addWidget(m_bootstrapCheck);
 
     m_bootstrapEdit = new QLineEdit();
     m_bootstrapEdit->setEnabled(false);
-    m_bootstrapEdit->setPlaceholderText("Pfad zur Bootstrap Datei");
+    m_bootstrapEdit->setPlaceholderText(tr("Path to Bootstrap file"));
     bootstrapLayout->addWidget(m_bootstrapEdit);
 
     connect(m_bootstrapCheck, &QCheckBox::toggled, m_bootstrapEdit, &QLineEdit::setEnabled);
@@ -202,10 +202,10 @@ void BNewJobDialog::createAdvancedTab()
     layout->addWidget(bootstrapGroup);
 
     // Replace Options
-    QGroupBox *replaceGroup = new QGroupBox("Ersetzen");
+    QGroupBox *replaceGroup = new QGroupBox(tr("Replace"));
     QVBoxLayout *replaceLayout = new QVBoxLayout(replaceGroup);
 
-    m_replaceCheck = new QCheckBox("Restore-Modus: Vorhandene Dateien ersetzen");
+    m_replaceCheck = new QCheckBox(tr("Restore mode: Replace existing files"));
     replaceLayout->addWidget(m_replaceCheck);
 
     m_replaceCombo = new QComboBox();
@@ -222,18 +222,18 @@ void BNewJobDialog::createAdvancedTab()
 
     layout->addStretch();
 
-    m_tabWidget->addTab(advancedTab, "Erweitert");
+    m_tabWidget->addTab(advancedTab, tr("Advanced"));
 }
 
 void BNewJobDialog::loadConfigurationDataFromJobWidget()
 {
     if (!m_jobWidget) {
-        m_statusLabel->setText("⚠ Keine JobWidget-Verbindung verfügbar");
+        m_statusLabel->setText(tr("⚠ No JobWidget connection available"));
         m_statusLabel->setStyleSheet("color: red;");
         return;
     }
 
-    m_statusLabel->setText("Lade Konfigurationsdaten vom JobWidget...");
+    m_statusLabel->setText(tr("Loading configuration data from JobWidget..."));
     m_statusLabel->setStyleSheet("color: blue;");
 
     // Get all data directly from JobWidget (already loaded during connection)
@@ -271,17 +271,19 @@ void BNewJobDialog::loadConfigurationDataFromJobWidget()
 
     // Update status based on loaded data
     if (!m_jobNames.isEmpty()) {
-        m_statusLabel->setText(QString("✓ %1 Jobs, %2 Clients geladen")
+        m_statusLabel->setText(tr("✓ %1 jobs, %2 clients loaded")
                                .arg(m_jobNames.size())
                                .arg(m_clientNames.size()));
         m_statusLabel->setStyleSheet("color: green;");
         m_dataLoaded = true;
     } else {
-        m_statusLabel->setText("⚠ Keine Jobs verfügbar - Verbindung prüfen");
+        m_statusLabel->setText(tr("⚠ No jobs available - check connection"));
         m_statusLabel->setStyleSheet("color: orange;");
+        m_dataLoaded = false;
     }
 
     buildRunCommand();
+    updateButtonState();  // Enable/disable buttons based on job selection
 }
 
 void BNewJobDialog::onJsonResponse(const QString &command, const QString &jsonData)
@@ -356,16 +358,15 @@ void BNewJobDialog::onDotClientsReceived(const QString &jsonData)
 
     qDebug() << "BNewJobDialog: Loaded" << m_clientNames.size() << "clients";
 
-    // Enable buttons when all data is loaded (filesets, storages, pools come from JobWidget)
+    // Mark data as loaded when all required data is available
     if (!m_jobNames.isEmpty() && !m_clientNames.isEmpty()) {
         m_dataLoaded = true;
-        m_runButton->setEnabled(true);
-        m_estimateButton->setEnabled(true);
-        m_statusLabel->setText("✓ Konfiguration geladen");
+        m_statusLabel->setText(tr("✓ Configuration loaded"));
         m_statusLabel->setStyleSheet("color: green;");
     }
 
     buildRunCommand();
+    updateButtonState();  // Enable/disable buttons based on job selection
 }
 
 void BNewJobDialog::onJobChanged(int index)
@@ -373,6 +374,7 @@ void BNewJobDialog::onJobChanged(int index)
     Q_UNUSED(index);
     updateJobDefaults();
     buildRunCommand();
+    updateButtonState();
 }
 
 void BNewJobDialog::onClientChanged(int index)
@@ -437,6 +439,15 @@ void BNewJobDialog::buildRunCommand()
     m_commandPreview->setPlainText(command);
 }
 
+void BNewJobDialog::updateButtonState()
+{
+    // Minimum requirement: a job must be selected
+    bool canRun = !m_jobCombo->currentText().isEmpty() && m_dataLoaded;
+
+    m_runButton->setEnabled(canRun);
+    m_estimateButton->setEnabled(canRun);
+}
+
 QString BNewJobDialog::getJobCommand() const
 {
     return m_commandPreview->toPlainText();
@@ -445,8 +456,8 @@ QString BNewJobDialog::getJobCommand() const
 void BNewJobDialog::onRunClicked()
 {
     if (m_jobCombo->currentText().isEmpty()) {
-        QMessageBox::warning(this, "Fehlende Angabe",
-            "Bitte wählen Sie einen Job aus.");
+        QMessageBox::warning(this, tr("Missing Input"),
+            tr("Please select a job."));
         return;
     }
 
@@ -457,8 +468,8 @@ void BNewJobDialog::onRunClicked()
 
     bool proceed = true;
     if (shouldConfirm) {
-        int ret = QMessageBox::question(this, "Job ausführen",
-            QString("Möchten Sie folgenden Job ausführen?\n\n%1").arg(command),
+        int ret = QMessageBox::question(this, tr("Run Job"),
+            tr("Do you want to run the following job?\n\n%1").arg(command),
             QMessageBox::Yes | QMessageBox::No);
         proceed = (ret == QMessageBox::Yes);
     }
@@ -477,8 +488,8 @@ void BNewJobDialog::onRunClicked()
 void BNewJobDialog::onEstimateClicked()
 {
     if (m_jobCombo->currentText().isEmpty()) {
-        QMessageBox::warning(this, "Fehlende Angabe",
-            "Bitte wählen Sie einen Job aus.");
+        QMessageBox::warning(this, tr("Missing Input"),
+            tr("Please select a job."));
         return;
     }
 
@@ -501,7 +512,7 @@ void BNewJobDialog::onEstimateClicked()
                                   Q_ARG(BDirector::Command, BDirector::Command::Custom),
                                   Q_ARG(QString, command));
 
-        m_statusLabel->setText("Schätzung wird berechnet...");
+        m_statusLabel->setText(tr("Calculating estimate..."));
         m_statusLabel->setStyleSheet("color: blue;");
     }
 }

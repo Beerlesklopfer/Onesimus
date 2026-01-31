@@ -190,6 +190,30 @@ BDirector::ConnectionState BDirector::connectionState() const
     return DIRECTOR_CLASS::Disconnected;
 }
 
+QString BDirector::currentHost() const
+{
+    if (m_director) {
+        return m_director->currentHost();
+    }
+    return QString();
+}
+
+int BDirector::currentPort() const
+{
+    if (m_director) {
+        return m_director->currentPort();
+    }
+    return 0;
+}
+
+QString BDirector::currentDirectorName() const
+{
+    if (m_director) {
+        return m_director->currentDirectorName();
+    }
+    return QString();
+}
+
 BDirector::ApiMode BDirector::apiMode() const
 {
     if (m_director) {
