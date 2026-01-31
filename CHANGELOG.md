@@ -5,6 +5,47 @@ All notable changes to Onesimus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0.4] - 2026-01-31
+
+### Added
+- **Running (R) Status Filter**: Added Running status checkbox to basic job filters
+- **Canceled (A) Status Filter**: Added Canceled status checkbox to basic job filters
+- **Job Preselection**: Run Job dialog now auto-selects FileSet, Pool, Storage, Client, and Level from job configuration when a job is selected
+- **Job Configuration Access**: New `jobConfiguration()` method in BJobWidget to access stored job defaults
+
+### Fixed
+- **Run Command Duplication**: Fixed issue where "run job=run job=..." appeared in command (changed from Command::Run to Command::Custom)
+- **Run Job Button State**: Button now correctly enabled/disabled based on job selection and data load state
+- **Status Filter Completeness**: Job list filter now includes all job status types
+
+### Changed
+- **Status Filter Layout**: Reorganized status checkboxes to include Running and Canceled options
+- **Filter Persistence**: Running and Canceled filter states are now saved to settings
+
+## [0.1.0.3] - 2026-01-30
+
+### Added
+- **Run New Job Dialog**: Full-featured dialog for configuring and running backup jobs
+  - Basic tab: Job, Client, Level, FileSet, Pool, Storage, Priority selection
+  - Advanced tab: Scheduling (when), Bootstrap file, Replace options
+  - Command preview with live updates
+  - Estimate functionality
+- **BVFS File Browser**: Browse backed up files using Bareos Virtual File System
+  - Directory tree navigation
+  - File list with details (name, size, type, modified)
+  - Toggle between single job files and full restore chain
+  - Selection for restore operations
+- **Delete Job Options**: Choose between delete record only or purge with volume data
+- **Dependent Job Detection**: Warning when deleting Full backups with dependent Incremental/Differential jobs
+- **English Translation**: Complete English translation for Run New Job dialog
+
+### Fixed
+- **Job Log Switching**: Fixed rapid job selection causing wrong log to display
+- **Job Log Display**: Fixed signal handler to use current row instead of checkbox selection
+- **Folder Selection Count**: Fixed checkbox propagation for folder selection in BVFS browser
+- **Restore Button Width**: Added dynamic width calculation using QFontMetrics
+- **Run Job Button State**: Added minimum requirements check (job must be selected)
+
 ## [1.0.0] - 2026-01-29
 
 ### Added - Core Infrastructure

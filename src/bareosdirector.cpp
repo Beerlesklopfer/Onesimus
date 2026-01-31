@@ -1497,7 +1497,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::Run:              command = QString("run job=%1").arg(args); break;
     case Command::RunYes:           command = QString("run job=%1 yes").arg(args); break;
     case Command::Cancel:           command = QString("cancel jobid=%1").arg(args); break;
-    case Command::Delete:           command = QString("delete job jobid=%1").arg(args); break;
+    case Command::Delete:           command = QString("delete job jobid=%1 yes").arg(args); break;
     case Command::Disable:          command = QString("disable job=%1").arg(args); break;
     case Command::Enable:           command = QString("enable job=%1").arg(args); break;
     case Command::Rerun:            command = QString("rerun jobid=%1").arg(args); break;
@@ -1568,6 +1568,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::DotTypes:         command = ".types"; break;
     case Command::DotMedia:         command = ".media"; break;
     case Command::DotHelp:          command = ".help"; break;
+    case Command::DotDefaults:      command = ".defaults job=\"" + args + "\""; break;
 
     // Custom
     case Command::Custom:           command = args; break;

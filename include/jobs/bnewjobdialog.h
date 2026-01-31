@@ -49,6 +49,7 @@ private slots:
     void onJsonResponse(const QString &command, const QString &jsonData);
     void onDotJobsReceived(const QString &jsonData);
     void onDotClientsReceived(const QString &jsonData);
+    void onDotDefaultsReceived(const QString &jsonData);
     // Note: Fileset, Storage, Pool data now comes from JobWidget
 
 private:

@@ -585,12 +585,12 @@ void BJsonJobView::deleteJob()
     // Send appropriate command based on selection
     if (purgeRadio->isChecked()) {
         // Purge command removes job and marks volume data as purgeable
-        emit jobActionRequested("delete", QString("job jobid=%1 yes").arg(jobId));
+        emit jobActionRequested("delete", jobId);
         // Also purge the job's files from the catalog
         emit jobActionRequested("purge", QString("jobs jobid=%1 yes").arg(jobId));
     } else {
         // Delete only removes the job record
-        emit jobActionRequested("delete", QString("job jobid=%1 yes").arg(jobId));
+        emit jobActionRequested("delete", jobId);
     }
 
     // Request refresh after short delay to allow Director to process command

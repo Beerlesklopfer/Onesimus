@@ -25,9 +25,11 @@
 
 ---
 
-## 🆕 What's New (2026-01-31)
+## 🆕 What's New (v0.1.0.4 - 2026-01-31)
 
 ### New Features
+- **Job Preselection** - Run Job dialog auto-selects FileSet, Pool, Storage, Client, Level from job defaults
+- **Complete Status Filters** - Added Running (R) and Canceled (A) status checkboxes to job filters
 - **Run New Job Dialog** - Create and run backup jobs with a modern dialog interface
   - Job configuration with Job, Client, Level selection
   - Resource selection for FileSet, Pool, Storage
@@ -47,6 +49,9 @@
 - **About Qt** - Added "About Qt" option in Help menu
 
 ### Bug Fixes
+- Fixed: Run command duplication ("run job=run job=..." issue)
+- Fixed: Delete command duplication
+- Fixed: Purge command not working
 - Fixed: Job log flipping between jobs when rapidly selecting different jobs
 - Fixed: Job log not displaying in BJobWidget bottom panel
 - Fixed: Folder selection in file browser not counting subfolders
@@ -54,6 +59,7 @@
 - Fixed: Run Job button not being enabled after data loads
 
 ### Improvements
+- Filter persistence for Running and Canceled status checkboxes
 - Refactored codebase (`mainwindow` → `bmainwindow`, `settingsdialog` → `bsettingsdialog`)
 - Improved wizard data persistence across page navigation
 - Enhanced status bar with configurable colors

@@ -313,6 +313,7 @@ public:
         DotTypes,           ///< .types - List all job types
         DotMedia,           ///< .media - List all media/volumes
         DotHelp,            ///< .help - List all dot commands
+        DotDefaults,        ///< .defaults job=<name> - Get job default values
 
         // Custom
         Custom              ///< Custom command string

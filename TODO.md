@@ -2,16 +2,16 @@
 
 ## Run Job Dialog
 
-- [ ] Fetch preselection from Director when job is selected
-  - [ ] Get default FileSet from job configuration
-  - [ ] Get default Pool from job configuration
-  - [ ] Get default Storage from job configuration
-  - [ ] Get default Client from job configuration
-  - [ ] Auto-select these values in the combo boxes
-- [ ] Query job defaults from Director on job selection change
-  - [ ] Use `.jobs` command to get full job configuration
-  - [ ] Parse fileset, pool, storage, client from response
-  - [ ] Update combo boxes with default values
+- [x] Fetch preselection from Director when job is selected
+  - [x] Get default FileSet from job configuration
+  - [x] Get default Pool from job configuration
+  - [x] Get default Storage from job configuration
+  - [x] Get default Client from job configuration
+  - [x] Auto-select these values in the combo boxes
+- [x] Query job defaults from Director on job selection change
+  - [x] Use `.jobs` command to get full job configuration
+  - [x] Parse fileset, pool, storage, client from response
+  - [x] Update combo boxes with default values
 
 ## Job Management
 
@@ -33,8 +33,14 @@
 - [ ] Add job tends according to jobs to watch crotical development of storage sapces.
 
 
+## Settings Dialog
+- [ ] Add status color customization to settings dialog
+  - [ ] Allow users to customize colors for each job status (T, W, f, E, R, A)
+  - [ ] Color picker or preset selections
+  - [ ] Preview of color changes
+
 ## General
-- [ ] In basicfilters => Status the runnig job is missing
+- [x] In basicfilters => Status the running job is missing (added Running (R) and Canceled (A))
 - [ ] Complete remaining translations (ES, FR, IT, RU)
 - [ ] Add Bacula support
 - [ ] Implement live job monitoring with progress bars

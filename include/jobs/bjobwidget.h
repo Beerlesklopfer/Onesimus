@@ -364,6 +364,8 @@ private:
     QCheckBox *m_statusWarning;             ///< Filter: Warning (W)
     QCheckBox *m_statusFailed;              ///< Filter: Failed (f)
     QCheckBox *m_statusError;               ///< Filter: Error (E)
+    QCheckBox *m_statusRunning;             ///< Filter: Running (R)
+    QCheckBox *m_statusCanceled;            ///< Filter: Canceled (A)
     QCheckBox *m_statusZeroBytes;           ///< Filter: Zero Bytes
 
     // Dynamic level checkboxes (populated from .levels dot-command)
@@ -415,6 +417,14 @@ public:
     // Job and Client names from filterComboModel
     QStringList jobNames() const;
     QStringList clientNames() const;
+
+    /**
+     * @brief Get job configuration by name
+     * @param jobName The name of the job
+     * @return QJsonObject with job configuration (fileset, pool, storage, client) or empty object if not found
+     * @since 2.9
+     */
+    QJsonObject jobConfiguration(const QString &jobName) const;
 };
 
 #endif // BJOBWIDGET_H

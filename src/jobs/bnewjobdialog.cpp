@@ -292,6 +292,8 @@ void BNewJobDialog::onJsonResponse(const QString &command, const QString &jsonDa
         onDotJobsReceived(jsonData);
     } else if (command == ".clients") {
         onDotClientsReceived(jsonData);
+    } else if (command.startsWith(".defaults")) {
+        onDotDefaultsReceived(jsonData);
     }
     // Note: .filesets, .storages, .pools are now loaded from JobWidget
 }
@@ -391,8 +393,157 @@ void BNewJobDialog::onLevelChanged(int index)
 
 void BNewJobDialog::updateJobDefaults()
 {
-    // In a real implementation, we would query job defaults from director
-    // For now, just rebuild the command
+    QString jobName = m_jobCombo->currentText();
+    if (jobName.isEmpty()) {
+        buildRunCommand();
+        return;
+    }
+
+    // Request job defaults from Director using .defaults command
+    if (m_director) {
+        qDebug() << "BNewJobDialog: Requesting defaults for job:" << jobName;
+        m_statusLabel->setText(tr("Loading job defaults..."));
+        m_statusLabel->setStyleSheet("color: blue;");
+
+        // Connect to receive the response
+        connect(m_director, &BDirector::jsonResponse,
+                this, &BNewJobDialog::onJsonResponse,
+                Qt::UniqueConnection);
+
+        // Send .defaults job=<name> command
+        QMetaObject::invokeMethod(m_director, "doSendCommand",
+                                  Qt::QueuedConnection,
+                                  Q_ARG(BDirector::Command, BDirector::Command::DotDefaults),
+                                  Q_ARG(QString, jobName));
+    }
+
+    buildRunCommand();
+}
+
+void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
+{
+    qDebug() << "BNewJobDialog: Processing .defaults response";
+    qDebug() << "  Data:" << jsonData.left(500);
+
+    QJsonParseError error;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
+
+    if (error.error != QJsonParseError::NoError) {
+        qWarning() << "BNewJobDialog: Failed to parse .defaults response:" << error.errorString();
+        m_statusLabel->setText(tr("Failed to load job defaults"));
+        m_statusLabel->setStyleSheet("color: orange;");
+        return;
+    }
+
+    if (!doc.isObject()) {
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // defaults can be an object or an array depending on Bareos version
+    QJsonObject defaults;
+    if (result["defaults"].isObject()) {
+        defaults = result["defaults"].toObject();
+    } else if (result["defaults"].isArray()) {
+        QJsonArray defaultsArray = result["defaults"].toArray();
+        if (!defaultsArray.isEmpty()) {
+            defaults = defaultsArray.first().toObject();
+        }
+    }
+
+    if (defaults.isEmpty()) {
+        qDebug() << "BNewJobDialog: No defaults in response";
+        return;
+    }
+
+    qDebug() << "BNewJobDialog: Defaults:" << defaults;
+
+    // Pre-select FileSet from defaults
+    QString fileset = defaults["fileset"].toString();
+    if (!fileset.isEmpty()) {
+        int index = m_filesetCombo->findText(fileset);
+        qDebug() << "  FileSet:" << fileset << "index:" << index << "count:" << m_filesetCombo->count();
+        if (index >= 0) {
+            m_filesetCombo->setCurrentIndex(index);
+        } else {
+            qDebug() << "    Available filesets:";
+            for (int i = 0; i < m_filesetCombo->count(); ++i) {
+                qDebug() << "      " << i << ":" << m_filesetCombo->itemText(i);
+            }
+        }
+    }
+
+    // Pre-select Pool from defaults
+    QString pool = defaults["pool"].toString();
+    if (!pool.isEmpty()) {
+        int index = m_poolCombo->findText(pool);
+        qDebug() << "  Pool:" << pool << "index:" << index << "count:" << m_poolCombo->count();
+        if (index >= 0) {
+            m_poolCombo->setCurrentIndex(index);
+        } else {
+            qDebug() << "    Available pools:";
+            for (int i = 0; i < m_poolCombo->count(); ++i) {
+                qDebug() << "      " << i << ":" << m_poolCombo->itemText(i);
+            }
+        }
+    }
+
+    // Pre-select Storage from defaults
+    QString storage = defaults["storage"].toString();
+    if (!storage.isEmpty()) {
+        int index = m_storageCombo->findText(storage);
+        qDebug() << "  Storage:" << storage << "index:" << index << "count:" << m_storageCombo->count();
+        if (index >= 0) {
+            m_storageCombo->setCurrentIndex(index);
+        } else {
+            qDebug() << "    Available storages:";
+            for (int i = 0; i < m_storageCombo->count(); ++i) {
+                qDebug() << "      " << i << ":" << m_storageCombo->itemText(i);
+            }
+        }
+    }
+
+    // Pre-select Client from defaults
+    QString client = defaults["client"].toString();
+    if (!client.isEmpty()) {
+        int index = m_clientCombo->findText(client);
+        qDebug() << "  Client:" << client << "index:" << index << "count:" << m_clientCombo->count();
+        if (index >= 0) {
+            m_clientCombo->setCurrentIndex(index);
+        } else {
+            qDebug() << "    Available clients:";
+            for (int i = 0; i < m_clientCombo->count(); ++i) {
+                qDebug() << "      " << i << ":" << m_clientCombo->itemText(i);
+            }
+        }
+    }
+
+    // Pre-select Level from defaults (if available)
+    QString level = defaults["level"].toString();
+    if (!level.isEmpty()) {
+        // Try to find by text first (e.g., "Incremental", "Full")
+        int index = m_levelCombo->findText(level);
+        qDebug() << "  Level:" << level << "findText index:" << index;
+        if (index < 0) {
+            // Try to find by data (level code like "F", "I", "D")
+            index = m_levelCombo->findData(level);
+            qDebug() << "  Level:" << level << "findData index:" << index;
+        }
+        if (index >= 0) {
+            m_levelCombo->setCurrentIndex(index);
+        } else {
+            qDebug() << "    Available levels:";
+            for (int i = 0; i < m_levelCombo->count(); ++i) {
+                qDebug() << "      " << i << ": text=" << m_levelCombo->itemText(i) << "data=" << m_levelCombo->itemData(i);
+            }
+        }
+    }
+
+    m_statusLabel->setText(tr("✓ Job defaults loaded"));
+    m_statusLabel->setStyleSheet("color: green;");
+
     buildRunCommand();
 }
 

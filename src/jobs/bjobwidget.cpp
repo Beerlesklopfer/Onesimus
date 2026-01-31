@@ -36,6 +36,8 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_statusWarning(new QCheckBox(tr("Warning (W)"), this))
     , m_statusFailed(new QCheckBox(tr("Failed (f)"), this))
     , m_statusError(new QCheckBox(tr("Error (E)"), this))
+    , m_statusRunning(new QCheckBox(tr("Running (R)"), this))
+    , m_statusCanceled(new QCheckBox(tr("Canceled (A)"), this))
     , m_statusZeroBytes(new QCheckBox(tr("Zero Bytes"), this))
     , m_levelCheckboxLayout(new QVBoxLayout())
     , m_dateEnabled(new QCheckBox(tr("Enable Date Filter"), this))
@@ -57,6 +59,8 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
+    m_statusRunning->setChecked(true);
+    m_statusCanceled->setChecked(true);
     m_statusZeroBytes->setChecked(false);
 
     // Level checkboxes will be populated dynamically from .levels command
@@ -132,6 +136,12 @@ BJobWidget::BJobWidget(QWidget *parent)
                 } else if (command == "list") {
                     cmd = BDirector::Command::ListJobId;
                     emit statusMessageChanged(QString("Lade Job-Log..."));
+                } else if (command == "purge") {
+                    // Purge jobs - args contains "jobs jobid=XX yes"
+                    cmd = BDirector::Command::Custom;
+                    emit statusMessageChanged(QString("Lösche Job-Daten..."));
+                    emit sendCommand(cmd, "purge " + args);
+                    return;
                 } else {
                     qWarning() << "Unknown job action command:" << command;
                     return;
@@ -160,6 +170,10 @@ BJobWidget::BJobWidget(QWidget *parent)
     connect(m_statusFailed, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
     connect(m_statusError, &QCheckBox::toggled,
+            this, [this]() { m_filterTimer->start(); });
+    connect(m_statusRunning, &QCheckBox::toggled,
+            this, [this]() { m_filterTimer->start(); });
+    connect(m_statusCanceled, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
     connect(m_statusZeroBytes, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
@@ -205,6 +219,14 @@ BJobWidget::BJobWidget(QWidget *parent)
             this, [this](bool checked) {
                 BSettings::instance().setJobsFilterCheckbox("status_error", checked);
             });
+    connect(m_statusRunning, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterCheckbox("status_running", checked);
+            });
+    connect(m_statusCanceled, &QCheckBox::toggled,
+            this, [this](bool checked) {
+                BSettings::instance().setJobsFilterCheckbox("status_canceled", checked);
+            });
     connect(m_statusZeroBytes, &QCheckBox::toggled,
             this, [this](bool checked) {
                 BSettings::instance().setJobsFilterCheckbox("status_zero_bytes", checked);
@@ -229,6 +251,8 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_statusWarning->setChecked(BSettings::instance().jobsFilterCheckbox("status_warning", true));
     m_statusFailed->setChecked(BSettings::instance().jobsFilterCheckbox("status_failed", true));
     m_statusError->setChecked(BSettings::instance().jobsFilterCheckbox("status_error", true));
+    m_statusRunning->setChecked(BSettings::instance().jobsFilterCheckbox("status_running", true));
+    m_statusCanceled->setChecked(BSettings::instance().jobsFilterCheckbox("status_canceled", true));
     m_statusZeroBytes->setChecked(BSettings::instance().jobsFilterCheckbox("status_zero_bytes", false));
     m_dateEnabled->setChecked(BSettings::instance().jobsFilterDateEnabled());
     m_dateFrom->setDateTime(BSettings::instance().jobsFilterDateFrom());
@@ -324,6 +348,8 @@ void BJobWidget::setupUI()
     statusLayout->addWidget(m_statusWarning);
     statusLayout->addWidget(m_statusFailed);
     statusLayout->addWidget(m_statusError);
+    statusLayout->addWidget(m_statusRunning);
+    statusLayout->addWidget(m_statusCanceled);
     statusLayout->addWidget(m_statusZeroBytes);
     basicLayout->addLayout(statusLayout);
 
@@ -1380,7 +1406,9 @@ void BJobWidget::applyFilters()
     if (m_statusWarning->isChecked()) statusSet.insert("W");
     if (m_statusFailed->isChecked()) statusSet.insert("f");
     if (m_statusError->isChecked()) statusSet.insert("E");
-    
+    if (m_statusRunning->isChecked()) statusSet.insert("R");
+    if (m_statusCanceled->isChecked()) statusSet.insert("A");
+
     filterModel->setStatusFilter(statusSet);
 
     // Apply level filter - build QSet from dynamic checkboxes
@@ -1427,6 +1455,8 @@ void BJobWidget::clearFilters()
     m_statusWarning->setChecked(true);
     m_statusFailed->setChecked(true);
     m_statusError->setChecked(true);
+    m_statusRunning->setChecked(true);
+    m_statusCanceled->setChecked(true);
     m_statusZeroBytes->setChecked(false);
 
     // Check all level filters (dynamic)
@@ -1626,4 +1656,9 @@ QStringList BJobWidget::jobNames() const
 QStringList BJobWidget::clientNames() const
 {
     return m_filterComboModel ? m_filterComboModel->clientNames() : QStringList();
+}
+
+QJsonObject BJobWidget::jobConfiguration(const QString &jobName) const
+{
+    return m_jobConfigurations.value(jobName, QJsonObject());
 }

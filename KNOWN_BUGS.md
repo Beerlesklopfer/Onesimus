@@ -32,6 +32,20 @@ This document lists known bugs and issues in Onesimus.
 
 ## Resolved Issues
 
+### Version 0.1.0.4
+
+- Fixed: Run command duplication ("run job=run job=..." issue)
+  - Changed from Command::Run to Command::Custom for Run Job dialog
+- Fixed: Delete command duplication ("delete job jobid=job jobid=XX")
+  - Fixed args passing in bjsonjobview.cpp and bareosdirector.cpp
+- Fixed: Purge command not working ("Unknown job action command: purge")
+  - Added purge handler in bjobwidget.cpp using Command::Custom
+- Fixed: Status filter missing Running (R) and Canceled (A) options
+  - Added Running and Canceled checkboxes to basic filters
+- Added: Job preselection in Run Job dialog
+  - Uses .defaults command to fetch job configuration
+  - Auto-selects FileSet, Pool, Storage, Client, Level from defaults
+
 ### Version 0.1.0.3
 
 - Fixed: Job log flipping/switching between jobs when rapidly selecting different jobs
