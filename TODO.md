@@ -12,6 +12,11 @@
 
 - [ ] Complete job tree view implementation
 - [ ] Fix job log panel scrolling issue with multiple dialogs
+- [ ] Add tab view for Job Log and Messages in BJobWidget
+  - [ ] Remove job log from bottom panel
+  - [ ] Create tab widget with "Log" and "Messages" tabs
+  - [ ] Move job log to "Log" tab
+  - [ ] Add director messages to "Messages" tab
 
 ## BVFS File Browser
 
