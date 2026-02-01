@@ -374,7 +374,13 @@ void BSettings::migrateOldConnectionSettings()
     profile.port = connectionPort();
     profile.directorName = connectionDirector();
     profile.consoleName = connectionConsole();
-    profile.password = connectionPassword();
+
+    // MANDATORY: Transform old cleartext password to MD5 hash
+    QString oldPassword = connectionPassword();
+    if (!oldPassword.isEmpty()) {
+        profile.setPasswordFromCleartext(oldPassword);
+    }
+
     profile.legacyAuth = legacyAuth();
     profile.tlsEnabled = tlsEnabled();
     profile.tlsUsePSK = tlsUsePSK();

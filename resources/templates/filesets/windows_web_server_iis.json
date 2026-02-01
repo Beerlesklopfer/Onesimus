@@ -1,0 +1,54 @@
+{
+  "name": "Windows Web Server (IIS)",
+  "description": "Backup of IIS web server configuration, websites, and application data",
+  "platform": "windows",
+  "category": "web_server",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "WindowsIISWebServer",
+    "Description": "IIS websites and configuration",
+    "Enable VSS": true,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "MD5",
+        "Compression": "GZIP",
+        "OneFS": false,
+        "Accurate": true,
+        "IgnoreCase": true,
+        "DriveType": "fixed",
+        "Exclude": {
+          "Files": [
+            "*.log",
+            "*.tmp"
+          ],
+          "WildDir": [
+            "*/App_Data/Logs",
+            "*/logs",
+            "*/temp"
+          ]
+        }
+      },
+      "File": [
+        "C:/inetpub/wwwroot",
+        "C:/inetpub/logs",
+        "C:/Windows/System32/inetsrv/config",
+        "C:/Windows/System32/inetsrv/MetaBase.xml",
+        "D:/Websites",
+        "C:/Program Files/IIS",
+        "C:/ProgramData/Microsoft/Crypto/RSA/MachineKeys"
+      ]
+    }
+  },
+  "recommended_schedule": "Hourly Incremental, Daily Full",
+  "estimated_size": "10-500 GB",
+  "notes": [
+    "Includes IIS configuration from System32/inetsrv/config",
+    "SSL certificates stored in MachineKeys directory",
+    "Adjust D:/Websites to your actual website root",
+    "Consider excluding large log files if backed up separately",
+    "Test IIS configuration restore separately",
+    "Document IIS bindings and SSL certificates",
+    "For application pools using specific identities, backup credentials separately"
+  ]
+}

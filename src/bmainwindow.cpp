@@ -43,6 +43,7 @@
 #include <QToolBar>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QMenuBar>
 
 BMainWindow::BMainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -632,6 +633,8 @@ void BMainWindow::createMenus()
     m_fileMenu->addAction(m_connectLastAction);
     m_fileMenu->addAction(m_disconnectAction);
     m_fileMenu->addSeparator();
+    m_fileMenu->addAction(m_connectionWizardAction);
+    m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_refreshAction);
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_settingsAction);
@@ -679,8 +682,6 @@ void BMainWindow::createMenus()
 
     // Tools Menu
     m_toolsMenu = menuBar()->addMenu(tr("Tools"));
-    m_toolsMenu->addAction(m_connectionWizardAction);
-    m_toolsMenu->addSeparator();
     m_toolsMenu->addAction(m_cleanupDatabaseAction);
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
@@ -894,7 +895,7 @@ void BMainWindow::showConnectionDialog()
                           profile.port,
                           profile.directorName,
                           profile.consoleName,
-                          profile.password);
+                          profile.getPasswordHashHex());
 
         m_statusLabel->setText(tr("Connecting to %1...").arg(profile.name));
 
@@ -1486,7 +1487,7 @@ void BMainWindow::loadAndConnectLastUsed()
 
     m_director->setTLSConfig(*m_director->tlsConfig());
     onDirectorConnect(profile.host, profile.port, profile.directorName,
-                      profile.consoleName, profile.password);
+                      profile.consoleName, profile.getPasswordHashHex());
     m_statusLabel->setText(tr("Auto-connecting to %1...").arg(profile.name));
 
     // Show wait cursor until all resources are loaded
@@ -1693,7 +1694,8 @@ void BMainWindow::onConnectionWizard()
     // Create wizard data struct to preserve values across page navigation
     BConnectionWizardData *wizardData = new BConnectionWizardData();
 
-    BConnectionWizard wizard(wizardData, this);
+    // TODO: Pass BDatabase instance when database integration is complete
+    BConnectionWizard wizard(wizardData, nullptr, this);
 
     if (wizard.exec() == QDialog::Accepted) {
         // Save the profile
@@ -1727,16 +1729,23 @@ void BMainWindow::onConnectionWizard()
                 tlsConfig.tlsVerifyPeer = profile.tlsVerifyPeer;
                 if (!profile.tlsCaCertFile.isEmpty())
                     tlsConfig.tlsCaCertFile = QSharedPointer<QFile>(new QFile(profile.tlsCaCertFile));
+#ifdef Q_OS_WINDOWS
+                if (!profile.tlsPfxFile.isEmpty())
+                    tlsConfig.tlsPfxFile = QSharedPointer<QFile>(new QFile(profile.tlsPfxFile));
+                if (!profile.tlsPfxPassword.isEmpty())
+                    tlsConfig.tlsPfxPassword = profile.tlsPfxPassword;
+#else
                 if (!profile.tlsCertFile.isEmpty())
                     tlsConfig.tlsCertFile = QSharedPointer<QFile>(new QFile(profile.tlsCertFile));
                 if (!profile.tlsKeyFile.isEmpty())
                     tlsConfig.tlsKeyFile = QSharedPointer<QFile>(new QFile(profile.tlsKeyFile));
+#endif
             }
             m_director->setTLSConfig(tlsConfig);
 
             // Connect
             onDirectorConnect(profile.host, profile.port, profile.directorName,
-                              profile.consoleName, profile.password);
+                              profile.consoleName, profile.getPasswordHashHex());
         }
     }
 

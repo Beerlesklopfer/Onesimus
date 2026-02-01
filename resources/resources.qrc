@@ -12,4 +12,31 @@
         <file>icons/exit.png</file>
         <file>icons/refresh.png</file>
     </qresource>
+    <qresource prefix="/sql">
+        <file>sql/schema/v1_initial.sql</file>
+        <file>sql/migrations/v2_add_console_support.sql</file>
+    </qresource>
+    <qresource prefix="/directives">
+        <file>directives/director.json</file>
+        <file>directives/client.json</file>
+        <file>directives/console.json</file>
+        <file>directives/fileset.json</file>
+        <file>directives/schedule.json</file>
+        <file>directives/storage.json</file>
+        <file>directives/pool.json</file>
+        <file>directives/directive_schema.json</file>
+        <file>directives/directive_groups.json</file>
+    </qresource>
+    <qresource prefix="/templates/filesets">
+        <file>templates/filesets/windows_domain_controller.json</file>
+        <file>templates/filesets/windows_file_server.json</file>
+        <file>templates/filesets/windows_web_server_iis.json</file>
+        <file>templates/filesets/windows_sql_server.json</file>
+        <file>templates/filesets/linux_postgresql.json</file>
+        <file>templates/filesets/linux_mysql.json</file>
+        <file>templates/filesets/linux_mongodb.json</file>
+    </qresource>
+    <qresource prefix="/translations/directives">
+        <file>translations/directives/director_de.json</file>
+    </qresource>
 </RCC>

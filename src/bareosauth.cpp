@@ -391,32 +391,78 @@ bool BareosAuth::setupPSKTLS()
 #endif
     }
 
+    // Force TLSv1.2 for PSK (Qt PSK callback doesn't work with TLSv1.3)
+    sslConfig.setProtocol(QSsl::TlsV1_2);
+
     // Set explicit PSK ciphers to ensure PSK callback is triggered
     // We must use TLSv1.2 PSK ciphers (names contain "PSK")
-    // Qt's preSharedKeyAuthenticationRequired doesn't work with TLSv1.3
     QList<QSslCipher> pskCiphers;
     QList<QSslCipher> availableCiphers = QSslConfiguration::supportedCiphers();
 
     for (const QSslCipher &cipher : availableCiphers)
     {
         QString name = cipher.name();
-        // Select only TLSv1.2 PSK ciphers
-        if (name.contains("PSK", Qt::CaseInsensitive))
+        // Select TLSv1.2 PSK ciphers - prioritize AES256
+        if (name.contains("PSK", Qt::CaseInsensitive) &&
+            cipher.protocol() == QSsl::TlsV1_2)
         {
             pskCiphers.append(cipher);
 #ifdef IS_DEVELOPER
-            AUTH_DEBUG << "  Adding PSK cipher:" << name;
+            AUTH_DEBUG << "  Adding PSK cipher:" << name << "(" << cipher.protocolString() << ")";
 #endif
         }
     }
 
     if (pskCiphers.isEmpty())
     {
-        AUTH_WARNING << "WARNING: No PSK ciphers available!";
-        AUTH_WARNING << "Make sure OpenSSL was compiled with PSK support";
+        AUTH_WARNING << "========================================";
+        AUTH_WARNING << "WARNING: No PSK ciphers found automatically!";
+        AUTH_WARNING << "Trying to add common Bareos PSK ciphers manually...";
+        AUTH_WARNING << "Available cipher count:" << availableCiphers.count();
+
+        // Try to find common Bareos-compatible PSK cipher suites
+        // Bareos typically uses: AES256-GCM-SHA384, AES128-GCM-SHA256
+        QStringList preferredPskCipherNames = {
+            "PSK-AES256-GCM-SHA384",
+            "PSK-AES128-GCM-SHA256",
+            "PSK-AES256-CBC-SHA384",
+            "PSK-AES128-CBC-SHA256",
+            "PSK-AES256-CBC-SHA",
+            "PSK-AES128-CBC-SHA"
+        };
+
+        for (const QString &cipherName : preferredPskCipherNames)
+        {
+            for (const QSslCipher &cipher : availableCiphers)
+            {
+                if (cipher.name() == cipherName)
+                {
+                    pskCiphers.append(cipher);
+                    AUTH_WARNING << "  Found:" << cipherName;
+                    break;
+                }
+            }
+        }
+
+        if (pskCiphers.isEmpty())
+        {
+            AUTH_WARNING << "FATAL: Still no PSK ciphers available!";
+            AUTH_WARNING << "OpenSSL may not be compiled with PSK support";
+            AUTH_WARNING << "========================================";
+            // Don't set empty cipher list - let it fail with proper error
+        }
+        else
+        {
+            AUTH_WARNING << "Using" << pskCiphers.count() << "manually configured PSK ciphers";
+            AUTH_WARNING << "========================================";
+            sslConfig.setCiphers(pskCiphers);
+        }
     }
     else
     {
+#ifdef IS_DEVELOPER
+        AUTH_DEBUG << "Setting" << pskCiphers.count() << "PSK cipher suites";
+#endif
         sslConfig.setCiphers(pskCiphers);
     }
 

@@ -28,10 +28,10 @@
  * Generates configuration files and packages them into a zip archive.
  *
  * Archive structure:
- *   etc/bareos/bareos-dir.d/console/<consoleName>.conf
- *   etc/bareos/bareos-dir.d/profile/<profileName>.conf (if ACLs defined)
- *   etc/bareos/bareos-dir.d/director/bareos-dir.conf (template, optional)
- *   etc/bareos/bconsole.conf (client config)
+ *   /etc/bareos/bareos-dir.d/console/<consoleName>.conf
+ *   /etc/bareos/bareos-dir.d/profile/<profileName>.conf (if ACLs defined)
+ *   /etc/bareos/bareos-dir.d/director/bareos-dir.conf (template, optional)
+ *   /etc/bareos/bconsole.conf (client config)
  */
 class BConfigExporter
 {
@@ -67,6 +67,16 @@ public:
      * @return Error description or empty string
      */
     static QString lastError();
+
+    /**
+     * @brief Search filesystem for bareos-dir.d directories
+     * @param searchDepth Maximum directory depth to search (default: 5)
+     * @return List of paths containing bareos-dir.d directories
+     *
+     * Searches common locations first (/etc/bareos, /opt/bareos, C:\ProgramData\Bareos),
+     * then performs a broader search if needed.
+     */
+    static QStringList findBareosDirectories(int searchDepth = 5);
 
 private:
     /**

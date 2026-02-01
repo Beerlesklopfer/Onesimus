@@ -1,0 +1,80 @@
+{
+  "resource_type": "FileSet",
+  "description": "FileSet resource directives for Bareos and Bacula",
+  "directives": {
+    "Name": {
+      "type": "string",
+      "required": true,
+      "bareos": true,
+      "bacula": true,
+      "description": "The name of the FileSet resource",
+      "example": "WindowsSystemFiles",
+      "excludes": [],
+      "must": []
+    },
+    "Description": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Optional description of this FileSet",
+      "example": "Windows system and application files",
+      "excludes": [],
+      "must": []
+    },
+    "Include": {
+      "type": "block",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Files and directories to include in backup",
+      "example": "{ File = C:/Users ... }",
+      "excludes": [],
+      "must": []
+    },
+    "Exclude": {
+      "type": "block",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Files and directories to exclude from backup",
+      "example": "{ File = C:/Windows/Temp ... }",
+      "excludes": [],
+      "must": []
+    },
+    "Enable VSS": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": true,
+      "description": "Enable Windows Volume Shadow Copy Service",
+      "example": true,
+      "excludes": [],
+      "must": []
+    },
+    "Ignore FileSet Changes": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": false,
+      "description": "Don't trigger Full backup when FileSet changes",
+      "example": false,
+      "excludes": [],
+      "must": []
+    },
+    "Enable Snapshot": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": false,
+      "min_version": "17.2.0",
+      "default": false,
+      "description": "Enable filesystem snapshots (Bareos only)",
+      "example": true,
+      "excludes": [],
+      "must": []
+    }
+  }
+}

@@ -6,6 +6,7 @@
 #include <QUuid>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QCryptographicHash>
 
 /**
  * @brief Connection profile for Bareos/Bacula Directors
@@ -33,7 +34,8 @@ struct BConnectionProfile
     int port = 9101;        ///< Port number (default: 9101)
     QString directorName;   ///< Director resource name
     QString consoleName;    ///< Console resource name
-    QString password;       ///< Password (stored encrypted if possible)
+    QString password;       ///< DEPRECATED: Use passwordHash instead
+    QString passwordHash;   ///< MD5 password hash (32-char hex)
     int heartbeatInterval = 0; ///< Keepalive interval in seconds (0 = disabled)
 
     // Authentication method
@@ -47,6 +49,7 @@ struct BConnectionProfile
     QString tlsCertFile;     ///< Path to client certificate
     QString tlsKeyFile;      ///< Path to private key
     QString tlsPfxFile;      ///< Path to PFX file (Windows)
+    QString tlsPfxPassword;  ///< Password for PFX file (Windows)
     bool tlsVerifyPeer = true;  ///< Verify server certificate (TLS Verify Peer)
     bool tlsRequire = true;     ///< Require TLS connection (TLS Require)
     bool tlsAuthenticate = false; ///< TLS for auth only, not encryption (TLS Authenticate)
@@ -91,6 +94,58 @@ struct BConnectionProfile
     }
 
     /**
+     * @brief Set password from cleartext - transforms to MD5 hash
+     * @param cleartext Plain text password
+     *
+     * This is the MANDATORY way to set passwords. Cleartext is immediately
+     * transformed to MD5 hash and the cleartext is discarded.
+     */
+    void setPasswordFromCleartext(const QString &cleartext)
+    {
+        // Include BPasswordUtil header in implementation files that use this
+        QByteArray passwordBytes = cleartext.toLatin1();
+        QByteArray md5Hash = QCryptographicHash::hash(passwordBytes, QCryptographicHash::Md5);
+        passwordHash = QString::fromLatin1(md5Hash.toHex());
+        password.clear();  // Don't store cleartext
+    }
+
+    /**
+     * @brief Get password hash for authentication (binary format)
+     * @return QByteArray 16-byte binary MD5 hash
+     */
+    QByteArray getPasswordHashBinary() const
+    {
+        // Convert hex hash back to binary
+        return QByteArray::fromHex(passwordHash.toLatin1());
+    }
+
+    /**
+     * @brief Get password hash for TLS-PSK (hex format)
+     * @return QString 32-character hex MD5 hash
+     */
+    QString getPasswordHashHex() const
+    {
+        return passwordHash;
+    }
+
+    /**
+     * @brief Check if password hash is valid
+     * @return true if passwordHash is a valid 32-char hex MD5
+     */
+    bool hasValidPasswordHash() const
+    {
+        if (passwordHash.length() != 32) {
+            return false;
+        }
+        for (const QChar &c : passwordHash) {
+            if (!c.isDigit() && (c.toLower() < 'a' || c.toLower() > 'f')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @brief Serialize profile to JSON
      */
     QJsonObject toJson() const
@@ -103,7 +158,8 @@ struct BConnectionProfile
         obj["port"] = port;
         obj["directorName"] = directorName;
         obj["consoleName"] = consoleName;
-        obj["password"] = password;  // TODO: Encrypt password
+        obj["password"] = password;  // DEPRECATED: For backward compatibility only
+        obj["passwordHash"] = passwordHash;  // MD5 hash (32-char hex)
         obj["heartbeatInterval"] = heartbeatInterval;
         obj["legacyAuth"] = legacyAuth;
         obj["tlsEnabled"] = tlsEnabled;
@@ -113,6 +169,7 @@ struct BConnectionProfile
         obj["tlsCertFile"] = tlsCertFile;
         obj["tlsKeyFile"] = tlsKeyFile;
         obj["tlsPfxFile"] = tlsPfxFile;
+        obj["tlsPfxPassword"] = tlsPfxPassword;
         obj["tlsVerifyPeer"] = tlsVerifyPeer;
         obj["tlsRequire"] = tlsRequire;
         obj["tlsAuthenticate"] = tlsAuthenticate;
@@ -164,7 +221,35 @@ struct BConnectionProfile
         profile.port = obj["port"].toInt(9101);
         profile.directorName = obj["directorName"].toString();
         profile.consoleName = obj["consoleName"].toString();
-        profile.password = obj["password"].toString();  // TODO: Decrypt password
+
+        // Load passwordHash (preferred) or migrate from old password field
+        profile.passwordHash = obj["passwordHash"].toString();
+        if (profile.passwordHash.isEmpty() && obj.contains("password")) {
+            QString oldPassword = obj["password"].toString();
+            if (!oldPassword.isEmpty()) {
+                // Migrate: Check if old password is already MD5 hash or cleartext
+                bool isValidMd5 = (oldPassword.length() == 32);
+                if (isValidMd5) {
+                    // Check if all chars are hex
+                    for (const QChar &c : oldPassword) {
+                        if (!c.isDigit() && (c.toLower() < 'a' || c.toLower() > 'f')) {
+                            isValidMd5 = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (isValidMd5) {
+                    // Already MD5 hash
+                    profile.passwordHash = oldPassword;
+                } else {
+                    // Cleartext password - convert to MD5
+                    profile.setPasswordFromCleartext(oldPassword);
+                }
+            }
+        }
+        profile.password.clear();  // Don't keep old password field
+
         profile.heartbeatInterval = obj["heartbeatInterval"].toInt(0);
         profile.legacyAuth = obj["legacyAuth"].toBool(false);
         profile.tlsEnabled = obj["tlsEnabled"].toBool(true);
@@ -174,6 +259,7 @@ struct BConnectionProfile
         profile.tlsCertFile = obj["tlsCertFile"].toString();
         profile.tlsKeyFile = obj["tlsKeyFile"].toString();
         profile.tlsPfxFile = obj["tlsPfxFile"].toString();
+        profile.tlsPfxPassword = obj["tlsPfxPassword"].toString();
         profile.tlsVerifyPeer = obj["tlsVerifyPeer"].toBool(true);
         profile.tlsRequire = obj["tlsRequire"].toBool(true);
         profile.tlsAuthenticate = obj["tlsAuthenticate"].toBool(false);
@@ -216,7 +302,7 @@ struct BConnectionProfile
      */
     bool isValid() const
     {
-        return !id.isEmpty() && !host.isEmpty() && !directorName.isEmpty();
+        return !id.isEmpty() && !host.isEmpty() && !directorName.isEmpty() && hasValidPasswordHash();
     }
 
     // ========================================================================
@@ -234,7 +320,14 @@ struct BConnectionProfile
         QString config;
         config += QString("Console {\n");
         config += QString("  Name = \"%1\"\n").arg(consoleName);
-        config += QString("  Password = \"%1\"\n").arg(password);
+
+        // MANDATORY: Export password as MD5 hash with [md5] prefix
+        if (hasValidPasswordHash()) {
+            config += QString("  Password = \"[md5]%1\"\n").arg(passwordHash);
+        } else {
+            config += QString("  # WARNING: No valid password hash set!\n");
+            config += QString("  Password = \"CHANGE_ME\"\n");
+        }
 
         if (!description.isEmpty()) {
             config += QString("  Description = \"%1\"\n").arg(description);
@@ -406,7 +499,14 @@ struct BConnectionProfile
         config += QString("  Name = \"%1\"\n").arg(directorName);
         config += QString("  DIRport = %1\n").arg(port);
         config += QString("  Address = \"%1\"\n").arg(host);
-        config += QString("  Password = \"%1\"\n").arg(password);
+
+        // MANDATORY: Export password as MD5 hash with [md5] prefix
+        if (hasValidPasswordHash()) {
+            config += QString("  Password = \"[md5]%1\"\n").arg(passwordHash);
+        } else {
+            config += QString("  # WARNING: No valid password hash set!\n");
+            config += QString("  Password = \"CHANGE_ME\"\n");
+        }
 
         if (tlsEnabled) {
             config += QString("  TLS Enable = yes\n");
@@ -432,7 +532,15 @@ struct BConnectionProfile
 
         config += QString("Console {\n");
         config += QString("  Name = \"%1\"\n").arg(consoleName);
-        config += QString("  Password = \"%1\"\n").arg(password);
+
+        // MANDATORY: Export password as MD5 hash with [md5] prefix
+        if (hasValidPasswordHash()) {
+            config += QString("  Password = \"[md5]%1\"\n").arg(passwordHash);
+        } else {
+            config += QString("  # WARNING: No valid password hash set!\n");
+            config += QString("  Password = \"CHANGE_ME\"\n");
+        }
+
         config += QString("}\n");
 
         return config;

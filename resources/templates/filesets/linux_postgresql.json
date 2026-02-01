@@ -1,0 +1,58 @@
+{
+  "name": "PostgreSQL Database Server",
+  "description": "Backup of PostgreSQL databases, configuration, and WAL archives",
+  "platform": "linux",
+  "category": "database",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "PostgreSQLServer",
+    "Description": "PostgreSQL data and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "MD5",
+        "Compression": "GZIP",
+        "OneFS": true,
+        "Accurate": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "Files": [
+            "postmaster.pid"
+          ],
+          "WildDir": [
+            "*/pg_log",
+            "*/pg_stat_tmp"
+          ]
+        }
+      },
+      "File": [
+        "/var/lib/postgresql",
+        "/etc/postgresql",
+        "/var/backups/postgresql",
+        "/var/log/postgresql"
+      ]
+    }
+  },
+  "recommended_schedule": "15min WAL archive, Hourly Incremental, Daily Full",
+  "estimated_size": "50 GB - 2 TB",
+  "notes": [
+    "Stop PostgreSQL or use pg_basebackup for consistent backups",
+    "Configure WAL archiving for point-in-time recovery",
+    "Backup postgresql.conf, pg_hba.conf, and pg_ident.conf",
+    "Consider using Bareos PostgreSQL plugin for online backups",
+    "Test recovery procedures including PITR",
+    "Monitor WAL archive size and rotation",
+    "Document PostgreSQL version and extensions",
+    "For replication setups, backup from standby server"
+  ],
+  "pre_backup_script": {
+    "description": "Create logical backup with pg_dump",
+    "linux": "sudo -u postgres pg_dumpall > /var/backups/postgresql/all_databases.sql"
+  },
+  "post_backup_script": {
+    "description": "Clean old dump files",
+    "linux": "find /var/backups/postgresql -name '*.sql' -mtime +7 -delete"
+  }
+}

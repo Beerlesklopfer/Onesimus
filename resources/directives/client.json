@@ -1,0 +1,246 @@
+{
+  "resource_type": "Client",
+  "description": "Client (File Daemon) resource directives for Bareos and Bacula",
+  "directives": {
+    "Name": {
+      "type": "string",
+      "required": true,
+      "bareos": true,
+      "bacula": true,
+      "description": "The name of the Client resource",
+      "example": "client-fd",
+      "excludes": [],
+      "must": []
+    },
+    "Description": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Optional description of this Client",
+      "example": "Web Server File Daemon",
+      "excludes": [],
+      "must": []
+    },
+    "Address": {
+      "type": "string",
+      "required": true,
+      "bareos": true,
+      "bacula": true,
+      "description": "Network address of the File Daemon",
+      "example": "client.example.com",
+      "excludes": [],
+      "must": []
+    },
+    "FD Port": {
+      "type": "integer",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "min": 1,
+      "max": 65535,
+      "default": 9102,
+      "description": "Port on which the File Daemon listens",
+      "example": 9102,
+      "excludes": [],
+      "must": []
+    },
+    "Password": {
+      "type": "password",
+      "required": true,
+      "bareos": true,
+      "bacula": true,
+      "description": "Password for Client authentication (MD5 hash)",
+      "example": "[md5]482c811da5d5b4bc6d497ffa98491e38",
+      "excludes": [],
+      "must": []
+    },
+    "Catalog": {
+      "type": "resource_reference",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "reference_type": "Catalog",
+      "description": "Catalog resource to use",
+      "default": "MyCatalog",
+      "example": "MyCatalog",
+      "excludes": [],
+      "must": []
+    },
+    "File Retention": {
+      "type": "time",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Time to retain File records in catalog",
+      "default": "60 days",
+      "example": "90 days",
+      "excludes": [],
+      "must": []
+    },
+    "Job Retention": {
+      "type": "time",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Time to retain Job records in catalog",
+      "default": "180 days",
+      "example": "365 days",
+      "excludes": [],
+      "must": []
+    },
+    "AutoPrune": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": false,
+      "description": "Enable automatic pruning of expired records",
+      "example": true,
+      "excludes": [],
+      "must": []
+    },
+    "Maximum Concurrent Jobs": {
+      "type": "integer",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "min": 1,
+      "max": 100,
+      "default": 1,
+      "description": "Maximum concurrent jobs for this client",
+      "example": 5,
+      "excludes": [],
+      "must": []
+    },
+    "Heartbeat Interval": {
+      "type": "time",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "min": 0,
+      "description": "Keepalive interval in seconds",
+      "default": 0,
+      "example": 300,
+      "excludes": [],
+      "must": []
+    },
+    "TLS Enable": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": true,
+      "description": "Enable TLS encryption",
+      "example": true,
+      "excludes": [],
+      "must": []
+    },
+    "TLS Require": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": false,
+      "description": "Require TLS connection",
+      "example": true,
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS CA Certificate File": {
+      "type": "file",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Path to CA certificate file",
+      "example": "/etc/bareos/tls/ca.pem",
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS Certificate": {
+      "type": "file",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Path to client certificate file",
+      "example": "/etc/bareos/tls/client.pem",
+      "excludes": [],
+      "must": ["TLS Enable", "TLS Key"]
+    },
+    "TLS Key": {
+      "type": "file",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Path to client private key file",
+      "example": "/etc/bareos/tls/client-key.pem",
+      "excludes": [],
+      "must": ["TLS Enable", "TLS Certificate"]
+    },
+    "PKI Signatures": {
+      "type": "boolean",
+      "required": false,
+      "bareos": false,
+      "bacula": true,
+      "default": false,
+      "description": "Enable PKI signatures (Bacula only)",
+      "example": true,
+      "excludes": [],
+      "must": []
+    },
+    "PKI Encryption": {
+      "type": "boolean",
+      "required": false,
+      "bareos": false,
+      "bacula": true,
+      "default": false,
+      "description": "Enable PKI encryption (Bacula only)",
+      "example": true,
+      "excludes": [],
+      "must": []
+    },
+    "PKI Keypair": {
+      "type": "file",
+      "required": false,
+      "bareos": false,
+      "bacula": true,
+      "description": "Path to PKI keypair file (Bacula only)",
+      "example": "/etc/bacula/fd-cert.pem",
+      "excludes": [],
+      "must": ["PKI Encryption"]
+    },
+    "Plugin Directory": {
+      "type": "directory",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Directory containing plugins",
+      "example": "/usr/lib/bareos/plugins",
+      "excludes": [],
+      "must": []
+    },
+    "SD Connect Timeout": {
+      "type": "time",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Timeout for connecting to Storage Daemon",
+      "default": 1800,
+      "example": 1800,
+      "excludes": [],
+      "must": []
+    },
+    "Maximum Network Buffer Size": {
+      "type": "size",
+      "required": false,
+      "bareos": false,
+      "bacula": true,
+      "min": 1024,
+      "max": 4194304,
+      "description": "Maximum network buffer size (Bacula only)",
+      "example": 65536,
+      "excludes": [],
+      "must": []
+    }
+  }
+}

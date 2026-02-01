@@ -1,0 +1,66 @@
+{
+  "name": "Windows Domain Controller",
+  "description": "Complete backup of Windows Active Directory Domain Controller including system state, SYSVOL, and critical system files",
+  "platform": "windows",
+  "category": "infrastructure",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "WindowsDomainController",
+    "Description": "AD Domain Controller complete backup",
+    "Enable VSS": true,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "MD5",
+        "Compression": "GZIP",
+        "OneFS": false,
+        "Accurate": true,
+        "Verify": true,
+        "IgnoreCase": true,
+        "DriveType": "fixed",
+        "Exclude": {
+          "Files": [
+            "C:/Windows/Temp",
+            "C:/Temp",
+            "C:/$Recycle.Bin",
+            "C:/Windows/CSC",
+            "C:/hiberfil.sys",
+            "C:/pagefile.sys",
+            "C:/swapfile.sys"
+          ],
+          "WildFile": [
+            "*.tmp",
+            "*.temp",
+            "*.bak",
+            "~*"
+          ],
+          "WildDir": [
+            "*/Temporary Internet Files",
+            "*/Temp",
+            "*/Cache"
+          ]
+        }
+      },
+      "File": [
+        "C:/Windows/SYSVOL",
+        "C:/Windows/NTDS",
+        "C:/Windows/System32/config",
+        "C:/Windows/System32/GroupPolicy",
+        "C:/Windows/System32/inetsrv/config",
+        "C:/Program Files",
+        "C:/ProgramData",
+        "C:/Users"
+      ]
+    },
+    "Plugin": "vss:/@SYSTEMSTATE/"
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "50-200 GB",
+  "notes": [
+    "Requires VSS (Volume Shadow Copy Service) enabled",
+    "System State backup includes Active Directory database",
+    "SYSVOL contains Group Policy Objects and login scripts",
+    "Full backup recommended weekly due to AD database changes",
+    "Test restores regularly to verify AD recoverability"
+  ]
+}

@@ -24,6 +24,7 @@
 #include "bconnectionprofile.h"
 
 class BareosDirector;
+class QSqlDatabase;
 
 /**
  * @struct BConnectionWizardData
@@ -81,6 +82,7 @@ class BConnectionWizard : public QWizard
 public:
     enum PageId {
         Page_Welcome,
+        Page_TemplateSelection,
         Page_Server,
         Page_Credentials,
         Page_AuthMethod,
@@ -107,13 +109,26 @@ public:
     /**
      * @brief Construct wizard with external data storage
      * @param wizardData Pointer to data struct owned by caller (e.g., MainWindow)
+     * @param db Database connection for loading/saving Directors (optional)
      * @param parent Parent widget
      */
-    explicit BConnectionWizard(BConnectionWizardData *wizardData = nullptr, QWidget *parent = nullptr);
+    explicit BConnectionWizard(BConnectionWizardData *wizardData = nullptr,
+                              QSqlDatabase *db = nullptr,
+                              QWidget *parent = nullptr);
     ~BConnectionWizard() override;
 
     BConnectionProfile profile() const;
     void setProfile(const BConnectionProfile &profile);
+
+    /**
+     * @brief Save connection to database
+     * @param db Database connection
+     * @return Director ID on success, -1 on failure
+     *
+     * Saves the wizard data to the directors table using BDirectorModel.
+     * Returns the new Director ID which can be used to mark as default.
+     */
+    int saveToDatabase(QSqlDatabase &db);
 
     ServerCapabilities capabilities() const { return m_capabilities; }
     void setCapabilities(const ServerCapabilities &caps) { m_capabilities = caps; }
@@ -121,10 +136,14 @@ public:
     /// Access the wizard data struct
     BConnectionWizardData *wizardData() const { return m_wizardData; }
 
+    /// Access the database connection
+    QSqlDatabase *database() const { return m_database; }
+
 private:
     BConnectionProfile m_profile;
     ServerCapabilities m_capabilities;
     BConnectionWizardData *m_wizardData;  ///< External data storage (not owned)
+    QSqlDatabase *m_database;  ///< Database connection (not owned)
 };
 
 // Base class for Q&A pages
@@ -146,6 +165,33 @@ class WelcomePage : public QWizardPage
     Q_OBJECT
 public:
     explicit WelcomePage(QWidget *parent = nullptr);
+};
+
+class TemplateSelectionPage : public QAPage
+{
+    Q_OBJECT
+public:
+    explicit TemplateSelectionPage(QWidget *parent = nullptr);
+    void initializePage() override;
+    int nextId() const override;
+    bool isComplete() const override;
+private:
+    QRadioButton *m_newConnectionRadio;
+    QRadioButton *m_fromTemplateRadio;
+    QRadioButton *m_importZipRadio;
+    QButtonGroup *m_group;
+    QComboBox *m_templateCombo;
+    QPushButton *m_refreshButton;
+    QPushButton *m_browseZipButton;
+    QLineEdit *m_zipFileEdit;
+    QLabel *m_templateDetailsLabel;
+    void loadTemplates();
+    void loadTemplateDetails(int directorId);
+private slots:
+    void onSelectionChanged();
+    void onTemplateSelected(int index);
+    void onRefreshClicked();
+    void onBrowseZipClicked();
 };
 
 class ServerPage : public QAPage
@@ -180,6 +226,7 @@ private:
     QLineEdit *m_directorEdit;
     QLineEdit *m_consoleEdit;
     QLineEdit *m_passwordEdit;
+    QLabel *m_md5Label;
     QCheckBox *m_saveCheck;
 };
 
@@ -221,6 +268,7 @@ private slots:
     void browseClientCert();
     void browseClientKey();
     void generateCertificates();
+    void convertToPFX();
 };
 
 class ConfigPreviewPage : public QAPage

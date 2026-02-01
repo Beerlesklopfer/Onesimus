@@ -1,0 +1,239 @@
+{
+  "resource_type": "Schedule",
+  "description": "Schedule resource directives for defining backup schedules in Bareos and Bacula",
+  "directives": {
+    "Name": {
+      "type": "string",
+      "required": true,
+      "bareos": true,
+      "bacula": true,
+      "use": true,
+      "description": "The name of the Schedule resource",
+      "example": "WeeklyCycle",
+      "group": "basic",
+      "excludes": [],
+      "must": []
+    },
+    "Description": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "use": true,
+      "description": "Optional description of this Schedule",
+      "example": "Weekly full backup on Sunday, differential daily",
+      "excludes": [],
+      "must": []
+    },
+    "Run": {
+      "type": "string_list",
+      "required": true,
+      "bareos": true,
+      "bacula": true,
+      "use": true,
+      "description": "When to run jobs using this schedule",
+      "example": [
+        "Full 1st sun at 23:05",
+        "Differential 2nd-5th sun at 23:05",
+        "Incremental mon-sat at 23:05"
+      ],
+      "group": "schedule",
+      "excludes": [],
+      "must": []
+    },
+    "Enabled": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": false,
+      "use": true,
+      "default": true,
+      "description": "Enable or disable this schedule (Bareos only)",
+      "example": true,
+      "min_version": "16.2.0",
+      "excludes": [],
+      "must": []
+    }
+  },
+  "run_directive_syntax": {
+    "description": "The Run directive uses a complex time specification syntax",
+    "format": "<level> <pool=pool-name> <storage=storage-name> <messages=messages> <priority=number> <time-specification>",
+    "components": {
+      "level": {
+        "description": "Backup level to run",
+        "values": ["Full", "Differential", "Incremental", "VirtualFull", "Catalog", "InitCatalog", "VolumeToCatalog"],
+        "optional": true
+      },
+      "pool": {
+        "description": "Pool to use for this run",
+        "format": "pool=<pool-name>",
+        "optional": true,
+        "example": "pool=Full"
+      },
+      "storage": {
+        "description": "Storage daemon to use",
+        "format": "storage=<storage-name>",
+        "optional": true,
+        "example": "storage=File"
+      },
+      "messages": {
+        "description": "Message resource to use",
+        "format": "messages=<messages-name>",
+        "optional": true,
+        "example": "messages=Standard"
+      },
+      "priority": {
+        "description": "Job priority (lower number = higher priority)",
+        "format": "priority=<number>",
+        "optional": true,
+        "default": 10,
+        "example": "priority=10"
+      },
+      "time_specification": {
+        "description": "When to run the backup",
+        "frequency": {
+          "description": "Day/week/month specification",
+          "formats": [
+            "daily",
+            "weekly",
+            "monthly",
+            "1st-5th",
+            "mon-fri",
+            "jan-dec",
+            "w00-w53"
+          ]
+        },
+        "time": {
+          "description": "Time of day",
+          "format": "at HH:MM",
+          "example": "at 23:05"
+        }
+      }
+    },
+    "examples": [
+      {
+        "description": "Full backup on first Sunday of month at 11:05 PM",
+        "run": "Full 1st sun at 23:05"
+      },
+      {
+        "description": "Differential backup on 2nd-5th Sunday at 11:05 PM",
+        "run": "Differential 2nd-5th sun at 23:05"
+      },
+      {
+        "description": "Incremental backup Monday-Saturday at 11:05 PM",
+        "run": "Incremental mon-sat at 23:05"
+      },
+      {
+        "description": "Full backup on 1st of each month at 1:05 AM to Full pool",
+        "run": "Level=Full Pool=Full 1st at 01:05"
+      },
+      {
+        "description": "Incremental daily at 11:00 PM with priority 10",
+        "run": "Level=Incremental daily at 23:00 priority=10"
+      },
+      {
+        "description": "Full backup weekly on Saturday at 2:00 AM",
+        "run": "Full weekly sat at 02:00"
+      },
+      {
+        "description": "Incremental every hour",
+        "run": "Incremental hourly"
+      }
+    ]
+  },
+  "common_schedules": {
+    "daily_incremental": {
+      "name": "DailyIncremental",
+      "description": "Simple incremental backup every night",
+      "runs": [
+        "Incremental daily at 23:00"
+      ]
+    },
+    "weekly_full_daily_incremental": {
+      "name": "WeeklyCycle",
+      "description": "Full backup on Sunday, incremental rest of week",
+      "runs": [
+        "Full sun at 23:05",
+        "Incremental mon-sat at 23:05"
+      ]
+    },
+    "monthly_full_weekly_diff_daily_inc": {
+      "name": "MonthlyCycle",
+      "description": "Full on 1st Sunday, differential 2nd-5th Sunday, incremental daily",
+      "runs": [
+        "Full 1st sun at 23:05",
+        "Differential 2nd-5th sun at 23:05",
+        "Incremental mon-sat at 23:05"
+      ]
+    },
+    "business_hours": {
+      "name": "BusinessHours",
+      "description": "Hourly incremental during business hours",
+      "runs": [
+        "Incremental hourly at 0:00",
+        "Incremental hourly at 1:00",
+        "Incremental hourly at 2:00",
+        "Incremental hourly at 3:00",
+        "Incremental hourly at 4:00",
+        "Incremental hourly at 5:00",
+        "Incremental hourly at 6:00",
+        "Incremental hourly at 7:00",
+        "Incremental hourly at 8:00",
+        "Incremental hourly at 9:00",
+        "Incremental hourly at 10:00",
+        "Incremental hourly at 11:00",
+        "Incremental hourly at 12:00",
+        "Incremental hourly at 13:00",
+        "Incremental hourly at 14:00",
+        "Incremental hourly at 15:00",
+        "Incremental hourly at 16:00",
+        "Incremental hourly at 17:00"
+      ]
+    },
+    "weekend_full": {
+      "name": "WeekendFull",
+      "description": "Full backup Saturday, incremental rest of week",
+      "runs": [
+        "Full sat at 02:00",
+        "Incremental sun-fri at 23:00"
+      ]
+    }
+  },
+  "time_specification_reference": {
+    "day_of_week": {
+      "description": "Days of the week",
+      "values": ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+      "range": "mon-fri",
+      "special": ["daily", "weekly"]
+    },
+    "week_of_month": {
+      "description": "Week of the month (1st-5th)",
+      "values": ["1st", "2nd", "3rd", "4th", "5th"],
+      "range": "1st-3rd",
+      "note": "5th week may not exist in all months"
+    },
+    "week_of_year": {
+      "description": "Week of the year (w00-w53)",
+      "format": "w<nn>",
+      "example": "w00, w01, w52, w53",
+      "note": "ISO 8601 week numbering"
+    },
+    "day_of_month": {
+      "description": "Day of the month (1-31)",
+      "values": "1-31",
+      "note": "Invalid dates (e.g., Feb 30) are ignored"
+    },
+    "month": {
+      "description": "Months of the year",
+      "values": ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"],
+      "range": "jan-mar",
+      "special": ["monthly", "quarterly", "yearly"]
+    },
+    "time_of_day": {
+      "description": "Time in 24-hour format",
+      "format": "HH:MM",
+      "range": "00:00-23:59",
+      "special": "hourly"
+    }
+  }
+}

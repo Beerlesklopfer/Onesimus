@@ -8,7 +8,10 @@
 #include "bcertificategenerator.h"
 #include "bprofilesettingsdialog.h"
 #include "bconfigexporter.h"
+#include "bpfxconverter.h"
 #include "bsettings.h"
+#include "bdatabase.h"
+#include "bdirectormodel.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -31,16 +34,29 @@
 // BConnectionWizard
 // ============================================================================
 
-BConnectionWizard::BConnectionWizard(BConnectionWizardData *wizardData, QWidget *parent)
+BConnectionWizard::BConnectionWizard(BConnectionWizardData *wizardData,
+                                     QSqlDatabase *db,
+                                     QWidget *parent)
     : QWizard(parent)
     , m_wizardData(wizardData)
+    , m_database(db)
 {
     setWindowTitle(tr("Connection Setup"));
     setWizardStyle(QWizard::ModernStyle);
     setMinimumSize(500, 400);
     setWindowIcon(QIcon::fromTheme("network-server"));
 
+    // Custom button layout: Connect/Finish on left, Cancel on right
+    QList<QWizard::WizardButton> buttonLayout;
+    buttonLayout << QWizard::BackButton
+                 << QWizard::NextButton
+                 << QWizard::FinishButton
+                 << QWizard::Stretch
+                 << QWizard::CancelButton;
+    setButtonLayout(buttonLayout);
+
     setPage(Page_Welcome, new WelcomePage(this));
+    setPage(Page_TemplateSelection, new TemplateSelectionPage(this));
     setPage(Page_Server, new ServerPage(this));
     setPage(Page_Credentials, new CredentialsPage(this));
     setPage(Page_AuthMethod, new AuthMethodPage(this));
@@ -70,10 +86,12 @@ BConnectionProfile BConnectionWizard::profile() const
         qDebug() << "[ConnectionWizard] Using wizardData - savePassword:" << m_wizardData->savePassword;
 
         if (m_wizardData->savePassword) {
-            p.password = m_wizardData->password;
-            qDebug() << "[ConnectionWizard] Password saved to profile";
+            // MANDATORY: Transform cleartext to MD5 hash
+            p.setPasswordFromCleartext(m_wizardData->password);
+            qDebug() << "[ConnectionWizard] Password saved to profile (as MD5 hash)";
         } else {
             p.password.clear();
+            p.passwordHash.clear();
             qDebug() << "[ConnectionWizard] Password cleared from profile";
         }
 
@@ -107,9 +125,11 @@ BConnectionProfile BConnectionWizard::profile() const
         qDebug() << "[ConnectionWizard] Using fields - savePassword:" << savePasswordChecked;
 
         if (savePasswordChecked) {
-            p.password = field("password").toString();
+            // MANDATORY: Transform cleartext to MD5 hash
+            p.setPasswordFromCleartext(field("password").toString());
         } else {
             p.password.clear();
+            p.passwordHash.clear();
         }
 
         QString auth = field("authMethod").toString();
@@ -138,6 +158,70 @@ BConnectionProfile BConnectionWizard::profile() const
 void BConnectionWizard::setProfile(const BConnectionProfile &profile)
 {
     m_profile = profile;
+}
+
+int BConnectionWizard::saveToDatabase(QSqlDatabase &db)
+{
+    if (!db.isOpen() || !m_wizardData) {
+        qWarning() << "[ConnectionWizard] Cannot save: database not open or no wizard data";
+        return -1;
+    }
+
+    // Create Director model
+    BDirectorModel model(nullptr, db);
+    if (!model.initialize()) {
+        qWarning() << "[ConnectionWizard] Failed to initialize BDirectorModel";
+        return -1;
+    }
+
+    // Create Director record with basic connection info
+    int dirId = model.createDirector(
+        m_wizardData->directorName,
+        m_wizardData->host,
+        m_wizardData->port,
+        m_wizardData->password,  // Already MD5 hash from wizard
+        "bareos"  // Default to Bareos
+    );
+
+    if (dirId < 0) {
+        qWarning() << "[ConnectionWizard] Failed to create Director record";
+        return -1;
+    }
+
+    // Find the row for the new Director
+    int row = model.findDirectorRow(dirId);
+    if (row < 0) {
+        qWarning() << "[ConnectionWizard] Director created but row not found";
+        return -1;
+    }
+
+    // Update TLS settings based on auth method
+    QString auth = m_wizardData->authMethod;
+    if (auth == "legacy") {
+        // Legacy: no TLS
+        model.setData(model.index(row, BDirectorModel::TlsEnable), false);
+    } else if (auth == "psk") {
+        // TLS-PSK: TLS enabled, no certificates
+        model.setData(model.index(row, BDirectorModel::TlsEnable), true);
+        model.setData(model.index(row, BDirectorModel::TlsRequire), true);
+    } else {
+        // Certificate mode: TLS with certificates
+        model.setData(model.index(row, BDirectorModel::TlsEnable), true);
+        model.setData(model.index(row, BDirectorModel::TlsRequire), true);
+        model.setData(model.index(row, BDirectorModel::TlsVerifyPeer), true);
+        model.setData(model.index(row, BDirectorModel::TlsCaCertificateFile), m_wizardData->tlsCaCertFile);
+        model.setData(model.index(row, BDirectorModel::TlsCertificate), m_wizardData->tlsCertFile);
+        model.setData(model.index(row, BDirectorModel::TlsKey), m_wizardData->tlsKeyFile);
+    }
+
+    // Submit all changes
+    if (!model.submitAll()) {
+        qWarning() << "[ConnectionWizard] Failed to save Director TLS settings:" << model.lastError().text();
+        return -1;
+    }
+
+    qDebug() << "[ConnectionWizard] Director saved to database with ID:" << dirId;
+    return dirId;
 }
 
 // ============================================================================
@@ -194,6 +278,294 @@ WelcomePage::WelcomePage(QWidget *parent)
     ));
     layout->addWidget(label);
     layout->addStretch();
+}
+
+// ============================================================================
+// TemplateSelectionPage
+// ============================================================================
+
+TemplateSelectionPage::TemplateSelectionPage(QWidget *parent)
+    : QAPage(tr("How would you like to create the connection?"), parent)
+{
+    setHint(tr("You can start from scratch, use a template from an existing connection, or import from a ZIP file."));
+
+    m_group = new QButtonGroup(this);
+
+    m_newConnectionRadio = new QRadioButton(tr("Create new connection from scratch"), this);
+    m_fromTemplateRadio = new QRadioButton(tr("Use template from existing connection"), this);
+    m_importZipRadio = new QRadioButton(tr("Import from ZIP file"), this);
+
+    m_group->addButton(m_newConnectionRadio, 0);
+    m_group->addButton(m_fromTemplateRadio, 1);
+    m_group->addButton(m_importZipRadio, 2);
+
+    m_newConnectionRadio->setChecked(true);
+
+    m_layout->addWidget(m_newConnectionRadio);
+    m_layout->addSpacing(10);
+
+    // Template selection group
+    m_layout->addWidget(m_fromTemplateRadio);
+
+    auto *templateLayout = new QHBoxLayout();
+    templateLayout->addSpacing(30);  // Indent
+
+    m_templateCombo = new QComboBox(this);
+    m_templateCombo->setEnabled(false);
+    m_templateCombo->setMinimumWidth(300);
+    templateLayout->addWidget(m_templateCombo, 1);
+
+    m_refreshButton = new QPushButton(tr("Refresh"), this);
+    m_refreshButton->setEnabled(false);
+    m_refreshButton->setMaximumWidth(80);
+    templateLayout->addWidget(m_refreshButton);
+
+    m_layout->addLayout(templateLayout);
+
+    m_templateDetailsLabel = new QLabel(this);
+    m_templateDetailsLabel->setWordWrap(true);
+    m_templateDetailsLabel->setStyleSheet("color: gray; font-style: italic; margin-left: 30px;");
+    m_templateDetailsLabel->setVisible(false);
+    m_layout->addWidget(m_templateDetailsLabel);
+
+    m_layout->addSpacing(10);
+
+    // ZIP import group
+    m_layout->addWidget(m_importZipRadio);
+
+    auto *zipLayout = new QHBoxLayout();
+    zipLayout->addSpacing(30);  // Indent
+
+    m_zipFileEdit = new QLineEdit(this);
+    m_zipFileEdit->setEnabled(false);
+    m_zipFileEdit->setPlaceholderText(tr("Select ZIP file..."));
+    zipLayout->addWidget(m_zipFileEdit, 1);
+
+    m_browseZipButton = new QPushButton(tr("Browse..."), this);
+    m_browseZipButton->setEnabled(false);
+    m_browseZipButton->setMaximumWidth(80);
+    zipLayout->addWidget(m_browseZipButton);
+
+    m_layout->addLayout(zipLayout);
+
+    m_layout->addStretch();
+
+    // Connect signals
+    connect(m_group, &QButtonGroup::idClicked,
+            this, &TemplateSelectionPage::onSelectionChanged);
+    connect(m_templateCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &TemplateSelectionPage::onTemplateSelected);
+    connect(m_refreshButton, &QPushButton::clicked,
+            this, &TemplateSelectionPage::onRefreshClicked);
+    connect(m_browseZipButton, &QPushButton::clicked,
+            this, &TemplateSelectionPage::onBrowseZipClicked);
+
+    // Register fields for access from other pages
+    registerField("useTemplate", m_fromTemplateRadio);
+    registerField("importFromZip", m_importZipRadio);
+}
+
+void TemplateSelectionPage::initializePage()
+{
+    loadTemplates();
+}
+
+void TemplateSelectionPage::loadTemplates()
+{
+    m_templateCombo->clear();
+    m_templateDetailsLabel->setVisible(false);
+
+    // Get database from wizard
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (!wiz || !wiz->database() || !wiz->database()->isOpen()) {
+        m_templateCombo->addItem(tr("(No database connection)"), -1);
+        return;
+    }
+
+    // Load Directors from database
+    BDirectorModel *model = new BDirectorModel(this, *wiz->database());
+    if (!model->initialize()) {
+        m_templateCombo->addItem(tr("(Failed to load templates)"), -1);
+        delete model;
+        return;
+    }
+
+    model->setFilterActiveOnly(true);
+
+    if (model->rowCount() == 0) {
+        m_templateCombo->addItem(tr("(No templates available)"), -1);
+        delete model;
+        return;
+    }
+
+    // Add each Director as a template option
+    for (int row = 0; row < model->rowCount(); ++row) {
+        int dirId = model->directorId(row);
+        QString name = model->directorName(row);
+        QString address = model->data(model->index(row, BDirectorModel::Address)).toString();
+        int port = model->data(model->index(row, BDirectorModel::Port)).toInt();
+
+        QString displayText = QString("%1 (%2:%3)").arg(name, address).arg(port);
+        m_templateCombo->addItem(displayText, dirId);
+    }
+
+    delete model;
+}
+
+void TemplateSelectionPage::loadTemplateDetails(int directorId)
+{
+    if (directorId < 0) {
+        m_templateDetailsLabel->setVisible(false);
+        return;
+    }
+
+    // Get database from wizard
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (!wiz || !wiz->database() || !wiz->database()->isOpen()) {
+        m_templateDetailsLabel->setVisible(false);
+        return;
+    }
+
+    // Load Director details from database
+    BDirectorModel *model = new BDirectorModel(this, *wiz->database());
+    if (!model->initialize()) {
+        m_templateDetailsLabel->setVisible(false);
+        delete model;
+        return;
+    }
+
+    int row = model->findDirectorRow(directorId);
+    if (row < 0) {
+        m_templateDetailsLabel->setVisible(false);
+        delete model;
+        return;
+    }
+
+    // Get details
+    QString desc = model->data(model->index(row, BDirectorModel::Description)).toString();
+    bool tlsEnable = model->data(model->index(row, BDirectorModel::TlsEnable)).toBool();
+    QString backupSystem = model->data(model->index(row, BDirectorModel::BackupSystem)).toString();
+
+    QString details;
+    if (!desc.isEmpty()) {
+        details += desc + "\n";
+    }
+    details += tr("TLS: %1").arg(tlsEnable ? tr("Enabled") : tr("Disabled"));
+    details += " | " + tr("System: %1").arg(backupSystem);
+
+    m_templateDetailsLabel->setText(details);
+    m_templateDetailsLabel->setVisible(true);
+
+    // Load template data into wizard data struct for pre-filling fields
+    if (wiz->wizardData()) {
+        wiz->wizardData()->host = model->data(model->index(row, BDirectorModel::Address)).toString();
+        wiz->wizardData()->port = model->data(model->index(row, BDirectorModel::Port)).toInt();
+        wiz->wizardData()->directorName = model->directorName(row);
+        wiz->wizardData()->password = model->data(model->index(row, BDirectorModel::PasswordHash)).toString();
+
+        // Determine auth method from TLS settings
+        if (!tlsEnable) {
+            wiz->wizardData()->authMethod = "legacy";
+        } else {
+            QString tlsCert = model->data(model->index(row, BDirectorModel::TlsCertificate)).toString();
+            wiz->wizardData()->authMethod = tlsCert.isEmpty() ? "psk" : "cert";
+
+            if (wiz->wizardData()->authMethod == "cert") {
+                wiz->wizardData()->tlsCaCertFile = model->data(model->index(row, BDirectorModel::TlsCaCertificateFile)).toString();
+                wiz->wizardData()->tlsCertFile = tlsCert;
+                wiz->wizardData()->tlsKeyFile = model->data(model->index(row, BDirectorModel::TlsKey)).toString();
+            }
+        }
+    }
+
+    delete model;
+}
+
+int TemplateSelectionPage::nextId() const
+{
+    if (m_importZipRadio->isChecked()) {
+        // Skip to final page after ZIP import validation
+        return BConnectionWizard::Page_ProfileName;
+    }
+
+    // Normal flow: go to Server page
+    return BConnectionWizard::Page_Server;
+}
+
+bool TemplateSelectionPage::isComplete() const
+{
+    if (m_newConnectionRadio->isChecked()) {
+        return true;
+    }
+
+    if (m_fromTemplateRadio->isChecked()) {
+        int dirId = m_templateCombo->currentData().toInt();
+        return dirId >= 0;
+    }
+
+    if (m_importZipRadio->isChecked()) {
+        return !m_zipFileEdit->text().isEmpty() && QFile::exists(m_zipFileEdit->text());
+    }
+
+    return false;
+}
+
+void TemplateSelectionPage::onSelectionChanged()
+{
+    bool useTemplate = m_fromTemplateRadio->isChecked();
+    bool importZip = m_importZipRadio->isChecked();
+
+    m_templateCombo->setEnabled(useTemplate);
+    m_refreshButton->setEnabled(useTemplate);
+
+    m_zipFileEdit->setEnabled(importZip);
+    m_browseZipButton->setEnabled(importZip);
+
+    if (!useTemplate) {
+        m_templateDetailsLabel->setVisible(false);
+    } else {
+        onTemplateSelected(m_templateCombo->currentIndex());
+    }
+
+    emit completeChanged();
+}
+
+void TemplateSelectionPage::onTemplateSelected(int index)
+{
+    if (!m_fromTemplateRadio->isChecked()) {
+        return;
+    }
+
+    int dirId = m_templateCombo->itemData(index).toInt();
+    loadTemplateDetails(dirId);
+
+    // TODO: Load template data into wizard data struct
+    // BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    // if (wiz && wiz->wizardData() && dirId >= 0) {
+    //     // Load from database and populate wizardData
+    // }
+
+    emit completeChanged();
+}
+
+void TemplateSelectionPage::onRefreshClicked()
+{
+    loadTemplates();
+}
+
+void TemplateSelectionPage::onBrowseZipClicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(
+        this,
+        tr("Select Director Configuration ZIP"),
+        QString(),
+        tr("ZIP Files (*.zip);;All Files (*)")
+    );
+
+    if (!fileName.isEmpty()) {
+        m_zipFileEdit->setText(fileName);
+        emit completeChanged();
+    }
 }
 
 // ============================================================================
@@ -409,6 +781,25 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     form->addRow(tr("Password:"), m_passwordEdit);
 
+    // MD5 Hash preview (read-only, updates in real-time)
+    m_md5Label = new QLabel(this);
+    m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+    m_md5Label->setText(tr("(password MD5 hash will appear here)"));
+    form->addRow(tr("MD5 Hash:"), m_md5Label);
+
+    // Update MD5 hash in real-time as user types
+    connect(m_passwordEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (text.isEmpty()) {
+            m_md5Label->setText(tr("(password MD5 hash will appear here)"));
+            m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+        } else {
+            QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
+            m_md5Label->setText(QString::fromLatin1(md5.toHex()));
+            m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+        }
+    });
+
     m_layout->addLayout(form);
 
     m_saveCheck = new QCheckBox(tr("Remember password"), this);
@@ -621,6 +1012,26 @@ TLSPage::TLSPage(QWidget *parent)
     caRow->addWidget(m_caBrowseButton);
     form->addRow(tr("CA Cert:"), caRow);
 
+#ifdef Q_OS_WINDOWS
+    // Windows: PFX file + password
+    auto *pfxRow = new QHBoxLayout();
+    m_clientCertEdit = new QLineEdit(this);
+    m_clientCertEdit->setPlaceholderText(tr("Path to PFX certificate file"));
+    m_clientCertBrowseButton = new QPushButton(tr("..."), this);
+    m_clientCertBrowseButton->setMaximumWidth(40);
+    pfxRow->addWidget(m_clientCertEdit);
+    pfxRow->addWidget(m_clientCertBrowseButton);
+    form->addRow(tr("PFX File:"), pfxRow);
+
+    m_clientKeyEdit = new QLineEdit(this);
+    m_clientKeyEdit->setEchoMode(QLineEdit::Password);
+    m_clientKeyEdit->setPlaceholderText(tr("PFX file password (if encrypted)"));
+    form->addRow(tr("PFX Password:"), m_clientKeyEdit);
+
+    registerField("clientPfx", m_clientCertEdit);
+    registerField("pfxPassword", m_clientKeyEdit);
+#else
+    // Linux: Separate certificate and key files
     auto *certRow = new QHBoxLayout();
     m_clientCertEdit = new QLineEdit(this);
     m_clientCertEdit->setPlaceholderText(tr("/etc/bareos/ssl/client.pem"));
@@ -639,7 +1050,19 @@ TLSPage::TLSPage(QWidget *parent)
     keyRow->addWidget(m_clientKeyBrowseButton);
     form->addRow(tr("Private Key:"), keyRow);
 
+    registerField("clientCert", m_clientCertEdit);
+    registerField("clientKey", m_clientKeyEdit);
+#endif
+
     m_layout->addLayout(form);
+
+#ifdef Q_OS_WINDOWS
+    // Convert to PFX button (Windows only)
+    QPushButton *convertPfxButton = new QPushButton(tr("Convert PEM/DER to PFX..."), this);
+    convertPfxButton->setToolTip(tr("Convert separate PEM/DER certificate and key files into a PFX file"));
+    connect(convertPfxButton, &QPushButton::clicked, this, &TLSPage::convertToPFX);
+    m_layout->addWidget(convertPfxButton);
+#endif
 
     m_generateButton = new QPushButton(tr("Generate Certificates..."), this);
     m_layout->addWidget(m_generateButton);
@@ -648,36 +1071,60 @@ TLSPage::TLSPage(QWidget *parent)
     m_layout->addStretch();
 
     registerField("caCert", m_caCertEdit);
-    registerField("clientCert", m_clientCertEdit);
-    registerField("clientKey", m_clientKeyEdit);
 
     connect(m_caBrowseButton, &QPushButton::clicked, this, &TLSPage::browseCaCert);
     connect(m_clientCertBrowseButton, &QPushButton::clicked, this, &TLSPage::browseClientCert);
+#ifndef Q_OS_WINDOWS
     connect(m_clientKeyBrowseButton, &QPushButton::clicked, this, &TLSPage::browseClientKey);
+#endif
     connect(m_generateButton, &QPushButton::clicked, this, &TLSPage::generateCertificates);
 }
 
 bool TLSPage::validatePage()
 {
     QString ca = m_caCertEdit->text().trimmed();
+
+    if (ca.isEmpty()) {
+        QMessageBox::warning(this, tr("Missing"), tr("Please provide a CA certificate file."));
+        return false;
+    }
+    if (!QFile::exists(ca)) {
+        QMessageBox::warning(this, tr("Not Found"), tr("CA certificate file not found."));
+        return false;
+    }
+
+#ifdef Q_OS_WINDOWS
+    QString pfx = m_clientCertEdit->text().trimmed();
+    if (pfx.isEmpty()) {
+        QMessageBox::warning(this, tr("Missing"), tr("Please provide a PFX certificate file."));
+        return false;
+    }
+    if (!QFile::exists(pfx)) {
+        QMessageBox::warning(this, tr("Not Found"), tr("PFX certificate file not found."));
+        return false;
+    }
+#else
     QString cert = m_clientCertEdit->text().trimmed();
     QString key = m_clientKeyEdit->text().trimmed();
 
-    if (ca.isEmpty() || cert.isEmpty() || key.isEmpty()) {
+    if (cert.isEmpty() || key.isEmpty()) {
         QMessageBox::warning(this, tr("Missing"), tr("Please provide all certificate files."));
         return false;
     }
-    if (!QFile::exists(ca) || !QFile::exists(cert) || !QFile::exists(key)) {
+    if (!QFile::exists(cert) || !QFile::exists(key)) {
         QMessageBox::warning(this, tr("Not Found"), tr("One or more certificate files not found."));
         return false;
     }
+#endif
 
     // Save to wizard data struct
     BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
     if (wiz && wiz->wizardData()) {
         wiz->wizardData()->tlsCaCertFile = ca;
+#ifndef Q_OS_WINDOWS
         wiz->wizardData()->tlsCertFile = cert;
         wiz->wizardData()->tlsKeyFile = key;
+#endif
     }
 
     return true;
@@ -691,7 +1138,12 @@ void TLSPage::browseCaCert()
 
 void TLSPage::browseClientCert()
 {
+#ifdef Q_OS_WINDOWS
+    QString f = QFileDialog::getOpenFileName(this, tr("Select PFX Certificate"),
+        QString(), tr("PFX Files (*.pfx);;All Files (*)"));
+#else
     QString f = QFileDialog::getOpenFileName(this, tr("Client Certificate"), "/etc/bareos/ssl", tr("*.pem *.crt"));
+#endif
     if (!f.isEmpty()) m_clientCertEdit->setText(f);
 }
 
@@ -706,8 +1158,24 @@ void TLSPage::generateCertificates()
     BCertificateGenerator dialog(this);
     if (dialog.exec() == QDialog::Accepted && dialog.isSuccessful()) {
         m_caCertEdit->setText(dialog.caCertPath());
+#ifndef Q_OS_WINDOWS
         m_clientCertEdit->setText(dialog.clientCertPath());
         m_clientKeyEdit->setText(dialog.clientKeyPath());
+#endif
+    }
+}
+
+void TLSPage::convertToPFX()
+{
+    BPFXConverter converter(this);
+    if (converter.exec() == QDialog::Accepted) {
+        QString pfxPath = converter.getPFXFilePath();
+        if (!pfxPath.isEmpty()) {
+            m_clientCertEdit->setText(pfxPath);
+            QMessageBox::information(this, tr("PFX File Created"),
+                tr("PFX file has been created successfully.\n\n"
+                   "The certificate path has been updated."));
+        }
     }
 }
 
@@ -997,11 +1465,18 @@ void TestPage::startTest()
         tls.tlsPSKEnable = false;
         tls.tlsVerifyPeer = true;
         QString ca = field("caCert").toString();
+        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
+#ifdef Q_OS_WINDOWS
+        QString pfx = field("clientPfx").toString();
+        QString pfxPass = field("pfxPassword").toString();
+        if (!pfx.isEmpty()) tls.tlsPfxFile = QSharedPointer<QFile>(new QFile(pfx));
+        if (!pfxPass.isEmpty()) tls.tlsPfxPassword = pfxPass;
+#else
         QString cert = field("clientCert").toString();
         QString key = field("clientKey").toString();
-        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
         if (!cert.isEmpty()) tls.tlsCertFile = QSharedPointer<QFile>(new QFile(cert));
         if (!key.isEmpty()) tls.tlsKeyFile = QSharedPointer<QFile>(new QFile(key));
+#endif
         appendLog(tr("Mode: TLS-Cert"));
     }
 
@@ -1344,11 +1819,18 @@ void ConsoleSetupPage::loadConsoleDetails(const QString &name)
         tls.tlsPSKEnable = false;
         tls.tlsVerifyPeer = true;
         QString ca = field("caCert").toString();
+        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
+#ifdef Q_OS_WINDOWS
+        QString pfx = field("clientPfx").toString();
+        QString pfxPass = field("pfxPassword").toString();
+        if (!pfx.isEmpty()) tls.tlsPfxFile = QSharedPointer<QFile>(new QFile(pfx));
+        if (!pfxPass.isEmpty()) tls.tlsPfxPassword = pfxPass;
+#else
         QString cert = field("clientCert").toString();
         QString key = field("clientKey").toString();
-        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
         if (!cert.isEmpty()) tls.tlsCertFile = QSharedPointer<QFile>(new QFile(cert));
         if (!key.isEmpty()) tls.tlsKeyFile = QSharedPointer<QFile>(new QFile(key));
+#endif
     }
     detailDirector->setTLSConfig(tls);
 
@@ -1402,11 +1884,18 @@ void ConsoleSetupPage::loadConsoles()
         tls.tlsPSKEnable = false;
         tls.tlsVerifyPeer = true;
         QString ca = field("caCert").toString();
+        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
+#ifdef Q_OS_WINDOWS
+        QString pfx = field("clientPfx").toString();
+        QString pfxPass = field("pfxPassword").toString();
+        if (!pfx.isEmpty()) tls.tlsPfxFile = QSharedPointer<QFile>(new QFile(pfx));
+        if (!pfxPass.isEmpty()) tls.tlsPfxPassword = pfxPass;
+#else
         QString cert = field("clientCert").toString();
         QString key = field("clientKey").toString();
-        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
         if (!cert.isEmpty()) tls.tlsCertFile = QSharedPointer<QFile>(new QFile(cert));
         if (!key.isEmpty()) tls.tlsKeyFile = QSharedPointer<QFile>(new QFile(key));
+#endif
     }
     m_director->setTLSConfig(tls);
 
@@ -1527,11 +2016,18 @@ void ConsoleSetupPage::createConsole()
         tls.tlsPSKEnable = false;
         tls.tlsVerifyPeer = true;
         QString ca = field("caCert").toString();
+        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
+#ifdef Q_OS_WINDOWS
+        QString pfx = field("clientPfx").toString();
+        QString pfxPass = field("pfxPassword").toString();
+        if (!pfx.isEmpty()) tls.tlsPfxFile = QSharedPointer<QFile>(new QFile(pfx));
+        if (!pfxPass.isEmpty()) tls.tlsPfxPassword = pfxPass;
+#else
         QString cert = field("clientCert").toString();
         QString key = field("clientKey").toString();
-        if (!ca.isEmpty()) tls.tlsCaCertFile = QSharedPointer<QFile>(new QFile(ca));
         if (!cert.isEmpty()) tls.tlsCertFile = QSharedPointer<QFile>(new QFile(cert));
         if (!key.isEmpty()) tls.tlsKeyFile = QSharedPointer<QFile>(new QFile(key));
+#endif
     }
     m_director->setTLSConfig(tls);
 

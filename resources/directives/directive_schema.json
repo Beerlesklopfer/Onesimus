@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://onesimus.bareos.org/schemas/directive.json",
+  "title": "Bareos/Bacula Directive Definition",
+  "description": "Schema for validating Bareos/Bacula directive JSON files",
+  "type": "object",
+  "required": ["resource_type", "description", "directives"],
+  "properties": {
+    "resource_type": {
+      "type": "string",
+      "enum": ["Director", "Client", "Storage", "Console", "Pool", "FileSet", "Job", "Schedule", "Catalog", "Messages"],
+      "description": "The type of Bareos/Bacula resource this describes"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable description of the resource type"
+    },
+    "directives": {
+      "type": "object",
+      "description": "Map of directive names to their definitions",
+      "additionalProperties": {
+        "$ref": "#/definitions/directive"
+      }
+    }
+  },
+  "definitions": {
+    "directive": {
+      "type": "object",
+      "required": ["type", "required", "bareos", "bacula", "description"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "integer",
+            "boolean",
+            "time",
+            "size",
+            "password",
+            "file",
+            "directory",
+            "resource_reference",
+            "string_list",
+            "addresses",
+            "block"
+          ],
+          "description": "Data type of the directive value"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Is this directive required for the resource to be valid?"
+        },
+        "bareos": {
+          "type": "boolean",
+          "description": "Is this directive supported in Bareos?"
+        },
+        "bacula": {
+          "type": "boolean",
+          "description": "Is this directive supported in Bacula?"
+        },
+        "use": {
+          "type": "boolean",
+          "description": "Should this directive be shown by default in UI (true) or hidden in Advanced mode (false)?"
+        },
+        "min_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Minimum version required (format: X.Y.Z)"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable description of what this directive does"
+        },
+        "default": {
+          "description": "Default value if not specified"
+        },
+        "example": {
+          "description": "Example value to show in UI"
+        },
+        "min": {
+          "type": "integer",
+          "description": "Minimum value (for integer types)"
+        },
+        "max": {
+          "type": "integer",
+          "description": "Maximum value (for integer types)"
+        },
+        "valid_values": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "List of valid enum values"
+        },
+        "reference_type": {
+          "type": "string",
+          "enum": ["Director", "Client", "Storage", "Console", "Pool", "FileSet", "Job", "Schedule", "Catalog", "Messages"],
+          "description": "Type of resource this references (for resource_reference type)"
+        },
+        "synonyms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Alternative names for this directive (for compatibility)"
+        },
+        "group": {
+          "type": "string",
+          "enum": ["tls", "authentication", "network", "performance", "retention", "directories", "acl", "auditing"],
+          "description": "Logical group this directive belongs to"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "integer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "example": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "boolean"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "example": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "string_list"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "example": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "resource_reference"
+              }
+            }
+          },
+          "then": {
+            "required": ["reference_type"]
+          }
+        }
+      ]
+    }
+  }
+}

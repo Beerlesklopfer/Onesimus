@@ -1,0 +1,60 @@
+{
+  "name": "MySQL/MariaDB Database Server",
+  "description": "Backup of MySQL/MariaDB databases, binary logs, and configuration",
+  "platform": "linux",
+  "category": "database",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "MySQLServer",
+    "Description": "MySQL/MariaDB data and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "MD5",
+        "Compression": "GZIP",
+        "OneFS": true,
+        "Accurate": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "Files": [
+            "*.pid",
+            "*.sock"
+          ],
+          "WildDir": [
+            "*/tmp",
+            "*/test"
+          ]
+        }
+      },
+      "File": [
+        "/var/lib/mysql",
+        "/etc/mysql",
+        "/etc/my.cnf",
+        "/var/backups/mysql",
+        "/var/log/mysql"
+      ]
+    }
+  },
+  "recommended_schedule": "Hourly Binary Log, Daily Incremental, Weekly Full",
+  "estimated_size": "20 GB - 1 TB",
+  "notes": [
+    "Use mysqldump or MySQL Enterprise Backup for online backups",
+    "Binary logs required for point-in-time recovery",
+    "Backup my.cnf and mysql user/privilege tables",
+    "Consider Bareos MySQL plugin for consistent online backups",
+    "Test restoration including binlog replay",
+    "Monitor binary log size and purging",
+    "Document MySQL/MariaDB version and storage engine (InnoDB/MyISAM)",
+    "For replication, backup from slave with --dump-slave option"
+  ],
+  "pre_backup_script": {
+    "description": "Create logical backup with mysqldump",
+    "linux": "mysqldump --all-databases --single-transaction --routines --triggers > /var/backups/mysql/all_databases.sql"
+  },
+  "post_backup_script": {
+    "description": "Flush and purge old binary logs",
+    "linux": "mysql -e 'FLUSH LOGS; PURGE BINARY LOGS BEFORE DATE_SUB(NOW(), INTERVAL 7 DAY);'"
+  }
+}

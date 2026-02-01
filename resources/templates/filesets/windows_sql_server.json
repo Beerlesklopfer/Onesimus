@@ -1,0 +1,58 @@
+{
+  "name": "Microsoft SQL Server",
+  "description": "Backup of SQL Server databases, configuration, and system files",
+  "platform": "windows",
+  "category": "database",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "WindowsSQLServer",
+    "Description": "SQL Server databases and configuration",
+    "Enable VSS": true,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "MD5",
+        "Compression": "GZIP",
+        "OneFS": false,
+        "Accurate": true,
+        "IgnoreCase": true,
+        "DriveType": "fixed",
+        "Exclude": {
+          "Files": [
+            "*.trc",
+            "*.xel"
+          ],
+          "WildDir": [
+            "*/Temp",
+            "*/Backup/Archive"
+          ]
+        }
+      },
+      "File": [
+        "C:/Program Files/Microsoft SQL Server",
+        "D:/SQLData",
+        "E:/SQLLogs",
+        "F:/SQLBackup",
+        "C:/Windows/System32/config"
+      ]
+    },
+    "Plugin": "mssqlvdi:"
+  },
+  "recommended_schedule": "Hourly Transaction Log, Daily Differential, Weekly Full",
+  "estimated_size": "100 GB - 5 TB",
+  "notes": [
+    "Use mssqlvdi plugin for online database backups",
+    "Adjust drive letters (D:, E:, F:) to match SQL Server paths",
+    "Transaction log backups recommended hourly for point-in-time recovery",
+    "Verify SQL Server VSS Writer is enabled and healthy",
+    "Test database restores regularly",
+    "Consider SQL Server native backups in addition to file-level backups",
+    "Backup master, model, msdb system databases",
+    "Document SQL Server version, edition, and collation",
+    "For Always On Availability Groups, backup from secondary replica"
+  ],
+  "pre_backup_script": {
+    "description": "Optional: Trigger SQL Server backup before file backup",
+    "windows": "sqlcmd -S localhost -Q \"BACKUP DATABASE [MyDB] TO DISK='F:\\SQLBackup\\MyDB.bak'\""
+  }
+}

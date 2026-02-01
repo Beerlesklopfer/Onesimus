@@ -1,0 +1,155 @@
+{
+  "resource_type": "Director",
+  "resource_type_description": "Die Director-Ressource verwaltet alle Backup-Operationen, koordiniert Jobs und pflegt den Backup-Katalog",
+  "directives": {
+    "Name": {
+      "description": "Der eindeutige Name der Director-Ressource",
+      "example_description": "Typischerweise der Hostname mit '-dir'-Suffix"
+    },
+    "Description": {
+      "description": "Optionale, lesbare Beschreibung dieses Directors",
+      "example_description": "Produktions-Backup-Server"
+    },
+    "Password": {
+      "description": "Passwort für Director-Authentifizierung (MD5-Hash mit [md5]-Präfix erforderlich)",
+      "example_description": "MD5-Hash des Klartextpassworts"
+    },
+    "Messages": {
+      "description": "Name der Messages-Ressource für Director-Nachrichten",
+      "example_description": "Standard-Nachrichtenbehandlung"
+    },
+    "DirPort": {
+      "description": "TCP-Port, auf dem der Director auf Console-Verbindungen wartet",
+      "example_description": "Standard-Bareos-Director-Port"
+    },
+    "DirAddress": {
+      "description": "IP-Adresse oder Hostname, auf dem der Director wartet (0.0.0.0 = alle Schnittstellen)",
+      "example_description": "Auf allen Netzwerkschnittstellen lauschen"
+    },
+    "DirAddresses": {
+      "description": "Liste von IP-Adressen und Ports für den Director",
+      "example_description": "IPv4- und IPv6-Adressen mit Ports"
+    },
+    "QueryFile": {
+      "description": "Pfad zur Query-Datei mit vordefinierten SQL-Abfragen",
+      "example_description": "Standard-Bareos-Query-Datei"
+    },
+    "Working Directory": {
+      "description": "Verzeichnis, in dem der Director seine Arbeitsdateien speichert",
+      "example_description": "Standard-Bareos-Arbeitsverzeichnis"
+    },
+    "Pid Directory": {
+      "description": "Verzeichnis für die Prozess-ID-Datei des Directors",
+      "example_description": "Standard-PID-Datei-Verzeichnis"
+    },
+    "Scripts Directory": {
+      "description": "Verzeichnis mit Backup-Skripten",
+      "example_description": "Bareos-Skript-Verzeichnis"
+    },
+    "Plugin Directory": {
+      "description": "Verzeichnis für Director-Plugins",
+      "example_description": "Bareos-Plugin-Verzeichnis"
+    },
+    "Sub Sys Directory": {
+      "description": "Verzeichnis für Subsystem-Dateien (nur Bacula)",
+      "example_description": "Subsystem-Verzeichnis"
+    },
+    "Maximum Concurrent Jobs": {
+      "description": "Maximale Anzahl gleichzeitig laufender Jobs",
+      "example_description": "Bis zu 50 gleichzeitige Backup-Jobs erlauben"
+    },
+    "Maximum Console Connections": {
+      "description": "Maximale Anzahl erlaubter Console-Verbindungen",
+      "example_description": "10 gleichzeitige Console-Verbindungen erlauben"
+    },
+    "Heartbeat Interval": {
+      "description": "Intervall in Sekunden für Keepalive-Pakete (0 = deaktiviert)",
+      "example_description": "Keepalive alle 5 Minuten senden"
+    },
+    "TLS Enable": {
+      "description": "TLS-Verschlüsselung für Director-Kommunikation aktivieren",
+      "example_description": "Aktiviert (empfohlen für Produktivumgebung)"
+    },
+    "TLS Require": {
+      "description": "TLS für alle Verbindungen vorschreiben (unverschlüsselte ablehnen)",
+      "example_description": "Erforderlich (maximale Sicherheit)"
+    },
+    "TLS Verify Peer": {
+      "description": "Zertifikat des Peers gegen CA prüfen",
+      "example_description": "Aktiviert für Zertifikatsprüfung"
+    },
+    "TLS CA Certificate File": {
+      "description": "Pfad zur Certificate Authority (CA) Zertifikatsdatei",
+      "example_description": "Pfad zum CA-Zertifikat"
+    },
+    "TLS Certificate": {
+      "description": "Pfad zur Zertifikatsdatei des Directors",
+      "example_description": "Pfad zum Director-Zertifikat"
+    },
+    "TLS Key": {
+      "description": "Pfad zur privaten Schlüsseldatei des Directors",
+      "example_description": "Pfad zum privaten Schlüssel"
+    },
+    "TLS Allowed CN": {
+      "description": "Liste erlaubter Zertifikats-Common-Names",
+      "example_description": "Erlaubter Zertifikats-CN"
+    },
+    "TLS Cipher List": {
+      "description": "OpenSSL-Cipher-Liste für TLS-Verbindungen",
+      "example_description": "Starke Cipher-Suite"
+    },
+    "TLS Cipher Suites": {
+      "description": "TLS 1.3 Cipher-Suites (Bareos 20+)",
+      "example_description": "TLS 1.3 Cipher-Suite"
+    },
+    "TLS DH File": {
+      "description": "Pfad zur Diffie-Hellman-Parameter-Datei",
+      "example_description": "Pfad zu DH-Parametern"
+    },
+    "TLS Protocol": {
+      "description": "Minimale TLS-Protokollversion",
+      "example_description": "TLS 1.2 oder höher"
+    },
+    "TLS Certificate Revocation List": {
+      "description": "Pfad zur Certificate-Revocation-List-Datei",
+      "example_description": "Pfad zur CRL-Datei"
+    },
+    "Statistics Retention": {
+      "description": "Wie lange Job-Statistiken im Katalog aufbewahrt werden (nur Bareos)",
+      "example_description": "Statistiken 5 Jahre aufbewahren"
+    },
+    "VerId Retention": {
+      "description": "Wie lange Dateiversion-IDs aufbewahrt werden (nur Bacula)",
+      "example_description": "Versions-IDs 2 Jahre aufbewahren"
+    },
+    "Auditing": {
+      "description": "Audit-Protokollierung aktivieren (nur Bareos)",
+      "example_description": "Aktiviert für Compliance"
+    },
+    "Audit Events": {
+      "description": "Zu auditierende Ereignistypen (nur Bareos)",
+      "example_description": "Sicherheits- und Konfigurationsereignisse auditieren"
+    },
+    "Secure Erase Command": {
+      "description": "Befehl zum sicheren Löschen von Dateien (nur Bareos)",
+      "example_description": "Shred für sicheres Löschen verwenden"
+    },
+    "Log Timestamp Format": {
+      "description": "Format für Zeitstempel in Log-Nachrichten (nur Bareos)",
+      "example_description": "ISO 8601 Format"
+    },
+    "NDMP Log Level": {
+      "description": "Log-Level für NDMP-Operationen (nur Bareos)",
+      "example_description": "Standard-Logging-Level"
+    }
+  },
+  "groups": {
+    "authentication": "Authentifizierung",
+    "tls": "TLS / Sicherheit",
+    "network": "Netzwerkkonfiguration",
+    "performance": "Leistungsoptimierung",
+    "retention": "Datenaufbewahrung",
+    "directories": "Verzeichnispfade",
+    "auditing": "Audit-Protokollierung"
+  }
+}

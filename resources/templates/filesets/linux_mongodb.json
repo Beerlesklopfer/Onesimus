@@ -1,0 +1,59 @@
+{
+  "name": "MongoDB Database Server",
+  "description": "Backup of MongoDB databases, oplog, and configuration",
+  "platform": "linux",
+  "category": "database",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "MongoDBServer",
+    "Description": "MongoDB data and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "MD5",
+        "Compression": "GZIP",
+        "OneFS": true,
+        "Accurate": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "Files": [
+            "*.lock",
+            "mongod.pid"
+          ],
+          "WildDir": [
+            "*/diagnostic.data",
+            "*/tmp"
+          ]
+        }
+      },
+      "File": [
+        "/var/lib/mongodb",
+        "/etc/mongod.conf",
+        "/var/backups/mongodb",
+        "/var/log/mongodb"
+      ]
+    }
+  },
+  "recommended_schedule": "Hourly Incremental, Daily Full",
+  "estimated_size": "50 GB - 5 TB",
+  "notes": [
+    "Use mongodump for logical backups",
+    "For replica sets, backup from secondary to avoid impacting primary",
+    "Enable oplog for point-in-time recovery (requires --oplog option)",
+    "Consider MongoDB Cloud Manager or Ops Manager for enterprise backups",
+    "Backup config servers for sharded clusters",
+    "Test restoration including oplog replay",
+    "Document MongoDB version and replica set/shard configuration",
+    "For large databases, consider filesystem snapshots with db.fsyncLock()"
+  ],
+  "pre_backup_script": {
+    "description": "Create logical backup with mongodump",
+    "linux": "mongodump --out=/var/backups/mongodb/$(date +%Y%m%d) --oplog"
+  },
+  "post_backup_script": {
+    "description": "Clean old dump directories",
+    "linux": "find /var/backups/mongodb -type d -mtime +7 -exec rm -rf {} +"
+  }
+}

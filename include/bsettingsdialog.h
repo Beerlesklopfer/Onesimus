@@ -81,6 +81,9 @@ private slots:
     void onChooseColorConnected();
     void onChooseColorDisconnected();
 
+    // PFX Converter (Windows only)
+    void onConvertToPFX();
+
 private:
     void setupUI();
     void createSidebar();
@@ -123,6 +126,7 @@ private:
     QLineEdit *m_directorEdit;
     QLineEdit *m_consoleEdit;
     QLineEdit *m_passwordEdit;
+    QLabel *m_md5Label;
     QCheckBox *m_savePasswordCheck;
     QCheckBox *m_autoConnectCheck;
     QSpinBox *m_connectionTimeoutSpin;

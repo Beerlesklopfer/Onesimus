@@ -1,0 +1,59 @@
+{
+  "name": "Windows File Server",
+  "description": "Backup of Windows file server shares, DFS, and user data",
+  "platform": "windows",
+  "category": "file_server",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "WindowsFileServer",
+    "Description": "File server shares and user data",
+    "Enable VSS": true,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "MD5",
+        "Compression": "GZIP",
+        "OneFS": false,
+        "Accurate": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "IgnoreCase": true,
+        "DriveType": "fixed",
+        "Exclude": {
+          "Files": [
+            "*.tmp",
+            "*.temp",
+            "~$*",
+            "Thumbs.db",
+            "desktop.ini",
+            "$RECYCLE.BIN"
+          ],
+          "WildDir": [
+            "*/$RECYCLE.BIN",
+            "*/System Volume Information",
+            "*/.Trash-*",
+            "*/Temporary Internet Files",
+            "*/AppData/Local/Temp"
+          ]
+        }
+      },
+      "File": [
+        "D:/Shares",
+        "E:/UserData",
+        "F:/DepartmentData",
+        "C:/DFSRoots",
+        "C:/Windows/System32/config"
+      ]
+    }
+  },
+  "recommended_schedule": "Hourly Incremental, Daily Differential, Weekly Full",
+  "estimated_size": "500 GB - 10 TB",
+  "notes": [
+    "Adjust drive letters (D:, E:, F:) to match your share locations",
+    "ACL Support preserves Windows file permissions",
+    "XATTR Support preserves extended attributes",
+    "Consider excluding user profile temp directories",
+    "Hourly incrementals recommended for active file servers",
+    "Verify DFS replication status before restore"
+  ]
+}

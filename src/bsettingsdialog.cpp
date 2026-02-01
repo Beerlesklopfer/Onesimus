@@ -3,6 +3,7 @@
 #include "bsettings.h"
 #include "btranslations.h"
 #include "bconnectionprofile.h"
+#include "bpfxconverter.h"
 
 #include <QFormLayout>
 #include <QSet>
@@ -269,6 +270,25 @@ void BSettingsDialog::createConnectionPage()
     m_passwordEdit->setPlaceholderText("••••••••");
     bconsoleLayout->addRow(tr("Password:"), m_passwordEdit);
 
+    // MD5 Hash preview (read-only, updates in real-time)
+    m_md5Label = new QLabel();
+    m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+    m_md5Label->setText(tr("(password MD5 hash will appear here)"));
+    bconsoleLayout->addRow(tr("MD5 Hash:"), m_md5Label);
+
+    // Update MD5 hash in real-time as user types
+    connect(m_passwordEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (text.isEmpty()) {
+            m_md5Label->setText(tr("(password MD5 hash will appear here)"));
+            m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+        } else {
+            QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
+            m_md5Label->setText(QString::fromLatin1(md5.toHex()));
+            m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+        }
+    });
+
     detailsLayout->addWidget(bconsoleGroup);
 
     // TLS Warning Label (shown when Legacy is selected)
@@ -377,6 +397,12 @@ void BSettingsDialog::createConnectionPage()
     clientCertLayout->addWidget(m_clientCertEdit);
     clientCertLayout->addWidget(clientCertBrowse);
     certLayout->addRow(tr("PFX Certificate:"), clientCertLayout);
+
+    // Convert to PFX button
+    QPushButton *convertPfxButton = new QPushButton(tr("Convert PEM/DER to PFX..."));
+    convertPfxButton->setToolTip(tr("Convert separate PEM/DER certificate and key files into a PFX file"));
+    connect(convertPfxButton, &QPushButton::clicked, this, &BSettingsDialog::onConvertToPFX);
+    certLayout->addRow("", convertPfxButton);
 #endif
 
     m_verifyPeerCheck = new QCheckBox(tr("Verify server certificate (recommended)"));
@@ -1164,10 +1190,18 @@ void BSettingsDialog::saveSettings()
             profile.directorName = m_directorEdit->text().trimmed();
             profile.consoleName = m_consoleEdit->text().trimmed();
 
+            // Password handling: Only update if user entered new password
             if (m_savePasswordCheck->isChecked()) {
-                profile.password = m_passwordEdit->text();
+                QString newPassword = m_passwordEdit->text();
+                if (!newPassword.isEmpty()) {
+                    // User entered a new password - hash it
+                    profile.setPasswordFromCleartext(newPassword);
+                }
+                // else: keep existing passwordHash (user didn't change it)
             } else {
+                // Don't save password
                 profile.password.clear();
+                profile.passwordHash.clear();
             }
 
             profile.legacyAuth = m_tlsLegacyRadio->isChecked();
@@ -1280,7 +1314,7 @@ void BSettingsDialog::onBrowseClientCert()
 {
     QString file = QFileDialog::getOpenFileName(this, tr("Select Client Certificate"),
 #ifdef Q_OS_WINDOWS
-    QString(), tr("Certificates (*.pfx);;All Files (*)"));
+    QString(), tr("Certificates (*.pfx *.pem *.crt *.cert *.der);;PFX Files (*.pfx);;PEM Files (*.pem);;DER Files (*.der);;All Files (*)"));
 #else
     QString(), tr("Certificates (*.pem *.crt *.cert);;All Files (*)"));
 #endif
@@ -1504,7 +1538,20 @@ void BSettingsDialog::onProfileSelectionChanged()
                 m_portSpin->setValue(profile.port);
                 m_directorEdit->setText(profile.directorName);
                 m_consoleEdit->setText(profile.consoleName);
-                m_passwordEdit->setText(profile.password);
+
+                // Password: Show placeholder and display stored MD5 hash
+                if (profile.hasValidPasswordHash()) {
+                    m_passwordEdit->setPlaceholderText(tr("••••••••  (password saved)"));
+                    m_passwordEdit->clear();
+                    // Show the stored MD5 hash
+                    m_md5Label->setText(profile.passwordHash);
+                    m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+                } else {
+                    m_passwordEdit->setPlaceholderText(tr("Enter password"));
+                    m_passwordEdit->clear();
+                    m_md5Label->setText(tr("(password MD5 hash will appear here)"));
+                    m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+                }
 
                 // Auth method
                 if (profile.legacyAuth) {
@@ -1642,10 +1689,18 @@ void BSettingsDialog::saveCurrentProfile()
     profile.directorName = m_directorEdit->text().trimmed();
     profile.consoleName = m_consoleEdit->text().trimmed();
 
+    // Password handling: Only update if user entered new password
     if (m_savePasswordCheck->isChecked()) {
-        profile.password = m_passwordEdit->text();
+        QString newPassword = m_passwordEdit->text();
+        if (!newPassword.isEmpty()) {
+            // User entered a new password - hash it
+            profile.setPasswordFromCleartext(newPassword);
+        }
+        // else: keep existing passwordHash (user didn't change it)
     } else {
+        // Don't save password
         profile.password.clear();
+        profile.passwordHash.clear();
     }
 
     // Auth method
@@ -1675,4 +1730,21 @@ void BSettingsDialog::saveCurrentProfile()
     // Show confirmation
     QMessageBox::information(this, tr("Profile Saved"),
         tr("Connection profile \"%1\" has been saved.").arg(profile.name));
+}
+
+void BSettingsDialog::onConvertToPFX()
+{
+    BPFXConverter converter(this);
+    if (converter.exec() == QDialog::Accepted) {
+        // User successfully converted and created a PFX file
+        QString pfxPath = converter.getPFXFilePath();
+        if (!pfxPath.isEmpty()) {
+            // Update the PFX file path in the current profile
+            m_clientCertEdit->setText(pfxPath);
+
+            QMessageBox::information(this, tr("PFX File Created"),
+                tr("PFX file has been created successfully.\n\n"
+                   "The certificate path has been updated in the current profile."));
+        }
+    }
 }

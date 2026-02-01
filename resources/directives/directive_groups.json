@@ -1,0 +1,261 @@
+{
+  "description": "Directive grouping and conditional display rules",
+  "groups": {
+    "tls": {
+      "name": "TLS Configuration",
+      "description": "Transport Layer Security encryption settings",
+      "icon": "lock",
+      "directives": [
+        "TLS Enable",
+        "TLS Require",
+        "TLS Verify Peer",
+        "TLS CA Certificate File",
+        "TLS Certificate",
+        "TLS Key",
+        "TLS Allowed CN",
+        "TLS Cipher List",
+        "TLS Cipher Suites",
+        "TLS DH File",
+        "TLS Protocol",
+        "TLS Certificate Revocation List"
+      ],
+      "conditional_display": {
+        "TLS CA Certificate File": {
+          "requires": {
+            "TLS Enable": true,
+            "TLS Use PSK": false
+          }
+        },
+        "TLS Certificate": {
+          "requires": {
+            "TLS Enable": true,
+            "TLS Use PSK": false
+          }
+        },
+        "TLS Key": {
+          "requires": {
+            "TLS Enable": true,
+            "TLS Use PSK": false
+          }
+        },
+        "TLS Verify Peer": {
+          "requires": {
+            "TLS Enable": true
+          }
+        },
+        "TLS Allowed CN": {
+          "requires": {
+            "TLS Enable": true,
+            "TLS Verify Peer": true
+          }
+        }
+      }
+    },
+    "authentication": {
+      "name": "Authentication",
+      "description": "Password and authentication settings",
+      "icon": "key",
+      "directives": [
+        "Name",
+        "Password",
+        "PKI Signatures",
+        "PKI Encryption",
+        "PKI Keypair"
+      ],
+      "conditional_display": {
+        "PKI Signatures": {
+          "requires": {
+            "backup_system": "bacula"
+          }
+        },
+        "PKI Encryption": {
+          "requires": {
+            "backup_system": "bacula"
+          }
+        },
+        "PKI Keypair": {
+          "requires": {
+            "PKI Encryption": true
+          }
+        }
+      }
+    },
+    "network": {
+      "name": "Network Configuration",
+      "description": "Network connection and addressing settings",
+      "icon": "network",
+      "directives": [
+        "Address",
+        "DirPort",
+        "FD Port",
+        "SD Port",
+        "DirAddresses",
+        "Heartbeat Interval",
+        "Maximum Network Buffer Size"
+      ]
+    },
+    "performance": {
+      "name": "Performance Tuning",
+      "description": "Performance and resource management",
+      "icon": "speed",
+      "directives": [
+        "Maximum Concurrent Jobs",
+        "Maximum Bandwidth",
+        "Maximum Network Buffer Size"
+      ]
+    },
+    "retention": {
+      "name": "Data Retention",
+      "description": "How long to keep data in catalog",
+      "icon": "calendar",
+      "directives": [
+        "File Retention",
+        "Job Retention",
+        "AutoPrune",
+        "Statistics Retention",
+        "VerId Retention"
+      ],
+      "conditional_display": {
+        "Statistics Retention": {
+          "requires": {
+            "backup_system": "bareos"
+          }
+        },
+        "VerId Retention": {
+          "requires": {
+            "backup_system": "bacula"
+          }
+        }
+      }
+    },
+    "directories": {
+      "name": "Directory Paths",
+      "description": "File system locations for Bareos/Bacula operation",
+      "icon": "folder",
+      "directives": [
+        "Working Directory",
+        "Pid Directory",
+        "Scripts Directory",
+        "Plugin Directory",
+        "Sub Sys Directory"
+      ]
+    },
+    "acl": {
+      "name": "Access Control Lists",
+      "description": "Permissions and access restrictions",
+      "icon": "shield",
+      "directives": [
+        "Command ACL",
+        "Job ACL",
+        "Client ACL",
+        "Storage ACL",
+        "Pool ACL",
+        "FileSet ACL",
+        "Catalog ACL",
+        "Schedule ACL",
+        "Where ACL",
+        "PluginOptions ACL"
+      ]
+    },
+    "auditing": {
+      "name": "Auditing",
+      "description": "Audit logging configuration (Bareos only)",
+      "icon": "clipboard",
+      "directives": [
+        "Auditing",
+        "Audit Events"
+      ],
+      "conditional_display": {
+        "Audit Events": {
+          "requires": {
+            "Auditing": true
+          }
+        }
+      },
+      "system_requirement": "bareos"
+    }
+  },
+  "aliases": {
+    "TLS PSK": {
+      "description": "Simplified TLS-PSK configuration",
+      "expands_to": {
+        "TLS Enable": true,
+        "TLS Require": true
+      },
+      "note": "Pre-Shared Key mode - simpler than certificates"
+    },
+    "TLS Certificate Mode": {
+      "description": "Certificate-based TLS configuration",
+      "expands_to": {
+        "TLS Enable": true,
+        "TLS Require": true,
+        "TLS Verify Peer": true
+      },
+      "requires_fields": [
+        "TLS CA Certificate File",
+        "TLS Certificate",
+        "TLS Key"
+      ],
+      "note": "Requires certificate files"
+    },
+    "Basic Director": {
+      "description": "Minimal Director configuration",
+      "expands_to": {
+        "Name": "<required>",
+        "Password": "<required>",
+        "Messages": "Daemon",
+        "DirPort": 9101,
+        "Working Directory": "/var/lib/bareos",
+        "QueryFile": "/usr/lib/bareos/scripts/query.sql",
+        "Maximum Concurrent Jobs": 20
+      }
+    },
+    "Secure Director": {
+      "description": "Security-hardened Director",
+      "extends": "Basic Director",
+      "expands_to": {
+        "TLS Enable": true,
+        "TLS Require": true,
+        "Auditing": true,
+        "Audit Events": ["security", "config"]
+      }
+    }
+  },
+  "validation_rules": {
+    "tls_certificate_complete": {
+      "description": "When using certificate-based TLS, all certificate fields must be provided",
+      "condition": {
+        "and": [
+          {"TLS Enable": true},
+          {"TLS Verify Peer": true}
+        ]
+      },
+      "requires": [
+        "TLS CA Certificate File",
+        "TLS Certificate",
+        "TLS Key"
+      ],
+      "error_message": "Certificate-based TLS requires CA certificate, client certificate, and private key"
+    },
+    "pki_complete": {
+      "description": "PKI encryption requires keypair file",
+      "condition": {
+        "PKI Encryption": true
+      },
+      "requires": [
+        "PKI Keypair"
+      ],
+      "error_message": "PKI Encryption requires PKI Keypair file"
+    },
+    "audit_events_requires_auditing": {
+      "description": "Audit Events can only be set when Auditing is enabled",
+      "condition": {
+        "Audit Events": {"not": null}
+      },
+      "requires": [
+        {"Auditing": true}
+      ],
+      "error_message": "Audit Events requires Auditing to be enabled"
+    }
+  }
+}
