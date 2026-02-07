@@ -342,12 +342,16 @@ qt_standard_project_setup()
 # Finde restliche Qt6 Komponenten
 find_package(Qt6 REQUIRED COMPONENTS
     Gui
-    GuiPrivate
     Widgets
     Network
     Sql
     LinguistTools
 )
+
+# GuiPrivate: Windows has the package, Linux uses private include dirs directly
+if(WIN32)
+    find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
+endif()
 
 message(STATUS "✓ Found Qt6 ${Qt6_VERSION}")
 
@@ -654,11 +658,18 @@ add_dependencies(${PROJECT_NAME} increment_build_number)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Gui
-    Qt6::GuiPrivate  # For QZipWriter/QZipReader private API
     Qt6::Widgets
     Qt6::Network
     Qt6::Sql
 )
+
+# GuiPrivate for QZipWriter/QZipReader
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::GuiPrivate)
+else()
+    # On Linux, Qt6GuiPrivate package may not exist; use private include dirs
+    target_include_directories(${PROJECT_NAME} PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
+endif()
 
 # OpenSSL Libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE

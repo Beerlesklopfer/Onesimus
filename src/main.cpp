@@ -47,7 +47,13 @@ CommandLineOptions parseCommandLine(QApplication &app)
 
     // Standard-Optionen
     parser.addHelpOption();
-    parser.addVersionOption();
+
+    // Version mit -V (statt -v, damit -v für --verbose frei bleibt)
+    QCommandLineOption versionOption(
+        QStringList() << "V" << "version",
+        "Displays version information."
+        );
+    parser.addOption(versionOption);
 
     // ========================================
     // GUI-Optionen
@@ -67,7 +73,7 @@ CommandLineOptions parseCommandLine(QApplication &app)
 
     QCommandLineOption verboseOption(
         QStringList() << "v" << "verbose",
-        "Verbose output"
+        "Verbose output (also: ONESIMUS_VERBOSE=1)"
         );
     parser.addOption(verboseOption);
 
@@ -204,6 +210,13 @@ CommandLineOptions parseCommandLine(QApplication &app)
     // Parse
     parser.process(app);
 
+    // -V / --version manuell behandeln
+    if (parser.isSet(versionOption)) {
+        printf("%s %s\n", qPrintable(QCoreApplication::applicationName()),
+               qPrintable(QCoreApplication::applicationVersion()));
+        ::exit(0);
+    }
+
     // ========================================
     // Ergebnisse extrahieren
     // ========================================
@@ -315,10 +328,10 @@ void usage()
 
 int main(int argc, char *argv[])
 {
+    QApplication app(argc, argv);
+
     QCoreApplication::addLibraryPath(
         QCoreApplication::applicationDirPath() + "/plugins");
-
-    QApplication app(argc, argv);
 
     app.setApplicationName(PROJECT_NAME);
     app.setApplicationVersion(PROJECT_VERSION);
@@ -339,6 +352,11 @@ int main(int argc, char *argv[])
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(logPath);
     BLOG_INIT(logPath + "/onesimus.log", 10);
+
+    // Enable logging via --verbose flag or ONESIMUS_VERBOSE=1 environment variable
+    if (options.verbose || qEnvironmentVariableIsSet("ONESIMUS_VERBOSE")) {
+        BLOG_SET_ENABLED(true);
+    }
 
     if (options.verbose) {
         BLOG_INFO() << "Starting" << PROJECT_NAME << "v" PROJECT_VERSION;

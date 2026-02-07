@@ -7,6 +7,54 @@
   },
   "configurePresets": [
     {
+      "name": "linux-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "USE_STATIC_OPENSSL": "OFF"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux Debug (with logging)",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ONESIMUS_FILE_LOGGING": "ON",
+        "DEBUG_PACKETS": "ON",
+        "DEBUG_JSON": "ON",
+        "LOG_JSON": "ON"
+      }
+    },
+    {
+      "name": "linux-debug-nolog",
+      "displayName": "Linux Debug (no logging)",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ONESIMUS_FILE_LOGGING": "OFF"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release (with logging)",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ONESIMUS_FILE_LOGGING": "ON"
+      }
+    },
+    {
+      "name": "linux-release-nolog",
+      "displayName": "Linux Release (no logging)",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ONESIMUS_FILE_LOGGING": "OFF"
+      }
+    },
+    {
       "name": "windows-base",
       "hidden": true,
       "generator": "Visual Studio 17 2022",
@@ -19,7 +67,7 @@
     },
     {
       "name": "windows-debug",
-      "displayName": "Windows Debug",
+      "displayName": "Windows Debug (with logging)",
       "inherits": "windows-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -27,12 +75,30 @@
       }
     },
     {
+      "name": "windows-debug-nolog",
+      "displayName": "Windows Debug (no logging)",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ONESIMUS_FILE_LOGGING": "OFF"
+      }
+    },
+    {
       "name": "windows-release",
-      "displayName": "Windows Release",
+      "displayName": "Windows Release (with logging)",
       "inherits": "windows-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "ONESIMUS_FILE_LOGGING": "ON"
+      }
+    },
+    {
+      "name": "windows-release-nolog",
+      "displayName": "Windows Release (no logging)",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ONESIMUS_FILE_LOGGING": "OFF"
       }
     },
     {
@@ -47,20 +113,52 @@
   ],
   "buildPresets": [
     {
+      "name": "linux-debug-build",
+      "displayName": "Linux Debug Build",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "linux-debug-nolog-build",
+      "displayName": "Linux Debug Build (no logging)",
+      "configurePreset": "linux-debug-nolog"
+    },
+    {
+      "name": "linux-release-build",
+      "displayName": "Linux Release Build",
+      "configurePreset": "linux-release"
+    },
+    {
+      "name": "linux-release-nolog-build",
+      "displayName": "Linux Release Build (no logging)",
+      "configurePreset": "linux-release-nolog"
+    },
+    {
       "name": "windows-debug-build",
-      "displayName": "Debug Build",
+      "displayName": "Windows Debug Build",
       "configurePreset": "windows-debug",
       "configuration": "Debug"
     },
     {
+      "name": "windows-debug-nolog-build",
+      "displayName": "Windows Debug Build (no logging)",
+      "configurePreset": "windows-debug-nolog",
+      "configuration": "Debug"
+    },
+    {
       "name": "windows-release-build",
-      "displayName": "Release Build",
+      "displayName": "Windows Release Build",
       "configurePreset": "windows-release",
       "configuration": "Release"
     },
     {
+      "name": "windows-release-nolog-build",
+      "displayName": "Windows Release Build (no logging)",
+      "configurePreset": "windows-release-nolog",
+      "configuration": "Release"
+    },
+    {
       "name": "windows-relwithdebinfo-build",
-      "displayName": "RelWithDebInfo Build",
+      "displayName": "Windows RelWithDebInfo Build",
       "configurePreset": "windows-relwithdebinfo",
       "configuration": "RelWithDebInfo"
     }
