@@ -1,7 +1,7 @@
 #include "bresourcemodels.h"
+#include "blogging.h"
 #include <QJsonDocument>
 #include <QJsonParseError>
-#include <QDebug>
 
 // ============================================================================
 // BFilesetModel Implementation
@@ -18,13 +18,13 @@ void BFilesetModel::parseFilesets(const QString &jsonResponse)
     QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BFilesetModel: Failed to parse .filesets response:" << parseError.errorString();
+        BLOG_WARNING() << "BFilesetModel: Failed to parse .filesets response:" << parseError.errorString();
         clear();
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "BFilesetModel: .filesets response is not a JSON object";
+        BLOG_WARNING() << "BFilesetModel: .filesets response is not a JSON object";
         clear();
         return;
     }
@@ -66,13 +66,13 @@ void BStorageModel::parseStorages(const QString &jsonResponse)
     QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BStorageModel: Failed to parse .storages response:" << parseError.errorString();
+        BLOG_WARNING() << "BStorageModel: Failed to parse .storages response:" << parseError.errorString();
         clear();
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "BStorageModel: .storages response is not a JSON object";
+        BLOG_WARNING() << "BStorageModel: .storages response is not a JSON object";
         clear();
         return;
     }
@@ -121,13 +121,13 @@ void BPoolModel::parsePools(const QString &jsonResponse)
     QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BPoolModel: Failed to parse .pools response:" << parseError.errorString();
+        BLOG_WARNING() << "BPoolModel: Failed to parse .pools response:" << parseError.errorString();
         clear();
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "BPoolModel: .pools response is not a JSON object";
+        BLOG_WARNING() << "BPoolModel: .pools response is not a JSON object";
         clear();
         return;
     }
@@ -187,13 +187,13 @@ void BLevelModel::parseLevels(const QString &jsonResponse)
     QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BLevelModel: Failed to parse .levels response:" << parseError.errorString();
+        BLOG_WARNING() << "BLevelModel: Failed to parse .levels response:" << parseError.errorString();
         clear();
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "BLevelModel: .levels response is not a JSON object";
+        BLOG_WARNING() << "BLevelModel: .levels response is not a JSON object";
         clear();
         return;
     }
@@ -202,9 +202,9 @@ void BLevelModel::parseLevels(const QString &jsonResponse)
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
     QJsonArray levelsArray = result["levels"].toArray();
-    qDebug() << "BLevelModel: Found" << levelsArray.size() << "levels in response";
+    BLOG_DEBUG() << "BLevelModel: Found" << levelsArray.size() << "levels in response";
     for (int i = 0; i < levelsArray.size() && i < 5; ++i) {
-        qDebug() << "  Level" << i << ":" << levelsArray[i].toObject();
+        BLOG_DEBUG() << "  Level" << i << ":" << levelsArray[i].toObject();
     }
 #endif
 

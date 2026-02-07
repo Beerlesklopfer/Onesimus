@@ -8,6 +8,7 @@
 
 BCheckableHeaderView::BCheckableHeaderView(Qt::Orientation orientation, QWidget *parent)
     : QHeaderView(orientation, parent)
+    , m_checkboxVisible(true)  // Checkbox visible by default
     , m_triStateEnabled(true)  // Enable tri-state by default
     , m_contextMenu(new QMenu(this))
 {
@@ -21,8 +22,8 @@ void BCheckableHeaderView::paintSection(QPainter *painter, const QRect &rect, in
     QHeaderView::paintSection(painter, rect, logicalIndex);
     painter->restore();
     
-    // Only draw checkbox for the first column (index 0)
-    if (logicalIndex == 0) {
+    // Only draw checkbox for the first column (index 0) if enabled
+    if (m_checkboxVisible && logicalIndex == 0) {
         QStyleOptionButton option;
         option.rect = checkBoxRect(rect);
         option.state = QStyle::State_Enabled | QStyle::State_Active;
@@ -56,7 +57,7 @@ void BCheckableHeaderView::mousePressEvent(QMouseEvent *event)
     int logicalIndex = logicalIndexAt(event->pos());
     
     // Check if clicked on checkbox column
-    if (logicalIndex == 0) {
+    if (m_checkboxVisible && logicalIndex == 0) {
         QRect sectionRect = QRect(sectionViewportPosition(0), 0, sectionSize(0), height());
         QRect cbRect = checkBoxRect(sectionRect);
         

@@ -1,6 +1,6 @@
 #include "bcolumnconfiguration.h"
+#include "blogging.h"
 #include <QApplication>
-#include <QDebug>
 
 BColumnConfiguration::BColumnConfiguration(QObject *parent)
     : QObject(parent)
@@ -95,7 +95,7 @@ void BColumnConfiguration::savePreset(QHeaderView *header, const QString &preset
     m_settings.endGroup();
     m_settings.sync();
     
-    qDebug() << "Saved preset:" << presetName;
+    BLOG_DEBUG() << "Saved preset:" << presetName;
 }
 
 bool BColumnConfiguration::loadPreset(QHeaderView *header, const QString &presetName)
@@ -106,7 +106,7 @@ bool BColumnConfiguration::loadPreset(QHeaderView *header, const QString &preset
     
     if (!m_settings.childGroups().contains(presetName)) {
         m_settings.endGroup();
-        qDebug() << "Preset not found:" << presetName;
+        BLOG_DEBUG() << "Preset not found:" << presetName;
         return false;
     }
     
@@ -135,7 +135,7 @@ bool BColumnConfiguration::loadPreset(QHeaderView *header, const QString &preset
     applyConfiguration(header, config);
     emit presetLoaded(presetName);
     
-    qDebug() << "Loaded preset:" << presetName;
+    BLOG_DEBUG() << "Loaded preset:" << presetName;
     return true;
 }
 
@@ -148,7 +148,7 @@ void BColumnConfiguration::deletePreset(const QString &presetName)
     m_settings.endGroup();
     m_settings.sync();
     
-    qDebug() << "Deleted preset:" << presetName;
+    BLOG_DEBUG() << "Deleted preset:" << presetName;
 }
 
 QStringList BColumnConfiguration::availablePresets() const
@@ -228,7 +228,7 @@ void BColumnConfiguration::resetToDefault(QHeaderView *header)
         header->resizeSection(10, 120); // Status
     }
     
-    qDebug() << "Reset to default configuration";
+    BLOG_DEBUG() << "Reset to default configuration";
 }
 
 QMap<int, BColumnConfiguration::ColumnConfig> BColumnConfiguration::readConfiguration(QHeaderView *header) const
@@ -290,5 +290,5 @@ void BColumnConfiguration::applyConfiguration(QHeaderView *header, const QMap<in
         }
     }
     
-    qDebug() << "Applied column configuration";
+    BLOG_DEBUG() << "Applied column configuration";
 }

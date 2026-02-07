@@ -1,0 +1,37 @@
+{
+  "name": "Proxmox VE Configuration",
+  "description": "Backup of Proxmox Virtual Environment cluster configuration",
+  "platform": "linux",
+  "category": "virtualization",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "ProxmoxConfig",
+    "Description": "Proxmox VE cluster configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "GZIP",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true
+      },
+      "File": [
+        "/etc/pve",
+        "/var/lib/pve-cluster",
+        "/etc/vzdump.conf",
+        "/etc/cron.d/vzdump",
+        "/var/lib/vz/snippets"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Full",
+  "estimated_size": "10-100 MB",
+  "notes": [
+    "VM images should use Proxmox Backup Server or vzdump",
+    "This backup covers cluster config, not VM data",
+    "/etc/pve is a FUSE filesystem - requires cluster running",
+    "Include authorized_keys and SSL certificates"
+  ]
+}

@@ -1,13 +1,20 @@
 #include "bmainwindow.h"
 #include "ui_bmainwindow.h"
+#include "blogging.h"
 #include "jobs/bjobwidget.h"
 #include "jobs/bjobsstatisticswidget.h"
 #include "clients/bclientswidget.h"
+#include "clients/bclientsmodel.h"
+#include "clients/bnewclientdialog.h"
+#include "jobs/bfilesetwizard.h"
 #include "storagewidget.h"
 #include "schedules/bschedulewidget.h"
+// Messages widget is now inside BJobWidget
 #include "bsettingsdialog.h"
 #include "bcleanupdialog.h"
 #include "bconnectionwizard.h"
+#include "director/bconfigimportdialog.h"
+#include "db/bdatabase.h"
 #include "bsettings.h"
 #include "bconnectionprofile.h"
 #include "version.h"
@@ -15,6 +22,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
@@ -34,8 +42,10 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QSpinBox>
+#include <QUuid>
 #include <QStyle>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -49,12 +59,13 @@ BMainWindow::BMainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::BMainWindow)
     , m_director(nullptr)
+    , m_database(nullptr)
     , m_statusLabel(nullptr)
     , m_connectionLabel(nullptr)
     , m_autoRefreshTimer(nullptr)
 {
     ui->setupUi(this);
-    
+
 #if USE_BACULA
     setWindowTitle("Onesimus - Bacula Backup Management");
 #elif defined(USE_BAREOS)
@@ -63,6 +74,14 @@ BMainWindow::BMainWindow(QWidget *parent)
     resize(1200, 800);
 
     m_director = new BDirector(this);
+
+    // Initialize database (for storing Directors, Consoles, etc.)
+    m_database = new BDatabase(this);
+    if (!m_database->initialize()) {
+        APP_WARNING << "Database initialization failed: " << m_database->lastError();
+    } else {
+        APP_DEBUG << "Database initialized, version: " << m_database->currentVersion();
+    }
 
     setupUI();
     createActions();
@@ -105,7 +124,7 @@ BMainWindow::BMainWindow(QWidget *parent)
         Q_UNUSED(command)
         Q_UNUSED(response)
 #ifdef IS_DEVELOPER
-        qDebug() << "MainWindow: Command response for:" << command << "Response:" << response.left(100);
+        BLOG_DEBUG() << "MainWindow: Command response for:" << command << "Response:" << response.left(100);
 #endif
         // Note: API mode confirmation and resource loading is now handled
         // by the BareosDirector state machine automatically
@@ -116,7 +135,7 @@ BMainWindow::BMainWindow(QWidget *parent)
             [this](BDirector::ConnectionState oldState, BDirector::ConnectionState newState) {
         Q_UNUSED(oldState)
 #ifdef IS_DEVELOPER
-        qDebug() << "MainWindow: Connection state changed:" << static_cast<int>(oldState)
+        BLOG_DEBUG() << "MainWindow: Connection state changed:" << static_cast<int>(oldState)
                  << "->" << static_cast<int>(newState);
 #endif
         // Update status bar based on state
@@ -152,7 +171,7 @@ BMainWindow::BMainWindow(QWidget *parent)
 
     connect(m_director, &BDirector::allResourcesLoaded, this, [this]() {
 #ifdef IS_DEVELOPER
-        qDebug() << "MainWindow: All resources loaded - refreshing views";
+        BLOG_DEBUG() << "MainWindow: All resources loaded - refreshing views";
 #endif
         // Restore cursor - loading complete
         QApplication::restoreOverrideCursor();
@@ -170,12 +189,12 @@ BMainWindow::BMainWindow(QWidget *parent)
         QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
 
         if (parseError.error != QJsonParseError::NoError) {
-            qWarning() << "MainWindow: Failed to parse JSON response:" << parseError.errorString();
+            BLOG_WARNING() << "MainWindow: Failed to parse JSON response:" << parseError.errorString();
             return;
         }
 
         if (!doc.isObject()) {
-            qWarning() << "MainWindow: JSON response is not an object";
+            BLOG_WARNING() << "MainWindow: JSON response is not an object";
             return;
         }
 
@@ -187,32 +206,32 @@ BMainWindow::BMainWindow(QWidget *parent)
 
         // Check for dot-command responses (have specific array keys)
         if (result.contains("levels")) {
-            qWarning() << "→ Routing levels data to JobWidget (detected by JSON content)";
+            BLOG_WARNING() << "→ Routing levels data to JobWidget (detected by JSON content)";
             m_jobWidget->processDotLevelsResponse(jsonData);
             routed = true;
         }
         if (result.contains("filesets")) {
-            qWarning() << "→ Routing filesets data to JobWidget (detected by JSON content)";
+            BLOG_WARNING() << "→ Routing filesets data to JobWidget (detected by JSON content)";
             m_jobWidget->processDotFilesetsResponse(jsonData);
             routed = true;
         }
         if (result.contains("storages")) {
-            qWarning() << "→ Routing storages data to JobWidget (detected by JSON content)";
+            BLOG_WARNING() << "→ Routing storages data to JobWidget (detected by JSON content)";
             m_jobWidget->processDotStoragesResponse(jsonData);
             routed = true;
         }
         if (result.contains("pools")) {
-            qWarning() << "→ Routing pools data to JobWidget (detected by JSON content)";
+            BLOG_WARNING() << "→ Routing pools data to JobWidget (detected by JSON content)";
             m_jobWidget->processDotPoolsResponse(jsonData);
             routed = true;
         }
         if (result.contains("jobtotals")) {
-            qWarning() << "→ Routing jobtotals data to JobWidget (detected by JSON content)";
+            BLOG_WARNING() << "→ Routing jobtotals data to JobWidget (detected by JSON content)";
             m_jobWidget->processJobTotalsResponse(jsonData);
             routed = true;
         }
         if (result.contains("schedules")) {
-            qWarning() << "→ Routing schedules data to ScheduleWidget (detected by JSON content)";
+            BLOG_WARNING() << "→ Routing schedules data to ScheduleWidget (detected by JSON content)";
             m_scheduleWidget->processDotScheduleResponse(jsonData);
             routed = true;
         }
@@ -224,60 +243,146 @@ BMainWindow::BMainWindow(QWidget *parent)
                 QJsonObject firstJob = jobsArray[0].toObject();
                 // .jobs has "enabled" field, list jobs has "jobstatus"
                 if (firstJob.contains("enabled") || firstJob.contains("fileset")) {
-                    qWarning() << "→ Routing .jobs data to JobWidget (detected by JSON content)";
+                    BLOG_WARNING() << "→ Routing .jobs data to JobWidget (detected by JSON content)";
                     m_jobWidget->processDotJobsResponse(jsonData);
                     routed = true;
                 } else if (firstJob.contains("jobstatus") || firstJob.contains("jobid")) {
-                    qWarning() << "→ Routing list jobs data to JobWidget (detected by JSON content)";
+                    BLOG_WARNING() << "→ Routing list jobs data to JobWidget (detected by JSON content)";
                     m_jobWidget->processJsonResponse(jsonData);
+                    // Also enrich client widget with job data (for online status + total bytes)
+                    m_clientWidget->model()->enrichWithJobData(jobsArray);
                     routed = true;
                 }
             }
         }
 
-        // Check for .clients response
+        // Check for .clients / list clients / show clients response
         if (result.contains("clients")) {
-            QJsonArray clientsArray = result["clients"].toArray();
-            if (!clientsArray.isEmpty()) {
-                QJsonObject firstClient = clientsArray[0].toObject();
-                // .clients has simple "name" field, list clients has more fields
-                if (firstClient.contains("address") || firstClient.contains("uname")) {
-                    qWarning() << "→ Routing list clients data to ClientWidget (detected by JSON content)";
+            QJsonValue clientsVal = result["clients"];
+
+            if (clientsVal.isObject() && !clientsVal.toObject().isEmpty()) {
+                // Object format from "show clients" (api 2): {"PDC-fd": {...}, ...}
+                BLOG_WARNING() << "→ Routing show clients data to BClientsWidget (address enrichment, object format)";
+                m_clientWidget->model()->enrichWithShowClientData(jsonData);
+                routed = true;
+            } else if (clientsVal.isArray()) {
+                QJsonArray clientsArray = clientsVal.toArray();
+                if (!clientsArray.isEmpty()) {
+                    QJsonObject firstClient = clientsArray[0].toObject();
+                    // "show clients" array format has "Client" sub-object (capital C)
+                    if (firstClient.contains("Client")) {
+                        BLOG_WARNING() << "→ Routing show clients data to BClientsWidget (address enrichment)";
+                        m_clientWidget->model()->enrichWithShowClientData(jsonData);
+                        routed = true;
+                    // "llist clients" has "clientid", "uname" etc. (lowercase, flat keys)
+                    } else if (firstClient.contains("uname") || firstClient.contains("clientid")) {
+                        BLOG_WARNING() << "→ Routing list clients data to BClientsWidget (detected by JSON content)";
+                        m_clientWidget->processJsonResponse(jsonData);
+                        routed = true;
+                    // ".clients" dot-command has only "name"
+                    } else {
+                        BLOG_WARNING() << "→ Routing .clients data to JobWidget (detected by JSON content)";
+                        m_jobWidget->processDotClientsResponse(jsonData);
+                        routed = true;
+                    }
+                } else {
+                    // Empty clients array — still route to BClientsWidget so it shows "0 clients"
+                    BLOG_WARNING() << "→ Routing empty clients array to BClientsWidget";
                     m_clientWidget->processJsonResponse(jsonData);
                     routed = true;
-                } else {
-                    qWarning() << "→ Routing .clients data to JobWidget (detected by JSON content)";
-                    m_jobWidget->processDotClientsResponse(jsonData);
-                    routed = true;
                 }
+            }
+        }
+
+        // Check for backups response (used for per-client stats enrichment)
+        if (result.contains("backups")) {
+            QJsonArray backupsArray = result["backups"].toArray();
+            if (!backupsArray.isEmpty()) {
+                BLOG_WARNING() << "→ Routing backups data to BClientsWidget (stats enrichment)";
+                m_clientWidget->model()->enrichWithJobData(backupsArray);
+                routed = true;
             }
         }
 
         // Check for volumes/media response
         if (result.contains("volumes") || result.contains("media")) {
-            qWarning() << "→ Routing volumes data to StorageWidget (detected by JSON content)";
+            BLOG_WARNING() << "→ Routing volumes data to StorageWidget (detected by JSON content)";
             m_storageWidget->processJsonResponse(jsonData);
+            routed = true;
+        }
+
+        // Check for "status client=<name>" response (has "header" + "terminated" keys)
+        // Note: Bareos JSON API doesn't fully support status client output (GitHub #2325)
+        // A successful response means the Director could contact the FD
+        // When FD is unreachable, commandError signal is emitted instead
+        if (result.contains("header") && result.contains("terminated")) {
+            if (command.startsWith("status client=")) {
+                QString clientName = command.mid(14);  // length of "status client="
+                CLIENTS_DEBUG << "Client " << clientName << " responded → ONLINE";
+                m_clientWidget->model()->setClientOnlineStatus(clientName, BClientsModel::STATUS_ONLINE);
+                routed = true;
+            }
+        }
+
+        // Check for messages response
+        if (result.contains("messages")) {
+            BLOG_WARNING() << "→ Routing messages data to MessagesWidget (detected by JSON content)";
+            m_jobWidget->processMessagesResponse(jsonData);
             routed = true;
         }
 
         // Fallback to command-based routing if content-based didn't match
         if (!routed) {
             if (command.contains("list jobs") || command.contains("list jobid")) {
-                qWarning() << "→ Routing jobs data to JobWidget (by command)";
+                BLOG_WARNING() << "→ Routing jobs data to JobWidget (by command)";
                 m_jobWidget->processJsonResponse(jsonData);
-            } else if (command.contains("list clients")) {
-                qWarning() << "→ Routing clients data to ClientWidget (by command)";
+                // Enrich client widget with job data
+                QJsonObject root = QJsonDocument::fromJson(jsonData.toUtf8()).object();
+                QJsonArray jobsArr = root["result"].toObject()["jobs"].toArray();
+                if (!jobsArr.isEmpty())
+                    m_clientWidget->model()->enrichWithJobData(jobsArr);
+            } else if (command.contains("list clients") || command.contains("llist clients")) {
+                BLOG_WARNING() << "→ Routing clients data to BClientsWidget (by command)";
                 m_clientWidget->processJsonResponse(jsonData);
+            } else if (command.contains("show clients")) {
+                BLOG_WARNING() << "→ Routing show clients data to BClientsWidget (address enrichment)";
+                m_clientWidget->model()->enrichWithShowClientData(jsonData);
+            } else if (command.contains("list backups")) {
+                BLOG_WARNING() << "→ Routing backups data to BClientsWidget (stats enrichment, by command)";
+                QJsonObject root = QJsonDocument::fromJson(jsonData.toUtf8()).object();
+                QJsonArray backupsArr = root["result"].toObject()["backups"].toArray();
+                if (!backupsArr.isEmpty())
+                    m_clientWidget->model()->enrichWithJobData(backupsArr);
             } else if (command.contains("list volumes") || command.contains("list media")) {
-                qWarning() << "→ Routing volumes data to StorageWidget (by command)";
+                BLOG_WARNING() << "→ Routing volumes data to StorageWidget (by command)";
                 m_storageWidget->processJsonResponse(jsonData);
             } else if (command.contains("list joblog")) {
                 // Job log responses are handled directly by BJobDetailsDialog
-                qWarning() << "→ Job log response (handled by job details dialog)";
+                BLOG_WARNING() << "→ Job log response (handled by job details dialog)";
+            } else if (command.contains("messages")) {
+                BLOG_WARNING() << "→ Routing messages data to MessagesWidget (by command)";
+                m_jobWidget->processMessagesResponse(jsonData);
+            } else if (command.startsWith("status client=")) {
+                // status client response - any response means FD was reachable
+                QString clientName = command.mid(14);
+                CLIENTS_DEBUG << "Client " << clientName << " responded → ONLINE (by command)";
+                m_clientWidget->model()->setClientOnlineStatus(clientName, BClientsModel::STATUS_ONLINE);
+            } else if (command.contains("configure") || command.contains("reload")) {
+                // Handled by the New Client Wizard's own signal handler
+                BLOG_DEBUG() << "→ Configure/reload response (handled by wizard)";
             } else {
-                qWarning() << "⚠ Unhandled JSON response - command:" << command;
-                qWarning() << "  Result keys:" << result.keys();
+                BLOG_WARNING() << "⚠ Unhandled JSON response - command:" << command;
+                BLOG_WARNING() << "  Result keys:" << result.keys();
             }
+        }
+    });
+
+    // Handle command errors — mark clients as OFFLINE when "status client" fails
+    connect(m_director, &BDirector::commandError, this, [this](const QString &command, const QString &error) {
+        if (command.startsWith("status client=")) {
+            QString clientName = command.mid(14);
+            CLIENTS_DEBUG << "Client " << clientName << " unreachable → OFFLINE (" << error << ")";
+            m_clientWidget->model()->setClientOnlineStatus(clientName, BClientsModel::STATUS_OFFLINE);
         }
     });
 
@@ -287,11 +392,27 @@ BMainWindow::BMainWindow(QWidget *parent)
     QObject::connect(m_jobWidget, &BJobWidget::statusMessageChanged,
             m_statusLabel, &QLabel::setText);
 
-    // Connect ClientWidget signals
+    // Connect BClientsWidget signals
     connect(m_clientWidget, &BClientsWidget::sendCommand, this, &BMainWindow::onSendCommand);
 
     connect(m_clientWidget, &BClientsWidget::statusMessageChanged,
             m_statusLabel, &QLabel::setText);
+
+    // Auto-refresh from client widget checkbox
+    connect(m_clientWidget, &BClientsWidget::autoRefreshChanged, this, [this](bool enabled) {
+        BSettings &settings = BSettings::instance();
+        int interval = settings.behaviorRefreshInterval();
+
+        if (enabled && m_director->isConnected()) {
+            m_autoRefreshTimer->start(interval * 1000);
+            m_statusLabel->setText(tr("Auto-refresh enabled (%1s)").arg(interval));
+        } else {
+            m_autoRefreshTimer->stop();
+            if (!enabled && m_director->isConnected()) {
+                m_statusLabel->setText(tr("Auto-refresh disabled"));
+            }
+        }
+    });
 
     // Connect StorageWidget signals
     connect(m_storageWidget, &StorageWidget::sendCommand, this, &BMainWindow::onSendCommand);
@@ -327,7 +448,6 @@ BMainWindow::BMainWindow(QWidget *parent)
 
 BMainWindow::~BMainWindow()
 {
-    m_director->saveConnectionSettings();
     delete ui;
 }
 
@@ -350,28 +470,28 @@ void BMainWindow::applyTheme(const QString &themeName)
         themeFile.close();
 
 #ifdef IS_DEVELOPER
-        qDebug() << "Applied theme:" << themeName << "from" << themePath;
+        BLOG_DEBUG() << "Applied theme:" << themeName << "from" << themePath;
 #endif
     } else {
-        qWarning() << "Could not load theme file:" << themePath;
+        BLOG_WARNING() << "Could not load theme file:" << themePath;
     }
 }
 
 void BMainWindow::setupUI()
 {
-    // Zentrales Widget mit Tabs
+    // ========================================================================
+    // Main Tab Widget (Jobs, Clients, Storage, Schedules)
+    // ========================================================================
     m_tabWidget = new QTabWidget(this);
     setCentralWidget(m_tabWidget);
 
-    m_jobWidget = new BJobWidget(this);
-    m_jobWidget->setDirector(m_director);
+    m_jobWidget = new BJobWidget(m_director, this);
     m_tabWidget->addTab(m_jobWidget, "Jobs");
 
     // Client-Widget
-    m_clientWidget = new BClientsWidget(this);
-    m_clientWidget->setDirector(m_director);
+    m_clientWidget = new BClientsWidget(m_director, this);
     m_tabWidget->addTab(m_clientWidget, "Clients");
-    
+
     // Storage-Widget
     m_storageWidget = new StorageWidget(m_director, this);
     m_tabWidget->addTab(m_storageWidget, "Storage/Volumes");
@@ -423,92 +543,92 @@ void BMainWindow::setupUI()
 void BMainWindow::createActions()
 {
     m_connectAction = new QAction(tr("Connect"), this);
-    m_connectAction->setIcon(QIcon::fromTheme("network-connect"));
+    m_connectAction->setIcon(QIcon(":/icons/icons/connect.svg"));
     m_connectAction->setShortcut(QKeySequence("Ctrl+O"));
     connect(m_connectAction, &QAction::triggered, this, &BMainWindow::onConnectTriggered);
 
     m_connectLastAction = new QAction(tr("Reconnect"), this);
-    m_connectLastAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_connectLastAction->setIcon(QIcon(":/icons/icons/reconnect.svg"));
     m_connectLastAction->setShortcut(QKeySequence("Ctrl+R"));
-    m_connectLastAction->setEnabled(m_director->hasStoredConnection());
+    m_connectLastAction->setEnabled(!BSettings::instance().lastUsedProfileId().isEmpty());
     connect(m_connectLastAction, &QAction::triggered, this, &BMainWindow::onConnectLastUsed);
 
     m_disconnectAction = new QAction(tr("Disconnect"), this);
-    m_disconnectAction->setIcon(QIcon::fromTheme("network-disconnect"));
+    m_disconnectAction->setIcon(QIcon(":/icons/icons/disconnect.svg"));
     m_disconnectAction->setEnabled(false);
     connect(m_disconnectAction, &QAction::triggered, this, &BMainWindow::onDisconnectTriggered);
 
     // Toggle Connection Action (for toolbar)
     m_toggleConnectionAction = new QAction(tr("Connect"), this);
-    m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/connect.png"));
+    m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/connect.svg"));
     m_toggleConnectionAction->setToolTip(tr("Connect to Director"));
     connect(m_toggleConnectionAction, &QAction::triggered, this, &BMainWindow::onToggleConnectionTriggered);
 
     // Reconnect Action (for toolbar)
     m_reconnectAction = new QAction(tr("Reconnect"), this);
-    m_reconnectAction->setIcon(QIcon(":/icons/icons/reconnect.png"));
+    m_reconnectAction->setIcon(QIcon(":/icons/icons/reconnect.svg"));
     m_reconnectAction->setToolTip(tr("Reconnect to last used connection"));
-    m_reconnectAction->setEnabled(m_director->hasStoredConnection());
+    m_reconnectAction->setEnabled(!BSettings::instance().lastUsedProfileId().isEmpty());
     connect(m_reconnectAction, &QAction::triggered, this, &BMainWindow::onConnectLastUsed);
 
     m_refreshAction = new QAction(tr("Refresh"), this);
-    m_refreshAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshAction->setIcon(QIcon(":/icons/icons/refresh.svg"));
     m_refreshAction->setShortcut(QKeySequence("F5"));
     m_refreshAction->setEnabled(false);
     connect(m_refreshAction, &QAction::triggered, this, &BMainWindow::onRefreshAll);
 
     m_settingsAction = new QAction(tr("Settings"), this);
-    m_settingsAction->setIcon(QIcon::fromTheme("preferences-system"));
+    m_settingsAction->setIcon(QIcon(":/icons/icons/settings.svg"));
     m_settingsAction->setShortcut(QKeySequence("Ctrl+,"));
     connect(m_settingsAction, &QAction::triggered, this, &BMainWindow::onSettingsTriggered);
 
     m_exitAction = new QAction(tr("Exit"), this);
-    m_exitAction->setIcon(QIcon(":/icons/icons/exit.png"));
+    m_exitAction->setIcon(QIcon(":/icons/icons/exit.svg"));
     m_exitAction->setShortcut(QKeySequence("Ctrl+Q"));
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
 
     m_aboutAction = new QAction(tr("About Onesimus"), this);
-    m_aboutAction->setIcon(QIcon::fromTheme("help-about"));
+    m_aboutAction->setIcon(QIcon(":/icons/icons/onesimus.svg"));
     connect(m_aboutAction, &QAction::triggered, this, &BMainWindow::onAboutTriggered);
 
     m_aboutQtAction = new QAction(tr("About Qt"), this);
-    m_aboutQtAction->setIcon(QIcon::fromTheme("help-about"));
+    m_aboutQtAction->setIcon(QIcon(":/icons/icons/info.svg"));
     connect(m_aboutQtAction, &QAction::triggered, qApp, &QApplication::aboutQt);
 
     m_documentationAction = new QAction(tr("Online Documentation"), this);
-    m_documentationAction->setIcon(QIcon::fromTheme("help-contents"));
+    m_documentationAction->setIcon(QIcon(":/icons/icons/help.svg"));
     m_documentationAction->setShortcut(QKeySequence::HelpContents);
     connect(m_documentationAction, &QAction::triggered, this, &BMainWindow::onDocumentationTriggered);
 
     m_reportBugAction = new QAction(tr("Report a Bug..."), this);
-    m_reportBugAction->setIcon(QIcon::fromTheme("tools-report-bug"));
+    m_reportBugAction->setIcon(QIcon(":/icons/icons/info.svg"));
     connect(m_reportBugAction, &QAction::triggered, this, &BMainWindow::onReportBugTriggered);
 
     m_keyboardShortcutsAction = new QAction(tr("Keyboard Shortcuts"), this);
-    m_keyboardShortcutsAction->setIcon(QIcon::fromTheme("preferences-desktop-keyboard"));
+    m_keyboardShortcutsAction->setIcon(QIcon(":/icons/icons/help.svg"));
     m_keyboardShortcutsAction->setShortcut(QKeySequence("Ctrl+?"));
     connect(m_keyboardShortcutsAction, &QAction::triggered, this, &BMainWindow::onKeyboardShortcutsTriggered);
 
     // Edit Actions
     m_copyAction = new QAction(tr("Copy"), this);
-    m_copyAction->setIcon(QIcon::fromTheme("edit-copy"));
+    m_copyAction->setIcon(QIcon(":/icons/icons/copy.svg"));
     m_copyAction->setShortcut(QKeySequence::Copy);
     m_copyAction->setEnabled(false);
     connect(m_copyAction, &QAction::triggered, this, &BMainWindow::onCopyTriggered);
 
     m_selectAllAction = new QAction(tr("Select All"), this);
-    m_selectAllAction->setIcon(QIcon::fromTheme("edit-select-all"));
+    m_selectAllAction->setIcon(QIcon(":/icons/icons/copy.svg"));
     m_selectAllAction->setShortcut(QKeySequence::SelectAll);
     m_selectAllAction->setEnabled(false);
     connect(m_selectAllAction, &QAction::triggered, this, &BMainWindow::onSelectAllTriggered);
 
     m_clearSelectionAction = new QAction(tr("Clear Selection"), this);
-    m_clearSelectionAction->setIcon(QIcon::fromTheme("edit-clear"));
+    m_clearSelectionAction->setIcon(QIcon(":/icons/icons/cancel.svg"));
     m_clearSelectionAction->setEnabled(false);
     connect(m_clearSelectionAction, &QAction::triggered, this, &BMainWindow::onClearSelectionTriggered);
 
     m_findAction = new QAction(tr("Find..."), this);
-    m_findAction->setIcon(QIcon::fromTheme("edit-find"));
+    m_findAction->setIcon(QIcon(":/icons/icons/search.svg"));
     m_findAction->setShortcut(QKeySequence::Find);
     m_findAction->setEnabled(false);
     connect(m_findAction, &QAction::triggered, this, &BMainWindow::onFindTriggered);
@@ -518,7 +638,7 @@ void BMainWindow::createActions()
     m_toggleStatisticsAction->setCheckable(true);
     m_toggleStatisticsAction->setChecked(false);  // Hidden by default (until connected)
     m_toggleStatisticsAction->setEnabled(false);  // Only active when connected
-    m_toggleStatisticsAction->setIcon(QIcon::fromTheme("view-statistics"));
+    m_toggleStatisticsAction->setIcon(QIcon(":/icons/icons/info.svg"));
     m_toggleStatisticsAction->setShortcut(QKeySequence("Ctrl+Shift+S"));
     connect(m_toggleStatisticsAction, &QAction::toggled, this, [this](bool checked) {
         if (checked) {
@@ -532,7 +652,7 @@ void BMainWindow::createActions()
     m_toggleJobLogAction->setCheckable(true);
     m_toggleJobLogAction->setChecked(true);  // Visible by default
     m_toggleJobLogAction->setEnabled(false);  // Only active when connected
-    m_toggleJobLogAction->setIcon(QIcon::fromTheme("view-list-details"));
+    m_toggleJobLogAction->setIcon(QIcon(":/icons/icons/jobs.svg"));
     m_toggleJobLogAction->setShortcut(QKeySequence("Ctrl+Shift+L"));
     connect(m_toggleJobLogAction, &QAction::toggled, this, [this](bool checked) {
         if (m_jobWidget) {
@@ -548,82 +668,123 @@ void BMainWindow::createActions()
     // Set initial icon based on current theme
     QString currentTheme = BSettings::instance().appearanceTheme();
     if (currentTheme == "dark") {
-        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.png"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.svg"));
     } else {
-        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.png"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.svg"));
     }
 
     connect(m_toggleThemeAction, &QAction::triggered, this, &BMainWindow::onToggleTheme);
 
     // Jobs Actions
     m_runJobAction = new QAction(tr("Run Job"), this);
-    m_runJobAction->setIcon(QIcon::fromTheme("media-playback-start"));
+    m_runJobAction->setIcon(QIcon(":/icons/icons/run.svg"));
     m_runJobAction->setEnabled(false);
     connect(m_runJobAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerRunJob);
 
     m_cancelJobAction = new QAction(tr("Cancel Job"), this);
-    m_cancelJobAction->setIcon(QIcon::fromTheme("process-stop"));
+    m_cancelJobAction->setIcon(QIcon(":/icons/icons/cancel.svg"));
     m_cancelJobAction->setEnabled(false);
     connect(m_cancelJobAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerCancelJob);
 
     m_jobDetailsAction = new QAction(tr("Show Details"), this);
-    m_jobDetailsAction->setIcon(QIcon::fromTheme("document-properties"));
+    m_jobDetailsAction->setIcon(QIcon(":/icons/icons/info.svg"));
     m_jobDetailsAction->setEnabled(false);
     connect(m_jobDetailsAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerShowDetails);
 
     m_refreshJobsAction = new QAction(tr("Refresh Jobs"), this);
-    m_refreshJobsAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshJobsAction->setIcon(QIcon(":/icons/icons/refresh.svg"));
     m_refreshJobsAction->setShortcut(QKeySequence("Ctrl+Shift+J"));
     m_refreshJobsAction->setEnabled(false);
     connect(m_refreshJobsAction, &QAction::triggered, m_jobWidget, &BJobWidget::triggerRefresh);
 
     m_exportJobsJsonAction = new QAction(tr("Export Jobs as JSON..."), this);
-    m_exportJobsJsonAction->setIcon(QIcon::fromTheme("document-save"));
+    m_exportJobsJsonAction->setIcon(QIcon(":/icons/icons/export.svg"));
     m_exportJobsJsonAction->setEnabled(false);
     connect(m_exportJobsJsonAction, &QAction::triggered, this, &BMainWindow::onExportSettingsTriggered);
 
     m_exportJobsCsvAction = new QAction(tr("Export Jobs as CSV..."), this);
-    m_exportJobsCsvAction->setIcon(QIcon::fromTheme("text-csv"));
+    m_exportJobsCsvAction->setIcon(QIcon(":/icons/icons/export.svg"));
     m_exportJobsCsvAction->setEnabled(false);
     connect(m_exportJobsCsvAction, &QAction::triggered, this, &BMainWindow::onImportSettingsTriggered);
 
+    m_addJobAction = new QAction(tr("Add Job..."), this);
+    m_addJobAction->setIcon(QIcon(":/icons/icons/add.svg"));
+    m_addJobAction->setEnabled(false);
+    connect(m_addJobAction, &QAction::triggered, this, [this]() {
+        QMessageBox::information(this, tr("Add Job"), tr("Not implemented yet."));
+    });
+
+    m_addFileSetAction = new QAction(tr("Add FileSet..."), this);
+    m_addFileSetAction->setIcon(QIcon(":/icons/icons/add.svg"));
+    m_addFileSetAction->setEnabled(false);
+    connect(m_addFileSetAction, &QAction::triggered, this, [this]() {
+        BFileSetWizard wizard(m_director, this);
+        wizard.exec();
+    });
+
+    m_editFileSetAction = new QAction(tr("Edit FileSet..."), this);
+    m_editFileSetAction->setIcon(QIcon(":/icons/icons/edit.svg"));
+    m_editFileSetAction->setEnabled(false);
+    connect(m_editFileSetAction, &QAction::triggered, this, [this]() {
+        // TODO: Get selected fileset name from job widget
+        BFileSetWizard wizard(m_director, QString(), this);
+        wizard.exec();
+    });
+
     // Clients Actions
+    m_addClientAction = new QAction(tr("Add New Client..."), this);
+    m_addClientAction->setIcon(QIcon(":/icons/icons/add.svg"));
+    m_addClientAction->setEnabled(false);
+    connect(m_addClientAction, &QAction::triggered, this, [this]() {
+        BNewClientWizard wizard(m_director, this);
+        wizard.exec();
+    });
+
     m_refreshClientsAction = new QAction(tr("Refresh Clients"), this);
-    m_refreshClientsAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshClientsAction->setIcon(QIcon(":/icons/icons/refresh.svg"));
     m_refreshClientsAction->setShortcut(QKeySequence("Ctrl+Shift+C"));
     m_refreshClientsAction->setEnabled(false);
     connect(m_refreshClientsAction, &QAction::triggered, m_clientWidget, &BClientsWidget::triggerRefresh);
 
     m_clientDetailsAction = new QAction(tr("Show Client Details"), this);
-    m_clientDetailsAction->setIcon(QIcon::fromTheme("document-properties"));
+    m_clientDetailsAction->setIcon(QIcon(":/icons/icons/clients.svg"));
     m_clientDetailsAction->setEnabled(false);
-    // TODO: Connect to client details dialog when implemented
+    connect(m_clientDetailsAction, &QAction::triggered, this, [this]() {
+        m_clientWidget->showSelectedClientDetails();
+    });
+    connect(m_clientWidget, &BClientsWidget::selectionChanged,
+            m_clientDetailsAction, &QAction::setEnabled);
 
     // Storage Actions
     m_refreshStorageAction = new QAction(tr("Refresh Storage"), this);
-    m_refreshStorageAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshStorageAction->setIcon(QIcon(":/icons/icons/refresh.svg"));
     m_refreshStorageAction->setShortcut(QKeySequence("Ctrl+Shift+V"));
     m_refreshStorageAction->setEnabled(false);
     connect(m_refreshStorageAction, &QAction::triggered, m_storageWidget, &StorageWidget::triggerRefresh);
 
     // Schedule Actions
     m_refreshSchedulesAction = new QAction(tr("Refresh Schedules"), this);
-    m_refreshSchedulesAction->setIcon(QIcon::fromTheme("view-refresh"));
+    m_refreshSchedulesAction->setIcon(QIcon(":/icons/icons/refresh.svg"));
     m_refreshSchedulesAction->setShortcut(QKeySequence("Ctrl+Shift+D"));
     m_refreshSchedulesAction->setEnabled(false);
     connect(m_refreshSchedulesAction, &QAction::triggered, m_scheduleWidget, &BScheduleWidget::triggerRefresh);
 
     // Tools Actions
     m_cleanupDatabaseAction = new QAction(tr("Database Cleanup..."), this);
-    m_cleanupDatabaseAction->setIcon(QIcon::fromTheme("edit-clear"));
+    m_cleanupDatabaseAction->setIcon(QIcon(":/icons/icons/delete.svg"));
     m_cleanupDatabaseAction->setToolTip(tr("Clean up old backups and free disk space"));
     m_cleanupDatabaseAction->setEnabled(false);
     connect(m_cleanupDatabaseAction, &QAction::triggered, this, &BMainWindow::onCleanupDatabase);
 
     m_connectionWizardAction = new QAction(tr("Connection Wizard..."), this);
-    m_connectionWizardAction->setIcon(QIcon::fromTheme("network-server"));
+    m_connectionWizardAction->setIcon(QIcon(":/icons/icons/director.svg"));
     m_connectionWizardAction->setToolTip(tr("Set up a new director connection"));
     connect(m_connectionWizardAction, &QAction::triggered, this, &BMainWindow::onConnectionWizard);
+
+    m_importConfigAction = new QAction(tr("Import Config..."), this);
+    m_importConfigAction->setIcon(QIcon(":/icons/icons/import.svg"));
+    m_importConfigAction->setToolTip(tr("Import Director configuration from files or ZIP archive"));
+    connect(m_importConfigAction, &QAction::triggered, this, &BMainWindow::onImportConfig);
 }
 
 void BMainWindow::createMenus()
@@ -661,6 +822,10 @@ void BMainWindow::createMenus()
     m_jobsMenu->addAction(m_cancelJobAction);
     m_jobsMenu->addAction(m_jobDetailsAction);
     m_jobsMenu->addSeparator();
+    m_jobsMenu->addAction(m_addJobAction);
+    m_jobsMenu->addAction(m_addFileSetAction);
+    m_jobsMenu->addAction(m_editFileSetAction);
+    m_jobsMenu->addSeparator();
     m_jobsMenu->addAction(m_refreshJobsAction);
     m_jobsMenu->addSeparator();
     m_jobsMenu->addAction(m_exportJobsJsonAction);
@@ -668,6 +833,7 @@ void BMainWindow::createMenus()
 
     // Clients Menu
     m_clientsMenu = menuBar()->addMenu(tr("Clients"));
+    m_clientsMenu->addAction(m_addClientAction);
     m_clientsMenu->addAction(m_clientDetailsAction);
     m_clientsMenu->addSeparator();
     m_clientsMenu->addAction(m_refreshClientsAction);
@@ -682,6 +848,8 @@ void BMainWindow::createMenus()
 
     // Tools Menu
     m_toolsMenu = menuBar()->addMenu(tr("Tools"));
+    m_toolsMenu->addAction(m_importConfigAction);
+    m_toolsMenu->addSeparator();
     m_toolsMenu->addAction(m_cleanupDatabaseAction);
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
@@ -873,6 +1041,7 @@ void BMainWindow::showConnectionDialog()
         m_director->tlsConfig()->tlsEnable = profile.tlsEnabled;
         m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
         m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
+        m_director->tlsConfig()->tlsCipherList = profile.tlsCipherList;
 
 #ifndef Q_OS_WINDOWS
         if (!profile.tlsCaCertFile.isEmpty()) {
@@ -946,13 +1115,9 @@ void BMainWindow::onAboutTriggered()
     // Horizontaler Container für Logo + Title
     QHBoxLayout* headerLayout = new QHBoxLayout();
 
-    // Logo
+    // Logo - Onesimus icon
     QLabel* logoLabel = new QLabel();
-#if USE_BACULA
-    logoLabel->setPixmap(QPixmap(":/images/logo_bacula.png").scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-#elif defined(USE_BAREOS)
-    logoLabel->setPixmap(QPixmap(":/images/logo_bareos.png").scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-#endif
+    logoLabel->setPixmap(QIcon(":/icons/icons/onesimus.svg").pixmap(80, 80));
     headerLayout->addWidget(logoLabel);
 
     // Title and version
@@ -1201,7 +1366,7 @@ void BMainWindow::onSettingsTriggered()
 void BMainWindow::onAuthentificationSucceeded(const bool connected, const QString msg)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "####################################";
+    BLOG_DEBUG() << "####################################";
 #endif
     // Update Actions
     m_connectAction->setDisabled(connected);
@@ -1214,10 +1379,10 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
 
     // Update toggle connection button icon and tooltip
     if (connected) {
-        m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/disconnect.png"));
+        m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/disconnect.svg"));
         m_toggleConnectionAction->setToolTip(tr("Disconnect from Director"));
     } else {
-        m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/connect.png"));
+        m_toggleConnectionAction->setIcon(QIcon(":/icons/icons/connect.svg"));
         m_toggleConnectionAction->setToolTip(tr("Connect to Director"));
     }
 
@@ -1228,6 +1393,9 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
 
     // Job control actions
     m_runJobAction->setEnabled(connected);  // Run job can be used without selection (enter job name)
+    m_addJobAction->setEnabled(connected);
+    m_addFileSetAction->setEnabled(connected);
+    m_editFileSetAction->setEnabled(connected);
     // Cancel and Details require job selection, so they stay disabled until selection changes
     if (!connected) {
         m_cancelJobAction->setEnabled(false);
@@ -1235,6 +1403,7 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     }
 
     // Update client menu actions
+    m_addClientAction->setEnabled(connected);
     m_refreshClientsAction->setEnabled(connected);
 
     // Update storage menu actions
@@ -1246,8 +1415,9 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     // Update tools menu actions
     m_cleanupDatabaseAction->setEnabled(connected);
 
-    // Update widget connection states
+    // Update widget connection states (BJobWidget handles messages widget internally)
     m_jobWidget->setConnectionState(connected);
+    m_clientWidget->setConnectionState(connected);
     m_storageWidget->setConnectionState(connected);
     m_scheduleWidget->setConnectionState(connected);
 
@@ -1289,9 +1459,11 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
         if (settings.behaviorAutoRefresh()) {
             m_autoRefreshTimer->start(settings.behaviorRefreshInterval() * 1000);
 #ifdef IS_DEVELOPER
-            qDebug() << "MainWindow: Auto-refresh started (interval:" << settings.behaviorRefreshInterval() << "seconds)";
+            BLOG_DEBUG() << "MainWindow: Auto-refresh started (interval:" << settings.behaviorRefreshInterval() << "seconds)";
 #endif
         }
+
+        // Note: Message polling is now handled by BJobWidget::setConnectionState()
 
         // Note: Resource loading and initial refresh is now handled by the state machine.
         // The allResourcesLoaded() signal will trigger onRefreshAll() when ready.
@@ -1321,14 +1493,10 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
         // Stop auto-refresh when disconnected
         m_autoRefreshTimer->stop();
 #ifdef IS_DEVELOPER
-        qDebug() << "MainWindow: Auto-refresh stopped (disconnected)";
+        BLOG_DEBUG() << "MainWindow: Auto-refresh stopped (disconnected)";
 #endif
 
-        // Clear all widget data on disconnect
-        m_jobWidget->clearData();
-        m_clientWidget->clearData();
-        m_storageWidget->clearData();
-        m_scheduleWidget->clearData();
+        // Note: clearData() is now handled by setConnectionState(false) above
     }
 }
 
@@ -1337,14 +1505,22 @@ void BMainWindow::onConnectionError(const QString &error)
     // Restore cursor on error
     QApplication::restoreOverrideCursor();
 
-    QMessageBox::critical(this, tr("Connection Error"), error);
     m_statusLabel->setText(tr("Error: ") + error);
+
+    // Guard against multiple error dialogs (e.g., auth failure followed by socket disconnect)
+    static bool showingErrorDialog = false;
+    if (showingErrorDialog) return;
+    showingErrorDialog = true;
+
+    QMessageBox::critical(this, tr("Connection Error"), error);
+
+    showingErrorDialog = false;
 }
 
 void BMainWindow::onRefreshAll()
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "Refresh clicked";
+    BLOG_DEBUG() << "Refresh clicked";
 #endif
 
     if (!m_director->isConnected()) {
@@ -1353,9 +1529,13 @@ void BMainWindow::onRefreshAll()
 
     m_statusLabel->setText("Aktualisiere Daten...");
 
-    // Thread-safe: Use helper slots to send commands
-    onSendCommand(BDirector::Command::ListJobs, "");
-    onSendCommand(BDirector::Command::ListClients, "");
+    // Use pagination-aware refresh for jobs (respects ListJobTotals → ListJobs flow)
+    m_jobWidget->triggerRefresh();
+
+    // Use widget's own refresh for clients (sends ListClients via signal)
+    m_clientWidget->triggerRefresh();
+    onSendCommand(BDirector::Command::ShowClients, "");
+    onSendCommand(BDirector::Command::ListBackups, "");  // Unfiltered backup stats for clients
 
     // ✅ Request filter data using dot-commands
     // These provide ALL configured jobs/clients/levels/schedules, not just executed ones
@@ -1366,6 +1546,9 @@ void BMainWindow::onRefreshAll()
     onSendCommand(BDirector::Command::DotFilesets, "");
     onSendCommand(BDirector::Command::DotStorages, "");
     onSendCommand(BDirector::Command::DotPools, "");
+
+    // Request Director messages
+    onSendCommand(BDirector::Command::Messages, "");
 
     // m_director->listVolumes();
 
@@ -1393,7 +1576,7 @@ void BMainWindow::onConnectLastUsed()
 void BMainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)
 {
     if (!m_director) {
-        qWarning() << "BMainWindow::onSendCommand: No director instance!";
+        BLOG_WARNING() << "BMainWindow::onSendCommand: No director instance!";
         return;
     }
 
@@ -1408,7 +1591,7 @@ void BMainWindow::onDirectorConnect(const QString &host, int port, const QString
                                    const QString &consoleName, const QString &password)
 {
     if (!m_director) {
-        qWarning() << "BMainWindow::onDirectorConnect: No director instance!";
+        BLOG_WARNING() << "BMainWindow::onDirectorConnect: No director instance!";
         return;
     }
 
@@ -1425,7 +1608,7 @@ void BMainWindow::onDirectorConnect(const QString &host, int port, const QString
 void BMainWindow::onDirectorDisconnect()
 {
     if (!m_director) {
-        qWarning() << "BMainWindow::onDirectorDisconnect: No director instance!";
+        BLOG_WARNING() << "BMainWindow::onDirectorDisconnect: No director instance!";
         return;
     }
 
@@ -1450,9 +1633,11 @@ void BMainWindow::loadAndConnectLastUsed()
     // Get last used profile
     BConnectionProfile profile = settings.lastUsedProfile();
 
-    if (!profile.isValid() || profile.host.isEmpty() || profile.password.isEmpty()) {
+    if (!profile.isValid()) {
 #ifdef IS_DEVELOPER
-        qDebug() << "No valid last-used profile - skipping auto-connect";
+        BLOG_DEBUG() << "No valid last-used profile - skipping auto-connect"
+                 << "(id:" << profile.id << ", host:" << profile.host
+                 << ", hasPasswordHash:" << profile.hasValidPasswordHash() << ")";
 #endif
         m_connectLastAction->setEnabled(!settings.lastUsedProfileId().isEmpty());
         return;
@@ -1463,6 +1648,7 @@ void BMainWindow::loadAndConnectLastUsed()
     m_director->tlsConfig()->tlsRequire = profile.tlsEnabled;
     m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
     m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
+    m_director->tlsConfig()->tlsCipherList = profile.tlsCipherList;
 
 #ifndef Q_OS_WINDOWS
     if (!profile.tlsCaCertFile.isEmpty()) {
@@ -1481,7 +1667,7 @@ void BMainWindow::loadAndConnectLastUsed()
 #endif
 
 #ifdef IS_DEVELOPER
-    qDebug() << "Auto-connecting to last used profile:" << profile.name
+    BLOG_DEBUG() << "Auto-connecting to last used profile:" << profile.name
              << "(" << profile.host << ":" << profile.port << ")";
 #endif
 
@@ -1598,19 +1784,21 @@ void BMainWindow::onFindTriggered()
 void BMainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "MainWindow: Auto-refresh settings changed:"
+    BLOG_DEBUG() << "MainWindow: Auto-refresh settings changed:"
              << "enabled=" << enabled << "interval=" << intervalSeconds << "seconds";
 #endif
 
-    if (enabled && m_director->isConnected()) {
+    bool connected = m_director && m_director->isConnected();
+
+    if (enabled && connected) {
         // Start or restart timer with new interval
         m_autoRefreshTimer->start(intervalSeconds * 1000);
-        m_statusLabel->setText(QString("Auto-Refresh aktiviert (%1s)").arg(intervalSeconds));
+        m_statusLabel->setText(tr("Auto-refresh enabled (%1s)").arg(intervalSeconds));
     } else {
         // Stop timer
         m_autoRefreshTimer->stop();
-        if (!enabled && m_director->isConnected()) {
-            m_statusLabel->setText("Auto-Refresh deaktiviert");
+        if (!enabled && connected) {
+            m_statusLabel->setText(tr("Auto-refresh disabled"));
         }
     }
 }
@@ -1625,11 +1813,11 @@ void BMainWindow::onToggleTheme()
 
     if (currentTheme == "dark") {
         newTheme = "light";
-        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.png"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.svg"));
         m_statusLabel->setText(tr("Switched to Light Theme"));
     } else {
         newTheme = "dark";
-        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.png"));
+        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.svg"));
         m_statusLabel->setText(tr("Switched to Dark Theme"));
     }
 
@@ -1694,8 +1882,13 @@ void BMainWindow::onConnectionWizard()
     // Create wizard data struct to preserve values across page navigation
     BConnectionWizardData *wizardData = new BConnectionWizardData();
 
-    // TODO: Pass BDatabase instance when database integration is complete
-    BConnectionWizard wizard(wizardData, nullptr, this);
+    // Pass database connection to wizard (for loading/saving Directors)
+    QSqlDatabase *db = nullptr;
+    if (m_database && m_database->isReady()) {
+        static QSqlDatabase wizardDb = m_database->database();
+        db = &wizardDb;
+    }
+    BConnectionWizard wizard(wizardData, db, this);
 
     if (wizard.exec() == QDialog::Accepted) {
         // Save the profile
@@ -1753,3 +1946,92 @@ void BMainWindow::onConnectionWizard()
     delete wizardData;
     wizardData = nullptr;
 }
+
+void BMainWindow::onImportConfig()
+{
+    BConfigImportDialog dialog(this);
+
+    connect(&dialog, &BConfigImportDialog::configurationImported,
+            this, [this, &dialog](const BConfigResource &director, const BConfigResource &console,
+                                  const QString &host, int port) {
+                QString directorName = director.name();
+                QString consoleName = console.name();
+
+                // Extract password from Console resource
+                // Bareos stores it with [md5] prefix, e.g., "[md5]abc123..."
+                QString password = console.simpleValue("password");
+                QString passwordHash;
+
+                APP_DEBUG << "Import: Console '" << consoleName << "' password field: "
+                          << (password.isEmpty() ? "(empty)" : password.left(10) + "...");
+                APP_DEBUG << "Import: Console keys: " << console.keys().join(", ");
+
+                if (password.startsWith("[md5]")) {
+                    // Already MD5 hashed, extract the hash part
+                    passwordHash = password.mid(5);  // Remove "[md5]" prefix
+                    APP_DEBUG << "Import: Password has [md5] prefix, hash: " << passwordHash.left(8) << "...";
+                } else if (password.length() == 32 && password.contains(QRegularExpression("^[0-9a-fA-F]+$"))) {
+                    // Already a raw MD5 hash (32 hex chars)
+                    passwordHash = password.toLower();
+                    APP_DEBUG << "Import: Password is raw MD5 hash: " << passwordHash.left(8) << "...";
+                } else if (!password.isEmpty()) {
+                    // Plain text password, hash it
+                    QByteArray md5 = QCryptographicHash::hash(password.toLatin1(), QCryptographicHash::Md5);
+                    passwordHash = QString::fromLatin1(md5.toHex());
+                    APP_DEBUG << "Import: Password hashed to: " << passwordHash.left(8) << "...";
+                }
+
+                // Warn if password is empty
+                if (passwordHash.isEmpty()) {
+                    APP_WARNING << "Import: No password found in Console resource '" << consoleName << "'";
+                    QMessageBox::warning(this, tr("Password Missing"),
+                        tr("The imported Console '%1' does not contain a password.\n\n"
+                           "You will need to enter the password manually in the connection settings.")
+                            .arg(consoleName));
+                }
+
+                if (dialog.createConnectionProfile()) {
+                    // Create connection profile from imported config
+                    BConnectionProfile profile;
+                    profile.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+                    profile.name = directorName;
+                    profile.host = host;
+                    profile.port = port;
+                    profile.directorName = directorName;
+                    profile.consoleName = consoleName;
+                    profile.passwordHash = passwordHash;
+                    profile.tlsEnabled = true;
+                    profile.tlsUsePSK = true;
+
+                    // Save the profile
+                    BSettings::instance().addConnectionProfile(profile);
+
+                    m_statusLabel->setText(tr("Created connection profile '%1' for Director '%2'")
+                                               .arg(profile.name, directorName));
+
+                    // Ask if user wants to connect now
+                    QMessageBox::StandardButton reply = QMessageBox::question(
+                        this, tr("Connect Now?"),
+                        tr("Connection profile '%1' has been created.\n\nDo you want to connect now?")
+                            .arg(profile.name),
+                        QMessageBox::Yes | QMessageBox::No,
+                        QMessageBox::Yes);
+
+                    if (reply == QMessageBox::Yes) {
+                        // Configure TLS and connect
+                        m_director->tlsConfig()->tlsEnable = profile.tlsEnabled;
+                        m_director->tlsConfig()->tlsRequire = profile.tlsEnabled;
+                        m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
+                        onDirectorConnect(profile.host, profile.port,
+                                          profile.directorName, profile.consoleName,
+                                          profile.passwordHash);
+                    }
+                } else {
+                    m_statusLabel->setText(tr("Imported Director '%1' with Console '%2'")
+                                               .arg(directorName, consoleName));
+                }
+            });
+
+    dialog.exec();
+}
+

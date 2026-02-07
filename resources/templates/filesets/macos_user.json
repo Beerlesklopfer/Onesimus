@@ -1,0 +1,48 @@
+{
+  "name": "macOS User Data",
+  "description": "Backup of macOS user home directories",
+  "platform": "macos",
+  "category": "user_data",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "macOSUserData",
+    "Description": "macOS user home directories",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/Library/Caches",
+            "*/.Trash",
+            "*/Downloads",
+            "*/Library/Application Support/Google/Chrome/*/Cache",
+            "*/Library/Application Support/Firefox/Profiles/*/cache2",
+            "*/.npm",
+            "*/node_modules"
+          ],
+          "WildFile": [
+            ".DS_Store",
+            "*.tmp"
+          ]
+        }
+      },
+      "File": [
+        "/Users"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "10 GB - 500 GB per user",
+  "notes": [
+    "Downloads folder excluded by default",
+    "Consider Time Machine for system-level backup",
+    "iCloud data may need special handling",
+    "Extended attributes important for macOS"
+  ]
+}

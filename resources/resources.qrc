@@ -4,6 +4,7 @@
         <file>themes/light.qss</file>
     </qresource>
     <qresource prefix="/icons">
+        <!-- PNG icons (legacy - kept for fallback) -->
         <file>icons/sun.png</file>
         <file>icons/moon.png</file>
         <file>icons/connect.png</file>
@@ -11,19 +12,78 @@
         <file>icons/reconnect.png</file>
         <file>icons/exit.png</file>
         <file>icons/refresh.png</file>
+
+        <!-- SVG icons - App -->
+        <file>icons/onesimus.svg</file>
+        <file>icons/sun.svg</file>
+        <file>icons/moon.svg</file>
+        <file>icons/connect.svg</file>
+        <file>icons/disconnect.svg</file>
+        <file>icons/reconnect.svg</file>
+        <file>icons/exit.svg</file>
+        <file>icons/refresh.svg</file>
+
+        <!-- SVG icons - Features -->
+        <file>icons/jobs.svg</file>
+        <file>icons/clients.svg</file>
+        <file>icons/storage.svg</file>
+        <file>icons/schedules.svg</file>
+        <file>icons/pools.svg</file>
+        <file>icons/filesets.svg</file>
+        <file>icons/volumes.svg</file>
+        <file>icons/messages.svg</file>
+        <file>icons/director.svg</file>
+        <file>icons/console.svg</file>
+
+        <!-- SVG icons - Actions -->
+        <file>icons/add.svg</file>
+        <file>icons/edit.svg</file>
+        <file>icons/delete.svg</file>
+        <file>icons/run.svg</file>
+        <file>icons/stop.svg</file>
+        <file>icons/cancel.svg</file>
+        <file>icons/restore.svg</file>
+        <file>icons/backup.svg</file>
+        <file>icons/settings.svg</file>
+        <file>icons/save.svg</file>
+        <file>icons/search.svg</file>
+        <file>icons/filter.svg</file>
+        <file>icons/copy.svg</file>
+        <file>icons/import.svg</file>
+        <file>icons/export.svg</file>
+
+        <!-- SVG icons - Status -->
+        <file>icons/status_running.svg</file>
+        <file>icons/status_success.svg</file>
+        <file>icons/status_error.svg</file>
+        <file>icons/status_warning.svg</file>
+        <file>icons/status_waiting.svg</file>
+        <file>icons/status_canceled.svg</file>
+        <file>icons/online.svg</file>
+        <file>icons/offline.svg</file>
+
+        <!-- SVG icons - Misc -->
+        <file>icons/info.svg</file>
+        <file>icons/help.svg</file>
+        <file>icons/lock.svg</file>
     </qresource>
     <qresource prefix="/sql">
-        <file>sql/schema/v1_initial.sql</file>
-        <file>sql/migrations/v2_add_console_support.sql</file>
+        <file alias="schema/v1_initial.sql">sql/schema/v1_initial.sql</file>
+        <file alias="migrations/v2_add_console_support.sql">sql/migrations/v2_add_console_support.sql</file>
+        <file alias="migrations/v3_unified_settings_history.sql">sql/migrations/v3_unified_settings_history.sql</file>
+        <file alias="migrations/v4_add_system_to_settings.sql">sql/migrations/v4_add_system_to_settings.sql</file>
+        <file alias="migrations/v5_add_fileset_templates.sql">sql/migrations/v5_add_fileset_templates.sql</file>
     </qresource>
     <qresource prefix="/directives">
         <file>directives/director.json</file>
         <file>directives/client.json</file>
         <file>directives/console.json</file>
         <file>directives/fileset.json</file>
+        <file>directives/job.json</file>
         <file>directives/schedule.json</file>
         <file>directives/storage.json</file>
         <file>directives/pool.json</file>
+        <file>directives/messages.json</file>
         <file>directives/directive_schema.json</file>
         <file>directives/directive_groups.json</file>
     </qresource>
@@ -32,11 +92,28 @@
         <file>templates/filesets/windows_file_server.json</file>
         <file>templates/filesets/windows_web_server_iis.json</file>
         <file>templates/filesets/windows_sql_server.json</file>
+        <file>templates/filesets/windows_user_data.json</file>
         <file>templates/filesets/linux_postgresql.json</file>
         <file>templates/filesets/linux_mysql.json</file>
         <file>templates/filesets/linux_mongodb.json</file>
+        <file>templates/filesets/linux_home.json</file>
+        <file>templates/filesets/linux_etc.json</file>
+        <file>templates/filesets/linux_docker.json</file>
+        <file>templates/filesets/linux_nextcloud.json</file>
+        <file>templates/filesets/linux_webserver.json</file>
+        <file>templates/filesets/linux_mail.json</file>
+        <file>templates/filesets/linux_proxmox.json</file>
+        <file>templates/filesets/linux_kubernetes.json</file>
+        <file>templates/filesets/linux_samba.json</file>
+        <file>templates/filesets/linux_gitlab.json</file>
+        <file>templates/filesets/linux_django.json</file>
+        <file>templates/filesets/linux_full_system.json</file>
+        <file>templates/filesets/macos_user.json</file>
+        <file>templates/filesets/empty_custom.json</file>
     </qresource>
     <qresource prefix="/translations/directives">
         <file>translations/directives/director_de.json</file>
+        <file>translations/directives/client_de.json</file>
+        <file>translations/directives/messages_de.json</file>
     </qresource>
 </RCC>

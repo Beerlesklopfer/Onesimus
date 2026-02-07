@@ -152,7 +152,7 @@ QList<BConfigExporter::FileEntry> BConfigExporter::generateFiles(const BConnecti
     // Console configuration - always included
     {
         FileEntry entry;
-        entry.path = QString("/etc/bareos/bareos-dir.d/console/%1.conf").arg(profile.consoleName);
+        entry.path = QString("etc/bareos/bareos-dir.d/console/%1.conf").arg(profile.consoleName);
         entry.content = profile.toConsoleConfig().toUtf8();
         files.append(entry);
     }
@@ -162,7 +162,7 @@ QList<BConfigExporter::FileEntry> BConfigExporter::generateFiles(const BConnecti
         FileEntry entry;
         QString profileName = profile.profile.isEmpty() ?
                               profile.consoleName + "-profile" : profile.profile;
-        entry.path = QString("/etc/bareos/bareos-dir.d/profile/%1.conf").arg(profileName);
+        entry.path = QString("etc/bareos/bareos-dir.d/profile/%1.conf").arg(profileName);
         entry.content = profile.toProfileConfig().toUtf8();
         files.append(entry);
     }
@@ -170,7 +170,7 @@ QList<BConfigExporter::FileEntry> BConfigExporter::generateFiles(const BConnecti
     // Director configuration template - for new installations
     if (mode == ExportFull) {
         FileEntry entry;
-        entry.path = QString("/etc/bareos/bareos-dir.d/director/bareos-dir.conf.template");
+        entry.path = QString("etc/bareos/bareos-dir.d/director/bareos-dir.conf.template");
         entry.content = profile.toDirectorConfig().toUtf8();
         files.append(entry);
     }
@@ -178,7 +178,7 @@ QList<BConfigExporter::FileEntry> BConfigExporter::generateFiles(const BConnecti
     // bconsole.conf - client-side configuration
     {
         FileEntry entry;
-        entry.path = QString("/etc/bareos/bconsole.conf");
+        entry.path = QString("etc/bareos/bconsole.conf");
         entry.content = profile.toBconsoleConfig().toUtf8();
         files.append(entry);
     }

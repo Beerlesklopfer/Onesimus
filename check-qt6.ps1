@@ -18,37 +18,46 @@ Write-Host ""
 Write-Host "Suche Qt6-Installation..." -ForegroundColor Cyan
 Write-Host ""
 
-$qtPaths = @(
-    "C:\Qt\6.10.0\msvc2022_64",
-    "C:\Qt\6.9.0\msvc2022_64",
-    "C:\Qt\6.8.0\msvc2022_64",
-    "C:\Qt\6.7.0\msvc2022_64",
-    "C:\Qt\6.6.0\msvc2022_64",
-    "C:\Qt\6.5.0\msvc2022_64",
-    "C:\Qt6\6.10.0\msvc2022_64",
-    "C:\Qt6\6.9.0\msvc2022_64",
-    "C:\Qt6\6.8.0\msvc2022_64"
-)
-
+# Dynamisch nach Qt-Installationen suchen
+$qtRootDirs = @("C:\Qt", "C:\Qt6")
 $foundInstallations = @()
 
-foreach ($path in $qtPaths) {
-    if (Test-Path $path) {
-        $qmakeExe = Join-Path $path "bin\qmake.exe"
-        if (Test-Path $qmakeExe) {
-            $version = & $qmakeExe -query QT_VERSION
-            Write-Host "OK Gefunden: $path" -ForegroundColor Green
-            Write-Host "   Version: $version" -ForegroundColor Cyan
-            
-            # Pruefe Qt6Config.cmake
-            $qt6ConfigCmake = Join-Path $path "lib\cmake\Qt6\Qt6Config.cmake"
-            if (Test-Path $qt6ConfigCmake) {
-                Write-Host "   Qt6Config.cmake: OK Vorhanden" -ForegroundColor Green
-                $foundInstallations += $path
-            } else {
-                Write-Host "   Qt6Config.cmake: FEHLER Fehlt!" -ForegroundColor Red
+foreach ($qtRoot in $qtRootDirs) {
+    if (Test-Path $qtRoot) {
+        # Suche nach Versionsverzeichnissen (z.B. 6.10.1, 6.9.0, etc.)
+        $versionDirs = Get-ChildItem -Path $qtRoot -Directory -ErrorAction SilentlyContinue |
+                       Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' }
+
+        foreach ($versionDir in $versionDirs) {
+            # Suche nach Compiler-Verzeichnissen (msvc2022_64, etc.)
+            $compilerDirs = Get-ChildItem -Path $versionDir.FullName -Directory -ErrorAction SilentlyContinue |
+                           Where-Object { $_.Name -like "msvc*64" }
+
+            foreach ($compilerDir in $compilerDirs) {
+                $path = $compilerDir.FullName
+                $qmakeExe = Join-Path $path "bin\qmake.exe"
+
+                if (Test-Path $qmakeExe) {
+                    $version = & $qmakeExe -query QT_VERSION
+                    Write-Host "OK Gefunden: $path" -ForegroundColor Green
+                    Write-Host "   Version: $version" -ForegroundColor Cyan
+                    Write-Host "   Compiler: $($compilerDir.Name)" -ForegroundColor Cyan
+
+                    # Pruefe Qt6Config.cmake
+                    $qt6ConfigCmake = Join-Path $path "lib\cmake\Qt6\Qt6Config.cmake"
+                    if (Test-Path $qt6ConfigCmake) {
+                        Write-Host "   Qt6Config.cmake: OK Vorhanden" -ForegroundColor Green
+                        $foundInstallations += @{
+                            Path = $path
+                            Version = $version
+                            Compiler = $compilerDir.Name
+                        }
+                    } else {
+                        Write-Host "   Qt6Config.cmake: FEHLER Fehlt!" -ForegroundColor Red
+                    }
+                    Write-Host ""
+                }
             }
-            Write-Host ""
         }
     }
 }
@@ -73,13 +82,15 @@ if ($foundInstallations.Count -eq 0) {
 # 2. Detaillierte Modul-Pruefung
 # ============================================================================
 
-$selectedQt = $foundInstallations[0]
+# Waehle die neueste Qt-Version (sortiert nach Version)
+$selectedQt = ($foundInstallations | Sort-Object { [version]$_.Version } -Descending | Select-Object -First 1).Path
 
 Write-Host "========================================" -ForegroundColor Magenta
 Write-Host "Detaillierte Modul-Pruefung" -ForegroundColor Magenta
 Write-Host "========================================" -ForegroundColor Magenta
 Write-Host ""
 Write-Host "Ausgewaehlte Installation: $selectedQt" -ForegroundColor Cyan
+Write-Host "Version: $(($foundInstallations | Where-Object { $_.Path -eq $selectedQt }).Version)" -ForegroundColor Cyan
 Write-Host ""
 
 # Erforderliche Module

@@ -1,0 +1,53 @@
+{
+  "name": "Linux Full System",
+  "description": "Complete Linux system backup excluding virtual filesystems",
+  "platform": "linux",
+  "category": "system",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "LinuxFullSystem",
+    "Description": "Complete Linux system backup",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "Files": [
+            "/proc",
+            "/sys",
+            "/dev",
+            "/run",
+            "/tmp",
+            "/var/tmp",
+            "/var/cache",
+            "/var/run",
+            "/lost+found",
+            "/mnt",
+            "/media",
+            "/swapfile"
+          ],
+          "WildDir": [
+            "*/.cache",
+            "*/tmp"
+          ]
+        }
+      },
+      "File": [
+        "/"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "20 GB - 500 GB",
+  "notes": [
+    "OneFS=true prevents crossing mount points",
+    "Virtual filesystems automatically excluded",
+    "Consider separate FileSets for large data volumes",
+    "Test bare-metal restore procedure"
+  ]
+}

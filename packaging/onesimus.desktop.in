@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Onesimus
+GenericName=Backup Management
+Comment=Bareos/Bacula Backup Management Tool
+Exec=onesimus
+Icon=onesimus
+Terminal=false
+Categories=System;Utility;
+Keywords=bareos;bacula;backup;restore;

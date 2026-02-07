@@ -8,31 +8,31 @@
 #define PROJECT_NAME           "onesimus"
 
 // Build information
-#define BUILD_NUMBER           54
-#define BUILD_DATE             "2026-02-01"
-#define BUILD_TIME             "13:47:27"
-#define BUILD_TIMESTAMP        "2026-02-01 13:47:27"
-#define GIT_COMMIT_HASH        "c5bb8d0"
+#define BUILD_NUMBER           63
+#define BUILD_DATE             "2026-02-07"
+#define BUILD_TIME             "22:19:26"
+#define BUILD_TIMESTAMP        "2026-02-07 22:19:26"
+#define GIT_COMMIT_HASH        "e0e53fa"
 #define GIT_BRANCH             "development"
-#define GIT_DESCRIBE           "c5bb8d0-dirty"
+#define GIT_DESCRIBE           "e0e53fa-dirty"
 
 // Full version string with build number
-#define VERSION_FULL           "0.1.0.4.54"
+#define VERSION_FULL           "0.1.0.4.63"
 
 // Release date
 #define BDATE                  "2026.02"
 #define BDEMO                  ""
 
 // System information
-#define HOST_OS                "Windows"
-#define HOST_ARCH              "AMD64"
-#define DISTNAME               ""
-#define DISTVER                ""
+#define HOST_OS                "Linux"
+#define HOST_ARCH              "x86_64"
+#define DISTNAME               "Debian GNU/Linux"
+#define DISTVER                "13"
 
 // Build configuration
-#define BUILD_TYPE             "Release"
-#define COMPILER_ID            "MSVC"
-#define COMPILER_VERSION       "19.44.35222.0"
+#define BUILD_TYPE             "Debug"
+#define COMPILER_ID            "GNU"
+#define COMPILER_VERSION       "14.2.0"
 
 // Copyright
 #define PROG_COPYRIGHT         "Copyright (C) 2025-2026 Joerg Bernau.\n"

@@ -1,0 +1,136 @@
+{
+  "resource_type": "Messages",
+  "description": "Messages resource defines how and where to send messages (logs, errors, warnings)",
+  "directives": {
+    "Name": {
+      "type": "string",
+      "required": true,
+      "bareos": true,
+      "bacula": true,
+      "description": "The name of the Messages resource",
+      "example": "Standard",
+      "excludes": [],
+      "must": []
+    },
+    "Director": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Send messages to a Director (format: dirname = msgtype1, msgtype2, ...)",
+      "example": "bareos-dir = all, !skipped, !restored",
+      "excludes": [],
+      "must": []
+    },
+    "Mail": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Send messages via email (format: address = msgtype1, msgtype2, ...)",
+      "example": "root@localhost = all, !skipped",
+      "excludes": [],
+      "must": []
+    },
+    "Mail On Error": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Send email only on error (format: address = msgtype1, ...)",
+      "example": "admin@example.com = error, fatal",
+      "excludes": [],
+      "must": []
+    },
+    "Mail On Success": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Send email only on success (format: address = msgtype1, ...)",
+      "example": "admin@example.com = all, !error",
+      "excludes": [],
+      "must": []
+    },
+    "Mail Command": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Command to use for sending email",
+      "example": "/usr/sbin/bsmtp -h localhost -f bareos@localhost -s \"Bareos: %t %e of %c %l\" %r",
+      "excludes": [],
+      "must": []
+    },
+    "Operator Command": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Command to use for sending operator messages",
+      "example": "/usr/sbin/bsmtp -h localhost -f bareos@localhost -s \"Bareos: Intervention needed\" %r",
+      "excludes": [],
+      "must": []
+    },
+    "Operator": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Send operator messages (format: address = msgtype1, ...)",
+      "example": "root@localhost = mount",
+      "excludes": [],
+      "must": []
+    },
+    "Console": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Send messages to the console (format: msgtype1, msgtype2, ...)",
+      "example": "all, !skipped, !saved",
+      "excludes": [],
+      "must": []
+    },
+    "Append": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Append messages to a file (format: filepath = msgtype1, ...)",
+      "example": "/var/log/bareos/bareos.log = all, !skipped",
+      "excludes": [],
+      "must": []
+    },
+    "File": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Write messages to a file (overwriting, format: filepath = msgtype1, ...)",
+      "example": "/var/log/bareos/messages = all",
+      "excludes": [],
+      "must": []
+    },
+    "Syslog": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Send messages to syslog (format: msgtype1, msgtype2, ...)",
+      "example": "all, !skipped",
+      "excludes": [],
+      "must": []
+    },
+    "Catalog": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "description": "Store messages in the catalog database (format: msgtype1, ...)",
+      "example": "all, !skipped, !saved",
+      "excludes": [],
+      "must": []
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "resource_type": "Messages",
+  "resource_type_description": "Die Messages-Ressource definiert, wie und wohin Nachrichten (Logs, Fehler, Warnungen) gesendet werden",
+  "directives": {
+    "Name": {
+      "description": "Der eindeutige Name der Messages-Ressource",
+      "example_description": "Standard-Nachrichtenbehandlung"
+    },
+    "Director": {
+      "description": "Nachrichten an einen Director senden (Format: Dirname = Typ1, Typ2, ...)",
+      "example_description": "Alle Nachrichten außer übersprungene und wiederhergestellte senden"
+    },
+    "Mail": {
+      "description": "Nachrichten per E-Mail senden (Format: Adresse = Typ1, Typ2, ...)",
+      "example_description": "Alle Nachrichten an Root senden"
+    },
+    "Mail On Error": {
+      "description": "E-Mail nur bei Fehlern senden (Format: Adresse = Typ1, ...)",
+      "example_description": "Fehler und fatale Meldungen an Administrator"
+    },
+    "Mail On Success": {
+      "description": "E-Mail nur bei Erfolg senden (Format: Adresse = Typ1, ...)",
+      "example_description": "Alle Nachrichten außer Fehlern an Administrator"
+    },
+    "Mail Command": {
+      "description": "Befehl zum Versenden von E-Mails",
+      "example_description": "Standard-Bareos-SMTP-Befehl"
+    },
+    "Operator Command": {
+      "description": "Befehl zum Versenden von Operator-Nachrichten",
+      "example_description": "SMTP-Befehl für Operator-Benachrichtigungen"
+    },
+    "Operator": {
+      "description": "Operator-Nachrichten senden (Format: Adresse = Typ1, ...)",
+      "example_description": "Mount-Anfragen an Root senden"
+    },
+    "Console": {
+      "description": "Nachrichten an die Konsole senden (Format: Typ1, Typ2, ...)",
+      "example_description": "Alle außer übersprungene und gespeicherte"
+    },
+    "Append": {
+      "description": "Nachrichten an eine Datei anhängen (Format: Dateipfad = Typ1, ...)",
+      "example_description": "Alle Nachrichten an Bareos-Logdatei anhängen"
+    },
+    "File": {
+      "description": "Nachrichten in eine Datei schreiben (überschreibend, Format: Dateipfad = Typ1, ...)",
+      "example_description": "Alle Nachrichten in Datei schreiben"
+    },
+    "Syslog": {
+      "description": "Nachrichten an Syslog senden (Format: Typ1, Typ2, ...)",
+      "example_description": "Alle außer übersprungene"
+    },
+    "Catalog": {
+      "description": "Nachrichten in der Katalog-Datenbank speichern (Format: Typ1, ...)",
+      "example_description": "Alle außer übersprungene und gespeicherte"
+    }
+  },
+  "groups": {}
+}

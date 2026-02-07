@@ -1,7 +1,9 @@
 #include "jobs/bjsonjobview.h"
+#include "blogging.h"
 #include "jobs/bjobdetailsdialog.h"
 #include "jobs/bjobfileswidget.h"
 #include "jobs/bjoblogdialog.h"
+#include "jobs/brestorewizard.h"
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QDialogButtonBox>
@@ -17,9 +19,9 @@
 #include <QLabel>
 #include <QPushButton>
 
-BJsonJobView::BJsonJobView(QWidget *parent)
+BJsonJobView::BJsonJobView(BDirector *director, QWidget *parent)
     : QTableView(parent)
-    , m_model(new BJobsModel(this))
+    , m_model(new BJobsModel(director, this))
     , m_filterModel(new BJobsFilterModel(this))
     , m_checkBoxDelegate(new BCheckBoxDelegate(this))
     , m_headerView(new BCheckableHeaderView(Qt::Horizontal, this))
@@ -27,7 +29,7 @@ BJsonJobView::BJsonJobView(QWidget *parent)
     , m_liveUpdateTimer(new QTimer(this))
     , m_columnConfig(new BColumnConfiguration(this))
     , m_autoSaveTimer(new QTimer(this))
-    , m_director(nullptr)
+    , m_director(director)
 {
     // Setup filter model
     m_filterModel->setSourceModel(m_model);
@@ -194,10 +196,10 @@ void BJsonJobView::createContextMenu()
 void BJsonJobView::setJobsData(const QJsonArray &jobs)
 {
     m_model->setJobs(jobs);
-    
+
     // Auto-resize columns to content
     resizeColumnsToContents();
-    
+
     // But keep selection column fixed
     setColumnWidth(BJobsModel::COL_SELECTED, 40);
 }
@@ -353,13 +355,13 @@ void BJsonJobView::showStatistics()
 
 void BJsonJobView::mousePressEvent(QMouseEvent *event)
 {
-    qDebug() << "  Mouse position:" << event->pos();
-    qDebug() << "  Button:" << event->button();
+    BLOG_DEBUG() << "  Mouse position:" << event->pos();
+    BLOG_DEBUG() << "  Button:" << event->button();
 
     QModelIndex proxyIndex = indexAt(event->pos());
-    qDebug() << "  Index at position - valid:" << proxyIndex.isValid();
+    BLOG_DEBUG() << "  Index at position - valid:" << proxyIndex.isValid();
     if (proxyIndex.isValid()) {
-        qDebug() << "  Index row:" << proxyIndex.row() << "column:" << proxyIndex.column();
+        BLOG_DEBUG() << "  Index row:" << proxyIndex.row() << "column:" << proxyIndex.column();
     }
 
     // Call base implementation
@@ -400,7 +402,7 @@ void BJsonJobView::contextMenuEvent(QContextMenuEvent *event)
         QString status = job["jobstatus"].toString();
         
         // Enable retry for failed jobs
-        m_actionRetry->setEnabled(status == "f" || status == "E");
+        m_actionRetry->setEnabled(status == "F" || status == "f" || status == "E" || status == "e");
         
         // Enable cancel for running jobs
         m_actionCancel->setEnabled(status == "R");
@@ -460,40 +462,57 @@ void BJsonJobView::showJobDetails()
 
 void BJsonJobView::deleteJob()
 {
-    QModelIndexList selection = selectionModel()->selectedRows();
-    if (selection.isEmpty()) {
+    // Collect jobs to delete: if checkboxes are checked among visible rows, use those;
+    // otherwise use the right-clicked row
+    QList<QJsonObject> jobsToDelete;
+
+    QSet<QString> checkedIds = m_model->selectedJobIds();
+    if (!checkedIds.isEmpty()) {
+        // Batch mode: only include checked jobs that are currently visible (pass filter)
+        for (int row = 0; row < m_filterModel->rowCount(); ++row) {
+            QModelIndex sourceIndex = m_filterModel->mapToSource(m_filterModel->index(row, 0));
+            QJsonObject job = m_model->jobAt(sourceIndex.row());
+            if (checkedIds.contains(job["jobid"].toString())) {
+                jobsToDelete.append(job);
+            }
+        }
+    }
+
+    if (jobsToDelete.isEmpty()) {
+        // No visible checked jobs — fall back to right-clicked row
+        QModelIndexList selection = selectionModel()->selectedRows();
+        if (selection.isEmpty()) {
+            return;
+        }
+        QModelIndex proxyIndex = selection.first();
+        QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
+        jobsToDelete.append(m_model->jobAt(sourceIndex.row()));
+    }
+
+    if (jobsToDelete.isEmpty()) {
         return;
     }
 
-    QModelIndex proxyIndex = selection.first();
-    QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
-    QJsonObject job = m_model->jobAt(sourceIndex.row());
+    bool batchMode = (jobsToDelete.size() > 1);
 
-    QString jobId = job["jobid"].toString();
-    QString jobName = job["name"].toString();
-    QString clientName = job["client"].toString();
-    QString level = job["level"].toString();
-    QString startTime = job["starttime"].toString();
-
-    // Check for dependent jobs (incrementals/differentials that depend on this job)
+    // Check for dependent jobs across all jobs to delete
     int dependentCount = 0;
-    QStringList dependentJobIds;
+    for (const QJsonObject &job : jobsToDelete) {
+        QString level = job["level"].toString();
+        if (level == "F") {
+            qint64 thisJobId = job["jobid"].toString().toLongLong();
+            QString jobName = job["name"].toString();
+            QString clientName = job["client"].toString();
 
-    if (level == "F") {  // Full backup - check for dependent incrementals/differentials
-        qint64 thisJobId = jobId.toLongLong();
-
-        for (int i = 0; i < m_model->rowCount(); ++i) {
-            QJsonObject otherJob = m_model->jobAt(i);
-            if (otherJob["name"].toString() == jobName &&
-                otherJob["client"].toString() == clientName) {
-
-                QString otherLevel = otherJob["level"].toString();
-                qint64 otherJobId = otherJob["jobid"].toString().toLongLong();
-
-                // Incremental or Differential jobs with higher ID are likely dependent
-                if ((otherLevel == "I" || otherLevel == "D") && otherJobId > thisJobId) {
-                    dependentCount++;
-                    dependentJobIds << otherJob["jobid"].toString();
+            for (int i = 0; i < m_model->rowCount(); ++i) {
+                QJsonObject otherJob = m_model->jobAt(i);
+                if (otherJob["name"].toString() == jobName &&
+                    otherJob["client"].toString() == clientName) {
+                    QString otherLevel = otherJob["level"].toString();
+                    qint64 otherJobId = otherJob["jobid"].toString().toLongLong();
+                    if ((otherLevel == "I" || otherLevel == "D") && otherJobId > thisJobId) {
+                        dependentCount++;
+                    }
                 }
             }
         }
@@ -501,20 +520,43 @@ void BJsonJobView::deleteJob()
 
     // Create dialog with delete options
     QDialog dialog(this);
-    dialog.setWindowTitle(tr("Delete Job"));
+    dialog.setWindowTitle(batchMode ? tr("Delete %1 Jobs").arg(jobsToDelete.size()) : tr("Delete Job"));
     dialog.setMinimumWidth(450);
 
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
     // Info label
-    QString levelText = (level == "F") ? tr("Full") :
-                        (level == "I") ? tr("Incremental") :
-                        (level == "D") ? tr("Differential") : level;
-
-    QLabel *infoLabel = new QLabel(
-        tr("<b>Job:</b> %1 (ID: %2)<br><b>Client:</b> %3<br><b>Level:</b> %4<br><b>Start:</b> %5")
-            .arg(jobName).arg(jobId).arg(clientName).arg(levelText).arg(startTime));
-    layout->addWidget(infoLabel);
+    if (batchMode) {
+        // Batch: list job IDs
+        QStringList jobSummaries;
+        for (const QJsonObject &job : jobsToDelete) {
+            jobSummaries << tr("ID %1: %2 (%3)")
+                .arg(job["jobid"].toString())
+                .arg(job["name"].toString())
+                .arg(job["level"].toString());
+        }
+        QLabel *infoLabel = new QLabel(
+            tr("<b>%1 jobs selected for deletion:</b><br>%2")
+                .arg(jobsToDelete.size())
+                .arg(jobSummaries.join("<br>")));
+        infoLabel->setWordWrap(true);
+        layout->addWidget(infoLabel);
+    } else {
+        // Single job: show details
+        const QJsonObject &job = jobsToDelete.first();
+        QString level = job["level"].toString();
+        QString levelText = (level == "F") ? tr("Full") :
+                            (level == "I") ? tr("Incremental") :
+                            (level == "D") ? tr("Differential") : level;
+        QLabel *infoLabel = new QLabel(
+            tr("<b>Job:</b> %1 (ID: %2)<br><b>Client:</b> %3<br><b>Level:</b> %4<br><b>Start:</b> %5")
+                .arg(job["name"].toString())
+                .arg(job["jobid"].toString())
+                .arg(job["client"].toString())
+                .arg(levelText)
+                .arg(job["starttime"].toString()));
+        layout->addWidget(infoLabel);
+    }
 
     // Show warning if there are dependent jobs
     if (dependentCount > 0) {
@@ -522,8 +564,8 @@ void BJsonJobView::deleteJob()
 
         QLabel *dependentWarning = new QLabel(
             tr("<div style='background-color: #fff3cd; padding: 10px; border: 1px solid #ffc107; border-radius: 4px;'>"
-               "<b>⚠ Attention:</b> This Full backup has <b>%1</b> dependent Incremental/Differential job(s)!<br><br>"
-               "Deleting this job may make the dependent backups unusable for restore.</div>")
+               "<b>⚠ Attention:</b> %1 dependent Incremental/Differential job(s) found!<br><br>"
+               "Deleting Full backups may make dependent backups unusable for restore.</div>")
                 .arg(dependentCount));
         dependentWarning->setWordWrap(true);
         layout->addWidget(dependentWarning);
@@ -544,8 +586,13 @@ void BJsonJobView::deleteJob()
     purgeRadio->setToolTip(tr("Removes the job entry AND marks the associated volume data as purgeable.\n"
                               "This frees up space on the storage media."));
 
+    QRadioButton *pruneRadio = new QRadioButton(tr("Prune (remove expired jobs by retention policy)"), modeGroup);
+    pruneRadio->setToolTip(tr("Removes job records that have exceeded their configured retention period.\n"
+                              "Only expired jobs for the affected client(s) will be removed."));
+
     modeLayout->addWidget(deleteRadio);
     modeLayout->addWidget(purgeRadio);
+    modeLayout->addWidget(pruneRadio);
     layout->addWidget(modeGroup);
 
     // Warning label
@@ -558,7 +605,8 @@ void BJsonJobView::deleteJob()
     // Buttons
     QDialogButtonBox *buttonBox = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Delete"));
+    buttonBox->button(QDialogButtonBox::Ok)->setText(
+        batchMode ? tr("Delete %1 Jobs").arg(jobsToDelete.size()) : tr("Delete"));
     buttonBox->button(QDialogButtonBox::Ok)->setIcon(QIcon::fromTheme("edit-delete"));
     connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -570,10 +618,19 @@ void BJsonJobView::deleteJob()
 
     // Extra confirmation for jobs with dependents
     if (dependentCount > 0) {
+        QStringList jobLines;
+        for (const QJsonObject &job : jobsToDelete) {
+            jobLines << tr("  ID %1: %2 (%3)")
+                .arg(job["jobid"].toString())
+                .arg(job["name"].toString())
+                .arg(job["level"].toString());
+        }
         int confirm = QMessageBox::warning(this, tr("Confirm Delete"),
-            tr("Are you sure you want to delete this Full backup?\n\n"
-               "This will affect %1 dependent Incremental/Differential backup(s).\n"
-               "These dependent backups may become unusable for restore.").arg(dependentCount),
+            tr("Are you sure you want to delete %1 job(s)?\n\n%2\n\n"
+               "%3 dependent Incremental/Differential backup(s) may become unusable for restore.")
+                .arg(jobsToDelete.size())
+                .arg(jobLines.join("\n"))
+                .arg(dependentCount),
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::No);
 
@@ -582,18 +639,35 @@ void BJsonJobView::deleteJob()
         }
     }
 
-    // Send appropriate command based on selection
-    if (purgeRadio->isChecked()) {
-        // Purge command removes job and marks volume data as purgeable
-        emit jobActionRequested("delete", jobId);
-        // Also purge the job's files from the catalog
-        emit jobActionRequested("purge", QString("jobs jobid=%1 yes").arg(jobId));
+    // Send commands based on selected mode
+    if (pruneRadio->isChecked()) {
+        // Prune: remove expired jobs per client retention policy
+        QSet<QString> prunedClients;
+        for (const QJsonObject &job : jobsToDelete) {
+            QString client = job["client"].toString();
+            if (!client.isEmpty() && !prunedClients.contains(client)) {
+                prunedClients.insert(client);
+                emit jobActionRequested("prune", QString("jobs client=%1 yes").arg(client));
+            }
+        }
     } else {
-        // Delete only removes the job record
-        emit jobActionRequested("delete", jobId);
+        for (const QJsonObject &job : jobsToDelete) {
+            QString jobId = job["jobid"].toString();
+            if (purgeRadio->isChecked()) {
+                emit jobActionRequested("delete", jobId);
+                emit jobActionRequested("purge", QString("jobs jobid=%1 yes").arg(jobId));
+            } else {
+                emit jobActionRequested("delete", jobId);
+            }
+        }
     }
 
-    // Request refresh after short delay to allow Director to process command
+    // Clear checkbox selection after batch delete
+    if (batchMode) {
+        m_model->clearSelection();
+    }
+
+    // Request refresh after short delay to allow Director to process commands
     QTimer::singleShot(1500, this, [this]() {
         emit refreshRequested();
     });
@@ -686,50 +760,22 @@ void BJsonJobView::viewJobLog()
 void BJsonJobView::restoreFiles()
 {
     QModelIndexList selection = selectionModel()->selectedRows();
-    if (selection.isEmpty()) {
-        return;
-    }
+    if (selection.isEmpty()) return;
 
     QModelIndex proxyIndex = selection.first();
     QModelIndex sourceIndex = m_filterModel->mapToSource(proxyIndex);
     QJsonObject job = m_model->jobAt(sourceIndex.row());
 
+    if (job.isEmpty()) return;
+
     if (!m_director) {
-        QMessageBox::warning(this, tr("No Connection"),
-                           tr("No Director connection available."));
+        QMessageBox::warning(this, tr("Not Connected"),
+            tr("No director connection available."));
         return;
     }
 
-    // Check if this is a backup job
-    QString jobType = job["type"].toString();
-    if (jobType != "B") {
-        QMessageBox::information(this, tr("Not a Backup Job"),
-                               tr("File restore is only available for backup jobs."));
-        return;
-    }
-
-    // Create dialog with BJobFilesWidget
-    QDialog dialog(this);
-    QString jobName = job["name"].toString();
-    QString jobId = job["jobid"].toString();
-    QString client = job["client"].toString();
-
-    dialog.setWindowTitle(tr("Restore Files: %1 (ID: %2) - Client: %3")
-                              .arg(jobName).arg(jobId).arg(client));
-    dialog.resize(900, 600);
-
-    QVBoxLayout *layout = new QVBoxLayout(&dialog);
-
-    // Add the files widget
-    BJobFilesWidget *filesWidget = new BJobFilesWidget(job, m_director, &dialog);
-    layout->addWidget(filesWidget);
-
-    // Button box
-    QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
-    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::accept);
-    layout->addWidget(buttonBox);
-
-    dialog.exec();
+    BRestoreWizard wizard(job, m_director, this);
+    wizard.exec();
 }
 
 void BJsonJobView::saveViewPreset(const QString &name)
@@ -847,10 +893,10 @@ void BJsonJobView::connectSelectionModel()
 
         s_connection = connect(selModel, &QItemSelectionModel::currentChanged,
                               this, [this](const QModelIndex &current, const QModelIndex &previous) {
-            qDebug() << "  Previous row:" << previous.row() << "column:" << previous.column();
-            qDebug() << "  Current row:" << current.row() << "column:" << current.column();
-            qDebug() << "  Current valid:" << current.isValid();
-            qDebug() << "  -> Emitting currentRowChanged signal from BJsonJobView";
+            BLOG_DEBUG() << "  Previous row:" << previous.row() << "column:" << previous.column();
+            BLOG_DEBUG() << "  Current row:" << current.row() << "column:" << current.column();
+            BLOG_DEBUG() << "  Current valid:" << current.isValid();
+            BLOG_DEBUG() << "  -> Emitting currentRowChanged signal from BJsonJobView";
             emit currentRowChanged(current, previous);
         });
 

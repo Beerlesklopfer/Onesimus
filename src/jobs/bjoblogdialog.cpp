@@ -1,8 +1,8 @@
 #include "jobs/bjoblogdialog.h"
+#include "blogging.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QDebug>
 #include <QApplication>
 #include <QClipboard>
 #include <QJsonDocument>
@@ -40,10 +40,10 @@ void BJobLogDialog::setupUI()
     QLabel *infoLabel = new QLabel(this);
     QString status = m_job["jobstatus"].toString();
     QString statusText;
-    if (status == "T") statusText = "Erfolgreich ✓";
-    else if (status == "W") statusText = "Mit Warnungen ⚠";
-    else if (status == "f") statusText = "Fehlgeschlagen ✗";
-    else if (status == "E") statusText = "Fehler ✗";
+    if (status == "T") statusText = tr("OK") + " ✓";
+    else if (status == "W") statusText = tr("Warning") + " ⚠";
+    else if (status == "F") statusText = tr("Failed") + " ✗";
+    else if (status == "E") statusText = tr("Error") + " ✗";
     else statusText = status;
 
     infoLabel->setText(QString("<b>Status:</b> %1 | <b>Start:</b> %2")
@@ -103,7 +103,7 @@ void BJobLogDialog::loadJobLog()
 {
     if (!m_director) {
         m_logModel->setLogLines({tr("Keine Verbindung zum Director verfügbar.")});
-        qWarning() << "BJobLogDialog: No Director connection available";
+        BLOG_WARNING() << "BJobLogDialog: No Director connection available";
         return;
     }
 
@@ -113,7 +113,7 @@ void BJobLogDialog::loadJobLog()
             this, &BJobLogDialog::onJobLogReceived,
             Qt::UniqueConnection);
 
-    qDebug() << "BJobLogDialog: Requesting log for Job ID" << m_jobId;
+    BLOG_DEBUG() << "BJobLogDialog: Requesting log for Job ID" << m_jobId;
 
     // Request job log using queued connection (thread-safe)
     QMetaObject::invokeMethod(m_director, "doSendCommand",
@@ -181,7 +181,7 @@ void BJobLogDialog::onCopySelected()
     QString text = selectedLines.join("\n");
     QApplication::clipboard()->setText(text);
 
-    qDebug() << "BJobLogDialog: Copied" << selectedLines.size() << "lines to clipboard";
+    BLOG_DEBUG() << "BJobLogDialog: Copied" << selectedLines.size() << "lines to clipboard";
 }
 
 void BJobLogDialog::onSelectAll()

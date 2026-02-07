@@ -1,0 +1,82 @@
+{
+  "name": "Linux Django",
+  "description": "Backup of Django web application projects with media and static files",
+  "platform": "linux",
+  "category": "webserver",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "LinuxDjango",
+    "Description": "Django project files, media, static assets and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/__pycache__",
+            "*/.cache",
+            "*/node_modules",
+            "*/.git",
+            "*/.venv",
+            "*/venv",
+            "*/env",
+            "*/.tox",
+            "*/.pytest_cache",
+            "*/.mypy_cache",
+            "*/htmlcov",
+            "*/.eggs",
+            "*/*.egg-info"
+          ],
+          "WildFile": [
+            "*.pyc",
+            "*.pyo",
+            "*.pyd",
+            "*.so",
+            "*.o",
+            "*.a",
+            "*.dylib",
+            "*.whl",
+            "*.egg",
+            "*.log",
+            "*.log.*",
+            "*.sqlite3",
+            "db.sqlite3",
+            "*.db",
+            ".env",
+            ".env.local",
+            "*.pid"
+          ]
+        }
+      },
+      "File": [
+        "/var/www",
+        "/opt/django",
+        "/srv/django",
+        "/usr/share/python",
+        "/home/*/django",
+        "/home/*/projects"
+      ]
+    },
+    "Exclude": {
+      "File": [
+        "/var/www/*/media/cache",
+        "/var/www/*/static/CACHE"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "500 MB - 20 GB",
+  "notes": [
+    "Excludes SQLite databases - backup via Django dumpdata or database dumps",
+    "Excludes virtual environments - recreate from requirements.txt",
+    "Excludes .env files with secrets - store separately in secure backup",
+    "Media files included - ensure adequate storage for uploads",
+    "Consider separate PostgreSQL/MySQL database backup jobs",
+    "Gunicorn/uWSGI configs in /etc typically need separate backup"
+  ]
+}

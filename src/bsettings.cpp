@@ -1,5 +1,5 @@
 #include "bsettings.h"
-#include <QDebug>
+#include "blogging.h"
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -26,8 +26,8 @@ BSettings::BSettings()
 #endif
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BSettings: Initializing settings";
-    qDebug() << "  Settings file:" << m_settings.fileName();
+    BLOG_DEBUG() << "BSettings: Initializing settings";
+    BLOG_DEBUG() << "  Settings file:" << m_settings.fileName();
 #endif
 }
 
@@ -55,65 +55,6 @@ QVariant BSettings::value(const QString& key, const QVariant& defaultValue) cons
 // Connection Settings
 // ============================================================================
 
-QString BSettings::connectionHost() const
-{
-    return value("Connection/host", "localhost").toString();
-}
-
-void BSettings::setConnectionHost(const QString& host)
-{
-    setValue("Connection/host", host);
-    emit connectionSettingsChanged();
-}
-
-int BSettings::connectionPort() const
-{
-    return value("Connection/port", 9101).toInt();
-}
-
-void BSettings::setConnectionPort(int port)
-{
-    setValue("Connection/port", port);
-    emit connectionSettingsChanged();
-}
-
-QString BSettings::connectionDirector() const
-{
-    return value("Connection/director", "bareos-dir").toString();
-}
-
-void BSettings::setConnectionDirector(const QString& director)
-{
-    setValue("Connection/director", director);
-    emit connectionSettingsChanged();
-}
-
-QString BSettings::connectionConsole() const
-{
-    return value("Connection/console", "onesimus").toString();
-}
-
-void BSettings::setConnectionConsole(const QString& console)
-{
-    setValue("Connection/console", console);
-    emit connectionSettingsChanged();
-}
-
-QString BSettings::connectionPassword() const
-{
-    return value("Connection/password").toString();
-}
-
-void BSettings::setConnectionPassword(const QString& password)
-{
-    if (connectionSavePassword()) {
-        setValue("Connection/password", password);
-    } else {
-        m_settings.remove("Connection/password");
-    }
-    emit connectionSettingsChanged();
-}
-
 bool BSettings::connectionSavePassword() const
 {
     return value("Connection/save_password", true).toBool();
@@ -122,9 +63,6 @@ bool BSettings::connectionSavePassword() const
 void BSettings::setConnectionSavePassword(bool save)
 {
     setValue("Connection/save_password", save);
-    if (!save) {
-        m_settings.remove("Connection/password");
-    }
     emit connectionSettingsChanged();
 }
 
@@ -147,98 +85,6 @@ int BSettings::connectionTimeout() const
 void BSettings::setConnectionTimeout(int seconds)
 {
     setValue("Connection/connection_timeout", seconds);
-    emit connectionSettingsChanged();
-}
-
-// ========================================================================
-// TLS Settings
-// ========================================================================
-
-bool BSettings::tlsEnabled() const
-{
-    return value("Connection/tls_enabled", true).toBool();
-}
-
-void BSettings::setTlsEnabled(bool enabled)
-{
-    setValue("Connection/tls_enabled", enabled);
-    emit connectionSettingsChanged();
-}
-
-bool BSettings::tlsUsePSK() const
-{
-    return value("Connection/tls_use_psk", true).toBool();
-}
-
-void BSettings::setTlsUsePSK(bool usePSK)
-{
-    setValue("Connection/tls_use_psk", usePSK);
-    emit connectionSettingsChanged();
-}
-
-bool BSettings::legacyAuth() const
-{
-    return value("Connection/legacy_auth", false).toBool();
-}
-
-void BSettings::setLegacyAuth(bool legacy)
-{
-    setValue("Connection/legacy_auth", legacy);
-    emit connectionSettingsChanged();
-}
-
-QString BSettings::tlsCaCertFile() const
-{
-    return value("Connection/tls_ca_cert_file").toString();
-}
-
-void BSettings::setTlsCaCertFile(const QString& path)
-{
-    setValue("Connection/tls_ca_cert_file", path);
-    emit connectionSettingsChanged();
-}
-
-QString BSettings::tlsCertFile() const
-{
-    return value("Connection/tls_cert_file").toString();
-}
-
-void BSettings::setTlsCertFile(const QString& path)
-{
-    setValue("Connection/tls_cert_file", path);
-    emit connectionSettingsChanged();
-}
-
-QString BSettings::tlsKeyFile() const
-{
-    return value("Connection/tls_key_file").toString();
-}
-
-void BSettings::setTlsKeyFile(const QString& path)
-{
-    setValue("Connection/tls_key_file", path);
-    emit connectionSettingsChanged();
-}
-
-QString BSettings::tlsPfxFile() const
-{
-    return value("Connection/tls_pfx_file").toString();
-}
-
-void BSettings::setTlsPfxFile(const QString& path)
-{
-    setValue("Connection/tls_pfx_file", path);
-    emit connectionSettingsChanged();
-}
-
-bool BSettings::tlsVerifyPeer() const
-{
-    return value("Connection/tls_verify_peer", true).toBool();
-}
-
-void BSettings::setTlsVerifyPeer(bool verify)
-{
-    setValue("Connection/tls_verify_peer", verify);
     emit connectionSettingsChanged();
 }
 
@@ -357,45 +203,62 @@ void BSettings::migrateOldConnectionSettings()
         return;  // Already migrated
     }
 
-    // Check if old settings exist
-    QString host = connectionHost();
+    // Read old settings directly from QSettings
+    QString host = value("Connection/host", "localhost").toString();
     if (host.isEmpty() || host == "localhost") {
-        // No meaningful old settings to migrate
+        // No meaningful old settings to migrate - wipe any leftover cleartext
+        m_settings.remove("Connection/password");
         return;
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "Migrating old connection settings to profile system...";
+    BLOG_DEBUG() << "Migrating old connection settings to profile system...";
 #endif
 
     // Create a profile from old settings
     BConnectionProfile profile = BConnectionProfile::create(tr("Default"));
     profile.host = host;
-    profile.port = connectionPort();
-    profile.directorName = connectionDirector();
-    profile.consoleName = connectionConsole();
+    profile.port = value("Connection/port", 9101).toInt();
+    profile.directorName = value("Connection/director", "bareos-dir").toString();
+    profile.consoleName = value("Connection/console", "onesimus").toString();
 
     // MANDATORY: Transform old cleartext password to MD5 hash
-    QString oldPassword = connectionPassword();
+    QString oldPassword = value("Connection/password").toString();
     if (!oldPassword.isEmpty()) {
         profile.setPasswordFromCleartext(oldPassword);
     }
 
-    profile.legacyAuth = legacyAuth();
-    profile.tlsEnabled = tlsEnabled();
-    profile.tlsUsePSK = tlsUsePSK();
-    profile.tlsCaCertFile = tlsCaCertFile();
-    profile.tlsCertFile = tlsCertFile();
-    profile.tlsKeyFile = tlsKeyFile();
-    profile.tlsPfxFile = tlsPfxFile();
-    profile.tlsVerifyPeer = tlsVerifyPeer();
+    profile.legacyAuth = value("Connection/legacy_auth", false).toBool();
+    profile.tlsEnabled = value("Connection/tls_enabled", true).toBool();
+    profile.tlsUsePSK = value("Connection/tls_use_psk", true).toBool();
+    profile.tlsCaCertFile = value("Connection/tls_ca_cert_file").toString();
+    profile.tlsCertFile = value("Connection/tls_cert_file").toString();
+    profile.tlsKeyFile = value("Connection/tls_key_file").toString();
+    profile.tlsPfxFile = value("Connection/tls_pfx_file").toString();
+    profile.tlsVerifyPeer = value("Connection/tls_verify_peer", true).toBool();
 
     // Save the profile
     addConnectionProfile(profile);
     setLastUsedProfileId(profile.id);
 
+    // Wipe old cleartext password and legacy individual settings
+    m_settings.remove("Connection/password");
+    m_settings.remove("Connection/host");
+    m_settings.remove("Connection/port");
+    m_settings.remove("Connection/director");
+    m_settings.remove("Connection/console");
+    m_settings.remove("Connection/tls_enabled");
+    m_settings.remove("Connection/tls_use_psk");
+    m_settings.remove("Connection/legacy_auth");
+    m_settings.remove("Connection/tls_ca_cert_file");
+    m_settings.remove("Connection/tls_cert_file");
+    m_settings.remove("Connection/tls_key_file");
+    m_settings.remove("Connection/tls_pfx_file");
+    m_settings.remove("Connection/tls_verify_peer");
+
 #ifdef IS_DEVELOPER
-    qDebug() << "  Created profile:" << profile.name << "with id:" << profile.id;
+    BLOG_DEBUG() << "  Created profile:" << profile.name << "with id:" << profile.id;
+    BLOG_DEBUG() << "  Old cleartext password and legacy settings wiped";
 #endif
 }
 
@@ -594,6 +457,17 @@ void BSettings::setBehaviorMaxJobsDisplay(int maxJobs)
     emit behaviorSettingsChanged();
 }
 
+bool BSettings::behaviorJobsNewestFirst() const
+{
+    return value("Behavior/jobs_newest_first", true).toBool();
+}
+
+void BSettings::setBehaviorJobsNewestFirst(bool newestFirst)
+{
+    setValue("Behavior/jobs_newest_first", newestFirst);
+    emit behaviorSettingsChanged();
+}
+
 // ========================================================================
 // Advanced Settings
 // ========================================================================
@@ -676,7 +550,7 @@ void BSettings::setJobsAutoRefresh(bool enabled)
 // Jobs Pagination
 bool BSettings::jobsPaginationEnabled() const
 {
-    return value("Widgets/Jobs/pagination_enabled", false).toBool();
+    return value("Widgets/Jobs/pagination_enabled", true).toBool();
 }
 
 void BSettings::setJobsPaginationEnabled(bool enabled)
@@ -686,7 +560,7 @@ void BSettings::setJobsPaginationEnabled(bool enabled)
 
 int BSettings::jobsPaginationPageSize() const
 {
-    return value("Widgets/Jobs/pagination_page_size", 50).toInt();
+    return value("Widgets/Jobs/pagination_page_size", 100).toInt();
 }
 
 void BSettings::setJobsPaginationPageSize(int pageSize)
@@ -890,24 +764,63 @@ void BSettings::setBvfsShowAllRelatedJobs(bool showAll)
 }
 
 // ========================================================================
-// Utility Methods
+// Main Window Settings
 // ========================================================================
 
-bool BSettings::hasStoredConnection() const
+QByteArray BSettings::mainWindowSplitterState() const
 {
-    QString host = connectionHost();
-    QString director = connectionDirector();
-    QString password = connectionPassword();
-
-    return !host.isEmpty() && !director.isEmpty() && !password.isEmpty();
+    return value("MainWindow/splitterState").toByteArray();
 }
+
+void BSettings::setMainWindowSplitterState(const QByteArray& state)
+{
+    setValue("MainWindow/splitterState", state);
+}
+
+bool BSettings::lowerPanelVisible() const
+{
+    return value("MainWindow/lowerPanelVisible", true).toBool();
+}
+
+void BSettings::setLowerPanelVisible(bool visible)
+{
+    setValue("MainWindow/lowerPanelVisible", visible);
+}
+
+// ========================================================================
+// Messages Widget Settings
+// ========================================================================
+
+int BSettings::messagesPollInterval() const
+{
+    return value("Messages/pollInterval", 30000).toInt();
+}
+
+void BSettings::setMessagesPollInterval(int intervalMs)
+{
+    setValue("Messages/pollInterval", intervalMs);
+}
+
+int BSettings::messagesMaxHistory() const
+{
+    return value("Messages/maxHistory", 1000).toInt();
+}
+
+void BSettings::setMessagesMaxHistory(int maxMessages)
+{
+    setValue("Messages/maxHistory", maxMessages);
+}
+
+// ========================================================================
+// Utility Methods
+// ========================================================================
 
 void BSettings::resetToDefaults()
 {
     m_settings.clear();
 
 #ifdef IS_DEVELOPER
-    qDebug() << "BSettings: All settings reset to defaults";
+    BLOG_DEBUG() << "BSettings: All settings reset to defaults";
 #endif
 
     // Emit all change signals

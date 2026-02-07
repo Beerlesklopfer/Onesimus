@@ -14,18 +14,22 @@
 #include <QJsonObject>
 #include <QListView>
 #include <QToolBox>
-#include <QDebug>
+#include <QTabWidget>
+#include "blogging.h"
 #include "jobs/bjsonjobview.h"
-#include "bjsonstreamreader.h"
+#include "director/bjsonstreamreader.h"
 #include "bpaginationwidget.h"
 #include "jobs/bjobmodels.h"
 #include "bresourcemodels.h"
-#include "bdirector.h"
+#include "director/bdirector.h"
+
+// Forward declaration
+class BMessagesWidget;
 
 // Debug logging prefixes for Job Widget
-#define JOBWIDGET_DEBUG qDebug().nospace() << "[JobWidget] "
-#define JOBWIDGET_WARNING qWarning().nospace() << "[JobWidget] "
-#define JOBWIDGET_CRITICAL qCritical().nospace() << "[JobWidget] "
+#define JOBWIDGET_DEBUG BLOG_DEBUG()
+#define JOBWIDGET_WARNING BLOG_WARNING()
+#define JOBWIDGET_CRITICAL BLOG_ERROR()
 
 /**
  * @brief Integrated job widget using enhanced BJsonJobView with BDirector backend
@@ -45,33 +49,24 @@ class BJobWidget : public QWidget
 public:
     /**
      * @brief Constructs a JobWidget with BDirector integration
+     * @param director Pointer to BDirector
      * @param parent Parent widget
      * @since 2.0
      */
-    explicit BJobWidget(QWidget *parent = nullptr);
-    
+    explicit BJobWidget(BDirector *director, QWidget *parent = nullptr);
+
     /**
      * @brief Destructor
      * @since 1.0
      */
     ~BJobWidget();
-    
+
     /**
      * @brief Returns the table view for direct access
      * @return Pointer to BJsonJobView
      * @since 2.0
      */
     BJsonJobView* tableView() const { return m_tableView; }
-
-    /**
-     * @brief Sets the director for job operations
-     * @param director Pointer to BDirector
-     * @since 2.0
-     */
-    void setDirector(BDirector *director) {
-        m_director = director;
-        m_tableView->setDirector(director);
-    }
 
     /**
      * @brief Triggers run job action (public interface to private slot)
@@ -123,6 +118,13 @@ public:
      * @since 2.8
      */
     BJobLogModel* logModel() const { return m_logModel; }
+
+    /**
+     * @brief Returns the messages widget
+     * @return Pointer to messages widget
+     * @since 2.10
+     */
+    BMessagesWidget* messagesWidget() const { return m_messagesWidget; }
 
 public slots:
     /**
@@ -180,6 +182,13 @@ public slots:
      * @since 2.9
      */
     void processJobTotalsResponse(const QString &jsonData);
+
+    /**
+     * @brief Processes messages JSON response (forwards to MessagesWidget)
+     * @param jsonData JSON response from messages command
+     * @since 2.10
+     */
+    void processMessagesResponse(const QString &jsonData);
 
     /**
      * @brief Handles page request from pagination widget
@@ -308,6 +317,32 @@ private slots:
      */
     void loadSelectedJobLog();
 
+    /**
+     * @brief Handles log history selection change
+     * @param index Selected index in history combo
+     * @since 2.11
+     */
+    void onLogHistoryChanged(int index);
+
+    /**
+     * @brief Copies selected log lines to clipboard
+     * @since 2.11
+     */
+    void onLogCopyClicked();
+
+    /**
+     * @brief Clears the log history
+     * @since 2.11
+     */
+    void onLogClearHistoryClicked();
+
+    /**
+     * @brief Filters log view by search text
+     * @param text Search text
+     * @since 2.11
+     */
+    void onLogSearchChanged(const QString &text);
+
 private:
     /**
      * @brief Sets up the user interface
@@ -343,12 +378,29 @@ private:
     BJsonStreamReader *m_streamReader;      ///< JSON stream reader
     BPaginationWidget *m_paginationWidget;  ///< Pagination controls
 
+    // Lower Panel (Job Log + Messages)
+    QTabWidget *m_lowerTabWidget;           ///< Tab widget for Job Log and Messages
+    BMessagesWidget *m_messagesWidget;      ///< Director messages widget
+
     // Job Log Display
     QListView *m_logView;                   ///< Log view for selected job
     BJobLogModel *m_logModel;               ///< Log model
     QLabel *m_logTitleLabel;                ///< Title label for log section
     QWidget *m_logContainer;                ///< Container for log section
     QString m_pendingLogJobId;              ///< Job ID of the pending log request
+
+    // Job Log History & Controls
+    QComboBox *m_logHistoryCombo;           ///< Dropdown to select from job log history
+    QPushButton *m_logCopyButton;           ///< Copy selected log lines
+    QPushButton *m_logClearHistoryButton;   ///< Clear log history
+    QLineEdit *m_logSearchEdit;             ///< Search within log
+    struct JobLogEntry {
+        QString jobId;
+        QString jobName;
+        QStringList logLines;
+    };
+    QList<JobLogEntry> m_logHistory;        ///< History of loaded job logs
+    int m_maxLogHistory = 10;               ///< Maximum number of logs to keep in history
 
     // Integrated filter controls (from BJobsFilterWidget)
     QComboBox *m_nameFilter;                ///< Job name filter (editable combo box)

@@ -2,7 +2,7 @@
  * @file bcertificategenerator.h
  * @brief TLS Certificate Generator Dialog
  *
- * Generates TLS certificates using OpenSSL for Bareos communication.
+ * Generates TLS certificates using OpenSSL library API for Bareos communication.
  * On Linux: CA cert, client cert, private key (PEM)
  * On Windows: Additionally creates PFX file
  */
@@ -18,9 +18,13 @@
 #include <QLabel>
 #include <QCheckBox>
 
+// Forward declarations for OpenSSL types
+typedef struct evp_pkey_st EVP_PKEY;
+typedef struct x509_st X509;
+
 /**
  * @class BCertificateGenerator
- * @brief Dialog for generating TLS certificates
+ * @brief Dialog for generating TLS certificates using OpenSSL library
  */
 class BCertificateGenerator : public QDialog
 {
@@ -46,8 +50,18 @@ public:
 private:
     void setupUI();
     void appendLog(const QString &msg, bool error = false);
-    bool runOpenSSL(const QStringList &args, const QString &description);
     bool fileExists(const QString &path) const;
+
+    // OpenSSL operations
+    QString getOpenSSLError();
+    EVP_PKEY* generateRSAKey(int bits);
+    X509* generateCertificate(EVP_PKEY *pkey, const QString &cn, const QString &org,
+                               int validDays, bool isCa, X509 *issuerCert = nullptr,
+                               EVP_PKEY *issuerKey = nullptr);
+    bool savePrivateKey(EVP_PKEY *pkey, const QString &path);
+    bool saveCertificate(X509 *cert, const QString &path);
+    bool createPFX(EVP_PKEY *pkey, X509 *cert, X509 *caCert,
+                   const QString &path, const QString &password);
 
 private slots:
     void onBrowseOutput();

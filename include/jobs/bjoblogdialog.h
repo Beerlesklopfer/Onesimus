@@ -8,7 +8,7 @@
 #include <QPushButton>
 #include <QJsonObject>
 #include "jobs/bjobmodels.h"
-#include "bdirector.h"
+#include "director/bdirector.h"
 
 /**
  * @brief Kleiner Dialog zur Anzeige des Job-Logs

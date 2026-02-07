@@ -1,5 +1,6 @@
 #include "jobs/bnewjobdialog.h"
 #include "jobs/bjobwidget.h"
+#include "blogging.h"
 #include "bsettings.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -12,7 +13,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QDebug>
 
 BNewJobDialog::BNewJobDialog(BJobWidget *jobWidget, BDirector *director, QWidget *parent)
     : QDialog(parent)
@@ -304,7 +304,7 @@ void BNewJobDialog::onDotJobsReceived(const QString &jsonData)
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
 
     if (error.error != QJsonParseError::NoError) {
-        qWarning() << "BNewJobDialog: Failed to parse .jobs response:" << error.errorString();
+        BLOG_WARNING() << "BNewJobDialog: Failed to parse .jobs response:" << error.errorString();
         return;
     }
 
@@ -326,7 +326,7 @@ void BNewJobDialog::onDotJobsReceived(const QString &jsonData)
         }
     }
 
-    qDebug() << "BNewJobDialog: Loaded" << m_jobNames.size() << "jobs";
+    BLOG_DEBUG() << "BNewJobDialog: Loaded" << m_jobNames.size() << "jobs";
     buildRunCommand();
 }
 
@@ -336,7 +336,7 @@ void BNewJobDialog::onDotClientsReceived(const QString &jsonData)
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
 
     if (error.error != QJsonParseError::NoError) {
-        qWarning() << "BNewJobDialog: Failed to parse .clients response:" << error.errorString();
+        BLOG_WARNING() << "BNewJobDialog: Failed to parse .clients response:" << error.errorString();
         return;
     }
 
@@ -358,7 +358,7 @@ void BNewJobDialog::onDotClientsReceived(const QString &jsonData)
         }
     }
 
-    qDebug() << "BNewJobDialog: Loaded" << m_clientNames.size() << "clients";
+    BLOG_DEBUG() << "BNewJobDialog: Loaded" << m_clientNames.size() << "clients";
 
     // Mark data as loaded when all required data is available
     if (!m_jobNames.isEmpty() && !m_clientNames.isEmpty()) {
@@ -401,7 +401,7 @@ void BNewJobDialog::updateJobDefaults()
 
     // Request job defaults from Director using .defaults command
     if (m_director) {
-        qDebug() << "BNewJobDialog: Requesting defaults for job:" << jobName;
+        BLOG_DEBUG() << "BNewJobDialog: Requesting defaults for job:" << jobName;
         m_statusLabel->setText(tr("Loading job defaults..."));
         m_statusLabel->setStyleSheet("color: blue;");
 
@@ -422,14 +422,14 @@ void BNewJobDialog::updateJobDefaults()
 
 void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
 {
-    qDebug() << "BNewJobDialog: Processing .defaults response";
-    qDebug() << "  Data:" << jsonData.left(500);
+    BLOG_DEBUG() << "BNewJobDialog: Processing .defaults response";
+    BLOG_DEBUG() << "  Data:" << jsonData.left(500);
 
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
 
     if (error.error != QJsonParseError::NoError) {
-        qWarning() << "BNewJobDialog: Failed to parse .defaults response:" << error.errorString();
+        BLOG_WARNING() << "BNewJobDialog: Failed to parse .defaults response:" << error.errorString();
         m_statusLabel->setText(tr("Failed to load job defaults"));
         m_statusLabel->setStyleSheet("color: orange;");
         return;
@@ -454,23 +454,23 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     }
 
     if (defaults.isEmpty()) {
-        qDebug() << "BNewJobDialog: No defaults in response";
+        BLOG_DEBUG() << "BNewJobDialog: No defaults in response";
         return;
     }
 
-    qDebug() << "BNewJobDialog: Defaults:" << defaults;
+    BLOG_DEBUG() << "BNewJobDialog: Defaults:" << defaults;
 
     // Pre-select FileSet from defaults
     QString fileset = defaults["fileset"].toString();
     if (!fileset.isEmpty()) {
         int index = m_filesetCombo->findText(fileset);
-        qDebug() << "  FileSet:" << fileset << "index:" << index << "count:" << m_filesetCombo->count();
+        BLOG_DEBUG() << "  FileSet:" << fileset << "index:" << index << "count:" << m_filesetCombo->count();
         if (index >= 0) {
             m_filesetCombo->setCurrentIndex(index);
         } else {
-            qDebug() << "    Available filesets:";
+            BLOG_DEBUG() << "    Available filesets:";
             for (int i = 0; i < m_filesetCombo->count(); ++i) {
-                qDebug() << "      " << i << ":" << m_filesetCombo->itemText(i);
+                BLOG_DEBUG() << "      " << i << ":" << m_filesetCombo->itemText(i);
             }
         }
     }
@@ -479,13 +479,13 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     QString pool = defaults["pool"].toString();
     if (!pool.isEmpty()) {
         int index = m_poolCombo->findText(pool);
-        qDebug() << "  Pool:" << pool << "index:" << index << "count:" << m_poolCombo->count();
+        BLOG_DEBUG() << "  Pool:" << pool << "index:" << index << "count:" << m_poolCombo->count();
         if (index >= 0) {
             m_poolCombo->setCurrentIndex(index);
         } else {
-            qDebug() << "    Available pools:";
+            BLOG_DEBUG() << "    Available pools:";
             for (int i = 0; i < m_poolCombo->count(); ++i) {
-                qDebug() << "      " << i << ":" << m_poolCombo->itemText(i);
+                BLOG_DEBUG() << "      " << i << ":" << m_poolCombo->itemText(i);
             }
         }
     }
@@ -494,13 +494,13 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     QString storage = defaults["storage"].toString();
     if (!storage.isEmpty()) {
         int index = m_storageCombo->findText(storage);
-        qDebug() << "  Storage:" << storage << "index:" << index << "count:" << m_storageCombo->count();
+        BLOG_DEBUG() << "  Storage:" << storage << "index:" << index << "count:" << m_storageCombo->count();
         if (index >= 0) {
             m_storageCombo->setCurrentIndex(index);
         } else {
-            qDebug() << "    Available storages:";
+            BLOG_DEBUG() << "    Available storages:";
             for (int i = 0; i < m_storageCombo->count(); ++i) {
-                qDebug() << "      " << i << ":" << m_storageCombo->itemText(i);
+                BLOG_DEBUG() << "      " << i << ":" << m_storageCombo->itemText(i);
             }
         }
     }
@@ -509,13 +509,13 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     QString client = defaults["client"].toString();
     if (!client.isEmpty()) {
         int index = m_clientCombo->findText(client);
-        qDebug() << "  Client:" << client << "index:" << index << "count:" << m_clientCombo->count();
+        BLOG_DEBUG() << "  Client:" << client << "index:" << index << "count:" << m_clientCombo->count();
         if (index >= 0) {
             m_clientCombo->setCurrentIndex(index);
         } else {
-            qDebug() << "    Available clients:";
+            BLOG_DEBUG() << "    Available clients:";
             for (int i = 0; i < m_clientCombo->count(); ++i) {
-                qDebug() << "      " << i << ":" << m_clientCombo->itemText(i);
+                BLOG_DEBUG() << "      " << i << ":" << m_clientCombo->itemText(i);
             }
         }
     }
@@ -525,18 +525,18 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     if (!level.isEmpty()) {
         // Try to find by text first (e.g., "Incremental", "Full")
         int index = m_levelCombo->findText(level);
-        qDebug() << "  Level:" << level << "findText index:" << index;
+        BLOG_DEBUG() << "  Level:" << level << "findText index:" << index;
         if (index < 0) {
             // Try to find by data (level code like "F", "I", "D")
             index = m_levelCombo->findData(level);
-            qDebug() << "  Level:" << level << "findData index:" << index;
+            BLOG_DEBUG() << "  Level:" << level << "findData index:" << index;
         }
         if (index >= 0) {
             m_levelCombo->setCurrentIndex(index);
         } else {
-            qDebug() << "    Available levels:";
+            BLOG_DEBUG() << "    Available levels:";
             for (int i = 0; i < m_levelCombo->count(); ++i) {
-                qDebug() << "      " << i << ": text=" << m_levelCombo->itemText(i) << "data=" << m_levelCombo->itemData(i);
+                BLOG_DEBUG() << "      " << i << ": text=" << m_levelCombo->itemText(i) << "data=" << m_levelCombo->itemData(i);
             }
         }
     }

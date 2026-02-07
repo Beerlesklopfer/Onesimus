@@ -131,6 +131,7 @@
       "bareos": true,
       "bacula": true,
       "default": true,
+      "group": "tls",
       "description": "Enable TLS encryption",
       "example": true,
       "excludes": [],
@@ -142,7 +143,8 @@
       "bareos": true,
       "bacula": true,
       "default": false,
-      "description": "Require TLS connection",
+      "group": "tls",
+      "description": "Require TLS connection (yes for x509, no for PSK)",
       "example": true,
       "excludes": [],
       "must": ["TLS Enable"]
@@ -152,30 +154,176 @@
       "required": false,
       "bareos": true,
       "bacula": true,
-      "description": "Path to CA certificate file",
-      "example": "/etc/bareos/tls/ca.pem",
-      "excludes": [],
-      "must": ["TLS Enable"]
+      "group": "tls-x509",
+      "platform": ["linux", "darwin", "freebsd"],
+      "description": "Path to CA certificate file (PEM format, Unix only)",
+      "example": "/etc/bareos/tls/bareos-ca.pem",
+      "excludes": ["TLS Certificate File"],
+      "must": ["TLS Enable"],
+      "visible_when": {
+        "directive": "TLS Require",
+        "value": true
+      }
     },
     "TLS Certificate": {
       "type": "file",
       "required": false,
       "bareos": true,
       "bacula": true,
-      "description": "Path to client certificate file",
-      "example": "/etc/bareos/tls/client.pem",
-      "excludes": [],
-      "must": ["TLS Enable", "TLS Key"]
+      "group": "tls-x509",
+      "platform": ["linux", "darwin", "freebsd"],
+      "description": "Path to certificate file (PEM format, Unix only)",
+      "example": "/etc/bareos/tls/bareos-cert.pem",
+      "excludes": ["TLS Certificate File"],
+      "must": ["TLS Enable", "TLS Key"],
+      "visible_when": {
+        "directive": "TLS Require",
+        "value": true
+      }
     },
     "TLS Key": {
       "type": "file",
       "required": false,
       "bareos": true,
       "bacula": true,
-      "description": "Path to client private key file",
-      "example": "/etc/bareos/tls/client-key.pem",
+      "group": "tls-x509",
+      "platform": ["linux", "darwin", "freebsd"],
+      "description": "Path to private key file (PEM format, Unix only)",
+      "example": "/etc/bareos/tls/bareos-key.pem",
+      "excludes": ["TLS Certificate File"],
+      "must": ["TLS Enable", "TLS Certificate"],
+      "visible_when": {
+        "directive": "TLS Require",
+        "value": true
+      }
+    },
+    "TLS Certificate File": {
+      "type": "file",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "group": "tls-pfx",
+      "platform": ["windows"],
+      "description": "Path to PFX/PKCS#12 certificate file (Windows only, contains cert + key)",
+      "example": "C:\\bareos\\tls\\bareos-fd.pfx",
+      "excludes": ["TLS CA Certificate File", "TLS Certificate", "TLS Key"],
+      "must": ["TLS Enable"],
+      "visible_when": {
+        "directive": "TLS Require",
+        "value": true
+      }
+    },
+    "TLS Cipher List": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "group": "tls-advanced",
+      "description": "Colon-separated list of valid TLSv1.2 and lower ciphers",
+      "example": "PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA",
+      "valid_values": [
+        "PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256:PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA",
+        "PSK-AES256-GCM-SHA384:PSK-AES256-CBC-SHA",
+        "PSK-AES128-GCM-SHA256:PSK-AES128-CBC-SHA",
+        "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256",
+        "AES256-SHA256:AES128-SHA256"
+      ],
       "excludes": [],
-      "must": ["TLS Enable", "TLS Certificate"]
+      "must": ["TLS Enable"]
+    },
+    "TLS Verify Peer": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": false,
+      "group": "tls-x509",
+      "description": "Verify peer certificate (x509 only)",
+      "example": true,
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS Allowed CN": {
+      "type": "string_list",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "group": "tls-x509",
+      "description": "Allowed certificate Common Names (x509 only)",
+      "example": ["bareos-dir.example.com"],
+      "excludes": [],
+      "must": ["TLS Enable", "TLS Verify Peer"]
+    },
+    "TLS Authenticate": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": false,
+      "group": "tls",
+      "description": "Use TLS only for authentication, not encryption",
+      "example": false,
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS CA Certificate Dir": {
+      "type": "directory",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "group": "tls-x509",
+      "platform": ["linux", "darwin", "freebsd"],
+      "description": "Path to directory containing CA certificates (x509 only, Unix)",
+      "example": "/etc/bareos/tls/ca",
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS Cipher Suites": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": false,
+      "min_version": "19.2.0",
+      "group": "tls-advanced",
+      "description": "Colon-separated list of valid TLSv1.3 cipher suites",
+      "example": "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS DH File": {
+      "type": "file",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "group": "tls-advanced",
+      "description": "Path to Diffie-Hellman parameter file for forward secrecy",
+      "example": "/etc/bareos/tls/dh2048.pem",
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS Protocol": {
+      "type": "string",
+      "required": false,
+      "bareos": true,
+      "bacula": false,
+      "min_version": "20.0.0",
+      "group": "tls-advanced",
+      "description": "OpenSSL protocol configuration string",
+      "example": "-TLSv1,-TLSv1.1",
+      "excludes": [],
+      "must": ["TLS Enable"]
+    },
+    "TLS Certificate Revocation List": {
+      "type": "file",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "group": "tls-x509",
+      "description": "Path to Certificate Revocation List file",
+      "example": "/etc/bareos/tls/crl.pem",
+      "synonyms": ["TLS CRL File"],
+      "excludes": [],
+      "must": ["TLS Enable"]
     },
     "PKI Signatures": {
       "type": "boolean",
@@ -241,6 +389,61 @@
       "example": 65536,
       "excludes": [],
       "must": []
+    },
+    "Passive": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": true,
+      "default": false,
+      "group": "nat",
+      "description": "Client initiates connection to Director (for clients behind NAT/firewall)",
+      "example": true,
+      "excludes": [],
+      "must": []
+    },
+    "Connection From Client To Director": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": false,
+      "default": false,
+      "group": "nat",
+      "description": "Allow client-initiated connections (Bareos 16.2+)",
+      "example": true,
+      "excludes": [],
+      "must": [],
+      "min_version": "16.2.0"
+    },
+    "Connection From Director To Client": {
+      "type": "boolean",
+      "required": false,
+      "bareos": true,
+      "bacula": false,
+      "default": true,
+      "group": "nat",
+      "description": "Allow director-initiated connections (Bareos 16.2+)",
+      "example": true,
+      "excludes": [],
+      "must": [],
+      "min_version": "16.2.0"
+    },
+    "Connection From Client Wait": {
+      "type": "time",
+      "required": false,
+      "bareos": true,
+      "bacula": false,
+      "default": 1800,
+      "group": "nat",
+      "description": "Time to wait for client-initiated connection (seconds)",
+      "example": 3600,
+      "excludes": [],
+      "must": ["Passive"],
+      "visible_when": {
+        "directive": "Passive",
+        "value": true
+      },
+      "min_version": "16.2.0"
     }
   }
 }

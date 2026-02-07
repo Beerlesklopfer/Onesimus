@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(onesimus VERSION 0.1.0.4 LANGUAGES CXX)
+project(onesimus VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,92 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ============================================================================
 # Version Information Generation (version.h)
 # ============================================================================
+# Version scheme: MAJOR.MINOR.PATCH.BUILD
+#   - Triplet (MAJOR.MINOR.PATCH) is set in project() above
+#   - BUILD number auto-increments on every build via custom target
+#   - version.h is regenerated at build time (not configure time)
+# ============================================================================
+
 message(STATUS "")
 message(STATUS "========================================")
-message(STATUS "Version Information")
+message(STATUS "Version: ${PROJECT_VERSION} (build number increments at build time)")
 message(STATUS "========================================")
-
-# Get current date and time
-string(TIMESTAMP BUILD_DATE "%Y-%m-%d")
-string(TIMESTAMP BUILD_TIME "%H:%M:%S")
-string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S")
-string(TIMESTAMP BDATE "%Y.%m")
-
-# Build number management (auto-increment)
-set(BUILD_NUMBER_FILE "${CMAKE_SOURCE_DIR}/.build_number")
-if(EXISTS "${BUILD_NUMBER_FILE}")
-    file(READ "${BUILD_NUMBER_FILE}" BUILD_NUMBER)
-    string(STRIP "${BUILD_NUMBER}" BUILD_NUMBER)
-    math(EXPR BUILD_NUMBER "${BUILD_NUMBER} + 1")
-else()
-    set(BUILD_NUMBER 1)
-endif()
-file(WRITE "${BUILD_NUMBER_FILE}" "${BUILD_NUMBER}")
-message(STATUS "Build number: ${BUILD_NUMBER}")
-
-# Git information
-find_package(Git QUIET)
-if(GIT_FOUND)
-    # Get commit hash
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_COMMIT_HASH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-    # Get branch name
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_BRANCH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-    # Get git describe (version tag + commits since)
-    execute_process(
-        COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        OUTPUT_VARIABLE GIT_DESCRIBE
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
-    message(STATUS "Git commit: ${GIT_COMMIT_HASH}")
-    message(STATUS "Git branch: ${GIT_BRANCH}")
-    message(STATUS "Git describe: ${GIT_DESCRIBE}")
-else()
-    set(GIT_COMMIT_HASH "unknown")
-    set(GIT_BRANCH "unknown")
-    set(GIT_DESCRIBE "unknown")
-endif()
-
-# Detect Linux distribution
-set(DISTNAME "")
-set(DISTVER "")
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    if(EXISTS "/etc/os-release")
-        file(STRINGS "/etc/os-release" OS_RELEASE_CONTENTS)
-        foreach(line ${OS_RELEASE_CONTENTS})
-            if(line MATCHES "^NAME=")
-                string(REGEX REPLACE "^NAME=\"?([^\"]*)\"?" "\\1" DISTNAME "${line}")
-            endif()
-            if(line MATCHES "^VERSION_ID=")
-                string(REGEX REPLACE "^VERSION_ID=\"?([^\"]*)\"?" "\\1" DISTVER "${line}")
-            endif()
-        endforeach()
-    endif()
-endif()
-message(STATUS "OS: ${CMAKE_SYSTEM_NAME} (${DISTNAME} ${DISTVER})")
-
-# Configure version.h
-configure_file(
-    "${CMAKE_SOURCE_DIR}/include/version.h.in"
-    "${CMAKE_SOURCE_DIR}/include/version.h"
-    @ONLY
-)
-message(STATUS "Generated: include/version.h")
-message(STATUS "========================================")
-message(STATUS "")
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -130,6 +54,15 @@ if(LOG_JSON)
     message(STATUS "JSON logging: ENABLED")
 else()
     message(STATUS "JSON logging: DISABLED (use -DLOG_JSON=ON to enable)")
+endif()
+
+# Option für Onesimus File Logging (writes to AppDataLocation/onesimus.log)
+option(ONESIMUS_FILE_LOGGING "Enable file logging with BLOG_* macros" OFF)
+if(ONESIMUS_FILE_LOGGING)
+    add_compile_definitions(ONESIMUS_FILE_LOGGING)
+    message(STATUS "File logging: ENABLED (logs to AppData/onesimus.log)")
+else()
+    message(STATUS "File logging: DISABLED (use -DONESIMUS_FILE_LOGGING=ON to enable)")
 endif()
 
 # ============================================================================
@@ -409,6 +342,7 @@ qt_standard_project_setup()
 # Finde restliche Qt6 Komponenten
 find_package(Qt6 REQUIRED COMPONENTS
     Gui
+    GuiPrivate
     Widgets
     Network
     Sql
@@ -416,23 +350,6 @@ find_package(Qt6 REQUIRED COMPONENTS
 )
 
 message(STATUS "✓ Found Qt6 ${Qt6_VERSION}")
-
-# Qt6 Private Headers (für qzipwriter_p.h)
-# Debian/Ubuntu stellen keine Qt6CorePrivate cmake-Config bereit,
-# daher wird der Include-Pfad manuell gesetzt.
-get_target_property(_qt6_core_include_dirs Qt6::Core INTERFACE_INCLUDE_DIRECTORIES)
-foreach(_dir ${_qt6_core_include_dirs})
-    if(EXISTS "${_dir}/QtCore/${Qt6_VERSION}/QtCore/private")
-        set(QT6_CORE_PRIVATE_INCLUDE "${_dir}/QtCore/${Qt6_VERSION}/QtCore")
-        break()
-    endif()
-endforeach()
-
-if(QT6_CORE_PRIVATE_INCLUDE)
-    message(STATUS "✓ Found Qt6 Core private headers: ${QT6_CORE_PRIVATE_INCLUDE}")
-else()
-    message(FATAL_ERROR "Qt6 Core private headers not found! Install qt6-base-private-dev")
-endif()
 
 # ============================================================================
 # Qt Linguist Tools Configuration
@@ -467,106 +384,152 @@ include_directories(
 set(SOURCES
     src/main.cpp
     src/bmainwindow.cpp
-    src/baculaauth.cpp
-    src/bareosauth.cpp
+    src/director/baculaauth.cpp
+    src/director/bareosauth.cpp
 
     src/bcheckableheaderview.cpp
     src/bcheckboxdelegate.cpp
     src/bcolumnconfiguration.cpp
-    src/bjsonstreamreader.cpp
+    src/director/bjsonstreamreader.cpp
     src/btranslations.cpp
-    src/clientwidget.cpp
-    src/bdirector.cpp
-    src/bareosdirector.cpp
+    src/bclientwidget.cpp
+    src/director/bdirector.cpp
+    src/director/bareosdirector.cpp
     src/bsettings.cpp
-    src/bdatabase.cpp
+    src/db/bdatabase.cpp
     src/bbasemodels.cpp
     src/bresourcemodels.cpp
-    src/bresourcemodel.cpp
-    src/bdirectormodel.cpp
-    src/bsettingshistory.cpp
+    src/db/bresourcemodel.cpp
+    src/db/bdirectormodel.cpp
+    src/db/bsettingshistory.cpp
     src/bsettingsdialog.cpp
     src/bcleanupdialog.cpp
     src/bconnectionwizard.cpp
     src/bcertificategenerator.cpp
+    src/bpfxconverter.cpp
     src/bprofilesettingsdialog.cpp
     src/bconfigexporter.cpp
     src/storagewidget.cpp
 
     src/jobs/bjobmodels.cpp
     src/jobs/bjobdetailsdialog.cpp
+    src/jobs/bbvfsmodel.cpp
     src/jobs/bjobfileswidget.cpp
+    src/jobs/brestorewizard.cpp
     src/jobs/bjoblogdialog.cpp
     src/jobs/bjobsstatisticswidget.cpp
     src/jobs/bjobwidget.cpp
     src/jobs/bjsonjobview.cpp
     src/jobs/bnewjobdialog.cpp
+    src/jobs/bfilesetwizard.cpp
+    src/jobs/fileset/bfilesetdocument.cpp
+    src/jobs/fileset/bincludeblockwidget.cpp
 
     src/schedules/bschedulewidget.cpp
     src/schedules/bweeklyplanner.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
+    src/messages/bmessageswidget.cpp
+
     src/clients/bclientsmodel.cpp
     src/clients/bclientswidget.cpp
     src/clients/bclientdetailsdialog.cpp
+    src/clients/bnewclientdialog.cpp
+
+    src/config/bconfigparser.cpp
+    src/config/bdirectiveschema.cpp
+    src/config/bresourceform.cpp
+    src/config/bincludeoptionsform.cpp
+    src/config/beditablelistmodel.cpp
+    src/config/bundocommands.cpp
+    src/config/beditablelistdelegate.cpp
+    src/config/beditablelistwidget.cpp
+
+    src/director/bresourcewidget.cpp
+    src/director/bresourcewidgets.cpp
+    src/director/bresourcedialog.cpp
+    src/director/bconfigimportdialog.cpp
 )
 
 # Header-Dateien
 set(HEADERS
     include/bmainwindow.h
     include/bcheckableheaderview.h
-    include/clientwidget.h
+    include/bclientwidget.h
     include/storagewidget.h
     include/bsettingsdialog.h
     include/bcleanupdialog.h
     include/bconnectionwizard.h
     include/bcertificategenerator.h
+    include/bpfxconverter.h
     include/bprofilesettingsdialog.h
     include/bconfigexporter.h
-    include/bdirector.h
-    include/bareosdirector.h
+    include/director/bdirector.h
+    include/director/bareosdirector.h
     include/bsettings.h
-    include/bdatabase.h
+    include/db/bdatabase.h
     include/bbasemodels.h
     include/bresourcemodels.h
-    include/bresourcemodel.h
-    include/bdirectormodel.h
-    include/bsettingshistory.h
+    include/db/bresourcemodel.h
+    include/db/bdirectormodel.h
+    include/db/bsettingshistory.h
     include/version.h
-    include/baculaauth.h
-    include/bareosauth.h
+    include/director/baculaauth.h
+    include/director/bareosauth.h
     include/bcolumnconfiguration.h
-    include/bjsonstreamreader.h
+    include/director/bjsonstreamreader.h
     include/bpaginationwidget.h
     include/btranslations.h
 
     include/jobs/bcheckboxdelegate.h
     include/jobs/bjobmodels.h
     include/jobs/bjobdetailsdialog.h
+    include/jobs/bbvfsmodel.h
     include/jobs/bjobfileswidget.h
     include/jobs/bjoblogdialog.h
+    include/jobs/brestorewizard.h
     include/jobs/bjobsstatisticswidget.h
     include/jobs/bjobwidget.h
     include/jobs/bjsonjobview.h
     include/jobs/bviewpresets.h
     include/jobs/blevelcolors.h
     include/jobs/bnewjobdialog.h
+    include/jobs/bfilesetwizard.h
+    include/jobs/fileset/bfilesetdocument.h
+    include/jobs/fileset/bincludeblockwidget.h
 
     include/clients/bclientsmodel.h
     include/clients/bclientswidget.h
+    include/clients/bclientdetailsdialog.h
+    include/clients/bnewclientdialog.h
 
     include/schedules/bschedulewidget.h
     include/schedules/bweeklyplanner.h
-    include/clients/bclientdetailsdialog.h)
+
+    include/messages/bmessageswidget.h
+
+    include/config/bconfigparser.h
+    include/config/bdirectiveschema.h
+    include/config/bresourceform.h
+    include/config/bincludeoptionsform.h
+    include/config/beditablelistmodel.h
+    include/config/bundocommands.h
+    include/config/beditablelistdelegate.h
+    include/config/beditablelistwidget.h
+
+    include/director/bresourcewidget.h
+    include/director/bresourcewidgets.h
+    include/director/bresourcedialog.h
+    include/director/bconfigimportdialog.h)
 
 # Bacula-spezifische Dateien
 if(USE_BACULA_ONLY)
     message(STATUS "========================================")
     message(STATUS "Building with BACULA backend")
     message(STATUS "========================================")
-    list(APPEND SOURCES src/baculaauth.cpp)
-    list(APPEND HEADERS include/baculaauth.h)
+    list(APPEND SOURCES src/director/baculaauth.cpp)
+    list(APPEND HEADERS include/director/baculaauth.h)
     add_compile_definitions(USE_BACULA)
 endif()
 
@@ -575,8 +538,8 @@ if(USE_BAREOS_ONLY)
     message(STATUS "========================================")
     message(STATUS "Building with BAREOS backend")
     message(STATUS "========================================")
-    list(APPEND SOURCES src/bareosauth.cpp)
-    list(APPEND HEADERS include/bareosauth.h)
+    list(APPEND SOURCES src/director/bareosauth.cpp)
+    list(APPEND HEADERS include/director/bareosauth.h)
     add_compile_definitions(USE_BAREOS)
     add_compile_definitions(BAREOS_VERSION)
 endif()
@@ -585,7 +548,7 @@ endif()
 set(UI_FILES
     ui/bmainwindow.ui
     ui/jobwidget.ui
-    ui/clientwidget.ui
+    ui/bclientwidget.ui
     ui/storagewidget.ui
     ui/bsettingsdialog.ui
 )
@@ -635,11 +598,53 @@ list(APPEND SOURCES ${THEME_RESOURCES})
 # Executable Target
 # ============================================================================
 
+# Windows application icon resource
+if(WIN32)
+    set(WIN_RC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/resources/onesimus.rc)
+    if(EXISTS ${WIN_RC_FILE})
+        list(APPEND SOURCES ${WIN_RC_FILE})
+    endif()
+endif()
+
 add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${HEADERS}
     ${UI_FILES}
 )
+
+# Hide console window on Windows (GUI application)
+if(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+endif()
+
+# ============================================================================
+# Build Number Auto-Increment (runs on every build)
+# ============================================================================
+# Increments .build_number and regenerates version.h before compiling.
+# Version scheme: MAJOR.MINOR.PATCH.BUILD (triplet from project() + auto build number)
+
+add_custom_target(increment_build_number
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DBINARY_DIR=${CMAKE_BINARY_DIR}
+        -DTEMPLATE_FILE=${CMAKE_SOURCE_DIR}/include/version.h.in
+        -DOUTPUT_FILE=${CMAKE_SOURCE_DIR}/include/version.h
+        -DPROJECT_VERSION=${PROJECT_VERSION}
+        -DPROJECT_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+        -DPROJECT_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+        -DPROJECT_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+        -DPROJECT_NAME=${PROJECT_NAME}
+        -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
+        -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DCMAKE_CXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}
+        -DCMAKE_CXX_COMPILER_VERSION=${CMAKE_CXX_COMPILER_VERSION}
+        -P ${CMAKE_SOURCE_DIR}/cmake/IncrementBuildNumber.cmake
+    COMMENT "Incrementing build number..."
+)
+add_dependencies(${PROJECT_NAME} increment_build_number)
 
 # ============================================================================
 # Link Libraries
@@ -649,13 +654,11 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Gui
+    Qt6::GuiPrivate  # For QZipWriter/QZipReader private API
     Qt6::Widgets
     Qt6::Network
     Qt6::Sql
 )
-
-# Qt6 Core Private Headers (für qzipwriter_p.h in bconfigexporter.cpp)
-target_include_directories(${PROJECT_NAME} PRIVATE ${QT6_CORE_PRIVATE_INCLUDE})
 
 # OpenSSL Libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -675,6 +678,25 @@ endif()
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
 )
+
+# Install desktop file and icon for Linux
+if(UNIX AND NOT APPLE)
+    # Install .desktop file
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/packaging/onesimus.desktop.in"
+        "${CMAKE_BINARY_DIR}/onesimus.desktop"
+        @ONLY
+    )
+    install(FILES "${CMAKE_BINARY_DIR}/onesimus.desktop"
+        DESTINATION share/applications
+    )
+
+    # Install icon
+    install(FILES "${CMAKE_SOURCE_DIR}/resources/icons/app_bareos.png"
+        DESTINATION share/icons/hicolor/256x256/apps
+        RENAME onesimus.png
+    )
+endif()
 
 # ============================================================================
 # Build Summary
@@ -783,9 +805,23 @@ if(WIN32)
         add_custom_target(deploy
             COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/deploy"
             COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/deploy/"
-            COMMAND ${WINDEPLOYQT_EXECUTABLE} --release --no-translations "${CMAKE_BINARY_DIR}/deploy/${PROJECT_NAME}.exe"
+            # Copy OpenSSL DLLs first (needed for windeployqt to find them)
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_BINARY_DIR}/openssl-install/bin/libssl-3-x64.dll"
+                "${CMAKE_BINARY_DIR}/deploy/"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_BINARY_DIR}/openssl-install/bin/libcrypto-3-x64.dll"
+                "${CMAKE_BINARY_DIR}/deploy/"
+            COMMAND ${WINDEPLOYQT_EXECUTABLE}
+                $<IF:$<CONFIG:Debug>,--debug,--release>
+                --no-translations
+                --no-system-d3d-compiler
+                --no-opengl-sw
+                --compiler-runtime
+                --openssl-root "${CMAKE_BINARY_DIR}/openssl-install"
+                "${CMAKE_BINARY_DIR}/deploy/${PROJECT_NAME}.exe"
             DEPENDS ${PROJECT_NAME}
-            COMMENT "Running windeployqt to collect Qt dependencies..."
+            COMMENT "Running windeployqt with OpenSSL support..."
         )
     endif()
 endif()
@@ -864,8 +900,8 @@ endif()
 
 # bareosauth_lib - Object library for BareosAuth (shared between main and test)
 add_library(bareosauth_lib OBJECT
-    src/bareosauth.cpp
-    include/bareosauth.h
+    src/director/bareosauth.cpp
+    include/director/bareosauth.h
 )
 
 target_include_directories(bareosauth_lib PUBLIC
@@ -898,12 +934,12 @@ target_link_libraries(bareosauth_test PRIVATE
 
 # bareosdirector_lib - Object library for BareosDirector (shared between main and test)
 add_library(bareosdirector_lib OBJECT
-    src/bareosdirector.cpp
-    src/bareosauth.cpp
-    src/bjsonstreamreader.cpp
-    include/bareosdirector.h
-    include/bareosauth.h
-    include/bjsonstreamreader.h
+    src/director/bareosdirector.cpp
+    src/director/bareosauth.cpp
+    src/director/bjsonstreamreader.cpp
+    include/director/bareosdirector.h
+    include/director/bareosauth.h
+    include/director/bjsonstreamreader.h
 )
 
 target_include_directories(bareosdirector_lib PUBLIC
@@ -942,10 +978,8 @@ message(STATUS "  director_test    - BareosDirector state machine test")
 message(STATUS "")
 
 # ============================================================================
-# CPack Configuration (Windows Installer)
+# CPack Configuration (Package Generation)
 # ============================================================================
-
-include(CPack)
 
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
 set(CPACK_PACKAGE_VENDOR "Bernau Family")
@@ -976,8 +1010,25 @@ elseif(APPLE)
 elseif(UNIX)
     # DEB and RPM for Linux
     set(CPACK_GENERATOR "DEB;RPM")
+
+    # Debian package settings
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joerg Bernau <joerg@bernau.family>")
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libqt6core6, libqt6gui6, libqt6widgets6, libqt6network6")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "admin")
+    set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Beerlesklopfer/Onesimus")
+    set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
+        "Onesimus - Bareos/Bacula Backup Management Tool\n A Qt6-based graphical management console for Bareos and Bacula\n backup systems. Provides client management, job monitoring,\n configuration import/export, and Director administration.")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS
+        "libqt6core6 (>= 6.2), libqt6gui6 (>= 6.2), libqt6widgets6 (>= 6.2), libqt6network6 (>= 6.2)")
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+
+    # RPM package settings
     set(CPACK_RPM_PACKAGE_LICENSE "Proprietary")
+    set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
     set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= 6.2")
+    set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 endif()
+
+# include(CPack) must come AFTER all CPACK_* variables are set
+include(CPack)

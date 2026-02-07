@@ -1,0 +1,46 @@
+{
+  "name": "Linux Mail Server",
+  "description": "Backup of mail server data (Postfix/Dovecot)",
+  "platform": "linux",
+  "category": "mail",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "LinuxMailServer",
+    "Description": "Mail server data and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/tmp",
+            "*/.Trash"
+          ]
+        }
+      },
+      "File": [
+        "/var/mail",
+        "/var/vmail",
+        "/var/spool/mail",
+        "/var/spool/postfix",
+        "/etc/postfix",
+        "/etc/dovecot",
+        "/etc/opendkim",
+        "/etc/spamassassin"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "10 GB - 500 GB",
+  "notes": [
+    "Mail queues in postfix spool should be flushed before backup",
+    "Consider using doveadm backup for Dovecot",
+    "DKIM keys in /etc/opendkim are critical",
+    "Test mail restore including folder structure"
+  ]
+}

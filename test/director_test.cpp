@@ -54,7 +54,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
-#include "bareosdirector.h"
+#include "director/bareosdirector.h"
 
 /**
  * @class DirectorTester
@@ -682,7 +682,7 @@ private:
         case BareosDirector::SettingApiMode:   return "SettingApiMode";
         case BareosDirector::LoadingResources: return "LoadingResources";
         case BareosDirector::Ready:            return "Ready";
-        case BareosDirector::Error:            return "Error";
+        case BareosDirector::ConnectionError:  return "ConnectionError";
         default:                               return "Unknown";
         }
     }

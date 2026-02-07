@@ -1,8 +1,8 @@
 #include "btranslations.h"
+#include "blogging.h"
 #include <QApplication>
 #include <QLibraryInfo>
 #include <QLocale>
-#include <QDebug>
 
 BTranslations* BTranslations::s_instance = nullptr;
 
@@ -38,9 +38,9 @@ void BTranslations::setLanguage(Language language)
     if (m_translator->load(languageFile, ":/translations") ||
         m_translator->load(languageFile, QCoreApplication::applicationDirPath() + "/translations")) {
         QCoreApplication::installTranslator(m_translator);
-        qDebug() << "Loaded translation:" << languageFile;
+        BLOG_DEBUG() << "Loaded translation:" << languageFile;
     } else {
-        qDebug() << "Translation file not found:" << languageFile;
+        BLOG_DEBUG() << "Translation file not found:" << languageFile;
     }
 
     // Set system locale based on language
@@ -68,7 +68,7 @@ void BTranslations::setLanguage(Language language)
             locale = QLocale::system();
     }
     QLocale::setDefault(locale);
-    qDebug() << "Set default locale to:" << locale.name();
+    BLOG_DEBUG() << "Set default locale to:" << locale.name();
 
     m_currentLanguage = language;
     emit languageChanged(language);
@@ -142,7 +142,7 @@ BTranslations::Language BTranslations::detectSystemLanguage()
     QLocale systemLocale = QLocale::system();
     QLocale::Language sysLang = systemLocale.language();
 
-    qDebug() << "Detecting system language:" << systemLocale.name()
+    BLOG_DEBUG() << "Detecting system language:" << systemLocale.name()
              << "Language:" << QLocale::languageToString(sysLang);
 
     // Map system language to our supported languages
@@ -161,7 +161,7 @@ BTranslations::Language BTranslations::detectSystemLanguage()
             return English;
         default:
             // For unsupported languages, default to English
-            qDebug() << "System language not directly supported, defaulting to English";
+            BLOG_DEBUG() << "System language not directly supported, defaulting to English";
             return English;
     }
 }

@@ -1,19 +1,20 @@
 #include "jobs/bjobmodels.h"
 #include "jobs/blevelcolors.h"
+#include "blogging.h"
 #include <QBrush>
 #include <QColor>
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QLocale>
 #include <QSet>
-#include <QDebug>
 
 // ============================================================================
 // BJobsModel Implementation
 // ============================================================================
 
-BJobsModel::BJobsModel(QObject *parent)
+BJobsModel::BJobsModel(BDirector *director, QObject *parent)
     : QAbstractTableModel(parent)
+    , m_director(director)
     , m_paginationEnabled(false)
     , m_currentPage(0)
     , m_pageSize(50)
@@ -254,7 +255,16 @@ void BJobsModel::setJobs(const QJsonArray &jobs)
 {
     beginResetModel();
     m_jobs = jobs;
-    m_selectedJobs.clear();
+
+    // Preserve selections: keep only job IDs that still exist in the new data
+    if (!m_selectedJobs.isEmpty()) {
+        QSet<QString> newJobIds;
+        for (const QJsonValue &job : m_jobs) {
+            newJobIds.insert(job.toObject()["jobid"].toString());
+        }
+        m_selectedJobs.intersect(newJobIds);
+    }
+
     endResetModel();
 }
 
@@ -572,13 +582,13 @@ QString BJobsModel::formatStatus(const QString &status) const
 {
     if (status == "T") return "Terminated normally";
     if (status == "W") return "Terminated with warnings";
+    if (status == "F") return "Failed";
     if (status == "f") return "Failed";
     if (status == "E") return "Terminated in Error";
     if (status == "e") return "Non-fatal error";
     if (status == "A") return "Canceled by user";
     if (status == "R") return "Running";
     if (status == "C") return "Created";
-    if (status == "F") return "Waiting on File Daemon";
     if (status == "S") return "Waiting on Storage Daemon";
     if (status == "m") return "Waiting for new media";
     if (status == "M") return "Waiting for Mount";
@@ -727,10 +737,10 @@ bool BJobsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &source
         }
     }
 
-    // Status filter
+    // Status filter (exclusion: m_statusFilter contains statuses to HIDE)
     if (!m_statusFilter.isEmpty()) {
         QString status = job["jobstatus"].toString();
-        if (!m_statusFilter.contains(status)) {
+        if (m_statusFilter.contains(status)) {
             return false;
         }
     }
@@ -1045,8 +1055,8 @@ bool BJobLogModel::parseJsonResponse(const QString &jsonResponse)
             logLines.append(tr("No log entries found in JSON response."));
         }
     } else {
-        qWarning() << "BJobLogModel: Not valid JSON, treating as plain text";
-        qWarning() << "  Parse error:" << parseError.errorString() << "at offset" << parseError.offset;
+        BLOG_WARNING() << "BJobLogModel: Not valid JSON, treating as plain text";
+        BLOG_WARNING() << "  Parse error:" << parseError.errorString() << "at offset" << parseError.offset;
 
         QStringList rawLines = cleanedResponse.split('\n');
 
@@ -1127,7 +1137,7 @@ void BFilterComboModel::updateFromJobsArray(const QJsonArray &jobsArray)
     m_clientNames.sort(Qt::CaseInsensitive);
 
 #ifdef IS_DEVELOPER
-    qDebug() << "BFilterComboModel: Updated with" << m_jobNames.size() << "unique job names and"
+    BLOG_DEBUG() << "BFilterComboModel: Updated with" << m_jobNames.size() << "unique job names and"
              << m_clientNames.size() << "unique client names";
 #endif
 
@@ -1140,12 +1150,12 @@ void BFilterComboModel::updateJobNamesFromDotCommand(const QString &dotJobsRespo
     QJsonDocument doc = QJsonDocument::fromJson(dotJobsResponse.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BFilterComboModel: Failed to parse .jobs response:" << parseError.errorString();
+        BLOG_WARNING() << "BFilterComboModel: Failed to parse .jobs response:" << parseError.errorString();
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "BFilterComboModel: .jobs response is not a JSON object";
+        BLOG_WARNING() << "BFilterComboModel: .jobs response is not a JSON object";
         return;
     }
 
@@ -1172,7 +1182,7 @@ void BFilterComboModel::updateJobNamesFromDotCommand(const QString &dotJobsRespo
     m_jobNames.sort(Qt::CaseInsensitive);
 
 #ifdef IS_DEVELOPER
-    qDebug() << "BFilterComboModel: Updated job names from .jobs -" << m_jobNames.size() << "jobs";
+    BLOG_DEBUG() << "BFilterComboModel: Updated job names from .jobs -" << m_jobNames.size() << "jobs";
 #endif
 
     emit dataUpdated();
@@ -1184,12 +1194,12 @@ void BFilterComboModel::updateClientNamesFromDotCommand(const QString &dotClient
     QJsonDocument doc = QJsonDocument::fromJson(dotClientsResponse.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BFilterComboModel: Failed to parse .clients response:" << parseError.errorString();
+        BLOG_WARNING() << "BFilterComboModel: Failed to parse .clients response:" << parseError.errorString();
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "BFilterComboModel: .clients response is not a JSON object";
+        BLOG_WARNING() << "BFilterComboModel: .clients response is not a JSON object";
         return;
     }
 
@@ -1216,7 +1226,7 @@ void BFilterComboModel::updateClientNamesFromDotCommand(const QString &dotClient
     m_clientNames.sort(Qt::CaseInsensitive);
 
 #ifdef IS_DEVELOPER
-    qDebug() << "BFilterComboModel: Updated client names from .clients -" << m_clientNames.size() << "clients";
+    BLOG_DEBUG() << "BFilterComboModel: Updated client names from .clients -" << m_clientNames.size() << "clients";
 #endif
 
     emit dataUpdated();

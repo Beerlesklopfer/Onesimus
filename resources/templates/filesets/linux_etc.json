@@ -1,0 +1,33 @@
+{
+  "name": "Linux System Configuration",
+  "description": "Backup of /etc system configuration files",
+  "platform": "linux",
+  "category": "system",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "LinuxEtc",
+    "Description": "System configuration files",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "GZIP",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true
+      },
+      "File": [
+        "/etc"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Full",
+  "estimated_size": "50-500 MB",
+  "notes": [
+    "Small but critical - backup frequently",
+    "Contains passwords, keys, and sensitive configs",
+    "Essential for disaster recovery",
+    "Consider version control for tracking changes"
+  ]
+}

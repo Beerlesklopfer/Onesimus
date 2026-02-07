@@ -1,7 +1,9 @@
 #include "jobs/bjobwidget.h"
+#include "blogging.h"
 #include "jobs/bjobdetailsdialog.h"
 #include "jobs/bnewjobdialog.h"
 #include "jobs/blevelcolors.h"
+#include "messages/bmessageswidget.h"
 #include "bsettings.h"
 #include <QHeaderView>
 #include <QMessageBox>
@@ -16,16 +18,24 @@
 #include <QListView>
 #include <QScrollArea>
 #include <QFontMetrics>
+#include <QClipboard>
+#include <QApplication>
 
-BJobWidget::BJobWidget(QWidget *parent)
+BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     : QWidget(parent)
-    , m_tableView(new BJsonJobView(this))
+    , m_tableView(new BJsonJobView(director, this))
     , m_streamReader(new BJsonStreamReader(this))
     , m_paginationWidget(new BPaginationWidget(this))
+    , m_lowerTabWidget(new QTabWidget(this))
+    , m_messagesWidget(new BMessagesWidget(this))
     , m_logView(new QListView(this))
     , m_logModel(new BJobLogModel(this))
     , m_logTitleLabel(new QLabel(this))
     , m_logContainer(new QWidget(this))
+    , m_logHistoryCombo(new QComboBox(this))
+    , m_logCopyButton(new QPushButton(tr("Copy"), this))
+    , m_logClearHistoryButton(new QPushButton(tr("Clear History"), this))
+    , m_logSearchEdit(new QLineEdit(this))
     , m_nameFilter(new QComboBox(this))
     , m_clientFilter(new QComboBox(this))
     , m_filterComboModel(new BFilterComboModel(this))
@@ -34,7 +44,7 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_poolCombo(new QComboBox(this))
     , m_statusSuccess(new QCheckBox(tr("Successful (T)"), this))
     , m_statusWarning(new QCheckBox(tr("Warning (W)"), this))
-    , m_statusFailed(new QCheckBox(tr("Failed (f)"), this))
+    , m_statusFailed(new QCheckBox(tr("Failed (F)"), this))
     , m_statusError(new QCheckBox(tr("Error (E)"), this))
     , m_statusRunning(new QCheckBox(tr("Running (R)"), this))
     , m_statusCanceled(new QCheckBox(tr("Canceled (A)"), this))
@@ -48,7 +58,7 @@ BJobWidget::BJobWidget(QWidget *parent)
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_toggleFiltersButton(new QPushButton(this))
     , m_filterToolBox(nullptr)  // Will be created in setupUI
-    , m_director(nullptr)
+    , m_director(director)
     , m_filesetModel(new BFilesetModel(this))
     , m_storageModel(new BStorageModel(this))
     , m_poolModel(new BPoolModel(this))
@@ -62,10 +72,18 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_statusRunning->setChecked(true);
     m_statusCanceled->setChecked(true);
     m_statusZeroBytes->setChecked(false);
+    m_statusZeroBytes->setToolTip(
+        tr("When enabled, only shows jobs with 0 bytes transferred.\n"
+           "Warning: This filter persists across restarts and may\n"
+           "cause an empty table if no zero-byte jobs exist."));
 
     // Level checkboxes will be populated dynamically from .levels command
 
     // Setup date time edits
+    m_dateEnabled->setToolTip(
+        tr("When enabled, only shows jobs within the selected date range.\n"
+           "Warning: This filter persists across restarts and may\n"
+           "cause an empty or limited table if the range is too narrow."));
     m_dateFrom->setCalendarPopup(true);
     m_dateFrom->setDateTime(QDateTime::currentDateTime().addDays(-30));
     m_dateFrom->setEnabled(false);
@@ -105,8 +123,33 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
     m_logTitleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
+    // Setup log history controls
+    m_logHistoryCombo->setPlaceholderText(tr("-- Select Job Log --"));
+    m_logHistoryCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_logHistoryCombo->setToolTip(tr("Select from previously loaded job logs"));
+
+    m_logCopyButton->setToolTip(tr("Copy selected lines to clipboard"));
+    m_logCopyButton->setIcon(QIcon::fromTheme("edit-copy"));
+
+    m_logClearHistoryButton->setToolTip(tr("Clear job log history"));
+    m_logClearHistoryButton->setIcon(QIcon::fromTheme("edit-clear"));
+
+    m_logSearchEdit->setPlaceholderText(tr("Search in log..."));
+    m_logSearchEdit->setClearButtonEnabled(true);
+    m_logSearchEdit->setToolTip(tr("Filter log lines by search text"));
+
     setupUI();
-    
+
+    // Connect messages widget signals to forward commands
+    connect(m_messagesWidget, &BMessagesWidget::sendCommand, this,
+            [this](const BDirector::Command cmd, const QString &args) {
+                emit sendCommand(cmd, args);
+            });
+    connect(m_messagesWidget, &BMessagesWidget::statusMessageChanged, this,
+            [this](const QString &message) {
+                emit statusMessageChanged(message);
+            });
+
     // Connect table view signals
     connect(m_tableView, &BJsonJobView::jobDoubleClicked,
             this, &BJobWidget::onJobDoubleClicked);
@@ -142,8 +185,14 @@ BJobWidget::BJobWidget(QWidget *parent)
                     emit statusMessageChanged(QString("Lösche Job-Daten..."));
                     emit sendCommand(cmd, "purge " + args);
                     return;
+                } else if (command == "prune") {
+                    // Prune jobs - args contains "jobs client=XX yes"
+                    cmd = BDirector::Command::Custom;
+                    emit statusMessageChanged(QString("Prune abgelaufener Jobs..."));
+                    emit sendCommand(cmd, "prune " + args);
+                    return;
                 } else {
-                    qWarning() << "Unknown job action command:" << command;
+                    BLOG_WARNING() << "Unknown job action command:" << command;
                     return;
                 }
 
@@ -176,10 +225,24 @@ BJobWidget::BJobWidget(QWidget *parent)
     connect(m_statusCanceled, &QCheckBox::toggled,
             this, [this]() { m_filterTimer->start(); });
     connect(m_statusZeroBytes, &QCheckBox::toggled,
-            this, [this]() { m_filterTimer->start(); });
+            this, [this](bool checked) {
+                m_filterTimer->start();
+                if (checked) {
+                    emit statusMessageChanged(
+                        tr("⚠ Zero Bytes filter active — only jobs with 0 bytes are shown. "
+                           "This filter persists across restarts!"));
+                }
+            });
     // Level checkbox connections will be established dynamically when created
     connect(m_dateEnabled, &QCheckBox::toggled,
-            this, [this]() { m_filterTimer->start(); });
+            this, [this](bool checked) {
+                m_filterTimer->start();
+                if (checked) {
+                    emit statusMessageChanged(
+                        tr("⚠ Date filter active — only jobs within the selected range are shown. "
+                           "This filter persists across restarts!"));
+                }
+            });
     connect(m_dateFrom, &QDateTimeEdit::dateTimeChanged,
             this, [this]() { if (m_dateEnabled->isChecked()) m_filterTimer->start(); });
     connect(m_dateTo, &QDateTimeEdit::dateTimeChanged,
@@ -258,6 +321,36 @@ BJobWidget::BJobWidget(QWidget *parent)
     m_dateFrom->setDateTime(BSettings::instance().jobsFilterDateFrom());
     m_dateTo->setDateTime(BSettings::instance().jobsFilterDateTo());
 
+    // Startup hint: warn if limiting filters are active from a previous session
+    QTimer::singleShot(0, this, [this]() {
+        QStringList activeHints;
+        if (m_statusZeroBytes->isChecked()) {
+            activeHints << tr("Zero Bytes");
+        }
+        if (m_dateEnabled->isChecked()) {
+            activeHints << tr("Date Range (%1 – %2)")
+                .arg(m_dateFrom->dateTime().toString("dd.MM.yyyy"))
+                .arg(m_dateTo->dateTime().toString("dd.MM.yyyy"));
+        }
+        // Check if any status filter is unchecked
+        QStringList disabledStatuses;
+        if (!m_statusSuccess->isChecked()) disabledStatuses << "T";
+        if (!m_statusWarning->isChecked()) disabledStatuses << "W";
+        if (!m_statusFailed->isChecked()) disabledStatuses << "F";
+        if (!m_statusError->isChecked()) disabledStatuses << "E";
+        if (!m_statusRunning->isChecked()) disabledStatuses << "R";
+        if (!m_statusCanceled->isChecked()) disabledStatuses << "A";
+        if (!disabledStatuses.isEmpty()) {
+            activeHints << tr("Status (hidden: %1)").arg(disabledStatuses.join(", "));
+        }
+
+        if (!activeHints.isEmpty()) {
+            emit statusMessageChanged(
+                tr("⚠ Active filters from last session: %1 — results may be limited")
+                    .arg(activeHints.join("; ")));
+        }
+    });
+
     // Initial refresh
     onRefreshClicked();
 }
@@ -285,7 +378,7 @@ void BJobWidget::setupUI()
     toolbarLayout->addSpacing(10);
 
     // Refresh button
-    m_refreshButton = new QPushButton("Aktualisieren", this);
+    m_refreshButton = new QPushButton(tr("Refresh"), this);
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
 
     // Auto-refresh controls
@@ -452,19 +545,48 @@ void BJobWidget::setupUI()
 
     verticalSplitter->addWidget(tableContainer);
 
-    // === LOG CONTAINER (unten) ===
+    // === LOWER TAB WIDGET (Job Log + Messages) ===
+
+    // Job Log Tab
     QVBoxLayout *logLayout = new QVBoxLayout(m_logContainer);
     logLayout->setContentsMargins(5, 5, 5, 5);
     logLayout->setSpacing(5);
 
+    // Log toolbar with history selector and controls
+    QHBoxLayout *logToolbarLayout = new QHBoxLayout();
+    logToolbarLayout->setContentsMargins(0, 0, 0, 0);
+    logToolbarLayout->setSpacing(5);
+
+    logToolbarLayout->addWidget(new QLabel(tr("History:"), this));
+    logToolbarLayout->addWidget(m_logHistoryCombo, 1);  // stretch factor 1
+    logToolbarLayout->addWidget(m_logSearchEdit);
+    logToolbarLayout->addWidget(m_logCopyButton);
+    logToolbarLayout->addWidget(m_logClearHistoryButton);
+
     logLayout->addWidget(m_logTitleLabel);
+    logLayout->addLayout(logToolbarLayout);
     logLayout->addWidget(m_logView);
 
-    verticalSplitter->addWidget(m_logContainer);
+    // Connect log history controls
+    connect(m_logHistoryCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &BJobWidget::onLogHistoryChanged);
+    connect(m_logCopyButton, &QPushButton::clicked,
+            this, &BJobWidget::onLogCopyClicked);
+    connect(m_logClearHistoryButton, &QPushButton::clicked,
+            this, &BJobWidget::onLogClearHistoryClicked);
+    connect(m_logSearchEdit, &QLineEdit::textChanged,
+            this, &BJobWidget::onLogSearchChanged);
 
-    // Vertikaler Splitter Größen: Table 70%, Log 30%
+    m_lowerTabWidget->addTab(m_logContainer, tr("Job Log"));
+
+    // Messages Tab
+    m_lowerTabWidget->addTab(m_messagesWidget, tr("Messages"));
+
+    verticalSplitter->addWidget(m_lowerTabWidget);
+
+    // Vertikaler Splitter Größen: Table 70%, Lower Panel 30%
     verticalSplitter->setStretchFactor(0, 7);  // Table
-    verticalSplitter->setStretchFactor(1, 3);  // Log
+    verticalSplitter->setStretchFactor(1, 3);  // Lower Panel (Tabs)
 
     m_splitter->addWidget(verticalSplitter);
 
@@ -490,6 +612,12 @@ void BJobWidget::setupUI()
     // Connect pagination for server-side pagination
     connect(m_paginationWidget, &BPaginationWidget::pageRequested,
             this, &BJobWidget::onPageRequested);
+
+    // Auto-refresh when pagination is toggled
+    connect(m_paginationWidget, &BPaginationWidget::paginationToggled,
+            this, [this](bool /*enabled*/) {
+                onRefreshClicked();
+            });
 
     // Button signals
     connect(m_refreshButton, &QPushButton::clicked,
@@ -623,25 +751,35 @@ void BJobWidget::setConnectionState(bool connected)
     // Enable/disable buttons based on connection state
     m_refreshButton->setEnabled(connected);
 
+    // Update messages widget connection state
+    m_messagesWidget->setConnectionState(connected);
+
     // ✅ Request filter data from Director when connected
     // Note: Filter data will be requested automatically by onRefreshAll()
     // which is called after API mode is properly activated
-    if (!connected) {
+    if (connected) {
+        // Start message polling
+        int msgPollInterval = BSettings::instance().messagesPollInterval();
+        if (msgPollInterval > 0) {
+            m_messagesWidget->startPolling(msgPollInterval);
+        }
+    } else {
         // Clear combo boxes when disconnected
         m_nameFilter->clear();
         m_clientFilter->clear();
+        m_messagesWidget->stopPolling();
     }
 }
 
 void BJobWidget::requestFilterData()
 {
     if (!m_director) {
-        qWarning() << "BJobWidget::requestFilterData: No director set";
+        BLOG_WARNING() << "BJobWidget::requestFilterData: No director set";
         return;
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Requesting filter data using dot-commands (.jobs, .clients, .levels)";
+    BLOG_DEBUG() << "BJobWidget: Requesting filter data using dot-commands (.jobs, .clients, .levels)";
 #endif
 
     // Send .jobs command to get all configured jobs
@@ -666,7 +804,7 @@ void BJobWidget::requestFilterData()
 void BJobWidget::processDotJobsResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Processing .jobs response";
+    BLOG_DEBUG() << "BJobWidget: Processing .jobs response";
 #endif
 
     // Parse JSON to extract job configurations
@@ -693,11 +831,11 @@ void BJobWidget::processDotJobsResponse(const QString &jsonData)
         }
 
 #ifdef IS_DEVELOPER
-        qDebug() << "✓ Stored" << m_jobConfigurations.size() << "job configurations";
+        BLOG_DEBUG() << "✓ Stored" << m_jobConfigurations.size() << "job configurations";
         // Show first config as sample
         if (!m_jobConfigurations.isEmpty()) {
             QString firstKey = m_jobConfigurations.firstKey();
-            qDebug() << "  Sample config for" << firstKey << ":" << m_jobConfigurations[firstKey];
+            BLOG_DEBUG() << "  Sample config for" << firstKey << ":" << m_jobConfigurations[firstKey];
         }
 #endif
     }
@@ -717,14 +855,14 @@ void BJobWidget::processDotJobsResponse(const QString &jsonData)
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Job name filter updated with" << m_filterComboModel->jobNames().size() << "jobs";
+    BLOG_DEBUG() << "✓ Job name filter updated with" << m_filterComboModel->jobNames().size() << "jobs";
 #endif
 }
 
 void BJobWidget::processDotClientsResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Processing .clients response";
+    BLOG_DEBUG() << "BJobWidget: Processing .clients response";
 #endif
 
     // Update client names in filter model
@@ -742,19 +880,15 @@ void BJobWidget::processDotClientsResponse(const QString &jsonData)
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Client name filter updated with" << m_filterComboModel->clientNames().size() << "clients";
+    BLOG_DEBUG() << "✓ Client name filter updated with" << m_filterComboModel->clientNames().size() << "clients";
 #endif
 }
 
 void BJobWidget::processDotLevelsResponse(const QString &jsonData)
 {
-    qWarning() << "BJobWidget: Processing .levels response";
-    qWarning() << "  Response size:" << jsonData.size() << "bytes";
-    if (jsonData.size() < 1000) {
-        qWarning() << "  Raw JSON:" << jsonData;
-    } else {
-        qWarning() << "  First 1000 chars:" << jsonData.left(1000);
-    }
+#ifdef IS_DEVELOPER
+    BLOG_DEBUG() << "BJobWidget: Processing .levels response";
+#endif
 
     // Parse response using model
     m_levelModel->parseLevels(jsonData);
@@ -775,9 +909,6 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
     // Get level codes and descriptions from model
     QStringList levelCodes = m_levelModel->levelCodes();
     QStringList levelDescriptions = m_levelModel->levelDescriptions();
-
-    qWarning() << "  Level codes:" << levelCodes;
-    qWarning() << "  Level descriptions:" << levelDescriptions;
 
     // Get visible levels from settings
     QStringList visibleLevels = BSettings::instance().visibleLevels();
@@ -837,14 +968,14 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Created" << m_levelCheckboxes.size() << "level filter checkboxes";
+    BLOG_DEBUG() << "✓ Created" << m_levelCheckboxes.size() << "level filter checkboxes";
 #endif
 }
 
 void BJobWidget::processDotFilesetsResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Processing .filesets response";
+    BLOG_DEBUG() << "BJobWidget: Processing .filesets response";
 #endif
 
     // Parse response using model
@@ -856,14 +987,14 @@ void BJobWidget::processDotFilesetsResponse(const QString &jsonData)
     m_filesetCombo->addItems(m_filesetModel->filesetNames());
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << m_filesetModel->filesetNames().size() << "filesets";
+    BLOG_DEBUG() << "✓ Loaded" << m_filesetModel->filesetNames().size() << "filesets";
 #endif
 }
 
 void BJobWidget::processDotStoragesResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Processing .storages response";
+    BLOG_DEBUG() << "BJobWidget: Processing .storages response";
 #endif
 
     // Parse response using model
@@ -874,14 +1005,14 @@ void BJobWidget::processDotStoragesResponse(const QString &jsonData)
     m_storageCombo->addItems(m_storageModel->storageNames());
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << m_storageModel->storageNames().size() << "storages";
+    BLOG_DEBUG() << "✓ Loaded" << m_storageModel->storageNames().size() << "storages";
 #endif
 }
 
 void BJobWidget::processDotPoolsResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Processing .pools response";
+    BLOG_DEBUG() << "BJobWidget: Processing .pools response";
 #endif
 
     // Parse response using model
@@ -892,14 +1023,14 @@ void BJobWidget::processDotPoolsResponse(const QString &jsonData)
     m_poolCombo->addItems(m_poolModel->poolNames());
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << m_poolModel->poolNames().size() << "pools";
+    BLOG_DEBUG() << "✓ Loaded" << m_poolModel->poolNames().size() << "pools";
 #endif
 }
 
 void BJobWidget::processJobTotalsResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Processing list jobtotals response";
+    BLOG_DEBUG() << "BJobWidget: Processing list jobtotals response";
 #endif
 
     // Parse JSON to extract total job count
@@ -907,13 +1038,13 @@ void BJobWidget::processJobTotalsResponse(const QString &jsonData)
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "Failed to parse jobtotals response:" << parseError.errorString();
+        BLOG_WARNING() << "Failed to parse jobtotals response:" << parseError.errorString();
         m_refreshButton->setEnabled(true);
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "Jobtotals response is not a JSON object";
+        BLOG_WARNING() << "Jobtotals response is not a JSON object";
         m_refreshButton->setEnabled(true);
         return;
     }
@@ -921,43 +1052,74 @@ void BJobWidget::processJobTotalsResponse(const QString &jsonData)
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    // Look for jobtotals array in the result
+    // Extract total job count from jobtotals
+    // Bareos returns jobtotals as an object: {"jobs": "2163", "files": "...", "bytes": "..."}
+    // with string-typed numeric values
     int totalJobs = 0;
     if (result.contains("jobtotals")) {
-        QJsonArray jobtotals = result["jobtotals"].toArray();
-        // Sum up all job counts from the totals
-        for (const QJsonValue &v : jobtotals) {
-            QJsonObject total = v.toObject();
-            if (total.contains("jobs")) {
-                totalJobs += total["jobs"].toInt();
+        QJsonValue jt = result["jobtotals"];
+        if (jt.isObject()) {
+            // Bareos format: jobtotals is a summary object
+            QJsonObject totals = jt.toObject();
+            totalJobs = totals["jobs"].toVariant().toInt();
+        } else if (jt.isArray()) {
+            // Fallback: array of per-type totals
+            QJsonArray jobtotals = jt.toArray();
+            for (const QJsonValue &v : jobtotals) {
+                QJsonObject total = v.toObject();
+                if (total.contains("jobs")) {
+                    totalJobs += total["jobs"].toVariant().toInt();
+                }
             }
         }
     }
 
-#ifdef IS_DEVELOPER
-    qDebug() << "  Total jobs from jobtotals:" << totalJobs;
-#endif
+    // totalJobs parsed from jobtotals response
 
     // Update pagination widget with total count
     m_paginationWidget->setTotalJobCount(totalJobs);
 
-    // Now fetch the first page of jobs
+    // Fetch first page of jobs
     int pageSize = m_paginationWidget->pageSize();
-    emit sendCommand(BDirector::Command::ListJobs, QString("%1,0").arg(pageSize));
+    if (BSettings::instance().behaviorJobsNewestFirst()) {
+        // Reverse offset: page 0 = newest jobs
+        int reverseOffset = qMax(0, totalJobs - pageSize);
+        emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(pageSize).arg(reverseOffset));
+    } else {
+        // Normal offset: page 0 = oldest jobs
+        emit sendCommand(BDirector::Command::ListJobs, QString("%1,0").arg(pageSize));
+    }
+}
+
+void BJobWidget::processMessagesResponse(const QString &jsonData)
+{
+    // Forward to the messages widget
+    if (m_messagesWidget) {
+        m_messagesWidget->processMessagesResponse(jsonData);
+    }
 }
 
 void BJobWidget::onPageRequested(int page, int pageSize)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Page requested - page:" << page << "pageSize:" << pageSize;
+    BLOG_DEBUG() << "BJobWidget: Page requested - page:" << page << "pageSize:" << pageSize;
 #endif
 
     m_refreshButton->setEnabled(false);
     emit statusMessageChanged(tr("Lade Seite %1...").arg(page + 1));
 
-    // Calculate offset and fetch jobs
-    int offset = page * pageSize;
-    emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(pageSize).arg(offset));
+    if (BSettings::instance().behaviorJobsNewestFirst()) {
+        // Reverse offset: page 0 = newest jobs, page N = oldest jobs
+        int totalJobs = m_paginationWidget->totalJobCount();
+        int reverseOffset = qMax(0, totalJobs - (page + 1) * pageSize);
+        int actualLimit = qMin(pageSize, totalJobs - page * pageSize);
+        if (actualLimit <= 0) actualLimit = pageSize;
+        emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(actualLimit).arg(reverseOffset));
+    } else {
+        // Normal offset: page 0 = oldest jobs
+        int offset = page * pageSize;
+        emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(pageSize).arg(offset));
+    }
 }
 
 void BJobWidget::onRefreshClicked()
@@ -969,24 +1131,28 @@ void BJobWidget::onRefreshClicked()
         // Server-side pagination: First fetch job totals to know total count
         emit sendCommand(BDirector::Command::ListJobTotals, "");
     } else {
-        // No pagination: Use the max jobs setting from BSettings
+        // No pagination: Fetch jobs based on sort order setting
         int maxJobs = BSettings::instance().behaviorMaxJobsDisplay();
-        emit sendCommand(BDirector::Command::ListJobs, QString::number(maxJobs));
+        if (BSettings::instance().behaviorJobsNewestFirst()) {
+            emit sendCommand(BDirector::Command::ListJobsLast, QString::number(maxJobs));
+        } else {
+            emit sendCommand(BDirector::Command::ListJobs, QString::number(maxJobs));
+        }
     }
 }
 
 void BJobWidget::processJsonResponse(const QString &jsonData)
 {
 #ifdef DEBUG_JSON
-    qDebug() << "========================================";
-    qDebug() << "BJobWidget: Processing JSON response";
-    qDebug() << "  Data size:" << jsonData.size() << "bytes";
+    BLOG_DEBUG() << "========================================";
+    BLOG_DEBUG() << "BJobWidget: Processing JSON response";
+    BLOG_DEBUG() << "  Data size:" << jsonData.size() << "bytes";
     if (jsonData.size() < 500) {
-        qDebug() << "  Raw JSON:" << jsonData;
+        BLOG_DEBUG() << "  Raw JSON:" << jsonData;
     } else {
-        qDebug() << "  First 500 chars:" << jsonData.left(500);
+        BLOG_DEBUG() << "  First 500 chars:" << jsonData.left(500);
     }
-    qDebug() << "========================================";
+    BLOG_DEBUG() << "========================================";
 #endif
 
     // Clear previous data
@@ -997,25 +1163,18 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
 
     // Parse JSON
     if (!m_streamReader->parseJson()) {
-        qCritical() << "✗ Failed to parse JSON response";
-        emit statusMessageChanged("Fehler beim Parsen der JSON-Daten");
+        BLOG_ERROR() << "✗ Failed to parse JSON response";
+        emit statusMessageChanged(tr("Error parsing JSON data"));
         m_refreshButton->setEnabled(true);
         return;
     }
 
 #ifdef DEBUG_JSON
-    qDebug() << "✓ JSON parsed successfully";
+    BLOG_DEBUG() << "✓ JSON parsed successfully";
 #endif
 
     // Get jobs array
     QJsonArray jobsArray = m_streamReader->jobsArray();
-
-#ifdef DEBUG_JSON
-    qDebug() << "✓ Extracted" << jobsArray.size() << "jobs from JSON";
-    if (jobsArray.isEmpty()) {
-        qWarning() << "⚠ Jobs array is empty! Check JSON structure.";
-    }
-#endif
 
     // Enrich job data with configuration information (fileset, storage, pool)
     QJsonArray enrichedJobsArray;
@@ -1048,14 +1207,14 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Enriched" << enrichedJobsArray.size() << "jobs with configuration data";
+    BLOG_DEBUG() << "✓ Enriched" << enrichedJobsArray.size() << "jobs with configuration data";
 #endif
 
     // Update table view with enriched data
     m_tableView->setJobsData(enrichedJobsArray);
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Table view updated";
+    BLOG_DEBUG() << "✓ Table view updated";
 #endif
 
     // Update filter combo box model with enriched data
@@ -1086,7 +1245,7 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Filter combo boxes updated with"
+    BLOG_DEBUG() << "✓ Filter combo boxes updated with"
              << m_filterComboModel->jobNames().size() << "job names and"
              << m_filterComboModel->clientNames().size() << "client names";
 #endif
@@ -1113,11 +1272,11 @@ void BJobWidget::onJobSelectionChanged()
             QString storage = selectedJob["storage"].toString();
             QString pool = selectedJob["pool"].toString();
 
-            qDebug() << "  JobID:" << selectedJob["jobid"].toString();
-            qDebug() << "  Name:" << selectedJob["name"].toString();
-            qDebug() << "  Fileset:" << fileset;
-            qDebug() << "  Storage:" << storage;
-            qDebug() << "  Pool:" << pool;
+            BLOG_DEBUG() << "  JobID:" << selectedJob["jobid"].toString();
+            BLOG_DEBUG() << "  Name:" << selectedJob["name"].toString();
+            BLOG_DEBUG() << "  Fileset:" << fileset;
+            BLOG_DEBUG() << "  Storage:" << storage;
+            BLOG_DEBUG() << "  Pool:" << pool;
 
             // Update FileSet combo - fill with all filesets and select current job's fileset
             m_filesetCombo->clear();
@@ -1197,9 +1356,9 @@ void BJobWidget::onJobSelectionChanged()
 
 void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous)
 {
-    qDebug() << "  Previous row:" << previous.row();
-    qDebug() << "  Current row:" << current.row();
-    qDebug() << "  Current valid:" << current.isValid();
+    BLOG_DEBUG() << "  Previous row:" << previous.row();
+    BLOG_DEBUG() << "  Current row:" << current.row();
+    BLOG_DEBUG() << "  Current valid:" << current.isValid();
 
     if (!current.isValid()) {
         // Clear and disable combo boxes
@@ -1237,11 +1396,11 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
     QString jobId = job["jobid"].toString();
     QString jobName = job["name"].toString();
 
-    qDebug() << "  JobID:" << jobId;
-    qDebug() << "  Name:" << jobName;
-    qDebug() << "  Fileset:" << fileset;
-    qDebug() << "  Storage:" << storage;
-    qDebug() << "  Pool:" << pool;
+    BLOG_DEBUG() << "  JobID:" << jobId;
+    BLOG_DEBUG() << "  Name:" << jobName;
+    BLOG_DEBUG() << "  Fileset:" << fileset;
+    BLOG_DEBUG() << "  Storage:" << storage;
+    BLOG_DEBUG() << "  Pool:" << pool;
 
     // Update FileSet combo - fill with all filesets and select current job's fileset
     m_filesetCombo->clear();
@@ -1378,15 +1537,15 @@ QString BJobWidget::formatBytes(qint64 bytes)
 
 QString BJobWidget::formatJobStatus(const QString &status)
 {
-    if (status == "C") return "Erstellt";
-    if (status == "R") return "Läuft";
-    if (status == "B") return "Blockiert";
-    if (status == "T") return "Beendet";
-    if (status == "W") return "Wartet";
-    if (status == "f") return "Erfolgreich";
-    if (status == "E") return "Fehler";
-    if (status == "e") return "Kritischer Fehler";
-    if (status == "A") return "Abgebrochen";
+    if (status == "C") return tr("Created");
+    if (status == "R") return tr("Running");
+    if (status == "B") return tr("Blocked");
+    if (status == "T") return tr("OK");
+    if (status == "W") return tr("Warning");
+    if (status == "F") return tr("Failed");
+    if (status == "E") return tr("Error");
+    if (status == "e") return tr("Non-fatal Error");
+    if (status == "A") return tr("Canceled");
     return status;
 }
 
@@ -1400,16 +1559,17 @@ void BJobWidget::applyFilters()
     // Apply client filter from combo box
     filterModel->setClientFilter(m_clientFilter->currentText());
     
-    // Apply status filter - build QSet from checkboxes
-    QSet<QString> statusSet;
-    if (m_statusSuccess->isChecked()) statusSet.insert("T");
-    if (m_statusWarning->isChecked()) statusSet.insert("W");
-    if (m_statusFailed->isChecked()) statusSet.insert("f");
-    if (m_statusError->isChecked()) statusSet.insert("E");
-    if (m_statusRunning->isChecked()) statusSet.insert("R");
-    if (m_statusCanceled->isChecked()) statusSet.insert("A");
+    // Apply status filter - build set of EXCLUDED statuses from unchecked boxes
+    // (jobs with status codes not covered by any checkbox always pass through)
+    QSet<QString> excludedStatuses;
+    if (!m_statusSuccess->isChecked()) excludedStatuses.insert("T");
+    if (!m_statusWarning->isChecked()) excludedStatuses.insert("W");
+    if (!m_statusFailed->isChecked()) { excludedStatuses.insert("F"); excludedStatuses.insert("f"); }
+    if (!m_statusError->isChecked()) { excludedStatuses.insert("E"); excludedStatuses.insert("e"); }
+    if (!m_statusRunning->isChecked()) excludedStatuses.insert("R");
+    if (!m_statusCanceled->isChecked()) excludedStatuses.insert("A");
 
-    filterModel->setStatusFilter(statusSet);
+    filterModel->setStatusFilter(excludedStatuses);
 
     // Apply level filter - build QSet from dynamic checkboxes
     QSet<QString> levelSet;
@@ -1434,8 +1594,18 @@ void BJobWidget::applyFilters()
     // Update status label
     int visibleRows = filterModel->rowCount();
     int totalRows = m_tableView->jobsModel()->rowCount();
-    
-    if (visibleRows < totalRows) {
+
+    if (visibleRows == 0 && totalRows > 0) {
+        // All jobs filtered out - warn the user
+        QString hint;
+        if (m_statusZeroBytes->isChecked()) {
+            hint = tr("⚠ No jobs visible — 'Zero Bytes' filter is active!");
+        } else {
+            hint = tr("⚠ No jobs visible — check your filter settings (%1 jobs loaded)")
+                .arg(totalRows);
+        }
+        emit statusMessageChanged(hint);
+    } else if (visibleRows < totalRows) {
         emit statusMessageChanged(tr("Gefiltert: %1 von %2 Jobs")
             .arg(visibleRows)
             .arg(totalRows));
@@ -1595,8 +1765,43 @@ void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonDat
                                  .arg(jobName)
                                  .arg(currentJobId)
                                  .arg(lineCount));
+
+        // Add to history (or update existing entry)
+        bool found = false;
+        for (int i = 0; i < m_logHistory.size(); ++i) {
+            if (m_logHistory[i].jobId == currentJobId) {
+                // Update existing entry
+                m_logHistory[i].logLines = m_logModel->logLines();
+                m_logHistoryCombo->setItemText(i, QString("%1 (ID: %2)").arg(jobName, currentJobId));
+                m_logHistoryCombo->setCurrentIndex(i);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            // Add new entry
+            JobLogEntry entry;
+            entry.jobId = currentJobId;
+            entry.jobName = jobName;
+            entry.logLines = m_logModel->logLines();
+
+            // Remove oldest if at max capacity
+            while (m_logHistory.size() >= m_maxLogHistory) {
+                m_logHistory.removeFirst();
+                m_logHistoryCombo->removeItem(0);
+            }
+
+            m_logHistory.append(entry);
+            m_logHistoryCombo->addItem(QString("%1 (ID: %2)").arg(jobName, currentJobId));
+            m_logHistoryCombo->setCurrentIndex(m_logHistoryCombo->count() - 1);
+        }
+
+        // Clear search filter for new log
+        m_logSearchEdit->clear();
+
     } else {
-        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Fehler beim Laden")
+        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Load error")
                                  .arg(jobName)
                                  .arg(currentJobId));
     }
@@ -1612,7 +1817,7 @@ void BJobWidget::setLogViewVisible(bool visible)
 void BJobWidget::clearData()
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BJobWidget: Clearing all data";
+    BLOG_DEBUG() << "BJobWidget: Clearing all data";
 #endif
 
     // Clear table model by setting empty array
@@ -1640,9 +1845,15 @@ void BJobWidget::clearData()
     }
     m_levelCheckboxes.clear();
 
-    // Clear log
+    // Clear log and history
     m_logModel->clear();
+    m_logHistory.clear();
+    m_logHistoryCombo->clear();
+    m_logSearchEdit->clear();
     m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+
+    // Clear messages
+    m_messagesWidget->clearMessages();
 
     // Clear stream reader
     m_streamReader->clear();
@@ -1661,4 +1872,114 @@ QStringList BJobWidget::clientNames() const
 QJsonObject BJobWidget::jobConfiguration(const QString &jobName) const
 {
     return m_jobConfigurations.value(jobName, QJsonObject());
+}
+
+// ============================================================================
+// Job Log History Functions
+// ============================================================================
+
+void BJobWidget::onLogHistoryChanged(int index)
+{
+    if (index < 0 || index >= m_logHistory.size()) {
+        return;
+    }
+
+    const JobLogEntry &entry = m_logHistory.at(index);
+
+    // Update the log model with the selected history entry
+    m_logModel->setLogLines(entry.logLines);
+
+    // Update title
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
+                             .arg(entry.jobName)
+                             .arg(entry.jobId)
+                             .arg(entry.logLines.size()));
+
+    // Apply search filter if active
+    if (!m_logSearchEdit->text().isEmpty()) {
+        onLogSearchChanged(m_logSearchEdit->text());
+    }
+
+#ifdef IS_DEVELOPER
+    JOBWIDGET_DEBUG << "Loaded job log from history: " << entry.jobName
+                    << " (ID: " << entry.jobId << ")";
+#endif
+}
+
+void BJobWidget::onLogCopyClicked()
+{
+    QModelIndexList selected = m_logView->selectionModel()->selectedIndexes();
+
+    if (selected.isEmpty()) {
+        // Copy all lines if nothing selected
+        QStringList allLines = m_logModel->logLines();
+        if (!allLines.isEmpty()) {
+            QApplication::clipboard()->setText(allLines.join("\n"));
+            emit statusMessageChanged(tr("Copied %1 log lines to clipboard").arg(allLines.size()));
+        }
+        return;
+    }
+
+    // Sort by row to maintain order
+    std::sort(selected.begin(), selected.end(),
+              [](const QModelIndex &a, const QModelIndex &b) { return a.row() < b.row(); });
+
+    QStringList lines;
+    for (const QModelIndex &index : selected) {
+        lines.append(index.data(Qt::DisplayRole).toString());
+    }
+
+    QApplication::clipboard()->setText(lines.join("\n"));
+    emit statusMessageChanged(tr("Copied %1 selected lines to clipboard").arg(lines.size()));
+
+#ifdef IS_DEVELOPER
+    JOBWIDGET_DEBUG << "Copied " << lines.size() << " lines to clipboard";
+#endif
+}
+
+void BJobWidget::onLogClearHistoryClicked()
+{
+    m_logHistory.clear();
+    m_logHistoryCombo->clear();
+    m_logModel->clear();
+    m_logSearchEdit->clear();
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+
+    emit statusMessageChanged(tr("Job log history cleared"));
+
+#ifdef IS_DEVELOPER
+    JOBWIDGET_DEBUG << "Cleared job log history";
+#endif
+}
+
+void BJobWidget::onLogSearchChanged(const QString &text)
+{
+    if (text.isEmpty()) {
+        // Restore full log from current history selection
+        int index = m_logHistoryCombo->currentIndex();
+        if (index >= 0 && index < m_logHistory.size()) {
+            m_logModel->setLogLines(m_logHistory.at(index).logLines);
+        }
+        return;
+    }
+
+    // Filter log lines by search text
+    int index = m_logHistoryCombo->currentIndex();
+    if (index < 0 || index >= m_logHistory.size()) {
+        return;
+    }
+
+    QStringList filteredLines;
+    for (const QString &line : m_logHistory.at(index).logLines) {
+        if (line.contains(text, Qt::CaseInsensitive)) {
+            filteredLines.append(line);
+        }
+    }
+
+    m_logModel->setLogLines(filteredLines);
+
+#ifdef IS_DEVELOPER
+    JOBWIDGET_DEBUG << "Search filter: " << filteredLines.size()
+                    << " of " << m_logHistory.at(index).logLines.size() << " lines match";
+#endif
 }

@@ -3,19 +3,20 @@
 
 #include <QMainWindow>
 #include <QTimer>
-#include <QDebug>
-#include "bdirector.h"
+#include "blogging.h"
+#include "director/bdirector.h"
 
 // Debug logging prefixes for App/BMainWindow
-#define APP_DEBUG qDebug().nospace() << "[App] "
-#define APP_WARNING qWarning().nospace() << "[App] "
-#define APP_CRITICAL qCritical().nospace() << "[App] "
+#define APP_DEBUG BLOG_DEBUG()
+#define APP_WARNING BLOG_WARNING()
+#define APP_CRITICAL BLOG_ERROR()
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class BMainWindow; }
 QT_END_NAMESPACE
 
 // Forward declarations
+class BDatabase;
 class BJobWidget;
 class BClientsWidget;
 class StorageWidget;
@@ -27,6 +28,7 @@ class QDockWidget;
 class QMenu;
 class QToolBar;
 class QPushButton;
+class QCheckBox;
 
 class BMainWindow : public QMainWindow
 {
@@ -96,6 +98,7 @@ private slots:
     // Tools slots
     void onCleanupDatabase();
     void onConnectionWizard();
+    void onImportConfig();
 
 private:
     void setupUI();
@@ -108,10 +111,11 @@ private:
 
     Ui::BMainWindow *ui;
     BDirector *m_director;
+    BDatabase *m_database;  ///< SQLite database for storing Directors, Consoles, etc.
     QMetaObject::Connection m_statusMessageConnection;  ///< Connection for statusMessage signal (only after auth)
 
     // Widgets
-    QTabWidget *m_tabWidget;
+    QTabWidget *m_tabWidget;                ///< Main tab widget (Jobs, Clients, Storage, Schedules)
     BJobWidget *m_jobWidget;
     BClientsWidget *m_clientWidget;
     StorageWidget *m_storageWidget;
@@ -157,8 +161,12 @@ private:
     QAction *m_toggleJobLogAction;
     QAction *m_exportJobsJsonAction;
     QAction *m_exportJobsCsvAction;
+    QAction *m_addJobAction;
+    QAction *m_addFileSetAction;
+    QAction *m_editFileSetAction;
 
     // Clients Actions
+    QAction *m_addClientAction;
     QAction *m_refreshClientsAction;
     QAction *m_clientDetailsAction;
 
@@ -171,6 +179,7 @@ private:
     // Tools Actions
     QAction *m_cleanupDatabaseAction;
     QAction *m_connectionWizardAction;
+    QAction *m_importConfigAction;
 
     // Menus
     QMenu *m_fileMenu;

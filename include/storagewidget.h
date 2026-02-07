@@ -8,7 +8,7 @@
 #include <QLabel>
 #include <QGroupBox>
 #include <QJsonArray>
-#include "bdirector.h"
+#include "director/bdirector.h"
 
 namespace Ui {
 class StorageWidget;

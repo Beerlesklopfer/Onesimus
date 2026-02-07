@@ -37,21 +37,6 @@ public:
     // Connection Settings
     // ========================================================================
 
-    QString connectionHost() const;
-    void setConnectionHost(const QString& host);
-
-    int connectionPort() const;
-    void setConnectionPort(int port);
-
-    QString connectionDirector() const;
-    void setConnectionDirector(const QString& director);
-
-    QString connectionConsole() const;
-    void setConnectionConsole(const QString& console);
-
-    QString connectionPassword() const;
-    void setConnectionPassword(const QString& password);
-
     bool connectionSavePassword() const;
     void setConnectionSavePassword(bool save);
 
@@ -60,32 +45,6 @@ public:
 
     int connectionTimeout() const;
     void setConnectionTimeout(int seconds);
-
-    // TLS Settings
-    bool tlsEnabled() const;
-    void setTlsEnabled(bool enabled);
-
-    bool tlsUsePSK() const;
-    void setTlsUsePSK(bool usePSK);
-
-    // Legacy Authentication (CRAM-MD5 without encryption)
-    bool legacyAuth() const;
-    void setLegacyAuth(bool legacy);
-
-    QString tlsCaCertFile() const;
-    void setTlsCaCertFile(const QString& path);
-
-    QString tlsCertFile() const;
-    void setTlsCertFile(const QString& path);
-
-    QString tlsKeyFile() const;
-    void setTlsKeyFile(const QString& path);
-
-    QString tlsPfxFile() const;
-    void setTlsPfxFile(const QString& path);
-
-    bool tlsVerifyPeer() const;
-    void setTlsVerifyPeer(bool verify);
 
     // ========================================================================
     // Connection Profiles
@@ -220,6 +179,9 @@ public:
     int behaviorMaxJobsDisplay() const;
     void setBehaviorMaxJobsDisplay(int maxJobs);
 
+    bool behaviorJobsNewestFirst() const;
+    void setBehaviorJobsNewestFirst(bool newestFirst);
+
     // ========================================================================
     // Advanced Settings
     // ========================================================================
@@ -309,14 +271,48 @@ public:
     void setBvfsShowAllRelatedJobs(bool showAll);
 
     // ========================================================================
-    // Utility Methods
+    // Main Window Settings
     // ========================================================================
 
     /**
-     * @brief Check if stored connection settings exist
-     * @return true if connection settings are available
+     * @brief Get the main window splitter state
+     * @return QByteArray with splitter state, empty if not saved
+     * @since 2.10
      */
-    bool hasStoredConnection() const;
+    QByteArray mainWindowSplitterState() const;
+    void setMainWindowSplitterState(const QByteArray& state);
+
+    /**
+     * @brief Get the lower panel (Messages) visibility
+     * @return true if lower panel should be visible
+     * @since 2.10
+     */
+    bool lowerPanelVisible() const;
+    void setLowerPanelVisible(bool visible);
+
+    // ========================================================================
+    // Messages Widget Settings
+    // ========================================================================
+
+    /**
+     * @brief Get the message poll interval in milliseconds
+     * @return Poll interval in ms (default: 30000 = 30 seconds)
+     * @since 2.10
+     */
+    int messagesPollInterval() const;
+    void setMessagesPollInterval(int intervalMs);
+
+    /**
+     * @brief Get the maximum message history count
+     * @return Maximum number of messages to keep (default: 1000, 0 = unlimited)
+     * @since 2.10
+     */
+    int messagesMaxHistory() const;
+    void setMessagesMaxHistory(int maxMessages);
+
+    // ========================================================================
+    // Utility Methods
+    // ========================================================================
 
     /**
      * @brief Reset all settings to defaults

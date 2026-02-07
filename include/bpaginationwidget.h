@@ -70,6 +70,13 @@ public:
      */
     int currentPage() const;
 
+    /**
+     * @brief Gets the total job count (from server-side pagination)
+     * @return Total number of jobs, or 0 if not in server-side mode
+     * @since 2.9
+     */
+    int totalJobCount() const { return m_totalJobs; }
+
 signals:
     /**
      * @brief Emitted when page changes (for client-side pagination)
@@ -85,6 +92,13 @@ signals:
      * @since 2.0
      */
     void pageRequested(int page, int pageSize);
+
+    /**
+     * @brief Emitted when pagination is toggled on or off
+     * @param enabled True if pagination was enabled
+     * @since 2.9
+     */
+    void paginationToggled(bool enabled);
 
 private slots:
     void onFirstPage();

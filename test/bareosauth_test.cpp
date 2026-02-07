@@ -30,7 +30,7 @@
 #include <QTimer>
 #include <QFile>
 
-#include "bareosauth.h"
+#include "director/bareosauth.h"
 
 class AuthTester : public QObject
 {
@@ -71,7 +71,7 @@ public:
         qDebug() << "Director:" << m_config.directorName;
         qDebug() << "Console:" << m_config.consoleName;
         qDebug() << "Mode:" << m_config.mode;
-        if (m_config.mode == "cert") {
+        if (m_config.mode == "x509") {
             qDebug() << "CA File:" << m_config.caFile;
             qDebug() << "Cert File:" << m_config.certFile;
             qDebug() << "Key File:" << m_config.keyFile;
@@ -113,15 +113,11 @@ private slots:
         bool tlsVerifyPeer = false;
         bool tlsPSKEnable = false;
 
-        if (m_config.mode == "legacy") {
-            tlsEnable = false;
-            tlsRequire = false;
-            tlsPSKEnable = false;
-        } else if (m_config.mode == "psk") {
+        if (m_config.mode == "psk") {
             tlsEnable = true;
             tlsRequire = true;
             tlsPSKEnable = true;
-        } else if (m_config.mode == "cert") {
+        } else if (m_config.mode == "x509") {
             tlsEnable = true;
             tlsRequire = true;
             tlsVerifyPeer = !m_config.caFile.isEmpty();
@@ -252,12 +248,12 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (config.mode != "legacy" && config.mode != "psk" && config.mode != "cert") {
-        qDebug() << "Error: Invalid mode. Use: legacy, psk, or cert";
+    if (config.mode != "psk" && config.mode != "x509") {
+        qDebug() << "Error: Invalid mode. Use: psk or x509";
         return 1;
     }
 
-    if (config.mode == "cert" && config.caFile.isEmpty()) {
+    if (config.mode == "x509" && config.caFile.isEmpty()) {
         qDebug() << "Warning: Certificate mode without CA file - peer verification may fail";
     }
 

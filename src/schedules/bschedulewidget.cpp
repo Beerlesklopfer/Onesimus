@@ -1,9 +1,9 @@
 #include "schedules/bschedulewidget.h"
+#include "blogging.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
 #include <QLabel>
-#include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -14,7 +14,7 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_scheduleList(new QListWidget(this))
     , m_weeklyPlanner(new BWeeklyPlanner(this))
-    , m_refreshButton(new QPushButton("Aktualisieren", this))
+    , m_refreshButton(new QPushButton(tr("Refresh"), this))
     , m_director(nullptr)
 {
     setupUI();
@@ -93,7 +93,7 @@ void BScheduleWidget::setConnectionState(bool connected)
 void BScheduleWidget::clearData()
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BScheduleWidget: Clearing all data";
+    BLOG_DEBUG() << "BScheduleWidget: Clearing all data";
 #endif
 
     m_scheduleList->clear();
@@ -103,19 +103,19 @@ void BScheduleWidget::clearData()
 void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "BScheduleWidget: Processing .schedule response";
+    BLOG_DEBUG() << "BScheduleWidget: Processing .schedule response";
 #endif
 
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "BScheduleWidget: Failed to parse .schedule response:" << parseError.errorString();
+        BLOG_WARNING() << "BScheduleWidget: Failed to parse .schedule response:" << parseError.errorString();
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "BScheduleWidget: .schedule response is not a JSON object";
+        BLOG_WARNING() << "BScheduleWidget: .schedule response is not a JSON object";
         return;
     }
 
@@ -143,7 +143,7 @@ void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << schedulesArray.size() << "schedules";
+    BLOG_DEBUG() << "✓ Loaded" << schedulesArray.size() << "schedules";
 #endif
 
     // Re-enable refresh button
@@ -172,7 +172,7 @@ void BScheduleWidget::onScheduleSelectionChanged()
     QJsonObject schedule = item->data(Qt::UserRole).toJsonObject();
 
 #ifdef IS_DEVELOPER
-    qDebug() << "BScheduleWidget: Selected schedule:" << schedule["name"].toString();
+    BLOG_DEBUG() << "BScheduleWidget: Selected schedule:" << schedule["name"].toString();
 #endif
 
     m_weeklyPlanner->setSchedule(schedule);
@@ -187,7 +187,7 @@ void BScheduleWidget::onScheduleDoubleClicked(QListWidgetItem *item)
     QJsonObject schedule = item->data(Qt::UserRole).toJsonObject();
 
 #ifdef IS_DEVELOPER
-    qDebug() << "BScheduleWidget: Double-clicked schedule:" << schedule["name"].toString();
+    BLOG_DEBUG() << "BScheduleWidget: Double-clicked schedule:" << schedule["name"].toString();
 #endif
 
     // TODO: Open schedule details dialog

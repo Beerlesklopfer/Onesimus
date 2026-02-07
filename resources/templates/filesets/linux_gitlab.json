@@ -1,0 +1,46 @@
+{
+  "name": "GitLab Server",
+  "description": "Backup of GitLab repositories and configuration",
+  "platform": "linux",
+  "category": "application",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "GitLabServer",
+    "Description": "GitLab data and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/prometheus/data",
+            "*/redis",
+            "*/tmp"
+          ]
+        }
+      },
+      "File": [
+        "/var/opt/gitlab",
+        "/etc/gitlab",
+        "/var/backups/gitlab"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "10 GB - 500 GB",
+  "notes": [
+    "Use gitlab-backup for consistent backup",
+    "Secrets file /etc/gitlab/gitlab-secrets.json is critical",
+    "Prometheus data excluded - can be regenerated",
+    "Test restore including git hooks and LFS"
+  ],
+  "pre_backup_script": {
+    "description": "Create GitLab backup",
+    "linux": "gitlab-backup create SKIP=prometheus,registry,uploads"
+  }
+}

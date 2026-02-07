@@ -1,12 +1,12 @@
 #include "storagewidget.h"
 #include "ui_storagewidget.h"
+#include "blogging.h"
 #include <QHeaderView>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QDebug>
 #include <QMessageBox>
 #include <QSet>
 
@@ -60,7 +60,7 @@ void StorageWidget::setupUI()
     topLayout->addStretch();
 
     // Refresh button
-    m_refreshButton = new QPushButton("Aktualisieren", this);
+    m_refreshButton = new QPushButton(tr("Rrefresh"), this);
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshButton->setEnabled(false);
     topLayout->addWidget(m_refreshButton);
@@ -166,7 +166,7 @@ void StorageWidget::updateVolumeTable(const QList<BDirector::VolumeInfo> &volume
 void StorageWidget::processJsonResponse(const QString &jsonData)
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "StorageWidget: Processing JSON response";
+    BLOG_DEBUG() << "StorageWidget: Processing JSON response";
 #endif
 
     // Re-enable refresh button
@@ -176,13 +176,13 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "StorageWidget: Failed to parse JSON:" << parseError.errorString();
-        emit statusMessageChanged("Fehler beim Parsen der Volume-Daten");
+        BLOG_WARNING() << "StorageWidget: Failed to parse JSON:" << parseError.errorString();
+        emit statusMessageChanged(tr("Error parsing volume data"));
         return;
     }
 
     if (!doc.isObject()) {
-        qWarning() << "StorageWidget: JSON response is not an object";
+        BLOG_WARNING() << "StorageWidget: JSON response is not an object";
         return;
     }
 
@@ -213,7 +213,7 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     }
 
 #ifdef IS_DEVELOPER
-    qDebug() << "✓ Loaded" << volumesArray.size() << "volumes from" << pools.size() << "pools";
+    BLOG_DEBUG() << "✓ Loaded" << volumesArray.size() << "volumes from" << pools.size() << "pools";
 #endif
 
     // Apply filters and update display
@@ -404,7 +404,7 @@ QString StorageWidget::formatBytes(qint64 bytes)
 void StorageWidget::clearData()
 {
 #ifdef IS_DEVELOPER
-    qDebug() << "StorageWidget: Clearing all data";
+    BLOG_DEBUG() << "StorageWidget: Clearing all data";
 #endif
 
     // Clear volume table

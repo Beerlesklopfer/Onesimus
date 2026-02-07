@@ -30,7 +30,7 @@ class BJsonJobView : public QTableView
     Q_OBJECT
 
 public:
-    explicit BJsonJobView(QWidget *parent = nullptr);
+    explicit BJsonJobView(BDirector *director, QWidget *parent = nullptr);
     
     /**
      * @brief Sets the jobs data from a JSON array
@@ -134,13 +134,6 @@ public:
      * @since 2.4
      */
     void restoreLastState();
-
-    /**
-     * @brief Sets the Director connection for job operations
-     * @param director Pointer to BDirector
-     * @since 2.8
-     */
-    void setDirector(class BDirector *director) { m_director = director; }
 
 public slots:
     /**

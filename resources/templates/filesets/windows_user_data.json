@@ -1,0 +1,52 @@
+{
+  "name": "Windows User Profiles",
+  "description": "Backup of Windows user profiles and documents",
+  "platform": "windows",
+  "category": "user_data",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "WindowsUserData",
+    "Description": "Windows user profiles and documents",
+    "Enable VSS": true,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "IgnoreCase": true,
+        "DriveType": "fixed",
+        "Exclude": {
+          "WildDir": [
+            "*/AppData/Local/Temp",
+            "*/AppData/Local/Microsoft/Windows/INetCache",
+            "*/AppData/Local/Microsoft/Windows/Explorer",
+            "*/AppData/Local/Google/Chrome/User Data/*/Cache",
+            "*/AppData/Local/Mozilla/Firefox/Profiles/*/cache2",
+            "*/.cache",
+            "*/Temporary Internet Files",
+            "*/OneDrive"
+          ],
+          "WildFile": [
+            "*.tmp",
+            "*.temp",
+            "~*",
+            "thumbs.db",
+            "desktop.ini"
+          ]
+        }
+      },
+      "File": [
+        "C:/Users"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "5 GB - 100 GB per user",
+  "notes": [
+    "OneDrive excluded - backed up in cloud",
+    "Browser caches excluded",
+    "Consider redirected folders if using GPO",
+    "VSS required for open files"
+  ]
+}

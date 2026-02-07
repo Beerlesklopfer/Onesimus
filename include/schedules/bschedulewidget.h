@@ -5,7 +5,7 @@
 #include <QListWidget>
 #include <QSplitter>
 #include <QPushButton>
-#include "bdirector.h"
+#include "director/bdirector.h"
 #include "schedules/bweeklyplanner.h"
 
 /**
@@ -14,6 +14,10 @@
  *
  * Displays a list of schedules on the left and a weekly planner view on the right.
  * Similar to Windows logon hours configuration.
+ *
+ * @note BClientJobsModel (in clients/bclientdetailsdialog.h) can be used to
+ *       calculate average job durations per client, which is useful for
+ *       estimating scheduled job time windows in the planner.
  */
 class BScheduleWidget : public QWidget
 {

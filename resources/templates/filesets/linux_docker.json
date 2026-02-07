@@ -1,0 +1,49 @@
+{
+  "name": "Docker Volumes and Configuration",
+  "description": "Backup of Docker persistent volumes and configuration",
+  "platform": "linux",
+  "category": "containers",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "DockerVolumes",
+    "Description": "Docker persistent data and config",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/buildkit",
+            "*/tmp"
+          ]
+        }
+      },
+      "File": [
+        "/var/lib/docker/volumes",
+        "/etc/docker",
+        "/opt/docker"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "1 GB - 100 GB",
+  "notes": [
+    "Stop containers before backup for consistency",
+    "Or use docker pause for brief pause",
+    "Consider docker-compose.yml files in project directories",
+    "Images can be re-pulled, focus on persistent data"
+  ],
+  "pre_backup_script": {
+    "description": "Pause all running containers",
+    "linux": "docker pause $(docker ps -q) 2>/dev/null || true"
+  },
+  "post_backup_script": {
+    "description": "Unpause all containers",
+    "linux": "docker unpause $(docker ps -q) 2>/dev/null || true"
+  }
+}

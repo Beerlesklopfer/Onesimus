@@ -1,12 +1,12 @@
 #include "jobs/bjobdetailsdialog.h"
 #include "jobs/bjobwidget.h"
 #include "jobs/bjobfileswidget.h"
+#include "blogging.h"
 #include <QGroupBox>
-#include <QDebug>
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QFont>
-#include <QTimer>
+
 
 BJobDetailsDialog::BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidget, BDirector *director, QWidget *parent)
     : QDialog(parent)
@@ -178,15 +178,15 @@ void BJobDetailsDialog::setupLogTab()
 
     m_tabWidget->addTab(logWidget, tr("Logs"));
 
-    // Load job log from Director (with delay to avoid conflicts with BVFS commands)
+    // Connect log response handler
     if (m_director) {
         connect(m_director, &BDirector::jsonResponse,
                 this, &BJobDetailsDialog::onJobLogReceived);
 
-        // Request job log with a short delay to avoid conflicts with BVFS loading
-        QTimer::singleShot(500, this, [this]() {
+        // Wait for BVFS loading to finish before requesting log (avoids m_lastCommand race)
+        connect(m_filesWidget, &BJobFilesWidget::filesLoaded, this, [this]() {
             if (m_director) {
-                qDebug() << "BJobDetailsDialog: Requesting log for Job ID" << m_jobId;
+                BLOG_DEBUG() << "BJobDetailsDialog: BVFS done, requesting log for Job ID" << m_jobId;
 
                 QMetaObject::invokeMethod(m_director, "doSendCommand",
                                           Qt::QueuedConnection,
@@ -226,7 +226,7 @@ void BJobDetailsDialog::onJobLogReceived(const QString &command, const QString &
         }
     }
 
-    qDebug() << "BJobDetailsDialog: Received job log response";
+    BLOG_DEBUG() << "BJobDetailsDialog: Received job log response";
 
     // Parse and display the log
     m_logModel->parseJsonResponse(response);
@@ -261,7 +261,7 @@ QString BJobDetailsDialog::formatStatus(const QString &status) const
 {
     if (status == "T") return tr("Terminated normally") + " ✓";
     if (status == "W") return tr("Terminated with warnings") + " ⚠";
-    if (status == "f") return tr("Failed") + " ✗";
+    if (status == "F") return tr("Failed") + " ✗";
     if (status == "E") return tr("Terminated in Error") + " ✗";
     if (status == "e") return tr("Non-fatal error") + " ⚠";
     if (status == "A") return tr("Canceled by user");

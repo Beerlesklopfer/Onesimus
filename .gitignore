@@ -1,7 +1,9 @@
+nul 
 # Build-Verzeichnisse
 build/
 build-*/
 cmake-build-*/
+build-output.txt
 
 # OpenSSL Build-Artefakte (Submodule wird nicht ignoriert, nur Build-Output)
 external/openssl/
@@ -14,6 +16,7 @@ external/openssl/libcrypto.*
 external/openssl/libssl.*
 external/openssl/Makefile
 external/openssl/makefile
+openssl_*
 
 # CMake-generierte Dateien
 CMakeCache.txt

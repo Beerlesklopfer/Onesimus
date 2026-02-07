@@ -76,5 +76,127 @@
       "excludes": [],
       "must": []
     }
+  },
+  "include_options": {
+    "signature": {
+      "type": "string",
+      "values": ["MD5", "SHA1", "SHA256", "SHA512", "XXH128"],
+      "default": "SHA1",
+      "description": "File signature algorithm for verification"
+    },
+    "compression": {
+      "type": "string",
+      "values": ["GZIP", "LZO", "LZFAST", "LZ4", "LZ4HC", "ZSTD"],
+      "default": "LZ4",
+      "description": "Compression algorithm"
+    },
+    "onefs": {
+      "type": "boolean",
+      "default": true,
+      "description": "Stay on a single filesystem (don't cross mount points)"
+    },
+    "xattr": {
+      "type": "boolean",
+      "default": true,
+      "platform": "unix",
+      "description": "Backup extended attributes (Unix only)"
+    },
+    "acl": {
+      "type": "boolean",
+      "default": true,
+      "platform": "unix",
+      "description": "Backup access control lists (Unix only)"
+    },
+    "vss": {
+      "type": "boolean",
+      "default": true,
+      "platform": "windows",
+      "description": "Use Volume Shadow Copy Service (Windows only)"
+    },
+    "portable": {
+      "type": "boolean",
+      "default": false,
+      "description": "Use portable data format for cross-platform restores"
+    },
+    "recurse": {
+      "type": "boolean",
+      "default": true,
+      "description": "Recursively backup subdirectories"
+    },
+    "sparse": {
+      "type": "boolean",
+      "default": false,
+      "description": "Handle sparse files efficiently"
+    },
+    "hardlinks": {
+      "type": "boolean",
+      "default": true,
+      "description": "Preserve hard links"
+    },
+    "readfifo": {
+      "type": "boolean",
+      "default": false,
+      "description": "Read data from FIFOs/named pipes"
+    },
+    "noatime": {
+      "type": "boolean",
+      "default": true,
+      "description": "Don't update file access time during backup"
+    },
+    "keepatime": {
+      "type": "boolean",
+      "default": false,
+      "description": "Reset access time to original value after backup"
+    },
+    "mtimeonly": {
+      "type": "boolean",
+      "default": false,
+      "description": "Use only modification time for incremental file selection"
+    },
+    "checkfilechanges": {
+      "type": "boolean",
+      "default": false,
+      "description": "Validate file integrity by checking size/age after backup"
+    },
+    "honornodumpflag": {
+      "type": "boolean",
+      "default": false,
+      "platform": "unix",
+      "description": "Respect nodump flag on BSD/Unix filesystems"
+    },
+    "fstype": {
+      "type": "string_list",
+      "default": ["ext4", "xfs", "btrfs", "vfat", "ntfs"],
+      "platform": "unix",
+      "description": "Only backup filesystems of specified types. Use with OneFS=no to backup all mounted filesystems of these types.",
+      "example": ["ext4", "xfs", "btrfs"],
+      "common_values": ["ext2", "ext3", "ext4", "xfs", "btrfs", "zfs", "jfs", "reiserfs", "vfat", "ntfs"]
+    },
+    "exclude_dir_containing": {
+      "type": "string",
+      "default": ".nobackup",
+      "description": "Exclude directories containing a file with this name"
+    },
+    "strip_path": {
+      "type": "integer",
+      "default": 0,
+      "description": "Strip leading path components when storing files"
+    },
+    "regex": {
+      "type": "string",
+      "description": "Regular expression to match files for inclusion"
+    },
+    "wild": {
+      "type": "string",
+      "description": "Wildcard pattern to match files for inclusion"
+    },
+    "wildfile": {
+      "type": "string",
+      "description": "Wildcard pattern to match file names only"
+    },
+    "wilddir": {
+      "type": "string",
+      "description": "Wildcard pattern to match directory names only"
+    }
   }
 }

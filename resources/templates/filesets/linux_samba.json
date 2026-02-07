@@ -1,0 +1,47 @@
+{
+  "name": "Samba File Server",
+  "description": "Backup of Samba shares and configuration",
+  "platform": "linux",
+  "category": "fileserver",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "SambaShares",
+    "Description": "Samba file shares and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/$RECYCLE.BIN",
+            "*/.Trash*"
+          ],
+          "WildFile": [
+            "thumbs.db",
+            "Thumbs.db",
+            "desktop.ini",
+            ".DS_Store"
+          ]
+        }
+      },
+      "File": [
+        "/srv/samba",
+        "/etc/samba",
+        "/var/lib/samba"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "10 GB - 10 TB",
+  "notes": [
+    "Windows metadata files excluded",
+    "Include /var/lib/samba for AD DC mode",
+    "Consider shadow copies for user restores",
+    "Test ACL restoration after backup"
+  ]
+}

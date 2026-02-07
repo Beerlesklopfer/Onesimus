@@ -1,0 +1,26 @@
+{
+  "name": "Empty (Custom)",
+  "description": "Start with an empty FileSet for custom configuration",
+  "platform": "any",
+  "category": "custom",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "CustomFileSet",
+    "Description": "Custom FileSet",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4"
+      },
+      "File": []
+    }
+  },
+  "recommended_schedule": "As needed",
+  "estimated_size": "Varies",
+  "notes": [
+    "Add your own include and exclude paths",
+    "Configure options based on your requirements"
+  ]
+}

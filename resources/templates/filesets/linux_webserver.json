@@ -1,0 +1,51 @@
+{
+  "name": "Linux Web Server",
+  "description": "Backup of web server content and configuration (Apache/Nginx)",
+  "platform": "linux",
+  "category": "webserver",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "LinuxWebServer",
+    "Description": "Web server data and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/cache",
+            "*/tmp",
+            "*/logs",
+            "*/sessions"
+          ],
+          "WildFile": [
+            "*.log",
+            "*.log.*"
+          ]
+        }
+      },
+      "File": [
+        "/var/www",
+        "/etc/nginx",
+        "/etc/apache2",
+        "/etc/httpd",
+        "/etc/letsencrypt",
+        "/etc/ssl/certs",
+        "/etc/ssl/private"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "1 GB - 50 GB",
+  "notes": [
+    "Includes SSL certificates - handle securely",
+    "Logs excluded - backup separately if needed for compliance",
+    "Consider database backups for dynamic sites",
+    "Test restore of SSL certificates and permissions"
+  ]
+}

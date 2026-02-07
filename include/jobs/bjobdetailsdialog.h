@@ -9,7 +9,7 @@
 #include <QFormLayout>
 #include <QTabWidget>
 #include <QListView>
-#include "bdirector.h"
+#include "director/bdirector.h"
 #include "jobs/bjobmodels.h"
 
 // Forward declarations

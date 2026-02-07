@@ -17,8 +17,7 @@
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QRadioButton>
-#include "bdirector.h"
+#include "director/bdirector.h"
 
 namespace Ui {
 class BSettingsDialog;
@@ -123,6 +122,7 @@ private:
     QLineEdit *m_profileNameEdit;
     QLineEdit *m_hostEdit;
     QSpinBox *m_portSpin;
+    QComboBox *m_serverPlatformCombo;
     QLineEdit *m_directorEdit;
     QLineEdit *m_consoleEdit;
     QLineEdit *m_passwordEdit;
@@ -131,17 +131,16 @@ private:
     QCheckBox *m_autoConnectCheck;
     QSpinBox *m_connectionTimeoutSpin;
 
-    // TLS-Einstellungen (checkable GroupBox mit RadioButtons)
+    // TLS-Einstellungen
     QGroupBox *m_tlsGroupBox;
-    QRadioButton *m_tlsLegacyRadio;
-    QRadioButton *m_tlsPSKRadio;
-    QRadioButton *m_tlsCertificateRadio;
-    QWidget *m_certWidget;          ///< Container for certificate fields
+    QCheckBox *m_useCertificatesCheck;  ///< Use x509 certificates instead of PSK
+    QWidget *m_certWidget;              ///< Container for certificate fields
     QLineEdit *m_caCertEdit;
     QLineEdit *m_clientCertEdit;
     QLineEdit *m_clientKeyEdit;
     QCheckBox *m_verifyPeerCheck;
-    
+    QLineEdit *m_cipherListEdit;        ///< PSK cipher list (colon-separated)
+
     // Appearance-Einstellungen
     QComboBox *m_themeCombo;
     QSpinBox *m_fontSizeSpin;
@@ -165,6 +164,7 @@ private:
     QCheckBox *m_autoRefreshCheck;
     QSpinBox *m_refreshIntervalSpin;
     QSpinBox *m_maxJobsDisplaySpin;
+    QCheckBox *m_jobsNewestFirstCheck;
 
     // Visible Backup Levels (dynamic from Director)
     QList<QPair<QString, QString>> m_availableLevels;  ///< Available levels (name, name) from Director

@@ -1,0 +1,85 @@
+{
+  "resource_type": "Client",
+  "resource_type_description": "Die Client-Ressource definiert einen File Daemon (FD), der auf dem zu sichernden Rechner läuft",
+  "directives": {
+    "Name": {
+      "description": "Der eindeutige Name der Client-Ressource",
+      "example_description": "Typischerweise der Hostname mit '-fd'-Suffix"
+    },
+    "Description": {
+      "description": "Optionale, lesbare Beschreibung dieses Clients",
+      "example_description": "Beschreibung des Backup-Clients"
+    },
+    "Address": {
+      "description": "Netzwerkadresse (IP oder Hostname) des File Daemons",
+      "example_description": "Hostname oder IP-Adresse des Clients"
+    },
+    "FD Port": {
+      "description": "TCP-Port, auf dem der File Daemon lauscht",
+      "example_description": "Standard-Bareos-FD-Port"
+    },
+    "Password": {
+      "description": "Passwort für Client-Authentifizierung (MD5-Hash mit [md5]-Präfix)",
+      "example_description": "MD5-Hash des Klartextpassworts"
+    },
+    "Catalog": {
+      "description": "Zu verwendende Katalog-Ressource",
+      "example_description": "Standard-Katalog"
+    },
+    "File Retention": {
+      "description": "Wie lange Datei-Einträge im Katalog aufbewahrt werden",
+      "example_description": "90 Tage Dateiaufbewahrung"
+    },
+    "Job Retention": {
+      "description": "Wie lange Job-Einträge im Katalog aufbewahrt werden",
+      "example_description": "365 Tage Job-Aufbewahrung"
+    },
+    "AutoPrune": {
+      "description": "Automatisches Bereinigen abgelaufener Einträge aktivieren",
+      "example_description": "Automatisches Pruning aktiviert"
+    },
+    "Maximum Concurrent Jobs": {
+      "description": "Maximale Anzahl gleichzeitig laufender Jobs für diesen Client",
+      "example_description": "Bis zu 5 gleichzeitige Jobs erlauben"
+    },
+    "Heartbeat Interval": {
+      "description": "Intervall in Sekunden für Keepalive-Pakete (0 = deaktiviert)",
+      "example_description": "Keepalive alle 5 Minuten senden"
+    },
+    "TLS Enable": {
+      "description": "TLS-Verschlüsselung für Client-Kommunikation aktivieren",
+      "example_description": "Aktiviert (empfohlen)"
+    },
+    "TLS Require": {
+      "description": "TLS für alle Verbindungen vorschreiben",
+      "example_description": "Erforderlich (maximale Sicherheit)"
+    },
+    "TLS CA Certificate File": {
+      "description": "Pfad zur CA-Zertifikatsdatei",
+      "example_description": "Pfad zum CA-Zertifikat"
+    },
+    "TLS Certificate": {
+      "description": "Pfad zur Client-Zertifikatsdatei",
+      "example_description": "Pfad zum Client-Zertifikat"
+    },
+    "TLS Key": {
+      "description": "Pfad zur privaten Schlüsseldatei des Clients",
+      "example_description": "Pfad zum privaten Schlüssel"
+    },
+    "Plugin Directory": {
+      "description": "Verzeichnis für Client-Plugins",
+      "example_description": "Bareos-Plugin-Verzeichnis"
+    },
+    "SD Connect Timeout": {
+      "description": "Timeout für Verbindung zum Storage Daemon",
+      "example_description": "30 Minuten Timeout"
+    }
+  },
+  "groups": {
+    "authentication": "Authentifizierung",
+    "tls": "TLS / Sicherheit",
+    "network": "Netzwerkkonfiguration",
+    "performance": "Leistungsoptimierung",
+    "retention": "Datenaufbewahrung"
+  }
+}

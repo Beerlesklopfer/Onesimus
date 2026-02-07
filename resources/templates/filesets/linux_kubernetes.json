@@ -1,0 +1,46 @@
+{
+  "name": "Kubernetes Configuration",
+  "description": "Backup of Kubernetes cluster configuration and secrets",
+  "platform": "linux",
+  "category": "containers",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "KubernetesConfig",
+    "Description": "Kubernetes configuration and manifests",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "GZIP",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/pods",
+            "*/containers"
+          ]
+        }
+      },
+      "File": [
+        "/etc/kubernetes",
+        "/var/lib/kubelet/config.yaml",
+        "/root/.kube",
+        "/var/backups/kubernetes"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Full",
+  "estimated_size": "100 MB - 1 GB",
+  "notes": [
+    "Use Velero or similar for full cluster backup",
+    "etcd backup should be done separately",
+    "This covers local node config only",
+    "Secrets are sensitive - encrypt backups"
+  ],
+  "pre_backup_script": {
+    "description": "Export cluster resources to YAML",
+    "linux": "kubectl get all --all-namespaces -o yaml > /var/backups/kubernetes/all-resources.yaml 2>/dev/null || true"
+  }
+}

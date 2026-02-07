@@ -1,0 +1,51 @@
+{
+  "name": "Nextcloud Data and Configuration",
+  "description": "Backup of Nextcloud user data, config, and database dumps",
+  "platform": "linux",
+  "category": "application",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "NextcloudData",
+    "Description": "Nextcloud files and configuration",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/appdata_*/preview",
+            "*/files_trashbin",
+            "*/cache",
+            "*/uploads"
+          ]
+        }
+      },
+      "File": [
+        "/var/www/nextcloud/data",
+        "/var/www/nextcloud/config",
+        "/var/backups/nextcloud"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "10 GB - 1 TB",
+  "notes": [
+    "Enable maintenance mode before backup for consistency",
+    "Database backup should be done separately or via dump",
+    "Preview cache excluded - regenerates automatically",
+    "Trash excluded - consider including if needed"
+  ],
+  "pre_backup_script": {
+    "description": "Enable maintenance mode and dump database",
+    "linux": "sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --on && mysqldump nextcloud > /var/backups/nextcloud/database.sql"
+  },
+  "post_backup_script": {
+    "description": "Disable maintenance mode",
+    "linux": "sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off"
+  }
+}

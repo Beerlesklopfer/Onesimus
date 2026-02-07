@@ -1,5 +1,5 @@
 #include "bcleanupdialog.h"
-#include "bdirector.h"
+#include "director/bdirector.h"
 #include "jobs/bjobmodels.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -482,7 +482,7 @@ void BCleanupDialog::analyzeFailedJobs()
                 // Show preview
                 if (previewCount < maxPreview) {
                     QString statusText;
-                    if (status == "f") statusText = tr("Failed");
+                    if (status == "F") statusText = tr("Failed");
                     else if (status == "E") statusText = tr("Error");
                     else if (status == "A") statusText = tr("Canceled");
                     else statusText = tr("Non-fatal error");

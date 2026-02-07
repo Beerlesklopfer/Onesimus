@@ -10,7 +10,7 @@
 #include <QLabel>
 #include <QGroupBox>
 #include <QTabWidget>
-#include "bdirector.h"
+#include "director/bdirector.h"
 
 class BJobWidget;  // Forward declaration
 

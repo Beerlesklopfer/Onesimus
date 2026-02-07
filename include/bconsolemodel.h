@@ -1,7 +1,7 @@
 #ifndef BCONSOLEMODEL_H
 #define BCONSOLEMODEL_H
 
-#include "bresourcemodel.h"
+#include "db/bresourcemodel.h"
 
 /**
  * @brief Model for Consoles (bconsole) table

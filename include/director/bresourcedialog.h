@@ -1,0 +1,59 @@
+#ifndef BRESOURCEDIALOG_H
+#define BRESOURCEDIALOG_H
+
+#include <QDialog>
+#include <QCheckBox>
+#include <QDialogButtonBox>
+#include <QPushButton>
+#include "config/bconfigparser.h"
+
+// Forward declaration
+class BResourceForm;
+
+/**
+ * @file bresourcedialog.h
+ * @brief Dynamic schema-driven dialog for editing Bareos/Bacula resources
+ *
+ * Uses BResourceForm internally to generate form fields dynamically
+ * from JSON directive schemas.
+ *
+ * @author Joerg Bernau <Joerg@bernau.family>
+ * @date 2026
+ */
+class BResourceDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    /**
+     * @brief Construct a resource editing dialog
+     * @param resourceType The resource type (e.g., "Client", "Job", "Director")
+     * @param existing Existing resource to pre-populate fields (optional)
+     * @param parent Parent widget
+     */
+    explicit BResourceDialog(const QString &resourceType,
+                             const BConfigResource &existing = BConfigResource(),
+                             QWidget *parent = nullptr);
+
+    /**
+     * @brief Get the edited resource with collected values
+     * @return BConfigResource with values from the form
+     */
+    BConfigResource resource() const;
+
+private slots:
+    void onShowAdvanced(bool checked);
+    void onAccepted();
+    void onSaveConf();
+    void onSaveZip();
+
+private:
+    QString m_resourceType;
+    BResourceForm *m_form;
+    QCheckBox *m_advancedToggle;
+    QDialogButtonBox *m_buttonBox;
+    QPushButton *m_saveConfButton;
+    QPushButton *m_saveZipButton;
+};
+
+#endif // BRESOURCEDIALOG_H

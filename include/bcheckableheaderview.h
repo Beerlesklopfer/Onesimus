@@ -32,6 +32,13 @@ public:
     explicit BCheckableHeaderView(Qt::Orientation orientation, QWidget *parent = nullptr);
     
     /**
+     * @brief Sets whether the checkbox in column 0 is visible
+     * @param visible True to show checkbox (default), false to hide it
+     * @since 2.9
+     */
+    void setCheckboxVisible(bool visible) { m_checkboxVisible = visible; }
+
+    /**
      * @brief Sets whether tri-state mode is enabled
      * @param enabled True to enable tri-state (partial selection)
      * @since 2.0
@@ -130,6 +137,7 @@ private:
     Qt::CheckState getCheckState() const;
 
 private:
+    bool m_checkboxVisible;         ///< Whether checkbox is drawn in column 0
     bool m_triStateEnabled;         ///< Whether tri-state mode is enabled
     QSet<int> m_hiddenColumns;      ///< Set of hidden column indices
     QMenu *m_contextMenu;           ///< Context menu for column visibility

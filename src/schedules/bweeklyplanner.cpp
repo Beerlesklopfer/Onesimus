@@ -1,7 +1,7 @@
 #include "schedules/bweeklyplanner.h"
+#include "blogging.h"
 #include <QPainter>
 #include <QToolTip>
-#include <QDebug>
 #include <QJsonArray>
 #include <QRegularExpression>
 
@@ -82,7 +82,7 @@ void BWeeklyPlanner::parseScheduleRun(const QString &scheduleRun)
     // "Level=Incremental mon-sat at 23:05"
 
 #ifdef IS_DEVELOPER
-    qDebug() << "Parsing schedule run:" << scheduleRun;
+    BLOG_DEBUG() << "Parsing schedule run:" << scheduleRun;
 #endif
 
     // Extract backup level

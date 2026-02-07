@@ -5,6 +5,62 @@ All notable changes to Onesimus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-02-04
+
+### Added
+- **New Client Wizard**: 3-page wizard (Director Info, Settings, Preview & Export) for adding new backup clients
+  - Auto-populates Director info from active connection
+  - Generates FD-side config files (director.conf, myself.conf, messages.conf) with TLS directives
+  - Generates Director-side client.conf
+  - Executes `configure add client` on Director with automatic `reload`
+  - ZIP export for client deployment
+  - Schema-driven preview using BResourceWidget (structured resource display with raw text pane)
+  - ACL permission check for `configure` command
+  - 30-second timeout with retry dialog for configure commands
+  - Hides "Execute configure" checkbox when console lacks configure ACL
+  - Hides Director command preview when execute checkbox is unchecked
+- **BResourceDialog**: Dynamic schema-driven dialog for editing resource configurations
+  - Single dialog class handles all resource types (Client, Job, Director, etc.)
+  - Generates form fields dynamically from JSON directive schemas
+  - Type-to-widget mapping (string, integer, boolean, password, file, directory, resource_reference, time, size, etc.)
+  - Directive grouping by schema `group` field with QGroupBox sections
+  - "Show advanced directives" toggle for directives with `use=false`
+  - Pre-populates fields from existing BConfigResource values
+  - Returns modified BConfigResource on accept
+- **BResourceWidget Edit Button**: "Edit..." button on every resource widget opens BResourceDialog
+  - Enabled when a resource is selected
+  - Updates resource in-place and emits `resourceModified` signal
+- **Client Details Settings Tab**: New "Einstellungen" tab in client details dialog (double-click)
+  - Shows client directives in BResourceWidget with Edit button
+  - Maps JSON client data to BConfigResource for schema-driven display
+- **Client ZIP Export**: Right-click "Export as ZIP..." on client table
+  - Creates ZIP archive with Bareos directory structure (`etc/bareos/bareos-fd.d/...`)
+  - Includes FD-side director.conf, client/myself.conf, messages/Standard.conf
+  - Includes Director-side client resource
+- **Extended Directive Schema**: BDirective struct now parses `group`, `use`, `validValues`, `synonyms`, `minVersion` from JSON schemas
+- **Messages Directive Schema**: New `messages.json` schema with 13 directives and German translations (`messages_de.json`)
+- **Client Directive Translations**: German translations for Client resource directives (`client_de.json`)
+- **Client Config Export**: Context menu on client table with "Export Configuration..." (Save As dialog)
+- **BConfigParser::parseString()**: Public method for parsing config text from strings
+- **Application Icon**: Window icon set from bundled Bareos/Bacula logos (build-time selection)
+- **Debian Package**: CPack DEB generator with automatic dependency detection (`SHLIBDEPS`)
+  - Desktop entry file for Linux application menu integration
+  - Icon installation to hicolor icon theme
+
+### Changed
+- **Schema-Driven Validation**: New Client Wizard validates generated configs against directive schemas (subset validation — only validates present directives)
+- **TLS-Only Authentication**: Removed legacy (CRAM-MD5 without TLS) option from New Client Wizard; only TLS-PSK and TLS Certificate modes supported
+- **CPack Configuration**: Extended from Windows-only NSIS to cross-platform packaging (DEB, NSIS)
+- **Build Number System**: Auto-incrementing build number on every build (not just configure). Version scheme changed to `MAJOR.MINOR.PATCH.BUILD` (triplet + auto build number)
+- **README.md**: Updated authentication description (removed legacy auth reference)
+- **Removed deprecated keyword**: Removed `Maximum Concurrent Jobs` from generated FD client config (deprecated in Bareos)
+
+### Fixed
+- **Configure Success Detection**: Fixed Bareos JSON API response parsing — now correctly detects `result.configure.add` instead of searching for "created"/"success" text
+- **Director Reload**: Wizard now sends `reload` command after successful `configure add client`; handles reload response (success/failure) and keeps dialog open
+- **Dialog Auto-Close**: Wizard dialog no longer auto-closes after configure; stays open to show result
+- **Unhandled JSON Response**: Suppressed spurious "Unhandled JSON response" warnings for configure and reload commands
+
 ## [0.1.0.4] - 2026-01-31
 
 ### Added

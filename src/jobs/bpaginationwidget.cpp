@@ -91,7 +91,10 @@ void BPaginationWidget::connectSignals()
 {
     connect(m_enabledCheckBox, &QCheckBox::toggled,
             this, &BPaginationWidget::setPaginationEnabled);
-    
+    // Forward the checkbox's toggled signal directly as paginationToggled
+    connect(m_enabledCheckBox, &QCheckBox::toggled,
+            this, &BPaginationWidget::paginationToggled);
+
     connect(m_firstButton, &QPushButton::clicked,
             this, &BPaginationWidget::onFirstPage);
     
@@ -126,11 +129,10 @@ void BPaginationWidget::setModel(BJobsModel *model)
         connect(m_model, &QAbstractItemModel::modelReset,
                 this, &BPaginationWidget::updateControls);
 
-        // Apply saved pagination settings to the model
-        if (m_enabledCheckBox->isChecked()) {
-            int pageSize = m_pageSizeCombo->currentData().toInt();
-            m_model->setPaginationEnabled(true, pageSize);
-        }
+        // Note: Do NOT enable client-side pagination in the model here.
+        // When the pagination checkbox is checked, we use server-side pagination
+        // (ListJobTotals → ListJobs with limit/offset). The model receives one
+        // page at a time and must show all rows without further client-side paging.
     }
 
     updateControls();
@@ -142,8 +144,16 @@ void BPaginationWidget::setPaginationEnabled(bool enabled)
         return;
     }
 
-    int pageSize = m_pageSizeCombo->currentData().toInt();
-    m_model->setPaginationEnabled(enabled, pageSize);
+    // When enabling pagination, we use server-side pagination (Director handles limit/offset).
+    // The model must NOT use client-side pagination on top of that.
+    // Only disable client-side pagination when turning off pagination entirely.
+    if (!enabled) {
+        m_model->setPaginationEnabled(false, 0);
+    }
+
+    // Reset server-side state
+    m_totalJobs = 0;
+    m_currentPage = 0;
 
     // Enable/disable controls
     m_pageSizeCombo->setEnabled(enabled);
@@ -158,6 +168,7 @@ void BPaginationWidget::setPaginationEnabled(bool enabled)
     saveSettings();
 
     updateControls();
+
 }
 
 bool BPaginationWidget::isPaginationEnabled() const
@@ -168,6 +179,14 @@ bool BPaginationWidget::isPaginationEnabled() const
 void BPaginationWidget::setTotalJobCount(int totalJobs)
 {
     m_totalJobs = totalJobs;
+
+    // When server-side pagination is active (totalJobs > 0), disable client-side
+    // pagination in the model. The server already delivers one page of data,
+    // so the model must show ALL rows it receives without further paging.
+    if (m_model && m_totalJobs > 0) {
+        m_model->setPaginationEnabled(false, pageSize());
+    }
+
     updateControls();
 }
 

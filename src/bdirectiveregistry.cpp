@@ -1,9 +1,9 @@
 #include "bdirectiveregistry.h"
+#include "blogging.h"
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QDebug>
 
 BDirectiveRegistry *BDirectiveRegistry::s_instance = nullptr;
 
@@ -37,6 +37,7 @@ bool BDirectiveRegistry::loadDirectives()
     success &= loadDirectivesFromJson(":/directives/schedule.json", "schedule");
     success &= loadDirectivesFromJson(":/directives/storage.json", "storage");
     success &= loadDirectivesFromJson(":/directives/pool.json", "pool");
+    success &= loadDirectivesFromJson(":/directives/messages.json", "messages");
 
     // Load groups and validation rules
     success &= loadDirectiveGroups();
@@ -45,7 +46,7 @@ bool BDirectiveRegistry::loadDirectives()
     loadTranslations("en");
 
     if (success) {
-        qDebug() << "[DirectiveRegistry] Loaded" << m_directives.size() << "resource types";
+        BLOG_DEBUG() << "[DirectiveRegistry] Loaded" << m_directives.size() << "resource types";
     }
 
     return success;
@@ -56,7 +57,7 @@ bool BDirectiveRegistry::loadDirectivesFromJson(const QString &resourcePath, con
     QFile file(resourcePath);
     if (!file.open(QIODevice::ReadOnly)) {
         m_lastError = tr("Failed to open %1: %2").arg(resourcePath, file.errorString());
-        qWarning() << m_lastError;
+        BLOG_WARNING() << m_lastError;
         return false;
     }
 
@@ -69,13 +70,13 @@ bool BDirectiveRegistry::loadDirectivesFromJson(const QString &resourcePath, con
     if (parseError.error != QJsonParseError::NoError) {
         m_lastError = tr("JSON parse error in %1: %2")
                           .arg(resourcePath, parseError.errorString());
-        qWarning() << m_lastError;
+        BLOG_WARNING() << m_lastError;
         return false;
     }
 
     if (!doc.isObject()) {
         m_lastError = tr("Invalid JSON format in %1: expected object").arg(resourcePath);
-        qWarning() << m_lastError;
+        BLOG_WARNING() << m_lastError;
         return false;
     }
 
@@ -111,7 +112,7 @@ bool BDirectiveRegistry::loadDirectivesFromJson(const QString &resourcePath, con
     m_synonyms[resourceType] = resourceSynonyms;
     m_groups[resourceType] = resourceGroups;
 
-    qDebug() << "[DirectiveRegistry] Loaded" << resourceDirectives.size()
+    BLOG_DEBUG() << "[DirectiveRegistry] Loaded" << resourceDirectives.size()
              << "directives for" << resourceType;
 
     return true;
@@ -326,7 +327,7 @@ bool BDirectiveRegistry::loadDirectiveGroups()
     // Load directive groups and validation rules from directive_groups.json
     QFile file(":/directives/directive_groups.json");
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "[DirectiveRegistry] Failed to load directive_groups.json (optional)";
+        BLOG_WARNING() << "[DirectiveRegistry] Failed to load directive_groups.json (optional)";
         return true;  // Not critical
     }
 
@@ -337,7 +338,7 @@ bool BDirectiveRegistry::loadDirectiveGroups()
     QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
 
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "[DirectiveRegistry] Parse error in directive_groups.json:" << parseError.errorString();
+        BLOG_WARNING() << "[DirectiveRegistry] Parse error in directive_groups.json:" << parseError.errorString();
         return true;  // Not critical
     }
 
@@ -347,7 +348,7 @@ bool BDirectiveRegistry::loadDirectiveGroups()
         // Load validation rules
         if (root.contains("validation_rules")) {
             m_validationRules = root["validation_rules"].toObject().toVariantMap();
-            qDebug() << "[DirectiveRegistry] Loaded" << m_validationRules.size() << "validation rules";
+            BLOG_DEBUG() << "[DirectiveRegistry] Loaded" << m_validationRules.size() << "validation rules";
         }
     }
 
@@ -507,7 +508,7 @@ void BDirectiveRegistry::setLanguage(const QString &locale)
     m_currentLocale = locale;
     loadTranslations(locale);
 
-    qDebug() << "[DirectiveRegistry] Language changed to:" << locale;
+    BLOG_DEBUG() << "[DirectiveRegistry] Language changed to:" << locale;
 }
 
 void BDirectiveRegistry::loadTranslations(const QString &locale)
@@ -516,7 +517,7 @@ void BDirectiveRegistry::loadTranslations(const QString &locale)
     m_groupTranslations.clear();
     m_resourceTypeTranslations.clear();
 
-    QStringList resourceTypes = {"director", "client", "console", "fileset", "schedule", "storage", "pool"};
+    QStringList resourceTypes = {"director", "client", "console", "fileset", "schedule", "storage", "pool", "messages"};
 
     for (const QString &resourceType : resourceTypes) {
         QString path = QString(":/translations/directives/%1_%2.json")
@@ -526,7 +527,7 @@ void BDirectiveRegistry::loadTranslations(const QString &locale)
         if (!file.open(QIODevice::ReadOnly)) {
             // No translation file for this resource type in this locale
             // English descriptions are in the base directive files, so no fallback needed
-            qDebug() << "[DirectiveRegistry] No translation for" << resourceType
+            BLOG_DEBUG() << "[DirectiveRegistry] No translation for" << resourceType
                      << "in" << locale << "(using base descriptions)";
             continue;
         }
@@ -536,7 +537,7 @@ void BDirectiveRegistry::loadTranslations(const QString &locale)
         file.close();
 
         if (parseError.error != QJsonParseError::NoError) {
-            qWarning() << "[DirectiveRegistry] Parse error in translation file:" << parseError.errorString();
+            BLOG_WARNING() << "[DirectiveRegistry] Parse error in translation file:" << parseError.errorString();
             continue;
         }
 
@@ -574,7 +575,7 @@ void BDirectiveRegistry::loadTranslations(const QString &locale)
         }
     }
 
-    qDebug() << "[DirectiveRegistry] Loaded translations for locale:" << locale;
+    BLOG_DEBUG() << "[DirectiveRegistry] Loaded translations for locale:" << locale;
 }
 
 QString BDirectiveRegistry::getLocalizedDescription(const QString &resourceType,

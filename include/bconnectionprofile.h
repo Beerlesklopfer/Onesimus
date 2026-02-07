@@ -34,9 +34,11 @@ struct BConnectionProfile
     int port = 9101;        ///< Port number (default: 9101)
     QString directorName;   ///< Director resource name
     QString consoleName;    ///< Console resource name
-    QString password;       ///< DEPRECATED: Use passwordHash instead
     QString passwordHash;   ///< MD5 password hash (32-char hex)
     int heartbeatInterval = 0; ///< Keepalive interval in seconds (0 = disabled)
+
+    // Server platform (for config path generation)
+    QString serverPlatform = "linux";  ///< Server OS: "linux", "windows", "freebsd", "darwin"
 
     // Authentication method
     bool legacyAuth = false; ///< Use Legacy Auth (CRAM-MD5 without TLS)
@@ -94,19 +96,41 @@ struct BConnectionProfile
     }
 
     /**
-     * @brief Set password from cleartext - transforms to MD5 hash
-     * @param cleartext Plain text password
+     * @brief Set password - auto-detects MD5 hash or cleartext
+     * @param input Password input (cleartext, [md5]hash, or 32-char hex hash)
      *
-     * This is the MANDATORY way to set passwords. Cleartext is immediately
-     * transformed to MD5 hash and the cleartext is discarded.
+     * Handles three cases:
+     * 1. [md5]HASH prefix: strips prefix, uses hash directly
+     * 2. 32-char hex string: treats as already MD5-hashed
+     * 3. Everything else: hashes with MD5
      */
-    void setPasswordFromCleartext(const QString &cleartext)
+    void setPasswordFromCleartext(const QString &input)
     {
-        // Include BPasswordUtil header in implementation files that use this
-        QByteArray passwordBytes = cleartext.toLatin1();
+        // Case 1: [md5] prefix - strip and use hash directly
+        if (input.startsWith("[md5]", Qt::CaseInsensitive)) {
+            passwordHash = input.mid(5);  // Remove [md5] prefix
+            return;
+        }
+
+        // Case 2: Check if already a 32-char hex MD5 hash
+        if (input.length() == 32) {
+            bool isValidHex = true;
+            for (const QChar &c : input) {
+                if (!c.isDigit() && (c.toLower() < 'a' || c.toLower() > 'f')) {
+                    isValidHex = false;
+                    break;
+                }
+            }
+            if (isValidHex) {
+                passwordHash = input.toLower();  // Normalize to lowercase
+                return;
+            }
+        }
+
+        // Case 3: Cleartext - hash with MD5
+        QByteArray passwordBytes = input.toLatin1();
         QByteArray md5Hash = QCryptographicHash::hash(passwordBytes, QCryptographicHash::Md5);
         passwordHash = QString::fromLatin1(md5Hash.toHex());
-        password.clear();  // Don't store cleartext
     }
 
     /**
@@ -158,9 +182,9 @@ struct BConnectionProfile
         obj["port"] = port;
         obj["directorName"] = directorName;
         obj["consoleName"] = consoleName;
-        obj["password"] = password;  // DEPRECATED: For backward compatibility only
         obj["passwordHash"] = passwordHash;  // MD5 hash (32-char hex)
         obj["heartbeatInterval"] = heartbeatInterval;
+        obj["serverPlatform"] = serverPlatform;
         obj["legacyAuth"] = legacyAuth;
         obj["tlsEnabled"] = tlsEnabled;
         obj["tlsUsePSK"] = tlsUsePSK;
@@ -248,9 +272,8 @@ struct BConnectionProfile
                 }
             }
         }
-        profile.password.clear();  // Don't keep old password field
-
         profile.heartbeatInterval = obj["heartbeatInterval"].toInt(0);
+        profile.serverPlatform = obj["serverPlatform"].toString("linux");
         profile.legacyAuth = obj["legacyAuth"].toBool(false);
         profile.tlsEnabled = obj["tlsEnabled"].toBool(true);
         profile.tlsUsePSK = obj["tlsUsePSK"].toBool(true);
@@ -336,19 +359,42 @@ struct BConnectionProfile
         // TLS settings
         // Note: In Bareos 18.2+, PSK is the default when TLS is enabled.
         // "TLS PSK Enable" directive is deprecated/removed.
-        if (tlsEnabled) {
+        if (legacyAuth) {
+            // Legacy mode: CRAM-MD5 without TLS (not recommended for production)
+            config += QString("  # WARNING: Legacy mode - TLS disabled (CRAM-MD5 only)\n");
+            config += QString("  TLS Enable = no\n");
+        } else if (tlsEnabled) {
             config += QString("  TLS Enable = yes\n");
 
             if (!tlsUsePSK) {
                 // Certificate mode - need to specify certificates
+                // Paths depend on server platform
+                QString tlsDir;
+                if (serverPlatform == "windows") {
+                    tlsDir = "C:\\\\ProgramData\\\\Bareos\\\\tls";
+                    config += QString("  # NOTE: Paths below are for Windows server\n");
+                } else {
+                    tlsDir = "/etc/bareos/tls";
+                    config += QString("  # NOTE: Paths below are for %1 server\n")
+                        .arg(serverPlatform == "darwin" ? "macOS" :
+                             serverPlatform == "freebsd" ? "FreeBSD" : "Linux/Unix");
+                }
+                config += QString("  # Adjust paths to match your server's certificate locations\n");
+
                 if (!tlsCaCertFile.isEmpty())
                     config += QString("  TLS CA Certificate File = \"%1\"\n").arg(tlsCaCertFile);
+                else
+                    config += QString("  # TLS CA Certificate File = \"%1/ca.pem\"\n").arg(tlsDir);
                 if (!tlsCaCertDir.isEmpty())
                     config += QString("  TLS CA Certificate Dir = \"%1\"\n").arg(tlsCaCertDir);
                 if (!tlsCertFile.isEmpty())
                     config += QString("  TLS Certificate = \"%1\"\n").arg(tlsCertFile);
+                else
+                    config += QString("  # TLS Certificate = \"%1/%2.pem\"\n").arg(tlsDir, consoleName);
                 if (!tlsKeyFile.isEmpty())
                     config += QString("  TLS Key = \"%1\"\n").arg(tlsKeyFile);
+                else
+                    config += QString("  # TLS Key = \"%1/%2-key.pem\"\n").arg(tlsDir, consoleName);
                 config += QString("  TLS Verify Peer = %1\n").arg(tlsVerifyPeer ? "yes" : "no");
             }
             // PSK mode: TLS Enable = yes is sufficient, PSK is default
@@ -457,7 +503,18 @@ struct BConnectionProfile
         QString config;
         config += QString("Director {\n");
         config += QString("  Name = \"%1\"\n").arg(directorName);
-        config += QString("  QueryFile = \"/usr/lib/bareos/scripts/query.sql\"\n");
+
+        // Platform-specific paths
+        QString queryFile, tlsDir;
+        if (serverPlatform == "windows") {
+            queryFile = "C:\\\\Program Files\\\\Bareos\\\\scripts\\\\query.sql";
+            tlsDir = "C:\\\\ProgramData\\\\Bareos\\\\tls";
+        } else {
+            queryFile = "/usr/lib/bareos/scripts/query.sql";
+            tlsDir = "/etc/bareos/tls";
+        }
+
+        config += QString("  QueryFile = \"%1\"\n").arg(queryFile);
         config += QString("  Maximum Concurrent Jobs = 10\n");
         config += QString("  Password = \"CHANGE_ME\"\n");
         config += QString("  Messages = \"Daemon\"\n");
@@ -465,15 +522,22 @@ struct BConnectionProfile
 
         // TLS settings for Director
         // Note: In Bareos 18.2+, PSK is the default when TLS is enabled
-        if (tlsEnabled) {
+        if (legacyAuth) {
+            // Legacy mode: CRAM-MD5 without TLS
+            config += QString("  # WARNING: Legacy mode - TLS disabled\n");
+            config += QString("  TLS Enable = no\n");
+        } else if (tlsEnabled) {
             config += QString("  TLS Enable = yes\n");
 
             if (!tlsUsePSK) {
                 // Certificate mode
-                config += QString("  # TLS Certificate paths - adjust as needed\n");
-                config += QString("  # TLS CA Certificate File = \"/etc/bareos/tls/ca.pem\"\n");
-                config += QString("  # TLS Certificate = \"/etc/bareos/tls/bareos-dir.pem\"\n");
-                config += QString("  # TLS Key = \"/etc/bareos/tls/bareos-dir-key.pem\"\n");
+                config += QString("  # TLS Certificate paths for %1 server\n")
+                    .arg(serverPlatform == "windows" ? "Windows" :
+                         serverPlatform == "darwin" ? "macOS" :
+                         serverPlatform == "freebsd" ? "FreeBSD" : "Linux/Unix");
+                config += QString("  # TLS CA Certificate File = \"%1/ca.pem\"\n").arg(tlsDir);
+                config += QString("  # TLS Certificate = \"%1/bareos-dir.pem\"\n").arg(tlsDir);
+                config += QString("  # TLS Key = \"%1/bareos-dir-key.pem\"\n").arg(tlsDir);
             }
             // PSK mode: TLS Enable = yes is sufficient
         }
@@ -508,20 +572,47 @@ struct BConnectionProfile
             config += QString("  Password = \"CHANGE_ME\"\n");
         }
 
-        if (tlsEnabled) {
+        // TLS settings
+        // Note: In Bareos 18.2+, PSK is the default when TLS is enabled.
+        // "TLS PSK Enable" directive is deprecated/removed.
+        if (legacyAuth) {
+            // Legacy mode: CRAM-MD5 without TLS (not recommended for production)
+            config += QString("  # WARNING: Legacy mode - TLS disabled (CRAM-MD5 only)\n");
+            config += QString("  TLS Enable = no\n");
+        } else if (tlsEnabled) {
             config += QString("  TLS Enable = yes\n");
             config += QString("  TLS Require = %1\n").arg(tlsRequire ? "yes" : "no");
 
-            if (tlsUsePSK) {
-                config += QString("  TLS PSK Enable = yes\n");
-            } else {
+            if (!tlsUsePSK) {
+                // Certificate mode - need to specify certificates
                 if (!tlsCaCertFile.isEmpty())
                     config += QString("  TLS CA Certificate File = \"%1\"\n").arg(tlsCaCertFile);
+                if (!tlsCaCertDir.isEmpty())
+                    config += QString("  TLS CA Certificate Dir = \"%1\"\n").arg(tlsCaCertDir);
                 if (!tlsCertFile.isEmpty())
                     config += QString("  TLS Certificate = \"%1\"\n").arg(tlsCertFile);
                 if (!tlsKeyFile.isEmpty())
                     config += QString("  TLS Key = \"%1\"\n").arg(tlsKeyFile);
+                config += QString("  TLS Verify Peer = %1\n").arg(tlsVerifyPeer ? "yes" : "no");
             }
+            // PSK mode: TLS Enable = yes is sufficient, PSK is default
+
+            if (tlsAuthenticate)
+                config += QString("  TLS Authenticate = yes\n");
+            if (!tlsCipherList.isEmpty())
+                config += QString("  TLS Cipher List = \"%1\"\n").arg(tlsCipherList);
+            if (!tlsCipherSuites.isEmpty())
+                config += QString("  TLS Cipher Suites = \"%1\"\n").arg(tlsCipherSuites);
+            if (!tlsDhFile.isEmpty())
+                config += QString("  TLS DH File = \"%1\"\n").arg(tlsDhFile);
+            if (!tlsProtocol.isEmpty())
+                config += QString("  TLS Protocol = \"%1\"\n").arg(tlsProtocol);
+            for (const QString &cn : tlsAllowedCn)
+                config += QString("  TLS Allowed CN = \"%1\"\n").arg(cn);
+            if (!tlsCrlFile.isEmpty())
+                config += QString("  TLS Certificate Revocation List = \"%1\"\n").arg(tlsCrlFile);
+        } else {
+            config += QString("  TLS Enable = no\n");
         }
 
         if (heartbeatInterval > 0) {

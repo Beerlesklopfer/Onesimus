@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Onesimus Logo - Centered, Transparent Background -->
+
+  <!-- Outer shield (centered at 64,64) -->
+  <path d="M64 12L20 30v34c0 26 18.67 44.67 44 52 25.33-7.33 44-26 44-52V30L64 12z"
+        stroke="#2196F3" stroke-width="5" fill="none" stroke-linejoin="round"/>
+
+  <!-- Circular backup/sync arrow (centered) -->
+  <circle cx="64" cy="64" r="24" stroke="#4CAF50" stroke-width="4" fill="none"
+          stroke-dasharray="120 32" stroke-linecap="round"/>
+
+  <!-- Arrow head (pointing clockwise direction) -->
+  <path d="M88 58l-6 6 6 6" stroke="#4CAF50" stroke-width="4" fill="none"
+        stroke-linecap="round" stroke-linejoin="round" transform="rotate(-30 64 64)"/>
+
+  <!-- Center "O" data point -->
+  <circle cx="64" cy="64" r="10" stroke="#2196F3" stroke-width="3" fill="none"/>
+  <circle cx="64" cy="64" r="4" fill="#2196F3"/>
+</svg>

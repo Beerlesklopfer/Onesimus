@@ -2,35 +2,24 @@
 
 ## 🚀 Schnellstart
 
-### Option 1: Developer Command Prompt (Empfohlen)
+### Einfach - Normale PowerShell (Empfohlen!)
 
-1. **Öffnen Sie:** `Start → Visual Studio 2022 → Developer Command Prompt for VS 2022`
-2. **PowerShell starten:** `powershell`
-3. **Script ausführen:**
-   ```powershell
-   .\build-windows.ps1
-   ```
+Das Script richtet die Visual Studio Umgebung **automatisch** ein!
 
-### Option 2: Developer PowerShell
-
-1. **Öffnen Sie:** `Start → Visual Studio 2022 → Developer PowerShell for VS 2022`
+1. **PowerShell öffnen** (im Projektverzeichnis)
 2. **Script ausführen:**
    ```powershell
    .\build-windows.ps1
    ```
 
-### Option 3: Normale PowerShell
+**Das war's!** ✨ Das Script lädt die VS-Umgebung automatisch.
 
-1. **PowerShell als Administrator öffnen**
-2. **Execution Policy setzen:**
-   ```powershell
-   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-   ```
-3. **VS-Umgebung laden:**
-   ```powershell
-   & "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
-   ```
-4. **Script ausführen:**
+### Alternative: Developer PowerShell
+
+Falls gewünscht, können Sie auch direkt eine Developer PowerShell verwenden:
+
+1. **Öffnen Sie:** `Start → Visual Studio 2022 → Developer PowerShell for VS 2022`
+2. **Script ausführen:**
    ```powershell
    .\build-windows.ps1
    ```
@@ -49,7 +38,20 @@ Wählt den Build-Typ: `Release` (Standard), `Debug`, oder `RelWithDebInfo`
 
 ```powershell
 .\build-windows.ps1 -BuildType Debug
+.\build-windows.ps1 -BuildType Release
 ```
+
+**Hinweis**: Release-Builds erstellen automatisch ein ZIP-Package!
+
+### -Generator
+Wählt das Build-System: `Ninja` (Standard, schneller) oder `NMake`
+
+```powershell
+.\build-windows.ps1 -Generator Ninja   # Standard, empfohlen
+.\build-windows.ps1 -Generator NMake   # Klassisch
+```
+
+**Ninja** ist deutlich schneller als NMake, besonders bei inkrementellen Builds!
 
 ### -QtPath
 Gibt den Qt-Pfad manuell an (überspringt automatische Suche)
@@ -61,10 +63,15 @@ Gibt den Qt-Pfad manuell an (überspringt automatische Suche)
 ### Kombiniert
 
 ```powershell
-.\build-windows.ps1 -Clean -BuildType Debug -QtPath "C:\Qt\6.9.0\msvc2022_64"
+.\build-windows.ps1 -Clean -BuildType Debug -Generator Ninja -QtPath "C:\Qt\6.9.0\msvc2022_64"
 ```
 
 ## ✨ Features
+
+### 🎯 Automatische Umgebung
+- ✨ **Automatisches Laden der Visual Studio Umgebung** - Keine Developer Shell nötig!
+- ✨ **Automatische Qt-Erkennung** - Findet Qt 6.6 bis 6.10
+- ✨ **Flexibler Build-Generator** - Ninja (schnell) oder NMake (klassisch)
 
 ### Automatische Checks
 - ✅ Git installiert?
@@ -72,6 +79,7 @@ Gibt den Qt-Pfad manuell an (überspringt automatische Suche)
 - ✅ CMake installiert?
 - ✅ Visual Studio Umgebung aktiv?
 - ✅ Qt-Installation gefunden?
+- ✅ Build-Generator verfügbar? (Ninja/NMake)
 
 ### Farbige Ausgabe
 - 🟢 **Grün:** Erfolgreich
@@ -104,12 +112,14 @@ Zeigt die Gesamtdauer des Builds an
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-### "NMAKE nicht gefunden"
+### "Ninja/NMAKE nicht gefunden"
 
-Sie befinden sich nicht in einer Visual Studio Umgebung.
+Sie befinden sich nicht in einer Visual Studio Umgebung, oder der gewählte Generator ist nicht installiert.
 
-**Lösung 1:** Developer Command Prompt verwenden  
+**Lösung 1:** Developer Command Prompt verwenden
 **Lösung 2:** vcvarsall.bat ausführen (siehe Option 3 oben)
+**Lösung 3:** Ninja installieren (schneller): https://github.com/ninja-build/ninja/releases
+**Lösung 4:** Anderen Generator verwenden: `.\build-windows.ps1 -Generator NMake`
 
 ### "Qt nicht gefunden"
 
@@ -167,7 +177,7 @@ Build-Verzeichnis
 CMake-Konfiguration
 ========================================
 
-ℹ Generator: NMake Makefiles
+ℹ Generator: Ninja
 ℹ Qt: C:\Qt\6.10.0\msvc2022_64
 ℹ Build-Typ: Release
 ℹ OpenSSL: Statisch (automatischer Download)
@@ -234,6 +244,13 @@ Get-Help .\build-windows.ps1 -Examples
 
 ### Nur CMake-Konfiguration
 
+**Mit Ninja (empfohlen):**
+```powershell
+cd build
+cmake .. -G Ninja -DCMAKE_PREFIX_PATH=C:\Qt\6.10.0\msvc2022_64
+```
+
+**Mit NMake:**
 ```powershell
 cd build
 cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH=C:\Qt\6.10.0\msvc2022_64
@@ -241,6 +258,13 @@ cmake .. -G "NMake Makefiles" -DCMAKE_PREFIX_PATH=C:\Qt\6.10.0\msvc2022_64
 
 ### Nur Kompilierung (nach CMake)
 
+**Mit Ninja:**
+```powershell
+cd build
+ninja
+```
+
+**Mit NMake:**
 ```powershell
 cd build
 nmake
@@ -257,3 +281,47 @@ nmake
 ```powershell
 .\build-windows.ps1 -Clean -BuildType Debug
 ```
+
+### Release-Build mit Automatischem Package
+
+```powershell
+.\build-windows.ps1 -BuildType Release
+```
+
+**Automatisch erstellt**:
+- `build\Onesimus.exe` - Executable
+- `build\*.dll` - Qt DLLs (via windeployqt)
+- `build\Onesimus-x.x.x.x-Windows.zip` - Portable Package
+
+Das ZIP-Package enthält alle notwendigen Dateien und kann ohne Installation verwendet werden.
+
+## 📦 Packaging
+
+### Automatisches Packaging (Release-Build)
+
+Release-Builds erstellen automatisch ein ZIP-Package:
+
+```powershell
+.\build-windows.ps1 -BuildType Release
+```
+
+Erstellt: `build\Onesimus-x.x.x.x-Windows.zip`
+
+### Manuelles Packaging
+
+```powershell
+# Nach dem Build
+cd build
+nmake package
+```
+
+### Package-Inhalt
+
+Das ZIP-Package enthält:
+- `Onesimus.exe` - Hauptprogramm
+- Qt6 DLLs (Core, Gui, Widgets, Network)
+- Qt Plugins (platforms, styles, imageformats)
+- Qt Übersetzungen (translations)
+- `README.txt` - Installations- und Nutzungshinweise
+
+**Keine Installation erforderlich** - Einfach entpacken und ausführen!

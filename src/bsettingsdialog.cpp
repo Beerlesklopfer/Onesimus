@@ -4,6 +4,7 @@
 #include "btranslations.h"
 #include "bconnectionprofile.h"
 #include "bpfxconverter.h"
+#include "blogging.h"
 
 #include <QFormLayout>
 #include <QSet>
@@ -256,6 +257,14 @@ void BSettingsDialog::createConnectionPage()
     m_portSpin->setValue(9101);
     bconsoleLayout->addRow(tr("Port:"), m_portSpin);
 
+    m_serverPlatformCombo = new QComboBox();
+    m_serverPlatformCombo->addItem(tr("Linux/Unix"), "linux");
+    m_serverPlatformCombo->addItem(tr("Windows"), "windows");
+    m_serverPlatformCombo->addItem(tr("FreeBSD"), "freebsd");
+    m_serverPlatformCombo->addItem(tr("macOS"), "darwin");
+    m_serverPlatformCombo->setToolTip(tr("Server operating system (affects TLS paths in exported configs)"));
+    bconsoleLayout->addRow(tr("Server OS:"), m_serverPlatformCombo);
+
     m_directorEdit = new QLineEdit();
     m_directorEdit->setPlaceholderText("bareos-dir");
     bconsoleLayout->addRow(tr("Director Name:"), m_directorEdit);
@@ -282,6 +291,28 @@ void BSettingsDialog::createConnectionPage()
         if (text.isEmpty()) {
             m_md5Label->setText(tr("(password MD5 hash will appear here)"));
             m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+        } else if (text.startsWith("[md5]")) {
+            // Already an MD5 hash with prefix - extract and display
+            QString hash = text.mid(5);
+            m_md5Label->setText(hash);
+            m_md5Label->setStyleSheet("QLabel { color: #080; font-family: monospace; font-size: 11px; font-weight: bold; }");
+        } else if (text.length() == 32) {
+            // Check if it's a raw 32-char hex MD5 hash
+            bool isValidHex = true;
+            for (const QChar &c : text) {
+                if (!c.isDigit() && (c.toLower() < 'a' || c.toLower() > 'f')) {
+                    isValidHex = false;
+                    break;
+                }
+            }
+            if (isValidHex) {
+                m_md5Label->setText(text.toLower());
+                m_md5Label->setStyleSheet("QLabel { color: #080; font-family: monospace; font-size: 11px; font-weight: bold; }");
+            } else {
+                QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
+                m_md5Label->setText(QString::fromLatin1(md5.toHex()));
+                m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+            }
         } else {
             QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
             m_md5Label->setText(QString::fromLatin1(md5.toHex()));
@@ -311,44 +342,18 @@ void BSettingsDialog::createConnectionPage()
     authMethodLabel->setStyleSheet("font-weight: bold;");
     tlsLayout->addWidget(authMethodLabel);
 
-    m_tlsLegacyRadio = new QRadioButton(tr("Legacy (CRAM-MD5 without TLS) - For older Directors"));
-    m_tlsLegacyRadio->setToolTip(tr("Use plain CRAM-MD5 authentication without encryption.\n"
-                                     "Only use this for older Bareos/Bacula Directors that don't support TLS."));
-    tlsLayout->addWidget(m_tlsLegacyRadio);
+    // Default is PSK mode (checkbox unchecked)
+    // Checkbox enables certificate mode when checked
+    m_useCertificatesCheck = new QCheckBox(tr("Use x509 certificates (instead of PSK)"));
+    m_useCertificatesCheck->setChecked(false);  // PSK is default
+    m_useCertificatesCheck->setToolTip(tr("By default, TLS uses Pre-Shared Key (PSK) authentication.\n"
+                                           "Enable this to use X.509 certificate-based authentication instead.\n"
+                                           "Certificate mode requires CA certificate and client certificate/key files."));
+    tlsLayout->addWidget(m_useCertificatesCheck);
 
-    m_tlsPSKRadio = new QRadioButton(tr("PSK (Pre-Shared Key) - Standard for Bareos 18.2+"));
-    m_tlsPSKRadio->setChecked(true);
-    m_tlsPSKRadio->setToolTip(tr("TLS encryption with Pre-Shared Key authentication.\n"
-                                  "This is the recommended method for modern Bareos installations."));
-    tlsLayout->addWidget(m_tlsPSKRadio);
-
-    m_tlsCertificateRadio = new QRadioButton(tr("Certificate-based TLS Authentication"));
-    m_tlsCertificateRadio->setToolTip(tr("TLS encryption with X.509 certificates.\n"
-                                          "Requires CA certificate and client certificate/key files."));
-    tlsLayout->addWidget(m_tlsCertificateRadio);
-
-    // Connect signal to show warning when legacy is selected
-    connect(m_tlsLegacyRadio, &QRadioButton::toggled, this, [this, tlsWarningLabel](bool checked) {
-        tlsWarningLabel->setVisible(checked);
-        if (checked) {
-            QMessageBox::StandardButton reply = QMessageBox::warning(
-                this,
-                tr("Security Warning"),
-                tr("⚠️ Legacy Authentication Warning\n\n"
-                   "You are about to enable Legacy Authentication (CRAM-MD5 without TLS).\n\n"
-                   "This means:\n"
-                   "• Your password will be transmitted WITHOUT encryption\n"
-                   "• All backup data could be intercepted\n"
-                   "• This is only intended for older Directors without TLS support\n\n"
-                   "Are you sure you want to use Legacy Authentication?"),
-                QMessageBox::Yes | QMessageBox::No,
-                QMessageBox::No
-            );
-            if (reply != QMessageBox::Yes) {
-                m_tlsPSKRadio->setChecked(true);
-            }
-        }
-    });
+    // Warning label is hidden by default (legacy mode is disabled)
+    Q_UNUSED(tlsWarningLabel);
+    tlsWarningLabel->setVisible(false);
 
     // Certificate Settings (only for Certificate mode)
     m_certWidget = new QWidget();
@@ -411,7 +416,28 @@ void BSettingsDialog::createConnectionPage()
 
     m_certWidget->setEnabled(false);
     tlsLayout->addWidget(m_certWidget);
-    connect(m_tlsCertificateRadio, &QRadioButton::toggled, m_certWidget, &QWidget::setEnabled);
+    connect(m_useCertificatesCheck, &QCheckBox::toggled, m_certWidget, &QWidget::setEnabled);
+
+    // Cipher List (for advanced PSK configuration)
+    QLabel *cipherLabel = new QLabel(tr("TLS Cipher List (optional):"));
+    cipherLabel->setStyleSheet("margin-top: 8px;");
+    tlsLayout->addWidget(cipherLabel);
+
+    QHBoxLayout *cipherLayout = new QHBoxLayout();
+    m_cipherListEdit = new QLineEdit();
+    m_cipherListEdit->setPlaceholderText(tr("e.g., PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256"));
+    m_cipherListEdit->setToolTip(tr("Colon-separated list of TLS-PSK ciphers.\n"
+                                     "Leave empty for auto-detection.\n"
+                                     "Example: PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256"));
+    cipherLayout->addWidget(m_cipherListEdit);
+
+    QPushButton *presetCipherBtn = new QPushButton(tr("Preset"));
+    presetCipherBtn->setToolTip(tr("Fill with recommended PSK ciphers"));
+    connect(presetCipherBtn, &QPushButton::clicked, this, [this]() {
+        m_cipherListEdit->setText("PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256:PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA");
+    });
+    cipherLayout->addWidget(presetCipherBtn);
+    tlsLayout->addLayout(cipherLayout);
 
     detailsLayout->addWidget(m_tlsGroupBox);
 
@@ -708,6 +734,13 @@ void BSettingsDialog::createBehaviorPage()
     m_maxJobsDisplaySpin->setSuffix(" Jobs");
     displayLayout->addRow(tr("Maximum Jobs:"), m_maxJobsDisplaySpin);
 
+    m_jobsNewestFirstCheck = new QCheckBox(tr("Show newest jobs first"));
+    m_jobsNewestFirstCheck->setChecked(true);
+    m_jobsNewestFirstCheck->setToolTip(
+        tr("When enabled, the job list shows the most recent jobs first.\n"
+           "When disabled, the oldest jobs are shown first."));
+    displayLayout->addRow("", m_jobsNewestFirstCheck);
+
     layout->addWidget(displayGroup);
 
     // Visible Backup Levels (dynamic from Director)
@@ -778,22 +811,24 @@ void BSettingsDialog::createAdvancedPage()
     titleLabel->setObjectName("pageTitle");
     layout->addWidget(titleLabel);
 
-    // Logging
-    QGroupBox *logGroup = new QGroupBox(tr("Logging"));
+    // Logging (only visible when file logging is compiled in)
+#ifdef ONESIMUS_FILE_LOGGING
+    QGroupBox *logGroup = new QGroupBox(tr("File Logging"));
     logGroup->setObjectName("settingsGroup");
     QVBoxLayout *logLayout = new QVBoxLayout(logGroup);
 
-    m_debugLoggingCheck = new QCheckBox(tr("Enable debug logging"));
+    m_debugLoggingCheck = new QCheckBox(tr("Enable file logging"));
+    m_debugLoggingCheck->setToolTip(tr("Write debug information to a log file"));
     logLayout->addWidget(m_debugLoggingCheck);
 
     QHBoxLayout *logFileLayout = new QHBoxLayout();
     QLabel *logFileLabel = new QLabel(tr("Log File:"));
     m_logFileEdit = new QLineEdit();
-    m_logFileEdit->setPlaceholderText("bacula-qt-ui.log");
-    QPushButton *logBrowse = new QPushButton(tr("Browse..."));
+    m_logFileEdit->setPlaceholderText(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/onesimus.log");
+    m_logFileEdit->setReadOnly(true);  // Path is fixed, just for display
     logFileLayout->addWidget(logFileLabel);
     logFileLayout->addWidget(m_logFileEdit, 1);
-    logFileLayout->addWidget(logBrowse);
     logLayout->addLayout(logFileLayout);
 
     QHBoxLayout *maxSizeLayout = new QHBoxLayout();
@@ -807,7 +842,18 @@ void BSettingsDialog::createAdvancedPage()
     maxSizeLayout->addStretch();
     logLayout->addLayout(maxSizeLayout);
 
+    // Connect checkbox to BFileLogger
+    connect(m_debugLoggingCheck, &QCheckBox::toggled, this, [](bool enabled) {
+        BLOG_SET_ENABLED(enabled);
+    });
+
     layout->addWidget(logGroup);
+#else
+    // Hide logging UI when file logging is not compiled in
+    m_debugLoggingCheck = nullptr;
+    m_logFileEdit = nullptr;
+    m_maxLogSizeSpin = nullptr;
+#endif
 
     // Miscellaneous Options
     QGroupBox *miscGroup = new QGroupBox(tr("Miscellaneous"));
@@ -1155,6 +1201,7 @@ void BSettingsDialog::loadSettings()
     m_autoRefreshCheck->setChecked(settings.behaviorAutoRefresh());
     m_refreshIntervalSpin->setValue(settings.behaviorRefreshInterval());
     m_maxJobsDisplaySpin->setValue(settings.behaviorMaxJobsDisplay());
+    m_jobsNewestFirstCheck->setChecked(settings.behaviorJobsNewestFirst());
 
     // Visible Backup Levels (dynamic)
     QStringList visibleLevels = settings.visibleLevels();
@@ -1163,9 +1210,23 @@ void BSettingsDialog::loadSettings()
     }
 
     // Advanced
-    m_debugLoggingCheck->setChecked(settings.advancedDebugLogging());
-    m_logFileEdit->setText(settings.advancedLogFile());
-    m_maxLogSizeSpin->setValue(settings.advancedMaxLogSize());
+#ifdef ONESIMUS_FILE_LOGGING
+    if (m_debugLoggingCheck) {
+        m_debugLoggingCheck->setChecked(settings.advancedDebugLogging());
+        // Apply the setting to BFileLogger
+        BLOG_SET_ENABLED(settings.advancedDebugLogging());
+    }
+    if (m_logFileEdit) {
+        QString logPath = settings.advancedLogFile();
+        if (logPath.isEmpty()) {
+            logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/onesimus.log";
+        }
+        m_logFileEdit->setText(logPath);
+    }
+    if (m_maxLogSizeSpin) {
+        m_maxLogSizeSpin->setValue(settings.advancedMaxLogSize());
+    }
+#endif
     m_enableTooltipsCheck->setChecked(settings.advancedEnableTooltips());
 }
 
@@ -1187,6 +1248,7 @@ void BSettingsDialog::saveSettings()
             }
             profile.host = m_hostEdit->text().trimmed();
             profile.port = m_portSpin->value();
+            profile.serverPlatform = m_serverPlatformCombo->currentData().toString();
             profile.directorName = m_directorEdit->text().trimmed();
             profile.consoleName = m_consoleEdit->text().trimmed();
 
@@ -1200,13 +1262,12 @@ void BSettingsDialog::saveSettings()
                 // else: keep existing passwordHash (user didn't change it)
             } else {
                 // Don't save password
-                profile.password.clear();
                 profile.passwordHash.clear();
             }
 
-            profile.legacyAuth = m_tlsLegacyRadio->isChecked();
-            profile.tlsEnabled = !m_tlsLegacyRadio->isChecked();
-            profile.tlsUsePSK = m_tlsPSKRadio->isChecked();
+            profile.legacyAuth = false;  // Legacy mode is disabled
+            profile.tlsEnabled = true;    // TLS always enabled
+            profile.tlsUsePSK = !m_useCertificatesCheck->isChecked();  // PSK unless certificates checked
 
 #ifndef Q_OS_WINDOWS
             profile.tlsCaCertFile = m_caCertEdit->text();
@@ -1216,6 +1277,7 @@ void BSettingsDialog::saveSettings()
             profile.tlsPfxFile = m_clientCertEdit->text();
 #endif
             profile.tlsVerifyPeer = m_verifyPeerCheck->isChecked();
+            profile.tlsCipherList = m_cipherListEdit->text().trimmed();
 
             settings.updateConnectionProfile(profile);
         }
@@ -1246,6 +1308,7 @@ void BSettingsDialog::saveSettings()
     settings.setBehaviorAutoRefresh(m_autoRefreshCheck->isChecked());
     settings.setBehaviorRefreshInterval(m_refreshIntervalSpin->value());
     settings.setBehaviorMaxJobsDisplay(m_maxJobsDisplaySpin->value());
+    settings.setBehaviorJobsNewestFirst(m_jobsNewestFirstCheck->isChecked());
 
     // Visible Backup Levels (dynamic)
     QStringList visibleLevels;
@@ -1257,9 +1320,18 @@ void BSettingsDialog::saveSettings()
     settings.setVisibleLevels(visibleLevels);
 
     // Advanced
-    settings.setAdvancedDebugLogging(m_debugLoggingCheck->isChecked());
-    settings.setAdvancedLogFile(m_logFileEdit->text());
-    settings.setAdvancedMaxLogSize(m_maxLogSizeSpin->value());
+#ifdef ONESIMUS_FILE_LOGGING
+    if (m_debugLoggingCheck) {
+        settings.setAdvancedDebugLogging(m_debugLoggingCheck->isChecked());
+        BLOG_SET_ENABLED(m_debugLoggingCheck->isChecked());
+    }
+    if (m_logFileEdit) {
+        settings.setAdvancedLogFile(m_logFileEdit->text());
+    }
+    if (m_maxLogSizeSpin) {
+        settings.setAdvancedMaxLogSize(m_maxLogSizeSpin->value());
+    }
+#endif
     settings.setAdvancedEnableTooltips(m_enableTooltipsCheck->isChecked());
 
     settings.sync();
@@ -1529,13 +1601,14 @@ void BSettingsDialog::onProfileSelectionChanged()
                 QSignalBlocker blocker4(m_directorEdit);
                 QSignalBlocker blocker5(m_consoleEdit);
                 QSignalBlocker blocker6(m_passwordEdit);
-                QSignalBlocker blocker7(m_tlsLegacyRadio);
-                QSignalBlocker blocker8(m_tlsPSKRadio);
-                QSignalBlocker blocker9(m_tlsCertificateRadio);
+                QSignalBlocker blocker7(m_useCertificatesCheck);
+                QSignalBlocker blocker10(m_serverPlatformCombo);
 
                 m_profileNameEdit->setText(profile.name);
                 m_hostEdit->setText(profile.host);
                 m_portSpin->setValue(profile.port);
+                int platformIdx = m_serverPlatformCombo->findData(profile.serverPlatform);
+                if (platformIdx >= 0) m_serverPlatformCombo->setCurrentIndex(platformIdx);
                 m_directorEdit->setText(profile.directorName);
                 m_consoleEdit->setText(profile.consoleName);
 
@@ -1553,14 +1626,8 @@ void BSettingsDialog::onProfileSelectionChanged()
                     m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
                 }
 
-                // Auth method
-                if (profile.legacyAuth) {
-                    m_tlsLegacyRadio->setChecked(true);
-                } else if (profile.tlsUsePSK) {
-                    m_tlsPSKRadio->setChecked(true);
-                } else {
-                    m_tlsCertificateRadio->setChecked(true);
-                }
+                // Auth method - checkbox checked = use certificates (not PSK)
+                m_useCertificatesCheck->setChecked(!profile.tlsUsePSK);
 
                 // TLS certificates
 #ifndef Q_OS_WINDOWS
@@ -1572,8 +1639,11 @@ void BSettingsDialog::onProfileSelectionChanged()
 #endif
                 m_verifyPeerCheck->setChecked(profile.tlsVerifyPeer);
 
+                // Load cipher list
+                m_cipherListEdit->setText(profile.tlsCipherList);
+
                 // Manually enable/disable certWidget since signals were blocked
-                m_certWidget->setEnabled(m_tlsCertificateRadio->isChecked());
+                m_certWidget->setEnabled(m_useCertificatesCheck->isChecked());
             }
         }
     } else {
@@ -1686,6 +1756,7 @@ void BSettingsDialog::saveCurrentProfile()
     }
     profile.host = m_hostEdit->text().trimmed();
     profile.port = m_portSpin->value();
+    profile.serverPlatform = m_serverPlatformCombo->currentData().toString();
     profile.directorName = m_directorEdit->text().trimmed();
     profile.consoleName = m_consoleEdit->text().trimmed();
 
@@ -1699,14 +1770,13 @@ void BSettingsDialog::saveCurrentProfile()
         // else: keep existing passwordHash (user didn't change it)
     } else {
         // Don't save password
-        profile.password.clear();
         profile.passwordHash.clear();
     }
 
-    // Auth method
-    profile.legacyAuth = m_tlsLegacyRadio->isChecked();
-    profile.tlsEnabled = !m_tlsLegacyRadio->isChecked();
-    profile.tlsUsePSK = m_tlsPSKRadio->isChecked();
+    // Auth method - legacy mode is disabled, TLS always enabled
+    profile.legacyAuth = false;
+    profile.tlsEnabled = true;
+    profile.tlsUsePSK = !m_useCertificatesCheck->isChecked();  // PSK unless certificates checked
 
     // TLS certificates
 #ifndef Q_OS_WINDOWS
@@ -1717,6 +1787,7 @@ void BSettingsDialog::saveCurrentProfile()
     profile.tlsPfxFile = m_clientCertEdit->text();
 #endif
     profile.tlsVerifyPeer = m_verifyPeerCheck->isChecked();
+    profile.tlsCipherList = m_cipherListEdit->text().trimmed();
 
     // Save to settings
     BSettings::instance().updateConnectionProfile(profile);

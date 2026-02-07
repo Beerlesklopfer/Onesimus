@@ -9,12 +9,13 @@
 #include <QSet>
 #include <QDateTime>
 #include <QFont>
-#include <QDebug>
+#include "blogging.h"
+#include "director/bdirector.h"
 
 // Debug logging prefixes for Job Models
-#define JOBS_DEBUG qDebug().nospace() << "[Jobs] "
-#define JOBS_WARNING qWarning().nospace() << "[Jobs] "
-#define JOBS_CRITICAL qCritical().nospace() << "[Jobs] "
+#define JOBS_DEBUG BLOG_DEBUG()
+#define JOBS_WARNING BLOG_WARNING()
+#define JOBS_CRITICAL BLOG_ERROR()
 
 // ============================================================================
 // BJobsModel - Main table model for displaying backup jobs
@@ -86,7 +87,7 @@ public:
         int selectedCount;          ///< Number of selected jobs
     };
 
-    explicit BJobsModel(QObject *parent = nullptr);
+    explicit BJobsModel(BDirector *director, QObject *parent = nullptr);
 
     // QAbstractTableModel interface
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -130,6 +131,7 @@ private:
     QString formatStatus(const QString &status) const;
     int rowToDataIndex(int row) const;
 
+    BDirector *m_director;              ///< Director connection
     QJsonArray m_jobs;
     QSet<QString> m_selectedJobs;
     bool m_paginationEnabled;

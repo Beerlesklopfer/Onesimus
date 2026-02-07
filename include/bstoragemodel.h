@@ -1,7 +1,7 @@
 #ifndef BSTORAGEMODEL_H
 #define BSTORAGEMODEL_H
 
-#include "bresourcemodel.h"
+#include "db/bresourcemodel.h"
 
 /**
  * @brief Model for Storages (Storage Daemon) table

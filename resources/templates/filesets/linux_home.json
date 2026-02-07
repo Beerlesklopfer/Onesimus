@@ -1,0 +1,54 @@
+{
+  "name": "Linux Home Directories",
+  "description": "Backup of all user home directories with common exclusions",
+  "platform": "linux",
+  "category": "user_data",
+  "backup_system": "both",
+  "fileset": {
+    "Name": "LinuxHome",
+    "Description": "User home directories",
+    "Enable VSS": false,
+    "Ignore FileSet Changes": false,
+    "Include": {
+      "Options": {
+        "Signature": "SHA1",
+        "Compression": "LZ4",
+        "OneFS": true,
+        "ACL Support": true,
+        "XATTR Support": true,
+        "Exclude": {
+          "WildDir": [
+            "*/.cache",
+            "*/.local/share/Trash",
+            "*/tmp",
+            "*/.thumbnails",
+            "*/.mozilla/firefox/*/Cache",
+            "*/.config/google-chrome/*/Cache",
+            "*/.npm/_cacache",
+            "*/.cargo/registry",
+            "*/node_modules",
+            "*/.local/share/Steam"
+          ],
+          "WildFile": [
+            "*.tmp",
+            "*.temp",
+            "*~",
+            "*.swp",
+            ".*.swp"
+          ]
+        }
+      },
+      "File": [
+        "/home"
+      ]
+    }
+  },
+  "recommended_schedule": "Daily Incremental, Weekly Full",
+  "estimated_size": "10 GB - 500 GB per user",
+  "notes": [
+    "Excludes browser caches and temporary files",
+    "Consider excluding large media collections separately",
+    "Steam games excluded by default - backup separately if needed",
+    "Node modules and Cargo caches excluded - can be rebuilt"
+  ]
+}

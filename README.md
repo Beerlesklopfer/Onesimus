@@ -25,53 +25,33 @@
 
 ---
 
-## 🆕 What's New (v0.1.0.4 - 2026-01-31)
+## 🆕 What's New (v0.1.0 - 2026-02-04)
 
 ### New Features
-- **Job Preselection** - Run Job dialog auto-selects FileSet, Pool, Storage, Client, Level from job defaults
-- **Complete Status Filters** - Added Running (R) and Canceled (A) status checkboxes to job filters
-- **Run New Job Dialog** - Create and run backup jobs with a modern dialog interface
-  - Job configuration with Job, Client, Level selection
-  - Resource selection for FileSet, Pool, Storage
-  - Advanced scheduling and bootstrap options
-  - Command preview with validation
-- **BVFS File Browser** - Browse backed up files directly in job details dialog
-  - Toggle between "Current Job" and "All Related Jobs" (full restore chain)
-  - Windows Explorer-style tree view with file list
-  - File details: Name, Size, Type, Modification Time
-  - Checkbox selection for files and directories with Restore button
-- **Job Delete Options** - Choose between delete (record only) or purge (with volume data)
-  - Dependent job detection for Full backups
-  - Safety confirmations before destructive operations
-- **Connection Wizard** - Step-by-step wizard for Director connection setup with auto-detection
-- **TLS Certificate Authentication** - Full X.509 certificate support alongside TLS-PSK
-- **Connection Profiles** - Save and manage multiple Director connections
-- **About Qt** - Added "About Qt" option in Help menu
+- **New Client Wizard** - 3-page wizard for adding backup clients with schema-driven preview
+  - Auto-populates Director info from active connection
+  - Generates FD-side and Director-side config files with TLS directives
+  - Executes `configure add client` on Director with automatic `reload`
+  - ZIP export for client deployment
+- **Application Icon** - Window icon from bundled Bareos/Bacula logos
+- **Debian Package** - CPack DEB generator with automatic dependency detection
+  - Desktop entry for Linux application menu integration
+- **Client Config Export** - Context menu on client table for configuration export
+- **Messages Directive Schema** - New schema with German translations
 
 ### Bug Fixes
-- Fixed: Run command duplication ("run job=run job=..." issue)
-- Fixed: Delete command duplication
-- Fixed: Purge command not working
-- Fixed: Job log flipping between jobs when rapidly selecting different jobs
-- Fixed: Job log not displaying in BJobWidget bottom panel
-- Fixed: Folder selection in file browser not counting subfolders
-- Fixed: Restore button width too narrow
-- Fixed: Run Job button not being enabled after data loads
+- Fixed: Configure success detection for Bareos JSON API response format
+- Fixed: Director reload after successful client creation
 
-### Improvements
-- Filter persistence for Running and Canceled status checkboxes
-- Refactored codebase (`mainwindow` → `bmainwindow`, `settingsdialog` → `bsettingsdialog`)
-- Improved wizard data persistence across page navigation
-- Enhanced status bar with configurable colors
-- Better debug logging with component prefixes
-- Complete German translation
-- English translation for Run New Job dialog
-
-### Test Infrastructure
-- Comprehensive test suite with authentication and state-machine tests
-- BVFS Explorer test command for learning the BVFS API
-- Test data generator for realistic Bareos database entries
-- Support for Legacy, TLS-PSK, and TLS-Certificate authentication modes
+### Previous Release (v0.1.0.4 - 2026-01-31)
+- Job Preselection in Run Job dialog
+- Complete Status Filters (Running, Canceled)
+- Run New Job Dialog with command preview
+- BVFS File Browser in job details
+- Job Delete Options (delete vs purge)
+- Connection Wizard with auto-detection
+- TLS Certificate Authentication (X.509)
+- Connection Profiles for multiple Directors
 
 ## ✨ Features
 
@@ -121,7 +101,7 @@
 - **Connection Wizard:** Step-by-step setup with auto-detection of server capabilities
 - **Connection Profiles:** Save and manage multiple Director connections
 - **TLS/SSL Encryption:** Secure connections with OpenSSL 3.6
-- **Triple Authentication:** Legacy (CRAM-MD5), TLS-PSK, or X.509 Certificates
+- **Authentication:** TLS-PSK or X.509 Certificate authentication
 - **Certificate Management:** CA, client certificate and key files
 - **Director Config Export:** Export console configurations for Bareos server
 - **Windows PFX Support:** Native .pfx file support on Windows
@@ -156,6 +136,7 @@
 - **Static OpenSSL:** Automatic download and build via Git submodule
 - **Cross-Platform:** Native builds for Windows, Linux, macOS
 - **AppImage Support:** Linux deployment with linuxdeploy
+- **Debian Package:** `.deb` package generation with automatic dependency detection
 - **Installer:** NSIS-based Windows installer (planned)
 
 ## 🎯 Supported Backup Systems
@@ -205,7 +186,7 @@ brew install qt@6 cmake
 ## 📦 Prerequisites
 
 ### Windows
-- Visual Studio 2022 (C++ Desktop Development)
+- **Visual Studio 2022** (C++ Desktop Development) - **REQUIRED** (VS 2019/2017 not supported)
 - Qt 6.8+
 - CMake 3.16+
 - Perl (Strawberry Perl)
@@ -266,6 +247,7 @@ cmake .. \
 
 ## 📚 Documentation
 
+- [Local Test Director](https://github.com/Beerlesklopfer/Onesimus/wiki/Wiki-Local-Test-Director) - Set up a local Bareos Director for development and testing
 - [BUILD_WINDOWS.md](BUILD_WINDOWS.md) - Windows build instructions
 - [BUILD_LINUX.md](BUILD_LINUX.md) - Linux build instructions
 - [BUILD_OSX.md](BUILD_OSX.md) - macOS build instructions
@@ -337,6 +319,17 @@ onesimus/
 │   ├── bsettings.h             # Settings management
 │   ├── clientwidget.h          # Client widget
 │   ├── storagewidget.h         # Storage widget
+│   ├── clients/                # Client management headers
+│   │   └── bnewclientdialog.h  # New Client Wizard
+│   ├── config/                 # Config parsing headers
+│   │   ├── bconfigparser.h     # Bareos/Bacula config parser
+│   │   └── bdirectiveschema.h  # Directive JSON schema loader
+│   ├── db/                     # Database headers
+│   │   └── bdatabase.h         # SQLite database management
+│   ├── director/               # Director-related headers
+│   │   ├── bconfigimportdialog.h # Config import dialog
+│   │   ├── bresourcewidget.h   # Resource display widget
+│   │   └── bresourcewidgets.h  # Specialized resource widgets
 │   └── jobs/                   # Job-specific headers
 │       ├── bjobmodels.h        # Job models
 │       └── bjobwidget.h        # Job widget
@@ -356,29 +349,31 @@ onesimus/
 │   ├── bresourcemodels.cpp     # Resource model implementations
 │   ├── btranslations.cpp       # i18n implementation
 │   ├── bjsonstreamreader.cpp   # JSON stream parser
+│   ├── clients/                # Client management
+│   │   └── bnewclientdialog.cpp
+│   ├── config/                 # Config parsing
+│   │   ├── bconfigparser.cpp
+│   │   └── bdirectiveschema.cpp
+│   ├── db/                     # Database
+│   │   └── bdatabase.cpp
+│   ├── director/               # Director-related
+│   │   ├── bconfigimportdialog.cpp
+│   │   ├── bresourcewidget.cpp
+│   │   └── bresourcewidgets.cpp
 │   └── jobs/                   # Job implementations
+├── resources/                  # Qt resources
+│   ├── resources.qrc           # Resource collection file
+│   ├── directives/             # JSON directive schemas
+│   ├── templates/              # Config templates (filesets)
+│   ├── translations/           # Directive translations (de)
+│   ├── icons/                  # Application and UI icons
+│   ├── themes/                 # QSS stylesheets (dark/light)
+│   └── sql/                    # Database schemas and migrations
+├── packaging/                  # Package generation
+│   └── onesimus.desktop.in     # Linux desktop entry
 ├── test/                       # Test suite
-│   ├── bareosauth_test.cpp     # Auth class tests
-│   ├── director_test.cpp       # State-machine tests
-│   ├── bareos_auth.sh          # Auth test script
-│   ├── director_test.sh        # Director test script
-│   ├── run_all_tests.sh        # Full test runner
-│   ├── generate_bareos_testdata.py # Test data generator
-│   ├── configs/                # Console configurations
-│   └── bareos-dir.d/           # Test director config
-├── translations/               # Qt Linguist .ts files
-│   ├── onesimus_de.ts          # German (complete)
-│   ├── onesimus_en.ts          # English
-│   ├── onesimus_es.ts          # Spanish
-│   ├── onesimus_fr.ts          # French
-│   ├── onesimus_it.ts          # Italian
-│   └── onesimus_ru.ts          # Russian
+├── translations/               # Qt Linguist .ts files (6 languages)
 ├── ui/                         # Qt UI files
-│   ├── bmainwindow.ui          # Main window UI
-│   ├── bsettingsdialog.ui      # Settings dialog UI
-│   ├── jobwidget.ui            # Job widget UI
-│   ├── clientwidget.ui         # Client widget UI
-│   └── storagewidget.ui        # Storage widget UI
 ├── external/                   # Git submodules
 │   └── openssl/                # OpenSSL 3.6
 └── CMakeLists.txt              # Build configuration
@@ -457,10 +452,19 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 ## 📞 Support
 
 - 📖 Documentation: See [docs/](docs/)
-- 🐛 Bugs: [GitHub Issues](https://github.com/your-repo/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/your-repo/discussions)
+- 🐛 Bugs: [GitHub Issues](https://github.com/Beerlesklopfer/Onesimus/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/Beerlesklopfer/Onesimus/discussions)
 
 ## 🔄 Version History
+
+### v0.1.0 (February 2026)
+- ✅ New Client Wizard (3-page wizard with schema-driven preview)
+- ✅ Application Icon (Bareos/Bacula build-time selection)
+- ✅ Debian Package (.deb with automatic dependency detection)
+- ✅ Client Config Export (context menu on client table)
+- ✅ Messages Directive Schema with German translations
+- ✅ Configure success detection fix for Bareos JSON API
+- ✅ Build number auto-increment system (triplet.build versioning)
 
 ### v1.1.0 (January 2026)
 - ✅ BVFS File Browser in Job Details Dialog

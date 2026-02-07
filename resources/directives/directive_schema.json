@@ -109,8 +109,47 @@
         },
         "group": {
           "type": "string",
-          "enum": ["tls", "authentication", "network", "performance", "retention", "directories", "acl", "auditing"],
+          "enum": ["tls", "tls-psk", "tls-x509", "tls-pfx", "authentication", "network", "nat", "performance", "retention", "directories", "acl", "auditing"],
           "description": "Logical group this directive belongs to"
+        },
+        "platform": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["windows", "linux", "darwin", "freebsd", "all"]
+          },
+          "description": "Platforms where this directive applies (default: all)"
+        },
+        "excludes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of directive names that cannot be used together with this one"
+        },
+        "must": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of directive names that must also be set when using this one"
+        },
+        "visible_when": {
+          "type": "object",
+          "description": "Conditional visibility based on other directive values",
+          "properties": {
+            "directive": {
+              "type": "string",
+              "description": "Name of the controlling directive"
+            },
+            "value": {
+              "description": "Value that makes this directive visible"
+            },
+            "values": {
+              "type": "array",
+              "description": "List of values that make this directive visible"
+            }
+          }
         }
       },
       "allOf": [

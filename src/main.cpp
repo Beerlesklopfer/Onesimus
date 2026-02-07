@@ -1,8 +1,12 @@
 #include "bmainwindow.h"
 #include "btranslations.h"
 #include "bsettings.h"
+#include "blogging.h"
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QIcon>
+#include <QStandardPaths>
+#include <QDir>
 #include <version.h>
 
 void usage();
@@ -325,14 +329,20 @@ int main(int argc, char *argv[])
     app.setOrganizationName("bareos");
     app.setOrganizationDomain("bareos.org");
 #endif
+    // Use Onesimus application icon
+    app.setWindowIcon(QIcon(":/icons/icons/onesimus.svg"));
 
     // Command-Line parsen
     CommandLineOptions options = parseCommandLine(app);
 
+    // Initialize file logging (if enabled via compile flag ONESIMUS_FILE_LOGGING)
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(logPath);
+    BLOG_INIT(logPath + "/onesimus.log", 10);
 
     if (options.verbose) {
-        qDebug() << "Starting" << PROJECT_NAME << "v" PROJECT_VERSION;
-        qDebug() << "Build:" << BUILD_DATE << BUILD_TIME;
+        BLOG_INFO() << "Starting" << PROJECT_NAME << "v" PROJECT_VERSION;
+        BLOG_INFO() << "Build:" << BUILD_DATE << BUILD_TIME;
     }
 
     // ========================================
@@ -341,7 +351,7 @@ int main(int argc, char *argv[])
 
     if (options.headless) {
         if (options.verbose) {
-            qDebug() << "Running in headless mode";
+            BLOG_INFO() << "Running in headless mode";
         }
 
         // Director-Verbindung ohne GUI
@@ -350,7 +360,7 @@ int main(int argc, char *argv[])
         // Verbinde
         if (!options.host.isEmpty()) {
             if (options.verbose) {
-                qDebug() << "Connecting to" << options.host << ":" << options.port;
+                BLOG_INFO() << "Connecting to" << options.host << ":" << options.port;
             }
 
             director.connect(
@@ -376,14 +386,15 @@ int main(int argc, char *argv[])
                     // Warte auf Antwort
                     QObject::connect(&director, &BDirector::commandResponse,
                                      [](const QString &response) {
-                                         qDebug() << response;
+                                         BLOG_DEBUG() << response;
                                      });
 
                     QTimer::singleShot(5000, &app, &QCoreApplication::quit);
                     return app.exec();
                 }
             } else {
-                qCritical() << "Connection failed";
+                BLOG_ERROR() << "Connection failed";
+                BLOG_CLOSE();
                 return 1;
             }
         }
@@ -410,8 +421,8 @@ int main(int argc, char *argv[])
         BSettings::instance().setAppearanceLanguage(languageCode);
 
         if (options.verbose) {
-            qDebug() << "First start: Detected system language:" << languageCode
-                     << "(" << BTranslations::languageName(language) << ")";
+            BLOG_INFO() << "First start: Detected system language:" << languageCode
+                        << "(" << BTranslations::languageName(language) << ")";
         }
     } else {
         // Load saved language preference
@@ -419,8 +430,8 @@ int main(int argc, char *argv[])
         language = BTranslations::languageFromCode(languageCode);
 
         if (options.verbose) {
-            qDebug() << "Loading saved language preference:" << languageCode
-                     << "(" << BTranslations::languageName(language) << ")";
+            BLOG_INFO() << "Loading saved language preference:" << languageCode
+                        << "(" << BTranslations::languageName(language) << ")";
         }
     }
 
@@ -433,7 +444,7 @@ int main(int argc, char *argv[])
     if (options.autoConnect) {
         if (!options.host.isEmpty()) {
             if (options.verbose) {
-                qDebug() << "Auto-connecting to" << options.host;
+                BLOG_INFO() << "Auto-connecting to" << options.host;
             }
 
             // Verbindungs-Dialog überspringen und direkt verbinden

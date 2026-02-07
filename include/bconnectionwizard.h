@@ -21,9 +21,12 @@
 #include <QVBoxLayout>
 #include <QComboBox>
 
-#include "bconnectionprofile.h"
+#include <QTemporaryDir>
 
-class BareosDirector;
+#include "bconnectionprofile.h"
+#include "director/bareosdirector.h"
+class BConfigParser;
+class BConfigResource;
 class QSqlDatabase;
 
 /**
@@ -38,6 +41,7 @@ struct BConnectionWizardData {
     // Server page
     QString host;
     int port = 9101;
+    QString serverPlatform = "linux";  // "linux", "windows", "freebsd", "darwin"
 
     // Credentials page
     QString directorName;
@@ -46,9 +50,10 @@ struct BConnectionWizardData {
     bool savePassword = true;
 
     // Auth method page
-    QString authMethod = "psk";  // "psk", "cert", or "legacy"
+    QString authMethod = "psk";  // "psk" or "x509"
+    QString tlsCipherList;       // PSK cipher list (optional)
 
-    // TLS page (for cert mode)
+    // TLS page (for x509 mode)
     QString tlsCaCertFile;
     QString tlsCertFile;
     QString tlsKeyFile;
@@ -90,7 +95,8 @@ public:
         Page_ConfigPreview,
         Page_Test,
         Page_ConsoleSetup,
-        Page_ProfileName
+        Page_ProfileName,
+        Page_ImportConsoleSelection
     };
 
     /**
@@ -101,7 +107,6 @@ public:
         bool reachable = false;         ///< Is server reachable on the port?
         bool supportsPSK = false;       ///< Does server support TLS-PSK?
         bool supportsCert = false;      ///< Does server support TLS with certificates?
-        bool supportsLegacy = false;    ///< Does server support legacy (no TLS)?
         QString detectedVersion;        ///< Detected Bareos/Bacula version
         QString lastError;              ///< Last error during detection
     };
@@ -194,25 +199,47 @@ private slots:
     void onBrowseZipClicked();
 };
 
+class ImportConsoleSelectionPage : public QAPage
+{
+    Q_OBJECT
+public:
+    explicit ImportConsoleSelectionPage(QWidget *parent = nullptr);
+    ~ImportConsoleSelectionPage() override;
+    void initializePage() override;
+    void cleanupPage() override;
+    bool isComplete() const override;
+    bool validatePage() override;
+    int nextId() const override;
+private:
+    void parseConfigSource();
+    void populateCombos();
+    void updateConsoleDetails();
+    void prefillWizardData();
+    void cleanupTempDir();
+
+    QComboBox *m_directorCombo;
+    QComboBox *m_consoleCombo;
+    QTextEdit *m_detailsEdit;
+    QLabel *m_statusLabel;
+    QProgressBar *m_progressBar;
+
+    BConfigParser *m_parser;
+    QTemporaryDir *m_tempDir;
+    bool m_parsed;
+};
+
 class ServerPage : public QAPage
 {
     Q_OBJECT
 public:
     explicit ServerPage(QWidget *parent = nullptr);
+    void initializePage() override;
     bool isComplete() const override;
     bool validatePage() override;
 private:
     QLineEdit *m_hostEdit;
     QSpinBox *m_portSpin;
-    QPushButton *m_checkButton;
-    QLabel *m_statusLabel;
-    QProgressBar *m_progressBar;
-    bool m_checkInProgress;
-    bool m_checkCompleted;
-    void checkCapabilities();
-    void onCheckComplete(bool reachable);
-private slots:
-    void onCheckClicked();
+    QComboBox *m_platformCombo;
 };
 
 class CredentialsPage : public QAPage
@@ -220,12 +247,16 @@ class CredentialsPage : public QAPage
     Q_OBJECT
 public:
     explicit CredentialsPage(QWidget *parent = nullptr);
+    void initializePage() override;
     bool isComplete() const override;
     bool validatePage() override;
+private slots:
+    void onGeneratePassword();
 private:
     QLineEdit *m_directorEdit;
     QLineEdit *m_consoleEdit;
     QLineEdit *m_passwordEdit;
+    QPushButton *m_generateBtn;
     QLabel *m_md5Label;
     QCheckBox *m_saveCheck;
 };
@@ -236,14 +267,16 @@ class AuthMethodPage : public QAPage
 public:
     explicit AuthMethodPage(QWidget *parent = nullptr);
     void initializePage() override;
+    bool validatePage() override;
     int nextId() const override;
     QString authMethod() const;
 private:
     QRadioButton *m_pskRadio;
-    QRadioButton *m_legacyRadio;
     QRadioButton *m_certRadio;
     QButtonGroup *m_group;
     QLabel *m_capabilityLabel;
+    QWidget *m_cipherWidget;
+    QLineEdit *m_cipherListEdit;
     void updateCapabilityHints();
 private slots:
     void onSelectionChanged();
@@ -254,6 +287,7 @@ class TLSPage : public QAPage
     Q_OBJECT
 public:
     explicit TLSPage(QWidget *parent = nullptr);
+    void initializePage() override;
     bool validatePage() override;
 private:
     QLineEdit *m_caCertEdit;
@@ -283,10 +317,18 @@ private:
     QTextEdit *m_directorConfigEdit;
     QPushButton *m_copyConsoleButton;
     QPushButton *m_copyDirectorButton;
+    QPushButton *m_saveConsoleButton;
+    QPushButton *m_saveConsoleZipButton;
+    QPushButton *m_saveDirectorButton;
+    QPushButton *m_saveDirectorZipButton;
     void updateConfigs();
 private slots:
     void onCopyConsoleConfig();
     void onCopyDirectorConfig();
+    void onSaveConsoleConf();
+    void onSaveConsoleZip();
+    void onSaveDirectorConf();
+    void onSaveDirectorZip();
 };
 
 class TestPage : public QWizardPage
@@ -345,12 +387,16 @@ private:
     void loadConsoleDetails(const QString &name);
     void generatePassword();
     void createConsole();
+    BareosDirector::TLSConfig buildTLSConfig() const;
+    BareosDirector *createConnectedDirector();
 private slots:
     void onSelectionChanged();
     void onRefreshClicked();
     void onConsoleSelected(int index);
     void onGeneratePasswordClicked();
-    void onJsonResponse(const QString &cmd, const QString &json);
+    void onConsolesResult(const QJsonArray &consoles);
+    void onShowConsoleResult(const QString &name, const QJsonObject &console);
+    void onConfigureResult(bool success, const QString &message);
 };
 
 class ProfileNamePage : public QAPage
@@ -360,6 +406,7 @@ public:
     explicit ProfileNamePage(QWidget *parent = nullptr);
     void initializePage() override;
     bool validatePage() override;
+    int nextId() const override;
 private slots:
     void onAdvancedSettingsClicked();
     void onExportConfigClicked();

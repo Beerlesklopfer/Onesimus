@@ -4,11 +4,14 @@
 #include <QWidget>
 #include <QJsonArray>
 #include <QJsonObject>
-#include "bdirector.h"
+#include "director/bdirector.h"
 
 // Forward declarations
 class BClientsModel;
+class BCheckableHeaderView;
+class BColumnConfiguration;
 class QTableView;
+class QCheckBox;
 class QComboBox;
 class QLabel;
 class QPushButton;
@@ -32,14 +35,14 @@ class BClientsWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit BClientsWidget(QWidget *parent = nullptr);
+    explicit BClientsWidget(BDirector *director, QWidget *parent = nullptr);
 
     /**
-     * @brief Sets the Director connection
-     * @param director Pointer to BDirector
-     * @since 1.0
+     * @brief Updates widget state based on connection status
+     * @param connected True if connected to Director
+     * @since 2.9
      */
-    void setDirector(BDirector *director);
+    void setConnectionState(bool connected);
 
     /**
      * @brief Returns the clients model
@@ -47,6 +50,19 @@ public:
      * @since 1.0
      */
     BClientsModel* model() const { return m_model; }
+
+    /**
+     * @brief Shows the details dialog for the currently selected client
+     * @return true if a client was selected and dialog shown
+     * @since 2.9
+     */
+    bool showSelectedClientDetails();
+
+    /**
+     * @brief Returns true if a client is currently selected
+     * @since 2.9
+     */
+    bool hasSelection() const;
 
 public slots:
     /**
@@ -97,12 +113,26 @@ signals:
      */
     void statusMessageChanged(const QString &message);
 
+    /**
+     * @brief Emitted when client selection changes
+     * @param hasSelection True if a client is selected
+     * @since 2.9
+     */
+    void selectionChanged(bool hasSelection);
+
+    /**
+     * @brief Emitted when auto-refresh checkbox is toggled
+     * @param enabled True if auto-refresh is enabled
+     * @since 2.11
+     */
+    void autoRefreshChanged(bool enabled);
+
 private slots:
     void onRefreshClicked();
     void onClientFilterChanged(const QString &text);
     void onStatusFilterChanged(int index);
     void onClientDoubleClicked(const QModelIndex &index);
-    void onClientsDataReceived(const QString &command, const QString &jsonData);
+    void onContextMenu(const QPoint &pos);
     void updateStatistics();
 
 private:
@@ -113,8 +143,12 @@ private:
     // UI Components
     QTableView *m_tableView;
     BClientsModel *m_model;
+    BCheckableHeaderView *m_headerView;
+    BColumnConfiguration *m_columnConfig;
+    QTimer *m_autoSaveTimer;
     QComboBox *m_clientFilter;
     QComboBox *m_statusFilter;
+    QCheckBox *m_autoRefreshCheck;
     QPushButton *m_refreshButton;
 
     // Statistics labels
@@ -124,7 +158,6 @@ private:
 
     // Data
     BDirector *m_director;
-    QJsonArray m_allClients;        ///< Unfiltered client data
     QTimer *m_filterDebounceTimer;  ///< Debounce timer for filter updates
 };
 
