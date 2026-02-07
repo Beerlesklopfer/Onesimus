@@ -411,10 +411,28 @@ find_package(Qt6 REQUIRED COMPONENTS
     Gui
     Widgets
     Network
+    Sql
     LinguistTools
 )
 
 message(STATUS "✓ Found Qt6 ${Qt6_VERSION}")
+
+# Qt6 Private Headers (für qzipwriter_p.h)
+# Debian/Ubuntu stellen keine Qt6CorePrivate cmake-Config bereit,
+# daher wird der Include-Pfad manuell gesetzt.
+get_target_property(_qt6_core_include_dirs Qt6::Core INTERFACE_INCLUDE_DIRECTORIES)
+foreach(_dir ${_qt6_core_include_dirs})
+    if(EXISTS "${_dir}/QtCore/${Qt6_VERSION}/QtCore/private")
+        set(QT6_CORE_PRIVATE_INCLUDE "${_dir}/QtCore/${Qt6_VERSION}/QtCore")
+        break()
+    endif()
+endforeach()
+
+if(QT6_CORE_PRIVATE_INCLUDE)
+    message(STATUS "✓ Found Qt6 Core private headers: ${QT6_CORE_PRIVATE_INCLUDE}")
+else()
+    message(FATAL_ERROR "Qt6 Core private headers not found! Install qt6-base-private-dev")
+endif()
 
 # ============================================================================
 # Qt Linguist Tools Configuration
@@ -461,8 +479,12 @@ set(SOURCES
     src/bdirector.cpp
     src/bareosdirector.cpp
     src/bsettings.cpp
+    src/bdatabase.cpp
     src/bbasemodels.cpp
     src/bresourcemodels.cpp
+    src/bresourcemodel.cpp
+    src/bdirectormodel.cpp
+    src/bsettingshistory.cpp
     src/bsettingsdialog.cpp
     src/bcleanupdialog.cpp
     src/bconnectionwizard.cpp
@@ -505,8 +527,12 @@ set(HEADERS
     include/bdirector.h
     include/bareosdirector.h
     include/bsettings.h
+    include/bdatabase.h
     include/bbasemodels.h
     include/bresourcemodels.h
+    include/bresourcemodel.h
+    include/bdirectormodel.h
+    include/bsettingshistory.h
     include/version.h
     include/baculaauth.h
     include/bareosauth.h
@@ -623,10 +649,13 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Gui
-    Qt6::GuiPrivate
     Qt6::Widgets
     Qt6::Network
+    Qt6::Sql
 )
+
+# Qt6 Core Private Headers (für qzipwriter_p.h in bconfigexporter.cpp)
+target_include_directories(${PROJECT_NAME} PRIVATE ${QT6_CORE_PRIVATE_INCLUDE})
 
 # OpenSSL Libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
