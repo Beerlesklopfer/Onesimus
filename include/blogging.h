@@ -50,15 +50,14 @@ public:
         QMutexLocker locker(&m_mutex);
         m_filePath = filePath;
         m_maxSize = maxSizeMB * 1024 * 1024;
-        m_enabled = !filePath.isEmpty();
+        // m_enabled stays false until setEnabled(true) is called
 
-        if (m_enabled) {
+        if (!filePath.isEmpty()) {
             m_file.setFileName(filePath);
             if (m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
                 m_stream.setDevice(&m_file);
-                log("INFO", "=== Onesimus Log Started ===");
+                writeRaw("INFO", "=== Onesimus Log Started ===");
             } else {
-                m_enabled = false;
                 qWarning() << "Failed to open log file:" << filePath;
             }
         }
@@ -70,7 +69,7 @@ public:
     void setEnabled(bool enabled)
     {
         QMutexLocker locker(&m_mutex);
-        m_enabled = enabled && !m_filePath.isEmpty();
+        m_enabled = enabled && m_file.isOpen();
     }
 
     bool isEnabled() const { return m_enabled; }
@@ -93,9 +92,7 @@ public:
             rotate();
         }
 
-        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
-        m_stream << timestamp << " [" << level << "] " << message << "\n";
-        m_stream.flush();
+        writeRaw(level, message);
     }
 
     /**
@@ -105,7 +102,7 @@ public:
     {
         QMutexLocker locker(&m_mutex);
         if (m_file.isOpen()) {
-            log("INFO", "=== Onesimus Log Ended ===");
+            writeRaw("INFO", "=== Onesimus Log Ended ===");
             m_file.close();
         }
     }
@@ -130,7 +127,17 @@ private:
         m_file.setFileName(m_filePath);
         m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
         m_stream.setDevice(&m_file);
-        log("INFO", "=== Log rotated ===");
+        writeRaw("INFO", "=== Log rotated ===");
+    }
+
+    /**
+     * @brief Write directly to stream (no mutex, caller must hold lock)
+     */
+    void writeRaw(const QString &level, const QString &message)
+    {
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
+        m_stream << timestamp << " [" << level << "] " << message << "\n";
+        m_stream.flush();
     }
 
     QMutex m_mutex;
@@ -157,6 +164,8 @@ public:
     template<typename T>
     BLogStream& operator<<(const T &value)
     {
+        if (!m_message.isEmpty())
+            m_message += ' ';
         QDebug dbg(&m_message);
         dbg.nospace().noquote() << value;
         return *this;
