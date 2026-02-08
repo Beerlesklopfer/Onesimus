@@ -1465,8 +1465,9 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
         // Clear current log
         m_logModel->clear();
 
-        // Store the job ID we're requesting (for verification in response handler)
+        // Store the job ID and name we're requesting (for use in response handler)
         m_pendingLogJobId = jobId;
+        m_pendingLogJobName = jobName;
 
         // Connect to Director signal if not already connected
         if (m_director) {
@@ -1482,6 +1483,7 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
         }
     } else {
         m_pendingLogJobId.clear();
+        m_pendingLogJobName.clear();
     }
 
 }
@@ -1680,8 +1682,9 @@ void BJobWidget::loadSelectedJobLog()
     // Clear current log
     m_logModel->clear();
 
-    // Store the job ID we're requesting (for verification in response handler)
+    // Store the job ID and name we're requesting (for use in response handler)
     m_pendingLogJobId = jobId;
+    m_pendingLogJobName = jobName;
 
     // Connect to Director signal if not already connected
     if (m_director) {
@@ -1721,54 +1724,35 @@ void BJobWidget::onJobLogReceived(BDirector::Command cmd, const QString &jsonDat
         return;  // Not a job log response
     }
 
-    // Verify this response is for the job we requested
+    // Verify we have a pending request (trust command queue FIFO ordering
+    // instead of re-verifying the current selection, which can change
+    // between request and response due to model resets)
     if (m_pendingLogJobId.isEmpty()) {
         return;  // No pending request
     }
 
-    // Get job info from current row to verify it matches our pending request
-    QModelIndex currentIndex = m_tableView->currentIndex();
-    if (!currentIndex.isValid()) {
-        return;
-    }
-
-    QModelIndex sourceIndex = m_tableView->filterModel()->mapToSource(currentIndex);
-    if (!sourceIndex.isValid()) {
-        return;
-    }
-
-    QJsonObject currentJob = m_tableView->jobsModel()->jobAt(sourceIndex.row());
-    if (currentJob.isEmpty()) {
-        return;
-    }
-
-    QString currentJobId = currentJob["jobid"].toString();
-
-    // Only process if this is for the job we requested AND it's still selected
-    if (currentJobId != m_pendingLogJobId) {
-        return;  // Response is for a different job than currently selected
-    }
-
-    QString jobName = currentJob["name"].toString();
+    QString jobId = m_pendingLogJobId;
+    QString jobName = m_pendingLogJobName;
 
     // Clear pending request
     m_pendingLogJobId.clear();
+    m_pendingLogJobName.clear();
 
     // Parse and display the log
     if (m_logModel->parseJsonResponse(jsonData)) {
         int lineCount = m_logModel->rowCount();
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
                                  .arg(jobName)
-                                 .arg(currentJobId)
+                                 .arg(jobId)
                                  .arg(lineCount));
 
         // Add to history (or update existing entry)
         bool found = false;
         for (int i = 0; i < m_logHistory.size(); ++i) {
-            if (m_logHistory[i].jobId == currentJobId) {
+            if (m_logHistory[i].jobId == jobId) {
                 // Update existing entry
                 m_logHistory[i].logLines = m_logModel->logLines();
-                m_logHistoryCombo->setItemText(i, QString("%1 (ID: %2)").arg(jobName, currentJobId));
+                m_logHistoryCombo->setItemText(i, QString("%1 (ID: %2)").arg(jobName, jobId));
                 m_logHistoryCombo->setCurrentIndex(i);
                 found = true;
                 break;
@@ -1778,7 +1762,7 @@ void BJobWidget::onJobLogReceived(BDirector::Command cmd, const QString &jsonDat
         if (!found) {
             // Add new entry
             JobLogEntry entry;
-            entry.jobId = currentJobId;
+            entry.jobId = jobId;
             entry.jobName = jobName;
             entry.logLines = m_logModel->logLines();
 
@@ -1789,7 +1773,7 @@ void BJobWidget::onJobLogReceived(BDirector::Command cmd, const QString &jsonDat
             }
 
             m_logHistory.append(entry);
-            m_logHistoryCombo->addItem(QString("%1 (ID: %2)").arg(jobName, currentJobId));
+            m_logHistoryCombo->addItem(QString("%1 (ID: %2)").arg(jobName, jobId));
             m_logHistoryCombo->setCurrentIndex(m_logHistoryCombo->count() - 1);
         }
 
@@ -1799,7 +1783,7 @@ void BJobWidget::onJobLogReceived(BDirector::Command cmd, const QString &jsonDat
     } else {
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Load error")
                                  .arg(jobName)
-                                 .arg(currentJobId));
+                                 .arg(jobId));
     }
 }
 

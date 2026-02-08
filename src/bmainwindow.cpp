@@ -171,13 +171,21 @@ BMainWindow::BMainWindow(QWidget *parent)
 
     connect(m_director, &BDirector::allResourcesLoaded, this, [this]() {
 #ifdef IS_DEVELOPER
-        BLOG_DEBUG() << "MainWindow: All resources loaded - refreshing views";
+        BLOG_DEBUG() << "MainWindow: All resources loaded - models populated via typed signals";
 #endif
         // Restore cursor - loading complete
         QApplication::restoreOverrideCursor();
 
-        // Trigger UI refresh now that all resources are available
-        onRefreshAll();
+        // Resource dot-commands (filesets, storages, pools, levels, jobs, clients, schedule)
+        // are already populated via typed signals from the state machine responses.
+        // Only send non-resource commands that aren't part of the state machine.
+        m_jobWidget->triggerRefresh();            // ListJobTotals / ListJobs
+        m_clientWidget->triggerRefresh();          // ListClients
+        onSendCommand(BDirector::Command::ShowClients, "");
+        onSendCommand(BDirector::Command::ListBackups, "");
+        onSendCommand(BDirector::Command::Messages, "");
+
+        statusBar()->showMessage(tr("Ready"));
     });
 
     // ✅ Route JSON responses to appropriate widgets based on Command enum
@@ -199,35 +207,23 @@ BMainWindow::BMainWindow(QWidget *parent)
         QJsonObject result = root["result"].toObject();
 
         switch (cmd) {
+        // Resource dot-commands handled by typed signals (Phase 6)
         case BDirector::Command::DotLevels:
-            m_jobWidget->processDotLevelsResponse(jsonData);
-            break;
-
         case BDirector::Command::DotFilesets:
-            m_jobWidget->processDotFilesetsResponse(jsonData);
-            break;
-
         case BDirector::Command::DotStorages:
-            m_jobWidget->processDotStoragesResponse(jsonData);
-            break;
-
         case BDirector::Command::DotPools:
-            m_jobWidget->processDotPoolsResponse(jsonData);
-            break;
+        case BDirector::Command::DotSchedule:
+        case BDirector::Command::DotJobs:
+        case BDirector::Command::DotClients:
+        case BDirector::Command::ListClients:
+            break;  // Routed via typed signals → model/widget slots
 
         case BDirector::Command::ListJobTotals:
             m_jobWidget->processJobTotalsResponse(jsonData);
             break;
 
-        case BDirector::Command::DotSchedule:
-            m_scheduleWidget->processDotScheduleResponse(jsonData);
-            break;
-
-        case BDirector::Command::DotJobs:
-            m_jobWidget->processDotJobsResponse(jsonData);
-            break;
-
-        case BDirector::Command::ListJobs: {
+        case BDirector::Command::ListJobs:
+        case BDirector::Command::ListJobsLast: {
             m_jobWidget->processJsonResponse(jsonData);
             // Also enrich client widget with job data (for online status + total bytes)
             QJsonArray jobsArr = result["jobs"].toArray();
@@ -236,15 +232,8 @@ BMainWindow::BMainWindow(QWidget *parent)
             break;
         }
 
-        case BDirector::Command::DotClients:
-            m_jobWidget->processDotClientsResponse(jsonData);
-            break;
-
-        case BDirector::Command::ListClients:
-            m_clientWidget->processJsonResponse(jsonData);
-            break;
-
         case BDirector::Command::ShowClient:
+        case BDirector::Command::ShowClients:
             m_clientWidget->model()->enrichWithShowClientData(jsonData);
             break;
 
@@ -334,6 +323,25 @@ BMainWindow::BMainWindow(QWidget *parent)
 
     connect(m_scheduleWidget, &BScheduleWidget::statusMessageChanged,
             m_statusLabel, &QLabel::setText);
+
+    // ✅ Typed resource signals → direct model/widget connections (Phase 6)
+    // These bypass the jsonResult routing switch entirely.
+    connect(m_director, &BDirector::dotFilesetsResult,
+            m_jobWidget, &BJobWidget::processDotFilesetsResponse);
+    connect(m_director, &BDirector::dotStoragesResult,
+            m_jobWidget, &BJobWidget::processDotStoragesResponse);
+    connect(m_director, &BDirector::dotPoolsResult,
+            m_jobWidget, &BJobWidget::processDotPoolsResponse);
+    connect(m_director, &BDirector::dotLevelsResult,
+            m_jobWidget, &BJobWidget::processDotLevelsResponse);
+    connect(m_director, &BDirector::dotJobsResult,
+            m_jobWidget, &BJobWidget::processDotJobsResponse);
+    connect(m_director, &BDirector::dotClientsResult,
+            m_jobWidget, &BJobWidget::processDotClientsResponse);
+    connect(m_director, &BDirector::dotScheduleResult,
+            m_scheduleWidget, &BScheduleWidget::processDotScheduleResponse);
+    connect(m_director, &BDirector::listClientsResult,
+            m_clientWidget, &BClientsWidget::processJsonResponse);
 
     // Setup auto-refresh timer
     m_autoRefreshTimer = new QTimer(this);
@@ -627,7 +635,7 @@ void BMainWindow::createActions()
     m_addFileSetAction->setIcon(QIcon(":/icons/icons/add.svg"));
     m_addFileSetAction->setEnabled(false);
     connect(m_addFileSetAction, &QAction::triggered, this, [this]() {
-        BFileSetWizard wizard(m_director, this);
+        BFileSetWizard wizard(m_director, m_jobWidget->filesetModel(), this);
         wizard.exec();
     });
 
@@ -636,7 +644,7 @@ void BMainWindow::createActions()
     m_editFileSetAction->setEnabled(false);
     connect(m_editFileSetAction, &QAction::triggered, this, [this]() {
         // TODO: Get selected fileset name from job widget
-        BFileSetWizard wizard(m_director, QString(), this);
+        BFileSetWizard wizard(m_director, QString(), m_jobWidget->filesetModel(), this);
         wizard.exec();
     });
 

@@ -647,6 +647,7 @@ void BareosDirector::setApiMode(ApiMode mode)
     // ✅ Reset JSON accumulation when leaving API mode
     if (mode == ApiMode::Off) {
         m_jsonTextAccumulation = false;
+        m_binaryJsonAccumulator.clear();
         m_receiveBuffer.clear();  // Clear any pending JSON fragments
     }
 
@@ -755,6 +756,11 @@ void BareosDirector::onDisconnected()
     }
 
     // Cleanup
+    m_binaryJsonAccumulator.clear();
+    m_receiveBuffer.clear();
+    m_jsonTextAccumulation = false;
+    m_consumeApiConfirmation = false;
+
     if (m_auth) {
         // Disconnect auth signals
         QObject::disconnect(m_connAuthSucceeded);
@@ -893,6 +899,7 @@ void BareosDirector::onReadyRead()
             // Clear buffer and break to avoid infinite loop
             m_receiveBuffer.clear();
             m_jsonTextAccumulation = false;
+            m_binaryJsonAccumulator.clear();
             break;
         }
 #endif
@@ -951,9 +958,40 @@ void BareosDirector::onReadyRead()
         }
 #endif
 
-        // Verarbeite Nachricht (ignoriere leere Signal-Prompts wie "*")
-        if (!isSignal || !messageStr.isEmpty()) {
-            processDirectorMessage(unbashSpaces(messageStr), isSignal);
+        // ✅ Multi-telegram JSON accumulation for binary protocol
+        // A single JSON response from the Director can span multiple binary telegrams.
+        // We accumulate data telegrams and process the complete JSON when:
+        //   (a) a signal packet arrives (end-of-response delimiter), or
+        //   (b) the accumulated data is already valid JSON (single-telegram response)
+        if (isSignal) {
+            // Signal marks end of current response
+            if (!m_binaryJsonAccumulator.isEmpty()) {
+                processDirectorMessage(unbashSpaces(m_binaryJsonAccumulator), false);
+                m_binaryJsonAccumulator.clear();
+            }
+            // Process signal itself if non-empty
+            if (!messageStr.isEmpty()) {
+                processDirectorMessage(unbashSpaces(messageStr), true);
+            }
+        } else if (messageStr.startsWith('{') || messageStr.startsWith('[')
+                   || !m_binaryJsonAccumulator.isEmpty()) {
+            // JSON data telegram — accumulate (may span multiple telegrams)
+            m_binaryJsonAccumulator += messageStr;
+
+            // Check if JSON is already complete (avoids waiting for signal)
+            QJsonParseError parseErr;
+            QJsonDocument::fromJson(m_binaryJsonAccumulator.toUtf8(), &parseErr);
+            if (parseErr.error == QJsonParseError::NoError) {
+                // Complete JSON — process immediately
+                processDirectorMessage(unbashSpaces(m_binaryJsonAccumulator), false);
+                m_binaryJsonAccumulator.clear();
+            }
+            // Otherwise wait for more telegrams or signal
+        } else {
+            // Non-JSON text data — process immediately
+            if (!messageStr.isEmpty()) {
+                processDirectorMessage(unbashSpaces(messageStr), false);
+            }
         }
     }
 }
@@ -962,6 +1000,18 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
 {
     // Ignoriere leere Nachrichten
     if (message.isEmpty()) {
+        return;
+    }
+
+    // ✅ Consume the JSON confirmation of .api 2 mode switch without dequeuing.
+    // The Director sends TWO responses for .api 2: a text status message (processed first,
+    // triggers startResourceLoading()) and a JSON-RPC confirmation. The JSON confirmation
+    // must NOT dequeue from the command queue (the queue now contains resource commands).
+    if (m_consumeApiConfirmation && !isSignal && message.startsWith('{')) {
+        m_consumeApiConfirmation = false;
+#ifdef IS_DEVELOPER
+        BLOG_DEBUG() << "Consuming .api 2 JSON confirmation (not dequeuing from command queue)";
+#endif
         return;
     }
 
@@ -1072,6 +1122,9 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
             // State Machine: Check if .api command completed while in SettingApiMode
             if (m_connectionState == SettingApiMode && m_lastCommandEnum == Command::ApiMode) {
                 DIR_DEBUG << "STATE MACHINE: API mode confirmed, starting resource loading";
+                // The Director sends TWO responses for .api 2: this text status and a JSON
+                // confirmation that follows. Set flag to consume the JSON without dequeuing.
+                m_consumeApiConfirmation = true;
                 startResourceLoading();
             }
             return;
@@ -1435,6 +1488,17 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
             emit configureResult(ok, jsonData);
         }
         break;
+
+    // Typed resource signals — connect directly to model parse slots
+    case Command::DotFilesets:  emit dotFilesetsResult(jsonData); break;
+    case Command::DotJobs:      emit dotJobsResult(jsonData); break;
+    case Command::DotClients:   emit dotClientsResult(jsonData); break;
+    case Command::DotStorages:  emit dotStoragesResult(jsonData); break;
+    case Command::DotPools:     emit dotPoolsResult(jsonData); break;
+    case Command::DotLevels:    emit dotLevelsResult(jsonData); break;
+    case Command::DotSchedule:  emit dotScheduleResult(jsonData); break;
+    case Command::ListClients:  emit listClientsResult(jsonData); break;
+
     default:
         break;
     }

@@ -129,6 +129,24 @@ BDirector::BDirector(QObject *parent)
     QObject::connect(m_director, &DIRECTOR_CLASS::configureResult,
                      this, &BDirector::configureResult);
 
+    // Typed resource signals (Phase 6) — forward directly to model/widget slots
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotFilesetsResult,
+                     this, &BDirector::dotFilesetsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotJobsResult,
+                     this, &BDirector::dotJobsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotClientsResult,
+                     this, &BDirector::dotClientsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotStoragesResult,
+                     this, &BDirector::dotStoragesResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotPoolsResult,
+                     this, &BDirector::dotPoolsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotLevelsResult,
+                     this, &BDirector::dotLevelsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotScheduleResult,
+                     this, &BDirector::dotScheduleResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::listClientsResult,
+                     this, &BDirector::listClientsResult);
+
     // Initialize director in worker thread (creates socket and auth)
     // Use QueuedConnection to ensure it runs in worker thread
     QObject::connect(m_workerThread, &QThread::started,

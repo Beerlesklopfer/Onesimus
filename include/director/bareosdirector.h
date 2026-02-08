@@ -653,6 +653,21 @@ signals:
      */
     void configureResult(bool success, const QString &message);
 
+    // ========================================================================
+    // Typed Resource Signals (Phase 6)
+    // ========================================================================
+    // These are emitted from routeTypedResponse() and connect directly to
+    // model parse slots, bypassing BMainWindow routing.
+
+    void dotFilesetsResult(const QString &jsonData);
+    void dotJobsResult(const QString &jsonData);
+    void dotClientsResult(const QString &jsonData);
+    void dotStoragesResult(const QString &jsonData);
+    void dotPoolsResult(const QString &jsonData);
+    void dotLevelsResult(const QString &jsonData);
+    void dotScheduleResult(const QString &jsonData);
+    void listClientsResult(const QString &jsonData);
+
     /**
      * @brief Emitted when a command fails (error detected in response)
      * @param cmd The command that failed
@@ -942,6 +957,8 @@ private:
     QList<CommandEntry> m_commandHistory;    ///< Completed commands (for rollback)
     static constexpr int MaxHistorySize = 100;
     bool m_jsonTextAccumulation;  ///< True when accumulating fragmented JSON text
+    QString m_binaryJsonAccumulator;  ///< Accumulator for multi-telegram binary JSON responses
+    bool m_consumeApiConfirmation = false;  ///< Consume next JSON response as .api 2 confirmation (no dequeue)
 
     quint64 m_lastSentSize;
 

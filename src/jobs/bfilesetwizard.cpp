@@ -15,6 +15,7 @@
 #include "config/bconfigparser.h"
 #include "director/bdirector.h"
 #include "director/bresourcewidget.h"
+#include "models/bresourcemodels.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -41,20 +42,23 @@ QJsonObject BFileSetWizard::s_templates;
 // BFileSetWizard
 // ============================================================================
 
-BFileSetWizard::BFileSetWizard(BDirector *director, QWidget *parent)
+BFileSetWizard::BFileSetWizard(BDirector *director, BFilesetModel *filesetModel,
+                               QWidget *parent)
     : QWizard(parent)
     , m_mode(NewMode)
     , m_director(director)
+    , m_filesetModel(filesetModel)
     , m_document(new BFileSetDocument(this))
 {
     init();
 }
 
 BFileSetWizard::BFileSetWizard(BDirector *director, const QString &filesetName,
-                               QWidget *parent)
+                               BFilesetModel *filesetModel, QWidget *parent)
     : QWizard(parent)
     , m_mode(EditMode)
     , m_director(director)
+    , m_filesetModel(filesetModel)
     , m_document(new BFileSetDocument(this))
     , m_originalName(filesetName)
 {
@@ -746,45 +750,52 @@ void BFileSetSettingsPage::collectFormValues()
 void BFileSetSettingsPage::fetchFileSets()
 {
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-    if (!wiz || !wiz->director()) {
+    if (!wiz) return;
+
+    // Model-driven: use already-populated BFilesetModel if available
+    BFilesetModel *model = wiz->filesetModel();
+    if (model && model->rowCount() > 0) {
+        onFileSetsLoaded(model->filesetNames());
+        return;
+    }
+
+    // Fallback: fetch from Director (when wizard opened without model)
+    if (!wiz->director()) {
         m_loadingLabel->setText(tr("No Director connection"));
         return;
     }
 
-    // Connect to Director's fileSetsResult signal
-    connect(wiz->director(), &BDirector::jsonResult,
-            this, [this](BDirector::Command cmd, const QString &jsonData) {
+    m_loadingLabel->setText(tr("Loading..."));
+    auto conn = std::make_shared<QMetaObject::Connection>();
+    *conn = connect(wiz->director(), &BDirector::jsonResult,
+            this, [this, conn](BDirector::Command cmd, const QString &jsonData) {
         if (cmd != BDirector::Command::DotFilesets) return;
+
+        QObject::disconnect(*conn);
 
         QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
         QJsonArray filesets = doc.object()["result"].toObject()["filesets"].toArray();
-        onFileSetsLoaded(filesets);
-
-        // Disconnect after receiving
-        BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult, this, nullptr);
+        QStringList names;
+        for (const QJsonValue &fs : filesets) {
+            QString name = fs.toObject()["name"].toString();
+            if (!name.isEmpty()) names.append(name);
         }
+        onFileSetsLoaded(names);
     });
 
-    // Send command to fetch filesets
     wiz->director()->doSend(BDirector::Command::DotFilesets);
 }
 
-void BFileSetSettingsPage::onFileSetsLoaded(const QJsonArray &filesets)
+void BFileSetSettingsPage::onFileSetsLoaded(const QStringList &names)
 {
     m_filesetCombo->clear();
     m_filesetCombo->addItem(tr("-- Select FileSet --"), QString());
 
-    for (const QJsonValue &fs : filesets) {
-        QJsonObject fsObj = fs.toObject();
-        QString name = fsObj["name"].toString();
-        if (!name.isEmpty()) {
-            m_filesetCombo->addItem(name, name);
-        }
+    for (const QString &name : names) {
+        m_filesetCombo->addItem(name, name);
     }
 
-    m_loadingLabel->setText(QString("(%1 FileSets)").arg(filesets.count()));
+    m_loadingLabel->setText(QString("(%1 FileSets)").arg(names.count()));
 
     // If we have a preset name, select it
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
@@ -904,30 +915,28 @@ void BFileSetSettingsPage::loadFileSetFromDirector(const QString &filesetName)
         m_loadingLabel->setText(tr("Loaded"));
     };
 
-    // Connect to Director's JSON response
-    connect(wiz->director(), &BDirector::jsonResult,
+    // Disconnect any previous stored connections
+    QObject::disconnect(m_jsonConn);
+    QObject::disconnect(m_textConn);
+
+    // Connect to Director's JSON response (stored connection for clean disconnect)
+    m_jsonConn = connect(wiz->director(), &BDirector::jsonResult,
             this, [this, parseResponse](BDirector::Command cmd, const QString &jsonData) {
         if (cmd != BDirector::Command::ShowFileset) return;
 
-        BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult, this, nullptr);
-            disconnect(wiz->director(), &BDirector::textResult, this, nullptr);
-        }
+        QObject::disconnect(m_jsonConn);
+        QObject::disconnect(m_textConn);
 
         parseResponse(jsonData, true);
     });
 
-    // Connect to Director's text response (fallback)
-    connect(wiz->director(), &BDirector::textResult,
+    // Connect to Director's text response (stored connection for clean disconnect)
+    m_textConn = connect(wiz->director(), &BDirector::textResult,
             this, [this, parseResponse](BDirector::Command cmd, const QString &textData) {
         if (cmd != BDirector::Command::ShowFileset) return;
 
-        BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult, this, nullptr);
-            disconnect(wiz->director(), &BDirector::textResult, this, nullptr);
-        }
+        QObject::disconnect(m_jsonConn);
+        QObject::disconnect(m_textConn);
 
         parseResponse(textData, false);
     });

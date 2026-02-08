@@ -388,6 +388,7 @@ private:
     QLabel *m_logTitleLabel;                ///< Title label for log section
     QWidget *m_logContainer;                ///< Container for log section
     QString m_pendingLogJobId;              ///< Job ID of the pending log request
+    QString m_pendingLogJobName;            ///< Job name of the pending log request
 
     // Job Log History & Controls
     QComboBox *m_logHistoryCombo;           ///< Dropdown to select from job log history

@@ -288,6 +288,20 @@ signals:
     void configureResult(bool success, const QString &message);
 
     // ========================================================================
+    // Typed Resource Signals (Phase 6)
+    // ========================================================================
+    // Connect directly to model parse slots for model-driven data flow.
+
+    void dotFilesetsResult(const QString &jsonData);
+    void dotJobsResult(const QString &jsonData);
+    void dotClientsResult(const QString &jsonData);
+    void dotStoragesResult(const QString &jsonData);
+    void dotPoolsResult(const QString &jsonData);
+    void dotLevelsResult(const QString &jsonData);
+    void dotScheduleResult(const QString &jsonData);
+    void listClientsResult(const QString &jsonData);
+
+    // ========================================================================
     // Command Queue Signals
     // ========================================================================
 

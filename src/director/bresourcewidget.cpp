@@ -160,7 +160,7 @@ void BResourceWidget::onEditResource()
     // Use specialized wizard for FileSet, generic dialog for others
     if (m_resourceType.compare("FileSet", Qt::CaseInsensitive) == 0) {
         QString filesetName = res.simpleValue("Name");
-        BFileSetWizard wizard(m_director, filesetName, this);
+        BFileSetWizard wizard(m_director, filesetName, nullptr, this);
         if (wizard.exec() == QWizard::Accepted) {
             // FileSet was modified via Director - reload resources
             accepted = true;

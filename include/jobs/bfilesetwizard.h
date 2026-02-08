@@ -32,6 +32,7 @@
 
 #include "director/bdirector.h"
 class BFileSetDocument;
+class BFilesetModel;
 class BIncludeBlockWidget;
 class BResourceWidget;
 class BEditableListWidget;
@@ -75,17 +76,21 @@ public:
     /**
      * @brief Construct wizard for creating a new FileSet
      * @param director Director connection for validation and execution
+     * @param filesetModel Already-populated fileset model (optional, for combo population)
      * @param parent Parent widget
      */
-    explicit BFileSetWizard(BDirector *director, QWidget *parent = nullptr);
+    explicit BFileSetWizard(BDirector *director, BFilesetModel *filesetModel = nullptr,
+                            QWidget *parent = nullptr);
 
     /**
      * @brief Construct wizard for editing an existing FileSet
      * @param director Director connection
      * @param filesetName Name of the FileSet to edit
+     * @param filesetModel Already-populated fileset model (optional, for combo population)
      * @param parent Parent widget
      */
     explicit BFileSetWizard(BDirector *director, const QString &filesetName,
+                            BFilesetModel *filesetModel = nullptr,
                             QWidget *parent = nullptr);
 
     ~BFileSetWizard() override;
@@ -99,6 +104,11 @@ public:
      * @brief Get the Director connection
      */
     BDirector *director() const { return m_director; }
+
+    /**
+     * @brief Get the fileset model (for combo population)
+     */
+    BFilesetModel *filesetModel() const { return m_filesetModel; }
 
     /**
      * @brief Get the FileSet document (data model)
@@ -126,6 +136,7 @@ private:
 
     Mode m_mode = NewMode;
     BDirector *m_director = nullptr;
+    BFilesetModel *m_filesetModel = nullptr;
     BFileSetDocument *m_document = nullptr;
     QString m_originalName;  // For edit mode
     bool m_executeOnFinish = true;
@@ -189,7 +200,7 @@ public:
 
 private slots:
     void onFileSetSelected(int index);
-    void onFileSetsLoaded(const QJsonArray &filesets);
+    void onFileSetsLoaded(const QStringList &names);
 
 private:
     void setupUi();
@@ -213,6 +224,10 @@ private:
 
     // Execute option
     QCheckBox *m_executeCheck = nullptr;
+
+    // Stored signal connections for clean disconnect
+    QMetaObject::Connection m_jsonConn;
+    QMetaObject::Connection m_textConn;
 
     bool m_initialized = false;
 };
