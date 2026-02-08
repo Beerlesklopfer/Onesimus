@@ -309,7 +309,7 @@ private slots:
      * @param jsonData JSON response containing job log
      * @since 2.8
      */
-    void onJobLogReceived(const QString &command, const QString &jsonData);
+    void onJobLogReceived(BDirector::Command cmd, const QString &jsonData);
 
     /**
      * @brief Loads the job log for the currently selected job

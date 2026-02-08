@@ -43,6 +43,7 @@
 #include <QWaitCondition>
 #include <QSet>
 #include <QMap>
+#include <QQueue>
 
 // Debug logging prefixes (using blogging.h macros)
 #include "blogging.h"
@@ -95,15 +96,15 @@
  *
  * // Connect signals
  * connect(director, &Director::connected, this, &MyClass::onConnected);
- * connect(director, &Director::commandResponse, this, &MyClass::onResponse);
+ * connect(director, &Director::jsonResult, this, &MyClass::onResponse);
  *
  * // Connect to Director
  * director->connect("192.168.1.10", 9101, "bareos-dir", "mypassword");
  *
  * // Send commands using enum
- * director->doSendCommand(Director::Command::ListJobs);
- * director->doSendCommand(Director::Command::StatusDirector);
- * director->doSendCommand(Director::Command::ListJobsLast, "50");
+ * director->doSend(Director::Command::ListJobs);
+ * director->doSend(Director::Command::StatusDirector);
+ * director->doSend(Director::Command::ListJobsLast, "50");
  * @endcode
  *
  * @since 1.0.0
@@ -317,11 +318,47 @@ public:
         DotMedia,           ///< .media - List all media/volumes
         DotHelp,            ///< .help - List all dot commands
         DotDefaults,        ///< .defaults job=<name> - Get job default values
+        DotConsoles,        ///< .consoles - List all console resources
+        DotMessages,        ///< .messages - Retrieve pending messages (keepalive)
+
+        // Show single resource
+        ShowFileset,        ///< show fileset=<name> - Show single fileset details
+        ShowClient,         ///< show client=<name> - Show single client details
+        ShowConsole,        ///< show console=<name> - Show single console details
+
+        // Volume Maintenance (bulk)
+        PruneVolumeAll,     ///< prune volume allpools yes
+        PurgeVolumeAll,     ///< purge volume allpools yes
+
+        // BVFS (Virtual File System for restore)
+        BvfsGetJobIds,      ///< .bvfs_get_jobids jobid=<id>
+        BvfsUpdate,         ///< .bvfs_update jobid=<ids>
+        BvfsLsDirs,         ///< .bvfs_lsdirs jobid=<ids> pathid=<id>
+        BvfsLsFiles,        ///< .bvfs_lsfiles jobid=<ids> pathid=<id>
+        BvfsRestore,        ///< .bvfs_restore jobid=<ids> ...
+        BvfsCleanup,        ///< .bvfs_cleanup path=<table>
 
         // Custom
         Custom              ///< Custom command string
     };
     Q_ENUM(Command)
+
+    /**
+     * @brief Tracks a command through the send → response → completion lifecycle
+     *
+     * Commands are enqueued in doSend(), marked Sent when written to the socket,
+     * and completed (Success/Failed) when the response is processed.
+     * Bareos processes commands sequentially (FIFO), so responses arrive in order.
+     */
+    struct CommandEntry {
+        Command cmd = Command::Custom;
+        QString args;
+        enum Status { Pending, Sent, Success, Failed };
+        Status status = Pending;
+        QString response;               ///< Stored response for error/rollback decisions
+        Command rollbackCmd = Command::Custom;  ///< Command to undo this one (Custom = none)
+        QString rollbackArgs;
+    };
 
     /**
      * @enum JobStatus
@@ -579,18 +616,18 @@ signals:
     void disconnected();
 
     /**
-     * @brief Emitted when a JSON response is received from the Director
-     * @param command The command that was sent (e.g., "list jobs")
+     * @brief Emitted when a JSON response is received, with enum-based command identification
+     * @param cmd The Command enum that triggered this response
      * @param jsonData The JSON response data
      */
-    void jsonResponse(const QString &command, const QString &jsonData);
+    void jsonResult(Command cmd, const QString &jsonData);
 
     /**
-     * @brief Emitted when a text response is received from the Director
-     * @param command The command that was sent
+     * @brief Emitted when a text response is received, with enum-based command identification
+     * @param cmd The Command enum that triggered this response
      * @param response The text response
      */
-    void commandResponse(const QString &command, const QString &response);
+    void textResult(Command cmd, const QString &response);
 
     // ========================================================================
     // Typed Query Result Signals
@@ -615,6 +652,21 @@ signals:
      * @param message Response message from the Director
      */
     void configureResult(bool success, const QString &message);
+
+    /**
+     * @brief Emitted when a command fails (error detected in response)
+     * @param cmd The command that failed
+     * @param args The command arguments
+     * @param errorMsg The error response from the Director
+     */
+    void commandFailed(Command cmd, const QString &args, const QString &errorMsg);
+
+    /**
+     * @brief Emitted after a rollback command completes
+     * @param originalCmd The original command that was rolled back
+     */
+    void rollbackCompleted(Command originalCmd);
+
     void jobStatusChanged(int jobId, BareosDirector::JobStatus status);
     void authenticationRequired();
     void statusMessage(const QString &message);
@@ -648,7 +700,7 @@ public slots:
      *
      * @since 1.0.0
      */
-    void doSendCommand(Command cmd, quint64);
+    void doSend(Command cmd, quint64);
 
     /**
      * @brief Internal slot for thread-safe socket writing
@@ -665,7 +717,7 @@ public slots:
      *
      * @since 1.0.0
      */
-    void doSendCommand(const BareosDirector::Command cmd, const QString &args = QString());
+    void doSend(const BareosDirector::Command cmd, const QString &args = QString());
 
     /**
      * @brief Parse job status string to JobStatus enum
@@ -684,15 +736,13 @@ public slots:
     static QString jobStatusToString(JobStatus status);
 
     /**
-     * @brief Sends a raw command string to the Director
+     * @brief Roll back the last successful command that has a rollback pair
+     * @return true if a rollback was initiated, false if no rollback available
      *
-     * Use this for commands not covered by the Command enum,
-     * such as "show consoles" or "configure add console".
-     *
-     * @param command Command string (without newline)
-     * @since 1.0.0
+     * Searches command history for the most recent successful command with a
+     * registered rollback pair and sends the rollback command.
      */
-    void sendRawCommand(const QString &command);
+    bool rollbackLast();
 
     // ========================================================================
     // Query Convenience Methods
@@ -808,18 +858,47 @@ private:
     void processDirectorMessage(const QString &message, bool isSignal);
 
     /**
-     * @brief Routes JSON response to typed signals based on m_lastCommand
+     * @brief Routes JSON response to typed signals based on current command
      * @param jsonData The JSON response data
      */
     void routeTypedResponse(const QString &jsonData);
 
+    // ========================================================================
+    // Command Queue
+    // ========================================================================
+
     /**
-     * @brief Sends a raw command string to the Director
+     * @brief Send all pending commands in the queue to the Director
      *
+     * Iterates the queue and sends any Pending entries, marking them Sent.
+     * Bareos processes commands FIFO, so responses arrive in order.
+     */
+    void flushQueue();
+
+    /**
+     * @brief Dequeue the first Sent command from the queue
+     * @param[out] entry The dequeued command entry
+     * @return true if a sent entry was found and dequeued
+     */
+    bool dequeueCurrentCommand(CommandEntry &entry);
+
+    /**
+     * @brief Register rollback pairs for known command types
+     * @param entry The command entry to annotate with rollback info
+     */
+    void registerRollback(CommandEntry &entry);
+
+    /**
+     * @brief Detect if a Director response indicates an error
+     * @param response The response text or JSON
+     * @return true if the response contains an error indicator
+     */
+    bool detectCommandError(const QString &response) const;
+
+    /**
+     * @brief Wire-protocol: sends raw command string to the Director socket
+     * @internal Only used by doSend(). Do not call directly.
      * @param command Command string (without newline)
-     * @deprecated
-     *
-     * @since 1.0.0
      */
     void sendCommand(const QString &command);
 
@@ -852,8 +931,16 @@ private:
     QString m_tlsCipherList;     ///< TLS cipher list from auth for config export
     AUTH_CLASS *m_auth;
     bool m_connected;
-    QString m_lastCommand;
+    QString m_lastCommand;              ///< Full command string (for debug/routeTypedResponse)
+    Command m_lastCommandEnum = Command::Custom;  ///< Enum of current command (set from queue)
     ApiMode m_apiMode;
+
+    // ========================================================================
+    // Command Queue (FIFO — matches Bareos serial command processing)
+    // ========================================================================
+    QQueue<CommandEntry> m_commandQueue;     ///< Pending + in-flight commands
+    QList<CommandEntry> m_commandHistory;    ///< Completed commands (for rollback)
+    static constexpr int MaxHistorySize = 100;
     bool m_jsonTextAccumulation;  ///< True when accumulating fragmented JSON text
 
     quint64 m_lastSentSize;

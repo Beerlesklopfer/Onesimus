@@ -102,9 +102,9 @@ public:
                 this, &DirectorTester::onProtocolError);
         connect(m_director, &BareosDirector::authentificationSucceeded,
                 this, &DirectorTester::onAuthResult);
-        connect(m_director, &BareosDirector::jsonResponse,
+        connect(m_director, &BareosDirector::jsonResult,
                 this, &DirectorTester::onJsonResponse);
-        connect(m_director, &BareosDirector::commandResponse,
+        connect(m_director, &BareosDirector::textResult,
                 this, &DirectorTester::onCommandResponse);
         connect(m_director, &BareosDirector::commandError,
                 this, &DirectorTester::onCommandError);
@@ -191,11 +191,11 @@ private slots:
         m_allResourcesLoaded = true;
     }
 
-    void onJsonResponse(const QString &command, const QString &json)
+    void onJsonResponse(BareosDirector::Command cmd, const QString &json)
     {
         if (m_config.verbose) {
-            qDebug().noquote() << QString("  [JSON] %1 (%2 bytes)")
-                .arg(command).arg(json.size());
+            qDebug().noquote() << QString("  [JSON] cmd=%1 (%2 bytes)")
+                .arg(static_cast<int>(cmd)).arg(json.size());
         }
 
         // Handle BVFS responses
@@ -223,14 +223,14 @@ private slots:
         }
     }
 
-    void onCommandResponse(const QString &command, const QString &response)
+    void onCommandResponse(BareosDirector::Command cmd, const QString &response)
     {
-        Q_UNUSED(command)
+        Q_UNUSED(cmd)
         // In API mode 2, most commands return JSON, not text
         // This is mainly for legacy/non-API mode responses
         if (m_config.verbose) {
-            qDebug().noquote() << QString("  [TEXT] %1 (%2 bytes)")
-                .arg(command).arg(response.size());
+            qDebug().noquote() << QString("  [TEXT] cmd=%1 (%2 bytes)")
+                .arg(static_cast<int>(cmd)).arg(response.size());
         }
     }
 
@@ -247,13 +247,13 @@ private slots:
             finishTest(true);
         } else if (m_config.command == "status") {
             m_pendingCommand = "status";
-            m_director->doSendCommand(BareosDirector::Command::StatusDirector, "");
+            m_director->doSend(BareosDirector::Command::StatusDirector, "");
         } else if (m_config.command == "jobs") {
             m_pendingCommand = "jobs";
-            m_director->doSendCommand(BareosDirector::Command::ListJobs, "");
+            m_director->doSend(BareosDirector::Command::ListJobs, "");
         } else if (m_config.command == "clients") {
             m_pendingCommand = "clients";
-            m_director->doSendCommand(BareosDirector::Command::ListClients, "");
+            m_director->doSend(BareosDirector::Command::ListClients, "");
         } else if (m_config.command == "bvfs") {
             startBvfsExplorer();
         } else if (m_config.command == "interactive") {
@@ -286,7 +286,7 @@ private slots:
 
         // Use SQL query to get recent successful backup jobs
         // Note: Need JOIN with Client table to get client name
-        m_director->sendRawCommand(
+        m_director->doSend(BareosDirector::Command::Custom,
             ".sql query=\"SELECT j.JobId, j.Name, c.Name AS Client, j.Level, j.JobStatus, j.StartTime "
             "FROM Job j LEFT JOIN Client c ON j.ClientId = c.ClientId "
             "WHERE j.Type='B' AND j.JobStatus IN ('T','W') "
@@ -387,7 +387,7 @@ private slots:
         qDebug() << "\n[BVFS] Step 2: Updating BVFS cache for JobId" << m_bvfsJobId << "...";
         m_bvfsState = BvfsState::UpdatingCache;
         m_pendingCommand = "bvfs_update";
-        m_director->sendRawCommand(QString(".bvfs_update jobid=%1").arg(m_bvfsJobId));
+        m_director->doSend(BareosDirector::Command::Custom,QString(".bvfs_update jobid=%1").arg(m_bvfsJobId));
     }
 
     void handleBvfsCacheUpdated(const QJsonObject &result)
@@ -399,7 +399,7 @@ private slots:
         qDebug() << "\n[BVFS] Step 3: Getting restore chain JobIDs...";
         m_bvfsState = BvfsState::GettingJobIds;
         m_pendingCommand = "bvfs_getjobids";
-        m_director->sendRawCommand(QString(".bvfs_get_jobids jobid=%1 all").arg(m_bvfsJobId));
+        m_director->doSend(BareosDirector::Command::Custom,QString(".bvfs_get_jobids jobid=%1 all").arg(m_bvfsJobId));
     }
 
     void handleBvfsJobIdsResponse(const QJsonObject &result)
@@ -431,7 +431,7 @@ private slots:
         qDebug() << "\n[BVFS] Step 4: Listing directories at root (/)...";
         m_bvfsState = BvfsState::ListingDirs;
         m_pendingCommand = "bvfs_lsdirs";
-        m_director->sendRawCommand(
+        m_director->doSend(BareosDirector::Command::Custom,
             QString(".bvfs_lsdirs jobid=%1 path=/ limit=20").arg(m_bvfsJobIds.join(","))
         );
     }
@@ -475,7 +475,7 @@ private slots:
         m_bvfsPathId = firstPathId > 0 ? firstPathId : 1;
 
         QString path = firstPathId > 0 ? QString("pathid=%1").arg(firstPathId) : "path=/";
-        m_director->sendRawCommand(
+        m_director->doSend(BareosDirector::Command::Custom,
             QString(".bvfs_lsfiles jobid=%1 %2 limit=20").arg(m_bvfsJobIds.join(","), path)
         );
     }
@@ -520,7 +520,7 @@ private slots:
             qDebug() << "\n[BVFS] Step 6: Getting versions of file:" << firstFile;
             m_bvfsState = BvfsState::GettingVersions;
             m_pendingCommand = "bvfs_versions";
-            m_director->sendRawCommand(
+            m_director->doSend(BareosDirector::Command::Custom,
                 QString(".bvfs_versions jobid=0 client=%1 pathid=%2 filename=%3")
                     .arg(m_bvfsClient)
                     .arg(m_bvfsPathId)

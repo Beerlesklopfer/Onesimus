@@ -18,11 +18,11 @@ BBvfsModel::BBvfsModel(BDirector *director, QObject *parent)
     BVFS_DEBUG << "Model created";
 
     if (m_director) {
-        connect(m_director, &BDirector::jsonResponse,
+        connect(m_director, &BDirector::jsonResult,
                 this, &BBvfsModel::onJsonResponse);
-        connect(m_director, &BDirector::commandResponse,
+        connect(m_director, &BDirector::textResult,
                 this, &BBvfsModel::onCommandResponse);
-        BVFS_DEBUG << "Connected to Director jsonResponse + commandResponse signals";
+        BVFS_DEBUG << "Connected to Director jsonResult + textResult signals";
     }
 }
 
@@ -59,15 +59,15 @@ void BBvfsModel::loadJob(quint64 jobId, bool resolveAllRelatedJobs)
 
     if (resolveAllRelatedJobs) {
         // First resolve all related job IDs via bvfs_get_jobids
-        QString cmd = QString(".bvfs_get_jobids jobid=%1 all").arg(jobId);
-        enqueueCommand({cmd, m_rootNode, PendingCommand::GetJobIds});
+        QString args = QString("jobid=%1 all").arg(jobId);
+        enqueueCommand({BDirector::Command::BvfsGetJobIds, args, m_rootNode});
     } else {
         m_bvfsJobIds = QString::number(jobId);
         BVFS_DEBUG << "Using single job ID: " << m_bvfsJobIds;
 
-        // Send bvfs_update (returns text response via commandResponse signal)
-        QString cmd = QString(".bvfs_update jobid=%1").arg(m_bvfsJobIds);
-        enqueueCommand({cmd, m_rootNode, PendingCommand::Update});
+        // Send bvfs_update (returns text response via textResult signal)
+        QString args = QString("jobid=%1").arg(m_bvfsJobIds);
+        enqueueCommand({BDirector::Command::BvfsUpdate, args, m_rootNode});
     }
 }
 
@@ -305,11 +305,11 @@ void BBvfsModel::fetchMore(const QModelIndex &parent)
     node->dirLoadState = BvfsNode::Loading;
     BVFS_DEBUG << "Node " << node->fullPath << ": dirLoadState NotLoaded -> Loading";
 
-    QString cmd = QString(".bvfs_lsdirs jobid=%1 pathid=%2")
-                      .arg(m_bvfsJobIds)
-                      .arg(node->pathId);
+    QString args = QString("jobid=%1 pathid=%2")
+                       .arg(m_bvfsJobIds)
+                       .arg(node->pathId);
 
-    enqueueCommand({cmd, node, PendingCommand::ListDirs});
+    enqueueCommand({BDirector::Command::BvfsLsDirs, args, node});
 }
 
 bool BBvfsModel::hasChildren(const QModelIndex &parent) const
@@ -359,11 +359,11 @@ void BBvfsModel::loadFilesForDirectory(const QModelIndex &dirIndex)
     node->fileLoadState = BvfsNode::Loading;
     BVFS_DEBUG << "Node " << node->fullPath << ": fileLoadState NotLoaded -> Loading";
 
-    QString cmd = QString(".bvfs_lsfiles jobid=%1 pathid=%2")
-                      .arg(m_bvfsJobIds)
-                      .arg(node->pathId);
+    QString args = QString("jobid=%1 pathid=%2")
+                       .arg(m_bvfsJobIds)
+                       .arg(node->pathId);
 
-    enqueueCommand({cmd, node, PendingCommand::ListFiles});
+    enqueueCommand({BDirector::Command::BvfsLsFiles, args, node});
 }
 
 // ============================================================================
@@ -372,8 +372,8 @@ void BBvfsModel::loadFilesForDirectory(const QModelIndex &dirIndex)
 
 void BBvfsModel::enqueueCommand(const PendingCommand &cmd)
 {
-    BVFS_DEBUG << "Enqueue: " << cmd.command
-               << " (type=" << cmd.type << ")";
+    BVFS_DEBUG << "Enqueue: cmd=" << static_cast<int>(cmd.cmd)
+               << " args=" << cmd.args;
 
     m_commandQueue.enqueue(cmd);
     BVFS_DEBUG << "Queue size: " << m_commandQueue.size();
@@ -395,36 +395,29 @@ void BBvfsModel::processNextCommand()
     m_commandPending = true;
     PendingCommand cmd = m_commandQueue.dequeue();
     m_pendingNode = cmd.targetNode;
-    m_pendingType = cmd.type;
+    m_pendingCmd = cmd.cmd;
 
-    BVFS_DEBUG << "Sending: " << cmd.command
-               << " (type=" << cmd.type
-               << ", node=" << (m_pendingNode ? m_pendingNode->fullPath : "null") << ")";
+    BVFS_DEBUG << "Sending: cmd=" << static_cast<int>(cmd.cmd)
+               << " args=" << cmd.args
+               << " node=" << (m_pendingNode ? m_pendingNode->fullPath : "null");
 
-    QMetaObject::invokeMethod(m_director, "doSendCommand",
+    QMetaObject::invokeMethod(m_director, "doSend",
                               Qt::QueuedConnection,
-                              Q_ARG(BDirector::Command, BDirector::Command::Custom),
-                              Q_ARG(QString, cmd.command));
+                              Q_ARG(BDirector::Command, cmd.cmd),
+                              Q_ARG(QString, cmd.args));
 }
 
 // ============================================================================
 // Signal handlers
 // ============================================================================
 
-void BBvfsModel::onJsonResponse(const QString &command, const QString &jsonData)
+void BBvfsModel::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
 {
-    if (!m_commandPending) {
-        return;
-    }
+    if (!m_commandPending) return;
+    if (cmd != m_pendingCmd) return;  // Not our command
 
-    // Only handle BVFS commands
-    if (!command.contains("bvfs_")) {
-        return;
-    }
-
-    BVFS_DEBUG << "onJsonResponse: command=" << command
-               << " dataSize=" << jsonData.size()
-               << " pendingType=" << m_pendingType;
+    BVFS_DEBUG << "onJsonResponse: cmd=" << static_cast<int>(cmd)
+               << " dataSize=" << jsonData.size();
 
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
@@ -445,24 +438,18 @@ void BBvfsModel::onJsonResponse(const QString &command, const QString &jsonData)
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    // ---- bvfs_update (can arrive as JSON when Director is in API mode) ----
-    if (command.contains("bvfs_update") && m_pendingType == PendingCommand::Update) {
+    switch (cmd) {
+    case BDirector::Command::BvfsUpdate:
         BVFS_DEBUG << "-> Handling bvfs_update JSON response";
         handleBvfsUpdate(QString());
-        processNextCommand();
-        return;
-    }
+        break;
 
-    // ---- bvfs_get_jobids ----
-    if (command.contains("bvfs_get_jobids") && m_pendingType == PendingCommand::GetJobIds) {
+    case BDirector::Command::BvfsGetJobIds:
         BVFS_DEBUG << "-> Handling bvfs_get_jobids response";
         handleGetJobIds(result);
-        processNextCommand();
-        return;
-    }
+        break;
 
-    // ---- bvfs_lsdirs ----
-    if (command.contains("bvfs_lsdirs") && m_pendingType == PendingCommand::ListDirs) {
+    case BDirector::Command::BvfsLsDirs: {
         BVFS_DEBUG << "-> Handling bvfs_lsdirs response for node: "
                    << (m_pendingNode ? m_pendingNode->fullPath : "null");
 
@@ -481,12 +468,10 @@ void BBvfsModel::onJsonResponse(const QString &command, const QString &jsonData)
         if (m_pendingNode) {
             handleLsDirs(m_pendingNode, dirsArray);
         }
-        processNextCommand();
-        return;
+        break;
     }
 
-    // ---- bvfs_lsfiles ----
-    if (command.contains("bvfs_lsfiles") && m_pendingType == PendingCommand::ListFiles) {
+    case BDirector::Command::BvfsLsFiles: {
         BVFS_DEBUG << "-> Handling bvfs_lsfiles response for node: "
                    << (m_pendingNode ? m_pendingNode->fullPath : "null");
 
@@ -496,19 +481,23 @@ void BBvfsModel::onJsonResponse(const QString &command, const QString &jsonData)
         if (m_pendingNode) {
             handleLsFiles(m_pendingNode, filesArray);
         }
-        processNextCommand();
-        return;
+        break;
     }
+
+    default:
+        return;  // Not a BVFS command — don't consume
+    }
+
+    processNextCommand();
 }
 
-void BBvfsModel::onCommandResponse(const QString &command, const QString &response)
+void BBvfsModel::onCommandResponse(BDirector::Command cmd, const QString &response)
 {
-    if (!m_commandPending) {
-        return;
-    }
+    if (!m_commandPending) return;
+    if (cmd != m_pendingCmd) return;
 
     // Handle bvfs_update text response
-    if (m_pendingType == PendingCommand::Update && command.contains("bvfs_update")) {
+    if (cmd == BDirector::Command::BvfsUpdate) {
         BVFS_DEBUG << "-> Handling bvfs_update response: " << response.trimmed();
         handleBvfsUpdate(response);
         processNextCommand();
@@ -541,8 +530,8 @@ void BBvfsModel::handleGetJobIds(const QJsonObject &result)
     BVFS_DEBUG << "Resolved job IDs: " << m_bvfsJobIds;
 
     // Now enqueue bvfs_update with resolved IDs
-    QString cmd = QString(".bvfs_update jobid=%1").arg(m_bvfsJobIds);
-    enqueueCommand({cmd, m_rootNode, PendingCommand::Update});
+    QString args = QString("jobid=%1").arg(m_bvfsJobIds);
+    enqueueCommand({BDirector::Command::BvfsUpdate, args, m_rootNode});
 }
 
 void BBvfsModel::handleBvfsUpdate(const QString &response)
@@ -551,8 +540,8 @@ void BBvfsModel::handleBvfsUpdate(const QString &response)
     BVFS_DEBUG << "Cache updated, enqueuing root directory listing (pathid=1)";
 
     // Enqueue bvfs_lsdirs for root
-    QString cmd = QString(".bvfs_lsdirs jobid=%1 pathid=1").arg(m_bvfsJobIds);
-    enqueueCommand({cmd, m_rootNode, PendingCommand::ListDirs});
+    QString args = QString("jobid=%1 pathid=1").arg(m_bvfsJobIds);
+    enqueueCommand({BDirector::Command::BvfsLsDirs, args, m_rootNode});
 }
 
 void BBvfsModel::handleLsDirs(BvfsNode *node, const QJsonArray &dirs)
@@ -582,10 +571,10 @@ void BBvfsModel::handleLsDirs(BvfsNode *node, const QJsonArray &dirs)
     if (filteredDirs.isEmpty() && node == m_rootNode && parentPathId > 0) {
         BVFS_DEBUG << "Only . and .. at root, retrying with parent pathid=" << parentPathId;
         node->dirLoadState = BvfsNode::NotLoaded;  // Reset so we can retry
-        QString cmd = QString(".bvfs_lsdirs jobid=%1 pathid=%2")
-                          .arg(m_bvfsJobIds)
-                          .arg(parentPathId);
-        enqueueCommand({cmd, node, PendingCommand::ListDirs});
+        QString args = QString("jobid=%1 pathid=%2")
+                           .arg(m_bvfsJobIds)
+                           .arg(parentPathId);
+        enqueueCommand({BDirector::Command::BvfsLsDirs, args, node});
         return;
     }
 

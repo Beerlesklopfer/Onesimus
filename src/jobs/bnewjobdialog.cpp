@@ -35,7 +35,7 @@ BNewJobDialog::~BNewJobDialog()
 {
     // Disconnect signal to prevent receiving responses after dialog is closed
     if (m_director) {
-        disconnect(m_director, &BDirector::jsonResponse,
+        disconnect(m_director, &BDirector::jsonResult,
                    this, &BNewJobDialog::onJsonResponse);
     }
 }
@@ -286,13 +286,13 @@ void BNewJobDialog::loadConfigurationDataFromJobWidget()
     updateButtonState();  // Enable/disable buttons based on job selection
 }
 
-void BNewJobDialog::onJsonResponse(const QString &command, const QString &jsonData)
+void BNewJobDialog::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
 {
-    if (command == ".jobs") {
+    if (cmd == BDirector::Command::DotJobs) {
         onDotJobsReceived(jsonData);
-    } else if (command == ".clients") {
+    } else if (cmd == BDirector::Command::DotClients) {
         onDotClientsReceived(jsonData);
-    } else if (command.startsWith(".defaults")) {
+    } else if (cmd == BDirector::Command::DotDefaults) {
         onDotDefaultsReceived(jsonData);
     }
     // Note: .filesets, .storages, .pools are now loaded from JobWidget
@@ -406,12 +406,12 @@ void BNewJobDialog::updateJobDefaults()
         m_statusLabel->setStyleSheet("color: blue;");
 
         // Connect to receive the response
-        connect(m_director, &BDirector::jsonResponse,
+        connect(m_director, &BDirector::jsonResult,
                 this, &BNewJobDialog::onJsonResponse,
                 Qt::UniqueConnection);
 
         // Send .defaults job=<name> command
-        QMetaObject::invokeMethod(m_director, "doSendCommand",
+        QMetaObject::invokeMethod(m_director, "doSend",
                                   Qt::QueuedConnection,
                                   Q_ARG(BDirector::Command, BDirector::Command::DotDefaults),
                                   Q_ARG(QString, jobName));
@@ -628,7 +628,7 @@ void BNewJobDialog::onRunClicked()
     if (proceed) {
         if (m_director) {
             // Use Custom command since we build the full "run ..." command ourselves
-            QMetaObject::invokeMethod(m_director, "doSendCommand",
+            QMetaObject::invokeMethod(m_director, "doSend",
                                       Qt::QueuedConnection,
                                       Q_ARG(BDirector::Command, BDirector::Command::Custom),
                                       Q_ARG(QString, command));
@@ -659,7 +659,7 @@ void BNewJobDialog::onEstimateClicked()
     command += " level=" + m_levelCombo->currentData().toString();
 
     if (m_director) {
-        QMetaObject::invokeMethod(m_director, "doSendCommand",
+        QMetaObject::invokeMethod(m_director, "doSend",
                                   Qt::QueuedConnection,
                                   Q_ARG(BDirector::Command, BDirector::Command::Custom),
                                   Q_ARG(QString, command));

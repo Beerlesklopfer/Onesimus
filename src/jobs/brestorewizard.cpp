@@ -84,8 +84,8 @@ void BRestoreWizard::reject()
     if (m_data.restoreTableCreated && m_director && !m_data.restoreTableName.isEmpty()) {
         RESTORE_DEBUG << "Sending cleanup on cancel: .bvfs_cleanup path="
                       << m_data.restoreTableName;
-        QString cmd = QString(".bvfs_cleanup path=%1").arg(m_data.restoreTableName);
-        m_director->sendCommand(cmd);
+        m_director->doSend(BDirector::Command::BvfsCleanup,
+                           QString("path=%1").arg(m_data.restoreTableName));
     }
     QWizard::reject();
 }
@@ -160,16 +160,16 @@ void BRestoreSelectJobPage::initializePage()
 
     // Load clients and filesets from Director
     if (!m_clientsLoaded && wiz->director()) {
-        connect(wiz->director(), &BDirector::jsonResponse,
+        connect(wiz->director(), &BDirector::jsonResult,
                 this, &BRestoreSelectJobPage::onClientsResponse);
-        connect(wiz->director(), &BDirector::jsonResponse,
+        connect(wiz->director(), &BDirector::jsonResult,
                 this, &BRestoreSelectJobPage::onFileSetsResponse);
 
-        QMetaObject::invokeMethod(wiz->director(), "doSendCommand",
+        QMetaObject::invokeMethod(wiz->director(), "doSend",
                                   Qt::QueuedConnection,
                                   Q_ARG(BDirector::Command, BDirector::Command::DotClients),
                                   Q_ARG(QString, QString()));
-        QMetaObject::invokeMethod(wiz->director(), "doSendCommand",
+        QMetaObject::invokeMethod(wiz->director(), "doSend",
                                   Qt::QueuedConnection,
                                   Q_ARG(BDirector::Command, BDirector::Command::DotFilesets),
                                   Q_ARG(QString, QString()));
@@ -181,13 +181,11 @@ void BRestoreSelectJobPage::onScopeChanged()
     m_beforeDateEdit->setEnabled(m_allRelatedRadio->isChecked());
 }
 
-void BRestoreSelectJobPage::onClientsResponse(const QString &command, const QString &jsonData)
+void BRestoreSelectJobPage::onClientsResponse(BDirector::Command cmd, const QString &jsonData)
 {
-    Q_UNUSED(command);
+    if (cmd != BDirector::Command::DotClients) return;
     if (m_clientsLoaded) return;
 
-    // Content-based routing: check JSON keys, not command name
-    // (m_lastCommand may be overwritten when commands sent concurrently)
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
     QJsonObject result = doc.object()["result"].toObject();
     if (!result.contains("clients")) return;
@@ -220,17 +218,16 @@ void BRestoreSelectJobPage::onClientsResponse(const QString &command, const QStr
 
     // Disconnect after first successful load
     if (wiz && wiz->director()) {
-        disconnect(wiz->director(), &BDirector::jsonResponse,
+        disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BRestoreSelectJobPage::onClientsResponse);
     }
 }
 
-void BRestoreSelectJobPage::onFileSetsResponse(const QString &command, const QString &jsonData)
+void BRestoreSelectJobPage::onFileSetsResponse(BDirector::Command cmd, const QString &jsonData)
 {
-    Q_UNUSED(command);
+    if (cmd != BDirector::Command::DotFilesets) return;
     if (m_fileSetsLoaded) return;
 
-    // Content-based routing: check JSON keys, not command name
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
     QJsonObject result = doc.object()["result"].toObject();
     if (!result.contains("filesets")) return;
@@ -257,7 +254,7 @@ void BRestoreSelectJobPage::onFileSetsResponse(const QString &command, const QSt
     RESTORE_DEBUG << "Loaded " << m_fileSetCombo->count() << " filesets";
 
     if (wiz && wiz->director()) {
-        disconnect(wiz->director(), &BDirector::jsonResponse,
+        disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BRestoreSelectJobPage::onFileSetsResponse);
     }
 }
@@ -705,9 +702,9 @@ void BRestoreExecutePage::initializePage()
 
     // Connect to Director responses
     if (wiz->director()) {
-        connect(wiz->director(), &BDirector::jsonResponse,
+        connect(wiz->director(), &BDirector::jsonResult,
                 this, &BRestoreExecutePage::onJsonResponse);
-        connect(wiz->director(), &BDirector::commandResponse,
+        connect(wiz->director(), &BDirector::textResult,
                 this, &BRestoreExecutePage::onCommandResponse);
     }
 
@@ -735,7 +732,7 @@ void BRestoreExecutePage::sendBvfsRestore()
     setStatus(tr("Creating restore table..."));
     appendLog(tr(">>> %1").arg(data->bvfsRestoreCommand));
 
-    wiz->director()->sendCommand(data->bvfsRestoreCommand);
+    wiz->director()->doSend(BDirector::Command::BvfsRestore, data->bvfsRestoreCommand);
     data->restoreTableCreated = true;
 }
 
@@ -749,7 +746,7 @@ void BRestoreExecutePage::sendRestore()
     setStatus(tr("Executing restore command..."));
     appendLog(tr(">>> %1").arg(data->restoreCommand));
 
-    wiz->director()->sendCommand(data->restoreCommand);
+    wiz->director()->doSend(BDirector::Command::Restore, data->restoreCommand);
 }
 
 void BRestoreExecutePage::sendCleanup()
@@ -761,31 +758,31 @@ void BRestoreExecutePage::sendCleanup()
     m_state = SendingCleanup;
     setStatus(tr("Cleaning up restore table..."));
 
-    QString cmd = QString(".bvfs_cleanup path=%1").arg(data->restoreTableName);
-    appendLog(tr(">>> %1").arg(cmd));
+    QString cleanupArgs = QString("path=%1").arg(data->restoreTableName);
+    appendLog(tr(">>> .bvfs_cleanup %1").arg(cleanupArgs));
 
-    wiz->director()->sendCommand(cmd);
+    wiz->director()->doSend(BDirector::Command::BvfsCleanup, cleanupArgs);
 }
 
-void BRestoreExecutePage::onJsonResponse(const QString &command, const QString &jsonData)
+void BRestoreExecutePage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
 {
     Q_UNUSED(jsonData);
 
-    if (m_state == SendingBvfsRestore && command.contains("bvfs_restore")) {
+    if (m_state == SendingBvfsRestore && cmd == BDirector::Command::BvfsRestore) {
         appendLog(tr("Restore table created successfully."));
         sendRestore();
         return;
     }
 
-    if (m_state == SendingCleanup && command.contains("bvfs_cleanup")) {
+    if (m_state == SendingCleanup && cmd == BDirector::Command::BvfsCleanup) {
         markCompleted();
         return;
     }
 }
 
-void BRestoreExecutePage::onCommandResponse(const QString &command, const QString &response)
+void BRestoreExecutePage::onCommandResponse(BDirector::Command cmd, const QString &response)
 {
-    if (m_state == SendingRestore && command.contains("restore")) {
+    if (m_state == SendingRestore && cmd == BDirector::Command::Restore) {
         appendLog(response.trimmed());
 
         if (response.contains("Job queued", Qt::CaseInsensitive) ||
@@ -808,13 +805,13 @@ void BRestoreExecutePage::onCommandResponse(const QString &command, const QStrin
     }
 
     // bvfs_restore or bvfs_cleanup might also come as text
-    if (m_state == SendingBvfsRestore && command.contains("bvfs_restore")) {
+    if (m_state == SendingBvfsRestore && cmd == BDirector::Command::BvfsRestore) {
         appendLog(tr("Restore table created (text response)."));
         sendRestore();
         return;
     }
 
-    if (m_state == SendingCleanup && command.contains("bvfs_cleanup")) {
+    if (m_state == SendingCleanup && cmd == BDirector::Command::BvfsCleanup) {
         markCompleted();
         return;
     }
@@ -849,9 +846,9 @@ void BRestoreExecutePage::markCompleted()
 
     // Disconnect
     if (wiz && wiz->director()) {
-        disconnect(wiz->director(), &BDirector::jsonResponse,
+        disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BRestoreExecutePage::onJsonResponse);
-        disconnect(wiz->director(), &BDirector::commandResponse,
+        disconnect(wiz->director(), &BDirector::textResult,
                    this, &BRestoreExecutePage::onCommandResponse);
     }
 }

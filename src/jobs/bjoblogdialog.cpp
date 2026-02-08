@@ -107,26 +107,25 @@ void BJobLogDialog::loadJobLog()
         return;
     }
 
-    // Connect to Director jsonResponse signal (job log is JSON data)
+    // Connect to Director jsonResult signal (job log is JSON data)
     // Use Qt::UniqueConnection to avoid duplicates
-    connect(m_director, &BDirector::jsonResponse,
+    connect(m_director, &BDirector::jsonResult,
             this, &BJobLogDialog::onJobLogReceived,
             Qt::UniqueConnection);
 
     BLOG_DEBUG() << "BJobLogDialog: Requesting log for Job ID" << m_jobId;
 
     // Request job log using queued connection (thread-safe)
-    QMetaObject::invokeMethod(m_director, "doSendCommand",
+    QMetaObject::invokeMethod(m_director, "doSend",
                               Qt::QueuedConnection,
                               Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
                               Q_ARG(QString, QString::number(m_jobId)));
 }
 
-void BJobLogDialog::onJobLogReceived(const QString &command, const QString &response)
+void BJobLogDialog::onJobLogReceived(BDirector::Command cmd, const QString &response)
 {
-    // Content-based detection: Check if JSON contains "joblog" key
-    // This is more reliable than command string matching due to race conditions
-    // when multiple commands are in flight (m_lastCommand can be overwritten)
+    // Enum-based routing: only process ListJobId responses
+    if (cmd != BDirector::Command::ListJobId) return;
 
     if (response.isEmpty()) {
         return;
@@ -146,12 +145,9 @@ void BJobLogDialog::onJobLogReceived(const QString &command, const QString &resp
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    // Check for "joblog" key in result (content-based detection)
+    // Verify "joblog" key in result as a safety check
     if (!result.contains("joblog")) {
-        // Also try command-based detection as fallback
-        if (!command.contains("list joblog")) {
-            return;  // Not a job log response
-        }
+        return;  // Not a job log response
     }
 
     // Parse and display the log
@@ -159,7 +155,7 @@ void BJobLogDialog::onJobLogReceived(const QString &command, const QString &resp
     m_logListView->scrollToTop();
 
     // Disconnect after receiving response (we only need it once)
-    disconnect(m_director, &BDirector::jsonResponse,
+    disconnect(m_director, &BDirector::jsonResult,
               this, &BJobLogDialog::onJobLogReceived);
 }
 

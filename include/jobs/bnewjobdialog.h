@@ -46,7 +46,7 @@ private slots:
     void onRunClicked();
     void onEstimateClicked();
     void onRefreshData();
-    void onJsonResponse(const QString &command, const QString &jsonData);
+    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
     void onDotJobsReceived(const QString &jsonData);
     void onDotClientsReceived(const QString &jsonData);
     void onDotDefaultsReceived(const QString &jsonData);

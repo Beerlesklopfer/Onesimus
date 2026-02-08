@@ -196,7 +196,7 @@ void BareosDirector::disconnect()
 
     // Disconnect socket
     if (m_socket->state() == QAbstractSocket::ConnectedState) {
-        sendCommand("quit");
+        doSend(Command::Quit);
         m_socket->disconnectFromHost();
     }
 
@@ -373,28 +373,28 @@ void BareosDirector::reloadResource(ResourceType type)
     // Send the appropriate dot-command
     switch (type) {
     case ResourceType::Job:
-        doSendCommand(Command::DotJobs);
+        doSend(Command::DotJobs);
         break;
     case ResourceType::Client:
-        doSendCommand(Command::DotClients);
+        doSend(Command::DotClients);
         break;
     case ResourceType::Fileset:
-        doSendCommand(Command::DotFilesets);
+        doSend(Command::DotFilesets);
         break;
     case ResourceType::Storage:
-        doSendCommand(Command::DotStorages);
+        doSend(Command::DotStorages);
         break;
     case ResourceType::Pool:
-        doSendCommand(Command::DotPools);
+        doSend(Command::DotPools);
         break;
     case ResourceType::Level:
-        doSendCommand(Command::DotLevels);
+        doSend(Command::DotLevels);
         break;
     case ResourceType::Schedule:
-        doSendCommand(Command::DotSchedule);
+        doSend(Command::DotSchedule);
         break;
     case ResourceType::Catalog:
-        doSendCommand(Command::DotCatalogs);
+        doSend(Command::DotCatalogs);
         break;
     default:
         BLOG_WARNING() << "RESOURCE: No dot-command for" << s_resourceNames.value(type, "?");
@@ -423,7 +423,21 @@ void BareosDirector::detectAndMarkResourceLoaded(const QString &jsonData)
         return;
     }
 
-    // Parse JSON to detect resource type
+    // Primary: enum-based detection (fast, unambiguous)
+    switch (m_lastCommandEnum) {
+    case Command::DotLevels:    markResourceLoaded(ResourceType::Level);    return;
+    case Command::DotFilesets:  markResourceLoaded(ResourceType::Fileset);  return;
+    case Command::DotStorages:  markResourceLoaded(ResourceType::Storage);  return;
+    case Command::DotPools:     markResourceLoaded(ResourceType::Pool);     return;
+    case Command::DotSchedule:  markResourceLoaded(ResourceType::Schedule); return;
+    case Command::DotCatalogs:  markResourceLoaded(ResourceType::Catalog);  return;
+    case Command::DotJobs:      markResourceLoaded(ResourceType::Job);      return;
+    case Command::DotClients:   markResourceLoaded(ResourceType::Client);   return;
+    default:
+        break;  // Fall through to JSON key detection for untracked commands
+    }
+
+    // Fallback: JSON key detection (for commands sent via Custom)
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
 
@@ -434,27 +448,13 @@ void BareosDirector::detectAndMarkResourceLoaded(const QString &jsonData)
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    // Map JSON keys to resource types
-    if (result.contains("levels")) {
-        markResourceLoaded(ResourceType::Level);
-    }
-    if (result.contains("filesets")) {
-        markResourceLoaded(ResourceType::Fileset);
-    }
-    if (result.contains("storages")) {
-        markResourceLoaded(ResourceType::Storage);
-    }
-    if (result.contains("pools")) {
-        markResourceLoaded(ResourceType::Pool);
-    }
-    if (result.contains("schedules")) {
-        markResourceLoaded(ResourceType::Schedule);
-    }
-    if (result.contains("catalogs")) {
-        markResourceLoaded(ResourceType::Catalog);
-    }
+    if (result.contains("levels"))    markResourceLoaded(ResourceType::Level);
+    if (result.contains("filesets"))  markResourceLoaded(ResourceType::Fileset);
+    if (result.contains("storages")) markResourceLoaded(ResourceType::Storage);
+    if (result.contains("pools"))    markResourceLoaded(ResourceType::Pool);
+    if (result.contains("schedules"))markResourceLoaded(ResourceType::Schedule);
+    if (result.contains("catalogs")) markResourceLoaded(ResourceType::Catalog);
 
-    // Check for .jobs response (has "enabled" or "fileset" field, not "jobstatus")
     if (result.contains("jobs")) {
         QJsonArray jobsArray = result["jobs"].toArray();
         if (!jobsArray.isEmpty()) {
@@ -465,12 +465,10 @@ void BareosDirector::detectAndMarkResourceLoaded(const QString &jsonData)
         }
     }
 
-    // Check for .clients response (simple "name" field only, no "address"/"uname"/"clientid")
     if (result.contains("clients")) {
         QJsonArray clientsArray = result["clients"].toArray();
         if (!clientsArray.isEmpty()) {
             QJsonObject firstClient = clientsArray[0].toObject();
-            // .clients has only "name", list clients has "address", "uname", or "clientid"
             if (!firstClient.contains("address") && !firstClient.contains("uname")
                 && !firstClient.contains("clientid")) {
                 markResourceLoaded(ResourceType::Client);
@@ -493,28 +491,28 @@ void BareosDirector::startResourceLoading()
 
         switch (type) {
         case ResourceType::Job:
-            doSendCommand(Command::DotJobs);
+            doSend(Command::DotJobs);
             break;
         case ResourceType::Client:
-            doSendCommand(Command::DotClients);
+            doSend(Command::DotClients);
             break;
         case ResourceType::Fileset:
-            doSendCommand(Command::DotFilesets);
+            doSend(Command::DotFilesets);
             break;
         case ResourceType::Storage:
-            doSendCommand(Command::DotStorages);
+            doSend(Command::DotStorages);
             break;
         case ResourceType::Pool:
-            doSendCommand(Command::DotPools);
+            doSend(Command::DotPools);
             break;
         case ResourceType::Level:
-            doSendCommand(Command::DotLevels);
+            doSend(Command::DotLevels);
             break;
         case ResourceType::Schedule:
-            doSendCommand(Command::DotSchedule);
+            doSend(Command::DotSchedule);
             break;
         case ResourceType::Catalog:
-            doSendCommand(Command::DotCatalogs);
+            doSend(Command::DotCatalogs);
             break;
         default:
             // Other resource types don't have corresponding dot-commands
@@ -669,8 +667,8 @@ void BareosDirector::setApiMode(ApiMode mode)
     BLOG_DEBUG() << "Setting API mode to:" << modeStr;
 #endif
 
-    // Thread-safe: Use QMetaObject::invokeMethod to call doSendCommand in the correct thread
-    QMetaObject::invokeMethod(this, "doSendCommand",
+    // Thread-safe: Use QMetaObject::invokeMethod to call doSend in the correct thread
+    QMetaObject::invokeMethod(this, "doSend",
                               Qt::QueuedConnection,
                               Q_ARG(BareosDirector::Command, Command::ApiMode),
                               Q_ARG(QString, modeStr));
@@ -967,21 +965,45 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
         return;
     }
 
+    // ---- Command Queue: dequeue the matching command for this response ----
+    // Signal messages (negative-length packets) are not command responses
+    CommandEntry currentEntry;
+    bool hasQueuedCommand = false;
+    if (!isSignal) {
+        hasQueuedCommand = dequeueCurrentCommand(currentEntry);
+        if (hasQueuedCommand) {
+            m_lastCommandEnum = currentEntry.cmd;
+            m_lastCommand = commandToString(currentEntry.cmd, currentEntry.args);
+        }
+    }
+
     // API-Response (JSON)?
     // First try direct match
     if (message.startsWith("{") || message.startsWith("[")) {
 #ifdef IS_DEVELOPER
-        BLOG_DEBUG() << "📄 JSON Response:";
+        BLOG_DEBUG() << "📄 JSON Response (cmd=" << static_cast<int>(m_lastCommandEnum) << "):";
         BLOG_DEBUG() << message;
 #endif
         // State Machine: Detect resource type from JSON and mark as loaded
         detectAndMarkResourceLoaded(message);
 
-        emit jsonResponse(m_lastCommand, message);
+        emit jsonResult(m_lastCommandEnum, message);
         routeTypedResponse(message);
 
+        // Track command completion
+        if (hasQueuedCommand) {
+            currentEntry.response = message;
+            currentEntry.status = detectCommandError(message)
+                                      ? CommandEntry::Failed : CommandEntry::Success;
+            m_commandHistory.append(currentEntry);
+            if (m_commandHistory.size() > MaxHistorySize)
+                m_commandHistory.removeFirst();
+            if (currentEntry.status == CommandEntry::Failed)
+                emit commandFailed(currentEntry.cmd, currentEntry.args, message);
+        }
+
         // State Machine: Check if .api command completed while in SettingApiMode
-        if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
+        if (m_connectionState == SettingApiMode && m_lastCommandEnum == Command::ApiMode) {
             DIR_DEBUG << "STATE MACHINE: API mode confirmed (clean JSON), starting resource loading";
             startResourceLoading();
         }
@@ -1004,27 +1026,51 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
             }
         }
 
-        // If we found JSON after some garbage, extract and emit as jsonResponse
+        // If we found JSON after some garbage, extract and emit
         if (jsonStart > 0) {
             QString jsonPart = cleaned.mid(jsonStart);
 #ifdef IS_DEVELOPER
-            BLOG_DEBUG() << "📄 JSON Response (cleaned):";
+            BLOG_DEBUG() << "📄 JSON Response (cleaned, cmd=" << static_cast<int>(m_lastCommandEnum) << "):";
             BLOG_DEBUG() << jsonPart;
 #endif
-            emit jsonResponse(m_lastCommand, jsonPart);
+            emit jsonResult(m_lastCommandEnum, jsonPart);
             routeTypedResponse(jsonPart);
 
+            // Track command completion
+            if (hasQueuedCommand) {
+                currentEntry.response = jsonPart;
+                currentEntry.status = detectCommandError(jsonPart)
+                                          ? CommandEntry::Failed : CommandEntry::Success;
+                m_commandHistory.append(currentEntry);
+                if (m_commandHistory.size() > MaxHistorySize)
+                    m_commandHistory.removeFirst();
+                if (currentEntry.status == CommandEntry::Failed)
+                    emit commandFailed(currentEntry.cmd, currentEntry.args, jsonPart);
+            }
+
             // State Machine: Check if .api command completed while in SettingApiMode
-            if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
+            if (m_connectionState == SettingApiMode && m_lastCommandEnum == Command::ApiMode) {
                 DIR_DEBUG << "STATE MACHINE: API mode confirmed (JSON response), starting resource loading";
                 startResourceLoading();
             }
         } else {
-            // Not JSON, emit as command response
-            emit commandResponse(m_lastCommand, message);
+            // Not JSON, emit as text response
+            emit textResult(m_lastCommandEnum, message);
+
+            // Track command completion
+            if (hasQueuedCommand) {
+                currentEntry.response = message;
+                currentEntry.status = detectCommandError(message)
+                                          ? CommandEntry::Failed : CommandEntry::Success;
+                m_commandHistory.append(currentEntry);
+                if (m_commandHistory.size() > MaxHistorySize)
+                    m_commandHistory.removeFirst();
+                if (currentEntry.status == CommandEntry::Failed)
+                    emit commandFailed(currentEntry.cmd, currentEntry.args, message);
+            }
 
             // State Machine: Check if .api command completed while in SettingApiMode
-            if (m_connectionState == SettingApiMode && m_lastCommand.startsWith(".api")) {
+            if (m_connectionState == SettingApiMode && m_lastCommandEnum == Command::ApiMode) {
                 DIR_DEBUG << "STATE MACHINE: API mode confirmed, starting resource loading";
                 startResourceLoading();
             }
@@ -1271,7 +1317,7 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
         setState(SettingApiMode);
 
         // Sende .api 2 Befehl für JSON Pretty-Print Modus
-        sendCommand(".api 2");
+        doSend(Command::ApiMode, "2");
     } else {
         // No API mode needed, go directly to LoadingResources
         startResourceLoading();
@@ -1284,7 +1330,7 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
     QTimer *keepAliveTimer = new QTimer(this);
     QObject::connect(keepAliveTimer, &QTimer::timeout, [this]() {
         if (m_socket->isOpen()) {
-            sendCommand(".message\n");  // Keep connection alive
+            doSend(Command::DotMessages);  // Keep connection alive
         }
 #ifdef IS_DEVELOPER
         BLOG_DEBUG() << ".";
@@ -1354,15 +1400,6 @@ void BareosDirector::onAuthStatusMessage(const QString &message)
 }
 
 // ============================================================================
-// Command Handling
-// ============================================================================
-
-void BareosDirector::sendRawCommand(const QString &command)
-{
-    sendCommand(command);
-}
-
-// ============================================================================
 // Query Convenience Methods
 // ============================================================================
 
@@ -1374,41 +1411,51 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    if (m_lastCommand == ".consoles") {
+    switch (m_lastCommandEnum) {
+    case Command::DotConsoles:
         emit consolesResult(result["consoles"].toArray());
-    } else if (m_lastCommand.startsWith("show console=")) {
+        break;
+    case Command::ShowConsole: {
         QJsonObject consoles = result["consoles"].toObject();
-        QString name = m_lastCommand.mid(13); // after "show console="
-        emit showConsoleResult(name, consoles.value(name).toObject());
-    } else if (m_lastCommand.startsWith("show console")) {
-        // "show console" without =name returns all consoles
-        emit consolesResult(QJsonArray()); // signal that we got a show console response
-        // Emit individual results for each console in the object
-        QJsonObject consoles = result["consoles"].toObject();
-        for (auto it = consoles.begin(); it != consoles.end(); ++it) {
-            emit showConsoleResult(it.key(), it.value().toObject());
+        // Extract the name from m_lastCommand (after "show console=")
+        if (m_lastCommand.contains("=")) {
+            QString name = m_lastCommand.mid(m_lastCommand.indexOf('=') + 1);
+            emit showConsoleResult(name, consoles.value(name).toObject());
+        } else {
+            // "show console" without =name returns all consoles
+            for (auto it = consoles.begin(); it != consoles.end(); ++it) {
+                emit showConsoleResult(it.key(), it.value().toObject());
+            }
         }
-    } else if (m_lastCommand.startsWith("configure add console")) {
-        bool ok = jsonData.contains("created", Qt::CaseInsensitive);
-        emit configureResult(ok, jsonData);
+        break;
+    }
+    case Command::Configure:
+        if (m_lastCommand.contains("add console")) {
+            bool ok = jsonData.contains("created", Qt::CaseInsensitive);
+            emit configureResult(ok, jsonData);
+        }
+        break;
+    default:
+        break;
     }
 }
 
 void BareosDirector::queryConsoles()
 {
-    sendCommand(".consoles");
+    doSend(Command::DotConsoles);
 }
 
 void BareosDirector::queryShowConsole(const QString &name)
 {
-    sendCommand(QString("show console=%1").arg(name));
+    doSend(Command::ShowConsole, name);
 }
 
 void BareosDirector::queryConfigureAddConsole(const QString &name, const QString &password,
                                                const QString &profile)
 {
-    sendCommand(QString("configure add console name=%1 password=\"%2\" profile=%3 tlsenable=false")
-                    .arg(name, password, profile));
+    doSend(Command::Configure,
+           QString("add console name=%1 password=\"%2\" profile=%3 tlsenable=false")
+               .arg(name, password, profile));
 }
 
 void BareosDirector::sendCommand(const QString &command)
@@ -1481,15 +1528,93 @@ void BareosDirector::writeToSocket(const QByteArray &packet)
 }
 
 //@deprecated
-void BareosDirector::doSendCommand(Command cmd, quint64){ commandToString(cmd); }
+void BareosDirector::doSend(Command cmd, quint64){ commandToString(cmd); }
 
-void BareosDirector::doSendCommand(const Command cmd, const QString &args){
+void BareosDirector::doSend(const Command cmd, const QString &args){
 #ifdef IS_DEVELOPER
-    BLOG_DEBUG() << ">>> doSendCommand() called from thread:" << QThread::currentThreadId();
-    BLOG_DEBUG() << ">>> BareosDirector thread ID:" << this->thread()->currentThreadId();
+    BLOG_DEBUG() << ">>> doSend() cmd=" << static_cast<int>(cmd) << " args=" << args;
 #endif
-    const QString cmdStr = commandToString(cmd, args);
-    sendCommand(cmdStr);
+    CommandEntry entry;
+    entry.cmd = cmd;
+    entry.args = args;
+    registerRollback(entry);
+
+    m_commandQueue.enqueue(entry);
+    flushQueue();
+}
+
+void BareosDirector::flushQueue()
+{
+    for (int i = 0; i < m_commandQueue.size(); ++i) {
+        CommandEntry &entry = m_commandQueue[i];
+        if (entry.status == CommandEntry::Pending) {
+            entry.status = CommandEntry::Sent;
+            m_lastCommandEnum = entry.cmd;
+            const QString cmdStr = commandToString(entry.cmd, entry.args);
+            m_lastCommand = cmdStr;
+            sendCommand(cmdStr);
+        }
+    }
+}
+
+bool BareosDirector::dequeueCurrentCommand(CommandEntry &entry)
+{
+    // Find and dequeue the first Sent entry (FIFO — matches Bareos serial processing)
+    if (!m_commandQueue.isEmpty() && m_commandQueue.head().status == CommandEntry::Sent) {
+        entry = m_commandQueue.dequeue();
+        return true;
+    }
+    return false;
+}
+
+void BareosDirector::registerRollback(CommandEntry &entry)
+{
+    switch (entry.cmd) {
+    case Command::Configure:
+        // configure add fileset/client/console — rollback by deleting
+        // Rollback args will need to be extracted from the response
+        // (the Director returns the resource name in the configure response)
+        break;
+    case Command::BvfsRestore:
+        entry.rollbackCmd = Command::BvfsCleanup;
+        break;
+    default:
+        break;
+    }
+}
+
+bool BareosDirector::detectCommandError(const QString &response) const
+{
+    // Bareos error patterns in JSON responses
+    if (response.contains("\"error\"", Qt::CaseInsensitive)) return true;
+    if (response.contains("ERR=", Qt::CaseSensitive)) return true;
+    if (response.contains("Error:", Qt::CaseInsensitive)) return true;
+    // JSON API error field
+    QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8());
+    if (doc.isObject()) {
+        QJsonObject root = doc.object();
+        if (root.contains("error")) return true;
+        QJsonObject result = root["result"].toObject();
+        if (result.contains("error")) return true;
+    }
+    return false;
+}
+
+bool BareosDirector::rollbackLast()
+{
+    for (int i = m_commandHistory.size() - 1; i >= 0; --i) {
+        const CommandEntry &entry = m_commandHistory[i];
+        if (entry.status == CommandEntry::Success
+            && entry.rollbackCmd != Command::Custom) {
+            Command rollCmd = entry.rollbackCmd;
+            QString rollArgs = entry.rollbackArgs.isEmpty() ? entry.args : entry.rollbackArgs;
+            m_commandHistory.removeAt(i);
+            doSend(rollCmd, rollArgs);
+            emit rollbackCompleted(entry.cmd);
+            return true;
+        }
+    }
+    return false;
 }
 
 // ============================================================================
@@ -1634,6 +1759,25 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::DotMedia:         command = ".media"; break;
     case Command::DotHelp:          command = ".help"; break;
     case Command::DotDefaults:      command = ".defaults job=\"" + args + "\""; break;
+    case Command::DotConsoles:      command = ".consoles"; break;
+    case Command::DotMessages:      command = ".messages"; break;
+
+    // Show single resource
+    case Command::ShowFileset:      command = QString("show fileset=%1").arg(args); break;
+    case Command::ShowClient:       command = QString("show client=%1").arg(args); break;
+    case Command::ShowConsole:      command = QString("show console=%1").arg(args); break;
+
+    // Volume Maintenance (bulk)
+    case Command::PruneVolumeAll:   command = "prune volume allpools yes"; break;
+    case Command::PurgeVolumeAll:   command = "purge volume allpools yes"; break;
+
+    // BVFS (Virtual File System for restore)
+    case Command::BvfsGetJobIds:    command = QString(".bvfs_get_jobids %1").arg(args); break;
+    case Command::BvfsUpdate:       command = QString(".bvfs_update %1").arg(args); break;
+    case Command::BvfsLsDirs:       command = QString(".bvfs_lsdirs %1").arg(args); break;
+    case Command::BvfsLsFiles:      command = QString(".bvfs_lsfiles %1").arg(args); break;
+    case Command::BvfsRestore:      command = QString(".bvfs_restore %1").arg(args); break;
+    case Command::BvfsCleanup:      command = QString(".bvfs_cleanup %1").arg(args); break;
 
     // Custom
     case Command::Custom:           command = args; break;

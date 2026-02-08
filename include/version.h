@@ -8,16 +8,16 @@
 #define PROJECT_NAME           "onesimus"
 
 // Build information
-#define BUILD_NUMBER           95
+#define BUILD_NUMBER           129
 #define BUILD_DATE             "2026-02-08"
-#define BUILD_TIME             "02:44:21"
-#define BUILD_TIMESTAMP        "2026-02-08 02:44:21"
-#define GIT_COMMIT_HASH        "c579cbc"
+#define BUILD_TIME             "16:15:46"
+#define BUILD_TIMESTAMP        "2026-02-08 16:15:46"
+#define GIT_COMMIT_HASH        "beb0d95"
 #define GIT_BRANCH             "development"
-#define GIT_DESCRIBE           "c579cbc-dirty"
+#define GIT_DESCRIBE           "beb0d95-dirty"
 
 // Full version string with build number
-#define VERSION_FULL           "0.1.0.95"
+#define VERSION_FULL           "0.1.0.129"
 
 // Release date
 #define BDATE                  "2026.02"

@@ -180,7 +180,7 @@ void BJobDetailsDialog::setupLogTab()
 
     // Connect log response handler
     if (m_director) {
-        connect(m_director, &BDirector::jsonResponse,
+        connect(m_director, &BDirector::jsonResult,
                 this, &BJobDetailsDialog::onJobLogReceived);
 
         // Wait for BVFS loading to finish before requesting log (avoids m_lastCommand race)
@@ -188,7 +188,7 @@ void BJobDetailsDialog::setupLogTab()
             if (m_director) {
                 BLOG_DEBUG() << "BJobDetailsDialog: BVFS done, requesting log for Job ID" << m_jobId;
 
-                QMetaObject::invokeMethod(m_director, "doSendCommand",
+                QMetaObject::invokeMethod(m_director, "doSend",
                                           Qt::QueuedConnection,
                                           Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
                                           Q_ARG(QString, QString::number(m_jobId)));
@@ -197,9 +197,11 @@ void BJobDetailsDialog::setupLogTab()
     }
 }
 
-void BJobDetailsDialog::onJobLogReceived(const QString &command, const QString &response)
+void BJobDetailsDialog::onJobLogReceived(BDirector::Command cmd, const QString &response)
 {
-    // Content-based detection: Check if JSON contains "joblog" key
+    // Enum-based routing: only process ListJobId responses
+    if (cmd != BDirector::Command::ListJobId) return;
+
     if (response.isEmpty()) {
         return;
     }
@@ -218,12 +220,9 @@ void BJobDetailsDialog::onJobLogReceived(const QString &command, const QString &
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    // Check for "joblog" key in result (content-based detection)
+    // Verify "joblog" key in result as a safety check
     if (!result.contains("joblog")) {
-        // Also try command-based detection as fallback
-        if (!command.contains("list joblog")) {
-            return;  // Not a job log response
-        }
+        return;  // Not a job log response
     }
 
     BLOG_DEBUG() << "BJobDetailsDialog: Received job log response";
@@ -233,7 +232,7 @@ void BJobDetailsDialog::onJobLogReceived(const QString &command, const QString &
     m_logListView->scrollToTop();
 
     // Disconnect after receiving response (we only need it once)
-    disconnect(m_director, &BDirector::jsonResponse,
+    disconnect(m_director, &BDirector::jsonResult,
                this, &BJobDetailsDialog::onJobLogReceived);
 }
 

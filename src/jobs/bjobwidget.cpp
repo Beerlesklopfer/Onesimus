@@ -1470,12 +1470,12 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
 
         // Connect to Director signal if not already connected
         if (m_director) {
-            connect(m_director, &BDirector::jsonResponse,
+            connect(m_director, &BDirector::jsonResult,
                     this, &BJobWidget::onJobLogReceived,
                     Qt::UniqueConnection);
 
             // Request job log
-            QMetaObject::invokeMethod(m_director, "doSendCommand",
+            QMetaObject::invokeMethod(m_director, "doSend",
                                       Qt::QueuedConnection,
                                       Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
                                       Q_ARG(QString, jobId));
@@ -1685,23 +1685,22 @@ void BJobWidget::loadSelectedJobLog()
 
     // Connect to Director signal if not already connected
     if (m_director) {
-        connect(m_director, &BDirector::jsonResponse,
+        connect(m_director, &BDirector::jsonResult,
                 this, &BJobWidget::onJobLogReceived,
                 Qt::UniqueConnection);
 
         // Request job log
-        QMetaObject::invokeMethod(m_director, "doSendCommand",
+        QMetaObject::invokeMethod(m_director, "doSend",
                                   Qt::QueuedConnection,
                                   Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
                                   Q_ARG(QString, jobId));
     }
 }
 
-void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonData)
+void BJobWidget::onJobLogReceived(BDirector::Command cmd, const QString &jsonData)
 {
-    // Content-based detection: Check if JSON contains "joblog" key
-    // This is more reliable than command string matching due to race conditions
-    // when multiple commands are in flight (m_lastCommand can be overwritten)
+    // Enum-based routing: only process ListJobId responses
+    if (cmd != BDirector::Command::ListJobId) return;
 
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
@@ -1717,12 +1716,9 @@ void BJobWidget::onJobLogReceived(const QString &command, const QString &jsonDat
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    // Check for "joblog" key in result (content-based detection)
+    // Verify "joblog" key in result as a safety check
     if (!result.contains("joblog")) {
-        // Also try command-based detection as fallback
-        if (!command.contains("list joblog")) {
-            return;  // Not a job log response
-        }
+        return;  // Not a job log response
     }
 
     // Verify this response is for the job we requested

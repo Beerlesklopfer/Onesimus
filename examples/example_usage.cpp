@@ -149,8 +149,8 @@ int main(int argc, char *argv[])
  * 
  * 5. Benutzerdefinierten Befehl senden (Bconsole):
  * 
- *    director->sendCommand("list pools");
- *    // Antwort kommt über commandResponse-Signal
+ *    director->doSend(BDirector::Command::ListPools);
+ *    // Antwort kommt über jsonResult/textResult Signal
  * 
  * 
  * 6. Job-Status überwachen:

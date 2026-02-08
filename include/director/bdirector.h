@@ -65,13 +65,13 @@
  *
  * // Connect signals
  * connect(director, &BDirector::connected, this, &MyClass::onConnected);
- * connect(director, &BDirector::jsonResponse, this, &MyClass::onResponse);
+ * connect(director, &BDirector::jsonResult, this, &MyClass::onResponse);
  *
  * // Connect to Director
  * director->connect("192.168.1.10", 9101, "bareos-dir", "mypassword");
  *
  * // Send commands
- * director->doSendCommand(BDirector::Command::ListJobs);
+ * director->doSend(BDirector::Command::ListJobs);
  * @endcode
  */
 class BDirector : public QObject
@@ -259,18 +259,18 @@ signals:
     void statusMessage(const QString &status);
 
     /**
-     * @brief Emitted when JSON response received
-     * @param command The command that was sent
-     * @param response JSON response
+     * @brief Emitted when JSON response received, with enum-based command identification
+     * @param cmd The Command enum that triggered this response
+     * @param jsonData JSON response data
      */
-    void jsonResponse(const QString &command, const QString &response);
+    void jsonResult(Command cmd, const QString &jsonData);
 
     /**
-     * @brief Emitted when text response received
-     * @param command The command that was sent
+     * @brief Emitted when text response received, with enum-based command identification
+     * @param cmd The Command enum that triggered this response
      * @param response Text response
      */
-    void commandResponse(const QString &command, const QString &response);
+    void textResult(Command cmd, const QString &response);
 
     /**
      * @brief Emitted on command errors
@@ -286,6 +286,24 @@ signals:
     void consolesResult(const QJsonArray &consoles);
     void showConsoleResult(const QString &name, const QJsonObject &console);
     void configureResult(bool success, const QString &message);
+
+    // ========================================================================
+    // Command Queue Signals
+    // ========================================================================
+
+    /**
+     * @brief Emitted when a command fails (error detected in response)
+     * @param cmd The command that failed
+     * @param args The command arguments
+     * @param errorMsg The error message from the director
+     */
+    void commandFailed(Command cmd, const QString &args, const QString &errorMsg);
+
+    /**
+     * @brief Emitted when a rollback command completes
+     * @param originalCmd The original command that was rolled back
+     */
+    void rollbackCompleted(Command originalCmd);
 
 public slots:
     // ========================================================================
@@ -335,15 +353,7 @@ public slots:
      *
      * Thread-safe: Forwards call to director's thread
      */
-    void doSendCommand(const Command cmd, const QString &args = QString());
-
-    /**
-     * @brief Send raw command string
-     * @param command Command string
-     *
-     * Thread-safe: Forwards call to director's thread
-     */
-    void sendCommand(const QString &command);
+    void doSend(const Command cmd, const QString &args = QString());
 
     // ========================================================================
     // Query Convenience Methods (thread-safe)
@@ -353,6 +363,14 @@ public slots:
     void queryShowConsole(const QString &name);
     void queryConfigureAddConsole(const QString &name, const QString &password,
                                   const QString &profile = "operator");
+
+    /**
+     * @brief Roll back the last successful command (if rollback pair defined)
+     * @return true if a rollback was initiated
+     *
+     * Thread-safe: Forwards call to director's thread
+     */
+    void rollbackLast();
 
     // ========================================================================
     // Connection Info (read-only, thread-safe)

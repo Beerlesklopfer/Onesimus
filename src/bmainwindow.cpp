@@ -120,11 +120,11 @@ BMainWindow::BMainWindow(QWidget *parent)
     connect(m_director, &BDirector::protocolError, this, &BMainWindow::onConnectionError);
 
     // ✅ Handle non-JSON command responses (for debugging)
-    connect(m_director, &BDirector::commandResponse, this, [this](const QString &command, const QString &response) {
-        Q_UNUSED(command)
+    connect(m_director, &BDirector::textResult, this, [this](BDirector::Command cmd, const QString &response) {
+        Q_UNUSED(cmd)
         Q_UNUSED(response)
 #ifdef IS_DEVELOPER
-        BLOG_DEBUG() << "MainWindow: Command response for:" << command << "Response:" << response.left(100);
+        BLOG_DEBUG() << "MainWindow: Text response for cmd:" << static_cast<int>(cmd) << "Response:" << response.left(100);
 #endif
         // Note: API mode confirmation and resource loading is now handled
         // by the BareosDirector state machine automatically
@@ -180,11 +180,8 @@ BMainWindow::BMainWindow(QWidget *parent)
         onRefreshAll();
     });
 
-    // ✅ Route JSON responses to appropriate widgets based on JSON content
-    // Note: We route based on JSON structure, not command name, because multiple
-    // commands can be sent asynchronously and m_lastCommand may be overwritten
-    connect(m_director, &BDirector::jsonResponse, this, [this](const QString &command, const QString &jsonData) {
-        // Parse JSON to determine response type
+    // ✅ Route JSON responses to appropriate widgets based on Command enum
+    connect(m_director, &BDirector::jsonResult, this, [this](BDirector::Command cmd, const QString &jsonData) {
         QJsonParseError parseError;
         QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
 
@@ -201,179 +198,91 @@ BMainWindow::BMainWindow(QWidget *parent)
         QJsonObject root = doc.object();
         QJsonObject result = root["result"].toObject();
 
-        // Route based on JSON content (keys in result object)
-        bool routed = false;
-
-        // Check for dot-command responses (have specific array keys)
-        if (result.contains("levels")) {
-            BLOG_WARNING() << "→ Routing levels data to JobWidget (detected by JSON content)";
+        switch (cmd) {
+        case BDirector::Command::DotLevels:
             m_jobWidget->processDotLevelsResponse(jsonData);
-            routed = true;
-        }
-        if (result.contains("filesets")) {
-            BLOG_WARNING() << "→ Routing filesets data to JobWidget (detected by JSON content)";
+            break;
+
+        case BDirector::Command::DotFilesets:
             m_jobWidget->processDotFilesetsResponse(jsonData);
-            routed = true;
-        }
-        if (result.contains("storages")) {
-            BLOG_WARNING() << "→ Routing storages data to JobWidget (detected by JSON content)";
+            break;
+
+        case BDirector::Command::DotStorages:
             m_jobWidget->processDotStoragesResponse(jsonData);
-            routed = true;
-        }
-        if (result.contains("pools")) {
-            BLOG_WARNING() << "→ Routing pools data to JobWidget (detected by JSON content)";
+            break;
+
+        case BDirector::Command::DotPools:
             m_jobWidget->processDotPoolsResponse(jsonData);
-            routed = true;
-        }
-        if (result.contains("jobtotals")) {
-            BLOG_WARNING() << "→ Routing jobtotals data to JobWidget (detected by JSON content)";
+            break;
+
+        case BDirector::Command::ListJobTotals:
             m_jobWidget->processJobTotalsResponse(jsonData);
-            routed = true;
-        }
-        if (result.contains("schedules")) {
-            BLOG_WARNING() << "→ Routing schedules data to ScheduleWidget (detected by JSON content)";
+            break;
+
+        case BDirector::Command::DotSchedule:
             m_scheduleWidget->processDotScheduleResponse(jsonData);
-            routed = true;
+            break;
+
+        case BDirector::Command::DotJobs:
+            m_jobWidget->processDotJobsResponse(jsonData);
+            break;
+
+        case BDirector::Command::ListJobs: {
+            m_jobWidget->processJsonResponse(jsonData);
+            // Also enrich client widget with job data (for online status + total bytes)
+            QJsonArray jobsArr = result["jobs"].toArray();
+            if (!jobsArr.isEmpty())
+                m_clientWidget->model()->enrichWithJobData(jobsArr);
+            break;
         }
 
-        // Check for .jobs response (array of job configurations with "name" and "enabled" keys)
-        if (result.contains("jobs")) {
-            QJsonArray jobsArray = result["jobs"].toArray();
-            if (!jobsArray.isEmpty()) {
-                QJsonObject firstJob = jobsArray[0].toObject();
-                // .jobs has "enabled" field, list jobs has "jobstatus"
-                if (firstJob.contains("enabled") || firstJob.contains("fileset")) {
-                    BLOG_WARNING() << "→ Routing .jobs data to JobWidget (detected by JSON content)";
-                    m_jobWidget->processDotJobsResponse(jsonData);
-                    routed = true;
-                } else if (firstJob.contains("jobstatus") || firstJob.contains("jobid")) {
-                    BLOG_WARNING() << "→ Routing list jobs data to JobWidget (detected by JSON content)";
-                    m_jobWidget->processJsonResponse(jsonData);
-                    // Also enrich client widget with job data (for online status + total bytes)
-                    m_clientWidget->model()->enrichWithJobData(jobsArray);
-                    routed = true;
-                }
-            }
+        case BDirector::Command::DotClients:
+            m_jobWidget->processDotClientsResponse(jsonData);
+            break;
+
+        case BDirector::Command::ListClients:
+            m_clientWidget->processJsonResponse(jsonData);
+            break;
+
+        case BDirector::Command::ShowClient:
+            m_clientWidget->model()->enrichWithShowClientData(jsonData);
+            break;
+
+        case BDirector::Command::ListBackups: {
+            QJsonArray backupsArr = result["backups"].toArray();
+            if (!backupsArr.isEmpty())
+                m_clientWidget->model()->enrichWithJobData(backupsArr);
+            break;
         }
 
-        // Check for .clients / list clients / show clients response
-        if (result.contains("clients")) {
-            QJsonValue clientsVal = result["clients"];
-
-            if (clientsVal.isObject() && !clientsVal.toObject().isEmpty()) {
-                // Object format from "show clients" (api 2): {"PDC-fd": {...}, ...}
-                BLOG_WARNING() << "→ Routing show clients data to BClientsWidget (address enrichment, object format)";
-                m_clientWidget->model()->enrichWithShowClientData(jsonData);
-                routed = true;
-            } else if (clientsVal.isArray()) {
-                QJsonArray clientsArray = clientsVal.toArray();
-                if (!clientsArray.isEmpty()) {
-                    QJsonObject firstClient = clientsArray[0].toObject();
-                    // "show clients" array format has "Client" sub-object (capital C)
-                    if (firstClient.contains("Client")) {
-                        BLOG_WARNING() << "→ Routing show clients data to BClientsWidget (address enrichment)";
-                        m_clientWidget->model()->enrichWithShowClientData(jsonData);
-                        routed = true;
-                    // "llist clients" has "clientid", "uname" etc. (lowercase, flat keys)
-                    } else if (firstClient.contains("uname") || firstClient.contains("clientid")) {
-                        BLOG_WARNING() << "→ Routing list clients data to BClientsWidget (detected by JSON content)";
-                        m_clientWidget->processJsonResponse(jsonData);
-                        routed = true;
-                    // ".clients" dot-command has only "name"
-                    } else {
-                        BLOG_WARNING() << "→ Routing .clients data to JobWidget (detected by JSON content)";
-                        m_jobWidget->processDotClientsResponse(jsonData);
-                        routed = true;
-                    }
-                } else {
-                    // Empty clients array — still route to BClientsWidget so it shows "0 clients"
-                    BLOG_WARNING() << "→ Routing empty clients array to BClientsWidget";
-                    m_clientWidget->processJsonResponse(jsonData);
-                    routed = true;
-                }
-            }
-        }
-
-        // Check for backups response (used for per-client stats enrichment)
-        if (result.contains("backups")) {
-            QJsonArray backupsArray = result["backups"].toArray();
-            if (!backupsArray.isEmpty()) {
-                BLOG_WARNING() << "→ Routing backups data to BClientsWidget (stats enrichment)";
-                m_clientWidget->model()->enrichWithJobData(backupsArray);
-                routed = true;
-            }
-        }
-
-        // Check for volumes/media response
-        if (result.contains("volumes") || result.contains("media")) {
-            BLOG_WARNING() << "→ Routing volumes data to StorageWidget (detected by JSON content)";
+        case BDirector::Command::ListVolumes:
             m_storageWidget->processJsonResponse(jsonData);
-            routed = true;
-        }
+            break;
 
-        // Check for "status client=<name>" response (has "header" + "terminated" keys)
-        // Note: Bareos JSON API doesn't fully support status client output (GitHub #2325)
-        // A successful response means the Director could contact the FD
-        // When FD is unreachable, commandError signal is emitted instead
-        if (result.contains("header") && result.contains("terminated")) {
-            if (command.startsWith("status client=")) {
-                QString clientName = command.mid(14);  // length of "status client="
-                CLIENTS_DEBUG << "Client " << clientName << " responded → ONLINE";
-                m_clientWidget->model()->setClientOnlineStatus(clientName, BClientsModel::STATUS_ONLINE);
-                routed = true;
-            }
-        }
-
-        // Check for messages response
-        if (result.contains("messages")) {
-            BLOG_WARNING() << "→ Routing messages data to MessagesWidget (detected by JSON content)";
+        case BDirector::Command::DotMessages:
             m_jobWidget->processMessagesResponse(jsonData);
-            routed = true;
-        }
+            break;
 
-        // Fallback to command-based routing if content-based didn't match
-        if (!routed) {
-            if (command.contains("list jobs") || command.contains("list jobid")) {
-                BLOG_WARNING() << "→ Routing jobs data to JobWidget (by command)";
-                m_jobWidget->processJsonResponse(jsonData);
-                // Enrich client widget with job data
-                QJsonObject root = QJsonDocument::fromJson(jsonData.toUtf8()).object();
-                QJsonArray jobsArr = root["result"].toObject()["jobs"].toArray();
-                if (!jobsArr.isEmpty())
-                    m_clientWidget->model()->enrichWithJobData(jobsArr);
-            } else if (command.contains("list clients") || command.contains("llist clients")) {
-                BLOG_WARNING() << "→ Routing clients data to BClientsWidget (by command)";
-                m_clientWidget->processJsonResponse(jsonData);
-            } else if (command.contains("show clients")) {
-                BLOG_WARNING() << "→ Routing show clients data to BClientsWidget (address enrichment)";
-                m_clientWidget->model()->enrichWithShowClientData(jsonData);
-            } else if (command.contains("list backups")) {
-                BLOG_WARNING() << "→ Routing backups data to BClientsWidget (stats enrichment, by command)";
-                QJsonObject root = QJsonDocument::fromJson(jsonData.toUtf8()).object();
-                QJsonArray backupsArr = root["result"].toObject()["backups"].toArray();
-                if (!backupsArr.isEmpty())
-                    m_clientWidget->model()->enrichWithJobData(backupsArr);
-            } else if (command.contains("list volumes") || command.contains("list media")) {
-                BLOG_WARNING() << "→ Routing volumes data to StorageWidget (by command)";
-                m_storageWidget->processJsonResponse(jsonData);
-            } else if (command.contains("list joblog")) {
-                // Job log responses are handled directly by BJobDetailsDialog
-                BLOG_WARNING() << "→ Job log response (handled by job details dialog)";
-            } else if (command.contains("messages")) {
-                BLOG_WARNING() << "→ Routing messages data to MessagesWidget (by command)";
-                m_jobWidget->processMessagesResponse(jsonData);
-            } else if (command.startsWith("status client=")) {
-                // status client response - any response means FD was reachable
-                QString clientName = command.mid(14);
-                CLIENTS_DEBUG << "Client " << clientName << " responded → ONLINE (by command)";
-                m_clientWidget->model()->setClientOnlineStatus(clientName, BClientsModel::STATUS_ONLINE);
-            } else if (command.contains("configure") || command.contains("reload")) {
-                // Handled by the New Client Wizard's own signal handler
-                BLOG_DEBUG() << "→ Configure/reload response (handled by wizard)";
-            } else {
-                BLOG_WARNING() << "⚠ Unhandled JSON response - command:" << command;
-                BLOG_WARNING() << "  Result keys:" << result.keys();
-            }
+        case BDirector::Command::StatusClient:
+            // StatusClient currently disabled (Bareos JSON API limitation)
+            // When re-enabled, needs command queue (Phase 5) to access client name
+            break;
+
+        case BDirector::Command::Configure:
+        case BDirector::Command::Reload:
+            // Handled by the wizard's own signal handler
+            break;
+
+        case BDirector::Command::ListJobId:
+            // Handled by BJobWidget/BJobLogDialog/BJobDetailsDialog
+            break;
+
+        default:
+#ifdef IS_DEVELOPER
+            BLOG_DEBUG() << "MainWindow: Unrouted JSON response for cmd:" << static_cast<int>(cmd);
+            BLOG_DEBUG() << "  Result keys:" << result.keys();
+#endif
+            break;
         }
     });
 
@@ -1581,7 +1490,7 @@ void BMainWindow::onSendCommand(const BDirector::Command cmd, const QString &arg
     }
 
     // Thread-safe: Use queued connection to send command to Director thread
-    QMetaObject::invokeMethod(m_director, "doSendCommand",
+    QMetaObject::invokeMethod(m_director, "doSend",
                               Qt::QueuedConnection,
                               Q_ARG(BDirector::Command, cmd),
                               Q_ARG(QString, args));

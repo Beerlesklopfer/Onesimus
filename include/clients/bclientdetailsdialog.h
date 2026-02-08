@@ -94,7 +94,7 @@ private:
     void onTlsModeChanged();
 
 private slots:
-    void onJobsReceived(const QString &command, const QString &response);
+    void onJobsReceived(BDirector::Command cmd, const QString &response);
 
 private:
     QJsonObject m_client;

@@ -115,8 +115,8 @@ public:
 
 private slots:
     void onScopeChanged();
-    void onClientsResponse(const QString &command, const QString &jsonData);
-    void onFileSetsResponse(const QString &command, const QString &jsonData);
+    void onClientsResponse(BDirector::Command cmd, const QString &jsonData);
+    void onFileSetsResponse(BDirector::Command cmd, const QString &jsonData);
 
 private:
     QLabel *m_sourceLabel;
@@ -217,8 +217,8 @@ public:
     bool isComplete() const override;
 
 private slots:
-    void onJsonResponse(const QString &command, const QString &jsonData);
-    void onCommandResponse(const QString &command, const QString &response);
+    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
+    void onCommandResponse(BDirector::Command cmd, const QString &response);
 
 private:
     enum ExecutionState {

@@ -36,7 +36,7 @@ private slots:
      * @param command Ausgeführter Befehl
      * @param response Antwort vom Director
      */
-    void onJobLogReceived(const QString &command, const QString &response);
+    void onJobLogReceived(BDirector::Command cmd, const QString &response);
 
     /**
      * @brief Kopiert ausgewählte Log-Zeilen in die Zwischenablage

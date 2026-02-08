@@ -186,8 +186,8 @@ private slots:
     void onCopyCurrentTab();
     void onCopyAll();
     void onExportZip();
-    void onJsonResponse(const QString &command, const QString &jsonData);
-    void onCommandResponse(const QString &command, const QString &response);
+    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
+    void onCommandResponse(BDirector::Command cmd, const QString &response);
     void onConfigureTimeout();
 
 private:

@@ -399,11 +399,11 @@ int main(int argc, char *argv[])
             if (director.isConnected()) {
                 // Führe Befehl aus
                 if (!options.command.isEmpty()) {
-                    // director.doSendCommand(options.command);
+                    // director.doSend(options.command);
 
                     // Warte auf Antwort
-                    QObject::connect(&director, &BDirector::commandResponse,
-                                     [](const QString &response) {
+                    QObject::connect(&director, &BDirector::textResult,
+                                     [](BDirector::Command, const QString &response) {
                                          BLOG_DEBUG() << response;
                                      });
 

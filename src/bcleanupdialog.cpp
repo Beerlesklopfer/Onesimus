@@ -535,12 +535,11 @@ void BCleanupDialog::performCleanup()
         logMessage(tr("Deleting %1 old full backup jobs...").arg(m_results.oldFullBackupsJobIds.size()), "info");
 
         for (const QString &jobId : m_results.oldFullBackupsJobIds) {
-            QString command = QString("delete job jobid=%1 yes").arg(jobId);
-            m_director->sendCommand(command);
+            m_director->doSend(BDirector::Command::Delete, jobId);
             progress++;
             m_progressBar->setValue(progress);
         }
-        logMessage(tr("  ✓ Sent delete commands for %1 jobs").arg(m_results.oldFullBackupsJobIds.size()), "success");
+        logMessage(tr("  Sent delete commands for %1 jobs").arg(m_results.oldFullBackupsJobIds.size()), "success");
     }
 
     // Delete empty jobs by specific job IDs
@@ -548,12 +547,11 @@ void BCleanupDialog::performCleanup()
         logMessage(tr("Deleting %1 empty jobs...").arg(m_results.emptyJobIds.size()), "info");
 
         for (const QString &jobId : m_results.emptyJobIds) {
-            QString command = QString("delete job jobid=%1 yes").arg(jobId);
-            m_director->sendCommand(command);
+            m_director->doSend(BDirector::Command::Delete, jobId);
             progress++;
             m_progressBar->setValue(progress);
         }
-        logMessage(tr("  ✓ Sent delete commands for %1 jobs").arg(m_results.emptyJobIds.size()), "success");
+        logMessage(tr("  Sent delete commands for %1 jobs").arg(m_results.emptyJobIds.size()), "success");
     }
 
     // Delete failed jobs by specific job IDs
@@ -561,12 +559,11 @@ void BCleanupDialog::performCleanup()
         logMessage(tr("Deleting %1 failed jobs...").arg(m_results.failedJobIds.size()), "info");
 
         for (const QString &jobId : m_results.failedJobIds) {
-            QString command = QString("delete job jobid=%1 yes").arg(jobId);
-            m_director->sendCommand(command);
+            m_director->doSend(BDirector::Command::Delete, jobId);
             progress++;
             m_progressBar->setValue(progress);
         }
-        logMessage(tr("  ✓ Sent delete commands for %1 jobs").arg(m_results.failedJobIds.size()), "success");
+        logMessage(tr("  Sent delete commands for %1 jobs").arg(m_results.failedJobIds.size()), "success");
     }
 
     // Prune/purge volumes
@@ -575,16 +572,13 @@ void BCleanupDialog::performCleanup()
         logMessage(tr("Processing volumes..."), "info");
 
         if (action == "prune") {
-            QString command = "prune volume allpools yes";
-            m_director->sendCommand(command);
-            logMessage(tr("  Sent: %1").arg(command), "success");
+            m_director->doSend(BDirector::Command::PruneVolumeAll);
+            logMessage(tr("  Sent: prune volume allpools yes"), "success");
         } else if (action == "purge") {
-            QString command1 = "prune volume allpools yes";
-            QString command2 = "purge volume allpools yes";
-            m_director->sendCommand(command1);
-            m_director->sendCommand(command2);
-            logMessage(tr("  Sent: %1").arg(command1), "success");
-            logMessage(tr("  Sent: %1").arg(command2), "success");
+            m_director->doSend(BDirector::Command::PruneVolumeAll);
+            m_director->doSend(BDirector::Command::PurgeVolumeAll);
+            logMessage(tr("  Sent: prune volume allpools yes"), "success");
+            logMessage(tr("  Sent: purge volume allpools yes"), "success");
         }
 
         progress++;

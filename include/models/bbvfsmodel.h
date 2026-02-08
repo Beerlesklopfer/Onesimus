@@ -96,8 +96,8 @@ signals:
     void selectionCountChanged(int count);
 
 private slots:
-    void onJsonResponse(const QString &command, const QString &jsonData);
-    void onCommandResponse(const QString &command, const QString &response);
+    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
+    void onCommandResponse(BDirector::Command cmd, const QString &response);
 
 private:
     // Internal tree node
@@ -130,10 +130,9 @@ private:
 
     // Command queue entry (Director handles one command at a time)
     struct PendingCommand {
-        QString command;
+        BDirector::Command cmd = BDirector::Command::Custom;
+        QString args;
         BvfsNode *targetNode = nullptr;
-        enum Type { GetJobIds, Update, ListDirs, ListFiles };
-        Type type;
     };
 
     QQueue<PendingCommand> m_commandQueue;
@@ -166,7 +165,7 @@ private:
 
     // Track pending command context
     BvfsNode *m_pendingNode = nullptr;
-    PendingCommand::Type m_pendingType = PendingCommand::Update;
+    BDirector::Command m_pendingCmd = BDirector::Command::Custom;
 
     // Checkbox mode
     bool m_checkable = false;

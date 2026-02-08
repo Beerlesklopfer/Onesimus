@@ -1030,18 +1030,18 @@ void BNewClientPreviewPage::executeConfigureCommand()
     m_statusLabel->setText(tr("Sending configure command..."));
     m_statusLabel->setStyleSheet("");
 
-    connect(wiz->director(), &BDirector::jsonResponse,
+    connect(wiz->director(), &BDirector::jsonResult,
             this, &BNewClientPreviewPage::onJsonResponse);
-    connect(wiz->director(), &BDirector::commandResponse,
+    connect(wiz->director(), &BDirector::textResult,
             this, &BNewClientPreviewPage::onCommandResponse);
 
     m_timeoutTimer->start();
 
     CLIENT_DEBUG << "Sending: " << wiz->data().configureCommand;
-    wiz->director()->sendCommand(wiz->data().configureCommand);
+    wiz->director()->doSend(BDirector::Command::Configure, wiz->data().configureCommand);
 }
 
-void BNewClientPreviewPage::onJsonResponse(const QString &command, const QString &jsonData)
+void BNewClientPreviewPage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
 {
     auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
 
@@ -1050,15 +1050,15 @@ void BNewClientPreviewPage::onJsonResponse(const QString &command, const QString
     QJsonObject result = root["result"].toObject();
 
     // Handle reload response
-    if (m_waitingForReload && command.contains("reload")) {
+    if (m_waitingForReload && cmd == BDirector::Command::Reload) {
         m_waitingForReload = false;
         m_progressBar->setVisible(false);
 
         // Disconnect signals — we're done
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse,
+            disconnect(wiz->director(), &BDirector::jsonResult,
                        this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::commandResponse,
+            disconnect(wiz->director(), &BDirector::textResult,
                        this, &BNewClientPreviewPage::onCommandResponse);
         }
 
@@ -1093,7 +1093,7 @@ void BNewClientPreviewPage::onJsonResponse(const QString &command, const QString
     }
 
     // Handle configure response
-    if (!command.contains("configure")) return;
+    if (cmd != BDirector::Command::Configure) return;
 
     m_timeoutTimer->stop();
 
@@ -1122,7 +1122,7 @@ void BNewClientPreviewPage::onJsonResponse(const QString &command, const QString
         // Send reload to Director
         if (wiz && wiz->director() && wiz->director()->isConnected()) {
             m_waitingForReload = true;
-            wiz->director()->sendCommand("reload");
+            wiz->director()->doSend(BDirector::Command::Reload);
             CLIENT_DEBUG << "Sent reload to Director";
             m_statusLabel->setText(
                 tr("Client '%1' added to Director. Reloading Director...")
@@ -1132,9 +1132,9 @@ void BNewClientPreviewPage::onJsonResponse(const QString &command, const QString
             m_progressBar->setVisible(false);
             // Disconnect signals — no reload possible
             if (wiz && wiz->director()) {
-                disconnect(wiz->director(), &BDirector::jsonResponse,
+                disconnect(wiz->director(), &BDirector::jsonResult,
                            this, &BNewClientPreviewPage::onJsonResponse);
-                disconnect(wiz->director(), &BDirector::commandResponse,
+                disconnect(wiz->director(), &BDirector::textResult,
                            this, &BNewClientPreviewPage::onCommandResponse);
             }
             m_statusLabel->setText(
@@ -1147,9 +1147,9 @@ void BNewClientPreviewPage::onJsonResponse(const QString &command, const QString
         m_progressBar->setVisible(false);
         // Disconnect signals on failure
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse,
+            disconnect(wiz->director(), &BDirector::jsonResult,
                        this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::commandResponse,
+            disconnect(wiz->director(), &BDirector::textResult,
                        this, &BNewClientPreviewPage::onCommandResponse);
         }
 
@@ -1169,19 +1169,19 @@ void BNewClientPreviewPage::onJsonResponse(const QString &command, const QString
     }
 }
 
-void BNewClientPreviewPage::onCommandResponse(const QString &command, const QString &response)
+void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QString &response)
 {
     auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
 
     // Handle reload response (plain text)
-    if (m_waitingForReload && command.contains("reload")) {
+    if (m_waitingForReload && cmd == BDirector::Command::Reload) {
         m_waitingForReload = false;
         m_progressBar->setVisible(false);
 
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse,
+            disconnect(wiz->director(), &BDirector::jsonResult,
                        this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::commandResponse,
+            disconnect(wiz->director(), &BDirector::textResult,
                        this, &BNewClientPreviewPage::onCommandResponse);
         }
 
@@ -1208,7 +1208,7 @@ void BNewClientPreviewPage::onCommandResponse(const QString &command, const QStr
     }
 
     // Handle configure response
-    if (!command.contains("configure")) return;
+    if (cmd != BDirector::Command::Configure) return;
 
     m_timeoutTimer->stop();
 
@@ -1222,7 +1222,7 @@ void BNewClientPreviewPage::onCommandResponse(const QString &command, const QStr
         // Send reload to Director
         if (wiz && wiz->director() && wiz->director()->isConnected()) {
             m_waitingForReload = true;
-            wiz->director()->sendCommand("reload");
+            wiz->director()->doSend(BDirector::Command::Reload);
             CLIENT_DEBUG << "Sent reload to Director";
             m_statusLabel->setText(
                 tr("Client '%1' added to Director. Reloading Director...")
@@ -1231,9 +1231,9 @@ void BNewClientPreviewPage::onCommandResponse(const QString &command, const QStr
         } else {
             m_progressBar->setVisible(false);
             if (wiz && wiz->director()) {
-                disconnect(wiz->director(), &BDirector::jsonResponse,
+                disconnect(wiz->director(), &BDirector::jsonResult,
                            this, &BNewClientPreviewPage::onJsonResponse);
-                disconnect(wiz->director(), &BDirector::commandResponse,
+                disconnect(wiz->director(), &BDirector::textResult,
                            this, &BNewClientPreviewPage::onCommandResponse);
             }
             m_statusLabel->setText(
@@ -1245,9 +1245,9 @@ void BNewClientPreviewPage::onCommandResponse(const QString &command, const QStr
     } else {
         m_progressBar->setVisible(false);
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse,
+            disconnect(wiz->director(), &BDirector::jsonResult,
                        this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::commandResponse,
+            disconnect(wiz->director(), &BDirector::textResult,
                        this, &BNewClientPreviewPage::onCommandResponse);
         }
         CLIENT_DEBUG << "Configure FAILED: " << response.left(200);
@@ -1281,9 +1281,9 @@ void BNewClientPreviewPage::onConfigureTimeout()
 
         // Disconnect previous signals
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse,
+            disconnect(wiz->director(), &BDirector::jsonResult,
                        this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::commandResponse,
+            disconnect(wiz->director(), &BDirector::textResult,
                        this, &BNewClientPreviewPage::onCommandResponse);
         }
 
@@ -1292,9 +1292,9 @@ void BNewClientPreviewPage::onConfigureTimeout()
     } else {
         // User cancelled — disconnect and show status
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse,
+            disconnect(wiz->director(), &BDirector::jsonResult,
                        this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::commandResponse,
+            disconnect(wiz->director(), &BDirector::textResult,
                        this, &BNewClientPreviewPage::onCommandResponse);
         }
 

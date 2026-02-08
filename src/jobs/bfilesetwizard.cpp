@@ -752,9 +752,9 @@ void BFileSetSettingsPage::fetchFileSets()
     }
 
     // Connect to Director's fileSetsResult signal
-    connect(wiz->director(), &BDirector::jsonResponse,
-            this, [this](const QString &command, const QString &jsonData) {
-        if (!command.contains(".filesets")) return;
+    connect(wiz->director(), &BDirector::jsonResult,
+            this, [this](BDirector::Command cmd, const QString &jsonData) {
+        if (cmd != BDirector::Command::DotFilesets) return;
 
         QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
         QJsonArray filesets = doc.object()["result"].toObject()["filesets"].toArray();
@@ -763,12 +763,12 @@ void BFileSetSettingsPage::fetchFileSets()
         // Disconnect after receiving
         BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse, this, nullptr);
+            disconnect(wiz->director(), &BDirector::jsonResult, this, nullptr);
         }
     });
 
     // Send command to fetch filesets
-    wiz->director()->sendCommand(".filesets");
+    wiz->director()->doSend(BDirector::Command::DotFilesets);
 }
 
 void BFileSetSettingsPage::onFileSetsLoaded(const QJsonArray &filesets)
@@ -905,35 +905,35 @@ void BFileSetSettingsPage::loadFileSetFromDirector(const QString &filesetName)
     };
 
     // Connect to Director's JSON response
-    connect(wiz->director(), &BDirector::jsonResponse,
-            this, [this, parseResponse](const QString &command, const QString &jsonData) {
-        if (!command.contains("show fileset")) return;
+    connect(wiz->director(), &BDirector::jsonResult,
+            this, [this, parseResponse](BDirector::Command cmd, const QString &jsonData) {
+        if (cmd != BDirector::Command::ShowFileset) return;
 
         BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse, this, nullptr);
-            disconnect(wiz->director(), &BDirector::commandResponse, this, nullptr);
+            disconnect(wiz->director(), &BDirector::jsonResult, this, nullptr);
+            disconnect(wiz->director(), &BDirector::textResult, this, nullptr);
         }
 
         parseResponse(jsonData, true);
     });
 
     // Connect to Director's text response (fallback)
-    connect(wiz->director(), &BDirector::commandResponse,
-            this, [this, parseResponse](const QString &command, const QString &textData) {
-        if (!command.contains("show fileset")) return;
+    connect(wiz->director(), &BDirector::textResult,
+            this, [this, parseResponse](BDirector::Command cmd, const QString &textData) {
+        if (cmd != BDirector::Command::ShowFileset) return;
 
         BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
         if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResponse, this, nullptr);
-            disconnect(wiz->director(), &BDirector::commandResponse, this, nullptr);
+            disconnect(wiz->director(), &BDirector::jsonResult, this, nullptr);
+            disconnect(wiz->director(), &BDirector::textResult, this, nullptr);
         }
 
         parseResponse(textData, false);
     });
 
     // Send command to fetch specific fileset
-    wiz->director()->sendCommand(QString("show fileset=%1").arg(filesetName));
+    wiz->director()->doSend(BDirector::Command::ShowFileset, filesetName);
 }
 
 // ============================================================================
@@ -1247,19 +1247,19 @@ void BFileSetPreviewPage::executeConfigureCommand()
     m_timeoutTimer->start();
 
     // Connect to director signals
-    connect(wiz->director(), &BDirector::jsonResponse,
+    connect(wiz->director(), &BDirector::jsonResult,
             this, &BFileSetPreviewPage::onJsonResponse);
-    connect(wiz->director(), &BDirector::commandResponse,
+    connect(wiz->director(), &BDirector::textResult,
             this, &BFileSetPreviewPage::onCommandResponse);
 
     // Send configure command (full FileSet definition)
     QString command = wiz->document()->toConfigureCommand();
-    wiz->director()->sendCommand(command);
+    wiz->director()->doSend(BDirector::Command::Configure, command);
 }
 
-void BFileSetPreviewPage::onJsonResponse(const QString &command, const QString &jsonData)
+void BFileSetPreviewPage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
 {
-    if (!command.contains("configure")) return;
+    if (cmd != BDirector::Command::Configure) return;
 
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
     if (!wiz) return;
@@ -1268,9 +1268,9 @@ void BFileSetPreviewPage::onJsonResponse(const QString &command, const QString &
     m_progressBar->setVisible(false);
 
     // Disconnect signals
-    disconnect(wiz->director(), &BDirector::jsonResponse,
+    disconnect(wiz->director(), &BDirector::jsonResult,
                this, &BFileSetPreviewPage::onJsonResponse);
-    disconnect(wiz->director(), &BDirector::commandResponse,
+    disconnect(wiz->director(), &BDirector::textResult,
                this, &BFileSetPreviewPage::onCommandResponse);
 
     // Parse response
@@ -1284,7 +1284,7 @@ void BFileSetPreviewPage::onJsonResponse(const QString &command, const QString &
         m_executed = true;
 
         // Trigger reload
-        wiz->director()->sendCommand("reload");
+        wiz->director()->doSend(BDirector::Command::Reload);
 
         // Auto-close wizard after brief delay so user can see the success message
         QTimer::singleShot(1500, this, [this]() {
@@ -1298,18 +1298,18 @@ void BFileSetPreviewPage::onJsonResponse(const QString &command, const QString &
     }
 }
 
-void BFileSetPreviewPage::onCommandResponse(const QString &command, const QString &response)
+void BFileSetPreviewPage::onCommandResponse(BDirector::Command cmd, const QString &response)
 {
-    if (!command.contains("configure")) return;
+    if (cmd != BDirector::Command::Configure) return;
 
     m_timeoutTimer->stop();
     m_progressBar->setVisible(false);
 
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
     if (wiz && wiz->director()) {
-        disconnect(wiz->director(), &BDirector::jsonResponse,
+        disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BFileSetPreviewPage::onJsonResponse);
-        disconnect(wiz->director(), &BDirector::commandResponse,
+        disconnect(wiz->director(), &BDirector::textResult,
                    this, &BFileSetPreviewPage::onCommandResponse);
     }
 

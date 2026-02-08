@@ -531,21 +531,22 @@ void BClientDetailsDialog::loadClientJobs()
     m_refreshJobsButton->setEnabled(false);
 
     // Connect to receive response
-    connect(m_director, &BDirector::jsonResponse,
+    connect(m_director, &BDirector::jsonResult,
             this, &BClientDetailsDialog::onJobsReceived,
             Qt::UniqueConnection);
 
     // Send "list jobs client=<name>" via Custom command
     QString cmd = QString("list jobs client=%1").arg(m_clientName);
-    QMetaObject::invokeMethod(m_director, "doSendCommand",
+    QMetaObject::invokeMethod(m_director, "doSend",
                               Qt::QueuedConnection,
                               Q_ARG(BDirector::Command, BDirector::Command::Custom),
                               Q_ARG(QString, cmd));
 }
 
-void BClientDetailsDialog::onJobsReceived(const QString &command, const QString &response)
+void BClientDetailsDialog::onJobsReceived(BDirector::Command cmd, const QString &response)
 {
-    if (!command.contains("list jobs"))
+    // This uses Command::Custom with "list jobs client=X", so check for Custom
+    if (cmd != BDirector::Command::Custom)
         return;
 
     m_refreshJobsButton->setEnabled(true);

@@ -36,7 +36,7 @@
 /**
  * @brief Mock Director that simulates BVFS responses
  *
- * This simulates a real BDirector by emitting jsonResponse signals
+ * This simulates a real BDirector by emitting jsonResult signals
  * with realistic BVFS JSON data.
  */
 class MockDirector : public BDirector
@@ -52,38 +52,39 @@ public:
         qDebug() << "MockDirector: Created";
     }
 
-    // Override sendCommand to intercept and simulate responses
-    void doSendCommand(Command cmd, const QString &command) override
+    // Override doSend to intercept and simulate responses
+    void doSend(Command cmd, const QString &args) override
     {
-        Q_UNUSED(cmd);
-        qDebug() << "MockDirector: Received command:" << command;
+        qDebug() << "MockDirector: Received cmd=" << static_cast<int>(cmd) << "args=" << args;
 
         // Simulate network delay
         int delay = m_simulateDelay ? m_responseDelay : 0;
 
-        // Route to appropriate response handler
-        if (command.contains("bvfs_get_jobids")) {
-            QTimer::singleShot(delay, this, [this, command]() {
-                emit jsonResponse(command, getBvfsJobIdsResponse());
+        // Route to appropriate response handler based on Command enum
+        switch (cmd) {
+        case Command::BvfsGetJobIds:
+            QTimer::singleShot(delay, this, [this, cmd]() {
+                emit jsonResult(cmd, getBvfsJobIdsResponse());
             });
-        }
-        else if (command.contains("bvfs_update")) {
-            QTimer::singleShot(delay, this, [this, command]() {
-                emit jsonResponse(command, getBvfsUpdateResponse());
+            break;
+        case Command::BvfsUpdate:
+            QTimer::singleShot(delay, this, [this, cmd]() {
+                emit jsonResult(cmd, getBvfsUpdateResponse());
             });
-        }
-        else if (command.contains("bvfs_lsdirs")) {
-            QTimer::singleShot(delay, this, [this, command]() {
-                emit jsonResponse(command, getBvfsLsDirsResponse(command));
+            break;
+        case Command::BvfsLsDirs:
+            QTimer::singleShot(delay, this, [this, cmd, args]() {
+                emit jsonResult(cmd, getBvfsLsDirsResponse(args));
             });
-        }
-        else if (command.contains("bvfs_lsfiles")) {
-            QTimer::singleShot(delay, this, [this, command]() {
-                emit jsonResponse(command, getBvfsLsFilesResponse(command));
+            break;
+        case Command::BvfsLsFiles:
+            QTimer::singleShot(delay, this, [this, cmd, args]() {
+                emit jsonResult(cmd, getBvfsLsFilesResponse(args));
             });
-        }
-        else {
-            qWarning() << "MockDirector: Unknown command:" << command;
+            break;
+        default:
+            qWarning() << "MockDirector: Unknown command:" << static_cast<int>(cmd) << args;
+            break;
         }
     }
 

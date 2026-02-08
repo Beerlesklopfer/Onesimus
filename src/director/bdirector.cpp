@@ -70,11 +70,12 @@ BDirector::BDirector(QObject *parent)
     QObject::connect(m_director, &DIRECTOR_CLASS::statusMessage,
                      this, &BDirector::statusMessage);
 
-    QObject::connect(m_director, &DIRECTOR_CLASS::jsonResponse,
-                     this, &BDirector::jsonResponse);
+    // Forward enum-based response signals
+    QObject::connect(m_director, &DIRECTOR_CLASS::jsonResult,
+                     this, &BDirector::jsonResult);
 
-    QObject::connect(m_director, &DIRECTOR_CLASS::commandResponse,
-                     this, &BDirector::commandResponse);
+    QObject::connect(m_director, &DIRECTOR_CLASS::textResult,
+                     this, &BDirector::textResult);
 
     QObject::connect(m_director, &DIRECTOR_CLASS::commandError,
                      this, &BDirector::commandError);
@@ -107,6 +108,18 @@ BDirector::BDirector(QObject *parent)
 
     QObject::connect(m_director, &DIRECTOR_CLASS::resourceLoadProgress,
                      this, &BDirector::resourceLoadProgress);
+
+    // Forward command queue signals
+    QObject::connect(m_director, &DIRECTOR_CLASS::commandFailed,
+                     this, [this](DIRECTOR_CLASS::Command cmd, const QString &args,
+                                   const QString &errorMsg) {
+                         emit commandFailed(cmd, args, errorMsg);
+                     });
+
+    QObject::connect(m_director, &DIRECTOR_CLASS::rollbackCompleted,
+                     this, [this](DIRECTOR_CLASS::Command originalCmd) {
+                         emit rollbackCompleted(originalCmd);
+                     });
 
     // Typed query result signals
     QObject::connect(m_director, &DIRECTOR_CLASS::consolesResult,
@@ -316,32 +329,18 @@ void BDirector::setApiMode(ApiMode mode)
 // Command Sending (thread-safe forwarding)
 // ============================================================================
 
-void BDirector::doSendCommand(const Command cmd, const QString &args)
+void BDirector::doSend(const Command cmd, const QString &args)
 {
     if (!m_director) {
-        BLOG_ERROR() << "BDirector::doSendCommand: No director instance!";
+        BLOG_ERROR() << "BDirector::doSend: No director instance!";
         return;
     }
 
     // Thread-safe: Use QMetaObject::invokeMethod
-    QMetaObject::invokeMethod(m_director, "doSendCommand",
+    QMetaObject::invokeMethod(m_director, "doSend",
                               Qt::QueuedConnection,
                               Q_ARG(DIRECTOR_CLASS::Command, cmd),
                               Q_ARG(QString, args));
-}
-
-void BDirector::sendCommand(const QString &command)
-{
-    if (!m_director) {
-        BLOG_ERROR() << "BDirector::sendCommand: No director instance!";
-        return;
-    }
-
-    // Thread-safe: Use QMetaObject::invokeMethod with public slot doSendCommand
-    QMetaObject::invokeMethod(m_director, "doSendCommand",
-                              Qt::QueuedConnection,
-                              Q_ARG(BareosDirector::Command, DIRECTOR_CLASS::Command::Custom),
-                              Q_ARG(QString, command));
 }
 
 // ============================================================================
@@ -368,6 +367,20 @@ void BDirector::queryConfigureAddConsole(const QString &name, const QString &pas
     QMetaObject::invokeMethod(m_director, "queryConfigureAddConsole", Qt::QueuedConnection,
                               Q_ARG(QString, name), Q_ARG(QString, password),
                               Q_ARG(QString, profile));
+}
+
+// ============================================================================
+// Command Queue (thread-safe forwarding)
+// ============================================================================
+
+void BDirector::rollbackLast()
+{
+    if (!m_director) {
+        BLOG_ERROR() << "BDirector::rollbackLast: No director instance!";
+        return;
+    }
+
+    QMetaObject::invokeMethod(m_director, "rollbackLast", Qt::QueuedConnection);
 }
 
 // ============================================================================

@@ -34,7 +34,7 @@ public:
     explicit BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidget, BDirector *director, QWidget *parent = nullptr);
 
 private slots:
-    void onJobLogReceived(const QString &command, const QString &response);
+    void onJobLogReceived(BDirector::Command cmd, const QString &response);
 
 private:
     void setupUi(const QJsonObject &job);
