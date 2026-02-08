@@ -303,14 +303,11 @@ private:
     void executeConfigureCommand();
 
     BResourceWidget *m_filesetWidget = nullptr;
-    QTextEdit *m_rawTextEdit = nullptr;
-    QGroupBox *m_cmdGroup = nullptr;
     QTextEdit *m_commandEdit = nullptr;
     QLabel *m_validationLabel = nullptr;
     QLabel *m_statusLabel = nullptr;
     QProgressBar *m_progressBar = nullptr;
     QPushButton *m_copyButton = nullptr;
-    QPushButton *m_exportButton = nullptr;
     QTimer *m_timeoutTimer = nullptr;
     bool m_executed = false;
 };

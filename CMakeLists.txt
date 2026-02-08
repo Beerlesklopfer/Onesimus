@@ -702,11 +702,37 @@ if(UNIX AND NOT APPLE)
         DESTINATION share/applications
     )
 
-    # Install icon
-    install(FILES "${CMAKE_SOURCE_DIR}/resources/icons/app_bareos.png"
-        DESTINATION share/icons/hicolor/256x256/apps
-        RENAME onesimus.png
-    )
+    # Install icon (convert SVG to 256x256 PNG at build time)
+    find_program(RSVG_CONVERT rsvg-convert)
+    find_program(MAGICK magick)
+    find_program(CONVERT convert)
+    if(RSVG_CONVERT)
+        set(_ICON_CMD ${RSVG_CONVERT} -w 256 -h 256
+            "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
+            -o "${CMAKE_BINARY_DIR}/onesimus.png")
+    elseif(MAGICK)
+        set(_ICON_CMD ${MAGICK} convert -background none -resize 256x256
+            "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
+            "${CMAKE_BINARY_DIR}/onesimus.png")
+    elseif(CONVERT)
+        set(_ICON_CMD ${CONVERT} -background none -resize 256x256
+            "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
+            "${CMAKE_BINARY_DIR}/onesimus.png")
+    endif()
+    if(_ICON_CMD)
+        add_custom_command(
+            OUTPUT "${CMAKE_BINARY_DIR}/onesimus.png"
+            COMMAND ${_ICON_CMD}
+            DEPENDS "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
+            COMMENT "Converting onesimus.svg to PNG..."
+        )
+        add_custom_target(onesimus_icon ALL DEPENDS "${CMAKE_BINARY_DIR}/onesimus.png")
+        install(FILES "${CMAKE_BINARY_DIR}/onesimus.png"
+            DESTINATION share/icons/hicolor/256x256/apps
+        )
+    else()
+        message(WARNING "No SVG converter found (rsvg-convert, magick, convert) — app icon will not be installed.")
+    endif()
 endif()
 
 # ============================================================================
@@ -1020,7 +1046,7 @@ elseif(APPLE)
     set(CPACK_DMG_FORMAT "UDZO")
 elseif(UNIX)
     # DEB and RPM for Linux
-    set(CPACK_GENERATOR "DEB;RPM")
+    set(CPACK_GENERATOR "DEB")
 
     # Debian package settings
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joerg Bernau <joerg@bernau.family>")

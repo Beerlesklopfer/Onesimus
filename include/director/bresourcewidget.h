@@ -135,11 +135,17 @@ protected:
      */
     QString resourceToConf(const BConfigResource &resource) const;
 
+    /**
+     * @brief Show raw config file syntax in the details pane
+     */
+    void updateConfigPreview(const BConfigResource &resource);
+
     // UI components
     QSplitter *m_splitter;
     QTreeWidget *m_treeWidget;
     QTextEdit *m_detailsEdit;
     QLabel *m_countLabel;
+    QPushButton *m_previewToggle;
     QPushButton *m_editButton;
     QPushButton *m_exportButton;
     QPushButton *m_exportZipButton;

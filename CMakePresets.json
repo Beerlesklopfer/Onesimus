@@ -25,6 +25,9 @@
         "DEBUG_PACKETS": "ON",
         "DEBUG_JSON": "ON",
         "LOG_JSON": "ON"
+      },
+      "environment": {
+        "ONESIMUS_VERBOSE": "1"
       }
     },
     {
@@ -43,6 +46,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "ONESIMUS_FILE_LOGGING": "ON"
+      },
+      "environment": {
+        "ONESIMUS_VERBOSE": "1"
       }
     },
     {
@@ -72,6 +78,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "ONESIMUS_FILE_LOGGING": "ON"
+      },
+      "environment": {
+        "ONESIMUS_VERBOSE": "1"
       }
     },
     {
@@ -90,6 +99,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "ONESIMUS_FILE_LOGGING": "ON"
+      },
+      "environment": {
+        "ONESIMUS_VERBOSE": "1"
       }
     },
     {
@@ -103,11 +115,14 @@
     },
     {
       "name": "windows-relwithdebinfo",
-      "displayName": "Windows RelWithDebInfo",
+      "displayName": "Windows RelWithDebInfo (with logging)",
       "inherits": "windows-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "ONESIMUS_FILE_LOGGING": "ON"
+      },
+      "environment": {
+        "ONESIMUS_VERBOSE": "1"
       }
     }
   ],
@@ -161,6 +176,32 @@
       "displayName": "Windows RelWithDebInfo Build",
       "configurePreset": "windows-relwithdebinfo",
       "configuration": "RelWithDebInfo"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-test",
+      "displayName": "Linux Tests",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "windows-test",
+      "displayName": "Windows Tests",
+      "configurePreset": "windows-debug"
+    }
+  ],
+  "packagePresets": [
+    {
+      "name": "linux-package",
+      "displayName": "Linux DEB Package",
+      "configurePreset": "linux-release",
+      "generators": ["DEB"]
+    },
+    {
+      "name": "windows-package",
+      "displayName": "Windows NSIS Installer",
+      "configurePreset": "windows-release",
+      "generators": ["NSIS"]
     }
   ]
 }

@@ -35,6 +35,20 @@ BResourceWidget::BResourceWidget(const QString &resourceType, BDirector *directo
     topBar->addWidget(m_countLabel);
     topBar->addStretch();
 
+    m_previewToggle = new QPushButton(tr("Preview"), this);
+    m_previewToggle->setCheckable(true);
+    m_previewToggle->setToolTip(tr("Toggle config file preview"));
+    connect(m_previewToggle, &QPushButton::toggled, this, [this](bool) {
+        BConfigResource res = selectedResource();
+        if (!res.type().isEmpty()) {
+            if (m_previewToggle->isChecked())
+                updateConfigPreview(res);
+            else
+                updateDetails(res);
+        }
+    });
+    topBar->addWidget(m_previewToggle);
+
     m_editButton = new QPushButton(tr("Edit..."), this);
     m_editButton->setEnabled(false);
     connect(m_editButton, &QPushButton::clicked,
@@ -123,7 +137,10 @@ void BResourceWidget::onItemSelectionChanged()
     BConfigResource resource = selectedResource();
     if (!resource.type().isEmpty()) {
         m_editButton->setEnabled(true);
-        updateDetails(resource);
+        if (m_previewToggle->isChecked())
+            updateConfigPreview(resource);
+        else
+            updateDetails(resource);
         emit resourceSelected(resource);
     } else {
         m_editButton->setEnabled(false);
@@ -205,6 +222,11 @@ void BResourceWidget::updateDetails(const BConfigResource &resource)
 
     text += "</pre>";
     m_detailsEdit->setHtml(text);
+}
+
+void BResourceWidget::updateConfigPreview(const BConfigResource &resource)
+{
+    m_detailsEdit->setPlainText(resourceToConf(resource));
 }
 
 QString BResourceWidget::formatValue(const BConfigValue &value, int indent) const
@@ -324,49 +346,53 @@ QString BResourceWidget::resourceToConf(const BConfigResource &resource) const
     conf += QString("%1 {\n").arg(resource.type());
     conf += QString("  Name = \"%1\"\n").arg(resource.name());
 
-    for (const QString &key : resource.keys()) {
-        if (key == "name") continue;  // Already emitted above
+    // Bareos quoting rules (docs.bareos.org):
+    // - Numbers must NEVER be quoted, even with units (e.g. "365 days")
+    // - Time periods must NOT be quoted
+    // - Boolean yes/no must NOT be quoted
+    // - [md5] prefixed passwords must NOT be quoted
+    static const QRegularExpression timePeriodRx(
+        R"(^\d+\s*(?:seconds?|secs?|s|minutes?|mins?|hours?|days?|weeks?|months?|quarters?|years?)(?:\s+\d+\s*(?:seconds?|secs?|s|minutes?|mins?|hours?|days?|weeks?|months?|quarters?|years?))*$)",
+        QRegularExpression::CaseInsensitiveOption);
 
+    // Recursive helper to format a BConfigValue at a given indent level
+    std::function<void(const QString &, const BConfigValue &, int)> formatValue;
+    formatValue = [&](const QString &key, const BConfigValue &val, int indent) {
+        QString pad = QString("  ").repeated(indent);
         QString directive = capitalizeDirective(key);
-        BConfigValue val = resource.value(key);
+
         switch (val.type()) {
         case BConfigValue::Simple: {
             QString v = val.simpleValue();
-            // Bareos quoting rules (docs.bareos.org):
-            // - Numbers must NEVER be quoted, even with units (e.g. "365 days")
-            // - Time periods must NOT be quoted
-            // - Boolean yes/no must NOT be quoted
-            // - [md5] prefixed passwords must NOT be quoted
             bool isNumeric = false;
             v.toLongLong(&isNumeric);
-
-            // Time period: one or more "number unit" pairs
-            // Units: seconds/sec/s, minutes/min, hours, days, weeks, months, quarters, years
-            static const QRegularExpression timePeriodRx(
-                R"(^\d+\s*(?:seconds?|secs?|s|minutes?|mins?|hours?|days?|weeks?|months?|quarters?|years?)(?:\s+\d+\s*(?:seconds?|secs?|s|minutes?|mins?|hours?|days?|weeks?|months?|quarters?|years?))*$)",
-                QRegularExpression::CaseInsensitiveOption);
             bool isTimePeriod = timePeriodRx.match(v).hasMatch();
 
             if (v.startsWith('"') || isNumeric || v == "yes" || v == "no"
                 || v.contains('=') || isTimePeriod || v.startsWith("[md5]"))
-                conf += QString("  %1 = %2\n").arg(directive, v);
+                conf += QString("%1%2 = %3\n").arg(pad, directive, v);
             else
-                conf += QString("  %1 = \"%2\"\n").arg(directive, v);
+                conf += QString("%1%2 = \"%3\"\n").arg(pad, directive, v);
             break;
         }
         case BConfigValue::List:
             for (const QString &item : val.listValue())
-                conf += QString("  %1 = \"%2\"\n").arg(directive, item);
+                conf += QString("%1%2 = \"%3\"\n").arg(pad, directive, item);
             break;
         case BConfigValue::Block: {
-            conf += QString("  %1 = {\n").arg(directive);
+            conf += QString("%1%2 {\n").arg(pad, directive);
             QMap<QString, BConfigValue> block = val.blockValue();
             for (auto it = block.begin(); it != block.end(); ++it)
-                conf += QString("    %1 = %2\n").arg(capitalizeDirective(it.key()), it.value().toString());
-            conf += "  }\n";
+                formatValue(it.key(), it.value(), indent + 1);
+            conf += QString("%1}\n").arg(pad);
             break;
         }
         }
+    };
+
+    for (const QString &key : resource.keys()) {
+        if (key == "name") continue;  // Already emitted above
+        formatValue(key, resource.value(key), 1);
     }
 
     conf += "}\n";

@@ -94,7 +94,7 @@ void BFileSetWizard::init()
         setStartId(Page_Settings);
     }
 
-    setButtonText(QWizard::FinishButton, tr("Close"));
+    setButtonText(QWizard::FinishButton, tr("Finish"));
 }
 
 QJsonObject BFileSetWizard::loadTemplates()
@@ -1111,40 +1111,40 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-    // Splitter for preview and raw text
-    QSplitter *splitter = new QSplitter(Qt::Vertical, this);
-
-    // Resource preview
+    // Resource preview (use Preview toggle to see raw config)
     m_filesetWidget = new BResourceWidget("FileSet", nullptr, this);
-    splitter->addWidget(m_filesetWidget);
+    mainLayout->addWidget(m_filesetWidget, 1);  // stretch factor 1: takes available space
 
-    // Raw text
-    m_rawTextEdit = new QTextEdit(this);
-    m_rawTextEdit->setReadOnly(true);
-    m_rawTextEdit->setFont(QFont("Consolas", 9));
-    splitter->addWidget(m_rawTextEdit);
+    // Configure command header row (label + copy button)
+    QHBoxLayout *cmdHeaderLayout = new QHBoxLayout();
+    cmdHeaderLayout->setContentsMargins(0, 4, 0, 0);
 
-    splitter->setSizes({300, 200});
-    mainLayout->addWidget(splitter);
+    QLabel *cmdLabel = new QLabel(tr("Command:"), this);
+    cmdLabel->setStyleSheet("font-weight: bold;");
+    cmdHeaderLayout->addWidget(cmdLabel);
 
-    // Command group
-    m_cmdGroup = new QGroupBox(tr("Configure Command"));
-    QVBoxLayout *cmdLayout = new QVBoxLayout(m_cmdGroup);
+    cmdHeaderLayout->addStretch();
 
+    m_copyButton = new QPushButton(tr("Copy configuration"), this);
+    cmdHeaderLayout->addWidget(m_copyButton);
+
+    mainLayout->addLayout(cmdHeaderLayout);
+
+    // Configure command text
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    m_commandEdit->setMaximumHeight(60);
+    m_commandEdit->setFixedHeight(104);
     m_commandEdit->setFont(QFont("Consolas", 9));
-    cmdLayout->addWidget(m_commandEdit);
+    m_commandEdit->setLineWrapMode(QTextEdit::WidgetWidth);
+    m_commandEdit->setStyleSheet("QTextEdit { background: palette(base); border: 1px solid palette(mid); padding: 2px; }");
+    mainLayout->addWidget(m_commandEdit);
 
-    mainLayout->addWidget(m_cmdGroup);
-
-    // Validation label
-    m_validationLabel = new QLabel(this);
-    mainLayout->addWidget(m_validationLabel);
-
-    // Status and buttons
+    // Validation + status row
     QHBoxLayout *bottomLayout = new QHBoxLayout();
+    bottomLayout->setContentsMargins(0, 0, 0, 0);
+
+    m_validationLabel = new QLabel(this);
+    bottomLayout->addWidget(m_validationLabel);
 
     m_statusLabel = new QLabel(this);
     bottomLayout->addWidget(m_statusLabel);
@@ -1152,16 +1152,10 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     m_progressBar = new QProgressBar(this);
     m_progressBar->setRange(0, 0);
     m_progressBar->setVisible(false);
-    m_progressBar->setMaximumWidth(150);
+    m_progressBar->setMaximumWidth(100);
     bottomLayout->addWidget(m_progressBar);
 
     bottomLayout->addStretch();
-
-    m_copyButton = new QPushButton(tr("Copy to Clipboard"), this);
-    bottomLayout->addWidget(m_copyButton);
-
-    m_exportButton = new QPushButton(tr("Export ZIP..."), this);
-    bottomLayout->addWidget(m_exportButton);
 
     mainLayout->addLayout(bottomLayout);
 
@@ -1170,7 +1164,6 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     m_timeoutTimer->setInterval(30000);
 
     connect(m_copyButton, &QPushButton::clicked, this, &BFileSetPreviewPage::onCopyConfig);
-    connect(m_exportButton, &QPushButton::clicked, this, &BFileSetPreviewPage::onExportZip);
     connect(m_timeoutTimer, &QTimer::timeout, this, &BFileSetPreviewPage::onConfigureTimeout);
 }
 
@@ -1193,7 +1186,6 @@ void BFileSetPreviewPage::generateConfig()
     QString command = doc->toConfigureCommand();
 
     // Display in UI
-    m_rawTextEdit->setPlainText(config);
     m_commandEdit->setPlainText(command);
 
     // Parse and display in resource widget
@@ -1205,8 +1197,10 @@ void BFileSetPreviewPage::generateConfig()
         }
     }
 
-    // Show/hide command group based on execute option
-    m_cmdGroup->setVisible(wiz->executeOnFinish());
+    // Show/hide command row based on execute option
+    bool showCmd = wiz->executeOnFinish();
+    m_commandEdit->setVisible(showCmd);
+    m_copyButton->setVisible(showCmd);
 
     // Validation
     BFileSetDocument::ValidationResult validation = doc->validate();
@@ -1228,16 +1222,19 @@ bool BFileSetPreviewPage::validatePage()
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
     if (!wiz) return true;
 
-    // Don't re-execute if already done
-    if (m_executed) return true;
-
-    // Execute configure command if requested
-    if (wiz->executeOnFinish()) {
-        executeConfigureCommand();
-        return false;  // Wait for response
+    // If execute option is unchecked, just close the wizard
+    if (!wiz->executeOnFinish()) {
+        return true;
     }
 
-    return true;
+    // If already executed successfully, allow closing
+    if (m_executed) {
+        return true;
+    }
+
+    // Start async execution and keep wizard open until complete
+    executeConfigureCommand();
+    return false;
 }
 
 void BFileSetPreviewPage::executeConfigureCommand()
@@ -1288,6 +1285,11 @@ void BFileSetPreviewPage::onJsonResponse(const QString &command, const QString &
 
         // Trigger reload
         wiz->director()->sendCommand("reload");
+
+        // Auto-close wizard after brief delay so user can see the success message
+        QTimer::singleShot(1500, this, [this]() {
+            if (wizard()) wizard()->accept();
+        });
     } else {
         QString error = result["error"].toString();
         if (error.isEmpty()) error = tr("Unknown error");
@@ -1300,13 +1302,31 @@ void BFileSetPreviewPage::onCommandResponse(const QString &command, const QStrin
 {
     if (!command.contains("configure")) return;
 
-    // Handle text response (fallback)
-    if (response.contains("Created") || response.contains("success")) {
-        m_timeoutTimer->stop();
-        m_progressBar->setVisible(false);
+    m_timeoutTimer->stop();
+    m_progressBar->setVisible(false);
+
+    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
+    if (wiz && wiz->director()) {
+        disconnect(wiz->director(), &BDirector::jsonResponse,
+                   this, &BFileSetPreviewPage::onJsonResponse);
+        disconnect(wiz->director(), &BDirector::commandResponse,
+                   this, &BFileSetPreviewPage::onCommandResponse);
+    }
+
+    // Handle text response
+    if (response.contains("Created") || response.contains("success", Qt::CaseInsensitive)) {
         m_statusLabel->setText(QString("<span style='color: green;'>%1</span>")
             .arg(tr("FileSet created successfully!")));
         m_executed = true;
+
+        // Auto-close wizard after brief delay so user can see the success message
+        QTimer::singleShot(1500, this, [this]() {
+            if (wizard()) wizard()->accept();
+        });
+    } else {
+        // Show the Director's error response
+        m_statusLabel->setText(QString("<span style='color: red;'>%1: %2</span>")
+            .arg(tr("Error")).arg(response.trimmed()));
     }
 }
 
