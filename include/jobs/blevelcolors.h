@@ -3,7 +3,7 @@
 
 #include <QColor>
 #include <QString>
-#include "bsettings.h"
+#include "config/bsettings.h"
 
 /**
  * @brief Utility class for backup level color coding

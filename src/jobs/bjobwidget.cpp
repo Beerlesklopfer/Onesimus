@@ -4,7 +4,7 @@
 #include "jobs/bnewjobdialog.h"
 #include "jobs/blevelcolors.h"
 #include "messages/bmessageswidget.h"
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QInputDialog>

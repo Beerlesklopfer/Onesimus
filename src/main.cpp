@@ -1,6 +1,6 @@
 #include "bmainwindow.h"
 #include "btranslations.h"
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include "blogging.h"
 #include <QApplication>
 #include <QCommandLineParser>

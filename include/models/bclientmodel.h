@@ -1,7 +1,7 @@
 #ifndef BCLIENTMODEL_H
 #define BCLIENTMODEL_H
 
-#include "models/bresourcemodel.h"
+#include "db/bresourcemodel.h"
 
 /**
  * @brief Model for Clients (File Daemon) table

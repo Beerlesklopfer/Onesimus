@@ -8,7 +8,7 @@
 #include "bcheckboxdelegate.h"
 #include "bcheckableheaderview.h"
 #include "bviewpresets.h"
-#include "bcolumnconfiguration.h"
+#include "config/bcolumnconfiguration.h"
 
 /**
  * @brief Custom table view for displaying Bacula backup jobs with advanced features
@@ -223,12 +223,14 @@ protected:
      */
     void contextMenuEvent(QContextMenuEvent *event) override;
 
+public slots:
+    void deleteJob();
+
 private slots:
     void onSelectionChanged();
     void onJobsAppended(int count);
     void onLiveUpdateTimeout();
     void showJobDetails();
-    void deleteJob();
     void retryJob();
     void cancelJob();
     void viewJobLog();

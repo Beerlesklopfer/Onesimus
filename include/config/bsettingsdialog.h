@@ -92,7 +92,8 @@ private:
     void createBehaviorPage();
     void createAdvancedPage();
     void applyModernStyle();
-    
+    void saveCurrentProfileSilent();  ///< Auto-save current profile without user notification
+
     Ui::BSettingsDialog *ui;
     BDirector *m_director;
     

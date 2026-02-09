@@ -10,12 +10,12 @@
 #include "storagewidget.h"
 #include "schedules/bschedulewidget.h"
 // Messages widget is now inside BJobWidget
-#include "bsettingsdialog.h"
+#include "config/bsettingsdialog.h"
 #include "bcleanupdialog.h"
 #include "bconnectionwizard.h"
 #include "director/bconfigimportdialog.h"
 #include "db/bdatabase.h"
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include "bconnectionprofile.h"
 #include "version.h"
 
@@ -624,6 +624,7 @@ void BMainWindow::createActions()
     m_exportJobsCsvAction->setEnabled(false);
     connect(m_exportJobsCsvAction, &QAction::triggered, this, &BMainWindow::onImportSettingsTriggered);
 
+    // Modify Jobs submenu actions
     m_addJobAction = new QAction(tr("Add Job..."), this);
     m_addJobAction->setIcon(QIcon(":/icons/icons/add.svg"));
     m_addJobAction->setEnabled(false);
@@ -631,6 +632,21 @@ void BMainWindow::createActions()
         QMessageBox::information(this, tr("Add Job"), tr("Not implemented yet."));
     });
 
+    m_editJobAction = new QAction(tr("Edit Job..."), this);
+    m_editJobAction->setIcon(QIcon(":/icons/icons/edit.svg"));
+    m_editJobAction->setEnabled(false);
+    connect(m_editJobAction, &QAction::triggered, this, [this]() {
+        QMessageBox::information(this, tr("Edit Job"), tr("Not implemented yet."));
+    });
+
+    m_deleteJobAction = new QAction(tr("Delete Job..."), this);
+    m_deleteJobAction->setIcon(QIcon(":/icons/icons/delete.svg"));
+    m_deleteJobAction->setEnabled(false);
+    connect(m_deleteJobAction, &QAction::triggered, this, [this]() {
+        m_jobWidget->tableView()->deleteJob();
+    });
+
+    // Filesets submenu actions
     m_addFileSetAction = new QAction(tr("Add FileSet..."), this);
     m_addFileSetAction->setIcon(QIcon(":/icons/icons/add.svg"));
     m_addFileSetAction->setEnabled(false);
@@ -646,6 +662,13 @@ void BMainWindow::createActions()
         // TODO: Get selected fileset name from job widget
         BFileSetWizard wizard(m_director, QString(), m_jobWidget->filesetModel(), this);
         wizard.exec();
+    });
+
+    m_deleteFileSetAction = new QAction(tr("Delete FileSet..."), this);
+    m_deleteFileSetAction->setIcon(QIcon(":/icons/icons/delete.svg"));
+    m_deleteFileSetAction->setEnabled(false);
+    connect(m_deleteFileSetAction, &QAction::triggered, this, [this]() {
+        QMessageBox::information(this, tr("Delete FileSet"), tr("Not implemented yet."));
     });
 
     // Clients Actions
@@ -738,12 +761,21 @@ void BMainWindow::createMenus()
     m_jobsMenu->addAction(m_runJobAction);
     m_jobsMenu->addAction(m_cancelJobAction);
     m_jobsMenu->addAction(m_jobDetailsAction);
-    m_jobsMenu->addSeparator();
-    m_jobsMenu->addAction(m_addJobAction);
-    m_jobsMenu->addAction(m_addFileSetAction);
-    m_jobsMenu->addAction(m_editFileSetAction);
-    m_jobsMenu->addSeparator();
     m_jobsMenu->addAction(m_refreshJobsAction);
+    m_jobsMenu->addSeparator();
+
+    // Modify Jobs submenu
+    m_modifyJobsSubMenu = m_jobsMenu->addMenu(QIcon(":/icons/icons/edit.svg"), tr("Modify Jobs"));
+    m_modifyJobsSubMenu->addAction(m_addJobAction);
+    m_modifyJobsSubMenu->addAction(m_editJobAction);
+    m_modifyJobsSubMenu->addAction(m_deleteJobAction);
+
+    // Filesets submenu
+    m_filesetsSubMenu = m_jobsMenu->addMenu(QIcon(":/icons/icons/filesets.svg"), tr("Filesets"));
+    m_filesetsSubMenu->addAction(m_addFileSetAction);
+    m_filesetsSubMenu->addAction(m_editFileSetAction);
+    m_filesetsSubMenu->addAction(m_deleteFileSetAction);
+
     m_jobsMenu->addSeparator();
     m_jobsMenu->addAction(m_exportJobsJsonAction);
     m_jobsMenu->addAction(m_exportJobsCsvAction);
@@ -1311,8 +1343,11 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     // Job control actions
     m_runJobAction->setEnabled(connected);  // Run job can be used without selection (enter job name)
     m_addJobAction->setEnabled(connected);
+    m_editJobAction->setEnabled(connected);
+    m_deleteJobAction->setEnabled(connected);
     m_addFileSetAction->setEnabled(connected);
     m_editFileSetAction->setEnabled(connected);
+    m_deleteFileSetAction->setEnabled(connected);
     // Cancel and Details require job selection, so they stay disabled until selection changes
     if (!connected) {
         m_cancelJobAction->setEnabled(false);

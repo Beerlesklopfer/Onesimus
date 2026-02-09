@@ -1,7 +1,7 @@
 #include "jobs/bnewjobdialog.h"
 #include "jobs/bjobwidget.h"
 #include "blogging.h"
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>

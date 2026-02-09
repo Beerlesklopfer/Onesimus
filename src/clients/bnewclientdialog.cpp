@@ -21,7 +21,7 @@
 #include <QFrame>
 #include <QSplitter>
 
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include "bconnectionprofile.h"
 #include "config/bresourceform.h"
 

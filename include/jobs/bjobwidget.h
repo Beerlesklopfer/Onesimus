@@ -20,7 +20,7 @@
 #include "director/bjsonstreamreader.h"
 #include "bpaginationwidget.h"
 #include "jobs/bjobmodels.h"
-#include "bresourcemodels.h"
+#include "models/bresourcemodels.h"
 #include "director/bdirector.h"
 
 // Forward declaration

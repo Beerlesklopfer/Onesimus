@@ -162,8 +162,11 @@ private:
     QAction *m_exportJobsJsonAction;
     QAction *m_exportJobsCsvAction;
     QAction *m_addJobAction;
+    QAction *m_editJobAction;
+    QAction *m_deleteJobAction;
     QAction *m_addFileSetAction;
     QAction *m_editFileSetAction;
+    QAction *m_deleteFileSetAction;
 
     // Clients Actions
     QAction *m_addClientAction;
@@ -186,6 +189,8 @@ private:
     QMenu *m_editMenu;
     QMenu *m_viewMenu;
     QMenu *m_jobsMenu;
+    QMenu *m_modifyJobsSubMenu;
+    QMenu *m_filesetsSubMenu;
     QMenu *m_clientsMenu;
     QMenu *m_storageMenu;
     QMenu *m_schedulesMenu;

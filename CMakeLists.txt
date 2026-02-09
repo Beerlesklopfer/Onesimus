@@ -393,27 +393,28 @@ set(SOURCES
 
     src/bcheckableheaderview.cpp
     src/bcheckboxdelegate.cpp
-    src/bcolumnconfiguration.cpp
     src/director/bjsonstreamreader.cpp
     src/btranslations.cpp
-    src/bclientwidget.cpp
     src/director/bdirector.cpp
     src/director/bareosdirector.cpp
-    src/bsettings.cpp
     src/db/bdatabase.cpp
-    src/bbasemodels.cpp
-    src/bresourcemodels.cpp
     src/db/bresourcemodel.cpp
     src/db/bdirectormodel.cpp
-    src/db/bsettingshistory.cpp
-    src/bsettingsdialog.cpp
     src/bcleanupdialog.cpp
     src/bconnectionwizard.cpp
     src/bcertificategenerator.cpp
     src/bpfxconverter.cpp
-    src/bprofilesettingsdialog.cpp
-    src/bconfigexporter.cpp
     src/storagewidget.cpp
+
+    src/config/bcolumnconfiguration.cpp
+    src/config/bsettings.cpp
+    src/config/bsettingsdialog.cpp
+    src/config/bprofilesettingsdialog.cpp
+    src/config/bconfigexporter.cpp
+    src/config/bsettingshistory.cpp
+
+    src/models/bbasemodels.cpp
+    src/models/bresourcemodels.cpp
 
     src/jobs/bjobmodels.cpp
     src/jobs/bjobdetailsdialog.cpp
@@ -436,6 +437,7 @@ set(SOURCES
 
     src/messages/bmessageswidget.cpp
 
+    src/clients/bclientwidget.cpp
     src/clients/bclientsmodel.cpp
     src/clients/bclientswidget.cpp
     src/clients/bclientdetailsdialog.cpp
@@ -460,31 +462,33 @@ set(SOURCES
 set(HEADERS
     include/bmainwindow.h
     include/bcheckableheaderview.h
-    include/bclientwidget.h
+    include/clients/bclientwidget.h
     include/storagewidget.h
-    include/bsettingsdialog.h
     include/bcleanupdialog.h
     include/bconnectionwizard.h
     include/bcertificategenerator.h
     include/bpfxconverter.h
-    include/bprofilesettingsdialog.h
-    include/bconfigexporter.h
     include/director/bdirector.h
     include/director/bareosdirector.h
-    include/bsettings.h
     include/db/bdatabase.h
-    include/bbasemodels.h
-    include/bresourcemodels.h
     include/db/bresourcemodel.h
     include/db/bdirectormodel.h
-    include/db/bsettingshistory.h
     include/version.h
     include/director/baculaauth.h
     include/director/bareosauth.h
-    include/bcolumnconfiguration.h
     include/director/bjsonstreamreader.h
     include/bpaginationwidget.h
     include/btranslations.h
+
+    include/config/bcolumnconfiguration.h
+    include/config/bsettings.h
+    include/config/bsettingsdialog.h
+    include/config/bprofilesettingsdialog.h
+    include/config/bconfigexporter.h
+    include/config/bsettingshistory.h
+
+    include/models/bbasemodels.h
+    include/models/bresourcemodels.h
 
     include/jobs/bcheckboxdelegate.h
     include/jobs/bjobmodels.h

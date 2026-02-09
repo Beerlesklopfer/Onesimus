@@ -5,7 +5,7 @@
 #include <QSqlDatabase>
 #include <QString>
 #include <QVariant>
-#include "db/bsettingshistory.h"
+#include "config/bsettingshistory.h"
 
 /**
  * @brief Base model for Bareos resources with settings history integration

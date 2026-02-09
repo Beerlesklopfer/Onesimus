@@ -1,4 +1,4 @@
-#include "bclientwidget.h"
+#include "clients/bclientwidget.h"
 #include "ui_bclientwidget.h"
 #include <QHeaderView>
 #include <QVBoxLayout>

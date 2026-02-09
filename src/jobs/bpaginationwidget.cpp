@@ -1,5 +1,5 @@
 #include "bpaginationwidget.h"
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include <QHBoxLayout>
 #include <QCheckBox>
 

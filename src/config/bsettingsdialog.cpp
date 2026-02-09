@@ -1239,49 +1239,7 @@ void BSettingsDialog::saveSettings()
     // ========================================================================
 
     // Save the currently edited profile (if any)
-    if (!m_currentProfileId.isEmpty()) {
-        BConnectionProfile profile = settings.connectionProfile(m_currentProfileId);
-        if (profile.isValid()) {
-            profile.name = m_profileNameEdit->text().trimmed();
-            if (profile.name.isEmpty()) {
-                profile.name = tr("Unnamed Connection");
-            }
-            profile.host = m_hostEdit->text().trimmed();
-            profile.port = m_portSpin->value();
-            profile.serverPlatform = m_serverPlatformCombo->currentData().toString();
-            profile.directorName = m_directorEdit->text().trimmed();
-            profile.consoleName = m_consoleEdit->text().trimmed();
-
-            // Password handling: Only update if user entered new password
-            if (m_savePasswordCheck->isChecked()) {
-                QString newPassword = m_passwordEdit->text();
-                if (!newPassword.isEmpty()) {
-                    // User entered a new password - hash it
-                    profile.setPasswordFromCleartext(newPassword);
-                }
-                // else: keep existing passwordHash (user didn't change it)
-            } else {
-                // Don't save password
-                profile.passwordHash.clear();
-            }
-
-            profile.legacyAuth = false;  // Legacy mode is disabled
-            profile.tlsEnabled = true;    // TLS always enabled
-            profile.tlsUsePSK = !m_useCertificatesCheck->isChecked();  // PSK unless certificates checked
-
-#ifndef Q_OS_WINDOWS
-            profile.tlsCaCertFile = m_caCertEdit->text();
-            profile.tlsCertFile = m_clientCertEdit->text();
-            profile.tlsKeyFile = m_clientKeyEdit->text();
-#else
-            profile.tlsPfxFile = m_clientCertEdit->text();
-#endif
-            profile.tlsVerifyPeer = m_verifyPeerCheck->isChecked();
-            profile.tlsCipherList = m_cipherListEdit->text().trimmed();
-
-            settings.updateConnectionProfile(profile);
-        }
-    }
+    saveCurrentProfileSilent();
 
     // Save global connection options
     settings.setConnectionSavePassword(m_savePasswordCheck->isChecked());
@@ -1573,6 +1531,11 @@ void BSettingsDialog::onChooseColorDisconnected()
 
 void BSettingsDialog::onProfileSelectionChanged()
 {
+    // Auto-save the previously edited profile before switching
+    if (!m_currentProfileId.isEmpty()) {
+        saveCurrentProfileSilent();
+    }
+
     int currentRow = m_profileList->currentRow();
     bool hasSelection = (currentRow >= 0);
 
@@ -1591,7 +1554,7 @@ void BSettingsDialog::onProfileSelectionChanged()
             QString profileId = item->data(Qt::UserRole).toString();
             BConnectionProfile profile = BSettings::instance().connectionProfile(profileId);
 
-            if (profile.isValid()) {
+            if (!profile.id.isEmpty()) {
                 m_currentProfileId = profileId;
 
                 // Block signals to prevent triggering saves
@@ -1742,12 +1705,12 @@ void BSettingsDialog::onDuplicateProfile()
     m_profileList->setCurrentItem(newItem);
 }
 
-void BSettingsDialog::saveCurrentProfile()
+void BSettingsDialog::saveCurrentProfileSilent()
 {
     if (m_currentProfileId.isEmpty()) return;
 
     BConnectionProfile profile = BSettings::instance().connectionProfile(m_currentProfileId);
-    if (!profile.isValid()) return;
+    if (profile.id.isEmpty()) return;
 
     // Update from form fields
     profile.name = m_profileNameEdit->text().trimmed();
@@ -1797,10 +1760,18 @@ void BSettingsDialog::saveCurrentProfile()
     if (item) {
         item->setText(profile.displayName());
     }
+}
 
-    // Show confirmation
-    QMessageBox::information(this, tr("Profile Saved"),
-        tr("Connection profile \"%1\" has been saved.").arg(profile.name));
+void BSettingsDialog::saveCurrentProfile()
+{
+    saveCurrentProfileSilent();
+
+    if (!m_currentProfileId.isEmpty()) {
+        QString name = m_profileNameEdit->text().trimmed();
+        if (name.isEmpty()) name = tr("Unnamed Connection");
+        QMessageBox::information(this, tr("Profile Saved"),
+            tr("Connection profile \"%1\" has been saved.").arg(name));
+    }
 }
 
 void BSettingsDialog::onConvertToPFX()

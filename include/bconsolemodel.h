@@ -5,7 +5,7 @@
 
 /**
  * @brief Model for Consoles (bconsole) table
- *
+ * @deprecated Currently not used
  * @since 0.1.0.5
  */
 class BConsoleModel : public BResourceModel

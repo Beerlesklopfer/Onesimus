@@ -2,9 +2,9 @@
 #include "clients/bclientsmodel.h"
 #include "clients/bclientdetailsdialog.h"
 #include "bcheckableheaderview.h"
-#include "bcolumnconfiguration.h"
+#include "config/bcolumnconfiguration.h"
 #include "blogging.h"
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>

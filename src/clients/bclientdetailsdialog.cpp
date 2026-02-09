@@ -19,7 +19,7 @@
 #include "director/bresourcewidget.h"
 #include <QRadioButton>
 #include <QVBoxLayout>
-#include "bsettings.h"
+#include "config/bsettings.h"
 #include "bconnectionprofile.h"
 
 // ============================================================================

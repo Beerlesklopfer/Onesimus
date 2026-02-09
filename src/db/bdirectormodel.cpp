@@ -1,6 +1,6 @@
 #include "db/bdirectormodel.h"
 #include "bpasswordutil.h"
-#include "db/bsettingshistory.h"
+#include "config/bsettingshistory.h"
 #include "blogging.h"
 #include <QSqlRecord>
 #include <QSqlQuery>
