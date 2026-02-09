@@ -246,7 +246,8 @@ public:
         Run,                ///< run job=<name>
         RunYes,             ///< run job=<name> yes
         Cancel,             ///< cancel jobid=<id>
-        Delete,             ///< delete job jobid=<id>
+        DeleteJob,          ///< delete job jobid=<id>
+        DeleteFileSet,      ///< delete fileset=<name> yes
         Disable,            ///< disable job=<name>
         Enable,             ///< enable job=<name>
         Rerun,              ///< rerun jobid=<id>

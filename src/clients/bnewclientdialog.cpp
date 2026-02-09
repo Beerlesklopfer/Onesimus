@@ -711,9 +711,9 @@ void BNewClientPreviewPage::generateConfigs()
 
     d.dirClientConf += "}\n";
 
-    // Generate configure command
+    // Generate configure command args (without "configure" prefix — Command::Configure adds it)
     d.configureCommand = QString(
-        "configure add client name=%1 address=%2 password=\"[md5]%3\"")
+        "add client name=%1 address=%2 password=\"[md5]%3\"")
         .arg(d.clientName, d.clientAddress, d.passwordHash);
     if (d.fdPort != 9102) {
         d.configureCommand += QString(" fdport=%1").arg(d.fdPort);
@@ -722,7 +722,8 @@ void BNewClientPreviewPage::generateConfigs()
         d.configureCommand += " passive=yes";
     }
 
-    m_commandEdit->setPlainText(d.configureCommand);
+    // Display with full "configure" prefix for user readability
+    m_commandEdit->setPlainText("configure " + d.configureCommand);
 }
 
 void BNewClientPreviewPage::validateConfigs()

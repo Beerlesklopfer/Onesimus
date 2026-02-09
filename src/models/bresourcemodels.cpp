@@ -45,6 +45,43 @@ QStringList BFilesetModel::filesetNames() const
     return names;
 }
 
+void BFilesetModel::parseShowFilesets(const QString &jsonResponse)
+{
+    m_filesetConfigs.clear();
+
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        BLOG_WARNING() << "BFilesetModel: Failed to parse show filesets response:" << parseError.errorString();
+        return;
+    }
+
+    if (!doc.isObject()) {
+        BLOG_WARNING() << "BFilesetModel: show filesets response is not a JSON object";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonObject filesets = result["filesets"].toObject();
+
+    for (auto it = filesets.begin(); it != filesets.end(); ++it) {
+        QJsonObject fsObj = it.value().toObject();
+        QString name = fsObj["name"].toString();
+        if (!name.isEmpty()) {
+            m_filesetConfigs[name] = fsObj;
+        }
+    }
+
+    BLOG_DEBUG() << "BFilesetModel: Cached" << m_filesetConfigs.size() << "fileset configs from JSON";
+}
+
+QJsonObject BFilesetModel::filesetConfig(const QString &name) const
+{
+    return m_filesetConfigs.value(name);
+}
+
 QString BFilesetModel::getDisplayText(const QJsonObject &item) const
 {
     return item["name"].toString();

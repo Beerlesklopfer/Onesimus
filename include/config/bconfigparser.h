@@ -39,17 +39,19 @@ class BConfigResource;
 class BConfigValue
 {
 public:
-    enum Type { Simple, List, Block };
+    enum Type { Simple, List, Block, BlockList };
 
     BConfigValue() : m_type(Simple) {}
     explicit BConfigValue(const QString &value) : m_type(Simple), m_simpleValue(value) {}
     explicit BConfigValue(const QStringList &list) : m_type(List), m_listValue(list) {}
     explicit BConfigValue(const QMap<QString, BConfigValue> &block) : m_type(Block), m_blockValue(block) {}
+    explicit BConfigValue(const QList<QMap<QString, BConfigValue>> &blockList) : m_type(BlockList), m_blockListValue(blockList) {}
 
     Type type() const { return m_type; }
     QString simpleValue() const { return m_simpleValue; }
     QStringList listValue() const { return m_listValue; }
     QMap<QString, BConfigValue> blockValue() const { return m_blockValue; }
+    QList<QMap<QString, BConfigValue>> blockListValue() const { return m_blockListValue; }
 
     QString toString() const;
     bool isEmpty() const;
@@ -59,6 +61,7 @@ private:
     QString m_simpleValue;
     QStringList m_listValue;
     QMap<QString, BConfigValue> m_blockValue;
+    QList<QMap<QString, BConfigValue>> m_blockListValue;
 };
 
 /**

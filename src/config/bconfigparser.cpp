@@ -25,6 +25,8 @@ QString BConfigValue::toString() const
         return m_listValue.join(", ");
     case Block:
         return QString("[Block with %1 keys]").arg(m_blockValue.size());
+    case BlockList:
+        return QString("[BlockList with %1 blocks]").arg(m_blockListValue.size());
     }
     return QString();
 }
@@ -38,6 +40,8 @@ bool BConfigValue::isEmpty() const
         return m_listValue.isEmpty();
     case Block:
         return m_blockValue.isEmpty();
+    case BlockList:
+        return m_blockListValue.isEmpty();
     }
     return true;
 }
@@ -267,11 +271,31 @@ BConfigResource BConfigParser::parseResource(const QString &content, int &pos, c
             pos++;
             skipWhitespaceAndComments(content, pos);
             BConfigValue value = parseValue(content, pos);
-            resource.setValue(key, value);
+            // Use appendValue for simple values to handle duplicates (e.g., multiple File = entries)
+            if (value.type() == BConfigValue::Simple) {
+                resource.appendValue(key, value.simpleValue());
+            } else {
+                resource.setValue(key, value);
+            }
         } else if (pos < length && content[pos] == '{') {
             pos++;
             QMap<QString, BConfigValue> block = parseBlock(content, pos);
-            resource.setValue(key, BConfigValue(block));
+            QString normalizedKey = key.toLower();
+            BConfigValue existing = resource.value(normalizedKey);
+            if (existing.type() == BConfigValue::Block) {
+                // Convert single Block to BlockList with both blocks
+                QList<QMap<QString, BConfigValue>> blockList;
+                blockList.append(existing.blockValue());
+                blockList.append(block);
+                resource.setValue(key, BConfigValue(blockList));
+            } else if (existing.type() == BConfigValue::BlockList) {
+                // Append to existing BlockList
+                QList<QMap<QString, BConfigValue>> blockList = existing.blockListValue();
+                blockList.append(block);
+                resource.setValue(key, BConfigValue(blockList));
+            } else {
+                resource.setValue(key, BConfigValue(block));
+            }
         }
     }
 
@@ -301,7 +325,22 @@ QMap<QString, BConfigValue> BConfigParser::parseBlock(const QString &content, in
             pos++;
             skipWhitespaceAndComments(content, pos);
             BConfigValue value = parseValue(content, pos);
-            block[key.toLower()] = value;
+            QString normalizedKey = key.toLower();
+            if (block.contains(normalizedKey)) {
+                // Duplicate key: accumulate into a list
+                BConfigValue &existing = block[normalizedKey];
+                if (existing.type() == BConfigValue::List && value.type() == BConfigValue::Simple) {
+                    QStringList list = existing.listValue();
+                    list.append(value.simpleValue());
+                    block[normalizedKey] = BConfigValue(list);
+                } else if (existing.type() == BConfigValue::Simple && value.type() == BConfigValue::Simple) {
+                    block[normalizedKey] = BConfigValue(QStringList{existing.simpleValue(), value.simpleValue()});
+                } else {
+                    block[normalizedKey] = value;  // Fallback: overwrite
+                }
+            } else {
+                block[normalizedKey] = value;
+            }
         } else if (pos < length && content[pos] == '{') {
             pos++;
             QMap<QString, BConfigValue> nestedBlock = parseBlock(content, pos);

@@ -147,17 +147,21 @@ void BEditableListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
         painter->drawText(textArea, Qt::AlignLeft | Qt::AlignVCenter, text);
     }
 
+    // Get viewport widget safely for hover detection
+    const QWidget *viewportWidget = opt.widget;
+
     // Draw browse button if enabled
     if (m_showBrowseButton) {
         QRect browseRect = browseButtonRect(opt);
 
         // Draw button background on hover
-        QPoint mousePos = QCursor::pos();
-        QPoint viewPos = static_cast<QWidget*>(painter->device())->mapFromGlobal(mousePos);
-
-        bool hovered = browseRect.contains(viewPos);
-        if (hovered) {
-            painter->fillRect(browseRect, QColor(200, 200, 200, 100));
+        if (viewportWidget) {
+            QPoint mousePos = QCursor::pos();
+            QPoint viewPos = viewportWidget->mapFromGlobal(mousePos);
+            bool hovered = browseRect.contains(viewPos);
+            if (hovered) {
+                painter->fillRect(browseRect, QColor(200, 200, 200, 100));
+            }
         }
 
         // Draw "..." text
@@ -173,12 +177,13 @@ void BEditableListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
         QRect deleteRect = deleteButtonRect(opt);
 
         // Draw button background on hover
-        QPoint mousePos = QCursor::pos();
-        QPoint viewPos = static_cast<QWidget*>(painter->device())->mapFromGlobal(mousePos);
-
-        bool hovered = deleteRect.contains(viewPos);
-        if (hovered) {
-            painter->fillRect(deleteRect, QColor(255, 100, 100, 100));
+        if (viewportWidget) {
+            QPoint mousePos = QCursor::pos();
+            QPoint viewPos = viewportWidget->mapFromGlobal(mousePos);
+            bool hovered = deleteRect.contains(viewPos);
+            if (hovered) {
+                painter->fillRect(deleteRect, QColor(255, 100, 100, 100));
+            }
         }
 
         // Draw "×" text

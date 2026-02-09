@@ -110,6 +110,7 @@ private:
     void setupConditionalVisibility();
     void updateDependentFields(const QString &controllingDirective);
     void connectFieldSignals(const QString &name, QWidget *widget);
+    static QString blockValueToText(const QMap<QString, BConfigValue> &block, int indent = 0);
 
     QString m_resourceType;
     QStringList m_groupFilter;

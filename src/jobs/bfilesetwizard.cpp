@@ -678,11 +678,6 @@ void BFileSetSettingsPage::setupUi()
     globalLayout->addStretch();
     mainLayout->addWidget(globalGroup);
 
-    // Execute option
-    m_executeCheck = new QCheckBox(tr("Execute 'configure add fileset' on Director"), this);
-    m_executeCheck->setChecked(true);
-    mainLayout->addWidget(m_executeCheck);
-
     mainLayout->addStretch();
 
     connect(m_nameEdit, &QLineEdit::textChanged, this, &QWizardPage::completeChanged);
@@ -712,7 +707,6 @@ void BFileSetSettingsPage::initializePage()
     m_enableVssCheck->setChecked(doc->enableVss());
     m_ignoreChangesCheck->setChecked(doc->ignoreFileSetChanges());
     m_enableSnapshotCheck->setChecked(doc->enableSnapshot());
-    m_executeCheck->setChecked(wiz->executeOnFinish());
 }
 
 void BFileSetSettingsPage::cleanupPage()
@@ -743,8 +737,6 @@ void BFileSetSettingsPage::collectFormValues()
     doc->setEnableVss(m_enableVssCheck->isChecked());
     doc->setIgnoreFileSetChanges(m_ignoreChangesCheck->isChecked());
     doc->setEnableSnapshot(m_enableSnapshotCheck->isChecked());
-
-    wiz->setExecuteOnFinish(m_executeCheck->isChecked());
 }
 
 void BFileSetSettingsPage::fetchFileSets()
@@ -756,34 +748,77 @@ void BFileSetSettingsPage::fetchFileSets()
     BFilesetModel *model = wiz->filesetModel();
     if (model && model->rowCount() > 0) {
         onFileSetsLoaded(model->filesetNames());
-        return;
-    }
+    } else if (wiz->director()) {
+        // Fetch fileset names from Director
+        m_loadingLabel->setText(tr("Loading..."));
+        auto conn = std::make_shared<QMetaObject::Connection>();
+        *conn = connect(wiz->director(), &BDirector::jsonResult,
+                this, [this, conn](BDirector::Command cmd, const QString &jsonData) {
+            if (cmd != BDirector::Command::DotFilesets) return;
 
-    // Fallback: fetch from Director (when wizard opened without model)
-    if (!wiz->director()) {
+            QObject::disconnect(*conn);
+
+            QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+            QJsonArray filesets = doc.object()["result"].toObject()["filesets"].toArray();
+            QStringList names;
+            for (const QJsonValue &fs : filesets) {
+                QString name = fs.toObject()["name"].toString();
+                if (!name.isEmpty()) names.append(name);
+            }
+            onFileSetsLoaded(names);
+        });
+
+        wiz->director()->doSend(BDirector::Command::DotFilesets);
+    } else {
         m_loadingLabel->setText(tr("No Director connection"));
         return;
     }
 
-    m_loadingLabel->setText(tr("Loading..."));
-    auto conn = std::make_shared<QMetaObject::Connection>();
-    *conn = connect(wiz->director(), &BDirector::jsonResult,
-            this, [this, conn](BDirector::Command cmd, const QString &jsonData) {
-        if (cmd != BDirector::Command::DotFilesets) return;
+    // Also fetch full fileset configs for model-based editing
+    if (model && !model->hasFilesetConfigs() && wiz->director()) {
+        requestShowFilesets();
+    }
+}
 
-        QObject::disconnect(*conn);
+void BFileSetSettingsPage::requestShowFilesets()
+{
+    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
+    if (!wiz || !wiz->director() || !wiz->filesetModel()) return;
 
-        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
-        QJsonArray filesets = doc.object()["result"].toObject()["filesets"].toArray();
-        QStringList names;
-        for (const QJsonValue &fs : filesets) {
-            QString name = fs.toObject()["name"].toString();
-            if (!name.isEmpty()) names.append(name);
+    auto jsonConn = std::make_shared<QMetaObject::Connection>();
+    auto textConn = std::make_shared<QMetaObject::Connection>();
+
+    *jsonConn = connect(wiz->director(), &BDirector::jsonResult,
+            this, [this, jsonConn, textConn](BDirector::Command cmd, const QString &jsonData) {
+        if (cmd != BDirector::Command::ShowFilesets) return;
+
+        QObject::disconnect(*jsonConn);
+        QObject::disconnect(*textConn);
+
+        BFileSetWizard *w = qobject_cast<BFileSetWizard*>(wizard());
+        if (w && w->filesetModel()) {
+            w->filesetModel()->parseShowFilesets(jsonData);
+            BLOG_DEBUG() << "FileSet configs loaded from Director (JSON)";
+
+            // Reload the currently selected fileset now that configs are available
+            QString selected = m_filesetCombo->currentData().toString();
+            if (!selected.isEmpty()) {
+                loadFileSetFromModel(selected);
+            }
         }
-        onFileSetsLoaded(names);
     });
 
-    wiz->director()->doSend(BDirector::Command::DotFilesets);
+    *textConn = connect(wiz->director(), &BDirector::textResult,
+            this, [this, jsonConn, textConn](BDirector::Command cmd, const QString &) {
+        if (cmd != BDirector::Command::ShowFilesets) return;
+
+        QObject::disconnect(*jsonConn);
+        QObject::disconnect(*textConn);
+
+        BLOG_DEBUG() << "show filesets returned text (not supported, need .api 2)";
+    });
+
+    wiz->director()->doSend(BDirector::Command::ShowFilesets);
 }
 
 void BFileSetSettingsPage::onFileSetsLoaded(const QStringList &names)
@@ -814,135 +849,44 @@ void BFileSetSettingsPage::onFileSetSelected(int index)
     QString filesetName = m_filesetCombo->itemData(index).toString();
     if (filesetName.isEmpty()) return;
 
-    loadFileSetFromDirector(filesetName);
+    // Try model-based loading first (from cached "show filesets" data)
+    loadFileSetFromModel(filesetName);
 }
 
-void BFileSetSettingsPage::loadFileSetFromDirector(const QString &filesetName)
+void BFileSetSettingsPage::loadFileSetFromModel(const QString &filesetName)
 {
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-    if (!wiz || !wiz->director()) return;
+    if (!wiz) return;
 
-    m_loadingLabel->setText(tr("Loading %1...").arg(filesetName));
+    BFilesetModel *model = wiz->filesetModel();
+    if (model && model->hasFilesetConfigs()) {
+        QJsonObject fsObj = model->filesetConfig(filesetName);
+        if (!fsObj.isEmpty()) {
+            BFileSetDocument *doc = wiz->document();
+            doc->loadFromBareosJson(fsObj);
 
-    // Handler for parsing "show fileset" response (works for both JSON and text)
-    auto parseResponse = [this, filesetName](const QString &response, bool isJson) {
-        BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-        if (!wiz) return;
+            // Update UI from document
+            m_nameEdit->setText(doc->name());
+            m_descriptionEdit->setText(doc->description());
+            m_enableVssCheck->setChecked(doc->enableVss());
+            m_ignoreChangesCheck->setChecked(doc->ignoreFileSetChanges());
+            m_enableSnapshotCheck->setChecked(doc->enableSnapshot());
 
-        BFileSetDocument *document = wiz->document();
-        document->clear();
-        document->setName(filesetName);  // Use the selected name
-
-        if (isJson) {
-            // Parse JSON response
-            QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8());
-            QJsonObject result = doc.object()["result"].toObject();
-            QJsonArray filesets = result["filesets"].toArray();
-
-            if (!filesets.isEmpty()) {
-                QJsonObject fsObj = filesets.first().toObject();
-
-                document->setDescription(fsObj["description"].toString());
-                document->setEnableVss(fsObj["enablevss"].toBool(true));
-                document->setIgnoreFileSetChanges(fsObj["ignorefilesetchanges"].toBool(false));
-
-                // Load Include blocks
-                QJsonArray includes = fsObj["include"].toArray();
-                for (const QJsonValue &inc : includes) {
-                    QJsonObject incObj = inc.toObject();
-                    BFileSetDocument::IncludeBlock *block = document->addIncludeBlock();
-
-                    QJsonArray files = incObj["file"].toArray();
-                    QStringList paths;
-                    for (const QJsonValue &f : files) {
-                        paths.append(f.toString());
-                    }
-                    block->pathsModel->setItems(paths);
-
-                    QJsonObject opts = incObj["options"].toObject();
-                    for (auto it = opts.begin(); it != opts.end(); ++it) {
-                        block->options[it.key()] = it.value().toVariant();
-                    }
-                }
-
-                // Load Exclude
-                QJsonArray excludes = fsObj["exclude"].toArray();
-                QStringList excludePaths;
-                for (const QJsonValue &exc : excludes) {
-                    QJsonObject excObj = exc.toObject();
-                    QJsonArray files = excObj["file"].toArray();
-                    for (const QJsonValue &f : files) {
-                        excludePaths.append(f.toString());
-                    }
-                }
-                document->excludePathModel()->setItems(excludePaths);
-            }
-        } else {
-            // Parse text response from "show fileset"
-            // The "show fileset" command returns a different format than config files
-            // Try to parse it, but the format may need conversion
-            BLOG_DEBUG() << "FileSet text response:" << response.left(500);
-
-            BConfigParser parser;
-            if (parser.parseString(response)) {
-                QList<BConfigResource> resources = parser.resources();
-                BLOG_DEBUG() << "Parsed" << resources.count() << "resources";
-                for (const BConfigResource &res : resources) {
-                    BLOG_DEBUG() << "Resource type:" << res.type();
-                    if (res.type().compare("FileSet", Qt::CaseInsensitive) == 0) {
-                        document->loadFromResource(res);
-                        break;
-                    }
-                }
-            } else {
-                BLOG_DEBUG() << "BConfigParser failed to parse response";
-            }
+            m_loadingLabel->setText(tr("Loaded"));
+            BLOG_DEBUG() << "FileSet" << filesetName << "loaded from model cache"
+                         << "(includes:" << doc->includeBlockCount() << ")";
+            return;
         }
+    }
 
-        // If document is still empty after parsing, add a default include block
-        if (document->includeBlockCount() == 0) {
-            BLOG_DEBUG() << "Adding default include block (parsing may have failed)";
-            document->addIncludeBlock();
-        }
-
-        // Update UI
-        m_nameEdit->setText(document->name());
-        m_descriptionEdit->setText(document->description());
-        m_enableVssCheck->setChecked(document->enableVss());
-        m_ignoreChangesCheck->setChecked(document->ignoreFileSetChanges());
-        m_enableSnapshotCheck->setChecked(document->enableSnapshot());
-
-        m_loadingLabel->setText(tr("Loaded"));
-    };
-
-    // Disconnect any previous stored connections
-    QObject::disconnect(m_jsonConn);
-    QObject::disconnect(m_textConn);
-
-    // Connect to Director's JSON response (stored connection for clean disconnect)
-    m_jsonConn = connect(wiz->director(), &BDirector::jsonResult,
-            this, [this, parseResponse](BDirector::Command cmd, const QString &jsonData) {
-        if (cmd != BDirector::Command::ShowFileset) return;
-
-        QObject::disconnect(m_jsonConn);
-        QObject::disconnect(m_textConn);
-
-        parseResponse(jsonData, true);
-    });
-
-    // Connect to Director's text response (stored connection for clean disconnect)
-    m_textConn = connect(wiz->director(), &BDirector::textResult,
-            this, [this, parseResponse](BDirector::Command cmd, const QString &textData) {
-        if (cmd != BDirector::Command::ShowFileset) return;
-
-        QObject::disconnect(m_jsonConn);
-        QObject::disconnect(m_textConn);
-
-        parseResponse(textData, false);
-    });
-
-    // Send command to fetch specific fileset
-    wiz->director()->doSend(BDirector::Command::ShowFileset, filesetName);
+    // Model not ready yet — add default block so wizard is usable
+    BLOG_WARNING() << "FileSet" << filesetName << "not found in model cache";
+    BFileSetDocument *doc = wiz->document();
+    doc->clear();
+    doc->setName(filesetName);
+    doc->addIncludeBlock();
+    m_nameEdit->setText(filesetName);
+    m_loadingLabel->setText(tr("Config not cached"));
 }
 
 // ============================================================================
@@ -1115,8 +1059,8 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     : QWizardPage(parent)
     , m_timeoutTimer(new QTimer(this))
 {
-    setTitle(tr("Preview & Execute"));
-    setSubTitle(tr("Review the generated FileSet configuration and execute on the Director."));
+    setTitle(tr("Preview & Deploy"));
+    setSubTitle(tr("Review the generated FileSet configuration. Copy or export it for manual deployment."));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
@@ -1124,11 +1068,11 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     m_filesetWidget = new BResourceWidget("FileSet", nullptr, this);
     mainLayout->addWidget(m_filesetWidget, 1);  // stretch factor 1: takes available space
 
-    // Configure command header row (label + copy button)
+    // Configuration header row (label + action buttons)
     QHBoxLayout *cmdHeaderLayout = new QHBoxLayout();
     cmdHeaderLayout->setContentsMargins(0, 4, 0, 0);
 
-    QLabel *cmdLabel = new QLabel(tr("Command:"), this);
+    QLabel *cmdLabel = new QLabel(tr("Configuration:"), this);
     cmdLabel->setStyleSheet("font-weight: bold;");
     cmdHeaderLayout->addWidget(cmdLabel);
 
@@ -1142,7 +1086,7 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     // Configure command text
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    m_commandEdit->setFixedHeight(104);
+    m_commandEdit->setMinimumHeight(160);
     m_commandEdit->setFont(QFont("Consolas", 9));
     m_commandEdit->setLineWrapMode(QTextEdit::WidgetWidth);
     m_commandEdit->setStyleSheet("QTextEdit { background: palette(base); border: 1px solid palette(mid); padding: 2px; }");
@@ -1191,11 +1135,17 @@ void BFileSetPreviewPage::generateConfig()
     // Generate configuration from document
     QString config = doc->toConfigText();
 
-    // Build configure command (single-line format for bconsole)
-    QString command = doc->toConfigureCommand();
-
-    // Display in UI
-    m_commandEdit->setPlainText(command);
+    // Show Bareos limitation notice + config text in command area
+    QString notice = tr(
+        "# NOTE: Bareos Director does not support 'configure add fileset' with\n"
+        "# nested Include/Exclude/Options blocks (confirmed Bareos limitation).\n"
+        "# Deploy this configuration manually:\n"
+        "#   1. Copy to /etc/bareos/bareos-dir.d/fileset/%1.conf\n"
+        "#   2. Run: systemctl reload bareos-dir\n"
+        "#\n"
+        "# Use 'Copy configuration' to copy the text below.\n\n")
+        .arg(doc->name());
+    m_commandEdit->setPlainText(notice + config);
 
     // Parse and display in resource widget
     BConfigParser parser;
@@ -1206,10 +1156,9 @@ void BFileSetPreviewPage::generateConfig()
         }
     }
 
-    // Show/hide command row based on execute option
-    bool showCmd = wiz->executeOnFinish();
-    m_commandEdit->setVisible(showCmd);
-    m_copyButton->setVisible(showCmd);
+    // Always show command area (contains config text now)
+    m_commandEdit->setVisible(true);
+    m_copyButton->setVisible(true);
 
     // Validation
     BFileSetDocument::ValidationResult validation = doc->validate();
@@ -1228,22 +1177,13 @@ void BFileSetPreviewPage::generateConfig()
 
 bool BFileSetPreviewPage::validatePage()
 {
-    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-    if (!wiz) return true;
+    int ret = QMessageBox::question(this, tr("Close Wizard"),
+        tr("The configuration has not been sent to the Director.\n"
+           "Use 'Copy configuration' to save it before closing.\n\n"
+           "Do you want to close the wizard?"),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 
-    // If execute option is unchecked, just close the wizard
-    if (!wiz->executeOnFinish()) {
-        return true;
-    }
-
-    // If already executed successfully, allow closing
-    if (m_executed) {
-        return true;
-    }
-
-    // Start async execution and keep wizard open until complete
-    executeConfigureCommand();
-    return false;
+    return (ret == QMessageBox::Yes);
 }
 
 void BFileSetPreviewPage::executeConfigureCommand()

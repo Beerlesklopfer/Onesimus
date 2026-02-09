@@ -4,6 +4,10 @@
   <strong>A modern, cross-platform management interface for Bacula and Bareos backup systems</strong>
 </p>
 
+> *In the Letter to Philemon, the Apostle Paul sends back Onesimus — a runaway slave whose name means "the useful one" in Greek. Once lost, now returned with purpose: no longer useless, but indispensable.*
+>
+> *Backups share that story. Data slips away — through failure, accident, or time. What matters is that it comes back, intact and useful, when you need it most. Onesimus helps you manage that journey: keeping watch over your Bareos environment, so that nothing stays lost for long.*
+
 <p align="center">
   <img src="https://img.shields.io/badge/Qt-6.8%2B-green?logo=qt" alt="Qt 6.8+">
   <img src="https://img.shields.io/badge/C%2B%2B-17-blue?logo=c%2B%2B" alt="C++ 17">

@@ -206,7 +206,8 @@ private:
     void setupUi();
     void collectFormValues();
     void fetchFileSets();
-    void loadFileSetFromDirector(const QString &filesetName);
+    void requestShowFilesets();
+    void loadFileSetFromModel(const QString &filesetName);
 
     // FileSet selection (Edit mode only)
     QWidget *m_filesetSelectWidget = nullptr;
@@ -221,13 +222,6 @@ private:
     QCheckBox *m_enableVssCheck = nullptr;
     QCheckBox *m_ignoreChangesCheck = nullptr;
     QCheckBox *m_enableSnapshotCheck = nullptr;
-
-    // Execute option
-    QCheckBox *m_executeCheck = nullptr;
-
-    // Stored signal connections for clean disconnect
-    QMetaObject::Connection m_jsonConn;
-    QMetaObject::Connection m_textConn;
 
     bool m_initialized = false;
 };

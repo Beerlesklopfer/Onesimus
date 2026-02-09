@@ -380,9 +380,23 @@ QMap<QString, QVariant> BIncludeOptionsForm::allValues() const
 
 void BIncludeOptionsForm::setValues(const QMap<QString, QVariant> &values)
 {
-    for (auto it = values.begin(); it != values.end(); ++it) {
+    // Defensive copy: the caller may pass a reference to block->options which
+    // gets replaced by the signal chain (setOptionValue → widget change →
+    // valueChanged → onOptionChanged → saveOptionsToBlock). Without a copy,
+    // the iterator would be invalidated mid-loop causing a crash.
+    const QMap<QString, QVariant> localCopy = values;
+
+    // Block signals to prevent the feedback loop during bulk loading.
+    // Each setOptionValue triggers widget signals → valueChanged → save,
+    // which is wasteful during loading and was the root cause of the crash.
+    blockSignals(true);
+
+    for (auto it = localCopy.constBegin(); it != localCopy.constEnd(); ++it) {
         setOptionValue(it.key(), it.value());
     }
+
+    blockSignals(false);
+    // No valueChanged() emit here — we're loading data, not user-editing.
 }
 
 void BIncludeOptionsForm::resetToDefaults()
@@ -401,13 +415,16 @@ void BIncludeOptionsForm::resetToDefaults()
 
 QString BIncludeOptionsForm::directiveName(const QString &optionName)
 {
-    // Map internal lowercase names to Bareos directive names
+    // Map internal lowercase names to Bareos directive names.
+    // Includes both schema keys ("xattr") and Bareos JSON keys ("xattrsupport").
     static QMap<QString, QString> nameMap = {
         {"signature", "Signature"},
         {"compression", "Compression"},
         {"onefs", "OneFS"},
         {"xattr", "XAttr Support"},
+        {"xattrsupport", "XAttr Support"},
         {"acl", "ACL Support"},
+        {"aclsupport", "ACL Support"},
         {"vss", "VSS"},
         {"portable", "Portable"},
         {"recurse", "Recurse"},
@@ -420,9 +437,12 @@ QString BIncludeOptionsForm::directiveName(const QString &optionName)
         {"checkfilechanges", "Check File Changes"},
         {"honornodumpflag", "Honor NoDump Flag"},
         {"fstype", "FS Type"},
+        {"drivetype", "Drive Type"},
         {"exclude_dir_containing", "Exclude Dir Containing"},
         {"strip_path", "Strip Path"},
         {"regex", "Regex"},
+        {"regexdir", "RegexDir"},
+        {"regexfile", "RegexFile"},
         {"wild", "Wild"},
         {"wildfile", "WildFile"},
         {"wilddir", "WildDir"}

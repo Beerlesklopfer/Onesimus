@@ -535,7 +535,7 @@ void BCleanupDialog::performCleanup()
         logMessage(tr("Deleting %1 old full backup jobs...").arg(m_results.oldFullBackupsJobIds.size()), "info");
 
         for (const QString &jobId : m_results.oldFullBackupsJobIds) {
-            m_director->doSend(BDirector::Command::Delete, jobId);
+            m_director->doSend(BDirector::Command::DeleteJob, jobId);
             progress++;
             m_progressBar->setValue(progress);
         }
@@ -547,7 +547,7 @@ void BCleanupDialog::performCleanup()
         logMessage(tr("Deleting %1 empty jobs...").arg(m_results.emptyJobIds.size()), "info");
 
         for (const QString &jobId : m_results.emptyJobIds) {
-            m_director->doSend(BDirector::Command::Delete, jobId);
+            m_director->doSend(BDirector::Command::DeleteJob, jobId);
             progress++;
             m_progressBar->setValue(progress);
         }
@@ -559,7 +559,7 @@ void BCleanupDialog::performCleanup()
         logMessage(tr("Deleting %1 failed jobs...").arg(m_results.failedJobIds.size()), "info");
 
         for (const QString &jobId : m_results.failedJobIds) {
-            m_director->doSend(BDirector::Command::Delete, jobId);
+            m_director->doSend(BDirector::Command::DeleteJob, jobId);
             progress++;
             m_progressBar->setValue(progress);
         }

@@ -156,6 +156,16 @@ public:
     void loadFromJson(const QJsonObject &preset);
 
     /**
+     * @brief Load from Bareos Director JSON response (show filesets format)
+     *
+     * Handles the structured JSON returned by "show filesets" in .api 2 mode:
+     * { "name": "...", "include": [{ "options": [...], "file": [...] }], "exclude": [...] }
+     *
+     * @param fsObj JSON object for a single fileset from the Director response
+     */
+    void loadFromBareosJson(const QJsonObject &fsObj);
+
+    /**
      * @brief Convert to BConfigResource
      * @return FileSet as BConfigResource
      */
@@ -214,7 +224,8 @@ signals:
 private:
     void connectBlockSignals(IncludeBlock *block);
     void onAnyModelChanged();
-    QString formatOption(const QString &key, const QVariant &value) const;
+    QString formatOption(const QString &key, const QVariant &value,
+                         const QString &indent = QString()) const;
     void initDefaultOptions(IncludeBlock *block);
 
     QString m_name;

@@ -432,11 +432,18 @@ QWidget *BResourceForm::createWidgetForDirective(const BDirective &directive,
 
     if (directive.type == "string_list" || directive.type == "addresses" || directive.type == "block") {
         QTextEdit *textEdit = new QTextEdit();
-        textEdit->setMaximumHeight(80);
+        textEdit->setMaximumHeight(directive.type == "block" ? 160 : 80);
         if (!currentStr.isEmpty()) {
             textEdit->setPlainText(currentStr);
         } else if (currentValue.type() == BConfigValue::List) {
             textEdit->setPlainText(currentValue.listValue().join("\n"));
+        } else if (currentValue.type() == BConfigValue::Block) {
+            textEdit->setPlainText(blockValueToText(currentValue.blockValue()));
+        } else if (currentValue.type() == BConfigValue::BlockList) {
+            QStringList parts;
+            for (const auto &block : currentValue.blockListValue())
+                parts.append(blockValueToText(block));
+            textEdit->setPlainText(parts.join("\n"));
         }
         if (!directive.example.isEmpty()) {
             textEdit->setPlaceholderText(directive.example);
@@ -646,4 +653,35 @@ void BResourceForm::updateDependentFields(const QString &controllingDirective)
             depLabel->setEnabled(shouldBeEnabled);
         }
     }
+}
+
+QString BResourceForm::blockValueToText(const QMap<QString, BConfigValue> &block, int indent)
+{
+    QString text;
+    QString pad(indent * 2, ' ');
+    for (auto it = block.constBegin(); it != block.constEnd(); ++it) {
+        const BConfigValue &val = it.value();
+        switch (val.type()) {
+        case BConfigValue::Simple:
+            text += QString("%1%2 = %3\n").arg(pad, it.key(), val.simpleValue());
+            break;
+        case BConfigValue::List:
+            for (const QString &item : val.listValue())
+                text += QString("%1%2 = %3\n").arg(pad, it.key(), item);
+            break;
+        case BConfigValue::Block:
+            text += QString("%1%2 {\n").arg(pad, it.key());
+            text += blockValueToText(val.blockValue(), indent + 1);
+            text += QString("%1}\n").arg(pad);
+            break;
+        case BConfigValue::BlockList:
+            for (const auto &subBlock : val.blockListValue()) {
+                text += QString("%1%2 {\n").arg(pad, it.key());
+                text += blockValueToText(subBlock, indent + 1);
+                text += QString("%1}\n").arg(pad);
+            }
+            break;
+        }
+    }
+    return text;
 }

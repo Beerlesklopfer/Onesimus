@@ -7,6 +7,7 @@
 #include "clients/bclientsmodel.h"
 #include "clients/bnewclientdialog.h"
 #include "jobs/bfilesetwizard.h"
+#include "director/bresourcedialog.h"
 #include "storagewidget.h"
 #include "schedules/bschedulewidget.h"
 // Messages widget is now inside BJobWidget
@@ -659,7 +660,6 @@ void BMainWindow::createActions()
     m_editFileSetAction->setIcon(QIcon(":/icons/icons/edit.svg"));
     m_editFileSetAction->setEnabled(false);
     connect(m_editFileSetAction, &QAction::triggered, this, [this]() {
-        // TODO: Get selected fileset name from job widget
         BFileSetWizard wizard(m_director, QString(), m_jobWidget->filesetModel(), this);
         wizard.exec();
     });
@@ -668,7 +668,55 @@ void BMainWindow::createActions()
     m_deleteFileSetAction->setIcon(QIcon(":/icons/icons/delete.svg"));
     m_deleteFileSetAction->setEnabled(false);
     connect(m_deleteFileSetAction, &QAction::triggered, this, [this]() {
-        QMessageBox::information(this, tr("Delete FileSet"), tr("Not implemented yet."));
+        BFilesetModel *model = m_jobWidget->filesetModel();
+        if (!model || model->rowCount() == 0) {
+            QMessageBox::information(this, tr("Delete FileSet"),
+                                     tr("No FileSets available."));
+            return;
+        }
+
+        QDialog dialog(this);
+        dialog.setWindowTitle(tr("Delete FileSet"));
+        dialog.setMinimumWidth(400);
+
+        QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+        QLabel *label = new QLabel(tr("Select the FileSet to delete:"), &dialog);
+        layout->addWidget(label);
+
+        QComboBox *combo = new QComboBox(&dialog);
+        combo->setModel(model);
+        layout->addWidget(combo);
+
+        layout->addSpacing(10);
+
+        QLabel *warning = new QLabel(
+            tr("<span style='color: #cc0000;'><b>Warning:</b> This will remove the "
+               "FileSet resource from the Director configuration. "
+               "This action cannot be undone!</span>"), &dialog);
+        warning->setWordWrap(true);
+        layout->addWidget(warning);
+
+        layout->addSpacing(10);
+
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Delete"));
+        buttonBox->button(QDialogButtonBox::Ok)->setIcon(QIcon::fromTheme("edit-delete"));
+        connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        layout->addWidget(buttonBox);
+
+        if (dialog.exec() != QDialog::Accepted) return;
+
+        QString name = combo->currentText();
+        int confirm = QMessageBox::warning(this, tr("Confirm Delete"),
+            tr("Are you sure you want to delete FileSet \"%1\"?").arg(name),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+
+        if (confirm == QMessageBox::Yes) {
+            onSendCommand(BDirector::Command::DeleteFileSet, name);
+        }
     });
 
     // Clients Actions
@@ -1097,11 +1145,15 @@ void BMainWindow::onAboutTriggered()
     line->setFrameShadow(QFrame::Sunken);
     mainLayout->addWidget(line);
 
-    // Description
+    // Description — etymology and purpose
     QLabel* descLabel = new QLabel(
-        "<p>Onesimus is a modern, user-friendly graphical interface for managing "
-        "backup systems. It provides real-time job monitoring, client management, "
-        "and storage administration through a clean, intuitive interface.</p>"
+        "<p style='font-style:italic;'>In the Letter to Philemon, the Apostle Paul sends back "
+        "Onesimus &mdash; a runaway slave whose name means &ldquo;the useful one&rdquo; in Greek. "
+        "Once lost, now returned with purpose: no longer useless, but indispensable.</p>"
+        "<p>Backups share that story. Data slips away &mdash; through failure, accident, or time. "
+        "What matters is that it comes back, intact and useful, when you need it most. "
+        "Onesimus helps you manage that journey: keeping watch over your Bareos environment, "
+        "so that nothing stays lost for long.</p>"
     );
     descLabel->setWordWrap(true);
     mainLayout->addWidget(descLabel);

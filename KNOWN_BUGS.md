@@ -49,6 +49,13 @@ This document lists known bugs and issues in Onesimus.
 - **Status**: Being resolved - unified BFileSetWizard in development (will replace separate wizard and dialog)
 - **Files**: `src/jobs/bnewfilesetdialog.cpp`, `src/jobs/bfilesetdialog.cpp` (will be consolidated)
 
+### FileSet Not Updated After Editing
+- **Severity**: 🟡 Medium
+- **Description**: FileSet is not updated in the Director after editing via BResourceDialog or BFileSetWizard. Changes are collected locally but not sent back to the Director.
+- **Workaround**: Manually apply changes via bconsole
+- **Status**: Under development
+- **Files**: `src/director/bresourcewidget.cpp`, `src/director/bresourcedialog.cpp`
+
 ### Client Online/Offline Status
 - **Severity**: 🟡 Medium
 - **Description**: Client online/offline status detection is unreliable. The `status client=<name>` response is marked as ONLINE by checking for "header" and "terminated" keys, but Director returns these even for offline clients (cached data). According to Bareos GitHub Issue #2325, JSON output for status client is still a feature request - FD can't output JSON.

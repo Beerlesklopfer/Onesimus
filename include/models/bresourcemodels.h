@@ -2,18 +2,18 @@
 #define BRESOURCEMODELS_H
 
 #include "models/bbasemodels.h"
+#include <QMap>
+#include <QJsonObject>
 
 // ============================================================================
 // BFilesetModel - Model for Bareos filesets
 // ============================================================================
 
 /**
- * @brief List model for displaying Bareos filesets
- * @version 1.0
- * @since 2026-01-29
+ * @brief List model for displaying Bareos filesets with full config caching
  *
- * Displays fileset information from .filesets dot-command response.
- * Inherits from BListModel for basic JSON handling.
+ * Stores fileset names from .filesets dot-command AND full resource configs
+ * from "show filesets" for use in the Edit FileSet wizard.
  */
 class BFilesetModel : public BListModel
 {
@@ -22,20 +22,18 @@ class BFilesetModel : public BListModel
 public:
     explicit BFilesetModel(QObject *parent = nullptr);
 
-    /**
-     * @brief Parses .filesets dot-command response
-     * @param jsonResponse JSON response from Director
-     */
     void parseFilesets(const QString &jsonResponse);
+    void parseShowFilesets(const QString &response);
 
-    /**
-     * @brief Returns fileset names as string list
-     * @return QStringList of fileset names
-     */
     QStringList filesetNames() const;
+    QJsonObject filesetConfig(const QString &name) const;
+    bool hasFilesetConfigs() const { return !m_filesetConfigs.isEmpty(); }
 
 protected:
     QString getDisplayText(const QJsonObject &item) const override;
+
+private:
+    QMap<QString, QJsonObject> m_filesetConfigs;
 };
 
 

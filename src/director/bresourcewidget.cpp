@@ -8,7 +8,6 @@
 
 #include "director/bresourcewidget.h"
 #include "director/bresourcedialog.h"
-#include "jobs/bfilesetwizard.h"
 #include "version.h"
 #include <QDateTime>
 #include <QFileDialog>
@@ -157,20 +156,10 @@ void BResourceWidget::onEditResource()
     BConfigResource modified;
     bool accepted = false;
 
-    // Use specialized wizard for FileSet, generic dialog for others
-    if (m_resourceType.compare("FileSet", Qt::CaseInsensitive) == 0) {
-        QString filesetName = res.simpleValue("Name");
-        BFileSetWizard wizard(m_director, filesetName, nullptr, this);
-        if (wizard.exec() == QWizard::Accepted) {
-            // FileSet was modified via Director - reload resources
-            accepted = true;
-        }
-    } else {
-        BResourceDialog dlg(m_resourceType, res, this);
-        if (dlg.exec() == QDialog::Accepted) {
-            modified = dlg.resource();
-            accepted = true;
-        }
+    BResourceDialog dlg(m_resourceType, res, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        modified = dlg.resource();
+        accepted = true;
     }
 
     if (accepted) {
@@ -257,6 +246,19 @@ QString BResourceWidget::formatValue(const BConfigValue &value, int indent) cons
                           .arg(indentStr, it.key(), formatValue(it.value(), indent + 1));
         }
         result += indentStr + "}";
+        return result;
+    }
+
+    case BConfigValue::BlockList: {
+        QString result;
+        for (const auto &block : value.blockListValue()) {
+            result += "{\n";
+            for (auto it = block.begin(); it != block.end(); ++it) {
+                result += QString("%1  %2 = %3\n")
+                              .arg(indentStr, it.key(), formatValue(it.value(), indent + 1));
+            }
+            result += indentStr + "}\n";
+        }
         return result;
     }
     }
@@ -387,6 +389,14 @@ QString BResourceWidget::resourceToConf(const BConfigResource &resource) const
             conf += QString("%1}\n").arg(pad);
             break;
         }
+        case BConfigValue::BlockList:
+            for (const auto &block : val.blockListValue()) {
+                conf += QString("%1%2 {\n").arg(pad, directive);
+                for (auto it = block.begin(); it != block.end(); ++it)
+                    formatValue(it.key(), it.value(), indent + 1);
+                conf += QString("%1}\n").arg(pad);
+            }
+            break;
         }
     };
 

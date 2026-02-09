@@ -171,7 +171,7 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
                     cmd = BDirector::Command::Cancel;
                     emit statusMessageChanged(QString("Breche Job ab..."));
                 } else if (command == "delete") {
-                    cmd = BDirector::Command::Delete;
+                    cmd = BDirector::Command::DeleteJob;
                     emit statusMessageChanged(QString("Lösche Job..."));
                 } else if (command == "rerun") {
                     cmd = BDirector::Command::Rerun;

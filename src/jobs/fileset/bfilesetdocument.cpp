@@ -8,6 +8,8 @@
 
 #include "jobs/fileset/bfilesetdocument.h"
 #include "config/bconfigparser.h"
+#include "config/bincludeoptionsform.h"
+#include "blogging.h"
 #include <QJsonArray>
 
 BFileSetDocument::BFileSetDocument(QObject *parent)
@@ -219,14 +221,13 @@ void BFileSetDocument::loadFromResource(const BConfigResource &resource)
     m_enableSnapshot = resource.simpleValue("EnableSnapshot", "no").toLower() == "yes";
 
     // Load Include blocks - BConfigResource stores nested structures
-    BConfigValue includeValue = resource.value("Include");
-    if (includeValue.type() == BConfigValue::Block) {
+    // Parser normalizes all keys to lowercase, so use lowercase lookups
+    auto loadIncludeBlock = [this](const QMap<QString, BConfigValue> &incBlock) {
         IncludeBlock *block = addIncludeBlock();
 
-        // Load paths from block
-        QMap<QString, BConfigValue> incBlock = includeValue.blockValue();
-        if (incBlock.contains("File")) {
-            BConfigValue fileValue = incBlock.value("File");
+        // Load paths from block (parser stores as "file" lowercase)
+        if (incBlock.contains("file")) {
+            BConfigValue fileValue = incBlock.value("file");
             if (fileValue.type() == BConfigValue::List) {
                 block->pathsModel->setItems(fileValue.listValue());
             } else if (fileValue.type() == BConfigValue::Simple) {
@@ -234,30 +235,38 @@ void BFileSetDocument::loadFromResource(const BConfigResource &resource)
             }
         }
 
-        // Load options
-        if (incBlock.contains("Options")) {
-            BConfigValue optsValue = incBlock.value("Options");
+        // Load options (parser stores as "options" lowercase)
+        if (incBlock.contains("options")) {
+            BConfigValue optsValue = incBlock.value("options");
             if (optsValue.type() == BConfigValue::Block) {
                 QMap<QString, BConfigValue> opts = optsValue.blockValue();
                 for (auto it = opts.begin(); it != opts.end(); ++it) {
-                    if (it.key().compare("Exclude", Qt::CaseInsensitive) == 0) {
+                    if (it.key().compare("exclude", Qt::CaseInsensitive) == 0) {
                         // Nested exclude within Options
                         if (it.value().type() == BConfigValue::Block) {
                             QMap<QString, BConfigValue> exclBlock = it.value().blockValue();
-                            if (exclBlock.contains("File")) {
-                                BConfigValue exclFiles = exclBlock.value("File");
+                            if (exclBlock.contains("file")) {
+                                BConfigValue exclFiles = exclBlock.value("file");
                                 if (exclFiles.type() == BConfigValue::List) {
                                     block->excludeFilesModel->setItems(exclFiles.listValue());
                                 } else if (exclFiles.type() == BConfigValue::Simple) {
                                     block->excludeFilesModel->setItems({exclFiles.simpleValue()});
                                 }
                             }
-                            if (exclBlock.contains("WildDir")) {
-                                BConfigValue patterns = exclBlock.value("WildDir");
+                            if (exclBlock.contains("wilddir")) {
+                                BConfigValue patterns = exclBlock.value("wilddir");
                                 if (patterns.type() == BConfigValue::List) {
                                     block->excludePatternsModel->setItems(patterns.listValue());
                                 } else if (patterns.type() == BConfigValue::Simple) {
                                     block->excludePatternsModel->setItems({patterns.simpleValue()});
+                                }
+                            }
+                            if (exclBlock.contains("wildfile")) {
+                                BConfigValue patterns = exclBlock.value("wildfile");
+                                if (patterns.type() == BConfigValue::List) {
+                                    block->excludeWildFileModel->setItems(patterns.listValue());
+                                } else if (patterns.type() == BConfigValue::Simple) {
+                                    block->excludeWildFileModel->setItems({patterns.simpleValue()});
                                 }
                             }
                         }
@@ -270,19 +279,170 @@ void BFileSetDocument::loadFromResource(const BConfigResource &resource)
                 }
             }
         }
+    };
+
+    BConfigValue includeValue = resource.value("include");
+    if (includeValue.type() == BConfigValue::Block) {
+        loadIncludeBlock(includeValue.blockValue());
+    } else if (includeValue.type() == BConfigValue::BlockList) {
+        // Multiple Include blocks
+        for (const auto &blockMap : includeValue.blockListValue()) {
+            loadIncludeBlock(blockMap);
+        }
     }
 
     // Load global Exclude
-    BConfigValue excludeValue = resource.value("Exclude");
+    BConfigValue excludeValue = resource.value("exclude");
     if (excludeValue.type() == BConfigValue::Block) {
         QMap<QString, BConfigValue> exclBlock = excludeValue.blockValue();
-        if (exclBlock.contains("File")) {
-            BConfigValue fileValue = exclBlock.value("File");
+        if (exclBlock.contains("file")) {
+            BConfigValue fileValue = exclBlock.value("file");
             if (fileValue.type() == BConfigValue::List) {
                 m_excludePathModel->setItems(fileValue.listValue());
             } else if (fileValue.type() == BConfigValue::Simple) {
                 m_excludePathModel->setItems({fileValue.simpleValue()});
             }
+        }
+    }
+
+    markClean();
+    emit documentChanged();
+}
+
+void BFileSetDocument::loadFromBareosJson(const QJsonObject &fsObj)
+{
+    BLOG_DEBUG() << "BFileSetDocument::loadFromBareosJson() — name:" << fsObj["name"].toString();
+    clear();
+
+    m_name = fsObj["name"].toString();
+    m_description = fsObj["description"].toString();
+
+    // Include blocks
+    QJsonArray includes = fsObj["include"].toArray();
+    for (const QJsonValue &incVal : includes) {
+        QJsonObject incObj = incVal.toObject();
+        IncludeBlock *block = addIncludeBlock();
+
+        // Clear defaults — JSON provides the actual options
+        block->options.clear();
+
+        // File paths to include
+        QJsonArray files = incObj["file"].toArray();
+        QStringList paths;
+        for (const QJsonValue &f : files) {
+            paths.append(f.toString());
+        }
+        block->pathsModel->setItems(paths);
+
+        // Options array — each element is an options block
+        QJsonArray optionsArray = incObj["options"].toArray();
+        QStringList exclWildDir, exclWildFile, exclFiles;
+
+        for (const QJsonValue &optVal : optionsArray) {
+            QJsonObject optObj = optVal.toObject();
+            bool isExclude = optObj.value("exclude").toBool(false);
+
+            for (auto it = optObj.begin(); it != optObj.end(); ++it) {
+                const QString &key = it.key();
+                const QJsonValue &val = it.value();
+
+                // Skip the exclude flag itself
+                if (key == "exclude") continue;
+
+                // Pattern-type keys depend on exclude flag
+                if (key == "wilddir") {
+                    if (isExclude) {
+                        for (const QJsonValue &v : val.toArray())
+                            exclWildDir.append(v.toString());
+                    } else {
+                        QStringList list;
+                        for (const QJsonValue &v : val.toArray()) list.append(v.toString());
+                        if (!list.isEmpty()) block->options[key] = QVariant(list);
+                    }
+                } else if (key == "wildfile") {
+                    if (isExclude) {
+                        for (const QJsonValue &v : val.toArray())
+                            exclWildFile.append(v.toString());
+                    } else {
+                        QStringList list;
+                        for (const QJsonValue &v : val.toArray()) list.append(v.toString());
+                        if (!list.isEmpty()) block->options[key] = QVariant(list);
+                    }
+                } else if (key == "wild") {
+                    if (isExclude) {
+                        for (const QJsonValue &v : val.toArray())
+                            exclWildFile.append(v.toString());
+                    } else {
+                        QStringList list;
+                        for (const QJsonValue &v : val.toArray()) list.append(v.toString());
+                        if (!list.isEmpty()) block->options[key] = QVariant(list);
+                    }
+                } else if (val.isArray()) {
+                    // Array values (fstype, drivetype, regexdir, etc.)
+                    QStringList list;
+                    for (const QJsonValue &v : val.toArray()) list.append(v.toString());
+                    if (!list.isEmpty()) block->options[key] = QVariant(list);
+                } else if (val.isBool()) {
+                    block->options[key] = val.toBool();
+                } else if (val.isString()) {
+                    block->options[key] = val.toString();
+                } else if (val.isDouble()) {
+                    block->options[key] = val.toInt();
+                }
+            }
+        }
+
+        // Set exclusion models from accumulated patterns
+        if (!exclWildDir.isEmpty()) block->excludePatternsModel->setItems(exclWildDir);
+        if (!exclWildFile.isEmpty()) block->excludeWildFileModel->setItems(exclWildFile);
+        if (!exclFiles.isEmpty()) block->excludeFilesModel->setItems(exclFiles);
+    }
+
+    // Global Exclude blocks — reclassify wildcard patterns
+    // Bareos global Exclude { File = ... } is only for literal paths.
+    // Wildcard patterns belong in Include { Options { Exclude { WildDir/WildFile } } }.
+    QJsonArray excludes = fsObj["exclude"].toArray();
+    QStringList excludePaths;
+    QStringList reclassWildDir, reclassWildFile;
+
+    for (const QJsonValue &excVal : excludes) {
+        QJsonObject excObj = excVal.toObject();
+        QJsonArray files = excObj["file"].toArray();
+        for (const QJsonValue &f : files) {
+            const QString path = f.toString();
+            if (path.contains('*') || path.contains('?')) {
+                // Wildcard pattern — route to per-block exclude models
+                if (path.contains('/')) {
+                    // Path-based pattern → WildDir (e.g., */.cache, */tmp)
+                    reclassWildDir.append(path);
+                } else {
+                    // Filename pattern → WildFile (e.g., *.pid, *.log)
+                    reclassWildFile.append(path);
+                }
+            } else {
+                // Literal path — stays in global exclude
+                excludePaths.append(path);
+            }
+        }
+    }
+
+    if (!excludePaths.isEmpty()) {
+        m_excludePathModel->setItems(excludePaths);
+    }
+
+    // Route reclassified wildcards to first include block's exclude models
+    if ((!reclassWildDir.isEmpty() || !reclassWildFile.isEmpty())
+        && !m_includeBlocks.isEmpty()) {
+        IncludeBlock *firstBlock = m_includeBlocks.first();
+        if (!reclassWildDir.isEmpty()) {
+            QStringList existing = firstBlock->excludePatternsModel->items();
+            existing.append(reclassWildDir);
+            firstBlock->excludePatternsModel->setItems(existing);
+        }
+        if (!reclassWildFile.isEmpty()) {
+            QStringList existing = firstBlock->excludeWildFileModel->items();
+            existing.append(reclassWildFile);
+            firstBlock->excludeWildFileModel->setItems(existing);
         }
     }
 
@@ -378,7 +538,7 @@ QString BFileSetDocument::toConfigText() const
         // Options first
         out << "    Options {\n";
         for (auto it = block->options.begin(); it != block->options.end(); ++it) {
-            out << "      " << formatOption(it.key(), it.value()) << "\n";
+            out << formatOption(it.key(), it.value(), "      ") << "\n";
         }
 
         // Nested exclude in Options
@@ -424,7 +584,7 @@ QString BFileSetDocument::toConfigText() const
 QString BFileSetDocument::toConfigureCommand() const
 {
     QStringList parts;
-    parts << "configure add fileset";
+    parts << "add fileset";
     parts << QString("name=\"%1\"").arg(m_name);
 
     if (!m_description.isEmpty()) {
@@ -446,20 +606,30 @@ QString BFileSetDocument::toConfigureCommand() const
     // Include blocks
     for (const IncludeBlock *block : m_includeBlocks) {
         QStringList includeParts;
-        includeParts << "include {";
+        includeParts << "include={";
 
         // Options
         QStringList optParts;
-        optParts << "options {";
+        optParts << "options={";
 
         for (auto it = block->options.begin(); it != block->options.end(); ++it) {
-            QString key = it.key().toLower().replace(" ", "");
+            // Use lowercase key without spaces for configure command syntax
+            QString key = BIncludeOptionsForm::directiveName(it.key())
+                              .toLower().replace(" ", "");
             QVariant val = it.value();
 
             if (val.typeId() == QMetaType::Bool) {
                 optParts << QString("%1=%2").arg(key, val.toBool() ? "yes" : "no");
+            } else if (val.typeId() == QMetaType::QStringList) {
+                // List values: emit one per item
+                for (const QString &item : val.toStringList()) {
+                    if (!item.isEmpty())
+                        optParts << QString("%1=\"%2\"").arg(key, item);
+                }
             } else {
-                optParts << QString("%1=\"%2\"").arg(key, val.toString());
+                QString str = val.toString();
+                if (!str.isEmpty())
+                    optParts << QString("%1=\"%2\"").arg(key, str);
             }
         }
 
@@ -469,7 +639,7 @@ QString BFileSetDocument::toConfigureCommand() const
             block->excludeWildFileModel->rowCount() > 0) {
 
             QStringList exclParts;
-            exclParts << "exclude {";
+            exclParts << "exclude={";
 
             for (const QString &f : block->excludeFilesModel->items()) {
                 exclParts << QString("file=\"%1\"").arg(f);
@@ -499,7 +669,7 @@ QString BFileSetDocument::toConfigureCommand() const
     // Global Exclude block
     if (m_excludePathModel->rowCount() > 0) {
         QStringList exclParts;
-        exclParts << "exclude {";
+        exclParts << "exclude={";
         for (const QString &path : m_excludePathModel->items()) {
             exclParts << QString("file=\"%1\"").arg(path);
         }
@@ -616,15 +786,22 @@ void BFileSetDocument::clear()
     m_ignoreFileSetChanges = false;
     m_enableSnapshot = false;
 
-    // Clear include blocks
-    qDeleteAll(m_includeBlocks);
+    // Clear undo stack FIRST (commands may reference models)
+    m_undoStack->clear();
+
+    // Delete include blocks AND their models (avoid leaking model objects)
+    for (int i = 0; i < m_includeBlocks.size(); ++i) {
+        IncludeBlock *block = m_includeBlocks[i];
+        delete block->pathsModel;
+        delete block->excludeFilesModel;
+        delete block->excludePatternsModel;
+        delete block->excludeWildFileModel;
+        delete block;
+    }
     m_includeBlocks.clear();
 
     // Clear global exclude
     m_excludePathModel->setItems(QStringList());
-
-    // Clear undo stack
-    m_undoStack->clear();
 
     m_nextBlockId = 1;
 
@@ -650,16 +827,25 @@ void BFileSetDocument::onAnyModelChanged()
     emit documentChanged();
 }
 
-QString BFileSetDocument::formatOption(const QString &key, const QVariant &value) const
+QString BFileSetDocument::formatOption(const QString &key, const QVariant &value,
+                                       const QString &indent) const
 {
-    // Format option based on type
+    // Convert raw key to proper Bareos directive name
+    QString directive = BIncludeOptionsForm::directiveName(key);
+
     if (value.typeId() == QMetaType::Bool) {
-        return QString("%1 = %2").arg(key, value.toBool() ? "yes" : "no");
+        return QString("%1%2 = %3").arg(indent, directive, value.toBool() ? "yes" : "no");
     } else if (value.typeId() == QMetaType::Int || value.typeId() == QMetaType::LongLong) {
-        return QString("%1 = %2").arg(key).arg(value.toLongLong());
+        return QString("%1%2 = %3").arg(indent, directive).arg(value.toLongLong());
+    } else if (value.typeId() == QMetaType::QStringList) {
+        // List values: emit one directive per item (e.g., FS Type = btrfs\nFS Type = ext4)
+        QStringList lines;
+        for (const QString &item : value.toStringList()) {
+            lines.append(QString("%1%2 = %3").arg(indent, directive, item));
+        }
+        return lines.join("\n");
     } else {
-        // String or other - quote it
-        return QString("%1 = \"%2\"").arg(key, value.toString());
+        return QString("%1%2 = %3").arg(indent, directive, value.toString());
     }
 }
 
