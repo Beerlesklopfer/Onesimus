@@ -318,92 +318,238 @@ Create certificates with:
 
 ```
 onesimus/
+├── CMakeLists.txt              # Build configuration
+├── CMakePresets.json            # CMake presets (Linux/Windows/macOS)
+├── .build_number               # Auto-incrementing build number
 ├── include/                    # Header files
 │   ├── bmainwindow.h           # Main window
-│   ├── bsettingsdialog.h       # Settings dialog
-│   ├── bconnectionwizard.h     # Connection wizard
-│   ├── bcleanupdialog.h        # Job cleanup dialog
-│   ├── bprofilesettingsdialog.h# Profile settings
-│   ├── bconfigexporter.h       # Config export
 │   ├── bcertificategenerator.h # Certificate generator
-│   ├── bdirector.h             # Director base class
-│   ├── bareosdirector.h        # Bareos-specific
-│   ├── bareosauth.h            # Bareos authentication
-│   ├── bbasemodels.h           # Base models (List, Table, Tree)
-│   ├── bresourcemodels.h       # Resource models (Fileset, Storage, Pool, Level)
+│   ├── bcheckableheaderview.h  # Checkable table header
+│   ├── bcleanupdialog.h        # Job cleanup dialog
+│   ├── bconnectionprofile.h    # Connection profile data
+│   ├── bconnectionwizard.h     # Connection wizard
+│   ├── bconsolemodel.h         # Console command model
+│   ├── bdirectiveregistry.h    # Directive registry
+│   ├── blogging.h              # Logging utilities
+│   ├── bpaginationwidget.h     # Pagination widget
+│   ├── bpasswordutil.h         # Password utilities
+│   ├── bpfxconverter.h         # PFX certificate converter
+│   ├── bstoragemodel.h         # Storage model
 │   ├── btranslations.h         # i18n system
-│   ├── bsettings.h             # Settings management
-│   ├── clientwidget.h          # Client widget
 │   ├── storagewidget.h         # Storage widget
-│   ├── clients/                # Client management headers
+│   ├── version.h               # Auto-generated version header
+│   ├── version.h.in            # Version header template
+│   ├── clients/                # Client management
+│   │   ├── bclientdetailsdialog.h  # Client details dialog
+│   │   ├── bclientsmodel.h     # Clients data model
+│   │   ├── bclientswidget.h    # Clients list widget
+│   │   ├── bclientwidget.h     # Single client widget
 │   │   └── bnewclientdialog.h  # New Client Wizard
-│   ├── config/                 # Config parsing headers
+│   ├── config/                 # Configuration & settings
+│   │   ├── bcolumnconfiguration.h  # Column configuration
+│   │   ├── bconfigexporter.h   # Config export logic
 │   │   ├── bconfigparser.h     # Bareos/Bacula config parser
-│   │   └── bdirectiveschema.h  # Directive JSON schema loader
-│   ├── db/                     # Database headers
-│   │   └── bdatabase.h         # SQLite database management
-│   ├── director/               # Director-related headers
-│   │   ├── bconfigimportdialog.h # Config import dialog
-│   │   ├── bresourcedialog.h   # Schema-driven resource edit dialog
+│   │   ├── bdirectiveschema.h  # Directive JSON schema loader
+│   │   ├── beditablelistdelegate.h # Editable list delegate
+│   │   ├── beditablelistmodel.h    # Editable list model
+│   │   ├── beditablelistwidget.h   # Editable list widget
+│   │   ├── bincludeoptionsform.h   # FileSet Include options form
+│   │   ├── bprofilesettingsdialog.h # Profile settings dialog
 │   │   ├── bresourceform.h     # Schema-driven form widget
+│   │   ├── bsettings.h         # Application settings
+│   │   ├── bsettingsdialog.h   # Settings dialog
+│   │   ├── bsettingshistory.h  # Settings change history
+│   │   └── bundocommands.h     # Undo/redo commands
+│   ├── db/                     # Database layer
+│   │   ├── bdatabase.h         # SQLite database management
+│   │   ├── bdirectormodel.h    # Director config model (DB)
+│   │   └── bresourcemodel.h    # Resource model (DB)
+│   ├── director/               # Director communication
+│   │   ├── baculaauth.h        # Bacula authentication
+│   │   ├── bareosauth.h        # Bareos CRAM-MD5/TLS auth
+│   │   ├── bareosdirector.h    # Bareos JSON-RPC protocol
+│   │   ├── bconfigimportdialog.h # Config import dialog
+│   │   ├── bdirector.h         # Director thread-safe wrapper
+│   │   ├── bjsonstreamreader.h # JSON streaming parser
+│   │   ├── bresourcedialog.h   # Schema-driven resource edit dialog
 │   │   ├── bresourcewidget.h   # Resource display widget
 │   │   └── bresourcewidgets.h  # Specialized resource widgets
-│   ├── models/                 # Model headers
-│   │   ├── bbasemodels.h       # Base models (BListModel, BTableModel)
+│   ├── jobs/                   # Job management
+│   │   ├── bbvfsmodel.h        # BVFS file browser model
+│   │   ├── bcheckboxdelegate.h # Checkbox delegate
+│   │   ├── bfilesetwizard.h    # FileSet creation wizard
+│   │   ├── bjobdetailsdialog.h # Job details dialog
+│   │   ├── bjobfileswidget.h   # Job files browser
+│   │   ├── bjoblogdialog.h     # Job log dialog
+│   │   ├── bjobmodels.h        # Job data models
+│   │   ├── bjobsstatisticswidget.h # Job statistics widget
+│   │   ├── bjobwidget.h        # Main job management widget
+│   │   ├── bjobwizard.h        # Add Job/JobDefs Wizard (WIP)
+│   │   ├── bjsonjobview.h      # JSON job view
+│   │   ├── blevelcolors.h      # Backup level color scheme
+│   │   ├── bnewjobdialog.h     # Run New Job dialog
+│   │   ├── brestorewizard.h    # Restore wizard
+│   │   ├── bviewpresets.h      # View presets
+│   │   └── fileset/            # FileSet sub-components
+│   │       ├── bfilesetdocument.h    # FileSet document model
+│   │       └── bincludeblockwidget.h # Include block editor
+│   ├── messages/               # Messages management
+│   │   └── bmessageswidget.h   # Messages widget
+│   ├── models/                 # Shared data models
+│   │   ├── bbasemodels.h       # Base models (BListModel, BTableModel, BTreeModel)
+│   │   ├── bclientmodel.h      # Client data model
 │   │   └── bresourcemodels.h   # Resource models (Fileset, Storage, Pool, Catalog, Job, etc.)
-│   └── jobs/                   # Job-specific headers
-│       ├── bjobmodels.h        # Job models
-│       ├── bjobwidget.h        # Job widget
-│       └── bjobwizard.h        # Add Job/JobDefs Wizard (WIP)
+│   └── schedules/              # Schedule management
+│       ├── bschedulewidget.h   # Schedule widget
+│       └── bweeklyplanner.h    # Weekly planner widget
 ├── src/                        # Implementations
 │   ├── main.cpp                # Entry point with i18n init
-│   ├── bmainwindow.cpp         # Main window logic
-│   ├── bsettingsdialog.cpp     # Settings dialog logic
-│   ├── bconnectionwizard.cpp   # Connection wizard logic
-│   ├── bcleanupdialog.cpp      # Job cleanup logic
-│   ├── bprofilesettingsdialog.cpp # Profile settings
-│   ├── bconfigexporter.cpp     # Config export logic
-│   ├── bcertificategenerator.cpp # Certificate generation
-│   ├── bdirector.cpp           # Director communication
-│   ├── bareosdirector.cpp      # Bareos JSON-RPC
-│   ├── bareosauth.cpp          # Bareos CRAM-MD5/TLS auth
-│   ├── bbasemodels.cpp         # Base model implementations
-│   ├── bresourcemodels.cpp     # Resource model implementations
-│   ├── btranslations.cpp       # i18n implementation
-│   ├── bjsonstreamreader.cpp   # JSON stream parser
+│   ├── bcertificategenerator.cpp
+│   ├── bcheckableheaderview.cpp
+│   ├── bcheckboxdelegate.cpp
+│   ├── bcleanupdialog.cpp
+│   ├── bconnectionwizard.cpp
+│   ├── bdirectiveregistry.cpp
+│   ├── bmainwindow.cpp         # Main window logic (~2000 lines)
+│   ├── bpfxconverter.cpp
+│   ├── btranslations.cpp
+│   ├── storagewidget.cpp
 │   ├── clients/                # Client management
+│   │   ├── bclientdetailsdialog.cpp
+│   │   ├── bclientsmodel.cpp
+│   │   ├── bclientswidget.cpp
+│   │   ├── bclientwidget.cpp
 │   │   └── bnewclientdialog.cpp
-│   ├── config/                 # Config parsing
+│   ├── config/                 # Configuration & settings
+│   │   ├── bcolumnconfiguration.cpp
+│   │   ├── bconfigexporter.cpp
 │   │   ├── bconfigparser.cpp
-│   │   └── bdirectiveschema.cpp
-│   ├── db/                     # Database
-│   │   └── bdatabase.cpp
-│   ├── director/               # Director-related
-│   │   ├── bconfigimportdialog.cpp
-│   │   ├── bresourcedialog.cpp # Schema-driven resource edit dialog
+│   │   ├── bdirectiveschema.cpp
+│   │   ├── beditablelistdelegate.cpp
+│   │   ├── beditablelistmodel.cpp
+│   │   ├── beditablelistwidget.cpp
+│   │   ├── bincludeoptionsform.cpp
+│   │   ├── bprofilesettingsdialog.cpp
 │   │   ├── bresourceform.cpp   # Schema-driven form widget
+│   │   ├── bsettings.cpp
+│   │   ├── bsettingsdialog.cpp
+│   │   ├── bsettingshistory.cpp
+│   │   └── bundocommands.cpp
+│   ├── db/                     # Database layer
+│   │   ├── bdatabase.cpp
+│   │   ├── bdirectormodel.cpp
+│   │   └── bresourcemodel.cpp
+│   ├── director/               # Director communication
+│   │   ├── baculaauth.cpp
+│   │   ├── bareosauth.cpp      # Bareos CRAM-MD5/TLS auth
+│   │   ├── bareosdirector.cpp  # Bareos JSON-RPC protocol
+│   │   ├── bconfigimportdialog.cpp
+│   │   ├── bdirector.cpp       # Thread-safe Director wrapper
+│   │   ├── bjsonstreamreader.cpp
+│   │   ├── bresourcedialog.cpp
 │   │   ├── bresourcewidget.cpp
 │   │   └── bresourcewidgets.cpp
-│   ├── models/                 # Data models
+│   ├── jobs/                   # Job management
+│   │   ├── bbvfsmodel.cpp      # BVFS file browser
+│   │   ├── bfilesetwizard.cpp  # FileSet wizard
+│   │   ├── bjobdetailsdialog.cpp
+│   │   ├── bjobfileswidget.cpp
+│   │   ├── bjoblogdialog.cpp
+│   │   ├── bjobmodels.cpp
+│   │   ├── bjobsstatisticswidget.cpp
+│   │   ├── bjobwidget.cpp
+│   │   ├── bjobwizard.cpp      # Add Job/JobDefs Wizard (WIP)
+│   │   ├── bjsonjobview.cpp
+│   │   ├── bnewjobdialog.cpp
+│   │   ├── bpaginationwidget.cpp
+│   │   ├── brestorewizard.cpp
+│   │   ├── bviewpresets.cpp
+│   │   └── fileset/            # FileSet sub-components
+│   │       ├── bfilesetdocument.cpp
+│   │       └── bincludeblockwidget.cpp
+│   ├── messages/               # Messages management
+│   │   └── bmessageswidget.cpp
+│   ├── models/                 # Shared data models
 │   │   ├── bbasemodels.cpp
 │   │   └── bresourcemodels.cpp
-│   └── jobs/                   # Job implementations
+│   └── schedules/              # Schedule management
+│       ├── bschedulewidget.cpp
+│       └── bweeklyplanner.cpp
 ├── resources/                  # Qt resources
 │   ├── resources.qrc           # Resource collection file
-│   ├── directives/             # JSON directive schemas
-│   ├── templates/              # Config templates (filesets)
-│   ├── translations/           # Directive translations (de)
-│   ├── icons/                  # Application and UI icons
+│   ├── onesimus.rc             # Windows resource file
+│   ├── directives/             # JSON directive schemas (13 files)
+│   │   ├── catalog.json        #   Catalog resource schema
+│   │   ├── client.json         #   Client resource schema
+│   │   ├── console.json        #   Console resource schema
+│   │   ├── director.json       #   Director resource schema
+│   │   ├── fileset.json        #   FileSet resource schema
+│   │   ├── job.json            #   Job resource schema
+│   │   ├── jobdef.json         #   JobDefs resource schema
+│   │   ├── messages.json       #   Messages resource schema
+│   │   ├── pool.json           #   Pool resource schema
+│   │   ├── schedule.json       #   Schedule resource schema
+│   │   ├── storage.json        #   Storage resource schema
+│   │   ├── directive_groups.json    # Group definitions
+│   │   └── directive_schema.json    # Meta-schema
+│   ├── templates/filesets/     # FileSet templates (22 presets)
+│   ├── translations/directives/ # Directive translations (de)
+│   ├── icons/                  # SVG/PNG icons (50+ icons)
 │   ├── themes/                 # QSS stylesheets (dark/light)
 │   └── sql/                    # Database schemas and migrations
+│       ├── schema/v1_initial.sql
+│       └── migrations/         # v2–v5 migration scripts
+├── ui/                         # Qt Designer UI files
+│   ├── bmainwindow.ui
+│   ├── bclientwidget.ui
+│   ├── bsettingsdialog.ui
+│   ├── jobwidget.ui
+│   └── storagewidget.ui
+├── translations/               # Qt Linguist .ts files (6 languages)
+│   ├── onesimus_de.ts
+│   ├── onesimus_en.ts
+│   ├── onesimus_es.ts
+│   ├── onesimus_fr.ts
+│   ├── onesimus_it.ts
+│   └── onesimus_ru.ts
+├── test/                       # Test suite
+│   ├── bareos-dir.d/           # Bareos Director test config
+│   │   ├── bareos-dir.d/       #   Full Director config tree
+│   │   └── tls/                #   TLS test certificates
+│   ├── bjobfileswidget_test/   # Job files widget unit test
+│   ├── configs/                # Test console configs (PSK/cert/legacy)
+│   ├── bareosauth_test.cpp     # Auth unit test
+│   ├── director_test.cpp       # Director unit test
+│   ├── generate_bareos_testdata.py  # Test data generator
+│   └── *.sh                    # Shell test scripts
+├── cmake/                      # CMake modules
+│   └── IncrementBuildNumber.cmake
 ├── packaging/                  # Package generation
 │   └── onesimus.desktop.in     # Linux desktop entry
-├── test/                       # Test suite
-├── translations/               # Qt Linguist .ts files (6 languages)
-├── ui/                         # Qt UI files
+├── scripts/                    # Build & utility scripts
+│   ├── build-openssl.bat       # Windows OpenSSL build
+│   ├── generate_fileset_templates.py
+│   └── validate_directives.py
+├── examples/                   # Example code
+│   └── example_usage.cpp
+├── docs/                       # Documentation
+│   ├── ONESIMUS_DOCUMENTATION.md
+│   └── WORK_SUMMARY.md
+├── res/img/                    # Legacy logo images
+│   ├── logo_bacula.png
+│   └── logo_bareos.png
 ├── external/                   # Git submodules
-│   └── openssl/                # OpenSSL 3.6
-└── CMakeLists.txt              # Build configuration
+│   └── openssl/                # OpenSSL 3.x
+├── wiki/                       # GitHub Wiki (Git submodule)
+├── build.sh                    # Linux build script
+├── build-windows.ps1           # Windows build script
+├── BUILD_LINUX.md              # Linux build instructions
+├── BUILD_WINDOWS.md            # Windows build instructions
+├── BUILD_OSX.md                # macOS build instructions
+├── CHANGELOG.md                # Changelog
+├── KNOWN_BUGS.md               # Known bugs tracker
+├── LICENSE                     # License file
+└── todo.md                     # Development TODO
 ```
 
 ### Architecture
