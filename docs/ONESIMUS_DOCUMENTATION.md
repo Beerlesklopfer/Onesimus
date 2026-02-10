@@ -1,1264 +1,146 @@
-# Onesimus - Comprehensive Documentation
+# Onesimus - Technical Documentation
 
-**Version:** 0.1.0
-**Last Updated:** 2026-01-31
+**Version:** 0.1.0 (Build 274)
+**Last Updated:** 2026-02-08
 **Project:** Bareos/Bacula GUI Configuration Manager
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Database Architecture](#database-architecture)
-3. [Password Management](#password-management)
-4. [Model/View Architecture](#modelview-architecture)
-5. [Directive System](#directive-system)
-6. [Connection Wizard & Configuration Import](#connection-wizard--configuration-import)
-7. [UI Patterns](#ui-patterns)
-8. [Development Summary](#development-summary)
-9. [API Reference](#api-reference)
+1. [Introduction](#1-introduction)
+2. [Architecture](#2-architecture)
+3. [Director Communication](#3-director-communication)
+4. [Directive Schema System](#4-directive-schema-system)
+5. [Schema-Driven Forms](#5-schema-driven-forms)
+6. [Wizards](#6-wizards)
+7. [Model/View Architecture](#7-modelview-architecture)
+8. [Password & Authentication](#8-password--authentication)
+9. [Connection Wizard](#9-connection-wizard)
+10. [UI Patterns](#10-ui-patterns)
+11. [Deprecated: Database Approach](#11-deprecated-database-approach)
 
 ---
 
 ## 1. Introduction
 
-**Onesimus** is a Qt-based GUI application for managing Bareos and Bacula backup system configurations. It provides an intuitive interface for creating, managing, and monitoring Directors, Clients, Storage daemons, and backup jobs.
+**Onesimus** is a Qt6 C++17 GUI application for managing Bareos and Bacula backup systems. It connects to a Bareos/Bacula Director via TCP/TLS and provides a graphical interface for monitoring jobs, managing clients, editing resources, and creating new configurations.
 
 ### Key Features
 
-- **Database-First Design** - All configurations stored in SQLite with full audit trail
-- **JSON Directive System** - Auto-generated dialogs from declarative JSON definitions
-- **Dual System Support** - Works with both Bareos and Bacula
-- **Template System** - Pre-configured FileSet templates for common scenarios
-- **Tabbed Widget UI** - Organized, non-overwhelming interface
-- **Password Security** - MD5 hashing for CRAM-MD5 authentication
-- **Configuration Import** - Import Director configuration after authentication
-- **Offline Management** - Edit configurations without active connection
+- **Live Director Communication** — Real-time connection to Bareos Director via JSON-RPC (`.api 2`)
+- **JSON Directive Schemas** — Auto-generated forms from declarative JSON definitions (13 resource types)
+- **Schema-Driven Resource Editing** — BResourceForm + BResourceDialog for any resource type
+- **Wizard-Based Creation** — New Client Wizard, FileSet Wizard, Job/JobDefs Wizard
+- **BVFS File Browser** — Browse backup files via Bareos Virtual File System
+- **Template System** — 22 pre-configured FileSet templates for common scenarios
+- **Cross-Platform** — Windows, Linux, macOS via Qt6 + CMake
+- **TLS Support** — PSK, Certificate-based, and Legacy authentication
 
 ---
 
-## 2. Database Architecture
+## 2. Architecture
 
-### 2.1 Overview
+### Thread Model
 
-Onesimus uses SQLite for all persistent storage, with QSettings only storing the database path.
-
-**Database Path (Windows):**
 ```
-%APPDATA%/Onesimus/onesimus.db
-```
-
-**QSettings Storage:**
-```ini
-[Database]
-path=C:/Users/Username/AppData/Roaming/Onesimus/onesimus.db
-```
-
-### 2.2 Core Tables
-
-#### Directors Table
-
-```sql
-CREATE TABLE directors (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    address TEXT NOT NULL,
-    port INTEGER DEFAULT 9101,
-    password_hash TEXT,  -- MD5 hash with [md5] prefix
-    tls_enable BOOLEAN DEFAULT 1,
-    tls_require BOOLEAN DEFAULT 0,
-    tls_ca_cert_file TEXT,
-    tls_cert_file TEXT,
-    tls_key_file TEXT,
-    working_directory TEXT,
-    maximum_concurrent_jobs INTEGER DEFAULT 20,
-    statistics_retention TEXT,
-    auditing BOOLEAN DEFAULT 0,
-    description TEXT,
-    backup_system TEXT DEFAULT 'bareos',  -- 'bareos' or 'bacula'
-    is_default BOOLEAN DEFAULT 0,
-    is_active BOOLEAN DEFAULT 1,
-    last_connected_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+┌──────────────────┐        ┌──────────────────┐
+│   Main Thread     │        │  Worker Thread    │
+│                  │        │                  │
+│  BDirector       │──Qt──→│  BareosDirector   │
+│  (thread-safe    │ Queued │  (TCP socket,     │
+│   wrapper)       │ Invoke │   JSON-RPC)       │
+│                  │        │                  │
+│  UI Widgets      │←signals│  Auth (CRAM-MD5)  │
+│  Models          │        │  BJsonStreamReader│
+└──────────────────┘        └──────────────────┘
 ```
 
-#### Clients Table
+- **BDirector** (MainThread) — Thread-safe API for UI code. Uses `QMetaObject::invokeMethod()` with `Qt::QueuedConnection` to forward calls to the worker thread.
+- **BareosDirector** (WorkerThread) — Actual TCP socket, binary protocol, CRAM-MD5/TLS authentication, JSON-RPC parsing.
 
-```sql
-CREATE TABLE clients (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    director_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    address TEXT NOT NULL,
-    fd_port INTEGER DEFAULT 9102,
-    password_hash TEXT,
-    file_retention TEXT DEFAULT '60 days',
-    job_retention TEXT DEFAULT '6 months',
-    autoprune BOOLEAN DEFAULT 1,
-    tls_enable BOOLEAN DEFAULT 1,
-    maximum_concurrent_jobs INTEGER DEFAULT 1,
-    description TEXT,
-    is_active BOOLEAN DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (director_id) REFERENCES directors(id) ON DELETE CASCADE
-);
-```
+### Enum-Driven Command Architecture
 
-#### Settings History Table
+Commands and resource types use strongly-typed enums:
 
-**Purpose:** Track ALL setting changes with audit trail
-
-```sql
-CREATE TABLE settings_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    resource_type TEXT NOT NULL,  -- 'director', 'client', 'storage', etc.
-    resource_id INTEGER NOT NULL,
-    setting_key TEXT NOT NULL,
-    setting_value TEXT,
-    changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    changed_by TEXT DEFAULT 'user',  -- 'user', 'system', 'import'
-    backup_system TEXT,  -- 'bareos', 'bacula', or 'both'
-    notes TEXT
-);
-```
-
-**Example Usage:**
 ```cpp
-// Track custom directive change
-INSERT INTO settings_history (
-    resource_type, resource_id, setting_key, setting_value,
-    changed_by, backup_system, notes
-) VALUES (
-    'director', 1, 'Secure Erase Command', '/usr/bin/shred',
-    'user', 'bareos', 'User configured secure erase'
-);
+// BDirector::Command — all Director commands
+enum class Command {
+    DotClients, DotJobs, DotFilesets, DotPools, DotStorage,
+    DotSchedules, DotMessages, DotCatalogs,
+    ShowJobs, ShowJobDefs, ShowFilesets, ShowClients,
+    Configure, Reload, Run, Cancel, Delete, Purge, ...
+};
+
+// BDirector::ResourceType — resource types
+enum class ResourceType {
+    Client, FileSet, Storage, Pool, Schedule, Messages, Catalog, Job, JobDefs, ...
+};
 ```
 
-### 2.3 Database Models
+### Signal Flow
 
-All database interaction uses Qt's Model/View architecture:
-
-- **BDirectorModel** - Directors table
-- **BClientModel** - Clients table
-- **BStorageModel** - Storages table (TODO)
-- **BConsoleModel** - Consoles table (TODO)
-
-**Example:**
-```cpp
-BDirectorModel model(nullptr, db);
-model.initialize();
-
-// Create new Director
-int dirId = model.createDirector("bareos-dir", "192.168.1.100", 9101,
-                                 passwordHash, "bareos");
-
-// Update TLS settings
-int row = model.findDirectorRow(dirId);
-model.setData(model.index(row, BDirectorModel::TlsEnable), true);
-model.setData(model.index(row, BDirectorModel::TlsRequire), true);
-model.submitAll();
-
-// Custom settings via settings_history
-model.setCustomSetting(dirId, "Auditing", "yes", "user", "bareos");
 ```
+BareosDirector::jsonResult(Command, QString)
+    → BDirector::jsonResult(Command, QString)
+        → Model parse slots (e.g., BJobConfigModel::parseShowJobs)
+        → Widget update slots
+```
+
+Phase 6 typed signals (`dotFilesetsResult`, `dotJobsResult`, etc.) connect directly to model parse slots, bypassing the routing switch.
 
 ---
 
-## 3. Password Management
+## 3. Director Communication
 
-### 3.1 MD5 Password Hashing
+### Bareos `.api 2` JSON-RPC
 
-Bareos CRAM-MD5 authentication requires passwords to be hashed with MD5 and prefixed with `[md5]`.
+Onesimus uses `.api 2` mode for structured JSON responses:
 
-**BPasswordUtil Class:**
-
-```cpp
-#include "bpasswordutil.h"
-
-// Hash plaintext password
-QString plaintext = "mySecretPassword";
-QString hashed = BPasswordUtil::hashPasswordMD5(plaintext);
-// Result: "[md5]5f4dcc3b5aa765d61d8327deb882cf99"
-
-// Detect hash format
-BPasswordUtil::PasswordFormat format = BPasswordUtil::detectFormat(hashed);
-// Returns: PasswordFormat::MD5
-
-// Extract hash without prefix
-QString hashOnly = BPasswordUtil::extractHash(hashed);
-// Result: "5f4dcc3b5aa765d61d8327deb882cf99"
+```
+.api 2           → Switches Director to JSON-RPC mode
+.clients         → List client names (dot-command)
+show jobs        → Full job resource details (JSON object)
+configure add... → Create new resources
+reload           → Reload Director configuration
 ```
 
-### 3.2 Password Storage in Config Files
+### Key Implementation Details
 
-**Console Configuration (bconsole.conf):**
-```conf
-Director {
-  Name = bareos-dir
-  DIRport = 9101
-  Address = 192.168.1.100
-  Password = "[md5]5f4dcc3b5aa765d61d8327deb882cf99"  # MD5 hash
-  TLS Enable = yes
-  TLS Require = yes
-}
-```
+- **Dual-response for `.api 2`**: Director sends TWO responses — binary text status + JSON-RPC confirmation. Must consume the JSON confirmation via `m_consumeApiConfirmation` flag.
+- **Multi-telegram JSON**: A single JSON response can span multiple binary telegrams. Accumulated in `m_binaryJsonAccumulator` before processing.
+- **`m_requiredResources`**: Controls which dot-commands are sent during startup. If a resource type isn't listed, its command never fires.
 
-**Director Configuration (bareos-dir.conf):**
-```conf
-Console {
-  Name = onesimus-console
-  Password = "[md5]5f4dcc3b5aa765d61d8327deb882cf99"  # Same hash
-  TLS Enable = yes
-  Profile = "operator"
-}
-```
+### Bareos Response Formats
 
-### 3.3 Security Best Practices
-
-1. **Never store plaintext passwords** - Always use MD5 hash
-2. **Use TLS-PSK or TLS with certificates** - Disable legacy authentication
-3. **Encrypt database** - Use SQLCipher for sensitive deployments
-4. **Restrict file permissions** - Database file should be user-readable only
-5. **Audit password changes** - All changes logged to settings_history
+| Command | Format |
+|---------|--------|
+| `.clients` | JSON array of strings |
+| `.catalogs` | JSON **object** keyed by name (NOT array) |
+| `show jobs` | `result.jobs` — object keyed by name |
+| `show filesets` | `result.filesets` — object keyed by name |
+| `show jobs` storage | String **array** `["PDC-sd"]`, NOT object |
+| `show jobs` client/fileset/pool/messages | String values |
+| `show jobs` runscript | Array of objects |
 
 ---
 
-## 4. Model/View Architecture
+## 4. Directive Schema System
 
-### 4.1 Base Model: BResourceModel
+### Overview
 
-All resource models inherit from `BResourceModel`:
-
-```cpp
-class BResourceModel : public QSqlTableModel
-{
-    Q_OBJECT
-
-public:
-    explicit BResourceModel(QObject *parent, QSqlDatabase &db);
-
-    virtual bool initialize() = 0;
-    virtual int createResource(...) = 0;
-
-    // Custom settings via settings_history
-    bool setCustomSetting(int resourceId, const QString &key,
-                         const QString &value, const QString &changedBy,
-                         const QString &backupSystem);
-
-    QMap<QString, QString> getCustomSettings(int resourceId,
-                                             const QString &backupSystem) const;
-};
-```
-
-### 4.2 BDirectorModel
-
-**Header:** [bdirectormodel.h](../include/bdirectormodel.h)
-
-**Column Enum:**
-```cpp
-enum Column {
-    Id = 0,
-    Name,
-    Address,
-    Port,
-    PasswordHash,
-    TlsEnable,
-    TlsRequire,
-    TlsCaCertFile,
-    TlsCertFile,
-    TlsKeyFile,
-    WorkingDirectory,
-    MaximumConcurrentJobs,
-    StatisticsRetention,
-    Auditing,
-    Description,
-    BackupSystem,
-    IsDefault,
-    IsActive,
-    LastConnectedAt,
-    CreatedAt,
-    UpdatedAt
-};
-```
-
-**Usage Example:**
-```cpp
-BDirectorModel model(nullptr, db);
-model.initialize();
-
-// Filter to Bareos only
-model.setFilterBackupSystem("bareos");
-
-// Filter to active only
-model.setFilterActiveOnly(true);
-
-// Create Director
-int dirId = model.createDirector(
-    "production-dir",
-    "backup.example.com",
-    9101,
-    "[md5]...",
-    "bareos"
-);
-
-// Update settings
-int row = model.findDirectorRow(dirId);
-QModelIndex idx = model.index(row, BDirectorModel::MaximumConcurrentJobs);
-model.setData(idx, 50);
-model.submitAll();
-```
-
-### 4.3 Tabbed Edit Dialogs
-
-**Recommended Pattern:**
-
-```cpp
-class BDirectorEditDialog : public QDialog
-{
-public:
-    BDirectorEditDialog(int directorId, QSqlDatabase &db, QWidget *parent = nullptr)
-        : QDialog(parent), m_directorId(directorId), m_database(db)
-    {
-        setWindowTitle(tr("Edit Director"));
-        setMinimumSize(700, 600);
-
-        auto *layout = new QVBoxLayout(this);
-
-        // Tabbed interface
-        QTabWidget *tabs = new QTabWidget(this);
-        tabs->addTab(createConnectionTab(), QIcon(":/icons/network"), tr("Connection"));
-        tabs->addTab(createSecurityTab(), QIcon(":/icons/lock"), tr("Security / TLS"));
-        tabs->addTab(createPathsTab(), QIcon(":/icons/folder"), tr("Paths"));
-        tabs->addTab(createPerformanceTab(), QIcon(":/icons/speed"), tr("Performance"));
-        tabs->addTab(createCustomSettingsTab(), QIcon(":/icons/settings"), tr("Custom Settings"));
-        tabs->addTab(createHistoryTab(), QIcon(":/icons/history"), tr("History"));
-
-        layout->addWidget(tabs);
-
-        // Dialog buttons
-        auto *buttonBox = new QDialogButtonBox(
-            QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-        connect(buttonBox, &QDialogButtonBox::accepted, this, &BDirectorEditDialog::saveChanges);
-        connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-        layout->addWidget(buttonBox);
-
-        loadDirector();
-    }
-
-private:
-    QWidget* createConnectionTab() {
-        QWidget *widget = new QWidget();
-        auto *form = new QFormLayout(widget);
-
-        m_nameEdit = new QLineEdit();
-        m_addressEdit = new QLineEdit();
-        m_portSpin = new QSpinBox();
-        m_portSpin->setRange(1, 65535);
-        m_portSpin->setValue(9101);
-
-        form->addRow(tr("Name:"), m_nameEdit);
-        form->addRow(tr("Address:"), m_addressEdit);
-        form->addRow(tr("Port:"), m_portSpin);
-
-        return widget;
-    }
-
-    QWidget* createSecurityTab() {
-        QWidget *widget = new QWidget();
-        auto *layout = new QVBoxLayout(widget);
-
-        // TLS group
-        auto *tlsGroup = new QGroupBox(tr("TLS Configuration"));
-        auto *tlsForm = new QFormLayout(tlsGroup);
-
-        m_tlsEnableCheck = new QCheckBox(tr("Enable TLS"));
-        m_tlsRequireCheck = new QCheckBox(tr("Require TLS"));
-        m_tlsCaCertEdit = new QLineEdit();
-        // ... etc
-
-        tlsForm->addRow(tr("Enable:"), m_tlsEnableCheck);
-        tlsForm->addRow(tr("Require:"), m_tlsRequireCheck);
-        tlsForm->addRow(tr("CA Certificate:"), m_tlsCaCertEdit);
-
-        layout->addWidget(tlsGroup);
-        layout->addStretch();
-
-        return widget;
-    }
-
-    void saveChanges() {
-        BDirectorModel model(nullptr, m_database);
-        model.initialize();
-
-        int row = model.findDirectorRow(m_directorId);
-        if (row < 0) return;
-
-        // Update table columns
-        model.setData(model.index(row, BDirectorModel::Name), m_nameEdit->text());
-        model.setData(model.index(row, BDirectorModel::Address), m_addressEdit->text());
-        model.setData(model.index(row, BDirectorModel::Port), m_portSpin->value());
-
-        if (!model.submitAll()) {
-            QMessageBox::critical(this, tr("Error"), model.lastError().text());
-            return;
-        }
-
-        accept();
-    }
-
-private:
-    int m_directorId;
-    QSqlDatabase m_database;
-    QLineEdit *m_nameEdit;
-    QLineEdit *m_addressEdit;
-    QSpinBox *m_portSpin;
-    QCheckBox *m_tlsEnableCheck;
-    QCheckBox *m_tlsRequireCheck;
-    QLineEdit *m_tlsCaCertEdit;
-};
-```
-
----
-
-## 5. Directive System
-
-### 5.1 Overview
-
-The directive system uses JSON resource definition files to auto-generate configuration dialogs with validation.
-
-**JSON Files:**
-- `resources/directives/director.json` - 28 Director directives
-- `resources/directives/client.json` - Client/FD directives
-- `resources/directives/console.json` - Console directives
-- `resources/directives/fileset.json` - FileSet directives
-- `resources/directives/directive_groups.json` - Grouping & validation rules
-- `resources/directives/directive_schema.json` - JSON Schema validation
-
-### 5.2 Directive Definition Format
-
-**Example: TLS Enable Directive**
-
-```json
-{
-  "TLS Enable": {
-    "type": "boolean",
-    "required": false,
-    "bareos": true,
-    "bacula": true,
-    "use": true,
-    "default": true,
-    "description": "Enable TLS encryption for Director communication",
-    "example": true,
-    "synonyms": ["Enable TLS", "TLSEnable"],
-    "group": "tls"
-  }
-}
-```
-
-**Field Definitions:**
-
-- `type` - Data type: `boolean`, `integer`, `string`, `time`, `size`, `password`, `file`, `resource_reference`, `string_list`
-- `required` - Is this directive mandatory?
-- `bareos` - Compatible with Bareos?
-- `bacula` - Compatible with Bacula?
-- `use` - Show by default (`true`) or in Advanced mode (`false`)
-- `default` - Default value
-- `description` - Human-readable description
-- `example` - Example value (must match type)
-- `synonyms` - Alternative names for compatibility
-- `group` - Logical grouping (tls, authentication, network, performance, retention, directories, acl, auditing)
-- `min` / `max` - Range constraints for integer types
-- `valid_values` - Enum values
-- `reference_type` - Referenced resource type for `resource_reference`
-
-### 5.3 BDirectiveRegistry
-
-**Singleton Pattern:**
-
-```cpp
-BDirectiveRegistry *registry = BDirectiveRegistry::instance();
-```
-
-**Loading Directives:**
-
-```cpp
-// Automatically loads on first access
-// - :/directives/director.json
-// - :/directives/client.json
-// - :/directives/console.json
-// - :/directives/fileset.json
-// - :/directives/directive_groups.json
-```
-
-**Validation:**
-
-```cpp
-// Validate single directive value
-QString error;
-bool valid = registry->validateValue("director", "Maximum Concurrent Jobs", "50", &error);
-if (!valid) {
-    qWarning() << "Validation error:" << error;
-}
-
-// Validate entire configuration
-QMap<QString, QVariant> config;
-config["Name"] = "bareos-dir";
-config["DirPort"] = 9101;
-config["Maximum Concurrent Jobs"] = 50;
-
-QStringList errors;
-bool configValid = registry->validateConfiguration("director", config, &errors);
-for (const QString &err : errors) {
-    qWarning() << err;
-}
-```
-
-**Querying:**
-
-```cpp
-// Get all directives for Director (Bareos only)
-QList<BDirectiveDefinition> directives = registry->getDirectives("director", "bareos");
-
-// Get directives by group
-QList<BDirectiveDefinition> tlsDirectives = registry->getDirectivesByGroup("director", "tls");
-
-// Get directive names for autocomplete
-QStringList names = registry->getDirectiveNames("director", "bareos");
-
-// Resolve synonym to canonical name
-QString canonical = registry->resolveDirectiveName("director", "Enable TLS");
-// Returns: "TLS Enable"
-
-// Get all groups
-QStringList groups = registry->getGroups("director");
-// Returns: ["tls", "authentication", "network", "performance", "retention", "directories", "auditing"]
-```
-
-### 5.4 Grouping and Conditional Display
-
-**Groups Definition:** [directive_groups.json](../resources/directives/directive_groups.json)
-
-**Example Group:**
-```json
-{
-  "groups": {
-    "tls": {
-      "name": "TLS Configuration",
-      "description": "Transport Layer Security encryption settings",
-      "icon": "lock",
-      "directives": [
-        "TLS Enable",
-        "TLS Require",
-        "TLS Verify Peer",
-        "TLS CA Certificate File",
-        "TLS Certificate",
-        "TLS Key"
-      ],
-      "conditional_display": {
-        "TLS Certificate": {
-          "requires": {
-            "TLS Enable": true,
-            "TLS Use PSK": false
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-**Conditional Display Logic:**
-
-```cpp
-// Show TLS Certificate field only when:
-// - TLS Enable = true
-// - TLS Use PSK = false
-
-bool tlsEnable = getTlsEnable();
-bool tlsUsePSK = getTlsUsePSK();
-
-bool showCerts = tlsEnable && !tlsUsePSK;
-m_tlsCertEdit->setVisible(showCerts);
-m_tlsKeyEdit->setVisible(showCerts);
-```
-
-### 5.5 Validation Rules
-
-**Cross-Field Validation:**
-
-```json
-{
-  "validation_rules": {
-    "tls_certificate_complete": {
-      "description": "Certificate-based TLS requires all certificate files",
-      "condition": {
-        "and": [
-          {"TLS Enable": true},
-          {"TLS Verify Peer": true}
-        ]
-      },
-      "requires": [
-        "TLS CA Certificate File",
-        "TLS Certificate",
-        "TLS Key"
-      ],
-      "error_message": "Certificate-based TLS requires CA certificate, client certificate, and private key"
-    }
-  }
-}
-```
-
-**Implementation:**
-
-```cpp
-bool validateTLS(const QMap<QString, QVariant> &config) {
-    bool tlsEnable = config["TLS Enable"].toBool();
-    bool tlsVerifyPeer = config["TLS Verify Peer"].toBool();
-
-    if (tlsEnable && tlsVerifyPeer) {
-        // Check all certificate files are provided
-        if (config["TLS CA Certificate File"].toString().isEmpty() ||
-            config["TLS Certificate"].toString().isEmpty() ||
-            config["TLS Key"].toString().isEmpty()) {
-
-            showError("Certificate-based TLS requires all certificate files");
-            return false;
-        }
-    }
-    return true;
-}
-```
-
-### 5.6 Classification: Common vs Advanced
-
-**Common Directives** (`use: true`):
-- Shown by default in Basic/Connection/Security tabs
-- Essential for typical configurations
-- Examples: Name, Address, Port, TLS Enable, Maximum Concurrent Jobs
-
-**Advanced Directives** (`use: false`):
-- Hidden in Advanced tab
-- Require expert knowledge
-- Examples: Statistics Retention, VerId Retention, Secure Erase Command
-
-**UI Pattern:**
-
-```cpp
-QTabWidget *tabs = new QTabWidget();
-
-// Basic tab - use=true directives
-tabs->addTab(createBasicTab(), tr("Basic"));
-
-// Group tabs - use=true directives by group
-tabs->addTab(createTlsTab(), tr("Security / TLS"));
-tabs->addTab(createPerformanceTab(), tr("Performance"));
-
-// Advanced tab - use=false directives
-tabs->addTab(createAdvancedTab(), tr("Advanced"));
-```
-
----
-
-## 6. Connection Wizard & Configuration Import
-
-### 6.1 Connection Wizard
-
-**Class:** `BConnectionWizard`
-**Header:** [bconnectionwizard.h](../include/bconnectionwizard.h)
-
-**Wizard Pages:**
-
-1. **Welcome** - Introduction
-2. **TemplateSelection** - New connection, template, or ZIP import
-3. **Server** - Host + Port, capability check
-4. **Credentials** - Director, Console, Password (auto-hashed to MD5)
-5. **AuthMethod** - PSK, Certificate, or Legacy
-6. **TLS** - Certificate paths (if cert auth selected)
-7. **ConfigPreview** - Show generated bconsole.conf and Director Console config
-8. **Test** - Test connection and authentication
-9. **ConsoleSetup** - Modify existing or create new Console resource
-10. **ProfileName** - Save profile
-
-**Wizard Data Struct:**
-
-```cpp
-struct BConnectionWizardData {
-    QString host;
-    int port = 9101;
-    QString directorName;
-    QString consoleName;
-    QString password;  // MD5 hash (auto-converted from plaintext)
-    bool savePassword = true;
-    QString authMethod = "psk";  // "psk", "cert", or "legacy"
-    QString tlsCaCertFile;
-    QString tlsCertFile;
-    QString tlsKeyFile;
-    QString profileName;
-    bool setAsDefault = true;
-    bool connectNow = true;
-};
-```
-
-**Usage:**
-
-```cpp
-// Create wizard with database connection
-BConnectionWizard wizard(&wizardData, &db);
-
-if (wizard.exec() == QDialog::Accepted) {
-    // Save to database
-    int directorId = wizard.saveToDatabase(db);
-
-    if (directorId > 0) {
-        qDebug() << "Director saved with ID:" << directorId;
-    }
-}
-```
-
-### 6.2 Template Selection
-
-**TemplateSelectionPage** - Page 2 of wizard
-
-**Options:**
-1. **Create new connection from scratch**
-2. **Use template from existing connection** - Load from database
-3. **Import from ZIP file** - Import exported configuration
-
-**Template Loading:**
-
-```cpp
-void TemplateSelectionPage::loadTemplateDetails(int directorId) {
-    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
-    if (!wiz || !wiz->database()) return;
-
-    BDirectorModel model(nullptr, *wiz->database());
-    model.initialize();
-
-    int row = model.findDirectorRow(directorId);
-    if (row < 0) return;
-
-    // Pre-fill wizard data from template
-    if (wiz->wizardData()) {
-        wiz->wizardData()->host = model.data(model.index(row, BDirectorModel::Address)).toString();
-        wiz->wizardData()->port = model.data(model.index(row, BDirectorModel::Port)).toInt();
-        wiz->wizardData()->directorName = model.data(model.index(row, BDirectorModel::Name)).toString();
-        // ... etc
-    }
-}
-```
-
-### 6.3 Post-Authentication Configuration Import
-
-**Workflow:**
-
-1. User completes wizard and tests connection
-2. **Authentication succeeds**
-3. **Check Console permissions** - Can the Console read Director configuration?
-4. **If full access:** Import complete Director configuration (all resources)
-5. **If limited access:** Store only basic connection info (header entities)
-
-**Permission Check:**
-
-```cpp
-bool checkConfigurationACL(BareosDirector *director) {
-    // Query current Console's ACLs via .api 2 json
-    QString cmd = ".api 2 json\nlist consoles current";
-    director->sendJsonCommand(cmd);
-
-    // Wait for response...
-    QJsonObject console = response["consoles"][0].toObject();
-    QJsonArray commandAcl = console["command_acl"].toArray();
-
-    // Check for full access
-    if (commandAcl.contains("*all*") || commandAcl.contains("*")) {
-        return true;  // Full access
-    }
-
-    // Check for specific configuration commands
-    QStringList configCommands = {"show", "list", "status", "configure"};
-    for (const QString &cmd : configCommands) {
-        if (!commandAcl.contains(cmd)) {
-            return false;  // Missing required command
-        }
-    }
-
-    return true;
-}
-```
-
-**Full Configuration Import:**
-
-```cpp
-void importFullConfiguration(BareosDirector *director, int directorId) {
-    qDebug() << "[Import] Starting full configuration import";
-
-    // Query all resource types
-    QStringList resourceTypes = {
-        "clients", "storages", "pools", "filesets",
-        "jobs", "schedules", "consoles"
-    };
-
-    for (const QString &resourceType : resourceTypes) {
-        QString cmd = QString(".api 2 json\nlist %1").arg(resourceType);
-        director->sendJsonCommand(cmd);
-    }
-
-    // Query Director configuration
-    QString dirCmd = ".api 2 json\nshow director";
-    director->sendJsonCommand(dirCmd);
-
-    // Process responses and import to database:
-    // - Director settings → directors table + settings_history
-    // - All Clients → clients table
-    // - All Storages → storages table
-    // - All Pools, FileSets, Jobs, Schedules, Consoles → respective tables
-}
-```
-
-**What Gets Imported (Full Access):**
-
-1. **Director Settings** - All directives from `show director`
-2. **Client Resources** - All defined Client/FD resources
-3. **Storage Resources** - All defined Storage/SD resources
-4. **Pool Resources** - Pool definitions and retention policies
-5. **FileSet Resources** - Include/Exclude patterns, VSS settings
-6. **Job Resources** - Job definitions and schedules
-7. **Console Resources** - Other Console definitions and ACLs
-8. **Custom Directives** - Any non-standard directives → `settings_history`
-
-**Header-Only Import:**
-
-```cpp
-void storeBasicInfo(BareosDirector *director, int directorId) {
-    qDebug() << "[Import] Limited permissions - storing header info only";
-
-    BDirectorModel model(nullptr, db);
-    model.initialize();
-
-    int row = model.findDirectorRow(directorId);
-    if (row < 0) return;
-
-    // Only update connection metadata
-    model.setData(model.index(row, BDirectorModel::LastConnectedAt),
-                 QDateTime::currentDateTime());
-
-    model.setData(model.index(row, BDirectorModel::Description),
-                 "Connected (limited permissions)");
-
-    model.submitAll();
-
-    // Show user message
-    QMessageBox::information(nullptr, tr("Limited Access"),
-        tr("Successfully connected, but this Console has limited permissions.\n\n"
-           "Only basic connection information has been stored."));
-}
-```
-
-**What Gets Stored (Limited Access):**
-
-1. **Basic Connection Info** - Director Name, Address, Port, Password Hash
-2. **Authentication Settings** - TLS Enable/Require, certificate paths
-3. **Metadata** - Description, Backup System, Last Connected timestamp
-
-**NO resources are imported (Clients, Storages, etc.) with limited permissions.**
-
-**UI Indicators:**
+BDirectiveSchema is a singleton that loads JSON schemas from `resources/directives/*.json` for all 13 resource types:
 
 ```
-Directors:
-  ✓ Production Director (backup.example.com) - Full config [315 resources]
-  ⚠ Development Director (dev.local) - Limited access [connection only]
-  ✓ DR Director (dr-site.example.com) - Full config [89 resources]
+catalog.json, client.json, console.json, director.json,
+fileset.json, job.json, jobdef.json, messages.json,
+pool.json, schedule.json, storage.json,
+directive_groups.json, directive_schema.json
 ```
 
----
+### Schema Format
 
-## 7. UI Patterns
-
-### 7.1 Tabbed Widget Pattern
-
-**Recommended for:** Configuration dialogs with many directives
-
-**Benefits:**
-- Organized, non-overwhelming UI
-- Easy navigation between setting categories
-- Clear separation of common vs advanced
-- Scalable for many directives
-
-**Implementation:**
-
-```cpp
-QTabWidget *tabs = new QTabWidget();
-
-// Tab 1: Basic settings (use=true, no group)
-tabs->addTab(createBasicTab(), QIcon(":/icons/home"), tr("Basic"));
-
-// Tab 2-N: Directive groups
-QStringList groups = {"tls", "network", "performance", "retention", "directories"};
-for (const QString &groupId : groups) {
-    QWidget *groupTab = createGroupTab(groupId);
-    QIcon groupIcon = getGroupIcon(groupId);
-    QString groupName = getGroupDisplayName(groupId);
-    tabs->addTab(groupTab, groupIcon, groupName);
-}
-
-// Last tab: Advanced settings (use=false)
-tabs->addTab(createAdvancedTab(), QIcon(":/icons/advanced"), tr("Advanced"));
-```
-
-**Create Group Tab:**
-
-```cpp
-QWidget* createGroupTab(const QString &groupId) {
-    QWidget *widget = new QWidget();
-    auto *layout = new QVBoxLayout(widget);
-
-    BDirectiveRegistry *registry = BDirectiveRegistry::instance();
-    QList<BDirectiveDefinition> directives = registry->getDirectivesByGroup("director", groupId);
-
-    auto *formLayout = new QFormLayout();
-
-    for (const BDirectiveDefinition &def : directives) {
-        // Only show commonly used directives in group tabs
-        if (!def.use) continue;
-
-        QWidget *inputWidget = createWidgetForDirective(def);
-        formLayout->addRow(def.name + ":", inputWidget);
-        m_widgets[def.name] = inputWidget;
-    }
-
-    layout->addLayout(formLayout);
-    layout->addStretch();
-
-    return widget;
-}
-```
-
-**Create Widget by Type:**
-
-```cpp
-QWidget* createWidgetForDirective(const BDirectiveDefinition &def) {
-    if (def.type == "boolean") {
-        auto *check = new QCheckBox();
-        check->setChecked(def.defaultValue.toBool());
-        return check;
-
-    } else if (def.type == "integer") {
-        auto *spin = new QSpinBox();
-        spin->setRange(def.minInt > 0 ? def.minInt : 0,
-                      def.maxInt > 0 ? def.maxInt : 999999);
-        spin->setValue(def.defaultValue.toInt());
-        return spin;
-
-    } else if (def.type == "file") {
-        auto *widget = new QWidget();
-        auto *layout = new QHBoxLayout(widget);
-        layout->setContentsMargins(0, 0, 0, 0);
-
-        auto *edit = new QLineEdit();
-        edit->setPlaceholderText(def.example.toString());
-
-        auto *browseBtn = new QPushButton(tr("Browse..."));
-        connect(browseBtn, &QPushButton::clicked, [edit]() {
-            QString file = QFileDialog::getOpenFileName(nullptr, tr("Select File"));
-            if (!file.isEmpty()) edit->setText(file);
-        });
-
-        layout->addWidget(edit);
-        layout->addWidget(browseBtn);
-
-        return widget;
-
-    } else {
-        // Default: string
-        auto *edit = new QLineEdit();
-        edit->setPlaceholderText(def.example.toString());
-        edit->setText(def.defaultValue.toString());
-        return edit;
-    }
-}
-```
-
-### 7.2 Conditional Field Visibility
-
-**Update visibility based on other field values:**
-
-```cpp
-void updateConditionalDisplay() {
-    // Example: Show TLS certificate fields only when needed
-    bool tlsEnable = getFieldValue("TLS Enable").toBool();
-    bool tlsUsePSK = getFieldValue("TLS Use PSK").toBool();
-
-    bool showCerts = tlsEnable && !tlsUsePSK;
-
-    m_widgets["TLS CA Certificate File"]->setVisible(showCerts);
-    m_widgets["TLS Certificate"]->setVisible(showCerts);
-    m_widgets["TLS Key"]->setVisible(showCerts);
-}
-
-// Connect to field change signals
-connect(m_tlsEnableCheck, &QCheckBox::toggled, this, &Dialog::updateConditionalDisplay);
-connect(m_tlsUsePSKCheck, &QCheckBox::toggled, this, &Dialog::updateConditionalDisplay);
-```
-
----
-
-## 8. Development Summary
-
-### 8.1 Session 2026-01-31 Accomplishments
-
-**Major Milestones:**
-
-1. ✅ **Connection Wizard Database Integration**
-   - Modified: [bconnectionwizard.h](../include/bconnectionwizard.h), [bconnectionwizard.cpp](../src/bconnectionwizard.cpp)
-   - Added TemplateSelectionPage (new connection, template, or ZIP import)
-   - Implemented `saveToDatabase()` method
-   - Template loading from existing Directors in database
-
-2. ✅ **JSON Directive Definition System**
-   - Created: [director.json](../resources/directives/director.json) (28 directives)
-   - Created: [client.json](../resources/directives/client.json)
-   - Created: [console.json](../resources/directives/console.json)
-   - Created: [fileset.json](../resources/directives/fileset.json)
-   - Created: [directive_schema.json](../resources/directives/directive_schema.json)
-   - Created: [directive_groups.json](../resources/directives/directive_groups.json)
-   - New fields: `use`, `synonyms`, `group`
-
-3. ✅ **FileSet Templates**
-   - Created 7 templates:
-     - [windows_domain_controller.json](../resources/templates/filesets/windows_domain_controller.json)
-     - [windows_file_server.json](../resources/templates/filesets/windows_file_server.json)
-     - [windows_web_server_iis.json](../resources/templates/filesets/windows_web_server_iis.json)
-     - [windows_sql_server.json](../resources/templates/filesets/windows_sql_server.json)
-     - [linux_postgresql.json](../resources/templates/filesets/linux_postgresql.json)
-     - [linux_mysql.json](../resources/templates/filesets/linux_mysql.json)
-     - [linux_mongodb.json](../resources/templates/filesets/linux_mongodb.json)
-
-4. ✅ **BDirectiveRegistry Class**
-   - Created: [bdirectiveregistry.h](../include/bdirectiveregistry.h), [bdirectiveregistry.cpp](../src/bdirectiveregistry.cpp)
-   - Singleton pattern for global access
-   - Load directives from JSON resources
-   - Validate directive values
-   - Query by resource type and backup system
-   - Synonym resolution
-   - Group-based queries
-   - Cross-field validation
-
-5. ✅ **Moved Python Validation to C++**
-   - All validation logic now in BDirectiveRegistry
-   - No external Python dependency
-   - Built-in to application
-   - Customer-editable JSON files (not scripts)
-
-### 8.2 File Structure
-
-```
-Onesimus/
-├── docs/
-│   └── ONESIMUS_DOCUMENTATION.md (this file)
-├── include/
-│   ├── bconnectionwizard.h (modified)
-│   ├── bdirectiveregistry.h (new)
-│   ├── bdirectormodel.h
-│   └── bpasswordutil.h
-├── src/
-│   ├── bconnectionwizard.cpp (modified)
-│   ├── bdirectiveregistry.cpp (new)
-│   ├── bdirectormodel.cpp
-│   └── bpasswordutil.cpp
-├── resources/
-│   ├── directives/
-│   │   ├── director.json (new)
-│   │   ├── client.json (new)
-│   │   ├── console.json (new)
-│   │   ├── fileset.json (new)
-│   │   ├── directive_schema.json (new)
-│   │   └── directive_groups.json (new)
-│   ├── templates/filesets/
-│   │   ├── windows_domain_controller.json (new)
-│   │   ├── windows_file_server.json (new)
-│   │   ├── windows_web_server_iis.json (new)
-│   │   ├── windows_sql_server.json (new)
-│   │   ├── linux_postgresql.json (new)
-│   │   ├── linux_mysql.json (new)
-│   │   └── linux_mongodb.json (new)
-│   └── resources.qrc (modified)
-└── scripts/
-    ├── generate_fileset_templates.py (reference only)
-    └── validate_directives.py (deprecated - logic moved to C++)
-```
-
-### 8.3 Statistics
-
-- **Files Created:** 20
-- **Files Modified:** 5
-- **Lines of Code:** ~5,500
-- **Documentation:** ~3,000 lines (this file)
-- **Directives Defined:** 80+
-- **FileSet Templates:** 7
-- **Validation Rules:** Built-in to BDirectiveRegistry
-
-### 8.4 Remaining Tasks
-
-1. ⏳ **ZIP Import Validation** - Implement ZIP file import for wizard
-2. ⏳ **Integrate Wizard with MainWindow** - Connect wizard to main application
-3. ⏳ **Create storage.json and pool.json** - Directive definitions for Storage and Pool resources
-4. ⏳ **Implement BClientModel, BStorageModel, BConsoleModel** - Database models for remaining resources
-5. ⏳ **Database Migration System** - Version management for schema updates
-6. ⏳ **Release Preparation** - Consolidate v1-v4 schemas to v1 before first release
-
----
-
-## 9. API Reference
-
-### 9.1 BPasswordUtil
-
-**Header:** `bpasswordutil.h`
-
-```cpp
-class BPasswordUtil {
-public:
-    enum class PasswordFormat {
-        Plaintext,
-        MD5,
-        Unknown
-    };
-
-    // Hash plaintext password to MD5 with [md5] prefix
-    static QString hashPasswordMD5(const QString &plaintext);
-
-    // Detect password format
-    static PasswordFormat detectFormat(const QString &password);
-
-    // Extract hash without prefix
-    static QString extractHash(const QString &password);
-
-    // Verify plaintext against hash
-    static bool verify(const QString &plaintext, const QString &hash);
-};
-```
-
-### 9.2 BDirectorModel
-
-**Header:** `bdirectormodel.h`
-
-```cpp
-class BDirectorModel : public BResourceModel {
-public:
-    enum Column {
-        Id, Name, Address, Port, PasswordHash, TlsEnable, TlsRequire,
-        TlsCaCertFile, TlsCertFile, TlsKeyFile, WorkingDirectory,
-        MaximumConcurrentJobs, StatisticsRetention, Auditing,
-        Description, BackupSystem, IsDefault, IsActive,
-        LastConnectedAt, CreatedAt, UpdatedAt
-    };
-
-    explicit BDirectorModel(QObject *parent, QSqlDatabase &db);
-    bool initialize() override;
-
-    int createDirector(const QString &name, const QString &address, int port,
-                      const QString &passwordHash, const QString &backupSystem);
-
-    int findDirectorRow(int directorId) const;
-    int directorId(int row) const;
-    QString directorName(int row) const;
-
-    void setFilterBackupSystem(const QString &system);
-    void setFilterActiveOnly(bool activeOnly);
-
-    bool setCustomSetting(int directorId, const QString &key,
-                         const QString &value, const QString &changedBy,
-                         const QString &backupSystem);
-
-    QMap<QString, QString> getCustomSettings(int directorId,
-                                             const QString &backupSystem) const;
-};
-```
-
-### 9.3 BDirectiveRegistry
-
-**Header:** `bdirectiveregistry.h`
-
-```cpp
-class BDirectiveRegistry : public QObject {
-public:
-    static BDirectiveRegistry* instance();
-
-    bool isValidDirective(const QString &resourceType, const QString &directiveName) const;
-    BDirectiveDefinition getDirective(const QString &resourceType, const QString &directiveName) const;
-    QList<BDirectiveDefinition> getDirectives(const QString &resourceType, const QString &backupSystem = QString()) const;
-    QStringList getRequiredDirectives(const QString &resourceType) const;
-    QStringList getDirectiveNames(const QString &resourceType, const QString &backupSystem = QString()) const;
-
-    bool validateValue(const QString &resourceType, const QString &directiveName,
-                      const QString &value, QString *errorMsg = nullptr) const;
-
-    QList<BDirectiveDefinition> getDirectivesByGroup(const QString &resourceType, const QString &groupId) const;
-    QStringList getGroups(const QString &resourceType) const;
-    QString resolveDirectiveName(const QString &resourceType, const QString &name) const;
-
-    bool validateConfiguration(const QString &resourceType,
-                               const QMap<QString, QVariant> &configuration,
-                               QStringList *errors = nullptr) const;
-
-    QString lastError() const;
-};
-```
-
-### 9.4 BConnectionWizard
-
-**Header:** `bconnectionwizard.h`
-
-```cpp
-class BConnectionWizard : public QWizard {
-public:
-    enum PageId {
-        Page_Welcome, Page_TemplateSelection, Page_Server, Page_Credentials,
-        Page_AuthMethod, Page_TLS, Page_ConfigPreview, Page_Test,
-        Page_ConsoleSetup, Page_ProfileName
-    };
-
-    explicit BConnectionWizard(BConnectionWizardData *wizardData = nullptr,
-                              QSqlDatabase *db = nullptr,
-                              QWidget *parent = nullptr);
-
-    BConnectionProfile profile() const;
-    void setProfile(const BConnectionProfile &profile);
-
-    int saveToDatabase(QSqlDatabase &db);
-
-    ServerCapabilities capabilities() const;
-    void setCapabilities(const ServerCapabilities &caps);
-
-    BConnectionWizardData *wizardData() const;
-    QSqlDatabase *database() const;
-};
-
-struct BConnectionWizardData {
-    QString host;
-    int port = 9101;
-    QString directorName;
-    QString consoleName;
-    QString password;  // MD5 hash
-    bool savePassword = true;
-    QString authMethod = "psk";
-    QString tlsCaCertFile;
-    QString tlsCertFile;
-    QString tlsKeyFile;
-    QString profileName;
-    bool setAsDefault = true;
-    bool connectNow = true;
-};
-```
-
----
-
-## Appendix A: JSON Directive Examples
-
-### Director Directive
+Each directive is defined as a JSON object:
 
 ```json
 {
@@ -1271,95 +153,346 @@ struct BConnectionWizardData {
     "min": 1,
     "max": 1000,
     "default": 20,
-    "description": "Maximum number of concurrent jobs the Director can run",
+    "description": "Maximum number of concurrent jobs",
     "example": 50,
+    "synonyms": ["MaximumConcurrentJobs"],
     "group": "performance"
   }
 }
 ```
 
-### Console Directive with ACL
+### Field Definitions
 
-```json
-{
-  "Command ACL": {
-    "type": "string_list",
-    "required": false,
-    "bareos": true,
-    "bacula": true,
-    "use": true,
-    "description": "Commands this Console can execute",
-    "example": ["status", "list", "llist", "query"],
-    "valid_values": ["*all*", "status", "list", "llist", "run", "restore", "cancel", "query", "messages", "quit", "exit"],
-    "group": "acl"
-  }
-}
-```
+| Field | Description |
+|-------|-------------|
+| `type` | `boolean`, `integer`, `string`, `enum`, `resource_reference`, `path`, `directory`, `block`, `blocklist` |
+| `required` | Mandatory directive |
+| `bareos` / `bacula` | System compatibility flags |
+| `use` | `true` = shown by default (basic), `false` = advanced |
+| `default` | Default value |
+| `description` | Human-readable description |
+| `synonyms` | Alternative directive names |
+| `group` | Logical grouping (tls, authentication, network, performance, retention, etc.) |
+| `min` / `max` | Range constraints for integers |
+| `valid_values` | Enum choices |
+| `reference_type` | Referenced resource type for `resource_reference` |
 
-### Resource Reference
+### Usage
 
-```json
-{
-  "Director": {
-    "type": "resource_reference",
-    "required": false,
-    "bareos": true,
-    "bacula": true,
-    "use": true,
-    "reference_type": "Director",
-    "description": "Which Director this Console connects to",
-    "example": "bareos-dir"
-  }
-}
+```cpp
+BDirectiveSchema &schema = BDirectiveSchema::instance();
+schema.loadSchemas();  // Loads from Qt resources
+
+// Get all directives for a resource type
+QList<BDirective> directives = schema.directives("Job");
+
+// Individual directive lookup
+BDirective dir = schema.directive("Job", "Client");
 ```
 
 ---
 
-## Appendix B: Validation Rule Examples
+## 5. Schema-Driven Forms
 
-### TLS Certificate Complete
+### BResourceForm
 
-```json
-{
-  "tls_certificate_complete": {
-    "description": "When using certificate-based TLS, all certificate fields must be provided",
-    "condition": {
-      "and": [
-        {"TLS Enable": true},
-        {"TLS Verify Peer": true}
-      ]
-    },
-    "requires": [
-      "TLS CA Certificate File",
-      "TLS Certificate",
-      "TLS Key"
-    ],
-    "error_message": "Certificate-based TLS requires CA certificate, client certificate, and private key"
-  }
+Auto-generates form widgets from directive schemas:
+
+```cpp
+BResourceForm *form = new BResourceForm("Job", parent);
+
+// Filter to specific groups
+form->setGroupFilter({"basic", "tls"});
+
+// Skip directives shown elsewhere (e.g., wizard pages)
+form->setExcludedDirectives({"Name", "Type", "Client", "FileSet"});
+
+// Populate reference dropdowns (Client, Pool, Storage, etc.)
+form->setReferenceData(referenceData);
+
+// Toggle advanced directives
+form->setAdvancedVisible(true);
+
+// Pre-populate from existing resource
+form->setExistingResource(existingResource);
+
+// Collect values
+form->collectValues();
+BConfigResource resource = form->resource();
+```
+
+### BResourceDialog
+
+Standard QDialog wrapping BResourceForm for editing any resource type:
+
+```cpp
+BResourceDialog dialog("Client", existingResource, parent);
+dialog.setReferenceData(referenceData);
+if (dialog.exec() == QDialog::Accepted) {
+    BConfigResource edited = dialog.resource();
 }
 ```
 
-### PKI Complete
+### BConfigResource / BConfigValue
 
-```json
-{
-  "pki_complete": {
-    "description": "PKI encryption requires keypair file",
-    "condition": {
-      "PKI Encryption": true
-    },
-    "requires": [
-      "PKI Keypair"
-    ],
-    "error_message": "PKI Encryption requires PKI Keypair file"
-  }
+Key-value containers for resource data:
+
+```cpp
+BConfigResource resource;
+resource.setValue("Name", BConfigValue("MyJob"));
+
+// BConfigValue types (NOT String/Integer/Boolean):
+BConfigValue::Simple     // → simpleValue() returns QString
+BConfigValue::List       // → listValue() returns QStringList
+BConfigValue::Block      // → blockValue() returns QMap<QString, BConfigValue>
+BConfigValue::BlockList  // → blockListValue() returns QList<QMap<...>>
+```
+
+---
+
+## 6. Wizards
+
+### New Client Wizard (BNewClientDialog)
+
+3-page wizard for adding backup clients:
+1. **Connection** — Client name, address, port, password
+2. **Configuration** — TLS settings, retention, auto-prune
+3. **Preview** — Generated FD-side and Director-side config, `configure add client`, ZIP export
+
+### FileSet Wizard (BFileSetWizard)
+
+Multi-page wizard for creating FileSet resources:
+- Include/Exclude block editor with `BIncludeBlockWidget`
+- Options form (`BIncludeOptionsForm`) with directive name mapping
+- Template selection from 22 predefined templates
+- Deploy mode: `configure add fileset` or manual config export
+
+### Job/JobDefs Wizard (BJobWizard) — WIP, Build 274
+
+5-page wizard for creating Job or JobDefs resources:
+
+```cpp
+BJobWizard wizard(BJobWizard::JobType, m_director, this);
+wizard.setReferenceData(referenceData);
+wizard.exec();
+```
+
+**Pages:**
+1. **Basics** — Name, Type (Backup/Restore/Verify/Admin/...), JobDefs, Enabled
+2. **Resources** — Client, FileSet, Storage, Pool, Messages, Schedule, Catalog, Level, Priority + simple script fields (Run Before/After Job)
+3. **Scripts** — `BRunScriptEditor` for multiple RunScript blocks
+4. **Advanced** — `BResourceForm("Job")` with excluded directives from pages 1-3
+5. **Preview** — Config text, `configure add` command, Copy/Execute
+
+**RunScript Editor:**
+- `BRunScriptEditor` — Table widget for managing multiple RunScript blocks
+- `BRunScriptDialog` — Edit dialog for a single RunScript entry (Command, RunsWhen, RunsOnClient, RunsOnFailure, AbortJobOnError, FailJobOnError)
+
+**Known Limitations:**
+- RunScript blocks not supported by `configure add` — manual deployment notice shown
+- Schedule/Messages combos not yet populated
+- Pool overrides not yet wired to configure add output
+
+### `configure add` Format
+
+Bareos `configure add` uses flat key=value pairs:
+
+```
+configure add job name="MyBackup" type="Backup" client="server1-fd" \
+  fileset="LinuxAll" storage="File" pool="Full" messages="Standard"
+```
+
+Does NOT support nested blocks (RunScript, Include/Exclude). These must be deployed manually via config files.
+
+---
+
+## 7. Model/View Architecture
+
+### Base Models
+
+All data models inherit from custom base classes:
+
+- **BListModel** — Simple list model (single column)
+- **BTableModel** — Multi-column table model
+- **BTreeModel** — Hierarchical tree model
+
+### Resource Models
+
+| Model | Data Source | Notes |
+|-------|------------|-------|
+| `BJobConfigModel` | `show jobs` + `show jobdefs` | Unified: `parseShowJobs()`, `parseShowJobDefs()`, `jobNames()`, `jobDefsNames()` |
+| `BFilesetModel` | `show filesets` | Caches full JSON, `loadFromBareosJson()` for wizard |
+| `BStorageModel` | `.storage` | Storage daemon list |
+| `BPoolModel` | `.pools` | Pool list |
+| `BCatalogModel` | `.catalogs` | Bareos object format (NOT array) |
+| `BClientsModel` | `.clients` + status | Client list with online/offline status |
+
+### Data Flow
+
+```
+Director Command → BareosDirector → JSON Response
+    → Signal (jsonResult / typed signal)
+        → Model::parse*() slot
+            → Model data updated
+                → View automatically refreshed (Qt Model/View)
+```
+
+---
+
+## 8. Password & Authentication
+
+### MD5 Password Hashing
+
+Bareos CRAM-MD5 authentication requires passwords hashed with MD5 and prefixed with `[md5]`:
+
+```cpp
+#include "bpasswordutil.h"
+
+QString hashed = BPasswordUtil::hashPasswordMD5("mySecretPassword");
+// Result: "[md5]5f4dcc3b5aa765d61d8327deb882cf99"
+
+BPasswordUtil::PasswordFormat format = BPasswordUtil::detectFormat(hashed);
+// Returns: PasswordFormat::MD5
+```
+
+### Authentication Methods
+
+| Method | Description |
+|--------|-------------|
+| **TLS-PSK** | Pre-Shared Key — simple shared secret, most common for Bareos |
+| **TLS-Certificate** | CA certificate + client certificate validation |
+| **Legacy** | Plain CRAM-MD5 without TLS (insecure, deprecated) |
+
+### TLS Configuration
+
+```conf
+Console {
+  Name = onesimus-console
+  Password = "[md5]5f4dcc3b5aa765d61d8327deb882cf99"
+  TLS Enable = yes
+  TLS Require = yes
+  TLS CA Certificate File = /etc/bareos/tls/ca.pem
+  TLS Certificate = /etc/bareos/tls/client.pem
+  TLS Key = /etc/bareos/tls/client.key
 }
 ```
+
+**PSK Cipher Note:** PSK cipher list must use `startsWith("PSK-")` filter — hybrid ciphers (RSA-PSK, DHE-PSK, ECDHE-PSK) cause `no suitable signature algorithm` errors on FD.
+
+---
+
+## 9. Connection Wizard
+
+### BConnectionWizard
+
+Multi-page wizard for establishing Director connections:
+
+**Pages:**
+1. **Welcome** — Introduction
+2. **Server** — Host, Port, capability check
+3. **Credentials** — Director name, Console name, Password (auto-hashed to MD5)
+4. **AuthMethod** — PSK, Certificate, or Legacy
+5. **TLS** — Certificate paths (if cert auth selected)
+6. **ConfigPreview** — Generated bconsole.conf preview
+7. **Test** — Test connection and authentication
+8. **ProfileName** — Save connection profile
+
+**Connection Profile Data:**
+
+```cpp
+struct BConnectionProfile {
+    QString host;
+    int port = 9101;
+    QString directorName;
+    QString consoleName;
+    QString password;       // MD5 hash
+    QString authMethod;     // "psk", "cert", "legacy"
+    QString tlsCaCertFile;
+    QString tlsCertFile;
+    QString tlsKeyFile;
+    QString profileName;
+};
+```
+
+---
+
+## 10. UI Patterns
+
+### Conditional Field Visibility
+
+```cpp
+void updateConditionalDisplay() {
+    bool tlsEnable = getFieldValue("TLS Enable").toBool();
+    bool tlsUsePSK = getFieldValue("TLS Use PSK").toBool();
+    bool showCerts = tlsEnable && !tlsUsePSK;
+
+    m_widgets["TLS CA Certificate File"]->setVisible(showCerts);
+    m_widgets["TLS Certificate"]->setVisible(showCerts);
+    m_widgets["TLS Key"]->setVisible(showCerts);
+}
+```
+
+### Tabbed Widget Pattern
+
+For configuration dialogs with many directives:
+
+```cpp
+QTabWidget *tabs = new QTabWidget();
+tabs->addTab(createBasicTab(), tr("Basic"));
+tabs->addTab(createTlsTab(), tr("Security / TLS"));
+tabs->addTab(createPerformanceTab(), tr("Performance"));
+tabs->addTab(createAdvancedTab(), tr("Advanced"));
+```
+
+### Reference Data Population
+
+Wizards and forms receive reference data for dropdown population:
+
+```cpp
+QMap<QString, QStringList> refData;
+refData["Client"] = m_jobWidget->clientNames();
+refData["FileSet"] = m_jobWidget->filesetNames();
+refData["Storage"] = m_jobWidget->storageNames();
+refData["Pool"] = m_jobWidget->poolNames();
+refData["Catalog"] = m_jobWidget->catalogNames();
+refData["JobDefs"] = m_jobWidget->jobDefsNames();
+refData["Schedule"] = QStringList();  // TODO: populate
+refData["Messages"] = QStringList();  // TODO: populate
+
+wizard.setReferenceData(refData);
+```
+
+---
+
+## 11. Deprecated: Database Approach
+
+> **Note:** The original design (January 2026) used a "database-first" architecture with SQLite for all persistent storage. This approach has been **deprecated** in favor of direct Director communication. The current architecture queries the Director in real-time via `.api 2` JSON-RPC commands.
+
+### What Was Deprecated
+
+- **SQLite database** for storing Director, Client, Storage, Pool configurations
+- **BDirectorModel**, **BClientModel** (QSqlTableModel-based) — replaced by in-memory models parsing Director JSON responses
+- **BResourceModel** (QSqlTableModel base class) — replaced by BListModel/BTableModel/BTreeModel
+- **settings_history table** for audit trail
+- **BDirectiveRegistry** singleton — replaced by **BDirectiveSchema** singleton
+- **Post-authentication database import** — resources now queried live from Director
+- **"Offline management"** concept — application requires active Director connection
+
+### What Remains from That Era
+
+- **BPasswordUtil** — MD5 password hashing (still used for CRAM-MD5 auth)
+- **JSON directive schemas** — format unchanged, loader class renamed to BDirectiveSchema
+- **FileSet templates** — 22 preset templates in `resources/templates/filesets/`
+- **Connection profiles** — saved via QSettings (not SQLite)
+- **bdirectiveregistry.h/.cpp** — still exists in codebase but superseded by BDirectiveSchema
+
+### Files (db/ directory)
+
+The `include/db/` and `src/db/` directories still contain the database classes. They are not actively used for the main application flow but may be retained for future local caching or offline mode.
 
 ---
 
 **End of Documentation**
 
-**Version:** 0.1.0
-**Last Updated:** 2026-01-31
-**Project:** Onesimus - Bareos/Bacula GUI Configuration Manager
+**Version:** 0.1.0 (Build 274)
+**Last Updated:** 2026-02-08
