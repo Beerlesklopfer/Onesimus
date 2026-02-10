@@ -177,6 +177,12 @@ public slots:
     void processDotPoolsResponse(const QString &jsonData);
 
     /**
+     * @brief Processes .catalogs dot-command response
+     * @param jsonData JSON response from .catalogs command
+     */
+    void processDotCatalogsResponse(const QString &jsonData);
+
+    /**
      * @brief Processes list jobtotals response for server-side pagination
      * @param jsonData JSON response from list jobtotals command
      * @since 2.9
@@ -453,6 +459,8 @@ private:
     BStorageModel *m_storageModel;          ///< Model for all available storages
     BPoolModel *m_poolModel;                ///< Model for all available pools
     BLevelModel *m_levelModel;              ///< Model for all available backup levels
+    BCatalogModel *m_catalogModel;           ///< Model for all available catalogs
+    BJobConfigModel *m_jobConfigModel;      ///< Model for job + jobdefs configs
     QMap<QString, QJsonObject> m_jobConfigurations;  ///< Job configurations from .jobs (name -> config)
 
 public:
@@ -461,6 +469,8 @@ public:
     BStorageModel* storageModel() const { return m_storageModel; }
     BPoolModel* poolModel() const { return m_poolModel; }
     BLevelModel* levelModel() const { return m_levelModel; }
+    BCatalogModel* catalogModel() const { return m_catalogModel; }
+    BJobConfigModel* jobConfigModel() const { return m_jobConfigModel; }
 
     // Legacy accessors for backward compatibility
     QStringList filesetNames() const { return m_filesetModel ? m_filesetModel->filesetNames() : QStringList(); }
@@ -470,6 +480,8 @@ public:
     // Job and Client names from filterComboModel
     QStringList jobNames() const;
     QStringList clientNames() const;
+    QStringList catalogNames() const;
+    QStringList jobDefsNames() const;
 
     /**
      * @brief Get job configuration by name

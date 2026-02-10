@@ -65,7 +65,8 @@ class BJobResourceWidget : public BResourceWidget
 {
     Q_OBJECT
 public:
-    explicit BJobResourceWidget(BDirector *director = nullptr, QWidget *parent = nullptr);
+    explicit BJobResourceWidget(const QString &resourceType = "Job",
+                                BDirector *director = nullptr, QWidget *parent = nullptr);
 
 protected:
     void populateTree() override;

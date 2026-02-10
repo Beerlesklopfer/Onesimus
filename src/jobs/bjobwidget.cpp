@@ -62,7 +62,9 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     , m_filesetModel(new BFilesetModel(this))
     , m_storageModel(new BStorageModel(this))
     , m_poolModel(new BPoolModel(this))
+    , m_catalogModel(new BCatalogModel(this))
     , m_levelModel(new BLevelModel(this))
+    , m_jobConfigModel(new BJobConfigModel(this))
 {
     // Initialize checkboxes - all checked by default (except Zero Bytes)
     m_statusSuccess->setChecked(true);
@@ -799,6 +801,9 @@ void BJobWidget::requestFilterData()
 
     // Send .pools command to get all configured pools
     emit sendCommand(BDirector::Command::DotPools, "");
+
+    // Send .catalogs command to get all configured catalogs
+    emit sendCommand(BDirector::Command::DotCatalogs, "");
 }
 
 void BJobWidget::processDotJobsResponse(const QString &jsonData)
@@ -1024,6 +1029,19 @@ void BJobWidget::processDotPoolsResponse(const QString &jsonData)
 
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "✓ Loaded" << m_poolModel->poolNames().size() << "pools";
+#endif
+}
+
+void BJobWidget::processDotCatalogsResponse(const QString &jsonData)
+{
+#ifdef IS_DEVELOPER
+    BLOG_DEBUG() << "BJobWidget: Processing .catalogs response";
+#endif
+
+    m_catalogModel->parseCatalogs(jsonData);
+
+#ifdef IS_DEVELOPER
+    BLOG_DEBUG() << "✓ Loaded" << m_catalogModel->catalogNames().size() << "catalogs";
 #endif
 }
 
@@ -1847,6 +1865,16 @@ QStringList BJobWidget::jobNames() const
 QStringList BJobWidget::clientNames() const
 {
     return m_filterComboModel ? m_filterComboModel->clientNames() : QStringList();
+}
+
+QStringList BJobWidget::catalogNames() const
+{
+    return m_catalogModel ? m_catalogModel->catalogNames() : QStringList();
+}
+
+QStringList BJobWidget::jobDefsNames() const
+{
+    return m_jobConfigModel ? m_jobConfigModel->jobDefsNames() : QStringList();
 }
 
 QJsonObject BJobWidget::jobConfiguration(const QString &jobName) const

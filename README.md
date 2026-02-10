@@ -29,9 +29,16 @@
 
 ---
 
-## 🆕 What's New (v0.1.0 - 2026-02-04)
+## 🆕 What's New (v0.1.0 - 2026-02-08)
 
 ### New Features
+- **Schema-Driven Resource Editing** - BResourceDialog + BResourceForm for editing all resource types
+  - Directive JSON schemas for all 11 resource types (director, console, client, job, jobdef, storage, fileset, pool, catalog, schedule, messages)
+  - Auto-generated form widgets from schema definitions
+  - Group filtering, advanced toggle, reference data population via `setReferenceData()`
+  - BDirectiveSchema singleton loads schemas from embedded Qt resources
+- **Catalog Resource Support** - Full catalog model with Bareos object-format parsing
+- **Unified Job/JobDefs Model** - BJobConfigModel handles both `show jobs` and `show jobdefs`
 - **New Client Wizard** - 3-page wizard for adding backup clients with schema-driven preview
   - Auto-populates Director info from active connection
   - Generates FD-side and Director-side config files with TLS directives
@@ -44,6 +51,10 @@
 - **Messages Directive Schema** - New schema with German translations
 
 ### Bug Fixes
+- Fixed: Catalog combo box empty in Edit Jobs dialog (missing from `m_requiredResources` + object format parsing)
+- Fixed: JobDefs reference dropdown showing Job names instead of JobDef names
+- Fixed: Storage preset not loading in BResourceForm (array vs object unwrap)
+- Fixed: RunScript display as flat text — now shows `{ }` block delimiters
 - Fixed: Configure success detection for Bareos JSON API response format
 - Fixed: Director reload after successful client creation
 
@@ -131,6 +142,7 @@
 ### 🛠️ Technical Features
 - **MVC Architecture:** Clean separation of data and presentation
 - **Qt Model/View:** BListModel, BTableModel, BTreeModel for flexible data models
+- **Schema-Driven Forms:** BResourceForm auto-generates UI from JSON directive schemas
 - **JSON Streaming:** Efficient parsing of large JSON responses
 - **Asynchronous Operations:** Non-blocking network communication
 - **Error Handling:** Robust error handling with user feedback
@@ -332,11 +344,17 @@ onesimus/
 │   │   └── bdatabase.h         # SQLite database management
 │   ├── director/               # Director-related headers
 │   │   ├── bconfigimportdialog.h # Config import dialog
+│   │   ├── bresourcedialog.h   # Schema-driven resource edit dialog
+│   │   ├── bresourceform.h     # Schema-driven form widget
 │   │   ├── bresourcewidget.h   # Resource display widget
 │   │   └── bresourcewidgets.h  # Specialized resource widgets
+│   ├── models/                 # Model headers
+│   │   ├── bbasemodels.h       # Base models (BListModel, BTableModel)
+│   │   └── bresourcemodels.h   # Resource models (Fileset, Storage, Pool, Catalog, Job, etc.)
 │   └── jobs/                   # Job-specific headers
 │       ├── bjobmodels.h        # Job models
-│       └── bjobwidget.h        # Job widget
+│       ├── bjobwidget.h        # Job widget
+│       └── bjobwizard.h        # Add Job/JobDefs Wizard (WIP)
 ├── src/                        # Implementations
 │   ├── main.cpp                # Entry point with i18n init
 │   ├── bmainwindow.cpp         # Main window logic
@@ -362,8 +380,13 @@ onesimus/
 │   │   └── bdatabase.cpp
 │   ├── director/               # Director-related
 │   │   ├── bconfigimportdialog.cpp
+│   │   ├── bresourcedialog.cpp # Schema-driven resource edit dialog
+│   │   ├── bresourceform.cpp   # Schema-driven form widget
 │   │   ├── bresourcewidget.cpp
 │   │   └── bresourcewidgets.cpp
+│   ├── models/                 # Data models
+│   │   ├── bbasemodels.cpp
+│   │   └── bresourcemodels.cpp
 │   └── jobs/                   # Job implementations
 ├── resources/                  # Qt resources
 │   ├── resources.qrc           # Resource collection file
@@ -462,6 +485,11 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 ## 🔄 Version History
 
 ### v0.1.0 (February 2026)
+- 🚧 Add Job/JobDefs Wizard (BJobWizard) — 5-page QWizard with BRunScriptEditor (WIP, Build 274)
+- ✅ Schema-driven resource editing (BResourceDialog + BResourceForm) for all 11 resource types
+- ✅ Directive JSON schemas (director, console, client, job, jobdef, storage, fileset, pool, catalog, schedule, messages)
+- ✅ Catalog resource model with Bareos object-format parsing
+- ✅ Unified BJobConfigModel (Jobs + JobDefs in one class)
 - ✅ New Client Wizard (3-page wizard with schema-driven preview)
 - ✅ Application Icon (Bareos/Bacula build-time selection)
 - ✅ Debian Package (.deb with automatic dependency detection)
@@ -504,6 +532,8 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - ✅ Comprehensive documentation
 
 ### Planned Features (v1.2+)
+- 🚧 Add Job/JobDefs Wizard (5-page QWizard with RunScript editor — WIP, Build 274)
+- 🔜 Apply resource changes to Director (`configure add`/`configure update`)
 - 🔜 Live job monitoring with progress bars
 - 🔜 Job start/stop/cancel functions
 - 🔜 Volume management (label, mount, unmount)

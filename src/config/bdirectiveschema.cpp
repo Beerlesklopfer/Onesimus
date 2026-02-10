@@ -36,9 +36,11 @@ bool BDirectiveSchema::loadSchemas()
         ":/directives/directives/console.json",
         ":/directives/directives/client.json",
         ":/directives/directives/job.json",
+        ":/directives/directives/jobdef.json",
         ":/directives/directives/storage.json",
         ":/directives/directives/fileset.json",
         ":/directives/directives/pool.json",
+        ":/directives/directives/catalog.json",
         ":/directives/directives/schedule.json",
         ":/directives/directives/messages.json"
     };

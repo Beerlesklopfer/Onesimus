@@ -265,7 +265,7 @@ void BConfigImportDialog::setupTabs()
     m_clientWidget = new BClientResourceWidget(nullptr, this);
     m_tabWidget->addTab(m_clientWidget, tr("Clients"));
 
-    m_jobWidget = new BJobResourceWidget(nullptr, this);
+    m_jobWidget = new BJobResourceWidget("Job", nullptr, this);
     m_tabWidget->addTab(m_jobWidget, tr("Jobs"));
 
     m_storageWidget = new BStorageResourceWidget(nullptr, this);

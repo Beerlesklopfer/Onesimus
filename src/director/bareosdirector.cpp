@@ -66,7 +66,8 @@ BareosDirector::BareosDirector(QObject *parent)
         ResourceType::Storage,   // .storages
         ResourceType::Pool,      // .pools
         ResourceType::Level,     // .levels
-        ResourceType::Schedule   // .schedule
+        ResourceType::Schedule,  // .schedule
+        ResourceType::Catalog    // .catalogs
     };
 
     // Socket and Auth will be created in initialize() (called from worker thread)
@@ -1496,8 +1497,11 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
     case Command::DotStorages:  emit dotStoragesResult(jsonData); break;
     case Command::DotPools:     emit dotPoolsResult(jsonData); break;
     case Command::DotLevels:    emit dotLevelsResult(jsonData); break;
+    case Command::DotCatalogs:  emit dotCatalogsResult(jsonData); break;
     case Command::DotSchedule:  emit dotScheduleResult(jsonData); break;
     case Command::ListClients:  emit listClientsResult(jsonData); break;
+    case Command::ShowJobs:     emit showJobsResult(jsonData); break;
+    case Command::ShowJobDefs:  emit showJobDefsResult(jsonData); break;
 
     default:
         break;
@@ -1779,6 +1783,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     // Console Commands
     case Command::Show:             command = QString("show %1").arg(args); break;
     case Command::ShowJobs:         command = "show jobs"; break;
+    case Command::ShowJobDefs:      command = "show jobdefs"; break;
     case Command::ShowClients:      command = "show clients"; break;
     case Command::ShowFilesets:     command = "show filesets"; break;
     case Command::ShowSchedules:    command = "show schedules"; break;

@@ -1,6 +1,6 @@
 {
-  "resource_type": "Job",
-  "description": "Job resource directives for defining backup, restore, verify, and admin jobs in Bareos and Bacula",
+  "resource_type": "JobDefs",
+  "description": "JobDefs resource directives for defining default job values in Bareos and Bacula",
   "directives": {
     "Name": {
       "type": "string",

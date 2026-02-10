@@ -80,9 +80,11 @@
         <file>directives/console.json</file>
         <file>directives/fileset.json</file>
         <file>directives/job.json</file>
+        <file>directives/jobdef.json</file>
         <file>directives/schedule.json</file>
         <file>directives/storage.json</file>
         <file>directives/pool.json</file>
+        <file>directives/catalog.json</file>
         <file>directives/messages.json</file>
         <file>directives/directive_schema.json</file>
         <file>directives/directive_groups.json</file>

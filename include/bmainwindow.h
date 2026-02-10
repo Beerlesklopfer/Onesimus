@@ -167,6 +167,9 @@ private:
     QAction *m_addFileSetAction;
     QAction *m_editFileSetAction;
     QAction *m_deleteFileSetAction;
+    QAction *m_addJobDefsAction;
+    QAction *m_editJobDefsAction;
+    QAction *m_deleteJobDefsAction;
 
     // Clients Actions
     QAction *m_addClientAction;
@@ -190,6 +193,7 @@ private:
     QMenu *m_viewMenu;
     QMenu *m_jobsMenu;
     QMenu *m_modifyJobsSubMenu;
+    QMenu *m_jobDefsSubMenu;
     QMenu *m_filesetsSubMenu;
     QMenu *m_clientsMenu;
     QMenu *m_storageMenu;

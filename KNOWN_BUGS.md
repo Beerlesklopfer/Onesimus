@@ -46,7 +46,7 @@ This document lists known bugs and issues in Onesimus.
 - **Severity**: 🟡 Medium
 - **Description**: Synchronization between the FileSet wizard and detail dialog does not work correctly. Data entered in the wizard may not appear in the detail dialog and vice versa.
 - **Workaround**: Use either the wizard or the detail dialog for complete editing, not both.
-- **Status**: Being resolved - unified BFileSetWizard in development (will replace separate wizard and dialog)
+- **Status**: Will be replaced by schema-driven BResourceDialog for editing (BFileSetWizard kept for guided creation)
 - **Files**: `src/jobs/bnewfilesetdialog.cpp`, `src/jobs/bfilesetdialog.cpp` (will be consolidated)
 
 ### FileSet Not Updated After Editing
@@ -63,7 +63,51 @@ This document lists known bugs and issues in Onesimus.
 - **Status**: Under investigation (Bareos limitation)
 - **Files**: `src/bmainwindow.cpp`, `src/clients/bclientsmodel.cpp`
 
+### Add Job/JobDefs Wizard — Incomplete
+- **Severity**: 🟡 Medium
+- **Description**: BJobWizard (Build 274) compiles but is not yet runtime-tested. Known gaps: Schedule/Messages combos empty, RunScript blocks can't be sent via `configure add`, Pool overrides not in configure output.
+- **Workaround**: Use bconsole `configure add job` directly, or export config text from wizard Preview page
+- **Status**: WIP — needs runtime testing and Director integration verification
+- **Files**: `src/jobs/bjobwizard.cpp`, `include/jobs/bjobwizard.h`
+
 ## Resolved Issues
+
+### Build 274
+
+- Added: Add Job/JobDefs Wizard (BJobWizard) — 5-page QWizard (WIP)
+  - Pages: Basics, Resources, Scripts (BRunScriptEditor), Advanced (BResourceForm), Preview & Execute
+  - `configure add job`/`configure add jobdefs` command generation
+  - Files: `src/jobs/bjobwizard.cpp`, `include/jobs/bjobwizard.h`
+- Added: `BResourceForm::setExcludedDirectives()` — skip directives already shown on other pages
+  - Files: `include/config/bresourceform.h`, `src/config/bresourceform.cpp`
+- Fixed: Wiki submodule not registered in git index
+  - Root cause: `.gitmodules` had entry but submodule was never staged (no gitlink in index)
+
+### Build 268
+
+- Fixed: Catalog combo box empty in Edit Jobs dialog
+  - Root cause: `ResourceType::Catalog` missing from `m_requiredResources` — `.catalogs` dot-command was never sent. Additionally, `parseCatalogs` expected array format but Bareos returns object format `{"PDC-18": {"name":..., "dbuser":...}}`
+  - Files: `src/director/bareosdirector.cpp`, `src/models/bresourcemodels.cpp`
+
+- Fixed: JobDefs reference dropdown showing Job names instead of JobDef names
+  - Root cause: `refData["JobDefs"] = model->jobNames()` used the wrong accessor method
+  - Added `parseShowJobDefs()` / `jobDefsNames()` to unified `BJobConfigModel`
+  - Files: `src/bmainwindow.cpp`, `include/models/bresourcemodels.h`, `src/models/bresourcemodels.cpp`, `include/jobs/bjobwidget.h`, `src/jobs/bjobwidget.cpp`
+
+- Fixed: Storage preset not loading in BResourceForm
+  - Root cause: Bareos `show jobs` returns storage as string array `["PDC-sd"]`, not object. Form must unwrap first element for `resource_reference` combos
+  - File: `src/director/bresourceform.cpp`
+
+- Fixed: RunScript display as flat text in BResourceForm
+  - Now shows multiple RunScript blocks with `{ }` delimiters for clarity
+  - File: `src/director/bresourceform.cpp`
+
+- Added: Schema-driven resource editing (BResourceDialog + BResourceForm)
+  - Directive JSON schemas for all 11 resource types
+  - Auto-generated form widgets from schema definitions
+  - Group filtering, advanced toggle, reference data population
+
+- Added: Catalog directive schema (`resources/directives/catalog.json`)
 
 ### Build 226
 

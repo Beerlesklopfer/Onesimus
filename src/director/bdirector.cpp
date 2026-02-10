@@ -140,12 +140,18 @@ BDirector::BDirector(QObject *parent)
                      this, &BDirector::dotStoragesResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::dotPoolsResult,
                      this, &BDirector::dotPoolsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotCatalogsResult,
+                     this, &BDirector::dotCatalogsResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::dotLevelsResult,
                      this, &BDirector::dotLevelsResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::dotScheduleResult,
                      this, &BDirector::dotScheduleResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::listClientsResult,
                      this, &BDirector::listClientsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::showJobsResult,
+                     this, &BDirector::showJobsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::showJobDefsResult,
+                     this, &BDirector::showJobDefsResult);
 
     // Initialize director in worker thread (creates socket and auth)
     // Use QueuedConnection to ensure it runs in worker thread

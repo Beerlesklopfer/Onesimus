@@ -46,6 +46,20 @@ void BResourceForm::setGroupFilter(const QStringList &groups)
     }
 }
 
+void BResourceForm::setExcludedDirectives(const QStringList &names)
+{
+    if (m_excludedDirectives != names) {
+        m_excludedDirectives = names;
+        m_fieldWidgets.clear();
+        m_fieldLabels.clear();
+        m_fieldDirectives.clear();
+        m_advancedWidgets.clear();
+        m_advancedLabels.clear();
+        m_hasAdvancedDirectives = false;
+        buildForm();
+    }
+}
+
 void BResourceForm::setExistingResource(const BConfigResource &existing)
 {
     m_existing = existing;
@@ -159,6 +173,10 @@ void BResourceForm::buildForm()
         if (!dir.appliesToCurrentPlatform()) {
             continue;
         }
+        // Skip excluded directives (already shown elsewhere, e.g. wizard pages)
+        if (m_excludedDirectives.contains(dir.name, Qt::CaseInsensitive)) {
+            continue;
+        }
         QString groupName = dir.group.isEmpty() ? tr("General") : dir.group;
 
         // Apply group filter if set
@@ -200,12 +218,21 @@ void BResourceForm::buildForm()
             // Get current value from existing resource
             BConfigValue currentValue;
             if (!m_existing.type().isEmpty()) {
-                // Try exact match first, then case-insensitive
-                if (m_existing.hasKey(dir.name)) {
+                // Special case: "Name" → use resource name
+                if (dir.name.compare("Name", Qt::CaseInsensitive) == 0) {
+                    if (!m_existing.name().isEmpty()) {
+                        currentValue = BConfigValue(m_existing.name());
+                    }
+                } else if (m_existing.hasKey(dir.name)) {
+                    // Try exact match first
                     currentValue = m_existing.value(dir.name);
                 } else {
+                    // Normalize: strip spaces and compare case-insensitive
+                    // Matches schema "Full Backup Pool" to JSON "fullbackuppool"
+                    QString normalizedDir = dir.name.toLower().remove(' ');
                     for (const QString &key : m_existing.keys()) {
-                        if (key.compare(dir.name, Qt::CaseInsensitive) == 0) {
+                        QString normalizedKey = key.toLower().remove(' ');
+                        if (normalizedKey == normalizedDir) {
                             currentValue = m_existing.value(key);
                             break;
                         }
@@ -402,6 +429,14 @@ QWidget *BResourceForm::createWidgetForDirective(const BDirective &directive,
     }
 
     if (directive.type == "resource_reference") {
+        // Bareos returns some references as arrays (e.g., "storage": ["PDC-sd"])
+        // Unwrap single-element arrays to get the reference name
+        if (currentStr.isEmpty() && currentValue.type() == BConfigValue::List) {
+            QStringList list = currentValue.listValue();
+            if (!list.isEmpty()) {
+                currentStr = list.first();
+            }
+        }
         QComboBox *combo = new QComboBox();
         combo->setEditable(true);
         combo->addItem(QString()); // empty option
@@ -441,8 +476,9 @@ QWidget *BResourceForm::createWidgetForDirective(const BDirective &directive,
             textEdit->setPlainText(blockValueToText(currentValue.blockValue()));
         } else if (currentValue.type() == BConfigValue::BlockList) {
             QStringList parts;
-            for (const auto &block : currentValue.blockListValue())
-                parts.append(blockValueToText(block));
+            for (const auto &block : currentValue.blockListValue()) {
+                parts.append(QString("{\n%1}").arg(blockValueToText(block, 1)));
+            }
             textEdit->setPlainText(parts.join("\n"));
         }
         if (!directive.example.isEmpty()) {
@@ -652,6 +688,38 @@ void BResourceForm::updateDependentFields(const QString &controllingDirective)
         if (depLabel) {
             depLabel->setEnabled(shouldBeEnabled);
         }
+    }
+}
+
+void BResourceForm::setReferenceData(const QMap<QString, QStringList> &referenceData)
+{
+    for (auto it = m_fieldDirectives.constBegin(); it != m_fieldDirectives.constEnd(); ++it) {
+        const BDirective &dir = it.value();
+        if (dir.type != "resource_reference" || dir.referenceType.isEmpty())
+            continue;
+
+        QStringList names = referenceData.value(dir.referenceType);
+        if (names.isEmpty())
+            continue;
+
+        QWidget *widget = m_fieldWidgets.value(it.key());
+        QComboBox *combo = qobject_cast<QComboBox*>(widget);
+        if (!combo) continue;
+
+        QString current = combo->currentText();
+        combo->blockSignals(true);
+        combo->clear();
+        combo->addItem(QString());  // empty option
+        combo->addItems(names);
+        if (!current.isEmpty()) {
+            int idx = combo->findText(current, Qt::MatchFixedString);
+            if (idx >= 0) {
+                combo->setCurrentIndex(idx);
+            } else {
+                combo->setCurrentText(current);
+            }
+        }
+        combo->blockSignals(false);
     }
 }
 

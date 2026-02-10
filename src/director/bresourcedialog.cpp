@@ -10,6 +10,8 @@
 #include "config/bresourceform.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QFormLayout>
+#include <QLabel>
 #include <QFileDialog>
 #include <QFile>
 #include <QFileInfo>
@@ -23,7 +25,44 @@ BResourceDialog::BResourceDialog(const QString &resourceType,
     : QDialog(parent)
     , m_resourceType(resourceType)
 {
-    setWindowTitle(tr("Edit %1 Resource").arg(resourceType));
+    buildUi(existing);
+}
+
+BResourceDialog::BResourceDialog(const QString &resourceType,
+                                 const QStringList &names,
+                                 QWidget *parent)
+    : QDialog(parent)
+    , m_resourceType(resourceType)
+{
+    BConfigResource initial;
+    if (!names.isEmpty()) {
+        initial = BConfigResource(resourceType, names.first());
+    }
+    buildUi(initial);
+
+    // Insert selector combo at position 0 (before top bar)
+    QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout*>(layout());
+    if (mainLayout) {
+        QHBoxLayout *selectorLayout = new QHBoxLayout();
+        QLabel *selectorLabel = new QLabel(tr("Select %1:").arg(resourceType), this);
+        selectorLayout->addWidget(selectorLabel);
+
+        m_selectorCombo = new QComboBox(this);
+        m_selectorCombo->addItems(names);
+        m_selectorCombo->setMinimumWidth(250);
+        selectorLayout->addWidget(m_selectorCombo, 1);
+        selectorLayout->addStretch();
+
+        mainLayout->insertLayout(0, selectorLayout);
+
+        connect(m_selectorCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, &BResourceDialog::onResourceSelected);
+    }
+}
+
+void BResourceDialog::buildUi(const BConfigResource &existing)
+{
+    setWindowTitle(tr("Edit %1 Resource").arg(m_resourceType));
     setMinimumSize(600, 500);
     resize(700, 600);
 
@@ -55,7 +94,7 @@ BResourceDialog::BResourceDialog(const QString &resourceType,
     mainLayout->addLayout(topBar);
 
     // Resource form
-    m_form = new BResourceForm(resourceType, this);
+    m_form = new BResourceForm(m_resourceType, this);
     if (!existing.type().isEmpty()) {
         m_form->setExistingResource(existing);
     }
@@ -78,6 +117,11 @@ BConfigResource BResourceDialog::resource() const
     return m_form->resource();
 }
 
+void BResourceDialog::setReferenceData(const QMap<QString, QStringList> &referenceData)
+{
+    m_form->setReferenceData(referenceData);
+}
+
 void BResourceDialog::onShowAdvanced(bool checked)
 {
     m_form->setAdvancedVisible(checked);
@@ -87,6 +131,15 @@ void BResourceDialog::onAccepted()
 {
     m_form->collectValues();
     accept();
+}
+
+void BResourceDialog::onResourceSelected(int index)
+{
+    if (!m_selectorCombo || index < 0) return;
+
+    QString name = m_selectorCombo->currentText();
+    BConfigResource res(m_resourceType, name);
+    m_form->setExistingResource(res);
 }
 
 // Helper: Convert resource to Bareos config format

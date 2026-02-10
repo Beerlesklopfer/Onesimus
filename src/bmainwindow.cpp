@@ -7,7 +7,10 @@
 #include "clients/bclientsmodel.h"
 #include "clients/bnewclientdialog.h"
 #include "jobs/bfilesetwizard.h"
+#include "jobs/bjobwizard.h"
 #include "director/bresourcedialog.h"
+#include "director/bresourcewidgets.h"
+#include "models/bresourcemodels.h"
 #include "storagewidget.h"
 #include "schedules/bschedulewidget.h"
 // Messages widget is now inside BJobWidget
@@ -183,6 +186,7 @@ BMainWindow::BMainWindow(QWidget *parent)
         m_jobWidget->triggerRefresh();            // ListJobTotals / ListJobs
         m_clientWidget->triggerRefresh();          // ListClients
         onSendCommand(BDirector::Command::ShowClients, "");
+        onSendCommand(BDirector::Command::ShowJobDefs, "");  // Populate jobdefs model
         onSendCommand(BDirector::Command::ListBackups, "");
         onSendCommand(BDirector::Command::Messages, "");
 
@@ -343,6 +347,12 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_scheduleWidget, &BScheduleWidget::processDotScheduleResponse);
     connect(m_director, &BDirector::listClientsResult,
             m_clientWidget, &BClientsWidget::processJsonResponse);
+    connect(m_director, &BDirector::showJobsResult,
+            m_jobWidget->jobConfigModel(), &BJobConfigModel::parseShowJobs);
+    connect(m_director, &BDirector::showJobDefsResult,
+            m_jobWidget->jobConfigModel(), &BJobConfigModel::parseShowJobDefs);
+    connect(m_director, &BDirector::dotCatalogsResult,
+            m_jobWidget, &BJobWidget::processDotCatalogsResponse);
 
     // Setup auto-refresh timer
     m_autoRefreshTimer = new QTimer(this);
@@ -630,14 +640,84 @@ void BMainWindow::createActions()
     m_addJobAction->setIcon(QIcon(":/icons/icons/add.svg"));
     m_addJobAction->setEnabled(false);
     connect(m_addJobAction, &QAction::triggered, this, [this]() {
-        QMessageBox::information(this, tr("Add Job"), tr("Not implemented yet."));
+        BJobWizard wizard(BJobWizard::JobType, m_director, this);
+        QMap<QString, QStringList> refData;
+        refData["Client"] = m_jobWidget->clientNames();
+        refData["FileSet"] = m_jobWidget->filesetNames();
+        refData["Storage"] = m_jobWidget->storageNames();
+        refData["Pool"] = m_jobWidget->poolNames();
+        refData["Schedule"] = QStringList();
+        refData["Messages"] = QStringList();
+        refData["Catalog"] = m_jobWidget->catalogNames();
+        refData["JobDefs"] = m_jobWidget->jobDefsNames();
+        refData["Job"] = m_jobWidget->jobNames();
+        wizard.setReferenceData(refData);
+        wizard.exec();
     });
 
     m_editJobAction = new QAction(tr("Edit Job..."), this);
     m_editJobAction->setIcon(QIcon(":/icons/icons/edit.svg"));
     m_editJobAction->setEnabled(false);
     connect(m_editJobAction, &QAction::triggered, this, [this]() {
-        QMessageBox::information(this, tr("Edit Job"), tr("Not implemented yet."));
+        QStringList names = m_jobWidget->jobNames();
+        if (names.isEmpty()) {
+            QMessageBox::information(this, tr("Edit Job"),
+                                     tr("No Jobs available."));
+            return;
+        }
+
+        // Create dialog with BJobResourceWidget
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Job Resources"));
+        dlg.setMinimumSize(900, 600);
+        dlg.resize(1000, 700);
+
+        QVBoxLayout *layout = new QVBoxLayout(&dlg);
+        BJobResourceWidget *jobWidget = new BJobResourceWidget("Job", m_director, &dlg);
+
+        layout->addWidget(jobWidget);
+
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+        connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        layout->addWidget(buttonBox);
+
+        // Helper to populate resources + reference data
+        BJobConfigModel *model = m_jobWidget->jobConfigModel();
+        BJobWidget *jobW = m_jobWidget;
+        auto populateWidget = [model, jobWidget, jobW]() {
+            QList<BConfigResource> resources = model->jobResources();
+            jobWidget->setResources(resources);
+
+            // Build reference data from models + parsed resources
+            QMap<QString, QStringList> refData;
+            refData["Client"] = jobW->clientNames();
+            refData["FileSet"] = jobW->filesetNames();
+            refData["Storage"] = jobW->storageNames();
+            refData["Pool"] = jobW->poolNames();
+            refData["Schedule"] = QStringList();
+            refData["Messages"] = QStringList();
+            refData["Job"] = model->jobNames();
+            refData["JobDefs"] = jobW->jobDefsNames();
+
+            refData["Catalog"] = jobW->catalogNames();
+
+            jobWidget->setReferenceData(refData);
+        };
+
+        if (model->hasConfigs()) {
+            populateWidget();
+        } else {
+            QMetaObject::Connection *conn = new QMetaObject::Connection();
+            *conn = connect(m_director, &BDirector::showJobsResult, &dlg,
+                            [populateWidget, conn](const QString &) {
+                populateWidget();
+                QObject::disconnect(*conn);
+                delete conn;
+            });
+            m_director->doSend(BDirector::Command::ShowJobs);
+        }
+
+        dlg.exec();
     });
 
     m_deleteJobAction = new QAction(tr("Delete Job..."), this);
@@ -645,6 +725,93 @@ void BMainWindow::createActions()
     m_deleteJobAction->setEnabled(false);
     connect(m_deleteJobAction, &QAction::triggered, this, [this]() {
         m_jobWidget->tableView()->deleteJob();
+    });
+
+    // Modify JobDefs submenu actions
+    m_addJobDefsAction = new QAction(tr("Add JobDefs..."), this);
+    m_addJobDefsAction->setIcon(QIcon(":/icons/icons/add.svg"));
+    m_addJobDefsAction->setEnabled(false);
+    connect(m_addJobDefsAction, &QAction::triggered, this, [this]() {
+        BJobWizard wizard(BJobWizard::JobDefsType, m_director, this);
+        QMap<QString, QStringList> refData;
+        refData["Client"] = m_jobWidget->clientNames();
+        refData["FileSet"] = m_jobWidget->filesetNames();
+        refData["Storage"] = m_jobWidget->storageNames();
+        refData["Pool"] = m_jobWidget->poolNames();
+        refData["Schedule"] = QStringList();
+        refData["Messages"] = QStringList();
+        refData["Catalog"] = m_jobWidget->catalogNames();
+        refData["JobDefs"] = m_jobWidget->jobDefsNames();
+        refData["Job"] = m_jobWidget->jobNames();
+        wizard.setReferenceData(refData);
+        wizard.exec();
+    });
+
+    m_editJobDefsAction = new QAction(tr("Edit JobDefs..."), this);
+    m_editJobDefsAction->setIcon(QIcon(":/icons/icons/edit.svg"));
+    m_editJobDefsAction->setEnabled(false);
+    connect(m_editJobDefsAction, &QAction::triggered, this, [this]() {
+        // Create dialog with BJobResourceWidget for JobDefs
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("JobDefs Resources"));
+        dlg.setMinimumSize(900, 600);
+        dlg.resize(1000, 700);
+
+        QVBoxLayout *layout = new QVBoxLayout(&dlg);
+        BJobResourceWidget *jdWidget = new BJobResourceWidget("JobDefs", m_director, &dlg);
+
+        layout->addWidget(jdWidget);
+
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+        connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        layout->addWidget(buttonBox);
+
+        // Use centralized model from BJobWidget (populated at startup)
+        BJobConfigModel *model = m_jobWidget->jobConfigModel();
+        BJobWidget *jobW = m_jobWidget;
+
+        // Populate from cached data, then refresh
+        auto populateWidget = [model, jdWidget, jobW]() {
+            QList<BConfigResource> resources = model->jobDefsResources();
+            jdWidget->setResources(resources);
+
+            QMap<QString, QStringList> refData;
+            refData["Client"] = jobW->clientNames();
+            refData["FileSet"] = jobW->filesetNames();
+            refData["Storage"] = jobW->storageNames();
+            refData["Pool"] = jobW->poolNames();
+            refData["Schedule"] = QStringList();
+            refData["Messages"] = QStringList();
+            refData["Job"] = jobW->jobNames();
+            refData["JobDefs"] = jobW->jobDefsNames();
+            refData["Catalog"] = jobW->catalogNames();
+
+            jdWidget->setReferenceData(refData);
+        };
+
+        // If model already has data, populate immediately
+        if (!model->jobDefsNames().isEmpty()) {
+            populateWidget();
+        }
+
+        // Also refresh from Director (one-shot connection)
+        QMetaObject::Connection *conn = new QMetaObject::Connection();
+        *conn = connect(m_director, &BDirector::showJobDefsResult, &dlg,
+                        [populateWidget, conn](const QString &) {
+            populateWidget();
+            QObject::disconnect(*conn);
+            delete conn;
+        });
+        m_director->doSend(BDirector::Command::ShowJobDefs);
+
+        dlg.exec();
+    });
+
+    m_deleteJobDefsAction = new QAction(tr("Delete JobDefs..."), this);
+    m_deleteJobDefsAction->setIcon(QIcon(":/icons/icons/delete.svg"));
+    m_deleteJobDefsAction->setEnabled(false);
+    connect(m_deleteJobDefsAction, &QAction::triggered, this, [this]() {
+        QMessageBox::information(this, tr("Delete JobDefs"), tr("Not implemented yet."));
     });
 
     // Filesets submenu actions
@@ -817,6 +984,12 @@ void BMainWindow::createMenus()
     m_modifyJobsSubMenu->addAction(m_addJobAction);
     m_modifyJobsSubMenu->addAction(m_editJobAction);
     m_modifyJobsSubMenu->addAction(m_deleteJobAction);
+
+    // Modify JobDefs submenu
+    m_jobDefsSubMenu = m_jobsMenu->addMenu(QIcon(":/icons/icons/edit.svg"), tr("Modify JobDefs"));
+    m_jobDefsSubMenu->addAction(m_addJobDefsAction);
+    m_jobDefsSubMenu->addAction(m_editJobDefsAction);
+    m_jobDefsSubMenu->addAction(m_deleteJobDefsAction);
 
     // Filesets submenu
     m_filesetsSubMenu = m_jobsMenu->addMenu(QIcon(":/icons/icons/filesets.svg"), tr("Filesets"));
@@ -1400,6 +1573,9 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     m_addFileSetAction->setEnabled(connected);
     m_editFileSetAction->setEnabled(connected);
     m_deleteFileSetAction->setEnabled(connected);
+    m_addJobDefsAction->setEnabled(connected);
+    m_editJobDefsAction->setEnabled(connected);
+    m_deleteJobDefsAction->setEnabled(connected);
     // Cancel and Details require job selection, so they stay disabled until selection changes
     if (!connected) {
         m_cancelJobAction->setEnabled(false);

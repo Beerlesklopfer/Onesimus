@@ -75,6 +75,12 @@ public:
     int resourceCount() const { return m_resources.size(); }
 
     /**
+     * @brief Set reference data for populating combo boxes in edit dialogs
+     * @param referenceData Map of reference type (e.g., "Client", "Pool") to list of names
+     */
+    void setReferenceData(const QMap<QString, QStringList> &referenceData) { m_referenceData = referenceData; }
+
+    /**
      * @brief Export all resources to a .conf file
      */
     void exportToConf();
@@ -156,6 +162,7 @@ protected:
     QString m_exportName;
     QList<BConfigResource> m_resources;
     QList<BConfigResource> m_exportResources;  ///< If set, used by export instead of m_resources
+    QMap<QString, QStringList> m_referenceData; ///< Reference data for edit dialog combos
 };
 
 #endif // BRESOURCEWIDGET_H

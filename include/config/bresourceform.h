@@ -90,6 +90,18 @@ public:
      */
     void setDirectiveValue(const QString &name, const QVariant &value);
 
+    /**
+     * @brief Set directives to exclude from the form (already shown elsewhere)
+     * @param names List of directive names to skip during buildForm()
+     */
+    void setExcludedDirectives(const QStringList &names);
+
+    /**
+     * @brief Populate resource_reference combo boxes with available names
+     * @param referenceData Map of reference type (e.g., "Client", "Pool") to list of names
+     */
+    void setReferenceData(const QMap<QString, QStringList> &referenceData);
+
 signals:
     /**
      * @brief Emitted when any field value changes
@@ -114,6 +126,7 @@ private:
 
     QString m_resourceType;
     QStringList m_groupFilter;
+    QStringList m_excludedDirectives;
     BConfigResource m_resource;
     BConfigResource m_existing;
     QMap<QString, QWidget*> m_fieldWidgets;

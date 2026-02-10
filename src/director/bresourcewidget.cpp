@@ -157,6 +157,9 @@ void BResourceWidget::onEditResource()
     bool accepted = false;
 
     BResourceDialog dlg(m_resourceType, res, this);
+    if (!m_referenceData.isEmpty()) {
+        dlg.setReferenceData(m_referenceData);
+    }
     if (dlg.exec() == QDialog::Accepted) {
         modified = dlg.resource();
         accepted = true;

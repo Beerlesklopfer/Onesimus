@@ -250,8 +250,8 @@ QIcon BClientResourceWidget::resourceIcon() const
 // Job Resource Widget
 // ============================================================================
 
-BJobResourceWidget::BJobResourceWidget(BDirector *director, QWidget *parent)
-    : BResourceWidget("Job", director, parent)
+BJobResourceWidget::BJobResourceWidget(const QString &resourceType, BDirector *director, QWidget *parent)
+    : BResourceWidget(resourceType, director, parent)
 {
     m_treeWidget->setHeaderLabels({tr("Name"), tr("Type"), tr("Level"), tr("Client"), tr("FileSet")});
 }
@@ -280,7 +280,7 @@ void BJobResourceWidget::populateTree()
 void BJobResourceWidget::updateDetails(const BConfigResource &resource)
 {
     QString text;
-    text += QString("<h3>Job: %1</h3>").arg(resource.name());
+    text += QString("<h3>%1: %2</h3>").arg(m_resourceType, resource.name());
     text += QString("<p><i>Source: %1</i></p>").arg(resource.sourceFile());
     text += "<hr>";
 

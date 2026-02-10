@@ -2,6 +2,7 @@
 #define BRESOURCEMODELS_H
 
 #include "models/bbasemodels.h"
+#include "config/bconfigparser.h"
 #include <QMap>
 #include <QJsonObject>
 
@@ -117,6 +118,40 @@ protected:
 
 
 // ============================================================================
+// BCatalogModel - Model for Bareos catalogs
+// ============================================================================
+
+/**
+ * @brief List model for displaying Bareos catalog resources
+ *
+ * Displays catalog information from .catalogs dot-command response.
+ * Inherits from BListModel for basic JSON handling.
+ */
+class BCatalogModel : public BListModel
+{
+    Q_OBJECT
+
+public:
+    explicit BCatalogModel(QObject *parent = nullptr);
+
+    /**
+     * @brief Parses .catalogs dot-command response
+     * @param jsonResponse JSON response from Director
+     */
+    void parseCatalogs(const QString &jsonResponse);
+
+    /**
+     * @brief Returns catalog names as string list
+     * @return QStringList of catalog names
+     */
+    QStringList catalogNames() const;
+
+protected:
+    QString getDisplayText(const QJsonObject &item) const override;
+};
+
+
+// ============================================================================
 // BLevelModel - Model for Bareos backup levels
 // ============================================================================
 
@@ -155,6 +190,44 @@ public:
 
 protected:
     QString getDisplayText(const QJsonObject &item) const override;
+};
+
+// ============================================================================
+// BJobConfigModel - Model for Bareos job configurations
+// ============================================================================
+
+/**
+ * @brief Model for Bareos job configurations from "show jobs" command
+ *
+ * Parses full job resource configs from "show jobs" JSON response and
+ * converts them to BConfigResource objects for use with BJobResourceWidget.
+ */
+class BJobConfigModel : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit BJobConfigModel(QObject *parent = nullptr);
+
+    // --- Jobs ---
+    void parseShowJobs(const QString &jsonResponse);
+    QList<BConfigResource> jobResources() const;
+    QStringList jobNames() const;
+    bool hasConfigs() const { return !m_jobConfigs.isEmpty(); }
+
+    // --- JobDefs ---
+    void parseShowJobDefs(const QString &jsonResponse);
+    QList<BConfigResource> jobDefsResources() const;
+    QStringList jobDefsNames() const;
+
+    // Reusable JSON → BConfigResource conversion helpers
+    static BConfigResource jsonToResource(const QString &resourceType,
+                                          const QString &name, const QJsonObject &obj);
+    static BConfigValue jsonValueToBConfigValue(const QJsonValue &val);
+
+private:
+    QMap<QString, QJsonObject> m_jobConfigs;
+    QMap<QString, QJsonObject> m_jobDefsConfigs;
 };
 
 #endif // BRESOURCEMODELS_H

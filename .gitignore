@@ -88,3 +88,6 @@ create-bacula-certs.bat
 create-bacula-certs.ps1
 .cache
 .claude/
+debug.log
+
+*bareos-dir.d*.*

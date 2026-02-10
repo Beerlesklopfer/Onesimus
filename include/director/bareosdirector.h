@@ -274,6 +274,7 @@ public:
         // Console Commands
         Show,               ///< show
         ShowJobs,           ///< show jobs
+        ShowJobDefs,        ///< show jobdefs
         ShowClients,        ///< show clients
         ShowFilesets,       ///< show filesets
         ShowSchedules,      ///< show schedules
@@ -666,8 +667,11 @@ signals:
     void dotStoragesResult(const QString &jsonData);
     void dotPoolsResult(const QString &jsonData);
     void dotLevelsResult(const QString &jsonData);
+    void dotCatalogsResult(const QString &jsonData);
     void dotScheduleResult(const QString &jsonData);
     void listClientsResult(const QString &jsonData);
+    void showJobsResult(const QString &jsonData);
+    void showJobDefsResult(const QString &jsonData);
 
     /**
      * @brief Emitted when a command fails (error detected in response)

@@ -298,8 +298,11 @@ signals:
     void dotStoragesResult(const QString &jsonData);
     void dotPoolsResult(const QString &jsonData);
     void dotLevelsResult(const QString &jsonData);
+    void dotCatalogsResult(const QString &jsonData);
     void dotScheduleResult(const QString &jsonData);
     void listClientsResult(const QString &jsonData);
+    void showJobsResult(const QString &jsonData);
+    void showJobDefsResult(const QString &jsonData);
 
     // ========================================================================
     // Command Queue Signals

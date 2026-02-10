@@ -427,6 +427,7 @@ set(SOURCES
     src/jobs/bjsonjobview.cpp
     src/jobs/bnewjobdialog.cpp
     src/jobs/bfilesetwizard.cpp
+    src/jobs/bjobwizard.cpp
     src/jobs/fileset/bfilesetdocument.cpp
     src/jobs/fileset/bincludeblockwidget.cpp
 
@@ -504,6 +505,7 @@ set(HEADERS
     include/jobs/blevelcolors.h
     include/jobs/bnewjobdialog.h
     include/jobs/bfilesetwizard.h
+    include/jobs/bjobwizard.h
     include/jobs/fileset/bfilesetdocument.h
     include/jobs/fileset/bincludeblockwidget.h
 
