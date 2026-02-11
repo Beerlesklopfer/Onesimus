@@ -5,8 +5,7 @@ build-*/
 cmake-build-*/
 build-output.txt
 
-# OpenSSL Build-Artefakte (Submodule wird nicht ignoriert, nur Build-Output)
-external/openssl/
+# OpenSSL Build-Artefakte (Submodule selbst wird getrackt, nur Build-Output ignoriert)
 external/openssl/apps/
 external/openssl/test/
 external/openssl/*.o

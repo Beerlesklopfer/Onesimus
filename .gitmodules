@@ -1,6 +1,7 @@
 [submodule "external/openssl"]
 	path = external/openssl
 	url = https://github.com/openssl/openssl.git
+	branch = openssl-3.6.0
 [submodule "wiki"]
 	path = wiki
 	url = git@github.com:Beerlesklopfer/Onesimus.wiki.git
