@@ -189,7 +189,32 @@ cmake .. -DBACKUP_SYSTEM=BOTH
 ### Linux
 
 ```bash
+# Bash
 ./build.sh
+
+# Fish
+./build.fish
+```
+
+Both scripts accept the same command-line arguments:
+
+```bash
+./build.sh [OPTIONS]
+./build.fish [OPTIONS]
+
+Options:
+  -t, --type TYPE        Build type: Release (default), Debug, RelWithDebInfo
+  -s, --system-openssl   Use system OpenSSL instead of static submodule
+  -c, --clean            Remove build directory before building
+  -j, --jobs N           Parallel build jobs (default: nproc)
+  -d, --build-dir DIR    Build directory (default: build)
+  -h, --help             Show this help
+
+Examples:
+  ./build.sh                     # Release, static OpenSSL
+  ./build.sh -t Debug            # Debug build
+  ./build.sh -s -c               # System OpenSSL, clean rebuild
+  ./build.sh -j4 -t Debug        # Debug, 4 jobs
 ```
 
 ### macOS
@@ -541,7 +566,8 @@ onesimus/
 ├── external/                   # Git submodules
 │   └── openssl/                # OpenSSL 3.x
 ├── wiki/                       # GitHub Wiki (Git submodule)
-├── build.sh                    # Linux build script
+├── build.sh                    # Linux build script (Bash)
+├── build.fish                  # Linux build script (Fish)
 ├── build-windows.ps1           # Windows build script
 ├── BUILD_LINUX.md              # Linux build instructions
 ├── BUILD_WINDOWS.md            # Windows build instructions
