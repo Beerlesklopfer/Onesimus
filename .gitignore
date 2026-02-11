@@ -24,6 +24,7 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 *.cmake
+!cmake/*
 !CMakeLists.txt
 
 # Qt-generierte Dateien
