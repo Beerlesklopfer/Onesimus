@@ -340,7 +340,7 @@ endif()
 # ============================================================================
 
 # Finde Qt6 Core zuerst
-find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core)
 
 # Qt6 Standard Project Setup (empfohlen ab Qt 6.3+)
 qt_standard_project_setup()
