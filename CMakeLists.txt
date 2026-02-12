@@ -89,8 +89,14 @@ endif()
 message(STATUS "========================================")
 message(STATUS "")
 
+set(USE_STATIC_OPENSSL_DEFAULT ON)
+find_package(OpenSSL)
+if(TARGET OpenSSL::SSL)
+    set(USE_STATIC_OPENSSL_DEFAULT OFF)
+endif()
+
 # Option für statisches OpenSSL
-option(USE_STATIC_OPENSSL "Use static OpenSSL from git submodule (auto-download)" ON)
+option(USE_STATIC_OPENSSL "Use static OpenSSL from git submodule (auto-download)" ${USE_STATIC_OPENSSL_DEFAULT})
 
 # ============================================================================
 # OpenSSL Automatischer Download und Build via Git Submodule
@@ -319,13 +325,13 @@ else()
     # ========================================================================
     # System OpenSSL verwenden
     # ========================================================================
-    message(STATUS "Using system OpenSSL")
-    find_package(OpenSSL REQUIRED)
-    
-    if(OPENSSL_FOUND)
+    if(TARGET OpenSSL::SSL)
+        message(STATUS "Using system OpenSSL")
         message(STATUS "✓ Found OpenSSL ${OPENSSL_VERSION}")
         message(STATUS "  Includes: ${OPENSSL_INCLUDE_DIR}")
         message(STATUS "  Libraries: ${OPENSSL_LIBRARIES}")
+    else()
+        message(FATAL_ERROR "OpenSSL not found. Either install the openssl development package or set -DUSE_STATIC_OPENSSL=ON to compile it locally")
     endif()
 endif()
 
