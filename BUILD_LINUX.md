@@ -20,8 +20,10 @@ The script:
 ```bash
 # 1. Install prerequisites
 sudo apt-get update
-sudo apt-get install -y build-essential cmake git qt6-base-dev qt6-tools-dev \
-    qt6-tools-dev-tools libqt6network6-dev perl imagemagick
+sudo apt-get install -y build-essential cmake git \
+    qt6-base-dev qt6-base-private-dev qt6-tools-dev \
+    qt6-tools-dev-tools libqt6network6-dev \
+    perl imagemagick libssl-dev libxkbcommon-dev
 
 # 2. Clone repository
 git clone <your-repo> onesimus
