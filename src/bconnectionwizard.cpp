@@ -1901,6 +1901,7 @@ void ConfigPreviewPage::updateConfigs()
     consoleConfig += QString("  PoolAcl = *all*\n");
     consoleConfig += QString("  FileSetAcl = *all*\n");
     consoleConfig += QString("  CatalogAcl = *all*\n");
+    consoleConfig += QString("  WhereAcl = *all*\n");
     consoleConfig += QString("}\n");
 
     m_consoleConfigEdit->setPlainText(consoleConfig);
