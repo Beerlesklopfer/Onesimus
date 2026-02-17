@@ -1696,7 +1696,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::ApiMode:
         // ✅ Intelligente API-Modus-Verarbeitung
         if (args.isEmpty()) {
-            command = ".api 1";  // Default: JSON
+            command = ".api json compact=yes";  // Default: JSON
         } else {
             bool ok;
             int mode = args.toInt(&ok);
