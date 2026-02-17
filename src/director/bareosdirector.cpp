@@ -1762,7 +1762,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::Rerun:            command = QString("rerun jobid=%1").arg(args); break;
 
     // Restore
-    case Command::Restore:          command = "restore"; break;
+    case Command::Restore:          command = QString("restore %1").arg(args); break;
     case Command::RestoreAll:       command = "restore all"; break;
     case Command::RestoreSelect:    command = "restore select"; break;
 
