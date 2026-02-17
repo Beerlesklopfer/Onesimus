@@ -614,7 +614,7 @@ void BRestorePreviewPage::initializePage()
 
     // Build .bvfs_restore command
     QStringList parts;
-    parts << QString(".bvfs_restore path=%1").arg(data->restoreTableName);
+    parts << QString("path=%1").arg(data->restoreTableName);
     parts << QString("jobid=%1").arg(data->resolvedBvfsJobIds);
     if (!fileIds.isEmpty()) {
         parts << QString("fileid=%1").arg(fileIds);
@@ -625,7 +625,10 @@ void BRestorePreviewPage::initializePage()
     data->bvfsRestoreCommand = parts.join(" ");
 
     // Build restore command
-    data->restoreCommand = QString("restore file=?%1 client=%2 where=%3 replace=%4 done yes")
+    // Other useful options:
+    // restorejob=
+    // restoreclient=
+    data->restoreCommand = QString("file=?%1 client=%2 where=%3 replace=%4 yes")
                                .arg(data->restoreTableName)
                                .arg(data->targetClient)
                                .arg(data->restoreWhere)
