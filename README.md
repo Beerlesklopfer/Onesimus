@@ -41,7 +41,14 @@
   - Live restore execution with progress bar and auto-refresh
   - Step indicators showing wizard progress
 - **Permission Checks** — Uses `.help all` to verify user has required Bareos ACLs before restore
-- **My Permissions Dialog** — View all Bareos console permissions at a glance
+
+### ACL Visualization (NEW)
+- **My Permissions Dialog** — Queries `.help all` and displays all Bareos console ACLs
+  - Grouped by category: Backup & Restore, Job Control, Administration, Media
+  - Color-coded permission status (granted / denied) per command
+  - Restore details with available arguments
+  - Other available commands overview
+  - Raw Director response view for debugging
 
 ### Build Improvements
 - **Qt >= 6.8 now required** (enforced in CMake)
@@ -118,6 +125,7 @@
 - **Certificate Management:** CA, client certificate and key files
 - **Director Config Export:** Export console configurations for Bareos server
 - **Windows PFX Support:** Native .pfx file support on Windows
+- **ACL Visualization:** My Permissions dialog shows all console ACLs grouped by category
 - **Connection Timeout:** Configurable timeout settings
 - **Auto-Connect:** Automatic connection on startup (optional)
 
@@ -660,6 +668,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
   - Permission checks via `.help all`, My Permissions dialog
   - Step indicators, progress bar, size estimate, auto-refresh
   - Checkbox propagation in file browser
+- ✅ **ACL Visualization** — My Permissions dialog with grouped command permissions (Backup & Restore, Job Control, Administration, Media)
 - ✅ Build improvements: Qt >= 6.8 required, dynamic `USE_STATIC_OPENSSL`, default API mode `json compact=yes`
 - 🚧 Add Job/JobDefs Wizard (BJobWizard) — 5-page QWizard with BRunScriptEditor (WIP, Build 274)
 - ✅ Schema-driven resource editing (BResourceDialog + BResourceForm) for all 11 resource types

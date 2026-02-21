@@ -5,6 +5,38 @@ All notable changes to Onesimus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-02-21 (Build 345)
+
+### Added
+- **Restore Wizard**: Full BVFS-based 5-page QWizard (SelectJob → Browse → Options → Preview → Execute)
+  - BVFS file browser with Windows Explorer-style directory tree and file list
+  - Checkbox propagation (parent ↔ children) for file/directory selection
+  - Restore options: Where, Replace mode, Client selection
+  - Preview page with size estimate and file count summary
+  - Live restore execution with progress bar and auto-refresh
+  - Step indicators showing wizard progress
+  - Permission checks via `.help all` to verify required Bareos ACLs before restore
+- **ACL Visualization**: My Permissions dialog (Help menu → My Permissions)
+  - Queries `.help all` and displays all Bareos console ACLs
+  - Grouped by category: Backup & Restore, Job Control, Administration, Media
+  - Color-coded permission status (granted / denied) per command
+  - Restore details with available arguments
+  - Other available commands overview
+  - Raw Director response view for debugging
+- **Website**: [onesimus.io](https://onesimus.io) — project website with documentation, blog, and legal pages (EN/DE)
+
+### Changed
+- **Qt >= 6.8 now required** (enforced in CMake)
+- **Dynamic `USE_STATIC_OPENSSL`** — CMake auto-detects whether to use static or system OpenSSL based on availability
+- **Default API mode** set to `json compact=yes` for better performance
+- **Disclaimer links** updated to point to onesimus.io instead of GitHub wiki
+
+### Fixed
+- **WhereAcl**: Added missing WhereAcl for restore functionality
+- **Restore browser**: Various fixes to BVFS file browser navigation
+
+---
+
 ## [0.1.0] - 2026-02-04
 
 ### Added
@@ -479,7 +511,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Future Features
 
-### Planned for v1.1
+### Planned
+- 🚧 **Add Job/JobDefs Wizard**: 5-page QWizard with RunScript editor (WIP, Build 274)
+- 🔜 **Apply Resource Changes**: `configure add`/`configure update` from resource dialogs
 - 🔜 **Live Job Monitoring**: Real-time progress bars for running jobs
 - 🔜 **Job Control**: Start, stop, cancel jobs from UI
 - 🔜 **Volume Management**: Label, mount, unmount volumes
@@ -488,9 +522,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 🔜 **Email Notifications**: Alert system for job failures
 - 🔜 **Dashboard**: Overview page with key metrics
 - 🔜 **Schedule Calendar View**: Visual schedule representation
-- 🔜 **Restore Interface**: File browsing and restore wizard
-- 🔜 **Client Management**: Add/edit/remove clients
 - 🔜 **Dynamic Language Switching**: Change language without restart
+- 💤 **Bacula Support** *(future)*
 
 ### Under Consideration
 - 🤔 **Multi-Director Support**: Manage multiple Directors simultaneously
@@ -553,7 +586,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Volume management (label/mount) not yet implemented
 - Client details dialog not yet implemented
 - Schedule enable/disable not yet implemented
-- Restore functionality not yet implemented
+- Add Job/JobDefs Wizard not yet runtime-tested against live Director
 
 ### Platform-Specific
 - **Windows**: PFX password prompt not yet implemented (uses empty password)
