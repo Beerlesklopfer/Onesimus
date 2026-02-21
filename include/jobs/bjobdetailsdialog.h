@@ -35,12 +35,14 @@ public:
 
 private slots:
     void onJobLogReceived(BDirector::Command cmd, const QString &response);
+    void onJobDetailReceived(BDirector::Command cmd, const QString &jsonData);
 
 private:
     void setupUi(const QJsonObject &job);
     void setupFilesTab();
     void setupStatusTab(const QJsonObject &job);
     void setupLogTab();
+    void queryJobDetails();
 
     QString formatBytes(qint64 bytes) const;
     QString formatStatus(const QString &status) const;
@@ -54,6 +56,9 @@ private:
 
     // Status Tab
     QWidget *m_statusWidget;
+    QFormLayout *m_jobInfoLayout = nullptr;
+    QLabel *m_fileSetLabel = nullptr;
+    QLabel *m_scheduleLabel = nullptr;
 
     // Log Tab
     QListView *m_logListView;

@@ -68,14 +68,32 @@ void BJobFilesWidget::setupUi()
 
     connect(m_fileTreeView, &QTreeView::clicked,
             this, &BJobFilesWidget::onTreeItemClicked);
+    connect(m_fileTreeView, &QTreeView::expanded,
+            this, &BJobFilesWidget::onTreeItemExpanded);
+    connect(m_fileTreeView->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, &BJobFilesWidget::onTreeCurrentChanged);
 
-    // Table view: all items (files + dirs) via source model with setRootIndex
+    // Table view: all items via sort proxy
+    m_listSortProxy = new QSortFilterProxyModel(this);
+    m_listSortProxy->setSourceModel(m_bvfsModel);
+    m_listSortProxy->setSortRole(BBvfsModel::SortRole);
+
     m_fileListView = new QTableView(m_filesSplitter);
-    m_fileListView->setModel(m_bvfsModel);
+    m_fileListView->setModel(m_listSortProxy);
     m_fileListView->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_fileListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_fileListView->horizontalHeader()->setStretchLastSection(true);
     m_fileListView->verticalHeader()->setVisible(false);
+    m_fileListView->setSortingEnabled(true);
+    m_fileListView->horizontalHeader()->setSectionsClickable(true);
+    m_fileListView->horizontalHeader()->setSortIndicatorShown(true);
+    m_fileListView->horizontalHeader()->setStretchLastSection(false);
+
+    // Column resize modes: Name stretches, others fit content
+    auto *header = m_fileListView->horizontalHeader();
+    header->setSectionResizeMode(BBvfsModel::ColName, QHeaderView::Stretch);
+    header->setSectionResizeMode(BBvfsModel::ColSize, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(BBvfsModel::ColType, QHeaderView::ResizeToContents);
+    header->setSectionResizeMode(BBvfsModel::ColModified, QHeaderView::ResizeToContents);
 
     connect(m_fileListView, &QTableView::doubleClicked,
             this, &BJobFilesWidget::onFileListDoubleClicked);
@@ -88,58 +106,54 @@ void BJobFilesWidget::setupUi()
     mainLayout->addWidget(m_filesSplitter);
 }
 
-void BJobFilesWidget::onTreeItemClicked(const QModelIndex &proxyIndex)
+void BJobFilesWidget::showDirectoryInList(const QModelIndex &dirProxyIndex)
 {
-    if (!proxyIndex.isValid()) return;
+    if (!dirProxyIndex.isValid()) return;
 
-    QModelIndex srcIndex = m_dirProxy->mapToSource(proxyIndex);
+    QModelIndex srcIndex = m_dirProxy->mapToSource(dirProxyIndex);
 
-    BLOG_DEBUG() << "[BVFS Widget] Tree item clicked:"
-             << srcIndex.data(BBvfsModel::FullPathRole).toString();
-
-    // Ensure subdirectories are loaded (tree expand triggers fetchMore,
-    // but clicking without expanding does not)
     if (m_bvfsModel->canFetchMore(srcIndex)) {
         m_bvfsModel->fetchMore(srcIndex);
     }
-
-    // Load files for this directory
     m_bvfsModel->loadFilesForDirectory(srcIndex);
 
-    // Show this directory's children in the list view
-    m_fileListView->setRootIndex(srcIndex);
+    // Map source index through sort proxy for the list view
+    QModelIndex listProxyIndex = m_listSortProxy->mapFromSource(srcIndex);
+    m_fileListView->setRootIndex(listProxyIndex);
+}
+
+void BJobFilesWidget::onTreeItemClicked(const QModelIndex &proxyIndex)
+{
+    showDirectoryInList(proxyIndex);
+}
+
+void BJobFilesWidget::onTreeItemExpanded(const QModelIndex &proxyIndex)
+{
+    showDirectoryInList(proxyIndex);
+    m_fileTreeView->setCurrentIndex(proxyIndex);
+}
+
+void BJobFilesWidget::onTreeCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+    Q_UNUSED(previous)
+    showDirectoryInList(current);
 }
 
 void BJobFilesWidget::onFileListDoubleClicked(const QModelIndex &index)
 {
     if (!index.isValid()) return;
+    if (!index.data(BBvfsModel::IsDirectoryRole).toBool()) return;
 
-    // Check if it's a directory
-    if (!index.data(BBvfsModel::IsDirectoryRole).toBool()) {
-        return;
+    // Map from sort proxy to source, then to dir proxy
+    QModelIndex sortProxyIndex = index.sibling(index.row(), 0);
+    QModelIndex srcIndex = m_listSortProxy->mapToSource(sortProxyIndex);
+    QModelIndex dirProxyIndex = m_dirProxy->mapFromSource(srcIndex);
+
+    if (dirProxyIndex.isValid()) {
+        m_fileTreeView->setCurrentIndex(dirProxyIndex);
+        m_fileTreeView->expand(dirProxyIndex);
+        showDirectoryInList(dirProxyIndex);
     }
-
-    QString dirName = index.sibling(index.row(), BBvfsModel::ColName).data().toString();
-    BLOG_DEBUG() << "[BVFS Widget] Double-clicked directory:" << dirName;
-
-    // List view uses source model directly, so index is already a source index.
-    QModelIndex srcIndex = index.sibling(index.row(), 0);
-
-    // Map to proxy for tree view selection
-    QModelIndex proxyIndex = m_dirProxy->mapFromSource(srcIndex);
-    if (proxyIndex.isValid()) {
-        m_fileTreeView->setCurrentIndex(proxyIndex);
-        m_fileTreeView->expand(proxyIndex);
-    }
-
-    // Ensure subdirectories are loaded
-    if (m_bvfsModel->canFetchMore(srcIndex)) {
-        m_bvfsModel->fetchMore(srcIndex);
-    }
-
-    // Load files and update list view
-    m_bvfsModel->loadFilesForDirectory(srcIndex);
-    m_fileListView->setRootIndex(srcIndex);
 }
 
 void BJobFilesWidget::onLoadingStarted()
@@ -152,13 +166,14 @@ void BJobFilesWidget::onLoadingFinished()
 {
     m_loadingProgress->setVisible(false);
 
-    // Auto-expand and select first root item in tree
-    QModelIndex firstProxy = m_dirProxy->index(0, 0);
-    if (firstProxy.isValid()) {
-        m_fileTreeView->expand(firstProxy);
-        m_fileTreeView->setCurrentIndex(firstProxy);
-        onTreeItemClicked(firstProxy);
+    // Auto-expand first root item only on initial load
+    if (!m_initialExpandDone) {
+        m_initialExpandDone = true;
+        QModelIndex firstProxy = m_dirProxy->index(0, 0);
+        if (firstProxy.isValid()) {
+            m_fileTreeView->expand(firstProxy);
+            m_fileTreeView->setCurrentIndex(firstProxy);
+            showDirectoryInList(firstProxy);
+        }
     }
-
-    m_fileListView->resizeColumnsToContents();
 }

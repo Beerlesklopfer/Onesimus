@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QJsonDocument>
@@ -12,6 +13,38 @@
 #include <QRegularExpression>
 
 #define RESTORE_DEBUG BLOG_DEBUG()
+
+static const int COMMAND_TIMEOUT_MS = 60000;  // 60 seconds per command
+
+/**
+ * @brief Extract error message from Bareos JSON-RPC error response
+ *
+ * Bareos JSON-RPC errors have this structure:
+ * {"error": {"code": 1, "message": "failed", "data": {"messages": {"error": ["actual error"]}}}}
+ */
+static QString extractJsonError(const QJsonObject &root)
+{
+    QJsonObject error = root["error"].toObject();
+    if (error.isEmpty()) return QString();
+
+    // Try data.messages.error[] (Bareos JSON-RPC format)
+    QJsonObject data = error["data"].toObject();
+    QJsonObject messages = data["messages"].toObject();
+    QJsonArray errors = messages["error"].toArray();
+    if (!errors.isEmpty()) {
+        QStringList parts;
+        for (const QJsonValue &v : errors) {
+            parts << v.toString();
+        }
+        return parts.join("; ");
+    }
+
+    // Fallback to error.message
+    QString msg = error["message"].toString();
+    if (!msg.isEmpty()) return msg;
+
+    return QString();
+}
 
 // ============================================================================
 // BRestoreWizard
@@ -26,7 +59,12 @@ BRestoreWizard::BRestoreWizard(const QJsonObject &job, BDirector *director,
     m_data.jobId = job["jobid"].toString().toULongLong();
     m_data.jobName = job["name"].toString();
     m_data.sourceClient = job["client"].toString();
+    // Try common Bareos JSON key names for fileset
     m_data.sourceFileSet = job["fileset"].toString();
+    if (m_data.sourceFileSet.isEmpty())
+        m_data.sourceFileSet = job["filesetname"].toString();
+    if (m_data.sourceFileSet.isEmpty())
+        m_data.sourceFileSet = job["FileSet"].toString();
     m_data.selectedClient = m_data.sourceClient;
     m_data.selectedFileSet = m_data.sourceFileSet;
     m_data.targetClient = m_data.sourceClient;
@@ -52,7 +90,13 @@ BRestoreWizard::BRestoreWizard(const QJsonObject &job, BDirector *director,
 
     RESTORE_DEBUG << "Wizard created for Job " << m_data.jobId
                   << " (" << m_data.jobName << ")"
-                  << " Client: " << m_data.sourceClient;
+                  << " Client: " << m_data.sourceClient
+                  << " FileSet: " << m_data.sourceFileSet;
+
+    if (m_data.sourceFileSet.isEmpty()) {
+        RESTORE_DEBUG << "WARNING: No fileset in job data. Available keys:"
+                      << job.keys().join(", ");
+    }
 
     // Create BVFS model with checkable mode
     m_bvfsModel = new BBvfsModel(m_director, this);
@@ -159,20 +203,36 @@ void BRestoreSelectJobPage::initializePage()
     onScopeChanged();
 
     // Load clients and filesets from Director
-    if (!m_clientsLoaded && wiz->director()) {
-        connect(wiz->director(), &BDirector::jsonResult,
-                this, &BRestoreSelectJobPage::onClientsResponse);
-        connect(wiz->director(), &BDirector::jsonResult,
-                this, &BRestoreSelectJobPage::onFileSetsResponse);
-
-        QMetaObject::invokeMethod(wiz->director(), "doSend",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(BDirector::Command, BDirector::Command::DotClients),
-                                  Q_ARG(QString, QString()));
-        QMetaObject::invokeMethod(wiz->director(), "doSend",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(BDirector::Command, BDirector::Command::DotFilesets),
-                                  Q_ARG(QString, QString()));
+    if (wiz->director()) {
+        if (!m_clientsLoaded) {
+            connect(wiz->director(), &BDirector::jsonResult,
+                    this, &BRestoreSelectJobPage::onClientsResponse);
+            QMetaObject::invokeMethod(wiz->director(), "doSend",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(BDirector::Command, BDirector::Command::DotClients),
+                                      Q_ARG(QString, QString()));
+        }
+        if (!m_fileSetsLoaded) {
+            connect(wiz->director(), &BDirector::jsonResult,
+                    this, &BRestoreSelectJobPage::onFileSetsResponse);
+            QMetaObject::invokeMethod(wiz->director(), "doSend",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(BDirector::Command, BDirector::Command::DotFilesets),
+                                      Q_ARG(QString, QString()));
+        }
+        // Query full job details to get fileset (list jobs doesn't include it)
+        if (!m_jobDetailQueried && data->sourceFileSet.isEmpty()) {
+            m_jobDetailQueried = true;
+            connect(wiz->director(), &BDirector::jsonResult,
+                    this, &BRestoreSelectJobPage::onJobDetailResponse);
+            connect(wiz->director(), &BDirector::textResult,
+                    this, &BRestoreSelectJobPage::onJobDetailResponse);
+            RESTORE_DEBUG << "Querying job detail: llist jobid=" << data->jobId;
+            QMetaObject::invokeMethod(wiz->director(), "doSend",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(BDirector::Command, BDirector::Command::Custom),
+                                      Q_ARG(QString, QString("llist jobid=%1").arg(data->jobId)));
+        }
     }
 }
 
@@ -251,11 +311,96 @@ void BRestoreSelectJobPage::onFileSetsResponse(BDirector::Command cmd, const QSt
     }
 
     m_fileSetCombo->setCurrentIndex(selectIdx);
-    RESTORE_DEBUG << "Loaded " << m_fileSetCombo->count() << " filesets";
+    RESTORE_DEBUG << "Loaded " << m_fileSetCombo->count() << " filesets"
+                  << " preselect=" << preselect << " selectIdx=" << selectIdx;
 
     if (wiz && wiz->director()) {
         disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BRestoreSelectJobPage::onFileSetsResponse);
+    }
+}
+
+void BRestoreSelectJobPage::onJobDetailResponse(BDirector::Command cmd, const QString &jsonData)
+{
+    if (cmd != BDirector::Command::Custom) return;
+
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+
+    RESTORE_DEBUG << "onJobDetailResponse: " << jsonData.left(300);
+
+    // Parse llist jobid response to extract fileset
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // llist jobs returns a "jobs" array
+    QJsonArray jobs = result["jobs"].toArray();
+    if (jobs.isEmpty()) {
+        RESTORE_DEBUG << "llist jobid: no jobs array in response";
+        // Might be a text response or different JSON structure — disconnect and bail
+        if (wiz && wiz->director()) {
+            disconnect(wiz->director(), &BDirector::jsonResult,
+                       this, &BRestoreSelectJobPage::onJobDetailResponse);
+            disconnect(wiz->director(), &BDirector::textResult,
+                       this, &BRestoreSelectJobPage::onJobDetailResponse);
+        }
+        return;
+    }
+
+    QJsonObject job = jobs[0].toObject();
+    QString fileset = job["fileset"].toString();
+    if (fileset.isEmpty())
+        fileset = job["filesetname"].toString();
+    if (fileset.isEmpty())
+        fileset = job["FileSet"].toString();
+
+    if (fileset.isEmpty()) {
+        RESTORE_DEBUG << "llist jobid response has no fileset. Keys: "
+                      << job.keys().join(", ");
+    } else {
+        RESTORE_DEBUG << "Got fileset from llist jobid: " << fileset;
+
+        // Store in wizard data
+        if (wiz) {
+            auto *data = wiz->wizardData();
+            data->sourceFileSet = fileset;
+            data->selectedFileSet = fileset;
+
+            // Update source label
+            m_sourceLabel->setText(tr("Job %1: %2 (Client: %3, FileSet: %4)")
+                                       .arg(data->jobId)
+                                       .arg(data->jobName)
+                                       .arg(data->sourceClient)
+                                       .arg(data->sourceFileSet));
+        }
+
+        // Preselect in combo if filesets are already loaded
+        preselectFileSet();
+    }
+
+    // Disconnect after handling
+    if (wiz && wiz->director()) {
+        disconnect(wiz->director(), &BDirector::jsonResult,
+                   this, &BRestoreSelectJobPage::onJobDetailResponse);
+        disconnect(wiz->director(), &BDirector::textResult,
+                   this, &BRestoreSelectJobPage::onJobDetailResponse);
+    }
+}
+
+void BRestoreSelectJobPage::preselectFileSet()
+{
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+    if (!wiz) return;
+
+    QString fileset = wiz->wizardData()->sourceFileSet;
+    if (fileset.isEmpty() || m_fileSetCombo->count() == 0) return;
+
+    int idx = m_fileSetCombo->findText(fileset);
+    if (idx >= 0) {
+        m_fileSetCombo->setCurrentIndex(idx);
+        RESTORE_DEBUG << "FileSet preselected: " << fileset << " at index " << idx;
+    } else {
+        RESTORE_DEBUG << "FileSet not found in combo: " << fileset;
     }
 }
 
@@ -311,8 +456,12 @@ BRestoreBrowsePage::BRestoreBrowsePage(QWidget *parent)
     m_listView = new QTableView(m_splitter);
     m_listView->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_listView->horizontalHeader()->setStretchLastSection(true);
     m_listView->verticalHeader()->setVisible(false);
+    m_listView->setSortingEnabled(true);
+    m_listView->horizontalHeader()->setSectionsClickable(true);
+    m_listView->horizontalHeader()->setSortIndicatorShown(true);
+    m_listView->horizontalHeader()->setStretchLastSection(false);
+    m_listView->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
 
     m_splitter->addWidget(m_treeView);
     m_splitter->addWidget(m_listView);
@@ -335,7 +484,7 @@ void BRestoreBrowsePage::initializePage()
                              .arg(data->selectedClient)
                              .arg(data->selectedFileSet));
 
-    // Set up proxy for tree (dirs only)
+    // Set up proxy for tree (dirs only) and sort proxy for list
     if (!m_dirProxy) {
         m_dirProxy = new BBvfsDirFilterProxy(this);
         m_dirProxy->setSourceModel(model);
@@ -347,10 +496,25 @@ void BRestoreBrowsePage::initializePage()
             m_treeView->setColumnHidden(i, true);
         }
 
-        m_listView->setModel(model);
+        // Sort proxy for the file list
+        m_listSortProxy = new QSortFilterProxyModel(this);
+        m_listSortProxy->setSourceModel(model);
+        m_listSortProxy->setSortRole(BBvfsModel::SortRole);
+        m_listView->setModel(m_listSortProxy);
+
+        // Set column resize modes: Name stretches, others fit content
+        auto *header = m_listView->horizontalHeader();
+        header->setSectionResizeMode(BBvfsModel::ColName, QHeaderView::Stretch);
+        header->setSectionResizeMode(BBvfsModel::ColSize, QHeaderView::ResizeToContents);
+        header->setSectionResizeMode(BBvfsModel::ColType, QHeaderView::ResizeToContents);
+        header->setSectionResizeMode(BBvfsModel::ColModified, QHeaderView::ResizeToContents);
 
         connect(m_treeView, &QTreeView::clicked,
                 this, &BRestoreBrowsePage::onTreeItemClicked);
+        connect(m_treeView, &QTreeView::expanded,
+                this, &BRestoreBrowsePage::onTreeItemExpanded);
+        connect(m_treeView->selectionModel(), &QItemSelectionModel::currentChanged,
+                this, &BRestoreBrowsePage::onTreeCurrentChanged);
         connect(m_listView, &QTableView::doubleClicked,
                 this, &BRestoreBrowsePage::onFileListDoubleClicked);
         connect(model, &BBvfsModel::loadingStarted,
@@ -371,6 +535,7 @@ void BRestoreBrowsePage::initializePage()
         model->resetModel();
         model->loadJob(data->jobId, data->allRelatedJobs);
         m_loaded = true;
+        m_initialExpandDone = false;
         m_loadedClient = data->selectedClient;
         m_loadedFileSet = data->selectedFileSet;
         m_loadedAllRelated = data->allRelatedJobs;
@@ -401,21 +566,42 @@ bool BRestoreBrowsePage::validatePage()
     return true;
 }
 
-void BRestoreBrowsePage::onTreeItemClicked(const QModelIndex &proxyIndex)
+void BRestoreBrowsePage::showDirectoryInList(const QModelIndex &dirProxyIndex)
 {
-    if (!proxyIndex.isValid()) return;
+    if (!dirProxyIndex.isValid()) return;
 
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
     if (!wiz) return;
     auto *model = wiz->bvfsModel();
 
-    QModelIndex srcIndex = m_dirProxy->mapToSource(proxyIndex);
+    QModelIndex srcIndex = m_dirProxy->mapToSource(dirProxyIndex);
 
     if (model->canFetchMore(srcIndex)) {
         model->fetchMore(srcIndex);
     }
     model->loadFilesForDirectory(srcIndex);
-    m_listView->setRootIndex(srcIndex);
+
+    // Map source index through sort proxy for the list view
+    QModelIndex listProxyIndex = m_listSortProxy->mapFromSource(srcIndex);
+    m_listView->setRootIndex(listProxyIndex);
+}
+
+void BRestoreBrowsePage::onTreeItemClicked(const QModelIndex &proxyIndex)
+{
+    showDirectoryInList(proxyIndex);
+}
+
+void BRestoreBrowsePage::onTreeItemExpanded(const QModelIndex &proxyIndex)
+{
+    // When expanding via arrow click, also update the list view
+    showDirectoryInList(proxyIndex);
+    m_treeView->setCurrentIndex(proxyIndex);
+}
+
+void BRestoreBrowsePage::onTreeCurrentChanged(const QModelIndex &current, const QModelIndex &previous)
+{
+    Q_UNUSED(previous)
+    showDirectoryInList(current);
 }
 
 void BRestoreBrowsePage::onFileListDoubleClicked(const QModelIndex &index)
@@ -423,23 +609,16 @@ void BRestoreBrowsePage::onFileListDoubleClicked(const QModelIndex &index)
     if (!index.isValid()) return;
     if (!index.data(BBvfsModel::IsDirectoryRole).toBool()) return;
 
-    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (!wiz) return;
-    auto *model = wiz->bvfsModel();
+    // Map from sort proxy to source, then to dir proxy
+    QModelIndex sortProxyIndex = index.sibling(index.row(), 0);
+    QModelIndex srcIndex = m_listSortProxy->mapToSource(sortProxyIndex);
+    QModelIndex dirProxyIndex = m_dirProxy->mapFromSource(srcIndex);
 
-    QModelIndex srcIndex = index.sibling(index.row(), 0);
-
-    QModelIndex proxyIndex = m_dirProxy->mapFromSource(srcIndex);
-    if (proxyIndex.isValid()) {
-        m_treeView->setCurrentIndex(proxyIndex);
-        m_treeView->expand(proxyIndex);
+    if (dirProxyIndex.isValid()) {
+        m_treeView->setCurrentIndex(dirProxyIndex);
+        m_treeView->expand(dirProxyIndex);
+        showDirectoryInList(dirProxyIndex);
     }
-
-    if (model->canFetchMore(srcIndex)) {
-        model->fetchMore(srcIndex);
-    }
-    model->loadFilesForDirectory(srcIndex);
-    m_listView->setRootIndex(srcIndex);
 }
 
 void BRestoreBrowsePage::onLoadingStarted()
@@ -451,15 +630,16 @@ void BRestoreBrowsePage::onLoadingFinished()
 {
     m_progressBar->setVisible(false);
 
-    // Auto-expand first root item
-    QModelIndex firstProxy = m_dirProxy->index(0, 0);
-    if (firstProxy.isValid()) {
-        m_treeView->expand(firstProxy);
-        m_treeView->setCurrentIndex(firstProxy);
-        onTreeItemClicked(firstProxy);
+    // Auto-expand first root item only on initial load
+    if (!m_initialExpandDone) {
+        m_initialExpandDone = true;
+        QModelIndex firstProxy = m_dirProxy->index(0, 0);
+        if (firstProxy.isValid()) {
+            m_treeView->expand(firstProxy);
+            m_treeView->setCurrentIndex(firstProxy);
+            showDirectoryInList(firstProxy);
+        }
     }
-
-    m_listView->resizeColumnsToContents();
 }
 
 void BRestoreBrowsePage::onSelectionCountChanged(int count)
@@ -467,7 +647,20 @@ void BRestoreBrowsePage::onSelectionCountChanged(int count)
     if (count == 0) {
         m_selectionLabel->setText(tr("No files selected"));
     } else {
-        m_selectionLabel->setText(tr("%1 file(s)/directory/directories selected").arg(count));
+        auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+        if (wiz) {
+            auto *model = wiz->bvfsModel();
+            int fileCount = model->selectedFileIds().size();
+            int dirCount = model->selectedDirIds().size();
+            QStringList parts;
+            if (dirCount > 0)
+                parts << tr("%n directory(ies)", "", dirCount);
+            if (fileCount > 0)
+                parts << tr("%n file(s)", "", fileCount);
+            m_selectionLabel->setText(tr("Selected: %1").arg(parts.join(", ")));
+        } else {
+            m_selectionLabel->setText(tr("%1 item(s) selected").arg(count));
+        }
     }
     emit completeChanged();
 }
@@ -513,11 +706,18 @@ void BRestoreOptionsPage::initializePage()
     if (!wiz) return;
     auto *data = wiz->wizardData();
 
-    m_sourceLabel->setText(tr("Job %1: %2 — %3 file(s), %4 directory/directories selected")
+    QStringList selParts;
+    if (data->selectedDirIds.size() > 0)
+        selParts << tr("%n directory(ies)", "", data->selectedDirIds.size());
+    if (data->selectedFileIds.size() > 0)
+        selParts << tr("%n file(s)", "", data->selectedFileIds.size());
+    if (selParts.isEmpty())
+        selParts << tr("nothing");
+
+    m_sourceLabel->setText(tr("Job %1: %2 — %3 selected")
                                .arg(data->jobId)
                                .arg(data->jobName)
-                               .arg(data->selectedFileIds.size())
-                               .arg(data->selectedDirIds.size()));
+                               .arg(selParts.join(", ")));
 
     // Populate target client combo from cached client list (loaded by SelectJobPage)
     m_targetClientCombo->clear();
@@ -581,6 +781,15 @@ BRestorePreviewPage::BRestorePreviewPage(QWidget *parent)
     m_summaryLabel = new QLabel(this);
     m_summaryLabel->setWordWrap(true);
     layout->addWidget(m_summaryLabel);
+
+    // Permission checks group
+    QGroupBox *permGroup = new QGroupBox(tr("Permission Checks"), this);
+    QFormLayout *permLayout = new QFormLayout(permGroup);
+    m_authRestoreLabel = new QLabel(tr("Checking..."), this);
+    m_authClientLabel = new QLabel(tr("Checking..."), this);
+    permLayout->addRow(tr("Restore command:"), m_authRestoreLabel);
+    permLayout->addRow(tr("Target client:"), m_authClientLabel);
+    layout->addWidget(permGroup);
 
     m_commandPreview = new QTextEdit(this);
     m_commandPreview->setReadOnly(true);
@@ -649,9 +858,9 @@ void BRestorePreviewPage::initializePage()
 
     QString preview;
     preview += "# Step 1: Create restore table\n";
-    preview += data->bvfsRestoreCommand + "\n\n";
+    preview += ".bvfs_restore " + data->bvfsRestoreCommand + "\n\n";
     preview += "# Step 2: Execute restore\n";
-    preview += data->restoreCommand + "\n\n";
+    preview += "restore " + data->restoreCommand + "\n\n";
     preview += "# Step 3: Cleanup (automatic)\n";
     preview += QString(".bvfs_cleanup path=%1\n").arg(data->restoreTableName);
 
@@ -660,6 +869,125 @@ void BRestorePreviewPage::initializePage()
     RESTORE_DEBUG << "PreviewPage: table=" << data->restoreTableName;
     RESTORE_DEBUG << "  bvfs_restore: " << data->bvfsRestoreCommand;
     RESTORE_DEBUG << "  restore: " << data->restoreCommand;
+
+    // Start permission checks
+    m_authRestoreLabel->setText(tr("Checking..."));
+    m_authClientLabel->setText(tr("Checking..."));
+    m_authCheckState = CheckRestore;
+
+    if (wiz->director()) {
+        connect(wiz->director(), &BDirector::jsonResult,
+                this, &BRestorePreviewPage::onAuthorizedResponse);
+        connect(wiz->director(), &BDirector::textResult,
+                this, &BRestorePreviewPage::onAuthorizedResponse);
+        sendNextAuthCheck();
+    }
+}
+
+void BRestorePreviewPage::cleanupPage()
+{
+    disconnectAuth();
+}
+
+void BRestorePreviewPage::sendNextAuthCheck()
+{
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+    if (!wiz || !wiz->director()) return;
+
+    switch (m_authCheckState) {
+    case CheckRestore:
+        RESTORE_DEBUG << "Checking: .authorized cmd=restore";
+        wiz->director()->doSend(BDirector::Command::Custom, ".authorized cmd=restore");
+        break;
+    case CheckClient: {
+        auto *data = wiz->wizardData();
+        RESTORE_DEBUG << "Checking: .authorized client=" << data->targetClient;
+        wiz->director()->doSend(BDirector::Command::Custom,
+                                QString(".authorized client=%1").arg(data->targetClient));
+        break;
+    }
+    default:
+        disconnectAuth();
+        break;
+    }
+}
+
+void BRestorePreviewPage::onAuthorizedResponse(BDirector::Command cmd, const QString &jsonData)
+{
+    if (cmd != BDirector::Command::Custom) return;
+    if (m_authCheckState == AuthIdle || m_authCheckState == AuthDone) return;
+
+    // Parse .authorized response: {"result": {"authorized": {"key": true/false}}}
+    // or {"result": {"authorized": true/false}}
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    // Check for errors
+    QString errorMsg = extractJsonError(root);
+
+    bool authorized = false;
+    if (!errorMsg.isEmpty()) {
+        // Error response means not authorized or command failed
+        authorized = false;
+    } else if (result.contains("authorized")) {
+        QJsonValue authVal = result["authorized"];
+        if (authVal.isBool()) {
+            authorized = authVal.toBool();
+        } else if (authVal.isObject()) {
+            // May be {"authorized": {"restore": true}} or similar
+            QJsonObject authObj = authVal.toObject();
+            for (auto it = authObj.begin(); it != authObj.end(); ++it) {
+                authorized = it.value().toBool(false);
+            }
+        }
+    } else {
+        // If response has result but no "authorized" key, assume it was a different response
+        return;
+    }
+
+    RESTORE_DEBUG << "Auth check response for state" << m_authCheckState
+                  << " authorized=" << authorized << " raw:" << jsonData.left(200);
+
+    switch (m_authCheckState) {
+    case CheckRestore:
+        setAuthLabel(m_authRestoreLabel, authorized);
+        m_authCheckState = CheckClient;
+        sendNextAuthCheck();
+        break;
+    case CheckClient:
+        setAuthLabel(m_authClientLabel, authorized);
+        m_authCheckState = AuthDone;
+        disconnectAuth();
+        break;
+    default:
+        break;
+    }
+}
+
+void BRestorePreviewPage::disconnectAuth()
+{
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+    if (wiz && wiz->director()) {
+        disconnect(wiz->director(), &BDirector::jsonResult,
+                   this, &BRestorePreviewPage::onAuthorizedResponse);
+        disconnect(wiz->director(), &BDirector::textResult,
+                   this, &BRestorePreviewPage::onAuthorizedResponse);
+    }
+    m_authCheckState = AuthDone;
+}
+
+void BRestorePreviewPage::setAuthLabel(QLabel *label, bool authorized, const QString &detail)
+{
+    if (authorized) {
+        label->setText(tr("Authorized"));
+        label->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+    } else {
+        QString text = tr("Not authorized");
+        if (!detail.isEmpty()) text += " — " + detail;
+        label->setText(text);
+        label->setStyleSheet("QLabel { color: red; font-weight: bold; }");
+    }
 }
 
 // ============================================================================
@@ -690,6 +1018,11 @@ BRestoreExecutePage::BRestoreExecutePage(QWidget *parent)
     m_hintLabel->setWordWrap(true);
     m_hintLabel->setVisible(false);
     layout->addWidget(m_hintLabel);
+
+    m_timeoutTimer = new QTimer(this);
+    m_timeoutTimer->setSingleShot(true);
+    m_timeoutTimer->setInterval(COMMAND_TIMEOUT_MS);
+    connect(m_timeoutTimer, &QTimer::timeout, this, &BRestoreExecutePage::onTimeout);
 }
 
 void BRestoreExecutePage::initializePage()
@@ -699,6 +1032,9 @@ void BRestoreExecutePage::initializePage()
 
     m_state = Idle;
     m_logEdit->clear();
+    m_restoreJobId.clear();
+    m_hintLabel->setVisible(false);
+    m_progressBar->setRange(0, 0);  // Indeterminate
 
     // Reset BVFS model to free command queue
     wiz->bvfsModel()->resetModel();
@@ -724,17 +1060,16 @@ void BRestoreExecutePage::sendBvfsRestore()
 {
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
     if (!wiz || !wiz->director()) {
-        appendLog(tr("ERROR: No director connection"), true);
-        m_state = Failed;
-        emit completeChanged();
+        markFailed(tr("No director connection"));
         return;
     }
 
     auto *data = wiz->wizardData();
     m_state = SendingBvfsRestore;
     setStatus(tr("Creating restore table..."));
-    appendLog(tr(">>> %1").arg(data->bvfsRestoreCommand));
+    appendLog(tr(">>> .bvfs_restore %1").arg(data->bvfsRestoreCommand));
 
+    m_timeoutTimer->start();
     wiz->director()->doSend(BDirector::Command::BvfsRestore, data->bvfsRestoreCommand);
     data->restoreTableCreated = true;
 }
@@ -742,13 +1077,17 @@ void BRestoreExecutePage::sendBvfsRestore()
 void BRestoreExecutePage::sendRestore()
 {
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (!wiz || !wiz->director()) return;
+    if (!wiz || !wiz->director()) {
+        markFailed(tr("No director connection"));
+        return;
+    }
 
     auto *data = wiz->wizardData();
     m_state = SendingRestore;
     setStatus(tr("Executing restore command..."));
-    appendLog(tr(">>> %1").arg(data->restoreCommand));
+    appendLog(tr(">>> restore %1").arg(data->restoreCommand));
 
+    m_timeoutTimer->start();
     wiz->director()->doSend(BDirector::Command::Restore, data->restoreCommand);
 }
 
@@ -764,20 +1103,78 @@ void BRestoreExecutePage::sendCleanup()
     QString cleanupArgs = QString("path=%1").arg(data->restoreTableName);
     appendLog(tr(">>> .bvfs_cleanup %1").arg(cleanupArgs));
 
+    m_timeoutTimer->start();
     wiz->director()->doSend(BDirector::Command::BvfsCleanup, cleanupArgs);
 }
 
 void BRestoreExecutePage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
 {
-    Q_UNUSED(jsonData);
-
     if (m_state == SendingBvfsRestore && cmd == BDirector::Command::BvfsRestore) {
+        m_timeoutTimer->stop();
+
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+        QJsonObject root = doc.object();
+
+        QString errorMsg = extractJsonError(root);
+        if (!errorMsg.isEmpty()) {
+            markFailed(tr(".bvfs_restore failed: %1").arg(errorMsg));
+            return;
+        }
+
         appendLog(tr("Restore table created successfully."));
         sendRestore();
         return;
     }
 
+    if (m_state == SendingRestore && cmd == BDirector::Command::Restore) {
+        m_timeoutTimer->stop();
+
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+        QJsonObject root = doc.object();
+        QJsonObject result = root["result"].toObject();
+
+        RESTORE_DEBUG << "Restore JSON response: " << jsonData.left(500);
+
+        QString errorMsg = extractJsonError(root);
+        if (!errorMsg.isEmpty()) {
+            appendLog(tr("Restore command failed: %1").arg(errorMsg), true);
+            // Detect WhereACL restriction and give specific hint
+            if (errorMsg.contains("where", Qt::CaseInsensitive) &&
+                errorMsg.contains("not authorized", Qt::CaseInsensitive)) {
+                appendLog(tr("Hint: The Bareos Director restricts the \"where\" path "
+                             "via WhereACL. Ask your administrator to add the path \"%1\" "
+                             "to the WhereACL of your console configuration, or use a "
+                             "permitted restore path.")
+                              .arg(qobject_cast<BRestoreWizard*>(wizard())->wizardData()->restoreWhere),
+                          true);
+            }
+            sendCleanup();
+            return;
+        }
+
+        // Try to extract Job ID from JSON response
+        QString jobId = result["jobid"].toString();
+        if (jobId.isEmpty()) jobId = root["jobid"].toString();
+        if (jobId.isEmpty()) {
+            // Search in run object: {"result":{"run":{"jobid":"123"}}}
+            QJsonObject run = result["run"].toObject();
+            if (!run.isEmpty()) jobId = run["jobid"].toString();
+        }
+
+        if (!jobId.isEmpty()) {
+            m_restoreJobId = jobId;
+            RESTORE_DEBUG << "Restore JobId (from JSON): " << m_restoreJobId;
+            appendLog(tr("Restore job submitted successfully (Job ID: %1).").arg(jobId));
+        } else {
+            appendLog(tr("Restore command accepted."));
+        }
+
+        sendCleanup();
+        return;
+    }
+
     if (m_state == SendingCleanup && cmd == BDirector::Command::BvfsCleanup) {
+        m_timeoutTimer->stop();
         markCompleted();
         return;
     }
@@ -786,7 +1183,29 @@ void BRestoreExecutePage::onJsonResponse(BDirector::Command cmd, const QString &
 void BRestoreExecutePage::onCommandResponse(BDirector::Command cmd, const QString &response)
 {
     if (m_state == SendingRestore && cmd == BDirector::Command::Restore) {
+        m_timeoutTimer->stop();
         appendLog(response.trimmed());
+
+        // Check for error indicators in the text response
+        if (response.contains("error", Qt::CaseInsensitive) ||
+            response.contains("ERR=", Qt::CaseSensitive) ||
+            response.contains("failed", Qt::CaseInsensitive)) {
+            appendLog(tr("Restore command failed."), true);
+            // Detect WhereACL restriction
+            if (response.contains("where", Qt::CaseInsensitive) &&
+                response.contains("not authorized", Qt::CaseInsensitive)) {
+                auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+                appendLog(tr("Hint: The Bareos Director restricts the \"where\" path "
+                             "via WhereACL. Ask your administrator to add the path \"%1\" "
+                             "to the WhereACL of your console configuration, or use a "
+                             "permitted restore path.")
+                              .arg(wiz ? wiz->wizardData()->restoreWhere : QString()),
+                          true);
+            }
+            // Still clean up the restore table even on failure
+            sendCleanup();
+            return;
+        }
 
         if (response.contains("Job queued", Qt::CaseInsensitive) ||
             response.contains("OK", Qt::CaseInsensitive)) {
@@ -809,12 +1228,22 @@ void BRestoreExecutePage::onCommandResponse(BDirector::Command cmd, const QStrin
 
     // bvfs_restore or bvfs_cleanup might also come as text
     if (m_state == SendingBvfsRestore && cmd == BDirector::Command::BvfsRestore) {
+        m_timeoutTimer->stop();
+
+        // Check for error in text response
+        if (response.contains("error", Qt::CaseInsensitive) ||
+            response.contains("ERR=", Qt::CaseSensitive)) {
+            markFailed(tr(".bvfs_restore failed: %1").arg(response.trimmed()));
+            return;
+        }
+
         appendLog(tr("Restore table created (text response)."));
         sendRestore();
         return;
     }
 
     if (m_state == SendingCleanup && cmd == BDirector::Command::BvfsCleanup) {
+        m_timeoutTimer->stop();
         markCompleted();
         return;
     }
@@ -822,6 +1251,7 @@ void BRestoreExecutePage::onCommandResponse(BDirector::Command cmd, const QStrin
 
 void BRestoreExecutePage::markCompleted()
 {
+    m_timeoutTimer->stop();
     appendLog(tr("Cleanup complete."));
 
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
@@ -838,22 +1268,56 @@ void BRestoreExecutePage::markCompleted()
                                 "Refresh the job list to see the restore job status.")
                                  .arg(m_restoreJobId));
     } else {
-        setStatus(tr("Restore job submitted successfully!"));
-        m_hintLabel->setText(tr("The restore job is now running on the Director.\n"
-                                "You can monitor its progress in the Jobs view.\n"
-                                "Refresh the job list to see the restore job status."));
+        setStatus(tr("Restore completed."));
+        m_hintLabel->setText(tr("The restore commands have been executed.\n"
+                                "Check the log above for details."));
     }
     m_hintLabel->setVisible(true);
 
     emit completeChanged();
+    disconnectDirector();
+}
 
-    // Disconnect
+void BRestoreExecutePage::markFailed(const QString &reason)
+{
+    m_timeoutTimer->stop();
+    appendLog(tr("ERROR: %1").arg(reason), true);
+
+    m_state = Failed;
+    m_progressBar->setRange(0, 1);
+    m_progressBar->setValue(1);
+    setStatus(tr("Restore failed"));
+
+    m_hintLabel->setText(reason);
+    m_hintLabel->setVisible(true);
+
+    emit completeChanged();
+    disconnectDirector();
+}
+
+void BRestoreExecutePage::disconnectDirector()
+{
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
     if (wiz && wiz->director()) {
         disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BRestoreExecutePage::onJsonResponse);
         disconnect(wiz->director(), &BDirector::textResult,
                    this, &BRestoreExecutePage::onCommandResponse);
     }
+}
+
+void BRestoreExecutePage::onTimeout()
+{
+    static const QMap<ExecutionState, QString> stateNames = {
+        {SendingBvfsRestore, ".bvfs_restore"},
+        {SendingRestore, "restore"},
+        {SendingCleanup, ".bvfs_cleanup"}
+    };
+
+    QString cmdName = stateNames.value(m_state, tr("command"));
+    markFailed(tr("Timeout waiting for %1 response (no response within %2 seconds)")
+                   .arg(cmdName)
+                   .arg(COMMAND_TIMEOUT_MS / 1000));
 }
 
 void BRestoreExecutePage::appendLog(const QString &msg, bool isError)

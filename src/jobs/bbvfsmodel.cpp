@@ -4,6 +4,7 @@
 #include <QJsonParseError>
 #include <QDateTime>
 #include <QIcon>
+#include <QLocale>
 
 #define BVFS_DEBUG BLOG_DEBUG()
 
@@ -58,8 +59,8 @@ void BBvfsModel::loadJob(quint64 jobId, bool resolveAllRelatedJobs)
     emit loadingStarted();
 
     if (resolveAllRelatedJobs) {
-        // First resolve all related job IDs via bvfs_get_jobids
-        QString args = QString("jobid=%1 all").arg(jobId);
+        // Resolve related job IDs via bvfs_get_jobids (same fileset only)
+        QString args = QString("jobid=%1").arg(jobId);
         enqueueCommand({BDirector::Command::BvfsGetJobIds, args, m_rootNode});
     } else {
         m_bvfsJobIds = QString::number(jobId);
@@ -177,6 +178,12 @@ bool BBvfsModel::setData(const QModelIndex &index, const QVariant &value, int ro
     // Propagate to children (if directory, check/uncheck all loaded children)
     if (node->isDirectory) {
         propagateCheckState(node, newState);
+
+        // When checking a directory, ensure its children are loaded
+        // so the check state can propagate through the tree
+        if (newState == Qt::Checked) {
+            enqueueChildLoading(node);
+        }
     }
 
     // Update parent tri-state
@@ -217,7 +224,9 @@ QVariant BBvfsModel::data(const QModelIndex &index, int role) const
             return tr("File");
         case ColModified:
             if (node->mtime > 0) {
-                return QDateTime::fromSecsSinceEpoch(node->mtime).toString("yyyy-MM-dd hh:mm:ss");
+                return QLocale().toString(
+                    QDateTime::fromSecsSinceEpoch(node->mtime),
+                    QLocale::ShortFormat);
             }
             return QString("-");
         }
@@ -250,6 +259,19 @@ QVariant BBvfsModel::data(const QModelIndex &index, int role) const
 
     case FileIdRole:
         return node->fileId;
+
+    case SortRole:
+        switch (index.column()) {
+        case ColName:
+            return node->name.toLower();
+        case ColSize:
+            return node->isDirectory ? (qint64)-1 : node->fileSize;
+        case ColType:
+            return node->isDirectory ? 0 : 1;
+        case ColModified:
+            return node->mtime;
+        }
+        break;
     }
 
     return QVariant();
@@ -596,6 +618,9 @@ void BBvfsModel::handleLsDirs(BvfsNode *node, const QJsonArray &dirs)
 
     beginInsertRows(indexFromNode(node), insertStart, insertStart + insertCount - 1);
 
+    // Inherit parent's check state for new children (if checkable and parent is checked)
+    bool inheritCheck = m_checkable && node->checkState == Qt::Checked;
+
     for (const QJsonValue &v : filteredDirs) {
         QJsonObject obj = v.toObject();
 
@@ -605,6 +630,10 @@ void BBvfsModel::handleLsDirs(BvfsNode *node, const QJsonArray &dirs)
         child->pathId = obj["pathid"].toVariant().toInt();
         child->isDirectory = true;
         child->parentNode = node;
+
+        if (inheritCheck) {
+            child->checkState = Qt::Checked;
+        }
 
         // Clean up trailing slash from name
         if (child->name.endsWith('/')) {
@@ -620,7 +649,8 @@ void BBvfsModel::handleLsDirs(BvfsNode *node, const QJsonArray &dirs)
 
         BVFS_DEBUG << "Dir node created: " << child->name
                    << " (pathId=" << child->pathId
-                   << ", fullPath=" << child->fullPath << ")";
+                   << ", fullPath=" << child->fullPath << ")"
+                   << (inheritCheck ? " [checked]" : "");
 
         node->children.append(child);
     }
@@ -629,6 +659,17 @@ void BBvfsModel::handleLsDirs(BvfsNode *node, const QJsonArray &dirs)
 
     node->dirLoadState = BvfsNode::Loaded;
     BVFS_DEBUG << "Node " << node->fullPath << ": dirLoadState -> Loaded";
+
+    // If parent is checked, recursively load children of newly added dirs
+    if (inheritCheck) {
+        for (int i = insertStart; i < node->children.size(); ++i) {
+            BvfsNode *child = node->children.at(i);
+            if (child->isDirectory) {
+                enqueueChildLoading(child);
+            }
+        }
+        emit selectionCountChanged(selectedCount());
+    }
 
     if (node == m_rootNode) {
         emit loadingFinished();
@@ -662,6 +703,9 @@ void BBvfsModel::handleLsFiles(BvfsNode *node, const QJsonArray &files)
                << node->fullPath << " at position ["
                << insertStart << ".." << (insertStart + insertCount - 1) << "]";
 
+    // Inherit parent's check state for new children
+    bool inheritCheck = m_checkable && node->checkState == Qt::Checked;
+
     beginInsertRows(indexFromNode(node), insertStart, insertStart + insertCount - 1);
 
     for (const QJsonValue &v : filteredFiles) {
@@ -677,6 +721,10 @@ void BBvfsModel::handleLsFiles(BvfsNode *node, const QJsonArray &files)
         child->fileId = obj["fileid"].toString();
         child->parentNode = node;
 
+        if (inheritCheck) {
+            child->checkState = Qt::Checked;
+        }
+
         // Build fullPath
         QString parentPath = node->fullPath;
         if (!parentPath.endsWith('/')) parentPath += '/';
@@ -690,7 +738,8 @@ void BBvfsModel::handleLsFiles(BvfsNode *node, const QJsonArray &files)
 
         BVFS_DEBUG << "File node created: " << child->name
                    << " (size=" << child->fileSize
-                   << ", mtime=" << child->mtime << ")";
+                   << ", mtime=" << child->mtime << ")"
+                   << (inheritCheck ? " [checked]" : "");
 
         node->children.append(child);
     }
@@ -699,6 +748,10 @@ void BBvfsModel::handleLsFiles(BvfsNode *node, const QJsonArray &files)
 
     node->fileLoadState = BvfsNode::Loaded;
     BVFS_DEBUG << "Node " << node->fullPath << ": fileLoadState -> Loaded";
+
+    if (inheritCheck) {
+        emit selectionCountChanged(selectedCount());
+    }
 }
 
 // ============================================================================
@@ -852,6 +905,31 @@ int BBvfsModel::countSelected(BvfsNode *node) const
         }
     }
     return count;
+}
+
+void BBvfsModel::enqueueChildLoading(BvfsNode *node)
+{
+    if (!node || !node->isDirectory || !m_director) return;
+
+    // Load subdirectories if not yet loaded
+    if (node->dirLoadState == BvfsNode::NotLoaded) {
+        node->dirLoadState = BvfsNode::Loading;
+        BVFS_DEBUG << "enqueueChildLoading: dirs for " << node->fullPath;
+        QString args = QString("jobid=%1 pathid=%2")
+                           .arg(m_bvfsJobIds)
+                           .arg(node->pathId);
+        enqueueCommand({BDirector::Command::BvfsLsDirs, args, node});
+    }
+
+    // Load files if not yet loaded
+    if (node->fileLoadState == BvfsNode::NotLoaded) {
+        node->fileLoadState = BvfsNode::Loading;
+        BVFS_DEBUG << "enqueueChildLoading: files for " << node->fullPath;
+        QString args = QString("jobid=%1 pathid=%2")
+                           .arg(m_bvfsJobIds)
+                           .arg(node->pathId);
+        enqueueCommand({BDirector::Command::BvfsLsFiles, args, node});
+    }
 }
 
 QString BBvfsModel::formatBytes(qint64 bytes) const

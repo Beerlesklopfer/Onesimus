@@ -29,7 +29,8 @@ public:
         PathIdRole = Qt::UserRole + 1,
         FullPathRole,
         IsDirectoryRole,
-        FileIdRole
+        FileIdRole,
+        SortRole
     };
 
     explicit BBvfsModel(BDirector *director, QObject *parent = nullptr);
@@ -157,6 +158,7 @@ private:
     void updateParentCheckState(BvfsNode *parentNode);
     void collectSelected(BvfsNode *node, QStringList &fileIds, QList<int> &dirIds) const;
     int countSelected(BvfsNode *node) const;
+    void enqueueChildLoading(BvfsNode *node);
 
     BvfsNode *m_rootNode = nullptr;
     BDirector *m_director;

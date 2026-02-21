@@ -23,6 +23,7 @@
 #include <QButtonGroup>
 #include <QDateTimeEdit>
 #include <QTextEdit>
+#include <QTimer>
 
 #include "director/bdirector.h"
 #include "jobs/bbvfsmodel.h"
@@ -117,8 +118,11 @@ private slots:
     void onScopeChanged();
     void onClientsResponse(BDirector::Command cmd, const QString &jsonData);
     void onFileSetsResponse(BDirector::Command cmd, const QString &jsonData);
+    void onJobDetailResponse(BDirector::Command cmd, const QString &jsonData);
 
 private:
+    void preselectFileSet();
+
     QLabel *m_sourceLabel;
     QComboBox *m_clientCombo;
     QComboBox *m_fileSetCombo;
@@ -128,6 +132,7 @@ private:
     QDateTimeEdit *m_beforeDateEdit;
     bool m_clientsLoaded = false;
     bool m_fileSetsLoaded = false;
+    bool m_jobDetailQueried = false;
 };
 
 // ============================================================================
@@ -146,12 +151,16 @@ public:
 
 private slots:
     void onTreeItemClicked(const QModelIndex &proxyIndex);
+    void onTreeItemExpanded(const QModelIndex &proxyIndex);
+    void onTreeCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
     void onFileListDoubleClicked(const QModelIndex &index);
     void onLoadingStarted();
     void onLoadingFinished();
     void onSelectionCountChanged(int count);
 
 private:
+    void showDirectoryInList(const QModelIndex &dirProxyIndex);
+
     QTreeView *m_treeView;
     QTableView *m_listView;
     QSplitter *m_splitter;
@@ -159,7 +168,9 @@ private:
     QLabel *m_infoLabel;
     QLabel *m_selectionLabel;
     BBvfsDirFilterProxy *m_dirProxy = nullptr;
+    QSortFilterProxyModel *m_listSortProxy = nullptr;
     bool m_loaded = false;
+    bool m_initialExpandDone = false;
     QString m_loadedClient;
     QString m_loadedFileSet;
     bool m_loadedAllRelated = true;
@@ -197,10 +208,25 @@ class BRestorePreviewPage : public QWizardPage
 public:
     explicit BRestorePreviewPage(QWidget *parent = nullptr);
     void initializePage() override;
+    void cleanupPage() override;
+
+private slots:
+    void onAuthorizedResponse(BDirector::Command cmd, const QString &jsonData);
 
 private:
+    enum AuthCheckState { AuthIdle, CheckRestore, CheckClient, AuthDone };
+
+    void sendNextAuthCheck();
+    void disconnectAuth();
+    void setAuthLabel(QLabel *label, bool authorized, const QString &detail = QString());
+
     QLabel *m_summaryLabel;
     QTextEdit *m_commandPreview;
+
+    // Permission check UI
+    QLabel *m_authRestoreLabel = nullptr;
+    QLabel *m_authClientLabel = nullptr;
+    AuthCheckState m_authCheckState = AuthIdle;
 };
 
 // ============================================================================
@@ -219,6 +245,7 @@ public:
 private slots:
     void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
     void onCommandResponse(BDirector::Command cmd, const QString &response);
+    void onTimeout();
 
 private:
     enum ExecutionState {
@@ -235,6 +262,8 @@ private:
     void sendRestore();
     void sendCleanup();
     void markCompleted();
+    void markFailed(const QString &reason);
+    void disconnectDirector();
     void appendLog(const QString &msg, bool isError = false);
     void setStatus(const QString &msg);
 
@@ -242,6 +271,7 @@ private:
     QTextEdit *m_logEdit;
     QLabel *m_statusLabel;
     QLabel *m_hintLabel;
+    QTimer *m_timeoutTimer = nullptr;
     ExecutionState m_state = Idle;
     QString m_restoreJobId;
 };

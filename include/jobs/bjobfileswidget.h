@@ -7,6 +7,7 @@
 #include <QTableView>
 #include <QSplitter>
 #include <QProgressBar>
+#include <QSortFilterProxyModel>
 #include "director/bdirector.h"
 #include "jobs/bbvfsmodel.h"
 
@@ -42,12 +43,15 @@ signals:
 
 private slots:
     void onTreeItemClicked(const QModelIndex &proxyIndex);
+    void onTreeItemExpanded(const QModelIndex &proxyIndex);
+    void onTreeCurrentChanged(const QModelIndex &current, const QModelIndex &previous);
     void onFileListDoubleClicked(const QModelIndex &index);
     void onLoadingStarted();
     void onLoadingFinished();
 
 private:
     void setupUi();
+    void showDirectoryInList(const QModelIndex &dirProxyIndex);
 
     // UI Components
     QTreeView *m_fileTreeView;
@@ -58,6 +62,7 @@ private:
     // Model
     BBvfsModel *m_bvfsModel;
     BBvfsDirFilterProxy *m_dirProxy;
+    QSortFilterProxyModel *m_listSortProxy = nullptr;
 
     // Data
     QJsonObject m_job;
@@ -65,6 +70,7 @@ private:
     quint64 m_jobId;
     QString m_clientName;
     bool m_initialLoadDone = false;
+    bool m_initialExpandDone = false;
 };
 
 #endif // BJOBFILESWIDGET_H

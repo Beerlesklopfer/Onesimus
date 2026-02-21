@@ -4,8 +4,11 @@
 #include "blogging.h"
 #include <QGroupBox>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonParseError>
 #include <QFont>
+#include <QLocale>
+#include <QDateTime>
 
 
 BJobDetailsDialog::BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidget, BDirector *director, QWidget *parent)
@@ -29,6 +32,9 @@ BJobDetailsDialog::BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidg
                        .arg(client));
 
     resize(900, 600);
+
+    // Query full job details (list jobs doesn't include fileset, schedule, etc.)
+    queryJobDetails();
 }
 
 void BJobDetailsDialog::setupUi(const QJsonObject &job)
@@ -88,17 +94,19 @@ void BJobDetailsDialog::setupStatusTab(const QJsonObject &job)
     else levelDesc = level;
     jobInfoLayout->addRow(tr("Level:"), new QLabel(levelDesc));
 
-    // FileSet
+    // FileSet (may be empty from "list jobs" — filled by llist jobid query)
     QString fileset = job["fileset"].toString();
-    if (!fileset.isEmpty()) {
-        jobInfoLayout->addRow(tr("FileSet:"), new QLabel(fileset));
+    m_fileSetLabel = new QLabel(fileset.isEmpty() ? tr("...") : fileset);
+    jobInfoLayout->addRow(tr("FileSet:"), m_fileSetLabel);
+
+    // Scheduler (may also be empty from "list jobs")
+    QString schedname = job["schedname"].toString();
+    m_scheduleLabel = new QLabel(schedname.isEmpty() ? QString() : schedname);
+    if (!schedname.isEmpty()) {
+        jobInfoLayout->addRow(tr("Schedule:"), m_scheduleLabel);
     }
 
-    // Scheduler
-    QString schedname = job["schedname"].toString();
-    if (!schedname.isEmpty()) {
-        jobInfoLayout->addRow(tr("Schedule:"), new QLabel(schedname));
-    }
+    m_jobInfoLayout = jobInfoLayout;
 
     statusLayout->addWidget(jobInfoGroup);
 
@@ -106,7 +114,14 @@ void BJobDetailsDialog::setupStatusTab(const QJsonObject &job)
     QGroupBox *timingGroup = new QGroupBox(tr("Timing"), m_statusWidget);
     QFormLayout *timingLayout = new QFormLayout(timingGroup);
 
-    timingLayout->addRow(tr("Start Time:"), new QLabel(job["starttime"].toString()));
+    QString startTimeStr = job["starttime"].toString();
+    QDateTime startTime = QDateTime::fromString(startTimeStr, Qt::ISODate);
+    if (!startTime.isValid())
+        startTime = QDateTime::fromString(startTimeStr, "yyyy-MM-dd HH:mm:ss");
+    timingLayout->addRow(tr("Start Time:"),
+                         new QLabel(startTime.isValid()
+                                        ? QLocale().toString(startTime, QLocale::ShortFormat)
+                                        : startTimeStr));
     timingLayout->addRow(tr("Duration:"), new QLabel(job["duration"].toString()));
 
     statusLayout->addWidget(timingGroup);
@@ -234,6 +249,56 @@ void BJobDetailsDialog::onJobLogReceived(BDirector::Command cmd, const QString &
     // Disconnect after receiving response (we only need it once)
     disconnect(m_director, &BDirector::jsonResult,
                this, &BJobDetailsDialog::onJobLogReceived);
+}
+
+void BJobDetailsDialog::queryJobDetails()
+{
+    if (!m_director) return;
+
+    connect(m_director, &BDirector::jsonResult,
+            this, &BJobDetailsDialog::onJobDetailReceived);
+    connect(m_director, &BDirector::textResult,
+            this, &BJobDetailsDialog::onJobDetailReceived);
+
+    m_director->doSend(BDirector::Command::Custom,
+                       QString("llist jobid=%1").arg(m_jobId));
+}
+
+void BJobDetailsDialog::onJobDetailReceived(BDirector::Command cmd, const QString &jsonData)
+{
+    if (cmd != BDirector::Command::Custom) return;
+
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+
+    QJsonArray jobs = result["jobs"].toArray();
+    if (jobs.isEmpty()) return;
+
+    QJsonObject job = jobs[0].toObject();
+
+    // Update FileSet
+    QString fileset = job["fileset"].toString();
+    if (!fileset.isEmpty() && m_fileSetLabel) {
+        m_fileSetLabel->setText(fileset);
+    }
+
+    // Update Schedule if it was empty before
+    QString schedname = job["schedname"].toString();
+    if (!schedname.isEmpty() && m_scheduleLabel) {
+        if (m_scheduleLabel->text().isEmpty() && m_jobInfoLayout) {
+            m_jobInfoLayout->addRow(tr("Schedule:"), m_scheduleLabel);
+        }
+        m_scheduleLabel->setText(schedname);
+    }
+
+    // Disconnect after handling
+    if (m_director) {
+        disconnect(m_director, &BDirector::jsonResult,
+                   this, &BJobDetailsDialog::onJobDetailReceived);
+        disconnect(m_director, &BDirector::textResult,
+                   this, &BJobDetailsDialog::onJobDetailReceived);
+    }
 }
 
 QString BJobDetailsDialog::formatBytes(qint64 bytes) const
