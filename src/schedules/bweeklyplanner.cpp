@@ -10,12 +10,7 @@ BWeeklyPlanner::BWeeklyPlanner(QWidget *parent)
     , m_hoverDay(-1)
     , m_hoverHour(-1)
 {
-    // Initialize schedule array to LEVEL_NONE
-    for (int day = 0; day < DAYS; ++day) {
-        for (int hour = 0; hour < HOURS; ++hour) {
-            m_schedule[day][hour] = LEVEL_NONE;
-        }
-    }
+    // QVector<BackupLevel> arrays are empty by default — nothing to initialize
 
     m_dayNames << tr("Monday") << tr("Tuesday") << tr("Wednesday") << tr("Thursday")
                << tr("Friday") << tr("Saturday") << tr("Sunday");
@@ -32,7 +27,7 @@ QSize BWeeklyPlanner::sizeHint() const
 {
     return QSize(
         DAY_LABEL_WIDTH + (HOURS * CELL_WIDTH) + 20,
-        HEADER_HEIGHT + (DAYS * CELL_HEIGHT) + 20
+        HEADER_HEIGHT + (DAYS * CELL_HEIGHT) + LEGEND_HEIGHT + 20
     );
 }
 
@@ -44,15 +39,92 @@ void BWeeklyPlanner::setSchedule(const QJsonObject &schedule)
     // Clear existing schedule
     for (int day = 0; day < DAYS; ++day) {
         for (int hour = 0; hour < HOURS; ++hour) {
-            m_schedule[day][hour] = LEVEL_NONE;
+            m_schedule[day][hour].clear();
         }
     }
 
-    // Parse schedule runs
+    // Parse schedule runs (Bareos API may use "run" or "Run")
     QJsonArray runs = schedule["run"].toArray();
+    if (runs.isEmpty()) {
+        runs = schedule["Run"].toArray();
+    }
     for (const QJsonValue &runVal : runs) {
         if (runVal.isString()) {
             parseScheduleRun(runVal.toString());
+        }
+    }
+
+    update();
+}
+
+void BWeeklyPlanner::setAllSchedules(const QJsonArray &schedules)
+{
+    m_scheduleData = QJsonObject();
+    m_scheduleName = tr("All Schedules");
+
+    // Clear existing
+    for (int day = 0; day < DAYS; ++day) {
+        for (int hour = 0; hour < HOURS; ++hour) {
+            m_schedule[day][hour].clear();
+        }
+    }
+
+    // Parse all schedules
+    for (const QJsonValue &scheduleVal : schedules) {
+        if (!scheduleVal.isObject()) continue;
+        QJsonObject schedule = scheduleVal.toObject();
+
+        QJsonArray runs = schedule["run"].toArray();
+        if (runs.isEmpty()) {
+            runs = schedule["Run"].toArray();
+        }
+        for (const QJsonValue &runVal : runs) {
+            if (runVal.isString()) {
+                parseScheduleRun(runVal.toString());
+            }
+        }
+    }
+
+    update();
+}
+
+void BWeeklyPlanner::setEntries(const QList<BScheduleEntry> &entries)
+{
+    m_scheduleData = QJsonObject();
+    m_scheduleName = tr("All Schedules");
+
+    // Clear existing
+    for (int day = 0; day < DAYS; ++day) {
+        for (int hour = 0; hour < HOURS; ++hour) {
+            m_schedule[day][hour].clear();
+        }
+    }
+
+    // Map BScheduleEntry::BackupLevel to our BackupLevel enum
+    for (const BScheduleEntry &entry : entries) {
+        BackupLevel level;
+        switch (entry.level) {
+        case BScheduleEntry::Full:
+        case BScheduleEntry::VirtualFull:
+            level = LEVEL_FULL;
+            break;
+        case BScheduleEntry::Differential:
+            level = LEVEL_DIFFERENTIAL;
+            break;
+        case BScheduleEntry::Incremental:
+        default:
+            level = LEVEL_INCREMENTAL;
+            break;
+        }
+
+        int hour = entry.hour;
+        if (hour < 0 || hour >= HOURS) continue;
+
+        for (int day : entry.daysOfWeek) {
+            if (day >= 0 && day < DAYS) {
+                // Append each level — side-by-side display
+                m_schedule[day][hour].append(level);
+            }
         }
     }
 
@@ -66,7 +138,7 @@ void BWeeklyPlanner::clearSchedule()
 
     for (int day = 0; day < DAYS; ++day) {
         for (int hour = 0; hour < HOURS; ++hour) {
-            m_schedule[day][hour] = LEVEL_NONE;
+            m_schedule[day][hour].clear();
         }
     }
 
@@ -96,10 +168,10 @@ void BWeeklyPlanner::parseScheduleRun(const QString &scheduleRun)
     // Extract days
     QVector<int> days = extractDays(scheduleRun);
 
-    // Mark schedule cells
+    // Mark schedule cells — append for side-by-side display
     for (int day : days) {
         if (day >= 0 && day < DAYS && hour >= 0 && hour < HOURS) {
-            m_schedule[day][hour] = level;
+            m_schedule[day][hour].append(level);
         }
     }
 }
@@ -214,6 +286,7 @@ void BWeeklyPlanner::paintEvent(QPaintEvent *event)
 
     drawGrid(painter);
     drawSchedule(painter);
+    drawLegend(painter);
 }
 
 void BWeeklyPlanner::drawGrid(QPainter &painter)
@@ -260,18 +333,73 @@ void BWeeklyPlanner::drawSchedule(QPainter &painter)
 {
     for (int day = 0; day < DAYS; ++day) {
         for (int hour = 0; hour < HOURS; ++hour) {
-            BackupLevel level = m_schedule[day][hour];
-            if (level != LEVEL_NONE) {
-                QRect cellRect = getCellRect(day, hour);
+            const QVector<BackupLevel> &levels = m_schedule[day][hour];
+            if (levels.isEmpty()) continue;
 
-                // Determine color based on level and hover state
-                bool isHovered = (day == m_hoverDay && hour == m_hoverHour);
-                QColor fillColor = getColorForLevel(level, isHovered);
+            QRect cellRect = getCellRect(day, hour);
+            bool isHovered = (day == m_hoverDay && hour == m_hoverHour);
 
-                painter.fillRect(cellRect, fillColor);
+            if (levels.size() == 1) {
+                // Single level — fill entire cell
+                painter.fillRect(cellRect, getColorForLevel(levels[0], isHovered));
+            } else {
+                // Multiple levels — split cell horizontally side-by-side
+                int count = levels.size();
+                int sliceWidth = cellRect.width() / count;
+                int remainder = cellRect.width() % count;
+
+                int x = cellRect.x();
+                for (int i = 0; i < count; ++i) {
+                    int w = sliceWidth + (i < remainder ? 1 : 0);
+                    QRect slice(x, cellRect.y(), w, cellRect.height());
+                    painter.fillRect(slice, getColorForLevel(levels[i], isHovered));
+                    x += w;
+                }
             }
         }
     }
+}
+
+void BWeeklyPlanner::drawLegend(QPainter &painter)
+{
+    int legendY = HEADER_HEIGHT + DAYS * CELL_HEIGHT + 10;
+    int x = DAY_LABEL_WIDTH;
+    int boxSize = 16;
+    int spacing = 20;
+
+    struct LegendItem {
+        BackupLevel level;
+        QString label;
+    };
+
+    QVector<LegendItem> items = {
+        { LEVEL_FULL, tr("Full") },
+        { LEVEL_DIFFERENTIAL, tr("Differential") },
+        { LEVEL_INCREMENTAL, tr("Incremental") }
+    };
+
+    painter.save();
+    QFont font = painter.font();
+    font.setPointSize(9);
+    painter.setFont(font);
+    QFontMetrics fm(font);
+
+    for (const auto &item : items) {
+        QRect colorBox(x, legendY + (LEGEND_HEIGHT - boxSize) / 2 - 5, boxSize, boxSize);
+        painter.fillRect(colorBox, getColorForLevel(item.level));
+        painter.setPen(Qt::gray);
+        painter.drawRect(colorBox);
+
+        int textX = x + boxSize + 4;
+        int textWidth = fm.horizontalAdvance(item.label);
+        QRect textRect(textX, legendY - 5, textWidth, LEGEND_HEIGHT);
+        painter.setPen(Qt::black);
+        painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, item.label);
+
+        x = textX + textWidth + spacing;
+    }
+
+    painter.restore();
 }
 
 QRect BWeeklyPlanner::getCellRect(int day, int hour) const
@@ -301,31 +429,26 @@ void BWeeklyPlanner::mouseMoveEvent(QMouseEvent *event)
 {
     int day, hour;
     if (getDayHourFromPos(event->pos(), day, hour)) {
-        BackupLevel level = m_schedule[day][hour];
-        if (level != LEVEL_NONE) {
+        const QVector<BackupLevel> &levels = m_schedule[day][hour];
+        if (!levels.isEmpty()) {
             m_hoverDay = day;
             m_hoverHour = hour;
 
-            // Show tooltip with backup level
-            QString levelStr;
-            switch (level) {
-                case LEVEL_FULL:
-                    levelStr = "Full";
-                    break;
-                case LEVEL_DIFFERENTIAL:
-                    levelStr = "Differential";
-                    break;
-                case LEVEL_INCREMENTAL:
-                    levelStr = "Incremental";
-                    break;
-                default:
-                    levelStr = "Unknown";
+            // Build tooltip showing all levels
+            QStringList levelNames;
+            for (BackupLevel level : levels) {
+                switch (level) {
+                    case LEVEL_FULL:         levelNames << "Full"; break;
+                    case LEVEL_DIFFERENTIAL: levelNames << "Differential"; break;
+                    case LEVEL_INCREMENTAL:  levelNames << "Incremental"; break;
+                    default:                 levelNames << "Unknown"; break;
+                }
             }
 
             QString tooltip = QString("%1, %2:00 (%3)")
                 .arg(m_dayNames[day])
                 .arg(hour, 2, 10, QChar('0'))
-                .arg(levelStr);
+                .arg(levelNames.join(" + "));
             QToolTip::showText(event->globalPosition().toPoint(), tooltip, this);
 
             update();

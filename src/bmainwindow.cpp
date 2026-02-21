@@ -187,6 +187,7 @@ BMainWindow::BMainWindow(QWidget *parent)
         // Only send non-resource commands that aren't part of the state machine.
         m_jobWidget->triggerRefresh();            // ListJobTotals / ListJobs
         m_clientWidget->triggerRefresh();          // ListClients
+        m_scheduleWidget->triggerRefresh();        // DotSchedule + ShowSchedules
         onSendCommand(BDirector::Command::ShowClients, "");
         onSendCommand(BDirector::Command::ShowJobDefs, "");  // Populate jobdefs model
         onSendCommand(BDirector::Command::ListBackups, "");
@@ -347,12 +348,19 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_jobWidget, &BJobWidget::processDotClientsResponse);
     connect(m_director, &BDirector::dotScheduleResult,
             m_scheduleWidget, &BScheduleWidget::processDotScheduleResponse);
+    connect(m_director, &BDirector::showSchedulesResult,
+            m_scheduleWidget, &BScheduleWidget::processShowSchedulesResponse);
     connect(m_director, &BDirector::listClientsResult,
             m_clientWidget, &BClientsWidget::processJsonResponse);
     connect(m_director, &BDirector::showJobsResult,
             m_jobWidget->jobConfigModel(), &BJobConfigModel::parseShowJobs);
+    connect(m_director, &BDirector::showJobsResult,
+            m_scheduleWidget, &BScheduleWidget::processShowJobsResponse);
     connect(m_director, &BDirector::showJobDefsResult,
             m_jobWidget->jobConfigModel(), &BJobConfigModel::parseShowJobDefs);
+
+    // Pass job config model to schedule widget for job→schedule cross-referencing
+    m_scheduleWidget->setJobConfigModel(m_jobWidget->jobConfigModel());
     connect(m_director, &BDirector::dotCatalogsResult,
             m_jobWidget, &BJobWidget::processDotCatalogsResponse);
 
@@ -378,6 +386,7 @@ BMainWindow::BMainWindow(QWidget *parent)
 
 BMainWindow::~BMainWindow()
 {
+    BSettings::instance().setMainWindowActiveTab(m_tabWidget->currentIndex());
     delete ui;
 }
 
@@ -430,6 +439,19 @@ void BMainWindow::setupUI()
     m_scheduleWidget = new BScheduleWidget(this);
     m_scheduleWidget->setDirector(m_director);
     m_tabWidget->addTab(m_scheduleWidget, "Schedules");
+
+    int savedTab = BSettings::instance().mainWindowActiveTab();
+    if (savedTab >= 0 && savedTab < m_tabWidget->count()) {
+        m_tabWidget->setCurrentIndex(savedTab);
+    }
+    connect(m_tabWidget, &QTabWidget::currentChanged, this, [this](int index) {
+        BSettings::instance().setMainWindowActiveTab(index);
+
+        // Auto-refresh when switching to Schedules tab
+        if (m_tabWidget->widget(index) == m_scheduleWidget && m_director && m_director->isConnected()) {
+            m_scheduleWidget->triggerRefresh();
+        }
+    });
 
     m_tabWidget->setEnabled(false);
 
@@ -2082,7 +2104,7 @@ void BMainWindow::onRefreshAll()
     onSendCommand(BDirector::Command::DotJobs, "");
     onSendCommand(BDirector::Command::DotClients, "");
     onSendCommand(BDirector::Command::DotLevels, "");
-    onSendCommand(BDirector::Command::DotSchedule, "");
+    m_scheduleWidget->triggerRefresh();  // sends DotSchedule + ShowSchedules
     onSendCommand(BDirector::Command::DotFilesets, "");
     onSendCommand(BDirector::Command::DotStorages, "");
     onSendCommand(BDirector::Command::DotPools, "");

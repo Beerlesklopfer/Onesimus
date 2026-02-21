@@ -4,7 +4,6 @@
 #include <QWidget>
 #include <QScrollArea>
 #include <QComboBox>
-#include <QSlider>
 #include <QPushButton>
 #include <QLabel>
 #include <QToolButton>
@@ -45,7 +44,8 @@ public:
 
     enum GroupMode {
         GroupByClient,
-        GroupBySchedule
+        GroupBySchedule,
+        GroupByStorage
     };
 
     /**
@@ -96,10 +96,31 @@ public:
     };
     QList<Collision> collisions() const { return m_collisions; }
 
-    // Zoom range constants
-    static const int MIN_PIXELS_PER_HOUR = 30;
-    static const int MAX_PIXELS_PER_HOUR = 240;
-    static const int DEFAULT_PIXELS_PER_HOUR = 60;
+    /**
+     * @brief Dependency edge between two schedule entries
+     * Used during drag to show affected jobs
+     */
+    struct DependencyEdge {
+        enum Type { LevelChain, ClientExclusion, StorageContention };
+        Type type;
+        int sourceEntryIndex;
+        int targetEntryIndex;
+        QString description;
+    };
+
+    /**
+     * @brief Returns the current entries list
+     */
+    const QList<BScheduleEntry>& entries() const { return m_entries; }
+
+    /**
+     * @brief Sets the snap granularity for drag operations
+     */
+    void setSnapMinutes(int minutes) { m_dragSnapMinutes = minutes; }
+    int snapMinutes() const { return m_dragSnapMinutes; }
+
+    // Minimum pixels per hour (prevents labels from overlapping)
+    static constexpr int MIN_PIXELS_PER_HOUR = 4;
 
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
@@ -108,12 +129,18 @@ signals:
     void entryClicked(const BScheduleEntry &entry);
     void entryDoubleClicked(const BScheduleEntry &entry);
     void collisionsDetected(int count);
+    void dragStarted(const BScheduleEntry &entry);
+    void dragCompleted(int entryIndex, int newHour, int newMinute,
+                       const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
 
@@ -163,6 +190,15 @@ private:
 
     // --- Hit testing ---
     int entryAtPos(const QPoint &pos) const;
+    int dayOffsetAtPos(const QPoint &pos, int entryIdx) const;
+    int rowForEntry(int entryIndex) const;
+
+    // --- Drag & Drop ---
+    void drawDragOverlay(QPainter &painter);
+    void drawDependencyHighlights(QPainter &painter);
+    void computeDependencies(int draggedIndex);
+    void updateDragDependencies();
+    void cancelDrag();
 
     // --- Data ---
     QList<BScheduleEntry> m_entries;
@@ -172,7 +208,7 @@ private:
     ViewMode m_viewMode = DayView;
     GroupMode m_groupMode = GroupBySchedule;
     int m_currentDay = 0;  // 0=Monday
-    int m_pixelsPerHour = DEFAULT_PIXELS_PER_HOUR;
+    int m_pixelsPerHour = 60;  // recalculated dynamically in resizeEvent
 
     // --- Layout cache ---
     QVector<RowInfo> m_rows;
@@ -189,6 +225,19 @@ private:
 
     // --- Now-marker timer ---
     QTimer *m_nowTimer;
+
+    // --- Drag state ---
+    enum DragState { NoDrag, DragPending, Dragging };
+    DragState m_dragState = NoDrag;
+    int m_dragEntryIndex = -1;
+    int m_dragDayOffset = 0;
+    QPoint m_dragStartPos;
+    int m_dragOriginalHour = 0;
+    int m_dragOriginalMinute = 0;
+    int m_dragNewHour = 0;
+    int m_dragNewMinute = 0;
+    int m_dragSnapMinutes = 15;
+    QList<DependencyEdge> m_dragDependencies;
 };
 
 #endif // BSCHEDULEGANTTWIDGET_H

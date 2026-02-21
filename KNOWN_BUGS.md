@@ -72,6 +72,30 @@ This document lists known bugs and issues in Onesimus.
 
 ## Resolved Issues
 
+### Build 390+
+
+- Added: Schedule Management — dual Gantt timeline (FD/SD) and weekly planner grid
+  - Gantt view: grouped by Client (FD) and Storage (SD), day/week modes, zoom, snap, drag & drop
+  - Weekly planner: 7×24 grid with side-by-side level display, legend, hover tooltips
+  - Files: `src/schedules/bscheduleganttwidget.cpp`, `src/schedules/bweeklyplanner.cpp`, `src/schedules/bschedulewidget.cpp`
+- Fixed: Schedule grid empty — `.schedule` dot-command only returns names, not run directives
+  - Root cause: Bareos `.schedule` returns only `name` + `enabled`; `show schedules` returns full config with `Run` arrays
+  - Added `ShowSchedules` command dispatch through BareosDirector → BDirector → BScheduleWidget
+  - Also fixed: `show schedules` returns object format `{"name1": {...}}` not array — added converter
+  - Files: `src/director/bareosdirector.cpp`, `src/director/bdirector.cpp`, `src/schedules/bschedulewidget.cpp`
+- Fixed: Schedules not loading on startup when Schedules tab was last active
+  - Root cause: `allResourcesLoaded` lambda only refreshed jobs and clients, not schedules
+  - Added `m_scheduleWidget->triggerRefresh()` to initial connect flow
+  - File: `src/bmainwindow.cpp`
+- Fixed: `MIN_PIXELS_PER_HOUR` linker error in Debug build
+  - Root cause: `static const int` ODR-used in `qMax()` needs out-of-line definition in Debug mode
+  - Changed to `static constexpr int`
+  - File: `include/schedules/bscheduleganttwidget.h`
+- Added: Settings persistence for schedule widget state (view mode, day/week, splitter, checkboxes)
+  - Files: `include/config/bsettings.h`, `src/config/bsettings.cpp`
+- Added: Main window tab persistence across sessions
+  - Files: `src/bmainwindow.cpp`, `include/config/bsettings.h`, `src/config/bsettings.cpp`
+
 ### Build 274
 
 - Added: Add Job/JobDefs Wizard (BJobWizard) — 5-page QWizard (WIP)

@@ -257,6 +257,27 @@ public:
     QString schedulesLastSelected() const;
     void setSchedulesLastSelected(const QString& scheduleName);
 
+    int schedulesViewMode() const;
+    void setSchedulesViewMode(int index);
+
+    int schedulesDayViewMode() const;
+    void setSchedulesDayViewMode(int index);
+
+    int schedulesCurrentDay() const;
+    void setSchedulesCurrentDay(int day);
+
+    int schedulesSnapIndex() const;
+    void setSchedulesSnapIndex(int index);
+
+    QByteArray schedulesSplitterState() const;
+    void setSchedulesSplitterState(const QByteArray& state);
+
+    QByteArray schedulesGanttSplitterState() const;
+    void setSchedulesGanttSplitterState(const QByteArray& state);
+
+    bool schedulesFilterCheckbox(const QString& key, bool defaultValue = true) const;
+    void setSchedulesFilterCheckbox(const QString& key, bool value);
+
     // Global Statistics Widget State
     bool statisticsWidgetVisible() const;
     void setStatisticsWidgetVisible(bool visible);
@@ -279,6 +300,9 @@ public:
      * @return QByteArray with splitter state, empty if not saved
      * @since 2.10
      */
+    int mainWindowActiveTab() const;
+    void setMainWindowActiveTab(int index);
+
     QByteArray mainWindowSplitterState() const;
     void setMainWindowSplitterState(const QByteArray& state);
 

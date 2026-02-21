@@ -680,6 +680,9 @@ BScheduleEntry BScheduleEntry::fromRunDirective(const QString &run)
         for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
     } else if (lower.contains("hourly")) {
         for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
+    } else if (lower.contains("monthly")) {
+        // Monthly: runs once per month, show on all days in Gantt for visibility
+        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
     } else if (lower.contains("mon-sat")) {
         for (int i = 0; i < 6; ++i) entry.daysOfWeek.append(i);
     } else if (lower.contains("mon-fri")) {
@@ -698,6 +701,12 @@ BScheduleEntry BScheduleEntry::fromRunDirective(const QString &run)
         if (lower.contains("fri")) entry.daysOfWeek.append(4);
         if (lower.contains("sat")) entry.daysOfWeek.append(5);
         if (lower.contains("sun")) entry.daysOfWeek.append(6);
+    }
+
+    // Fallback: if no days detected (e.g. "weekly" without day, or weekSpec-only),
+    // show on all days so the entry is always visible in the Gantt
+    if (entry.daysOfWeek.isEmpty()) {
+        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
     }
 
     return entry;
@@ -826,14 +835,33 @@ void BScheduleModel::rebuildEntries()
 
     for (auto it = m_scheduleConfigs.constBegin(); it != m_scheduleConfigs.constEnd(); ++it) {
         const QString &scheduleName = it.key();
+        // Bareos API may use "run" (compact) or "Run" (standard)
         QJsonArray runs = it.value()["run"].toArray();
+        if (runs.isEmpty()) {
+            runs = it.value()["Run"].toArray();
+        }
+
+#ifdef DEBUG_JSON
+        BLOG_DEBUG() << "BScheduleModel::rebuildEntries: Schedule" << scheduleName
+                     << "has" << runs.size() << "run directives";
+#endif
 
         for (const QJsonValue &runVal : runs) {
             if (!runVal.isString()) continue;
 
+#ifdef DEBUG_JSON
+            BLOG_DEBUG() << "  Run directive:" << runVal.toString();
+#endif
+
             BScheduleEntry entry = BScheduleEntry::fromRunDirective(runVal.toString());
             entry.scheduleName = scheduleName;
             m_entries.append(entry);
+
+#ifdef DEBUG_JSON
+            BLOG_DEBUG() << "    -> level:" << BScheduleEntry::levelToString(entry.level)
+                         << "hour:" << entry.hour << "min:" << entry.minute
+                         << "days:" << entry.daysOfWeek;
+#endif
         }
     }
 }
@@ -899,8 +927,17 @@ void BJobDurationStats::feedJobs(const QString &jsonResponse)
             record.startTime = startTime;
             record.durationSecs = durationSecs;
             record.level = level;
+
+            // Store under jobName (aggregate across all levels)
             m_stats[name].runs.append(record);
             recalculate(m_stats[name]);
+
+            // Store under jobName|level (level-specific)
+            if (!level.isEmpty()) {
+                QString levelKey = name + QLatin1Char('|') + level;
+                m_stats[levelKey].runs.append(record);
+                recalculate(m_stats[levelKey]);
+            }
         }
     }
 
@@ -919,11 +956,25 @@ int BJobDurationStats::averageDuration(const QString &jobName) const
     return it->avgSecs;
 }
 
+int BJobDurationStats::averageDuration(const QString &jobName, const QString &level) const
+{
+    if (level.isEmpty()) return averageDuration(jobName);
+    int result = averageDuration(jobName + QLatin1Char('|') + level);
+    return result > 0 ? result : averageDuration(jobName); // fallback to aggregate
+}
+
 int BJobDurationStats::minDuration(const QString &jobName) const
 {
     auto it = m_stats.find(jobName);
     if (it == m_stats.end()) return 0;
     return it->minSecs;
+}
+
+int BJobDurationStats::minDuration(const QString &jobName, const QString &level) const
+{
+    if (level.isEmpty()) return minDuration(jobName);
+    int result = minDuration(jobName + QLatin1Char('|') + level);
+    return result > 0 ? result : minDuration(jobName);
 }
 
 int BJobDurationStats::maxDuration(const QString &jobName) const
@@ -933,11 +984,24 @@ int BJobDurationStats::maxDuration(const QString &jobName) const
     return it->maxSecs;
 }
 
+int BJobDurationStats::maxDuration(const QString &jobName, const QString &level) const
+{
+    if (level.isEmpty()) return maxDuration(jobName);
+    int result = maxDuration(jobName + QLatin1Char('|') + level);
+    return result > 0 ? result : maxDuration(jobName);
+}
+
 int BJobDurationStats::sampleCount(const QString &jobName) const
 {
     auto it = m_stats.find(jobName);
     if (it == m_stats.end()) return 0;
     return it->runs.size();
+}
+
+int BJobDurationStats::sampleCount(const QString &jobName, const QString &level) const
+{
+    if (level.isEmpty()) return sampleCount(jobName);
+    return sampleCount(jobName + QLatin1Char('|') + level);
 }
 
 QStringList BJobDurationStats::jobNames() const
@@ -1000,6 +1064,13 @@ QList<BJobDurationStats::JobRunRecord> BJobDurationStats::lastRuns(const QString
     return result;
 }
 
+QList<BJobDurationStats::JobRunRecord> BJobDurationStats::lastRuns(const QString &jobName, const QString &level, int count) const
+{
+    if (level.isEmpty()) return lastRuns(jobName, count);
+    QList<JobRunRecord> result = lastRuns(jobName + QLatin1Char('|') + level, count);
+    return result.isEmpty() ? lastRuns(jobName, count) : result;
+}
+
 double BJobDurationStats::trend(const QString &jobName) const
 {
     auto it = m_stats.find(jobName);
@@ -1030,6 +1101,13 @@ double BJobDurationStats::trend(const QString &jobName) const
     double recentAvg = static_cast<double>(recentTotal) / recentCount;
 
     return recentAvg - olderAvg;  // positive = getting slower
+}
+
+double BJobDurationStats::trend(const QString &jobName, const QString &level) const
+{
+    if (level.isEmpty()) return trend(jobName);
+    double result = trend(jobName + QLatin1Char('|') + level);
+    return result != 0.0 ? result : trend(jobName);
 }
 
 QString BJobDurationStats::formatDuration(int secs)

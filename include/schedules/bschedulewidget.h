@@ -8,7 +8,6 @@
 #include <QPushButton>
 #include <QToolButton>
 #include <QComboBox>
-#include <QSlider>
 #include <QLabel>
 #include <QScrollArea>
 #include <QGroupBox>
@@ -16,13 +15,14 @@
 #include "director/bdirector.h"
 #include "schedules/bweeklyplanner.h"
 #include "schedules/bscheduleganttwidget.h"
+#include "schedules/bjobscheduleindex.h"
 #include "models/bresourcemodels.h"
 
 /**
  * @brief Widget for displaying and managing backup schedules
  *
  * Provides two views:
- * - Gantt/Timeline view: horizontal bars with duration, heatmap, collisions
+ * - Gantt/Timeline view: dual stacked timelines (FD/Client + SD/Storage)
  * - Grid view: compact 7x24 weekly planner (legacy)
  *
  * Left panel: schedule list. Right panel: switchable visualization.
@@ -41,10 +41,15 @@ public:
 
     BScheduleModel *scheduleModel() { return m_scheduleModel; }
     BJobDurationStats *durationStats() { return m_durationStats; }
+    BJobScheduleIndex *jobScheduleIndex() { return m_jobScheduleIndex; }
+
+    void setJobConfigModel(BJobConfigModel *model);
 
 public slots:
     void processDotScheduleResponse(const QString &jsonData);
+    void processShowSchedulesResponse(const QString &jsonData);
     void processListJobsResponse(const QString &jsonData);
+    void processShowJobsResponse(const QString &jsonData);
     void setConnectionState(bool connected);
 
 signals:
@@ -59,29 +64,43 @@ private slots:
     void onDayViewModeChanged(int index);
     void onDayNavigationPrev();
     void onDayNavigationNext();
-    void onZoomChanged(int value);
-    void onGroupModeChanged(int index);
     void onCollisionsDetected(int count);
     void onEntryClicked(const BScheduleEntry &entry);
+    void onFdDragCompleted(int entryIndex, int newHour, int newMinute,
+                           const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
+    void onSdDragCompleted(int entryIndex, int newHour, int newMinute,
+                           const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
+    void onSnapChanged(int index);
+    void onScheduleCheckChanged(QListWidgetItem *item);
 
 private:
     void setupUI();
+    void updateFilteredViews();
     void setupStatsPanel();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
+    void handleDragCompleted(BScheduleGanttWidget *source, int entryIndex,
+                             int newHour, int newMinute,
+                             const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
+    void resizeBothGanttWidgets();
 
     // --- Models ---
     BScheduleModel *m_scheduleModel;
     BJobDurationStats *m_durationStats;
+    BJobScheduleIndex *m_jobScheduleIndex;
+    BJobConfigModel *m_jobConfigModel = nullptr;  // not owned
 
     // --- UI ---
     QSplitter *m_splitter;
     QListWidget *m_scheduleList;
 
-    // Right panel
+    // Right panel — dual Gantt timelines
     QStackedWidget *m_viewStack;
-    BScheduleGanttWidget *m_ganttWidget;
-    QScrollArea *m_ganttScrollArea;
+    QSplitter *m_ganttSplitter;           // Vertical: FD on top, SD on bottom
+    BScheduleGanttWidget *m_fdGanttWidget; // FD/Client timeline
+    QScrollArea *m_fdScrollArea;
+    BScheduleGanttWidget *m_sdGanttWidget; // SD/Storage timeline
+    QScrollArea *m_sdScrollArea;
     BWeeklyPlanner *m_weeklyPlanner;
 
     // Toolbar
@@ -91,8 +110,7 @@ private:
     QToolButton *m_prevDayButton;
     QToolButton *m_nextDayButton;
     QLabel *m_dayLabel;
-    QSlider *m_zoomSlider;
-    QComboBox *m_groupModeCombo;      // By Schedule / By Client
+    QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour
     QLabel *m_collisionLabel;
 
     // Stats panel

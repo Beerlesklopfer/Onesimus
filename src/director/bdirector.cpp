@@ -152,6 +152,8 @@ BDirector::BDirector(QObject *parent)
                      this, &BDirector::showJobsResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::showJobDefsResult,
                      this, &BDirector::showJobDefsResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::showSchedulesResult,
+                     this, &BDirector::showSchedulesResult);
 
     // Initialize director in worker thread (creates socket and auth)
     // Use QueuedConnection to ensure it runs in worker thread

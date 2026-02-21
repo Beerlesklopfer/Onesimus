@@ -216,6 +216,7 @@ public:
     QList<BConfigResource> jobResources() const;
     QStringList jobNames() const;
     bool hasConfigs() const { return !m_jobConfigs.isEmpty(); }
+    const QMap<QString, QJsonObject>& jobConfigsRaw() const { return m_jobConfigs; }
 
     // --- JobDefs ---
     void parseShowJobDefs(const QString &jsonResponse);
@@ -379,21 +380,25 @@ public:
      * @return Average duration, or 0 if no data
      */
     int averageDuration(const QString &jobName) const;
+    int averageDuration(const QString &jobName, const QString &level) const;
 
     /**
      * @brief Returns minimum duration in seconds
      */
     int minDuration(const QString &jobName) const;
+    int minDuration(const QString &jobName, const QString &level) const;
 
     /**
      * @brief Returns maximum duration in seconds
      */
     int maxDuration(const QString &jobName) const;
+    int maxDuration(const QString &jobName, const QString &level) const;
 
     /**
      * @brief Returns number of recorded durations for a job
      */
     int sampleCount(const QString &jobName) const;
+    int sampleCount(const QString &jobName, const QString &level) const;
 
     /**
      * @brief Returns all known job names
@@ -413,12 +418,14 @@ public:
      * @brief Returns the most recent runs for a job, sorted newest first
      */
     QList<JobRunRecord> lastRuns(const QString &jobName, int count = 5) const;
+    QList<JobRunRecord> lastRuns(const QString &jobName, const QString &level, int count = 5) const;
 
     /**
      * @brief Returns duration trend (seconds change, positive = getting slower)
      * @return Difference in seconds between recent avg and older avg, or 0 if insufficient data
      */
     double trend(const QString &jobName) const;
+    double trend(const QString &jobName, const QString &level) const;
 
     /**
      * @brief Parses a Bareos duration string (HH:MM:SS) to seconds

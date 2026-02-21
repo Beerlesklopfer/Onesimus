@@ -738,6 +738,76 @@ void BSettings::setSchedulesLastSelected(const QString& scheduleName)
     setValue("Widgets/Schedules/last_selected", scheduleName);
 }
 
+int BSettings::schedulesViewMode() const
+{
+    return value("Widgets/Schedules/view_mode", 0).toInt();
+}
+
+void BSettings::setSchedulesViewMode(int index)
+{
+    setValue("Widgets/Schedules/view_mode", index);
+}
+
+int BSettings::schedulesDayViewMode() const
+{
+    return value("Widgets/Schedules/day_view_mode", 0).toInt();
+}
+
+void BSettings::setSchedulesDayViewMode(int index)
+{
+    setValue("Widgets/Schedules/day_view_mode", index);
+}
+
+int BSettings::schedulesCurrentDay() const
+{
+    return value("Widgets/Schedules/current_day", QDate::currentDate().dayOfWeek() - 1).toInt();
+}
+
+void BSettings::setSchedulesCurrentDay(int day)
+{
+    setValue("Widgets/Schedules/current_day", day);
+}
+
+int BSettings::schedulesSnapIndex() const
+{
+    return value("Widgets/Schedules/snap_index", 0).toInt();
+}
+
+void BSettings::setSchedulesSnapIndex(int index)
+{
+    setValue("Widgets/Schedules/snap_index", index);
+}
+
+QByteArray BSettings::schedulesSplitterState() const
+{
+    return value("Widgets/Schedules/splitter_state").toByteArray();
+}
+
+void BSettings::setSchedulesSplitterState(const QByteArray& state)
+{
+    setValue("Widgets/Schedules/splitter_state", state);
+}
+
+QByteArray BSettings::schedulesGanttSplitterState() const
+{
+    return value("Widgets/Schedules/gantt_splitter_state").toByteArray();
+}
+
+void BSettings::setSchedulesGanttSplitterState(const QByteArray& state)
+{
+    setValue("Widgets/Schedules/gantt_splitter_state", state);
+}
+
+bool BSettings::schedulesFilterCheckbox(const QString& key, bool defaultValue) const
+{
+    return value(QString("Widgets/Schedules/FilterCheckboxes/%1").arg(key), defaultValue).toBool();
+}
+
+void BSettings::setSchedulesFilterCheckbox(const QString& key, bool value)
+{
+    setValue(QString("Widgets/Schedules/FilterCheckboxes/%1").arg(key), value);
+}
+
 // Global Statistics Widget State
 bool BSettings::statisticsWidgetVisible() const
 {
@@ -766,6 +836,16 @@ void BSettings::setBvfsShowAllRelatedJobs(bool showAll)
 // ========================================================================
 // Main Window Settings
 // ========================================================================
+
+int BSettings::mainWindowActiveTab() const
+{
+    return value("MainWindow/activeTab", 0).toInt();
+}
+
+void BSettings::setMainWindowActiveTab(int index)
+{
+    setValue("MainWindow/activeTab", index);
+}
 
 QByteArray BSettings::mainWindowSplitterState() const
 {

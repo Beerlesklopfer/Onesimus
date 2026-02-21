@@ -1,4 +1,6 @@
 #include "schedules/bschedulewidget.h"
+#include "schedules/bscheduledragresultdialog.h"
+#include "config/bsettings.h"
 #include "blogging.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -18,8 +20,11 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_scheduleList(new QListWidget(this))
     , m_viewStack(new QStackedWidget(this))
-    , m_ganttWidget(new BScheduleGanttWidget(this))
-    , m_ganttScrollArea(new QScrollArea(this))
+    , m_ganttSplitter(new QSplitter(Qt::Vertical, this))
+    , m_fdGanttWidget(new BScheduleGanttWidget(this))
+    , m_fdScrollArea(new QScrollArea(this))
+    , m_sdGanttWidget(new BScheduleGanttWidget(this))
+    , m_sdScrollArea(new QScrollArea(this))
     , m_weeklyPlanner(new BWeeklyPlanner(this))
     , m_refreshButton(new QPushButton(tr("Refresh"), this))
     , m_viewModeCombo(new QComboBox(this))
@@ -27,18 +32,26 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_prevDayButton(new QToolButton(this))
     , m_nextDayButton(new QToolButton(this))
     , m_dayLabel(new QLabel(this))
-    , m_zoomSlider(new QSlider(Qt::Horizontal, this))
-    , m_groupModeCombo(new QComboBox(this))
+    , m_snapCombo(new QComboBox(this))
     , m_collisionLabel(new QLabel(this))
+    , m_jobScheduleIndex(new BJobScheduleIndex(this))
     , m_director(nullptr)
     , m_currentDay(QDate::currentDate().dayOfWeek() - 1)  // Qt: 1=Mon → 0=Mon
 {
     setupUI();
-    m_ganttWidget->setDurationStats(m_durationStats);
+    m_fdGanttWidget->setDurationStats(m_durationStats);
+    m_sdGanttWidget->setDurationStats(m_durationStats);
+
+    // Lock group modes: FD always by client, SD always by storage
+    m_fdGanttWidget->setGroupMode(BScheduleGanttWidget::GroupByClient);
+    m_sdGanttWidget->setGroupMode(BScheduleGanttWidget::GroupByStorage);
 }
 
 BScheduleWidget::~BScheduleWidget()
 {
+    BSettings &s = BSettings::instance();
+    s.setSchedulesSplitterState(m_splitter->saveState());
+    s.setSchedulesGanttSplitterState(m_ganttSplitter->saveState());
 }
 
 void BScheduleWidget::setupUI()
@@ -76,20 +89,12 @@ void BScheduleWidget::setupUI()
 
     toolbarLayout->addSpacing(10);
 
-    // Group mode
-    m_groupModeCombo->addItem(tr("By Schedule"), 0);
-    m_groupModeCombo->addItem(tr("By Client"), 1);
-    toolbarLayout->addWidget(m_groupModeCombo);
-
-    toolbarLayout->addSpacing(10);
-
-    // Zoom slider
-    toolbarLayout->addWidget(new QLabel(tr("Zoom:"), this));
-    m_zoomSlider->setRange(BScheduleGanttWidget::MIN_PIXELS_PER_HOUR,
-                           BScheduleGanttWidget::MAX_PIXELS_PER_HOUR);
-    m_zoomSlider->setValue(BScheduleGanttWidget::DEFAULT_PIXELS_PER_HOUR);
-    m_zoomSlider->setMaximumWidth(120);
-    toolbarLayout->addWidget(m_zoomSlider);
+    // Snap granularity
+    toolbarLayout->addWidget(new QLabel(tr("Snap:"), this));
+    m_snapCombo->addItem(tr("15 min"), 15);
+    m_snapCombo->addItem(tr("30 min"), 30);
+    m_snapCombo->addItem(tr("1 hour"), 60);
+    toolbarLayout->addWidget(m_snapCombo);
 
     toolbarLayout->addStretch();
 
@@ -122,14 +127,41 @@ void BScheduleWidget::setupUI()
     QWidget *rightWidget = new QWidget(this);
     QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
 
-    // Gantt in scroll area
-    m_ganttScrollArea->setWidget(m_ganttWidget);
-    m_ganttScrollArea->setWidgetResizable(false);
-    m_ganttScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    m_ganttScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    // --- FD pane (top) ---
+    QWidget *fdPane = new QWidget(this);
+    QVBoxLayout *fdLayout = new QVBoxLayout(fdPane);
+    fdLayout->setContentsMargins(0, 0, 0, 0);
+    fdLayout->setSpacing(2);
+    QLabel *fdLabel = new QLabel(tr("Clients (FD)"), fdPane);
+    fdLabel->setStyleSheet("font-weight: bold; font-size: 10pt; padding: 2px 4px;");
+    fdLayout->addWidget(fdLabel);
+    m_fdScrollArea->setWidget(m_fdGanttWidget);
+    m_fdScrollArea->setWidgetResizable(true);
+    m_fdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_fdScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    fdLayout->addWidget(m_fdScrollArea);
 
-    m_viewStack->addWidget(m_ganttScrollArea);  // index 0 = Gantt
-    m_viewStack->addWidget(m_weeklyPlanner);     // index 1 = Grid
+    // --- SD pane (bottom) ---
+    QWidget *sdPane = new QWidget(this);
+    QVBoxLayout *sdLayout = new QVBoxLayout(sdPane);
+    sdLayout->setContentsMargins(0, 0, 0, 0);
+    sdLayout->setSpacing(2);
+    QLabel *sdLabel = new QLabel(tr("Storage (SD)"), sdPane);
+    sdLabel->setStyleSheet("font-weight: bold; font-size: 10pt; padding: 2px 4px;");
+    sdLayout->addWidget(sdLabel);
+    m_sdScrollArea->setWidget(m_sdGanttWidget);
+    m_sdScrollArea->setWidgetResizable(true);
+    m_sdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_sdScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    sdLayout->addWidget(m_sdScrollArea);
+
+    // Vertical splitter holding both
+    m_ganttSplitter->addWidget(fdPane);
+    m_ganttSplitter->addWidget(sdPane);
+    m_ganttSplitter->setSizes(QList<int>() << 300 << 200);
+
+    m_viewStack->addWidget(m_ganttSplitter);   // index 0 = Gantt (dual)
+    m_viewStack->addWidget(m_weeklyPlanner);    // index 1 = Grid
 
     rightLayout->addWidget(m_viewStack, 1);
 
@@ -150,6 +182,8 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onScheduleSelectionChanged);
     connect(m_scheduleList, &QListWidget::itemDoubleClicked,
             this, &BScheduleWidget::onScheduleDoubleClicked);
+    connect(m_scheduleList, &QListWidget::itemChanged,
+            this, &BScheduleWidget::onScheduleCheckChanged);
 
     connect(m_viewModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BScheduleWidget::onViewModeChanged);
@@ -159,18 +193,48 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onDayNavigationPrev);
     connect(m_nextDayButton, &QToolButton::clicked,
             this, &BScheduleWidget::onDayNavigationNext);
-    connect(m_zoomSlider, &QSlider::valueChanged,
-            this, &BScheduleWidget::onZoomChanged);
-    connect(m_groupModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &BScheduleWidget::onGroupModeChanged);
-    connect(m_ganttWidget, &BScheduleGanttWidget::collisionsDetected,
-            this, &BScheduleWidget::onCollisionsDetected);
-    connect(m_ganttWidget, &BScheduleGanttWidget::entryClicked,
-            this, &BScheduleWidget::onEntryClicked);
+    connect(m_snapCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &BScheduleWidget::onSnapChanged);
 
-    // Set initial state
-    m_viewStack->setCurrentIndex(0);  // Gantt as default
-    onDayViewModeChanged(0);          // Day view
+    // FD Gantt widget signals
+    connect(m_fdGanttWidget, &BScheduleGanttWidget::collisionsDetected,
+            this, &BScheduleWidget::onCollisionsDetected);
+    connect(m_fdGanttWidget, &BScheduleGanttWidget::entryClicked,
+            this, &BScheduleWidget::onEntryClicked);
+    connect(m_fdGanttWidget, &BScheduleGanttWidget::dragCompleted,
+            this, &BScheduleWidget::onFdDragCompleted);
+
+    // SD Gantt widget signals
+    connect(m_sdGanttWidget, &BScheduleGanttWidget::collisionsDetected,
+            this, &BScheduleWidget::onCollisionsDetected);
+    connect(m_sdGanttWidget, &BScheduleGanttWidget::entryClicked,
+            this, &BScheduleWidget::onEntryClicked);
+    connect(m_sdGanttWidget, &BScheduleGanttWidget::dragCompleted,
+            this, &BScheduleWidget::onSdDragCompleted);
+
+    // === Restore settings ===
+    BSettings &s = BSettings::instance();
+
+    int viewMode = s.schedulesViewMode();
+    m_viewModeCombo->setCurrentIndex(viewMode);
+
+    int dayViewMode = s.schedulesDayViewMode();
+    m_dayViewCombo->setCurrentIndex(dayViewMode);
+
+    m_currentDay = s.schedulesCurrentDay();
+
+    int snapIndex = s.schedulesSnapIndex();
+    m_snapCombo->setCurrentIndex(snapIndex);
+
+    QByteArray splitterState = s.schedulesSplitterState();
+    if (!splitterState.isEmpty()) {
+        m_splitter->restoreState(splitterState);
+    }
+
+    QByteArray ganttSplitterState = s.schedulesGanttSplitterState();
+    if (!ganttSplitterState.isEmpty()) {
+        m_ganttSplitter->restoreState(ganttSplitterState);
+    }
 
     // Update day label
     static const QStringList dayNames = {
@@ -178,7 +242,8 @@ void BScheduleWidget::setupUI()
         tr("Friday"), tr("Saturday"), tr("Sunday")
     };
     m_dayLabel->setText(dayNames.value(m_currentDay));
-    m_ganttWidget->setCurrentDay(m_currentDay);
+    m_fdGanttWidget->setCurrentDay(m_currentDay);
+    m_sdGanttWidget->setCurrentDay(m_currentDay);
 }
 
 void BScheduleWidget::setConnectionState(bool connected)
@@ -194,7 +259,8 @@ void BScheduleWidget::clearData()
 {
     m_scheduleList->clear();
     m_weeklyPlanner->clearSchedule();
-    m_ganttWidget->setEntries({});
+    m_fdGanttWidget->setEntries({});
+    m_sdGanttWidget->setEntries({});
     m_scheduleModel->clear();
     m_durationStats->clear();
     m_collisionLabel->setVisible(false);
@@ -202,7 +268,17 @@ void BScheduleWidget::clearData()
 
 void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
 {
-#ifdef IS_DEVELOPER
+#ifdef DEBUG_JSON
+    BLOG_DEBUG() << "========================================";
+    BLOG_DEBUG() << "BScheduleWidget: Processing .schedule response";
+    BLOG_DEBUG() << "  Data size:" << jsonData.size() << "bytes";
+    if (jsonData.size() < 2000) {
+        BLOG_DEBUG() << "  Raw JSON:" << jsonData;
+    } else {
+        BLOG_DEBUG() << "  First 2000 chars:" << jsonData.left(2000);
+    }
+    BLOG_DEBUG() << "========================================";
+#elif defined(IS_DEVELOPER)
     BLOG_DEBUG() << "BScheduleWidget: Processing .schedule response";
 #endif
 
@@ -227,6 +303,8 @@ void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
     QJsonObject result = root["result"].toObject();
     QJsonArray schedulesArray = result["schedules"].toArray();
 
+    // Block signals while rebuilding the list to avoid premature filter updates
+    m_scheduleList->blockSignals(true);
     m_scheduleList->clear();
 
     for (const QJsonValue &scheduleVal : schedulesArray) {
@@ -238,15 +316,107 @@ void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
         if (!scheduleName.isEmpty()) {
             QListWidgetItem *item = new QListWidgetItem(scheduleName);
             item->setData(Qt::UserRole, schedule);
-            item->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+            bool checked = BSettings::instance().schedulesFilterCheckbox(scheduleName, true);
+            item->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
             m_scheduleList->addItem(item);
         }
     }
+    m_scheduleList->blockSignals(false);
 
     m_refreshButton->setEnabled(m_director != nullptr);
     emit statusMessageChanged(tr("%1 schedules loaded").arg(schedulesArray.size()));
 
-    // Update Gantt with all entries
+    // Update both views with all schedules (all checked initially)
+    updateFilteredViews();
+    updateGanttEntries();
+}
+
+void BScheduleWidget::processShowSchedulesResponse(const QString &jsonData)
+{
+#ifdef DEBUG_JSON
+    BLOG_DEBUG() << "========================================";
+    BLOG_DEBUG() << "BScheduleWidget: Processing show schedules response";
+    BLOG_DEBUG() << "  Data size:" << jsonData.size() << "bytes";
+    if (jsonData.size() < 2000) {
+        BLOG_DEBUG() << "  Raw JSON:" << jsonData;
+    } else {
+        BLOG_DEBUG() << "  First 2000 chars:" << jsonData.left(2000);
+    }
+    BLOG_DEBUG() << "========================================";
+#elif defined(IS_DEVELOPER)
+    BLOG_DEBUG() << "BScheduleWidget: Processing show schedules response";
+#endif
+
+    // "show schedules" returns full config with Run directives.
+    // The response has "schedules" as an object (keyed by name), not an array.
+    // Convert to the array format that parseSchedules expects.
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        BLOG_WARNING() << "BScheduleWidget: Failed to parse show schedules response";
+        return;
+    }
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonValue schedulesVal = result["schedules"];
+
+    QJsonArray schedulesArray;
+    if (schedulesVal.isObject()) {
+        // "show schedules" format: { "name1": {...}, "name2": {...} }
+        QJsonObject schedulesObj = schedulesVal.toObject();
+        for (auto it = schedulesObj.begin(); it != schedulesObj.end(); ++it) {
+            if (it.value().isObject()) {
+                schedulesArray.append(it.value());
+            }
+        }
+    } else if (schedulesVal.isArray()) {
+        schedulesArray = schedulesVal.toArray();
+    }
+
+    if (schedulesArray.isEmpty()) {
+#ifdef IS_DEVELOPER
+        BLOG_DEBUG() << "BScheduleWidget: No schedules in show schedules response";
+#endif
+        return;
+    }
+
+    // Re-wrap as the array format that parseSchedules expects
+    QJsonObject wrappedResult;
+    wrappedResult["schedules"] = schedulesArray;
+    QJsonObject wrappedRoot;
+    wrappedRoot["result"] = wrappedResult;
+    QJsonDocument wrappedDoc(wrappedRoot);
+
+    m_scheduleModel->parseSchedules(QString::fromUtf8(wrappedDoc.toJson()));
+
+    // Rebuild list with checkbox state
+    m_scheduleList->blockSignals(true);
+    m_scheduleList->clear();
+
+    for (const QJsonValue &scheduleVal : schedulesArray) {
+        if (!scheduleVal.isObject()) continue;
+        QJsonObject schedule = scheduleVal.toObject();
+        QString scheduleName = schedule["name"].toString();
+        if (!scheduleName.isEmpty()) {
+            QListWidgetItem *item = new QListWidgetItem(scheduleName);
+            item->setData(Qt::UserRole, schedule);
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+            bool checked = BSettings::instance().schedulesFilterCheckbox(scheduleName, true);
+            item->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
+            m_scheduleList->addItem(item);
+        }
+    }
+    m_scheduleList->blockSignals(false);
+
+    m_refreshButton->setEnabled(m_director != nullptr);
+
+    int entryCount = m_scheduleModel->allEntries().size();
+    emit statusMessageChanged(tr("%1 schedules loaded (%2 run entries)")
+        .arg(m_scheduleList->count()).arg(entryCount));
+
+    updateFilteredViews();
     updateGanttEntries();
 }
 
@@ -258,30 +428,34 @@ void BScheduleWidget::processListJobsResponse(const QString &jsonData)
     updateGanttEntries();
 }
 
+void BScheduleWidget::processShowJobsResponse(const QString &)
+{
+    // Rebuild job→schedule index when job configs are updated
+    if (m_jobConfigModel) {
+        m_jobScheduleIndex->rebuild(m_jobConfigModel);
+        updateGanttEntries();
+    }
+}
+
+void BScheduleWidget::setJobConfigModel(BJobConfigModel *model)
+{
+    m_jobConfigModel = model;
+    if (model && model->hasConfigs()) {
+        m_jobScheduleIndex->rebuild(model);
+    }
+}
+
 void BScheduleWidget::onRefreshClicked()
 {
     m_refreshButton->setEnabled(false);
     emit statusMessageChanged(tr("Refreshing schedule list..."));
     emit sendCommand(BDirector::Command::DotSchedule, "");
+    emit sendCommand(BDirector::Command::ShowSchedules, "");
 }
 
 void BScheduleWidget::onScheduleSelectionChanged()
 {
-    QList<QListWidgetItem*> selectedItems = m_scheduleList->selectedItems();
-
-    if (selectedItems.isEmpty()) {
-        m_weeklyPlanner->clearSchedule();
-        return;
-    }
-
-    QListWidgetItem *item = selectedItems.first();
-    QJsonObject schedule = item->data(Qt::UserRole).toJsonObject();
-
-    // Update weekly planner (Grid view)
-    m_weeklyPlanner->setSchedule(schedule);
-
-    // In Gantt view, highlight/filter to selected schedule
-    // For now, show all but we could filter later
+    // Selection is now handled via checkboxes (onScheduleCheckChanged)
 }
 
 void BScheduleWidget::onScheduleDoubleClicked(QListWidgetItem *item)
@@ -307,25 +481,27 @@ void BScheduleWidget::onViewModeChanged(int index)
     m_prevDayButton->setVisible(isGantt);
     m_dayLabel->setVisible(isGantt);
     m_nextDayButton->setVisible(isGantt);
-    m_zoomSlider->setVisible(isGantt);
-    m_groupModeCombo->setVisible(isGantt);
+    m_snapCombo->setVisible(isGantt);
+
+    BSettings::instance().setSchedulesViewMode(index);
+
+    // Refresh from server so the new view has data
+    onRefreshClicked();
 }
 
 void BScheduleWidget::onDayViewModeChanged(int index)
 {
-    if (index == 0) {
-        m_ganttWidget->setViewMode(BScheduleGanttWidget::DayView);
-        m_prevDayButton->setEnabled(true);
-        m_nextDayButton->setEnabled(true);
-    } else {
-        m_ganttWidget->setViewMode(BScheduleGanttWidget::WeekView);
-        m_prevDayButton->setEnabled(false);
-        m_nextDayButton->setEnabled(false);
-    }
+    BScheduleGanttWidget::ViewMode mode = (index == 0)
+        ? BScheduleGanttWidget::DayView
+        : BScheduleGanttWidget::WeekView;
 
-    // Resize Gantt to fit content
-    m_ganttWidget->setMinimumSize(m_ganttWidget->sizeHint());
-    m_ganttWidget->resize(m_ganttWidget->sizeHint());
+    m_fdGanttWidget->setViewMode(mode);
+    m_sdGanttWidget->setViewMode(mode);
+
+    m_prevDayButton->setEnabled(index == 0);
+    m_nextDayButton->setEnabled(index == 0);
+
+    BSettings::instance().setSchedulesDayViewMode(index);
 }
 
 void BScheduleWidget::onDayNavigationPrev()
@@ -336,8 +512,9 @@ void BScheduleWidget::onDayNavigationPrev()
         tr("Friday"), tr("Saturday"), tr("Sunday")
     };
     m_dayLabel->setText(dayNames.value(m_currentDay));
-    m_ganttWidget->setCurrentDay(m_currentDay);
-    m_ganttWidget->setMinimumSize(m_ganttWidget->sizeHint());
+    m_fdGanttWidget->setCurrentDay(m_currentDay);
+    m_sdGanttWidget->setCurrentDay(m_currentDay);
+    BSettings::instance().setSchedulesCurrentDay(m_currentDay);
 }
 
 void BScheduleWidget::onDayNavigationNext()
@@ -348,24 +525,9 @@ void BScheduleWidget::onDayNavigationNext()
         tr("Friday"), tr("Saturday"), tr("Sunday")
     };
     m_dayLabel->setText(dayNames.value(m_currentDay));
-    m_ganttWidget->setCurrentDay(m_currentDay);
-    m_ganttWidget->setMinimumSize(m_ganttWidget->sizeHint());
-}
-
-void BScheduleWidget::onZoomChanged(int value)
-{
-    m_ganttWidget->setZoomLevel(value);
-    m_ganttWidget->setMinimumSize(m_ganttWidget->sizeHint());
-    m_ganttWidget->resize(m_ganttWidget->sizeHint());
-}
-
-void BScheduleWidget::onGroupModeChanged(int index)
-{
-    if (index == 0) {
-        m_ganttWidget->setGroupMode(BScheduleGanttWidget::GroupBySchedule);
-    } else {
-        m_ganttWidget->setGroupMode(BScheduleGanttWidget::GroupByClient);
-    }
+    m_fdGanttWidget->setCurrentDay(m_currentDay);
+    m_sdGanttWidget->setCurrentDay(m_currentDay);
+    BSettings::instance().setSchedulesCurrentDay(m_currentDay);
 }
 
 void BScheduleWidget::onCollisionsDetected(int count)
@@ -469,24 +631,25 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
         .arg(entry.minute, 2, 10, QChar('0'));
     m_statsTitle->setText(title);
 
-    // Look up job name for duration stats
+    // Look up job name for level-specific duration stats
     QString lookupName = entry.jobName;
     if (lookupName.isEmpty()) {
         lookupName = entry.scheduleName;  // fallback
     }
+    QString levelStr = BScheduleEntry::levelToString(entry.level);
 
-    int minDur = m_durationStats->minDuration(lookupName);
-    int avgDur = m_durationStats->averageDuration(lookupName);
-    int maxDur = m_durationStats->maxDuration(lookupName);
-    int samples = m_durationStats->sampleCount(lookupName);
+    int minDur = m_durationStats->minDuration(lookupName, levelStr);
+    int avgDur = m_durationStats->averageDuration(lookupName, levelStr);
+    int maxDur = m_durationStats->maxDuration(lookupName, levelStr);
+    int samples = m_durationStats->sampleCount(lookupName, levelStr);
 
     m_statsMin->setText(BJobDurationStats::formatDuration(minDur));
     m_statsAvg->setText(BJobDurationStats::formatDuration(avgDur));
     m_statsMax->setText(BJobDurationStats::formatDuration(maxDur));
     m_statsSamples->setText(QString::number(samples));
 
-    // Trend
-    double trendVal = m_durationStats->trend(lookupName);
+    // Trend (level-specific)
+    double trendVal = m_durationStats->trend(lookupName, levelStr);
     if (samples < 4 || qAbs(trendVal) < 1.0) {
         m_statsTrend->setText("-");
         m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold;");
@@ -498,8 +661,8 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
         m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold; color: #388e3c;");  // green = faster
     }
 
-    // Last runs table
-    QList<BJobDurationStats::JobRunRecord> runs = m_durationStats->lastRuns(lookupName, 5);
+    // Last runs table (level-specific)
+    QList<BJobDurationStats::JobRunRecord> runs = m_durationStats->lastRuns(lookupName, levelStr, 5);
     m_statsRunsTable->setRowCount(runs.size());
 
     for (int i = 0; i < runs.size(); ++i) {
@@ -523,18 +686,127 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
     }
 }
 
+void BScheduleWidget::onSnapChanged(int index)
+{
+    int minutes = m_snapCombo->itemData(index).toInt();
+    m_fdGanttWidget->setSnapMinutes(minutes);
+    m_sdGanttWidget->setSnapMinutes(minutes);
+    BSettings::instance().setSchedulesSnapIndex(index);
+}
+
 void BScheduleWidget::updateGanttEntries()
 {
     QList<BScheduleEntry> entries = m_scheduleModel->allEntries();
 
-    // Enrich with duration estimates
+    // Enrich entries with job data (jobName, client, storage) from job→schedule index
+    if (m_jobScheduleIndex->isValid()) {
+        entries = m_jobScheduleIndex->enrichEntries(entries);
+    }
+
+    // Filter by checked schedules
+    QSet<QString> checkedSchedules;
+    for (int i = 0; i < m_scheduleList->count(); ++i) {
+        QListWidgetItem *item = m_scheduleList->item(i);
+        if (item->checkState() == Qt::Checked) {
+            checkedSchedules.insert(item->text());
+        }
+    }
+    if (!checkedSchedules.isEmpty()) {
+        QList<BScheduleEntry> filtered;
+        for (const BScheduleEntry &e : entries) {
+            if (checkedSchedules.contains(e.scheduleName)) {
+                filtered.append(e);
+            }
+        }
+        entries = filtered;
+    }
+
+    // Enrich with level-specific duration estimates
     for (BScheduleEntry &e : entries) {
         if (e.estimatedDurationSecs <= 0 && !e.jobName.isEmpty()) {
-            e.estimatedDurationSecs = m_durationStats->averageDuration(e.jobName);
+            QString levelStr = BScheduleEntry::levelToString(e.level);
+            e.estimatedDurationSecs = m_durationStats->averageDuration(e.jobName, levelStr);
         }
     }
 
-    m_ganttWidget->setEntries(entries);
-    m_ganttWidget->setMinimumSize(m_ganttWidget->sizeHint());
-    m_ganttWidget->resize(m_ganttWidget->sizeHint());
+    // Both widgets receive the identical enriched list
+    m_fdGanttWidget->setEntries(entries);
+    m_sdGanttWidget->setEntries(entries);
+}
+
+void BScheduleWidget::resizeBothGanttWidgets()
+{
+    // Stretch-to-fit: widgets auto-size via QScrollArea::widgetResizable
+    // Height still needs updating when rows change
+    m_fdGanttWidget->setMinimumHeight(m_fdGanttWidget->sizeHint().height());
+    m_sdGanttWidget->setMinimumHeight(m_sdGanttWidget->sizeHint().height());
+}
+
+void BScheduleWidget::onScheduleCheckChanged(QListWidgetItem *item)
+{
+    if (item) {
+        BSettings::instance().setSchedulesFilterCheckbox(
+            item->text(), item->checkState() == Qt::Checked);
+    }
+    updateFilteredViews();
+    updateGanttEntries();
+}
+
+void BScheduleWidget::updateFilteredViews()
+{
+    // Build set of checked schedule names
+    QSet<QString> checkedSchedules;
+    for (int i = 0; i < m_scheduleList->count(); ++i) {
+        QListWidgetItem *item = m_scheduleList->item(i);
+        if (item->checkState() == Qt::Checked) {
+            checkedSchedules.insert(item->text());
+        }
+    }
+
+    // Use the same pre-parsed entries that the Gantt uses
+    QList<BScheduleEntry> allEntries = m_scheduleModel->allEntries();
+    QList<BScheduleEntry> filtered;
+    for (const BScheduleEntry &e : allEntries) {
+        if (checkedSchedules.contains(e.scheduleName)) {
+            filtered.append(e);
+        }
+    }
+
+    m_weeklyPlanner->setEntries(filtered);
+}
+
+void BScheduleWidget::onFdDragCompleted(
+    int entryIndex, int newHour, int newMinute,
+    const QList<BScheduleGanttWidget::DependencyEdge> &dependencies)
+{
+    handleDragCompleted(m_fdGanttWidget, entryIndex, newHour, newMinute, dependencies);
+}
+
+void BScheduleWidget::onSdDragCompleted(
+    int entryIndex, int newHour, int newMinute,
+    const QList<BScheduleGanttWidget::DependencyEdge> &dependencies)
+{
+    handleDragCompleted(m_sdGanttWidget, entryIndex, newHour, newMinute, dependencies);
+}
+
+void BScheduleWidget::handleDragCompleted(
+    BScheduleGanttWidget *source,
+    int entryIndex, int newHour, int newMinute,
+    const QList<BScheduleGanttWidget::DependencyEdge> &dependencies)
+{
+    const QList<BScheduleEntry> &entries = source->entries();
+    if (entryIndex < 0 || entryIndex >= entries.size()) return;
+
+    const BScheduleEntry &entry = entries[entryIndex];
+
+    auto *dialog = new BScheduleDragResultDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setDirector(m_director);
+    dialog->setDragResult(entry, newHour, newMinute, entries, dependencies, m_jobScheduleIndex);
+
+    // Forward the sendCommand signal to the main window
+    connect(dialog, &BScheduleDragResultDialog::sendCommand,
+            this, &BScheduleWidget::sendCommand);
+
+    dialog->show();
 }

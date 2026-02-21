@@ -672,6 +672,7 @@ signals:
     void listClientsResult(const QString &jsonData);
     void showJobsResult(const QString &jsonData);
     void showJobDefsResult(const QString &jsonData);
+    void showSchedulesResult(const QString &jsonData);
 
     /**
      * @brief Emitted when a command fails (error detected in response)

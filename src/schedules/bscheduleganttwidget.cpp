@@ -4,6 +4,7 @@
 #include <QToolTip>
 #include <QDateTime>
 #include <QWheelEvent>
+#include <QResizeEvent>
 #include <algorithm>
 
 BScheduleGanttWidget::BScheduleGanttWidget(QWidget *parent)
@@ -72,20 +73,34 @@ void BScheduleGanttWidget::setCurrentDay(int dayOfWeek)
 
 void BScheduleGanttWidget::setZoomLevel(int pixelsPerHour)
 {
-    m_pixelsPerHour = qBound(MIN_PIXELS_PER_HOUR, pixelsPerHour, MAX_PIXELS_PER_HOUR);
+    Q_UNUSED(pixelsPerHour);
+    // Zoom is now computed dynamically from widget width — no-op
+}
+
+void BScheduleGanttWidget::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+
+    // Stretch-to-fit: compute pixels-per-hour from available width
+    int availableWidth = width() - LABEL_WIDTH - 20;
+    if (availableWidth < 100) availableWidth = 100;
+
+    int hours = totalHours();
+    m_pixelsPerHour = qMax(MIN_PIXELS_PER_HOUR, availableWidth / hours);
+
     recalcHeatmap();
-    update();
 }
 
 QSize BScheduleGanttWidget::sizeHint() const
 {
-    return QSize(LABEL_WIDTH + contentWidth() + 20,
-                 contentHeight() + 20);
+    // Width: stretch to fill parent (handled by QScrollArea + widgetResizable)
+    // Height: content-driven (rows + header + heatmap)
+    return QSize(400, contentHeight() + 20);
 }
 
 QSize BScheduleGanttWidget::minimumSizeHint() const
 {
-    return QSize(LABEL_WIDTH + 400, HEADER_HEIGHT + ROW_HEIGHT * 3 + HEATMAP_HEIGHT);
+    return QSize(300, HEADER_HEIGHT + ROW_HEIGHT * 3 + HEATMAP_HEIGHT);
 }
 
 // ============================================================================
@@ -168,12 +183,37 @@ void BScheduleGanttWidget::rebuildRows()
                 m_rows.append(row);
             }
         }
-    } else {
+    } else if (m_groupMode == GroupByClient) {
         // Group by client
         QMap<QString, QVector<int>> groups;
         for (int i = 0; i < m_entries.size(); ++i) {
             QString client = m_entries[i].client.isEmpty() ? tr("(no client)") : m_entries[i].client;
             groups[client].append(i);
+        }
+
+        for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
+            RowInfo header;
+            header.label = it.key();
+            header.isGroupHeader = true;
+            header.entryIndex = -1;
+            m_rows.append(header);
+
+            for (int idx : it.value()) {
+                RowInfo row;
+                const BScheduleEntry &e = m_entries[idx];
+                row.label = QString("  %1 %2")
+                    .arg(BScheduleEntry::levelToString(e.level), e.scheduleName);
+                row.isGroupHeader = false;
+                row.entryIndex = idx;
+                m_rows.append(row);
+            }
+        }
+    } else {
+        // GroupByStorage
+        QMap<QString, QVector<int>> groups;
+        for (int i = 0; i < m_entries.size(); ++i) {
+            QString storage = m_entries[i].storage.isEmpty() ? tr("(no storage)") : m_entries[i].storage;
+            groups[storage].append(i);
         }
 
         for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
@@ -245,6 +285,11 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
 
     // Collision markers
     drawCollisionMarkers(painter);
+
+    // Drag overlay (ghost bar, dependency highlights)
+    if (m_dragState == Dragging) {
+        drawDragOverlay(painter);
+    }
 
     // Now marker on top
     drawNowMarker(painter);
@@ -726,11 +771,53 @@ int BScheduleGanttWidget::entryAtPos(const QPoint &pos) const
 
 void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
 {
+    // --- Drag state transitions ---
+    if (m_dragState == DragPending) {
+        if ((event->pos() - m_dragStartPos).manhattanLength() > 5) {
+            m_dragState = Dragging;
+            setCursor(Qt::ClosedHandCursor);
+            setMouseTracking(true);
+            computeDependencies(m_dragEntryIndex);
+            emit dragStarted(m_entries[m_dragEntryIndex]);
+        }
+    }
+
+    if (m_dragState == Dragging) {
+        // Calculate snapped time from X position
+        int x = event->pos().x();
+        int rawMinutes = xToHour(x) * 60 + xToMinute(x);
+
+        // Account for day offset in week view
+        if (m_viewMode == WeekView && m_dragDayOffset > 0) {
+            rawMinutes -= m_dragDayOffset * 24 * 60;
+        }
+
+        // Clamp to 0:00-23:59
+        rawMinutes = qBound(0, rawMinutes, 23 * 60 + 59);
+
+        // Snap to grid
+        rawMinutes = (rawMinutes / m_dragSnapMinutes) * m_dragSnapMinutes;
+        m_dragNewHour = rawMinutes / 60;
+        m_dragNewMinute = rawMinutes % 60;
+
+        updateDragDependencies();
+        update();
+        event->accept();
+        return;
+    }
+
+    // --- Normal hover/tooltip handling ---
     m_hoverPos = event->pos();
     int idx = entryAtPos(event->pos());
 
     if (idx != m_hoverEntryIndex) {
         m_hoverEntryIndex = idx;
+        // Show open hand cursor for draggable entries
+        if (idx >= 0 && !m_entries[idx].jobName.isEmpty()) {
+            setCursor(Qt::OpenHandCursor);
+        } else {
+            setCursor(Qt::ArrowCursor);
+        }
         update();
     }
 
@@ -757,9 +844,10 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
             tooltip += QString("<br>%1: %2h %3m").arg(tr("Duration")).arg(h).arg(m);
         }
         if (m_durationStats && !e.jobName.isEmpty()) {
-            int minD = m_durationStats->minDuration(e.jobName);
-            int maxD = m_durationStats->maxDuration(e.jobName);
-            int samples = m_durationStats->sampleCount(e.jobName);
+            QString levelStr = BScheduleEntry::levelToString(e.level);
+            int minD = m_durationStats->minDuration(e.jobName, levelStr);
+            int maxD = m_durationStats->maxDuration(e.jobName, levelStr);
+            int samples = m_durationStats->sampleCount(e.jobName, levelStr);
             if (samples > 0) {
                 tooltip += QString("<br><i>%1: %2 | %3: %4 (%5 %6)</i>")
                     .arg(tr("Min"), BJobDurationStats::formatDuration(minD),
@@ -813,19 +901,65 @@ void BScheduleGanttWidget::mousePressEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton) {
         int idx = entryAtPos(event->pos());
         if (idx >= 0) {
-            emit entryClicked(m_entries[idx]);
+            const BScheduleEntry &e = m_entries[idx];
+            emit entryClicked(e);
+
+            // Start potential drag (only if entry has a job name)
+            if (!e.jobName.isEmpty()) {
+                m_dragState = DragPending;
+                m_dragEntryIndex = idx;
+                m_dragStartPos = event->pos();
+                m_dragDayOffset = dayOffsetAtPos(event->pos(), idx);
+                m_dragOriginalHour = e.hour;
+                m_dragOriginalMinute = e.minute;
+            }
         }
     }
     QWidget::mousePressEvent(event);
 }
 
+void BScheduleGanttWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (m_dragState == Dragging && event->button() == Qt::LeftButton) {
+        setCursor(Qt::ArrowCursor);
+
+        // Only emit if time actually changed
+        if (m_dragNewHour != m_dragOriginalHour || m_dragNewMinute != m_dragOriginalMinute) {
+            emit dragCompleted(m_dragEntryIndex, m_dragNewHour, m_dragNewMinute,
+                               m_dragDependencies);
+        }
+
+        cancelDrag();
+    } else if (m_dragState == DragPending && event->button() == Qt::LeftButton) {
+        m_dragState = NoDrag;
+        m_dragEntryIndex = -1;
+    }
+
+    QWidget::mouseReleaseEvent(event);
+}
+
 void BScheduleGanttWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
+    if (m_dragState != NoDrag) {
+        cancelDrag();
+        return;
+    }
+
     int idx = entryAtPos(event->pos());
     if (idx >= 0) {
         emit entryDoubleClicked(m_entries[idx]);
     }
     QWidget::mouseDoubleClickEvent(event);
+}
+
+void BScheduleGanttWidget::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape && m_dragState == Dragging) {
+        cancelDrag();
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
 }
 
 void BScheduleGanttWidget::leaveEvent(QEvent *event)
@@ -839,11 +973,314 @@ void BScheduleGanttWidget::leaveEvent(QEvent *event)
 
 void BScheduleGanttWidget::wheelEvent(QWheelEvent *event)
 {
-    if (event->modifiers() & Qt::ControlModifier) {
-        int delta = event->angleDelta().y() > 0 ? 10 : -10;
-        setZoomLevel(m_pixelsPerHour + delta);
-        event->accept();
-    } else {
-        QWidget::wheelEvent(event);
+    // Zoom is automatic (stretch-to-fit) — pass wheel events to parent for scrolling
+    QWidget::wheelEvent(event);
+}
+
+// ============================================================================
+// Drag helpers
+// ============================================================================
+
+void BScheduleGanttWidget::cancelDrag()
+{
+    m_dragState = NoDrag;
+    m_dragEntryIndex = -1;
+    m_dragDependencies.clear();
+    setCursor(Qt::ArrowCursor);
+    update();
+}
+
+int BScheduleGanttWidget::dayOffsetAtPos(const QPoint &pos, int entryIdx) const
+{
+    if (m_viewMode == DayView) return 0;
+    if (entryIdx < 0 || entryIdx >= m_entries.size()) return 0;
+
+    int row = rowForEntry(entryIdx);
+    if (row < 0) return 0;
+
+    const BScheduleEntry &entry = m_entries[entryIdx];
+    for (int d : entry.daysOfWeek) {
+        QRect br = barRect(entry, row, d);
+        if (br.contains(pos)) return d;
+    }
+    return 0;
+}
+
+int BScheduleGanttWidget::rowForEntry(int entryIndex) const
+{
+    for (int r = 0; r < m_rows.size(); ++r) {
+        if (!m_rows[r].isGroupHeader && m_rows[r].entryIndex == entryIndex) {
+            return r;
+        }
+    }
+    return -1;
+}
+
+// ============================================================================
+// Dependency calculation
+// ============================================================================
+
+void BScheduleGanttWidget::computeDependencies(int draggedIndex)
+{
+    m_dragDependencies.clear();
+    if (draggedIndex < 0 || draggedIndex >= m_entries.size()) return;
+
+    const BScheduleEntry &dragged = m_entries[draggedIndex];
+
+    for (int i = 0; i < m_entries.size(); ++i) {
+        if (i == draggedIndex) continue;
+        const BScheduleEntry &other = m_entries[i];
+
+        // Check if they share any day
+        bool shareDay = false;
+        for (int d : dragged.daysOfWeek) {
+            if (other.daysOfWeek.contains(d)) {
+                shareDay = true;
+                break;
+            }
+        }
+        if (!shareDay) continue;
+
+        // 1. Level chain: same client, same schedule → Full/Inc/Diff relationship
+        if (!dragged.client.isEmpty() && dragged.client == other.client
+            && dragged.scheduleName == other.scheduleName) {
+            bool isChain = false;
+            QString desc;
+
+            if (dragged.level == BScheduleEntry::Full &&
+                (other.level == BScheduleEntry::Incremental || other.level == BScheduleEntry::Differential)) {
+                isChain = true;
+                desc = tr("Level chain: %1 (%2) depends on this Full")
+                    .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
+                         BScheduleEntry::levelToString(other.level));
+            } else if ((dragged.level == BScheduleEntry::Incremental || dragged.level == BScheduleEntry::Differential)
+                       && other.level == BScheduleEntry::Full) {
+                isChain = true;
+                desc = tr("Level chain: this %1 depends on Full %2")
+                    .arg(BScheduleEntry::levelToString(dragged.level),
+                         other.jobName.isEmpty() ? other.scheduleName : other.jobName);
+            }
+
+            if (isChain) {
+                DependencyEdge edge;
+                edge.type = DependencyEdge::LevelChain;
+                edge.sourceEntryIndex = draggedIndex;
+                edge.targetEntryIndex = i;
+                edge.description = desc;
+                m_dragDependencies.append(edge);
+                continue;  // don't duplicate as client exclusion
+            }
+        }
+
+        // 2. Client exclusion: same client, different job
+        if (!dragged.client.isEmpty() && dragged.client == other.client) {
+            DependencyEdge edge;
+            edge.type = DependencyEdge::ClientExclusion;
+            edge.sourceEntryIndex = draggedIndex;
+            edge.targetEntryIndex = i;
+            edge.description = tr("Client exclusion: %1 (%2) on same client %3")
+                .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
+                     BScheduleEntry::levelToString(other.level),
+                     other.client);
+            m_dragDependencies.append(edge);
+            continue;  // don't duplicate as storage contention
+        }
+
+        // 3. Storage contention: same storage
+        if (!dragged.storage.isEmpty() && dragged.storage == other.storage) {
+            DependencyEdge edge;
+            edge.type = DependencyEdge::StorageContention;
+            edge.sourceEntryIndex = draggedIndex;
+            edge.targetEntryIndex = i;
+            edge.description = tr("Storage contention: %1 on same storage %2")
+                .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
+                     other.storage);
+            m_dragDependencies.append(edge);
+        }
+    }
+}
+
+void BScheduleGanttWidget::updateDragDependencies()
+{
+    // Recompute which dependencies actually overlap with the new drag position
+    // The dependency list itself stays the same (computed at drag start),
+    // but we mark which ones create actual time conflicts at the new position
+
+    // Dependencies are already computed in computeDependencies().
+    // The visual rendering in drawDependencyHighlights() checks overlap
+    // dynamically using the current m_dragNewHour/m_dragNewMinute.
+}
+
+// ============================================================================
+// Drag visual overlay
+// ============================================================================
+
+void BScheduleGanttWidget::drawDragOverlay(QPainter &painter)
+{
+    if (m_dragEntryIndex < 0 || m_dragEntryIndex >= m_entries.size()) return;
+
+    int row = rowForEntry(m_dragEntryIndex);
+    if (row < 0) return;
+
+    const BScheduleEntry &entry = m_entries[m_dragEntryIndex];
+    painter.save();
+
+    // --- 1. Ghost bar at original position (semi-transparent, dashed) ---
+    QRect originalRect = barRect(entry, row, m_dragDayOffset);
+    QColor ghostColor = colorForLevel(entry.level);
+    ghostColor.setAlpha(80);
+
+    QPen dashPen(ghostColor.darker(120), 1.5, Qt::DashLine);
+    painter.setPen(dashPen);
+    painter.setBrush(ghostColor);
+    painter.drawRoundedRect(originalRect, 3, 3);
+
+    // --- 2. Preview bar at new snapped position ---
+    // Build a temporary entry with the new time
+    BScheduleEntry previewEntry = entry;
+    previewEntry.hour = m_dragNewHour;
+    previewEntry.minute = m_dragNewMinute;
+    QRect previewRect = barRect(previewEntry, row, m_dragDayOffset);
+
+    QColor previewColor = colorForLevel(entry.level);
+    painter.setPen(QPen(previewColor.darker(140), 2));
+    painter.setBrush(previewColor);
+    painter.drawRoundedRect(previewRect, 3, 3);
+
+    // --- 3. Time label centered in preview bar ---
+    painter.setPen(Qt::white);
+    QFont font = painter.font();
+    font.setPointSize(8);
+    font.setBold(true);
+    painter.setFont(font);
+    QString timeLabel = QString("%1:%2")
+        .arg(m_dragNewHour, 2, 10, QChar('0'))
+        .arg(m_dragNewMinute, 2, 10, QChar('0'));
+    painter.drawText(previewRect, Qt::AlignCenter, timeLabel);
+    font.setBold(false);
+    painter.setFont(font);
+
+    // --- 4. Snap line: vertical dotted line at snap position ---
+    int snapX = timeToX(m_dragDayOffset * 24 + m_dragNewHour, m_dragNewMinute);
+    QPen snapPen(QColor(100, 100, 100, 120), 1, Qt::DotLine);
+    painter.setPen(snapPen);
+    painter.drawLine(snapX, HEADER_HEIGHT, snapX, HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT);
+
+    // --- 5. Dependency highlights ---
+    drawDependencyHighlights(painter);
+
+    painter.restore();
+}
+
+void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
+{
+    if (m_dragDependencies.isEmpty()) return;
+    if (m_dragEntryIndex < 0 || m_dragEntryIndex >= m_entries.size()) return;
+
+    const BScheduleEntry &dragged = m_entries[m_dragEntryIndex];
+
+    // Drag entry duration for overlap check
+    int dragDur = dragged.estimatedDurationSecs;
+    if (dragDur <= 0) {
+        switch (dragged.level) {
+        case BScheduleEntry::Full:         dragDur = 3600; break;
+        case BScheduleEntry::Differential: dragDur = 1800; break;
+        case BScheduleEntry::VirtualFull:  dragDur = 3600; break;
+        default:                           dragDur = 900;  break;
+        }
+    }
+    int dragStartMin = m_dragNewHour * 60 + m_dragNewMinute;
+    int dragEndMin = dragStartMin + dragDur / 60;
+
+    for (const DependencyEdge &dep : m_dragDependencies) {
+        int targetIdx = dep.targetEntryIndex;
+        if (targetIdx < 0 || targetIdx >= m_entries.size()) continue;
+
+        const BScheduleEntry &target = m_entries[targetIdx];
+        int targetRow = rowForEntry(targetIdx);
+        if (targetRow < 0) continue;
+
+        // Check actual time overlap with new position
+        int targetDur = target.estimatedDurationSecs;
+        if (targetDur <= 0) {
+            switch (target.level) {
+            case BScheduleEntry::Full:         targetDur = 3600; break;
+            case BScheduleEntry::Differential: targetDur = 1800; break;
+            case BScheduleEntry::VirtualFull:  targetDur = 3600; break;
+            default:                           targetDur = 900;  break;
+            }
+        }
+        int targetStartMin = target.hour * 60 + target.minute;
+        int targetEndMin = targetStartMin + targetDur / 60;
+
+        bool overlaps = (dragStartMin < targetEndMin && targetStartMin < dragEndMin);
+
+        // Choose color based on dependency type
+        QColor depColor;
+        switch (dep.type) {
+        case DependencyEdge::LevelChain:
+            depColor = QColor(255, 165, 0);   // Orange
+            break;
+        case DependencyEdge::ClientExclusion:
+            depColor = QColor(220, 40, 40);    // Red
+            break;
+        case DependencyEdge::StorageContention:
+            depColor = QColor(160, 40, 200);   // Violet
+            break;
+        }
+
+        // Find target bar rect (check all days the target runs on)
+        QVector<int> targetDays;
+        if (m_viewMode == DayView) {
+            if (target.daysOfWeek.contains(m_currentDay)) {
+                targetDays.append(0);
+            }
+        } else {
+            // In week view, highlight the day that matches the drag day
+            for (int d : target.daysOfWeek) {
+                if (m_entries[m_dragEntryIndex].daysOfWeek.contains(d)) {
+                    targetDays.append(d);
+                }
+            }
+        }
+
+        for (int d : targetDays) {
+            QRect targetRect = barRect(target, targetRow, d);
+
+            // Draw colored dashed border around affected entry
+            QPen borderPen(depColor, 2, overlaps ? Qt::SolidLine : Qt::DashLine);
+            painter.setPen(borderPen);
+            painter.setBrush(Qt::NoBrush);
+            painter.drawRoundedRect(targetRect.adjusted(-2, -2, 2, 2), 4, 4);
+
+            // If overlapping, draw a semi-transparent fill
+            if (overlaps) {
+                QColor fillColor = depColor;
+                fillColor.setAlpha(40);
+                painter.setBrush(fillColor);
+                painter.setPen(Qt::NoPen);
+                painter.drawRoundedRect(targetRect, 3, 3);
+            }
+
+            // Draw connector line from drag preview to target bar
+            int dragRow = rowForEntry(m_dragEntryIndex);
+            if (dragRow >= 0) {
+                BScheduleEntry previewEntry = dragged;
+                previewEntry.hour = m_dragNewHour;
+                previewEntry.minute = m_dragNewMinute;
+                QRect previewRect = barRect(previewEntry, dragRow, m_dragDayOffset);
+
+                QPoint from = previewRect.center();
+                QPoint to = targetRect.center();
+
+                // Only draw if not the same row
+                if (dragRow != targetRow) {
+                    QPen connPen(depColor, 1, Qt::DotLine);
+                    connPen.setColor(QColor(depColor.red(), depColor.green(), depColor.blue(), 150));
+                    painter.setPen(connPen);
+                    painter.drawLine(from, to);
+                }
+            }
+        }
     }
 }

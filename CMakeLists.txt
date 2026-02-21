@@ -441,6 +441,8 @@ set(SOURCES
     src/schedules/bweeklyplanner.cpp
     src/schedules/bscheduleganttwidget.cpp
     src/schedules/bschedulewizard.cpp
+    src/schedules/bjobscheduleindex.cpp
+    src/schedules/bscheduledragresultdialog.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -526,6 +528,8 @@ set(HEADERS
     include/schedules/bweeklyplanner.h
     include/schedules/bscheduleganttwidget.h
     include/schedules/bschedulewizard.h
+    include/schedules/bjobscheduleindex.h
+    include/schedules/bscheduledragresultdialog.h
 
     include/messages/bmessageswidget.h
 

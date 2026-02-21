@@ -1500,8 +1500,9 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
     case Command::DotCatalogs:  emit dotCatalogsResult(jsonData); break;
     case Command::DotSchedule:  emit dotScheduleResult(jsonData); break;
     case Command::ListClients:  emit listClientsResult(jsonData); break;
-    case Command::ShowJobs:     emit showJobsResult(jsonData); break;
-    case Command::ShowJobDefs:  emit showJobDefsResult(jsonData); break;
+    case Command::ShowJobs:      emit showJobsResult(jsonData); break;
+    case Command::ShowJobDefs:   emit showJobDefsResult(jsonData); break;
+    case Command::ShowSchedules: emit showSchedulesResult(jsonData); break;
 
     default:
         break;

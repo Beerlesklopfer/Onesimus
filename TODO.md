@@ -304,7 +304,30 @@
 - [x] Improve PSK debug logging for troubleshooting
 - [x] Detect already-hashed passwords (32-char hex MD5) to avoid double-hashing
 
-### 6.5 Restore Wizard
+### 6.5 Schedule Management ✓ DONE
+- [x] Schedule widget with left-side schedule list (checkboxes for filtering)
+- [x] Fetch schedule data via `show schedules` command (full run directives)
+- [x] Parse Bareos schedule run directives (level, time, days, week specs)
+- [x] **Gantt Timeline View** — dual FD/SD timelines in vertical QSplitter
+  - [x] FD timeline grouped by Client, SD timeline grouped by Storage Daemon
+  - [x] Day view (single day) and Week view (7-day overview)
+  - [x] Day navigation with prev/next buttons
+  - [x] Zoom slider (stretch-to-fit and manual zoom levels)
+  - [x] Snap-to-grid (15min, 30min, 1h)
+  - [x] Heatmap/utilization bar per timeline
+  - [x] Collision detection for overlapping jobs
+  - [x] Drag & Drop for schedule time adjustment with dependency tracking
+  - [x] Entry click shows duration statistics panel
+  - [x] Horizontal scroll synchronization between FD and SD timelines
+- [x] **Weekly Planner Grid View** — 7×24 grid (days × hours)
+  - [x] Color-coded cells: green (Full), orange (Differential), blue (Incremental)
+  - [x] Side-by-side display when multiple levels share the same time slot
+  - [x] Hover effects with tooltips showing day, time, and level(s)
+  - [x] Color legend below the grid
+- [x] Settings persistence (view mode, day/week mode, current day, snap, splitter states, checkbox filters)
+- [x] Auto-refresh on startup and when switching to Schedules tab
+
+### 6.6 Restore Wizard
 - [ ] Create Restore Wizard dialog (separate from BJobFilesWidget file browser)
 - [ ] Select target client for restore
 - [ ] Select destination directory (restore where)
@@ -313,7 +336,7 @@
 - [ ] Command preview before execution
 - [ ] Execute restore via BVFS restore table + restore command
 
-### 6.6 Connection Wizard Improvements ✓ DONE
+### 6.7 Connection Wizard Improvements ✓ DONE
 - [x] Add ImportConsoleSelectionPage for ZIP import (Director/Console selection with ACL pre-fill)
 - [x] Fix empty console combo in ConsoleSetupPage (use `.consoles` dot-command)
 - [x] Fix console details parsing (`show console=<name>` returns object, not array)
@@ -331,7 +354,7 @@
 - [x] Add SVG icon set with transparent backgrounds for menus and toolbar
 - [x] Add Windows .ico file and resource file for executable icon
 
-### 6.7 Console ACL Enforcement
+### 6.8 Console ACL Enforcement
 - [ ] Query current console's Profile and ACLs after authentication (`show console=<name>`)
 - [ ] Parse ACL fields: CommandACL, JobACL, ClientACL, StorageACL, ScheduleACL, PoolACL, FileSetACL, CatalogACL
 - [ ] Store current console ACLs in BDirector (accessible via getter methods)
@@ -464,7 +487,7 @@
 
 ---
 
-*Last Updated: 2026-02-05*
+*Last Updated: 2026-02-21*
 *Priority: Focus on getting Director management working first, then expand to Client/Storage*
 *Note: Using ninja build system. Config import dialog with tabbed resource widgets implemented.*
 *Files: src/config/ (parser, schema), src/director/ (import dialog, resource widgets)*

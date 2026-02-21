@@ -6,6 +6,8 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QJsonObject>
+#include <QJsonArray>
+#include "models/bresourcemodels.h"
 
 /**
  * @brief Widget displaying a weekly schedule planner
@@ -28,10 +30,25 @@ public:
     ~BWeeklyPlanner();
 
     /**
-     * @brief Sets the schedule data to display
+     * @brief Sets a single schedule to display
      * @param schedule JSON object containing schedule information
      */
     void setSchedule(const QJsonObject &schedule);
+
+    /**
+     * @brief Sets all schedules to display (combined overview)
+     * @param schedules JSON array of schedule objects
+     */
+    void setAllSchedules(const QJsonArray &schedules);
+
+    /**
+     * @brief Sets pre-parsed schedule entries (from BScheduleModel)
+     * @param entries List of parsed schedule entries
+     *
+     * This avoids duplicating the run directive parsing logic.
+     * Uses the same entries that the Gantt timeline uses.
+     */
+    void setEntries(const QList<BScheduleEntry> &entries);
 
     /**
      * @brief Clears the schedule display
@@ -85,6 +102,11 @@ private:
     void drawSchedule(QPainter &painter);
 
     /**
+     * @brief Draws the color legend below the grid
+     */
+    void drawLegend(QPainter &painter);
+
+    /**
      * @brief Gets color for backup level
      */
     QColor getColorForLevel(BackupLevel level, bool hovered = false) const;
@@ -103,11 +125,12 @@ private:
     static const int CELL_HEIGHT = 30;
     static const int HEADER_HEIGHT = 40;
     static const int DAY_LABEL_WIDTH = 100;
+    static const int LEGEND_HEIGHT = 30;
     static const int DAYS = 7;
     static const int HOURS = 24;
 
-    // Schedule data: [day][hour] = level
-    BackupLevel m_schedule[DAYS][HOURS];
+    // Schedule data: [day][hour] = list of levels (for side-by-side display)
+    QVector<BackupLevel> m_schedule[DAYS][HOURS];
 
     QJsonObject m_scheduleData;
     QString m_scheduleName;
