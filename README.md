@@ -297,13 +297,18 @@ cmake .. \
 
 ## 📚 Documentation
 
-- [Local Test Director](https://github.com/Beerlesklopfer/Onesimus/wiki/Wiki-Local-Test-Director) - Set up a local Bareos Director for development and testing
+Full documentation is available at **[onesimus.io/docs/](https://onesimus.io/docs/)**
+
+### Build Guides
 - [BUILD_WINDOWS.md](BUILD_WINDOWS.md) - Windows build instructions
 - [BUILD_LINUX.md](BUILD_LINUX.md) - Linux build instructions
 - [BUILD_OSX.md](BUILD_OSX.md) - macOS build instructions
 - [BACKUP_SYSTEMS.md](BACKUP_SYSTEMS.md) - Bacula vs. Bareos
 - [STATIC_OPENSSL.md](STATIC_OPENSSL.md) - OpenSSL integration
 - [VISUAL_STUDIO_ENV.md](VISUAL_STUDIO_ENV.md) - VS environment setup
+
+### Developer Resources
+- [Local Test Director](https://github.com/Beerlesklopfer/Onesimus/wiki/Wiki-Local-Test-Director) - Set up a local Bareos Director for development and testing
 
 ## 🎨 Screenshots
 
@@ -478,7 +483,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 ## 📞 Support
 
 - 🌐 Website: [onesimus.io](https://onesimus.io)
-- 📖 Documentation: See [docs/](docs/)
+- 📖 Documentation: [onesimus.io/docs/](https://onesimus.io/docs/)
 - 🐛 Bugs: [GitHub Issues](https://github.com/Beerlesklopfer/Onesimus/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/Beerlesklopfer/Onesimus/discussions)
 
