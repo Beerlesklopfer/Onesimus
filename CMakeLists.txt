@@ -440,6 +440,7 @@ set(SOURCES
     src/schedules/bschedulewidget.cpp
     src/schedules/bweeklyplanner.cpp
     src/schedules/bscheduleganttwidget.cpp
+    src/schedules/bschedulewizard.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -524,6 +525,7 @@ set(HEADERS
     include/schedules/bschedulewidget.h
     include/schedules/bweeklyplanner.h
     include/schedules/bscheduleganttwidget.h
+    include/schedules/bschedulewizard.h
 
     include/messages/bmessageswidget.h
 

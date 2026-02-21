@@ -31,6 +31,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Collects min/avg/max duration per job from `list jobs` data
   - Duration uncertainty bands on Gantt bars (dark=avg, light=max)
 - **i18n**: all Schedule widget strings wrapped in `tr()` (previously hardcoded German)
+- **Duration Statistics Panel**: detailed stats when clicking a job in the Gantt view
+  - Min / Avg / Max duration with formatted display (Xh Ym, Xm Ys)
+  - Trend indicator: faster (green) or slower (orange/red) compared to history
+  - Last 5 runs table with date, level, and duration
+  - Enhanced Gantt tooltips showing min/max duration and sample count
+- **Schedule Wizard**: schema-driven 3-page QWizard for creating new schedules
+  - BScheduleRunDialog: editor for single Run directive (level, days, time, pool, priority)
+  - BScheduleRunEditor: table with Add/Edit/Remove/Duplicate operations
+  - BScheduleBasicsPage: name, description, enabled, 5 predefined templates from `schedule.json`
+  - BScheduleRunsPage: embedded run editor with live preview
+  - BSchedulePreviewPage: config text, `configure add` command, copy/execute buttons
+  - All dropdown values loaded from `schedule.json` metadata (no hardcoded values)
+  - Menu integration: Schedules → Add Schedule... (Ctrl+Shift+S)
+  - Wizards toolbar section with Add Job and Add Schedule buttons
+- **BDirectiveSchema**: extended to parse schedule metadata sections
+  - `run_directive_syntax`: level values, pool/storage format, priority default
+  - `common_schedules`: 5 predefined schedule templates
+  - `time_specification_reference`: day/week/month values, time format
+  - Convenience methods: `scheduleLevelValues()`, `dayOfWeekValues()`, `weekOfMonthValues()`, `monthValues()`
 
 ### Changed
 - **Version bumped to 0.2.0** — Gantt Scheduler milestone

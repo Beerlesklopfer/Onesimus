@@ -756,6 +756,17 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
             int m = (e.estimatedDurationSecs % 3600) / 60;
             tooltip += QString("<br>%1: %2h %3m").arg(tr("Duration")).arg(h).arg(m);
         }
+        if (m_durationStats && !e.jobName.isEmpty()) {
+            int minD = m_durationStats->minDuration(e.jobName);
+            int maxD = m_durationStats->maxDuration(e.jobName);
+            int samples = m_durationStats->sampleCount(e.jobName);
+            if (samples > 0) {
+                tooltip += QString("<br><i>%1: %2 | %3: %4 (%5 %6)</i>")
+                    .arg(tr("Min"), BJobDurationStats::formatDuration(minD),
+                         tr("Max"), BJobDurationStats::formatDuration(maxD))
+                    .arg(samples).arg(tr("runs"));
+            }
+        }
         if (!e.pool.isEmpty()) {
             tooltip += QString("<br>%1: %2").arg(tr("Pool"), e.pool);
         }

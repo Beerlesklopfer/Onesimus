@@ -32,7 +32,7 @@
 
 ## 🆕 What's New (v0.2.0 - 2026-02-21)
 
-### Gantt Scheduler (NEW)
+### Gantt Scheduler
 - **Timeline/Gantt visualization** for backup schedule planning — the heart of schedule management
   - Horizontal timeline with job duration bars (Day view 24h / Week view 7x24h)
   - Color-coded backup levels: Full (green), Differential (orange), Incremental (blue), VirtualFull (purple)
@@ -41,9 +41,18 @@
   - Now-marker showing current time, rich tooltips with job details
 - **Utilization Heatmap** — color-coded strip showing concurrent job load per 15-min slot
 - **Collision Detection** — automatic detection of client/storage scheduling conflicts with visual warnings
+- **Duration Statistics Panel** — click a job bar to see min/avg/max duration, trend, last 5 runs
 - **BScheduleModel** — proper Qt model for schedule resources with parsed Run entries
 - **BJobDurationStats** — historical job duration statistics (min/avg/max) for realistic planning
-- **i18n**: all Schedule widget strings now translatable (previously hardcoded German)
+
+### Schedule Wizard (NEW)
+- **Schema-driven 3-page QWizard** for creating new backup schedules
+  - Basics page: name, description, 5 predefined templates from `schedule.json`
+  - Runs page: visual Run directive editor with Add/Edit/Remove/Duplicate
+  - Preview page: generated config text, `configure add` command, copy/execute
+  - All values loaded from schema metadata — no hardcoded dropdown entries
+  - Menu: Schedules → Add Schedule... (Ctrl+Shift+S)
+  - Wizards toolbar section with Add Job and Add Schedule buttons
 
 ### Previous Releases
 - **v0.1.0** (2026-02-21): Restore Wizard, ACL Visualization, Schema-Driven Resource Editing, New Client Wizard
@@ -101,9 +110,12 @@
 - **Device Status:** Status and availability of storage devices
 
 ### 📅 Schedule Management
-- **Schedule Overview:** All configured backup schedules
-- **Schedule Details:** Run times, level, pool assignment
-- **Visual Representation:** Clear display of backup windows
+- **Gantt Timeline:** Horizontal timeline with job duration bars, zoom, grouping
+- **Utilization Heatmap:** Color-coded concurrent job load per 15-min slot
+- **Collision Detection:** Client/storage conflict warnings with visual indicators
+- **Duration Statistics:** Click a job to see min/avg/max duration, trend, last runs
+- **Schedule Wizard:** 3-page QWizard with 5 templates and Run directive editor
+- **Schedule Overview:** All configured backup schedules with details
 - ~~**Schedule Control:** Enable/disable schedules~~ *(not yet implemented)*
 
 ### 🔐 Security & Connection
@@ -370,7 +382,10 @@ onesimus/
 │   │   ├── bbasemodels.h            #   BListModel, BTableModel (base classes)
 │   │   └── bresourcemodels.h        #   BFilesetModel, BPoolModel, BCatalogModel, ...
 │   └── schedules/
-│       └── bschedulewidget.h        #   Schedule list + weekly planner
+│       ├── bschedulewidget.h        #   Schedule tab (Gantt + stats panel)
+│       ├── bscheduleganttwidget.h   #   Gantt timeline widget
+│       ├── bschedulewizard.h        #   Schedule Wizard (3-page QWizard)
+│       └── bweeklyplanner.h         #   Compact 7x24 grid view
 ├── src/                             # Implementations (.cpp) — mirrors include/
 ├── resources/                       # Qt resources (embedded at build time)
 │   ├── directives/                  #   JSON schemas for 11 resource types
@@ -473,7 +488,13 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
   - Job duration bars from historical data, color-coded by backup level
   - Utilization heatmap (15-min slots, green/yellow/red)
   - Collision detection (client/storage conflicts, visual warnings)
+  - Duration statistics panel (min/avg/max, trend, last 5 runs)
+- ✅ **Schedule Wizard** — Schema-driven 3-page QWizard for creating schedules
+  - 5 predefined templates from `schedule.json` metadata
+  - Run directive editor with live preview
+  - Config text generation and `configure add` execution
 - ✅ **BScheduleModel** + **BJobDurationStats** — data foundation for schedule analysis
+- ✅ **BDirectiveSchema** extended with schedule metadata parsing
 - ✅ **i18n fix** — Schedule widgets now translatable (previously hardcoded German)
 
 ### v0.1.0 (February 2026)

@@ -4,6 +4,7 @@
 #include <QJsonDocument>
 #include <QJsonParseError>
 #include <QRegularExpression>
+#include <algorithm>
 
 // ============================================================================
 // BFilesetModel Implementation
@@ -879,9 +880,26 @@ void BJobDurationStats::feedJobs(const QString &jsonResponse)
             durationSecs = durVal.toInt();
         }
 
+        // Parse start time
+        QDateTime startTime;
+        QString startStr = job["starttime"].toString();
+        if (!startStr.isEmpty()) {
+            startTime = QDateTime::fromString(startStr, Qt::ISODate);
+            if (!startTime.isValid()) {
+                startTime = QDateTime::fromString(startStr, "yyyy-MM-dd HH:mm:ss");
+            }
+        }
+
+        // Parse level
+        QString level = job["level"].toString();
+
         // Only record completed jobs with positive duration
         if (durationSecs > 0) {
-            m_stats[name].durations.append(durationSecs);
+            JobRunRecord record;
+            record.startTime = startTime;
+            record.durationSecs = durationSecs;
+            record.level = level;
+            m_stats[name].runs.append(record);
             recalculate(m_stats[name]);
         }
     }
@@ -919,7 +937,7 @@ int BJobDurationStats::sampleCount(const QString &jobName) const
 {
     auto it = m_stats.find(jobName);
     if (it == m_stats.end()) return 0;
-    return it->durations.size();
+    return it->runs.size();
 }
 
 QStringList BJobDurationStats::jobNames() const
@@ -947,20 +965,80 @@ int BJobDurationStats::parseDuration(const QString &durationStr)
 
 void BJobDurationStats::recalculate(DurationData &data)
 {
-    if (data.durations.isEmpty()) {
+    if (data.runs.isEmpty()) {
         data.minSecs = data.maxSecs = data.avgSecs = 0;
         return;
     }
 
-    data.minSecs = data.durations.first();
-    data.maxSecs = data.durations.first();
+    data.minSecs = data.runs.first().durationSecs;
+    data.maxSecs = data.runs.first().durationSecs;
     long long total = 0;
 
-    for (int d : data.durations) {
-        if (d < data.minSecs) data.minSecs = d;
-        if (d > data.maxSecs) data.maxSecs = d;
-        total += d;
+    for (const JobRunRecord &r : data.runs) {
+        if (r.durationSecs < data.minSecs) data.minSecs = r.durationSecs;
+        if (r.durationSecs > data.maxSecs) data.maxSecs = r.durationSecs;
+        total += r.durationSecs;
     }
 
-    data.avgSecs = static_cast<int>(total / data.durations.size());
+    data.avgSecs = static_cast<int>(total / data.runs.size());
+}
+
+QList<BJobDurationStats::JobRunRecord> BJobDurationStats::lastRuns(const QString &jobName, int count) const
+{
+    auto it = m_stats.find(jobName);
+    if (it == m_stats.end()) return {};
+
+    QVector<JobRunRecord> sorted = it->runs;
+    std::sort(sorted.begin(), sorted.end(), [](const JobRunRecord &a, const JobRunRecord &b) {
+        return a.startTime > b.startTime;  // newest first
+    });
+
+    QList<JobRunRecord> result;
+    for (int i = 0; i < qMin(count, static_cast<int>(sorted.size())); ++i) {
+        result.append(sorted[i]);
+    }
+    return result;
+}
+
+double BJobDurationStats::trend(const QString &jobName) const
+{
+    auto it = m_stats.find(jobName);
+    if (it == m_stats.end() || it->runs.size() < 4) return 0.0;
+
+    // Compare average of recent half vs older half
+    QVector<JobRunRecord> sorted = it->runs;
+    std::sort(sorted.begin(), sorted.end(), [](const JobRunRecord &a, const JobRunRecord &b) {
+        return a.startTime < b.startTime;  // oldest first
+    });
+
+    int half = sorted.size() / 2;
+    long long olderTotal = 0, recentTotal = 0;
+    int olderCount = 0, recentCount = 0;
+
+    for (int i = 0; i < half; ++i) {
+        olderTotal += sorted[i].durationSecs;
+        olderCount++;
+    }
+    for (int i = half; i < sorted.size(); ++i) {
+        recentTotal += sorted[i].durationSecs;
+        recentCount++;
+    }
+
+    if (olderCount == 0 || recentCount == 0) return 0.0;
+
+    double olderAvg = static_cast<double>(olderTotal) / olderCount;
+    double recentAvg = static_cast<double>(recentTotal) / recentCount;
+
+    return recentAvg - olderAvg;  // positive = getting slower
+}
+
+QString BJobDurationStats::formatDuration(int secs)
+{
+    if (secs <= 0) return QStringLiteral("-");
+    int h = secs / 3600;
+    int m = (secs % 3600) / 60;
+    int s = secs % 60;
+    if (h > 0) return QString("%1h %2m").arg(h).arg(m, 2, 10, QChar('0'));
+    if (m > 0) return QString("%1m %2s").arg(m).arg(s, 2, 10, QChar('0'));
+    return QString("%1s").arg(s);
 }

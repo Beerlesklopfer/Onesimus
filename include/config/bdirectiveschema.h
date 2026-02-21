@@ -135,6 +135,17 @@ public:
     QString validate(const QString &resourceType, const QString &directiveName,
                      const QVariant &value) const;
 
+    // === Schedule metadata (from schedule.json extra sections) ===
+
+    QJsonObject runDirectiveSyntax() const { return m_runDirectiveSyntax; }
+    QJsonObject commonSchedules() const { return m_commonSchedules; }
+    QJsonObject timeSpecReference() const { return m_timeSpecReference; }
+
+    QStringList scheduleLevelValues() const;
+    QStringList dayOfWeekValues() const;
+    QStringList weekOfMonthValues() const;
+    QStringList monthValues() const;
+
 private:
     BDirectiveSchema(QObject *parent = nullptr);
     ~BDirectiveSchema();
@@ -143,6 +154,12 @@ private:
 
     QMap<QString, QMap<QString, BDirective>> m_schemas;
     QMap<QString, QString> m_resourceDescriptions;
+
+    // Schedule-specific metadata (only from schedule.json)
+    QJsonObject m_runDirectiveSyntax;
+    QJsonObject m_commonSchedules;
+    QJsonObject m_timeSpecReference;
+
     bool m_loaded = false;
 };
 

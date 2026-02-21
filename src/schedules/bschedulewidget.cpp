@@ -2,12 +2,14 @@
 #include "blogging.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDate>
+#include <QHeaderView>
 
 BScheduleWidget::BScheduleWidget(QWidget *parent)
     : QWidget(parent)
@@ -129,7 +131,11 @@ void BScheduleWidget::setupUI()
     m_viewStack->addWidget(m_ganttScrollArea);  // index 0 = Gantt
     m_viewStack->addWidget(m_weeklyPlanner);     // index 1 = Grid
 
-    rightLayout->addWidget(m_viewStack);
+    rightLayout->addWidget(m_viewStack, 1);
+
+    // Stats panel (below Gantt)
+    setupStatsPanel();
+    rightLayout->addWidget(m_statsPanel);
 
     m_splitter->addWidget(leftWidget);
     m_splitter->addWidget(rightWidget);
@@ -159,6 +165,8 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onGroupModeChanged);
     connect(m_ganttWidget, &BScheduleGanttWidget::collisionsDetected,
             this, &BScheduleWidget::onCollisionsDetected);
+    connect(m_ganttWidget, &BScheduleGanttWidget::entryClicked,
+            this, &BScheduleWidget::onEntryClicked);
 
     // Set initial state
     m_viewStack->setCurrentIndex(0);  // Gantt as default
@@ -367,6 +375,151 @@ void BScheduleWidget::onCollisionsDetected(int count)
         m_collisionLabel->setVisible(true);
     } else {
         m_collisionLabel->setVisible(false);
+    }
+}
+
+void BScheduleWidget::setupStatsPanel()
+{
+    m_statsPanel = new QGroupBox(tr("Duration Statistics"), this);
+    m_statsPanel->setVisible(false);
+
+    QVBoxLayout *statsLayout = new QVBoxLayout(m_statsPanel);
+    statsLayout->setContentsMargins(8, 8, 8, 8);
+    statsLayout->setSpacing(4);
+
+    // Title row with close button
+    QHBoxLayout *titleRow = new QHBoxLayout();
+    m_statsTitle = new QLabel(this);
+    m_statsTitle->setStyleSheet("font-weight: bold; font-size: 11pt;");
+    titleRow->addWidget(m_statsTitle, 1);
+
+    QToolButton *closeButton = new QToolButton(this);
+    closeButton->setIcon(QIcon::fromTheme("window-close"));
+    closeButton->setAutoRaise(true);
+    closeButton->setToolTip(tr("Close"));
+    connect(closeButton, &QToolButton::clicked, m_statsPanel, [this]() {
+        m_statsPanel->setVisible(false);
+    });
+    titleRow->addWidget(closeButton);
+    statsLayout->addLayout(titleRow);
+
+    // Duration stats row: Min | Avg | Max | Samples | Trend
+    QHBoxLayout *statsRow = new QHBoxLayout();
+    statsRow->setSpacing(16);
+
+    auto addStatBox = [&](const QString &label) -> QLabel* {
+        QVBoxLayout *box = new QVBoxLayout();
+        box->setSpacing(0);
+        QLabel *headerLabel = new QLabel(label, this);
+        headerLabel->setStyleSheet("color: gray; font-size: 9pt;");
+        headerLabel->setAlignment(Qt::AlignCenter);
+        QLabel *valueLabel = new QLabel("-", this);
+        valueLabel->setStyleSheet("font-size: 12pt; font-weight: bold;");
+        valueLabel->setAlignment(Qt::AlignCenter);
+        box->addWidget(headerLabel);
+        box->addWidget(valueLabel);
+        statsRow->addLayout(box);
+        return valueLabel;
+    };
+
+    m_statsMin = addStatBox(tr("Min"));
+    m_statsAvg = addStatBox(tr("Avg"));
+    m_statsMax = addStatBox(tr("Max"));
+
+    // Separator
+    QFrame *sep = new QFrame(this);
+    sep->setFrameShape(QFrame::VLine);
+    statsRow->addWidget(sep);
+
+    m_statsSamples = addStatBox(tr("Samples"));
+    m_statsTrend = addStatBox(tr("Trend"));
+
+    statsRow->addStretch();
+    statsLayout->addLayout(statsRow);
+
+    // Last runs table
+    m_statsRunsTable = new QTableWidget(0, 3, this);
+    m_statsRunsTable->setHorizontalHeaderLabels({tr("Date"), tr("Level"), tr("Duration")});
+    m_statsRunsTable->horizontalHeader()->setStretchLastSection(true);
+    m_statsRunsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_statsRunsTable->verticalHeader()->setVisible(false);
+    m_statsRunsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_statsRunsTable->setSelectionMode(QAbstractItemView::NoSelection);
+    m_statsRunsTable->setMaximumHeight(140);
+    m_statsRunsTable->setAlternatingRowColors(true);
+    statsLayout->addWidget(m_statsRunsTable);
+}
+
+void BScheduleWidget::onEntryClicked(const BScheduleEntry &entry)
+{
+    updateStatsPanel(entry);
+    m_statsPanel->setVisible(true);
+}
+
+void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
+{
+    // Title
+    QString title = entry.scheduleName;
+    if (!entry.jobName.isEmpty()) {
+        title += QString(" / %1").arg(entry.jobName);
+    }
+    title += QString(" (%1, %2:%3)")
+        .arg(BScheduleEntry::levelToString(entry.level))
+        .arg(entry.hour, 2, 10, QChar('0'))
+        .arg(entry.minute, 2, 10, QChar('0'));
+    m_statsTitle->setText(title);
+
+    // Look up job name for duration stats
+    QString lookupName = entry.jobName;
+    if (lookupName.isEmpty()) {
+        lookupName = entry.scheduleName;  // fallback
+    }
+
+    int minDur = m_durationStats->minDuration(lookupName);
+    int avgDur = m_durationStats->averageDuration(lookupName);
+    int maxDur = m_durationStats->maxDuration(lookupName);
+    int samples = m_durationStats->sampleCount(lookupName);
+
+    m_statsMin->setText(BJobDurationStats::formatDuration(minDur));
+    m_statsAvg->setText(BJobDurationStats::formatDuration(avgDur));
+    m_statsMax->setText(BJobDurationStats::formatDuration(maxDur));
+    m_statsSamples->setText(QString::number(samples));
+
+    // Trend
+    double trendVal = m_durationStats->trend(lookupName);
+    if (samples < 4 || qAbs(trendVal) < 1.0) {
+        m_statsTrend->setText("-");
+        m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold;");
+    } else if (trendVal > 0) {
+        m_statsTrend->setText(QString("+%1").arg(BJobDurationStats::formatDuration(static_cast<int>(trendVal))));
+        m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold; color: #e64a19;");  // orange-red = slower
+    } else {
+        m_statsTrend->setText(QString("-%1").arg(BJobDurationStats::formatDuration(static_cast<int>(-trendVal))));
+        m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold; color: #388e3c;");  // green = faster
+    }
+
+    // Last runs table
+    QList<BJobDurationStats::JobRunRecord> runs = m_durationStats->lastRuns(lookupName, 5);
+    m_statsRunsTable->setRowCount(runs.size());
+
+    for (int i = 0; i < runs.size(); ++i) {
+        const auto &run = runs[i];
+
+        QString dateStr = run.startTime.isValid()
+            ? run.startTime.toString("yyyy-MM-dd HH:mm")
+            : tr("(unknown)");
+        m_statsRunsTable->setItem(i, 0, new QTableWidgetItem(dateStr));
+        m_statsRunsTable->setItem(i, 1, new QTableWidgetItem(run.level));
+        m_statsRunsTable->setItem(i, 2, new QTableWidgetItem(
+            BJobDurationStats::formatDuration(run.durationSecs)));
+    }
+
+    if (runs.isEmpty()) {
+        m_statsRunsTable->setRowCount(1);
+        QTableWidgetItem *noData = new QTableWidgetItem(tr("No historical data available"));
+        noData->setForeground(Qt::gray);
+        m_statsRunsTable->setItem(0, 0, noData);
+        m_statsRunsTable->setSpan(0, 0, 1, 3);
     }
 }
 

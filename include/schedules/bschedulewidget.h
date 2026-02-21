@@ -11,6 +11,8 @@
 #include <QSlider>
 #include <QLabel>
 #include <QScrollArea>
+#include <QGroupBox>
+#include <QTableWidget>
 #include "director/bdirector.h"
 #include "schedules/bweeklyplanner.h"
 #include "schedules/bscheduleganttwidget.h"
@@ -60,9 +62,12 @@ private slots:
     void onZoomChanged(int value);
     void onGroupModeChanged(int index);
     void onCollisionsDetected(int count);
+    void onEntryClicked(const BScheduleEntry &entry);
 
 private:
     void setupUI();
+    void setupStatsPanel();
+    void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
 
     // --- Models ---
@@ -89,6 +94,16 @@ private:
     QSlider *m_zoomSlider;
     QComboBox *m_groupModeCombo;      // By Schedule / By Client
     QLabel *m_collisionLabel;
+
+    // Stats panel
+    QGroupBox *m_statsPanel;
+    QLabel *m_statsTitle;
+    QLabel *m_statsMin;
+    QLabel *m_statsAvg;
+    QLabel *m_statsMax;
+    QLabel *m_statsSamples;
+    QLabel *m_statsTrend;
+    QTableWidget *m_statsRunsTable;
 
     BDirector *m_director;
     int m_currentDay;                 // 0=Mon..6=Sun

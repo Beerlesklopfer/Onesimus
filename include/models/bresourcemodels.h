@@ -6,6 +6,7 @@
 #include <QMap>
 #include <QJsonObject>
 #include <QVector>
+#include <QDateTime>
 
 // ============================================================================
 // BFilesetModel - Model for Bareos filesets
@@ -400,13 +401,38 @@ public:
     QStringList jobNames() const;
 
     /**
+     * @brief Record of a single historical job run
+     */
+    struct JobRunRecord {
+        QDateTime startTime;
+        int durationSecs = 0;
+        QString level;
+    };
+
+    /**
+     * @brief Returns the most recent runs for a job, sorted newest first
+     */
+    QList<JobRunRecord> lastRuns(const QString &jobName, int count = 5) const;
+
+    /**
+     * @brief Returns duration trend (seconds change, positive = getting slower)
+     * @return Difference in seconds between recent avg and older avg, or 0 if insufficient data
+     */
+    double trend(const QString &jobName) const;
+
+    /**
      * @brief Parses a Bareos duration string (HH:MM:SS) to seconds
      */
     static int parseDuration(const QString &durationStr);
 
+    /**
+     * @brief Formats seconds as human-readable duration string
+     */
+    static QString formatDuration(int secs);
+
 private:
     struct DurationData {
-        QVector<int> durations;  ///< individual durations in seconds
+        QVector<JobRunRecord> runs;  ///< individual runs with timestamps
         int minSecs = 0;
         int maxSecs = 0;
         int avgSecs = 0;

@@ -189,6 +189,24 @@ bool BDirectiveSchema::loadSchema(const QString &resourcePath)
     }
 
     m_schemas[resourceType] = directiveMap;
+
+    // Store schedule-specific metadata sections (only for Schedule resource)
+    if (resourceType == "Schedule") {
+        if (root.contains("run_directive_syntax")) {
+            m_runDirectiveSyntax = root["run_directive_syntax"].toObject();
+        }
+        if (root.contains("common_schedules")) {
+            m_commonSchedules = root["common_schedules"].toObject();
+        }
+        if (root.contains("time_specification_reference")) {
+            m_timeSpecReference = root["time_specification_reference"].toObject();
+        }
+        BLOG_DEBUG() << "Loaded schedule metadata: run_directive_syntax="
+                     << !m_runDirectiveSyntax.isEmpty()
+                     << "common_schedules=" << m_commonSchedules.size()
+                     << "time_spec=" << !m_timeSpecReference.isEmpty();
+    }
+
     BLOG_DEBUG() << "Loaded schema for" << resourceType << "with" << directiveMap.size() << "directives";
     return true;
 }
@@ -263,6 +281,51 @@ QString BDirectiveSchema::validate(const QString &resourceType, const QString &d
     // TODO: Add more type validations (path, directory, boolean, etc.)
 
     return QString(); // Valid
+}
+
+QStringList BDirectiveSchema::scheduleLevelValues() const
+{
+    QJsonObject components = m_runDirectiveSyntax["components"].toObject();
+    QJsonObject level = components["level"].toObject();
+    QJsonArray values = level["values"].toArray();
+    QStringList result;
+    for (const QJsonValue &v : values) {
+        result.append(v.toString());
+    }
+    return result;
+}
+
+QStringList BDirectiveSchema::dayOfWeekValues() const
+{
+    QJsonObject dow = m_timeSpecReference["day_of_week"].toObject();
+    QJsonArray values = dow["values"].toArray();
+    QStringList result;
+    for (const QJsonValue &v : values) {
+        result.append(v.toString());
+    }
+    return result;
+}
+
+QStringList BDirectiveSchema::weekOfMonthValues() const
+{
+    QJsonObject wom = m_timeSpecReference["week_of_month"].toObject();
+    QJsonArray values = wom["values"].toArray();
+    QStringList result;
+    for (const QJsonValue &v : values) {
+        result.append(v.toString());
+    }
+    return result;
+}
+
+QStringList BDirectiveSchema::monthValues() const
+{
+    QJsonObject month = m_timeSpecReference["month"].toObject();
+    QJsonArray values = month["values"].toArray();
+    QStringList result;
+    for (const QJsonValue &v : values) {
+        result.append(v.toString());
+    }
+    return result;
 }
 
 bool BDirective::appliesToCurrentPlatform() const

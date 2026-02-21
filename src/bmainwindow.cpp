@@ -8,6 +8,7 @@
 #include "clients/bnewclientdialog.h"
 #include "jobs/bfilesetwizard.h"
 #include "jobs/bjobwizard.h"
+#include "schedules/bschedulewizard.h"
 #include "director/bresourcedialog.h"
 #include "director/bresourcewidgets.h"
 #include "models/bresourcemodels.h"
@@ -924,6 +925,21 @@ void BMainWindow::createActions()
     connect(m_refreshStorageAction, &QAction::triggered, m_storageWidget, &StorageWidget::triggerRefresh);
 
     // Schedule Actions
+    m_addScheduleAction = new QAction(tr("Add Schedule..."), this);
+    m_addScheduleAction->setIcon(QIcon(":/icons/icons/add.svg"));
+    m_addScheduleAction->setShortcut(QKeySequence("Ctrl+Shift+S"));
+    m_addScheduleAction->setEnabled(false);
+    connect(m_addScheduleAction, &QAction::triggered, this, [this]() {
+        BScheduleWizard wizard(m_director, this);
+        QMap<QString, QStringList> refData;
+        refData["Pool"] = m_jobWidget->poolNames();
+        refData["Storage"] = m_jobWidget->storageNames();
+        wizard.setReferenceData(refData);
+        if (wizard.exec() == QDialog::Accepted) {
+            m_scheduleWidget->triggerRefresh();
+        }
+    });
+
     m_refreshSchedulesAction = new QAction(tr("Refresh Schedules"), this);
     m_refreshSchedulesAction->setIcon(QIcon(":/icons/icons/refresh.svg"));
     m_refreshSchedulesAction->setShortcut(QKeySequence("Ctrl+Shift+D"));
@@ -1020,6 +1036,8 @@ void BMainWindow::createMenus()
 
     // Schedules Menu
     m_schedulesMenu = menuBar()->addMenu(tr("Schedules"));
+    m_schedulesMenu->addAction(m_addScheduleAction);
+    m_schedulesMenu->addSeparator();
     m_schedulesMenu->addAction(m_refreshSchedulesAction);
 
     // Tools Menu
@@ -1057,6 +1075,11 @@ void BMainWindow::createToolBar()
 
     // Exit button first
     m_mainToolBar->addAction(m_exitAction);
+
+    // Wizards section
+    m_mainToolBar->addSeparator();
+    m_mainToolBar->addAction(m_addJobAction);
+    m_mainToolBar->addAction(m_addScheduleAction);
 
     // Spacer to push connection buttons to the right
     QWidget *spacer = new QWidget();
@@ -1912,6 +1935,7 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     m_addJobDefsAction->setEnabled(connected);
     m_editJobDefsAction->setEnabled(connected);
     m_deleteJobDefsAction->setEnabled(connected);
+    m_addScheduleAction->setEnabled(connected);
     // Cancel and Details require job selection, so they stay disabled until selection changes
     if (!connected) {
         m_cancelJobAction->setEnabled(false);

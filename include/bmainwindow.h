@@ -181,6 +181,7 @@ private:
     QAction *m_refreshStorageAction;
 
     // Schedule Actions
+    QAction *m_addScheduleAction;
     QAction *m_refreshSchedulesAction;
 
     // Tools Actions
