@@ -80,6 +80,17 @@ public:
     /// Expose resolved BVFS job IDs (available after loadJob completes)
     QString bvfsJobIds() const { return m_bvfsJobIds; }
 
+    /**
+     * @brief Compute total estimated size of all selected items
+     * @return Total size in bytes of selected files and directory subtrees
+     */
+    qint64 computeSelectedSize() const;
+
+    /**
+     * @brief Format byte count as human-readable string (e.g., "1.5 GiB")
+     */
+    QString formatBytes(qint64 bytes) const;
+
 signals:
     void loadingStarted();
     void loadingFinished();
@@ -151,8 +162,8 @@ private:
     // Helpers
     BvfsNode *nodeFromIndex(const QModelIndex &index) const;
     QModelIndex indexFromNode(BvfsNode *node, int column = 0) const;
-    QString formatBytes(qint64 bytes) const;
     qint64 computeSubtreeSize(BvfsNode *node) const;
+    qint64 computeSelectedSizeHelper(BvfsNode *node) const;
     void emitSizeChangedUpward(BvfsNode *node);
 
     // Checkbox helpers

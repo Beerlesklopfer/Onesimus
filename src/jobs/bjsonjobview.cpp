@@ -4,6 +4,7 @@
 #include "jobs/bjobfileswidget.h"
 #include "jobs/bjoblogdialog.h"
 #include "jobs/brestorewizard.h"
+#include <QTimer>
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QDialogButtonBox>
@@ -776,6 +777,13 @@ void BJsonJobView::restoreFiles()
 
     BRestoreWizard wizard(job, m_director, this);
     wizard.exec();
+
+    if (wizard.restoreSucceeded()) {
+        // Refresh job list after a short delay to let the Director register the new job
+        QTimer::singleShot(2000, this, [this]() {
+            emit refreshRequested();
+        });
+    }
 }
 
 void BJsonJobView::saveViewPreset(const QString &name)

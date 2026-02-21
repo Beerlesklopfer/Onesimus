@@ -178,6 +178,19 @@ BRestoreSelectJobPage::BRestoreSelectJobPage(QWidget *parent)
     m_beforeDateEdit->setDisplayFormat("yyyy-MM-dd hh:mm:ss");
     layout->addRow(tr("Before Date:"), m_beforeDateEdit);
 
+    // Load status warning
+    m_errorLabel = new QLabel(this);
+    m_errorLabel->setWordWrap(true);
+    m_errorLabel->setStyleSheet("QLabel { color: orange; font-weight: bold; }");
+    m_errorLabel->setVisible(false);
+    layout->addRow(QString(), m_errorLabel);
+
+    m_loadTimeoutTimer = new QTimer(this);
+    m_loadTimeoutTimer->setSingleShot(true);
+    m_loadTimeoutTimer->setInterval(10000);  // 10 seconds
+    connect(m_loadTimeoutTimer, &QTimer::timeout,
+            this, &BRestoreSelectJobPage::onLoadTimeout);
+
     connect(m_scopeGroup, QOverload<int>::of(&QButtonGroup::idClicked),
             this, &BRestoreSelectJobPage::onScopeChanged);
 }
@@ -187,6 +200,11 @@ void BRestoreSelectJobPage::initializePage()
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
     if (!wiz) return;
     auto *data = wiz->wizardData();
+
+    int step = wiz->pageIds().indexOf(wiz->currentId()) + 1;
+    int total = wiz->pageIds().size();
+    setSubTitle(tr("Step %1 of %2 — Configure the restore scope before browsing files.")
+                    .arg(step).arg(total));
 
     m_sourceLabel->setText(tr("Job %1: %2 (Client: %3, FileSet: %4)")
                                .arg(data->jobId)
@@ -203,7 +221,11 @@ void BRestoreSelectJobPage::initializePage()
     onScopeChanged();
 
     // Load clients and filesets from Director
+    m_errorLabel->setVisible(false);
     if (wiz->director()) {
+        if (!m_clientsLoaded || !m_fileSetsLoaded) {
+            m_loadTimeoutTimer->start();
+        }
         if (!m_clientsLoaded) {
             connect(wiz->director(), &BDirector::jsonResult,
                     this, &BRestoreSelectJobPage::onClientsResponse);
@@ -233,6 +255,20 @@ void BRestoreSelectJobPage::initializePage()
                                       Q_ARG(BDirector::Command, BDirector::Command::Custom),
                                       Q_ARG(QString, QString("llist jobid=%1").arg(data->jobId)));
         }
+    }
+}
+
+void BRestoreSelectJobPage::onLoadTimeout()
+{
+    QStringList missing;
+    if (!m_clientsLoaded) missing << tr("Clients");
+    if (!m_fileSetsLoaded) missing << tr("FileSets");
+
+    if (!missing.isEmpty()) {
+        m_errorLabel->setText(tr("Warning: Failed to load %1 from Director within timeout. "
+                                 "The Director may be busy or the connection may be slow.")
+                                  .arg(missing.join(tr(" and "))));
+        m_errorLabel->setVisible(true);
     }
 }
 
@@ -281,6 +317,10 @@ void BRestoreSelectJobPage::onClientsResponse(BDirector::Command cmd, const QStr
         disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BRestoreSelectJobPage::onClientsResponse);
     }
+    if (m_clientsLoaded && m_fileSetsLoaded) {
+        m_loadTimeoutTimer->stop();
+        m_errorLabel->setVisible(false);
+    }
 }
 
 void BRestoreSelectJobPage::onFileSetsResponse(BDirector::Command cmd, const QString &jsonData)
@@ -317,6 +357,10 @@ void BRestoreSelectJobPage::onFileSetsResponse(BDirector::Command cmd, const QSt
     if (wiz && wiz->director()) {
         disconnect(wiz->director(), &BDirector::jsonResult,
                    this, &BRestoreSelectJobPage::onFileSetsResponse);
+    }
+    if (m_clientsLoaded && m_fileSetsLoaded) {
+        m_loadTimeoutTimer->stop();
+        m_errorLabel->setVisible(false);
     }
 }
 
@@ -479,6 +523,11 @@ void BRestoreBrowsePage::initializePage()
     if (!wiz) return;
     auto *data = wiz->wizardData();
     auto *model = wiz->bvfsModel();
+
+    int step = wiz->pageIds().indexOf(wiz->currentId()) + 1;
+    int total = wiz->pageIds().size();
+    setSubTitle(tr("Step %1 of %2 — Browse and select files/directories to restore.")
+                    .arg(step).arg(total));
 
     m_infoLabel->setText(tr("Browse files — Client: %1, FileSet: %2")
                              .arg(data->selectedClient)
@@ -694,6 +743,14 @@ BRestoreOptionsPage::BRestoreOptionsPage(QWidget *parent)
     m_replacePolicyCombo->addItem(tr("If Older"), "ifolder");
     layout->addRow(tr("Replace Policy:"), m_replacePolicyCombo);
 
+    m_replacePolicyHelpLabel = new QLabel(this);
+    m_replacePolicyHelpLabel->setWordWrap(true);
+    m_replacePolicyHelpLabel->setStyleSheet("QLabel { color: gray; font-style: italic; }");
+    layout->addRow(QString(), m_replacePolicyHelpLabel);
+    updateReplacePolicyHelp(0);
+
+    connect(m_replacePolicyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &BRestoreOptionsPage::updateReplacePolicyHelp);
     connect(m_targetClientCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BRestoreOptionsPage::completeChanged);
     connect(m_restoreWhereEdit, &QLineEdit::textChanged,
@@ -706,6 +763,11 @@ void BRestoreOptionsPage::initializePage()
     if (!wiz) return;
     auto *data = wiz->wizardData();
 
+    int step = wiz->pageIds().indexOf(wiz->currentId()) + 1;
+    int total = wiz->pageIds().size();
+    setSubTitle(tr("Step %1 of %2 — Configure where and how to restore the selected files.")
+                    .arg(step).arg(total));
+
     QStringList selParts;
     if (data->selectedDirIds.size() > 0)
         selParts << tr("%n directory(ies)", "", data->selectedDirIds.size());
@@ -714,10 +776,18 @@ void BRestoreOptionsPage::initializePage()
     if (selParts.isEmpty())
         selParts << tr("nothing");
 
-    m_sourceLabel->setText(tr("Job %1: %2 — %3 selected")
+    // Compute estimated restore size
+    auto *model = wiz->bvfsModel();
+    qint64 estimatedSize = model->computeSelectedSize();
+    QString sizeStr = estimatedSize > 0
+        ? tr("~%1").arg(model->formatBytes(estimatedSize))
+        : tr("unknown");
+
+    m_sourceLabel->setText(tr("Job %1: %2 — %3 selected (estimated size: %4)")
                                .arg(data->jobId)
                                .arg(data->jobName)
-                               .arg(selParts.join(", ")));
+                               .arg(selParts.join(", "))
+                               .arg(sizeStr));
 
     // Populate target client combo from cached client list (loaded by SelectJobPage)
     m_targetClientCombo->clear();
@@ -740,6 +810,31 @@ void BRestoreOptionsPage::initializePage()
 
     int policyIdx = m_replacePolicyCombo->findData(data->replacePolicy);
     if (policyIdx >= 0) m_replacePolicyCombo->setCurrentIndex(policyIdx);
+}
+
+void BRestoreOptionsPage::updateReplacePolicyHelp(int index)
+{
+    switch (index) {
+    case 0:
+        m_replacePolicyHelpLabel->setText(
+            tr("Always overwrite existing files on the target, regardless of timestamps."));
+        break;
+    case 1:
+        m_replacePolicyHelpLabel->setText(
+            tr("Never overwrite. Skip files that already exist on the target."));
+        break;
+    case 2:
+        m_replacePolicyHelpLabel->setText(
+            tr("Only overwrite if the backed-up file is newer than the existing file."));
+        break;
+    case 3:
+        m_replacePolicyHelpLabel->setText(
+            tr("Only overwrite if the backed-up file is older than the existing file."));
+        break;
+    default:
+        m_replacePolicyHelpLabel->clear();
+        break;
+    }
 }
 
 bool BRestoreOptionsPage::isComplete() const
@@ -802,10 +897,16 @@ BRestorePreviewPage::BRestorePreviewPage(QWidget *parent)
     connect(m_authTimeoutTimer, &QTimer::timeout,
             this, &BRestorePreviewPage::onAuthCheckTimeout);
 
+    // Command preview — only visible in debug builds
     m_commandPreview = new QTextEdit(this);
     m_commandPreview->setReadOnly(true);
     m_commandPreview->setFont(QFont("monospace"));
+#ifdef QT_DEBUG
     layout->addWidget(m_commandPreview);
+#else
+    m_commandPreview->setVisible(false);
+    layout->addStretch();
+#endif
 
     QLabel *infoLabel = new QLabel(
         tr("Click \"Commit\" to execute these commands on the Director."), this);
@@ -818,6 +919,11 @@ void BRestorePreviewPage::initializePage()
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
     if (!wiz) return;
     auto *data = wiz->wizardData();
+
+    int step = wiz->pageIds().indexOf(wiz->currentId()) + 1;
+    int total = wiz->pageIds().size();
+    setSubTitle(tr("Step %1 of %2 — Review the commands that will be sent to the Director.")
+                    .arg(step).arg(total));
 
     // Generate unique restore table name
     int rnd = QRandomGenerator::global()->bounded(100000, 999999);
@@ -869,12 +975,21 @@ void BRestorePreviewPage::initializePage()
         selectionParts << tr("No files or directories selected");
     }
 
+    // Compute estimated restore size
+    auto *model = wiz->bvfsModel();
+    qint64 estimatedSize = model->computeSelectedSize();
+    QString sizeStr = estimatedSize > 0
+        ? tr("~%1").arg(model->formatBytes(estimatedSize))
+        : tr("unknown");
+
     m_summaryLabel->setText(tr("Restore summary:\n"
                                "• Selection: %1\n"
-                               "• Target client: %2\n"
-                               "• Restore to: %3\n"
-                               "• Replace policy: %4")
+                               "• Estimated size: %2\n"
+                               "• Target client: %3\n"
+                               "• Restore to: %4\n"
+                               "• Replace policy: %5")
                                 .arg(selectionParts.join(", "))
+                                .arg(sizeStr)
                                 .arg(data->targetClient)
                                 .arg(data->restoreWhere)
                                 .arg(data->replacePolicy));
@@ -1083,11 +1198,18 @@ void BRestoreExecutePage::initializePage()
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
     if (!wiz) return;
 
+    int step = wiz->pageIds().indexOf(wiz->currentId()) + 1;
+    int total = wiz->pageIds().size();
+    setSubTitle(tr("Step %1 of %2 — Sending commands to the Director...")
+                    .arg(step).arg(total));
+
     m_state = Idle;
     m_logEdit->clear();
     m_restoreJobId.clear();
     m_hintLabel->setVisible(false);
-    m_progressBar->setRange(0, 0);  // Indeterminate
+    m_progressBar->setRange(0, 3);  // 3 steps: bvfs_restore, restore, bvfs_cleanup
+    m_progressBar->setValue(0);
+    m_progressBar->setFormat(tr("Step %v of %m"));
 
     // Reset BVFS model to free command queue
     wiz->bvfsModel()->resetModel();
@@ -1119,6 +1241,7 @@ void BRestoreExecutePage::sendBvfsRestore()
 
     auto *data = wiz->wizardData();
     m_state = SendingBvfsRestore;
+    m_progressBar->setValue(0);
     setStatus(tr("Creating restore table..."));
     appendLog(tr(">>> .bvfs_restore %1").arg(data->bvfsRestoreCommand));
 
@@ -1137,6 +1260,7 @@ void BRestoreExecutePage::sendRestore()
 
     auto *data = wiz->wizardData();
     m_state = SendingRestore;
+    m_progressBar->setValue(1);
     setStatus(tr("Executing restore command..."));
     appendLog(tr(">>> restore %1").arg(data->restoreCommand));
 
@@ -1151,6 +1275,7 @@ void BRestoreExecutePage::sendCleanup()
 
     auto *data = wiz->wizardData();
     m_state = SendingCleanup;
+    m_progressBar->setValue(2);
     setStatus(tr("Cleaning up restore table..."));
 
     QString cleanupArgs = QString("path=%1").arg(data->restoreTableName);
@@ -1308,11 +1433,14 @@ void BRestoreExecutePage::markCompleted()
     appendLog(tr("Cleanup complete."));
 
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (wiz) wiz->wizardData()->restoreTableCreated = false;
+    if (wiz) {
+        wiz->wizardData()->restoreTableCreated = false;
+        wiz->wizardData()->restoreSucceeded = true;
+    }
 
     m_state = Completed;
-    m_progressBar->setRange(0, 1);
-    m_progressBar->setValue(1);
+    m_progressBar->setValue(3);
+    m_progressBar->setFormat(tr("Complete"));
 
     if (!m_restoreJobId.isEmpty()) {
         setStatus(tr("Restore job %1 submitted successfully!").arg(m_restoreJobId));
@@ -1337,8 +1465,7 @@ void BRestoreExecutePage::markFailed(const QString &reason)
     appendLog(tr("ERROR: %1").arg(reason), true);
 
     m_state = Failed;
-    m_progressBar->setRange(0, 1);
-    m_progressBar->setValue(1);
+    m_progressBar->setFormat(tr("Failed"));
     setStatus(tr("Restore failed"));
 
     m_hintLabel->setText(reason);

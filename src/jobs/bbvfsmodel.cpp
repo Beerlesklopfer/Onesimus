@@ -5,6 +5,8 @@
 #include <QDateTime>
 #include <QIcon>
 #include <QLocale>
+#include <QGuiApplication>
+#include <QCursor>
 
 #define BVFS_DEBUG BLOG_DEBUG()
 
@@ -79,6 +81,9 @@ void BBvfsModel::resetModel()
     beginResetModel();
 
     m_commandQueue.clear();
+    if (m_commandPending) {
+        QGuiApplication::restoreOverrideCursor();
+    }
     m_commandPending = false;
     m_pendingNode = nullptr;
     m_bvfsJobIds.clear();
@@ -420,10 +425,14 @@ void BBvfsModel::processNextCommand()
     if (m_commandQueue.isEmpty()) {
         m_commandPending = false;
         BVFS_DEBUG << "Queue empty, idle";
+        QGuiApplication::restoreOverrideCursor();
         emit commandQueueIdle();
         return;
     }
 
+    if (!m_commandPending) {
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+    }
     m_commandPending = true;
     PendingCommand cmd = m_commandQueue.dequeue();
     m_pendingNode = cmd.targetNode;
@@ -931,6 +940,29 @@ qint64 BBvfsModel::computeSubtreeSize(BvfsNode *node) const
             total += computeSubtreeSize(child);
         } else {
             total += qMax(child->fileSize, (qint64)0);
+        }
+    }
+    return total;
+}
+
+qint64 BBvfsModel::computeSelectedSize() const
+{
+    return m_rootNode ? computeSelectedSizeHelper(m_rootNode) : 0;
+}
+
+qint64 BBvfsModel::computeSelectedSizeHelper(BvfsNode *node) const
+{
+    if (!node) return 0;
+    qint64 total = 0;
+    for (BvfsNode *child : node->children) {
+        if (child->checkState == Qt::Checked) {
+            if (child->isDirectory) {
+                total += computeSubtreeSize(child);
+            } else {
+                total += qMax(child->fileSize, (qint64)0);
+            }
+        } else if (child->checkState == Qt::PartiallyChecked && child->isDirectory) {
+            total += computeSelectedSizeHelper(child);
         }
     }
     return total;

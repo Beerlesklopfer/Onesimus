@@ -65,6 +65,7 @@ struct BRestoreWizardData {
 
     // Execution state
     bool restoreTableCreated = false;
+    bool restoreSucceeded = false;
 };
 
 // ============================================================================
@@ -91,6 +92,7 @@ public:
     BRestoreWizardData *wizardData() { return &m_data; }
     BBvfsModel *bvfsModel() { return m_bvfsModel; }
     BDirector *director() { return m_director; }
+    bool restoreSucceeded() const { return m_data.restoreSucceeded; }
 
 protected:
     void reject() override;
@@ -119,6 +121,7 @@ private slots:
     void onClientsResponse(BDirector::Command cmd, const QString &jsonData);
     void onFileSetsResponse(BDirector::Command cmd, const QString &jsonData);
     void onJobDetailResponse(BDirector::Command cmd, const QString &jsonData);
+    void onLoadTimeout();
 
 private:
     void preselectFileSet();
@@ -130,6 +133,8 @@ private:
     QRadioButton *m_singleJobRadio;
     QButtonGroup *m_scopeGroup;
     QDateTimeEdit *m_beforeDateEdit;
+    QLabel *m_errorLabel;
+    QTimer *m_loadTimeoutTimer;
     bool m_clientsLoaded = false;
     bool m_fileSetsLoaded = false;
     bool m_jobDetailQueried = false;
@@ -190,11 +195,15 @@ public:
     bool isComplete() const override;
     bool validatePage() override;
 
+private slots:
+    void updateReplacePolicyHelp(int index);
+
 private:
     QLabel *m_sourceLabel;
     QComboBox *m_targetClientCombo;
     QLineEdit *m_restoreWhereEdit;
     QComboBox *m_replacePolicyCombo;
+    QLabel *m_replacePolicyHelpLabel;
 };
 
 // ============================================================================
