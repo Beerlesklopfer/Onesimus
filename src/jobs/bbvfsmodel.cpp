@@ -217,7 +217,14 @@ QVariant BBvfsModel::data(const QModelIndex &index, int role) const
         case ColName:
             return node->name;
         case ColSize:
-            return node->isDirectory ? QVariant(QString("-")) : QVariant(formatBytes(node->fileSize));
+            if (node->isDirectory) {
+                if (!node->children.isEmpty()) {
+                    qint64 dirSize = computeSubtreeSize(node);
+                    return dirSize > 0 ? formatBytes(dirSize) : QString("-");
+                }
+                return QString("-");
+            }
+            return formatBytes(node->fileSize);
         case ColType:
             if (node->isDirectory) return tr("Directory");
             if (node->mode > 0 && (node->mode & 0170000) == 0120000) return tr("Symlink");
@@ -265,7 +272,10 @@ QVariant BBvfsModel::data(const QModelIndex &index, int role) const
         case ColName:
             return node->name.toLower();
         case ColSize:
-            return node->isDirectory ? (qint64)-1 : node->fileSize;
+            if (node->isDirectory) {
+                return node->children.isEmpty() ? (qint64)-1 : computeSubtreeSize(node);
+            }
+            return node->fileSize;
         case ColType:
             return node->isDirectory ? 0 : 1;
         case ColModified:
@@ -718,7 +728,7 @@ void BBvfsModel::handleLsFiles(BvfsNode *node, const QJsonArray &files)
         child->fileSize = stat["size"].toVariant().toLongLong();
         child->mtime = stat["mtime"].toVariant().toLongLong();
         child->mode = stat["mode"].toInt();
-        child->fileId = obj["fileid"].toString();
+        child->fileId = obj["fileid"].toVariant().toString();
         child->parentNode = node;
 
         if (inheritCheck) {
@@ -748,6 +758,9 @@ void BBvfsModel::handleLsFiles(BvfsNode *node, const QJsonArray &files)
 
     node->fileLoadState = BvfsNode::Loaded;
     BVFS_DEBUG << "Node " << node->fullPath << ": fileLoadState -> Loaded";
+
+    // Update directory size display up through parent chain
+    emitSizeChangedUpward(node);
 
     if (inheritCheck) {
         emit selectionCountChanged(selectedCount());
@@ -905,6 +918,33 @@ int BBvfsModel::countSelected(BvfsNode *node) const
         }
     }
     return count;
+}
+
+qint64 BBvfsModel::computeSubtreeSize(BvfsNode *node) const
+{
+    if (!node) return 0;
+    if (!node->isDirectory) return qMax(node->fileSize, (qint64)0);
+
+    qint64 total = 0;
+    for (BvfsNode *child : node->children) {
+        if (child->isDirectory) {
+            total += computeSubtreeSize(child);
+        } else {
+            total += qMax(child->fileSize, (qint64)0);
+        }
+    }
+    return total;
+}
+
+void BBvfsModel::emitSizeChangedUpward(BvfsNode *node)
+{
+    while (node && node != m_rootNode) {
+        QModelIndex idx = indexFromNode(node, ColSize);
+        if (idx.isValid()) {
+            emit dataChanged(idx, idx, {Qt::DisplayRole, SortRole});
+        }
+        node = node->parentNode;
+    }
 }
 
 void BBvfsModel::enqueueChildLoading(BvfsNode *node)

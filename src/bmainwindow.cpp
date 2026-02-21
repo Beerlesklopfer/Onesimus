@@ -47,6 +47,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegularExpression>
+#include <QScrollArea>
 #include <QSettings>
 #include <QSpinBox>
 #include <QUuid>
@@ -537,6 +538,11 @@ void BMainWindow::createActions()
     m_keyboardShortcutsAction->setShortcut(QKeySequence("Ctrl+?"));
     connect(m_keyboardShortcutsAction, &QAction::triggered, this, &BMainWindow::onKeyboardShortcutsTriggered);
 
+    m_myPermissionsAction = new QAction(tr("My Permissions"), this);
+    m_myPermissionsAction->setIcon(QIcon(":/icons/icons/info.svg"));
+    m_myPermissionsAction->setEnabled(false);
+    connect(m_myPermissionsAction, &QAction::triggered, this, &BMainWindow::onMyPermissionsTriggered);
+
     // Edit Actions
     m_copyAction = new QAction(tr("Copy"), this);
     m_copyAction->setIcon(QIcon(":/icons/icons/copy.svg"));
@@ -1025,6 +1031,8 @@ void BMainWindow::createMenus()
     m_helpMenu = menuBar()->addMenu(tr("Help"));
     m_helpMenu->addAction(m_documentationAction);
     m_helpMenu->addAction(m_keyboardShortcutsAction);
+    m_helpMenu->addSeparator();
+    m_helpMenu->addAction(m_myPermissionsAction);
     m_helpMenu->addSeparator();
     m_helpMenu->addAction(m_reportBugAction);
     m_helpMenu->addSeparator();
@@ -1516,6 +1524,333 @@ void BMainWindow::onKeyboardShortcutsTriggered()
     shortcutsDialog.exec();
 }
 
+// ============================================================================
+// My Permissions Dialog — queries .help all for available commands
+// ============================================================================
+
+namespace {
+
+class BPermissionsDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit BPermissionsDialog(BDirector *director, QWidget *parent = nullptr)
+        : QDialog(parent)
+        , m_director(director)
+        , m_received(false)
+    {
+        setWindowTitle(tr("My Permissions"));
+        setMinimumSize(550, 600);
+
+        QVBoxLayout *dialogLayout = new QVBoxLayout(this);
+
+        // Scroll area for all content
+        QScrollArea *scrollArea = new QScrollArea(this);
+        scrollArea->setWidgetResizable(true);
+        scrollArea->setFrameShape(QFrame::NoFrame);
+        QWidget *scrollContent = new QWidget();
+        QVBoxLayout *mainLayout = new QVBoxLayout(scrollContent);
+
+        // Connection info
+        QGroupBox *connGroup = new QGroupBox(tr("Connection"), scrollContent);
+        QFormLayout *connLayout = new QFormLayout(connGroup);
+        connLayout->addRow(tr("Director:"), new QLabel(director->currentDirectorName(), this));
+        connLayout->addRow(tr("Host:"), new QLabel(
+            QString("%1:%2").arg(director->currentHost()).arg(director->currentPort()), this));
+
+        auto *tlsCfg = director->tlsConfig();
+        QString tlsInfo;
+        if (tlsCfg && tlsCfg->tlsEnable) {
+            if (tlsCfg->tlsPSKEnable)
+                tlsInfo = tr("TLS-PSK");
+            else
+                tlsInfo = tr("TLS Certificate");
+        } else {
+            tlsInfo = tr("None");
+        }
+        connLayout->addRow(tr("Encryption:"), new QLabel(tlsInfo, this));
+        mainLayout->addWidget(connGroup);
+
+        // Key commands — cross-referenced against .help all response
+        // .help all returns regular commands with "permission" field
+        m_keyCommands = {
+            {tr("Backup & Restore"), {"run", "restore", "estimate"}},
+            {tr("Job Control"),      {"cancel", "status", "list", "llist", "messages", "rerun"}},
+            {tr("Administration"),   {"delete", "purge", "prune", "update", "reload",
+                                      "configure", "setdebug"}},
+            {tr("Media"),            {"label", "relabel", "mount", "unmount",
+                                      "release", "import", "export", "truncate"}},
+        };
+
+        // Build a flat set of tracked commands for quick lookup
+        for (const auto &group : m_keyCommands) {
+            for (const QString &cmd : group.second)
+                m_trackedCommands.insert(cmd);
+        }
+
+        // Key commands group with labels
+        m_cmdGroup = new QGroupBox(tr("Command Permissions"), this);
+        m_cmdLayout = new QFormLayout(m_cmdGroup);
+        for (const auto &group : m_keyCommands) {
+            // Section header
+            QLabel *header = new QLabel(QString("<b>%1</b>").arg(group.first), this);
+            m_cmdLayout->addRow(header);
+            for (const QString &cmd : group.second) {
+                QLabel *label = new QLabel(tr("Checking..."), this);
+                label->setStyleSheet("QLabel { color: gray; }");
+                m_labels[cmd] = label;
+                m_cmdLayout->addRow("  " + cmd + ":", label);
+            }
+        }
+        mainLayout->addWidget(m_cmdGroup);
+
+        // Restore details
+        m_restoreGroup = new QGroupBox(tr("Restore Details"), scrollContent);
+        QVBoxLayout *restoreLayout = new QVBoxLayout(m_restoreGroup);
+        m_restoreLabel = new QLabel(tr("Loading..."), scrollContent);
+        m_restoreLabel->setWordWrap(true);
+        restoreLayout->addWidget(m_restoreLabel);
+        m_restoreGroup->setVisible(false);
+        mainLayout->addWidget(m_restoreGroup);
+
+        // Additional available commands
+        m_extraGroup = new QGroupBox(tr("Other Available Commands"), scrollContent);
+        m_extraLayout = new QVBoxLayout(m_extraGroup);
+        m_extraLabel = new QLabel(tr("Loading..."), scrollContent);
+        m_extraLabel->setWordWrap(true);
+        m_extraLayout->addWidget(m_extraLabel);
+        m_extraGroup->setVisible(false);
+        mainLayout->addWidget(m_extraGroup);
+
+        // Raw response (collapsible, for debugging)
+        m_rawGroup = new QGroupBox(tr("Raw Director Response"), scrollContent);
+        m_rawGroup->setCheckable(true);
+        m_rawGroup->setChecked(false);
+        QVBoxLayout *rawLayout = new QVBoxLayout(m_rawGroup);
+        m_rawEdit = new QTextEdit(scrollContent);
+        m_rawEdit->setReadOnly(true);
+        m_rawEdit->setFont(QFont("monospace"));
+        m_rawEdit->setMaximumHeight(200);
+        m_rawEdit->setVisible(false);
+        rawLayout->addWidget(m_rawEdit);
+        connect(m_rawGroup, &QGroupBox::toggled, m_rawEdit, &QTextEdit::setVisible);
+        mainLayout->addWidget(m_rawGroup);
+
+        mainLayout->addStretch();
+        scrollArea->setWidget(scrollContent);
+        dialogLayout->addWidget(scrollArea);
+
+        // Status and close button outside scroll area
+        m_statusLabel = new QLabel(tr("Querying Director..."), this);
+        dialogLayout->addWidget(m_statusLabel);
+
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, this);
+        connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::accept);
+        dialogLayout->addWidget(buttonBox);
+
+        // Connect Director signals
+        connect(m_director, &BDirector::jsonResult,
+                this, &BPermissionsDialog::onJsonResponse);
+        connect(m_director, &BDirector::textResult,
+                this, &BPermissionsDialog::onTextResponse);
+
+        // Send single .help all command
+        m_director->doSend(BDirector::Command::Custom, ".help all");
+    }
+
+    ~BPermissionsDialog() override
+    {
+        disconnectDirector();
+    }
+
+private slots:
+    void onJsonResponse(BDirector::Command cmd, const QString &jsonData)
+    {
+        if (m_received) return;
+
+        // Show ALL responses for debugging
+        m_rawEdit->append(QString("[JSON cmd=%1] %2")
+                              .arg(static_cast<int>(cmd))
+                              .arg(jsonData.left(4000)));
+
+        if (cmd != BDirector::Command::Custom) return;
+
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
+        QJsonObject root = doc.object();
+        QJsonObject result = root["result"].toObject();
+
+        // .help all response format:
+        // {"result": {"add": {"command":"add","description":"...","arguments":"...","permission":true}, ...}}
+        // Each key in result is a command name, value is an object with "permission" field
+
+        // Verify this looks like a .help response (at least some entries have "permission")
+        bool isHelpResponse = false;
+        for (auto it = result.begin(); it != result.end(); ++it) {
+            if (it.value().isObject() && it.value().toObject().contains("permission")) {
+                isHelpResponse = true;
+                break;
+            }
+        }
+        if (!isHelpResponse || result.size() < 5) return;
+
+        m_received = true;
+
+        // Build permission map: command name -> {permission, arguments}
+        QMap<QString, bool> permissions;
+        QMap<QString, QString> arguments;
+        for (auto it = result.begin(); it != result.end(); ++it) {
+            QJsonObject entry = it.value().toObject();
+            QString cmdName = it.key().trimmed();
+            permissions[cmdName] = entry["permission"].toBool(false);
+            arguments[cmdName] = entry["arguments"].toString();
+        }
+
+        populateResults(permissions, arguments);
+        disconnectDirector();
+    }
+
+    void onTextResponse(BDirector::Command cmd, const QString &response)
+    {
+        if (m_received) return;
+
+        m_rawEdit->append(QString("[TEXT cmd=%1] %2")
+                              .arg(static_cast<int>(cmd))
+                              .arg(response.left(2000)));
+        // Text responses ignored — we expect JSON from .help all
+    }
+
+private:
+    void populateResults(const QMap<QString, bool> &permissions,
+                         const QMap<QString, QString> &arguments)
+    {
+        // Update key command labels using actual permission field
+        for (const auto &group : m_keyCommands) {
+            for (const QString &cmd : group.second) {
+                QLabel *label = m_labels.value(cmd);
+                if (!label) continue;
+
+                if (!permissions.contains(cmd)) {
+                    label->setText(tr("N/A"));
+                    label->setStyleSheet("QLabel { color: gray; }");
+                } else if (permissions[cmd]) {
+                    label->setText(tr("Authorized"));
+                    label->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+                } else {
+                    label->setText(tr("Not authorized"));
+                    label->setStyleSheet("QLabel { color: red; font-weight: bold; }");
+                }
+            }
+        }
+
+        // Show restore details if available
+        if (permissions.contains("restore")) {
+            m_restoreGroup->setVisible(true);
+            QString restoreArgs = arguments.value("restore");
+            // Parse key parameters from the restore arguments string
+            QStringList params;
+            // Extract parameter names: look for word=<TYPE> patterns
+            QRegularExpression paramRe("(\\w+)=<([^>]+)>");
+            QRegularExpressionMatchIterator i = paramRe.globalMatch(restoreArgs);
+            while (i.hasNext()) {
+                QRegularExpressionMatch match = i.next();
+                params << match.captured(1);
+            }
+
+            bool hasWhere = restoreArgs.contains("where=", Qt::CaseInsensitive);
+            bool hasClient = restoreArgs.contains("client=", Qt::CaseInsensitive);
+            bool hasReplace = restoreArgs.contains("replace=", Qt::CaseInsensitive);
+
+            QString info;
+            info += tr("<b>Permission:</b> %1<br>")
+                        .arg(permissions["restore"]
+                                 ? "<span style='color:green;'>Authorized</span>"
+                                 : "<span style='color:red;'>Not authorized</span>");
+            info += tr("<b>where= (restore path):</b> %1<br>")
+                        .arg(hasWhere
+                                 ? "<span style='color:green;'>Available</span>"
+                                 : "<span style='color:red;'>Not available (WhereACL may restrict)</span>");
+            info += tr("<b>client= (target client):</b> %1<br>")
+                        .arg(hasClient
+                                 ? "<span style='color:green;'>Available</span>"
+                                 : "<span style='color:red;'>Not available</span>");
+            info += tr("<b>replace= (replace policy):</b> %1<br>")
+                        .arg(hasReplace
+                                 ? "<span style='color:green;'>Available</span>"
+                                 : "<span style='color:red;'>Not available</span>");
+
+            if (!params.isEmpty()) {
+                info += tr("<br><b>Available parameters:</b> %1").arg(params.join(", "));
+            }
+
+            m_restoreLabel->setText(info);
+        }
+
+        // Collect additional commands not in our key list
+        QStringList extras;
+        int authorizedCount = 0;
+        for (auto it = permissions.begin(); it != permissions.end(); ++it) {
+            if (it.value()) authorizedCount++;
+            if (!m_trackedCommands.contains(it.key()))
+                extras.append(it.key());
+        }
+        extras.sort();
+
+        if (!extras.isEmpty()) {
+            m_extraLabel->setText(extras.join(", "));
+            m_extraGroup->setVisible(true);
+        }
+
+        m_statusLabel->setText(tr("Total: %1 commands (%2 authorized, %3 denied)")
+                                   .arg(permissions.size())
+                                   .arg(authorizedCount)
+                                   .arg(permissions.size() - authorizedCount));
+    }
+
+    void disconnectDirector()
+    {
+        if (m_director) {
+            disconnect(m_director, &BDirector::jsonResult,
+                       this, &BPermissionsDialog::onJsonResponse);
+            disconnect(m_director, &BDirector::textResult,
+                       this, &BPermissionsDialog::onTextResponse);
+        }
+    }
+
+    BDirector *m_director;
+    bool m_received;
+
+    // Key commands organized by category
+    QList<QPair<QString, QStringList>> m_keyCommands;
+    QSet<QString> m_trackedCommands;
+    QMap<QString, QLabel*> m_labels;
+
+    QGroupBox *m_cmdGroup;
+    QFormLayout *m_cmdLayout;
+    QGroupBox *m_restoreGroup;
+    QLabel *m_restoreLabel;
+    QGroupBox *m_extraGroup;
+    QVBoxLayout *m_extraLayout;
+    QLabel *m_extraLabel;
+    QLabel *m_statusLabel;
+    QGroupBox *m_rawGroup;
+    QTextEdit *m_rawEdit;
+};
+
+} // anonymous namespace
+
+void BMainWindow::onMyPermissionsTriggered()
+{
+    if (!m_director || !m_director->isConnected()) {
+        QMessageBox::information(this, tr("My Permissions"),
+                                 tr("Not connected to a Director."));
+        return;
+    }
+
+    BPermissionsDialog dialog(m_director, this);
+    dialog.exec();
+}
+
 void BMainWindow::onSettingsTriggered()
 {
     // Get available levels from JobWidget's level model (if connected)
@@ -1549,6 +1884,7 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     m_toggleStatisticsAction->setEnabled(connected);  // ✅ Statistiken nur bei Verbindung
     m_toggleStatisticsButton->setEnabled(connected);  // ✅ Toolbar-Button synchronisieren
     m_toggleJobLogAction->setEnabled(connected);  // ✅ Job Log nur bei Verbindung
+    m_myPermissionsAction->setEnabled(connected);
     m_tabWidget->setEnabled(connected);
 
     // Update toggle connection button icon and tooltip
@@ -2215,3 +2551,5 @@ void BMainWindow::onImportConfig()
     dialog.exec();
 }
 
+// MOC include for Q_OBJECT classes defined in this .cpp file
+#include "bmainwindow.moc"

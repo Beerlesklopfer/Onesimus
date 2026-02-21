@@ -99,6 +99,7 @@ private slots:
     void onCleanupDatabase();
     void onConnectionWizard();
     void onImportConfig();
+    void onMyPermissionsTriggered();
 
 private:
     void setupUI();
@@ -186,6 +187,7 @@ private:
     QAction *m_cleanupDatabaseAction;
     QAction *m_connectionWizardAction;
     QAction *m_importConfigAction;
+    QAction *m_myPermissionsAction;
 
     // Menus
     QMenu *m_fileMenu;

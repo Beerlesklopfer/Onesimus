@@ -785,11 +785,22 @@ BRestorePreviewPage::BRestorePreviewPage(QWidget *parent)
     // Permission checks group
     QGroupBox *permGroup = new QGroupBox(tr("Permission Checks"), this);
     QFormLayout *permLayout = new QFormLayout(permGroup);
-    m_authRestoreLabel = new QLabel(tr("Checking..."), this);
-    m_authClientLabel = new QLabel(tr("Checking..."), this);
+    m_authRestoreLabel = new QLabel(this);
+    m_authClientLabel = new QLabel(this);
+    m_authWhereLabel = new QLabel(this);
+    m_authStatusLabel = new QLabel(this);
+    m_authStatusLabel->setStyleSheet("QLabel { color: gray; font-style: italic; }");
     permLayout->addRow(tr("Restore command:"), m_authRestoreLabel);
     permLayout->addRow(tr("Target client:"), m_authClientLabel);
+    permLayout->addRow(tr("Where path:"), m_authWhereLabel);
+    permLayout->addRow(QString(), m_authStatusLabel);
     layout->addWidget(permGroup);
+
+    // Timeout timer for permission checks
+    m_authTimeoutTimer = new QTimer(this);
+    m_authTimeoutTimer->setSingleShot(true);
+    connect(m_authTimeoutTimer, &QTimer::timeout,
+            this, &BRestorePreviewPage::onAuthCheckTimeout);
 
     m_commandPreview = new QTextEdit(this);
     m_commandPreview->setReadOnly(true);
@@ -843,15 +854,27 @@ void BRestorePreviewPage::initializePage()
                                .arg(data->restoreWhere)
                                .arg(data->replacePolicy);
 
-    // Update UI
+    // Update UI — build selection summary
+    QStringList selectionParts;
+    int nFiles = data->selectedFileIds.size();
+    int nDirs = data->selectedDirIds.size();
+    if (nDirs > 0 && nFiles > 0) {
+        selectionParts << tr("%n directory(ies) (including all contents)", "", nDirs);
+        selectionParts << tr("%n individual file(s)", "", nFiles);
+    } else if (nDirs > 0) {
+        selectionParts << tr("%n directory(ies) (including all contents)", "", nDirs);
+    } else if (nFiles > 0) {
+        selectionParts << tr("%n file(s)", "", nFiles);
+    } else {
+        selectionParts << tr("No files or directories selected");
+    }
+
     m_summaryLabel->setText(tr("Restore summary:\n"
-                               "• %1 file(s) selected\n"
-                               "• %2 directory/directories selected\n"
-                               "• Target client: %3\n"
-                               "• Restore to: %4\n"
-                               "• Replace policy: %5")
-                                .arg(data->selectedFileIds.size())
-                                .arg(data->selectedDirIds.size())
+                               "• Selection: %1\n"
+                               "• Target client: %2\n"
+                               "• Restore to: %3\n"
+                               "• Replace policy: %4")
+                                .arg(selectionParts.join(", "))
                                 .arg(data->targetClient)
                                 .arg(data->restoreWhere)
                                 .arg(data->replacePolicy));
@@ -870,99 +893,130 @@ void BRestorePreviewPage::initializePage()
     RESTORE_DEBUG << "  bvfs_restore: " << data->bvfsRestoreCommand;
     RESTORE_DEBUG << "  restore: " << data->restoreCommand;
 
-    // Start permission checks
+    // Start permission checks using .help all (single command, reliable)
     m_authRestoreLabel->setText(tr("Checking..."));
     m_authClientLabel->setText(tr("Checking..."));
-    m_authCheckState = CheckRestore;
+    m_authWhereLabel->setText(tr("Checking..."));
+    m_authStatusLabel->setText(tr("Querying Director for permissions..."));
+    m_authDone = false;
 
     if (wiz->director()) {
         connect(wiz->director(), &BDirector::jsonResult,
-                this, &BRestorePreviewPage::onAuthorizedResponse);
+                this, &BRestorePreviewPage::onHelpAllResponse);
         connect(wiz->director(), &BDirector::textResult,
-                this, &BRestorePreviewPage::onAuthorizedResponse);
-        sendNextAuthCheck();
+                this, &BRestorePreviewPage::onHelpAllResponse);
+        wiz->director()->doSend(BDirector::Command::Custom, ".help all");
+        m_authTimeoutTimer->start(8000);  // 8 second timeout
+    } else {
+        // No director — skip checks
+        m_authStatusLabel->setText(tr("No Director connection"));
+        finishAuthChecks();
     }
+}
+
+bool BRestorePreviewPage::isComplete() const
+{
+    // Block the Commit button until auth checks finish.
+    // This prevents a race condition where auth responses arrive
+    // after the Execute page has already sent its own commands,
+    // corrupting m_lastCommand tracking.
+    return m_authDone;
 }
 
 void BRestorePreviewPage::cleanupPage()
 {
+    m_authTimeoutTimer->stop();
     disconnectAuth();
 }
 
-void BRestorePreviewPage::sendNextAuthCheck()
-{
-    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (!wiz || !wiz->director()) return;
-
-    switch (m_authCheckState) {
-    case CheckRestore:
-        RESTORE_DEBUG << "Checking: .authorized cmd=restore";
-        wiz->director()->doSend(BDirector::Command::Custom, ".authorized cmd=restore");
-        break;
-    case CheckClient: {
-        auto *data = wiz->wizardData();
-        RESTORE_DEBUG << "Checking: .authorized client=" << data->targetClient;
-        wiz->director()->doSend(BDirector::Command::Custom,
-                                QString(".authorized client=%1").arg(data->targetClient));
-        break;
-    }
-    default:
-        disconnectAuth();
-        break;
-    }
-}
-
-void BRestorePreviewPage::onAuthorizedResponse(BDirector::Command cmd, const QString &jsonData)
+void BRestorePreviewPage::onHelpAllResponse(BDirector::Command cmd, const QString &jsonData)
 {
     if (cmd != BDirector::Command::Custom) return;
-    if (m_authCheckState == AuthIdle || m_authCheckState == AuthDone) return;
+    if (m_authDone) return;
 
-    // Parse .authorized response: {"result": {"authorized": {"key": true/false}}}
-    // or {"result": {"authorized": true/false}}
+    // Parse .help all response: {"result": {"restore": {"permission": true, ...}, ...}}
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
-    // Check for errors
-    QString errorMsg = extractJsonError(root);
-
-    bool authorized = false;
-    if (!errorMsg.isEmpty()) {
-        // Error response means not authorized or command failed
-        authorized = false;
-    } else if (result.contains("authorized")) {
-        QJsonValue authVal = result["authorized"];
-        if (authVal.isBool()) {
-            authorized = authVal.toBool();
-        } else if (authVal.isObject()) {
-            // May be {"authorized": {"restore": true}} or similar
-            QJsonObject authObj = authVal.toObject();
-            for (auto it = authObj.begin(); it != authObj.end(); ++it) {
-                authorized = it.value().toBool(false);
-            }
+    // Verify this is a .help all response (entries have "permission" field)
+    bool isHelpResponse = false;
+    for (auto it = result.begin(); it != result.end(); ++it) {
+        if (it.value().isObject() && it.value().toObject().contains("permission")) {
+            isHelpResponse = true;
+            break;
         }
+    }
+    if (!isHelpResponse || result.size() < 5) return;
+
+    m_authTimeoutTimer->stop();
+
+    // Check "restore" command permission
+    bool restoreAuthorized = false;
+    if (result.contains("restore")) {
+        restoreAuthorized = result["restore"].toObject()["permission"].toBool(false);
+    }
+    setAuthLabel(m_authRestoreLabel, restoreAuthorized);
+
+    // Parse restore command arguments for client= and where= availability
+    QString restoreArgs;
+    if (result.contains("restore")) {
+        restoreArgs = result["restore"].toObject()["arguments"].toString();
+    }
+
+    // Check client= parameter
+    bool clientAuthorized = restoreAuthorized && restoreArgs.contains("client=");
+    setAuthLabel(m_authClientLabel, clientAuthorized,
+                 clientAuthorized ? QString() : tr("restore command lacks client= parameter"));
+
+    // Check where= parameter — if available, it's still subject to WhereACL
+    bool whereAvailable = restoreAuthorized && restoreArgs.contains("where=");
+    if (whereAvailable) {
+        m_authWhereLabel->setText(tr("Available (subject to WhereACL)"));
+        m_authWhereLabel->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+    } else if (restoreAuthorized) {
+        m_authWhereLabel->setText(tr("Not available"));
+        m_authWhereLabel->setStyleSheet("QLabel { color: red; font-weight: bold; }");
     } else {
-        // If response has result but no "authorized" key, assume it was a different response
-        return;
+        m_authWhereLabel->setText(tr("N/A (restore not authorized)"));
+        m_authWhereLabel->setStyleSheet("QLabel { color: gray; font-weight: bold; }");
     }
 
-    RESTORE_DEBUG << "Auth check response for state" << m_authCheckState
-                  << " authorized=" << authorized << " raw:" << jsonData.left(200);
+    m_authStatusLabel->setText(tr("Permission check completed."));
+    m_authStatusLabel->setStyleSheet("QLabel { color: green; }");
 
-    switch (m_authCheckState) {
-    case CheckRestore:
-        setAuthLabel(m_authRestoreLabel, authorized);
-        m_authCheckState = CheckClient;
-        sendNextAuthCheck();
-        break;
-    case CheckClient:
-        setAuthLabel(m_authClientLabel, authorized);
-        m_authCheckState = AuthDone;
-        disconnectAuth();
-        break;
-    default:
-        break;
-    }
+    RESTORE_DEBUG << "Permission check via .help all: restore=" << restoreAuthorized
+                  << " client=" << clientAuthorized << " where=" << whereAvailable;
+
+    finishAuthChecks();
+}
+
+void BRestorePreviewPage::onAuthCheckTimeout()
+{
+    if (m_authDone) return;
+
+    RESTORE_DEBUG << "Permission check timed out";
+
+    // Set labels to unknown state — don't block the user
+    QString timeoutStyle = QStringLiteral("QLabel { color: orange; font-weight: bold; }");
+    m_authRestoreLabel->setText(tr("Unknown (timeout)"));
+    m_authRestoreLabel->setStyleSheet(timeoutStyle);
+    m_authClientLabel->setText(tr("Unknown (timeout)"));
+    m_authClientLabel->setStyleSheet(timeoutStyle);
+    m_authWhereLabel->setText(tr("Unknown (timeout)"));
+    m_authWhereLabel->setStyleSheet(timeoutStyle);
+    m_authStatusLabel->setText(tr("Permission check timed out — you can still proceed."));
+    m_authStatusLabel->setStyleSheet("QLabel { color: orange; }");
+
+    finishAuthChecks();
+}
+
+void BRestorePreviewPage::finishAuthChecks()
+{
+    m_authDone = true;
+    m_authTimeoutTimer->stop();
+    disconnectAuth();
+    emit completeChanged();  // Enable the Commit button
 }
 
 void BRestorePreviewPage::disconnectAuth()
@@ -970,11 +1024,10 @@ void BRestorePreviewPage::disconnectAuth()
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
     if (wiz && wiz->director()) {
         disconnect(wiz->director(), &BDirector::jsonResult,
-                   this, &BRestorePreviewPage::onAuthorizedResponse);
+                   this, &BRestorePreviewPage::onHelpAllResponse);
         disconnect(wiz->director(), &BDirector::textResult,
-                   this, &BRestorePreviewPage::onAuthorizedResponse);
+                   this, &BRestorePreviewPage::onHelpAllResponse);
     }
-    m_authCheckState = AuthDone;
 }
 
 void BRestorePreviewPage::setAuthLabel(QLabel *label, bool authorized, const QString &detail)

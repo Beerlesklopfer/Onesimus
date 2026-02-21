@@ -152,6 +152,8 @@ private:
     BvfsNode *nodeFromIndex(const QModelIndex &index) const;
     QModelIndex indexFromNode(BvfsNode *node, int column = 0) const;
     QString formatBytes(qint64 bytes) const;
+    qint64 computeSubtreeSize(BvfsNode *node) const;
+    void emitSizeChangedUpward(BvfsNode *node);
 
     // Checkbox helpers
     void propagateCheckState(BvfsNode *node, Qt::CheckState state);

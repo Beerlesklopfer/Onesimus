@@ -209,15 +209,15 @@ public:
     explicit BRestorePreviewPage(QWidget *parent = nullptr);
     void initializePage() override;
     void cleanupPage() override;
+    bool isComplete() const override;
 
 private slots:
-    void onAuthorizedResponse(BDirector::Command cmd, const QString &jsonData);
+    void onHelpAllResponse(BDirector::Command cmd, const QString &jsonData);
+    void onAuthCheckTimeout();
 
 private:
-    enum AuthCheckState { AuthIdle, CheckRestore, CheckClient, AuthDone };
-
-    void sendNextAuthCheck();
     void disconnectAuth();
+    void finishAuthChecks();
     void setAuthLabel(QLabel *label, bool authorized, const QString &detail = QString());
 
     QLabel *m_summaryLabel;
@@ -226,7 +226,10 @@ private:
     // Permission check UI
     QLabel *m_authRestoreLabel = nullptr;
     QLabel *m_authClientLabel = nullptr;
-    AuthCheckState m_authCheckState = AuthIdle;
+    QLabel *m_authWhereLabel = nullptr;
+    QLabel *m_authStatusLabel = nullptr;  ///< Shows progress/timeout info
+    QTimer *m_authTimeoutTimer = nullptr;
+    bool m_authDone = false;
 };
 
 // ============================================================================
