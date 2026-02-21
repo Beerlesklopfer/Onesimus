@@ -1,7 +1,8 @@
 # Onesimus - Modern Backup Management UI
 
 <p align="center">
-  <strong>A modern, cross-platform management interface for Bacula and Bareos backup systems</strong>
+  <strong>A modern, cross-platform management interface for Bacula and Bareos backup systems</strong><br>
+  <a href="https://onesimus.io">🌐 onesimus.io</a>
 </p>
 
 > *In the Letter to Philemon, the Apostle Paul sends back Onesimus — a runaway slave whose name means "the useful one" in Greek. Once lost, now returned with purpose: no longer useless, but indispensable.*
@@ -21,42 +22,39 @@
 
 > **⚠️ ENTWICKLUNGSHINWEIS / DEVELOPMENT NOTICE**
 >
-> **Deutsch:** Dieses Projekt befindet sich in aktiver Entwicklung und dient derzeit nur zu Testzwecken. Es ist **nicht für den produktiven Einsatz** geeignet. Funktionen können sich jederzeit ändern oder unvollständig sein. Nutzung auf eigenes Risiko. Siehe [Haftungsausschluss](https://github.com/Beerlesklopfer/Onesimus/wiki/Disclaimer).
+> **Deutsch:** Dieses Projekt befindet sich in aktiver Entwicklung und dient derzeit nur zu Testzwecken. Es ist **nicht für den produktiven Einsatz** geeignet. Funktionen können sich jederzeit ändern oder unvollständig sein. Nutzung auf eigenes Risiko. Siehe [Haftungsausschluss](https://onesimus.io/de/legal/disclaimer/).
 >
-> **English:** This project is under active development and is currently for **testing purposes only**. It is **not suitable for production use**. Features may change or be incomplete at any time. Use at your own risk. See [Disclaimer](https://github.com/Beerlesklopfer/Onesimus/wiki/Disclaimer).
+> **English:** This project is under active development and is currently for **testing purposes only**. It is **not suitable for production use**. Features may change or be incomplete at any time. Use at your own risk. See [Disclaimer](https://onesimus.io/legal/disclaimer/).
 >
 > **Aktuelle Entwicklung / Current Development:** [`development` branch](https://github.com/Beerlesklopfer/Onesimus/tree/development)
 
 ---
 
-## 🆕 What's New (v0.1.0 - 2026-02-08)
+## 🆕 What's New (v0.1.0 - Build 345, 2026-02-21)
 
-### New Features
-- **Schema-Driven Resource Editing** - BResourceDialog + BResourceForm for editing all resource types
-  - Directive JSON schemas for all 11 resource types (director, console, client, job, jobdef, storage, fileset, pool, catalog, schedule, messages)
-  - Auto-generated form widgets from schema definitions
-  - Group filtering, advanced toggle, reference data population via `setReferenceData()`
-  - BDirectiveSchema singleton loads schemas from embedded Qt resources
-- **Catalog Resource Support** - Full catalog model with Bareos object-format parsing
-- **Unified Job/JobDefs Model** - BJobConfigModel handles both `show jobs` and `show jobdefs`
-- **New Client Wizard** - 3-page wizard for adding backup clients with schema-driven preview
-  - Auto-populates Director info from active connection
-  - Generates FD-side and Director-side config files with TLS directives
-  - Executes `configure add client` on Director with automatic `reload`
-  - ZIP export for client deployment
-- **Application Icon** - Window icon from bundled Bareos/Bacula logos
-- **Debian Package** - CPack DEB generator with automatic dependency detection
-  - Desktop entry for Linux application menu integration
-- **Client Config Export** - Context menu on client table for configuration export
-- **Messages Directive Schema** - New schema with German translations
+### Restore Wizard (NEW)
+- **Full BVFS-based Restore Wizard** — 5-page QWizard: SelectJob → Browse → Options → Preview → Execute
+  - BVFS file browser with Windows Explorer-style directory tree and file list
+  - Checkbox propagation (parent ↔ children) for file/directory selection
+  - Restore options: Where, Replace mode, Client selection
+  - Preview page with size estimate and file count summary
+  - Live restore execution with progress bar and auto-refresh
+  - Step indicators showing wizard progress
+- **Permission Checks** — Uses `.help all` to verify user has required Bareos ACLs before restore
+- **My Permissions Dialog** — View all Bareos console permissions at a glance
 
-### Bug Fixes
-- Fixed: Catalog combo box empty in Edit Jobs dialog (missing from `m_requiredResources` + object format parsing)
-- Fixed: JobDefs reference dropdown showing Job names instead of JobDef names
-- Fixed: Storage preset not loading in BResourceForm (array vs object unwrap)
-- Fixed: RunScript display as flat text — now shows `{ }` block delimiters
-- Fixed: Configure success detection for Bareos JSON API response format
-- Fixed: Director reload after successful client creation
+### Build Improvements
+- **Qt >= 6.8 now required** (enforced in CMake)
+- **Dynamic `USE_STATIC_OPENSSL`** — CMake auto-detects whether to use static or system OpenSSL
+- **Default API mode** set to `json compact=yes` for better performance
+
+### Previous Highlights (v0.1.0 - 2026-02-08)
+- **Schema-Driven Resource Editing** — BResourceDialog + BResourceForm for all 11 resource types
+- **New Client Wizard** — 3-page wizard with schema-driven preview and ZIP export
+- **Catalog Resource Support** — Full catalog model with Bareos object-format parsing
+- **Unified Job/JobDefs Model** — BJobConfigModel handles both `show jobs` and `show jobdefs`
+- **Debian Package** — CPack DEB generator with automatic dependency detection
+- **Application Icon** — Window icon from bundled Bareos/Bacula logos
 
 ### Previous Release (v0.1.0.4 - 2026-01-31)
 - Job Preselection in Run Job dialog
@@ -137,7 +135,7 @@
 - ~~**Bacula:** Full support via bconsole (TCP/TLS)~~ *(not yet implemented)*
 - **Bareos:** Full support via bconsole (TCP/TLS) with JSON-RPC
 - **Flexible Configuration:** System selection at build-time or runtime
-- ~~**Restore Functionality:** File browsing and restore wizard~~ *(not yet implemented)*
+- **Restore Functionality:** BVFS file browsing and restore wizard (5-page QWizard)
 
 ### 🛠️ Technical Features
 - **MVC Architecture:** Clean separation of data and presentation
@@ -650,6 +648,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 
 ## 📞 Support
 
+- 🌐 Website: [onesimus.io](https://onesimus.io)
 - 📖 Documentation: See [docs/](docs/)
 - 🐛 Bugs: [GitHub Issues](https://github.com/Beerlesklopfer/Onesimus/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/Beerlesklopfer/Onesimus/discussions)
@@ -657,6 +656,11 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 ## 🔄 Version History
 
 ### v0.1.0 (February 2026)
+- ✅ **Restore Wizard** — Full BVFS-based 5-page QWizard (SelectJob → Browse → Options → Preview → Execute) (Build 345)
+  - Permission checks via `.help all`, My Permissions dialog
+  - Step indicators, progress bar, size estimate, auto-refresh
+  - Checkbox propagation in file browser
+- ✅ Build improvements: Qt >= 6.8 required, dynamic `USE_STATIC_OPENSSL`, default API mode `json compact=yes`
 - 🚧 Add Job/JobDefs Wizard (BJobWizard) — 5-page QWizard with BRunScriptEditor (WIP, Build 274)
 - ✅ Schema-driven resource editing (BResourceDialog + BResourceForm) for all 11 resource types
 - ✅ Directive JSON schemas (director, console, client, job, jobdef, storage, fileset, pool, catalog, schedule, messages)
@@ -703,7 +707,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - ✅ Cross-platform build scripts (Windows/Linux/macOS)
 - ✅ Comprehensive documentation
 
-### Planned Features (v1.2+)
+### Planned Features
 - 🚧 Add Job/JobDefs Wizard (5-page QWizard with RunScript editor — WIP, Build 274)
 - 🔜 Apply resource changes to Director (`configure add`/`configure update`)
 - 🔜 Live job monitoring with progress bars
@@ -713,7 +717,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - 🔜 Backup job templates
 - 🔜 Email notifications
 - 🔜 Dashboard with overview
-- 🔜 Restore wizard (BVFS file browser ✅ implemented)
+- 💤 Bacula support *(future)*
 
 ---
 

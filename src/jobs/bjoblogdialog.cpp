@@ -7,6 +7,7 @@
 #include <QClipboard>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QTimer>
 
 BJobLogDialog::BJobLogDialog(const QJsonObject &job, BDirector *director, QWidget *parent)
     : QDialog(parent)
@@ -63,6 +64,11 @@ void BJobLogDialog::setupUI()
     // Setze Monospace-Font für bessere Lesbarkeit
     QFont logFont("Courier", 9);
     m_logListView->setFont(logFont);
+
+    // Prevent global QSS hover rule from overriding model BackgroundRole colors
+    // (status lines use colored backgrounds for Error/Warning/Fatal)
+    m_logListView->setStyleSheet(
+        "QListView::item:hover { background: transparent; }");
 
     // Zeige Loading-Nachricht
     m_logModel->setLogLines({tr("Lade Job-Log...")});
@@ -152,7 +158,7 @@ void BJobLogDialog::onJobLogReceived(BDirector::Command cmd, const QString &resp
 
     // Parse and display the log
     m_logModel->parseJsonResponse(response);
-    m_logListView->scrollToTop();
+    m_logListView->scrollToBottom();
 
     // Disconnect after receiving response (we only need it once)
     disconnect(m_director, &BDirector::jsonResult,
