@@ -17,9 +17,8 @@ BWeeklyPlanner::BWeeklyPlanner(QWidget *parent)
         }
     }
 
-    // German day names
-    m_dayNames << "Montag" << "Dienstag" << "Mittwoch" << "Donnerstag"
-               << "Freitag" << "Samstag" << "Sonntag";
+    m_dayNames << tr("Monday") << tr("Tuesday") << tr("Wednesday") << tr("Thursday")
+               << tr("Friday") << tr("Saturday") << tr("Sunday");
 
     setMouseTracking(true);
     setMinimumSize(sizeHint());
@@ -323,7 +322,7 @@ void BWeeklyPlanner::mouseMoveEvent(QMouseEvent *event)
                     levelStr = "Unknown";
             }
 
-            QString tooltip = QString("%1, %2:00 Uhr (%3)")
+            QString tooltip = QString("%1, %2:00 (%3)")
                 .arg(m_dayNames[day])
                 .arg(hour, 2, 10, QChar('0'))
                 .arg(levelStr);

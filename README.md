@@ -30,40 +30,29 @@
 
 ---
 
-## 🆕 What's New (v0.1.0 - Build 345, 2026-02-21)
+## 🆕 What's New (v0.2.0 - 2026-02-21)
 
-### Restore Wizard (NEW)
-- **Full BVFS-based Restore Wizard** — 5-page QWizard: SelectJob → Browse → Options → Preview → Execute
-  - BVFS file browser with Windows Explorer-style directory tree and file list
-  - Checkbox propagation (parent ↔ children) for file/directory selection
-  - Restore options: Where, Replace mode, Client selection
-  - Preview page with size estimate and file count summary
-  - Live restore execution with progress bar and auto-refresh
-  - Step indicators showing wizard progress
-- **Permission Checks** — Uses `.help all` to verify user has required Bareos ACLs before restore
+### Gantt Scheduler (NEW)
+- **Timeline/Gantt visualization** for backup schedule planning — the heart of schedule management
+  - Horizontal timeline with job duration bars (Day view 24h / Week view 7x24h)
+  - Color-coded backup levels: Full (green), Differential (orange), Incremental (blue), VirtualFull (purple)
+  - Bar width represents estimated job duration from historical data
+  - Zoom control (Ctrl+Scroll or slider), group by Schedule or Client
+  - Now-marker showing current time, rich tooltips with job details
+- **Utilization Heatmap** — color-coded strip showing concurrent job load per 15-min slot
+- **Collision Detection** — automatic detection of client/storage scheduling conflicts with visual warnings
+- **BScheduleModel** — proper Qt model for schedule resources with parsed Run entries
+- **BJobDurationStats** — historical job duration statistics (min/avg/max) for realistic planning
+- **i18n**: all Schedule widget strings now translatable (previously hardcoded German)
 
-### ACL Visualization (NEW)
-- **My Permissions Dialog** — Queries `.help all` and displays all Bareos console ACLs
-  - Grouped by category: Backup & Restore, Job Control, Administration, Media
-  - Color-coded permission status (granted / denied) per command
-  - Restore details with available arguments
-  - Other available commands overview
-  - Raw Director response view for debugging
-
-### Build Improvements
-- **Qt >= 6.8 now required** (enforced in CMake)
-- **Dynamic `USE_STATIC_OPENSSL`** — CMake auto-detects whether to use static or system OpenSSL
-- **Default API mode** set to `json compact=yes` for better performance
-
-### Previous Highlights (v0.1.0 - 2026-02-08)
-- **Schema-Driven Resource Editing** — BResourceDialog + BResourceForm for all 11 resource types
-- **New Client Wizard** — 3-page wizard with schema-driven preview and ZIP export
+### Previous Releases
+- **v0.1.0** (2026-02-21): Restore Wizard, ACL Visualization, Schema-Driven Resource Editing, New Client Wizard
 - **Catalog Resource Support** — Full catalog model with Bareos object-format parsing
 - **Unified Job/JobDefs Model** — BJobConfigModel handles both `show jobs` and `show jobdefs`
 - **Debian Package** — CPack DEB generator with automatic dependency detection
 - **Application Icon** — Window icon from bundled Bareos/Bacula logos
 
-### Previous Release (v0.1.0.4 - 2026-01-31)
+### Previous Release (v0.0.9 - 2026-01-31)
 - Job Preselection in Run Job dialog
 - Complete Status Filters (Running, Canceled)
 - Run New Job Dialog with command preview
@@ -477,6 +466,15 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - 💬 Discussions: [GitHub Discussions](https://github.com/Beerlesklopfer/Onesimus/discussions)
 
 ## 🔄 Version History
+
+### v0.2.0 (February 2026)
+- ✅ **Gantt Scheduler** — Timeline/Gantt visualization for backup schedule planning
+  - Day (24h) and Week (7x24h) views with zoom, grouping, now-marker
+  - Job duration bars from historical data, color-coded by backup level
+  - Utilization heatmap (15-min slots, green/yellow/red)
+  - Collision detection (client/storage conflicts, visual warnings)
+- ✅ **BScheduleModel** + **BJobDurationStats** — data foundation for schedule analysis
+- ✅ **i18n fix** — Schedule widgets now translatable (previously hardcoded German)
 
 ### v0.1.0 (February 2026)
 - ✅ **Restore Wizard** — Full BVFS-based 5-page QWizard (SelectJob → Browse → Options → Preview → Execute) (Build 345)

@@ -5,6 +5,7 @@
 #include "config/bconfigparser.h"
 #include <QMap>
 #include <QJsonObject>
+#include <QVector>
 
 // ============================================================================
 // BFilesetModel - Model for Bareos filesets
@@ -228,6 +229,192 @@ public:
 private:
     QMap<QString, QJsonObject> m_jobConfigs;
     QMap<QString, QJsonObject> m_jobDefsConfigs;
+};
+
+
+// ============================================================================
+// BScheduleEntry - Parsed schedule run entry
+// ============================================================================
+
+/**
+ * @brief Parsed representation of a single Bareos schedule Run directive
+ *
+ * Represents one "Run" line from a Schedule resource, broken into its
+ * components for use in Gantt visualization and collision detection.
+ */
+struct BScheduleEntry
+{
+    QString scheduleName;
+    QString jobName;
+    QString client;
+
+    enum BackupLevel {
+        None = 0,
+        Full = 1,
+        Differential = 2,
+        Incremental = 3,
+        VirtualFull = 4
+    };
+
+    BackupLevel level = Incremental;
+    int hour = 0;
+    int minute = 0;
+    QVector<int> daysOfWeek;      ///< 0=Mon..6=Sun
+    QString weekSpec;              ///< "1st", "2nd-5th", etc.
+    int estimatedDurationSecs = 0; ///< from historical data
+    QString pool;
+    QString storage;
+    QString messages;
+    int priority = 10;
+
+    /**
+     * @brief Returns the original Run directive string
+     */
+    QString toRunDirective() const;
+
+    /**
+     * @brief Parses a Bareos Run directive string into a BScheduleEntry
+     */
+    static BScheduleEntry fromRunDirective(const QString &run);
+
+    /**
+     * @brief Returns human-readable level string
+     */
+    static QString levelToString(BackupLevel level);
+
+    /**
+     * @brief Parses level string to enum value
+     */
+    static BackupLevel levelFromString(const QString &str);
+};
+
+
+// ============================================================================
+// BScheduleModel - Model for Bareos schedules
+// ============================================================================
+
+/**
+ * @brief List model for displaying Bareos schedules with parsed run entries
+ *
+ * Stores schedule data from .schedule dot-command and provides parsed
+ * BScheduleEntry objects for use by Gantt visualization.
+ */
+class BScheduleModel : public BListModel
+{
+    Q_OBJECT
+
+public:
+    explicit BScheduleModel(QObject *parent = nullptr);
+
+    /**
+     * @brief Parses .schedule dot-command response
+     * @param jsonResponse JSON response from Director
+     */
+    void parseSchedules(const QString &jsonResponse);
+
+    /**
+     * @brief Returns schedule names as string list
+     */
+    QStringList scheduleNames() const;
+
+    /**
+     * @brief Returns the full JSON object for a schedule by name
+     */
+    QJsonObject scheduleByName(const QString &name) const;
+
+    /**
+     * @brief Returns all parsed schedule entries across all schedules
+     *
+     * Each Run directive in each Schedule becomes one BScheduleEntry.
+     */
+    QList<BScheduleEntry> allEntries() const { return m_entries; }
+
+    /**
+     * @brief Returns parsed entries for a specific schedule
+     */
+    QList<BScheduleEntry> entriesForSchedule(const QString &scheduleName) const;
+
+protected:
+    QString getDisplayText(const QJsonObject &item) const override;
+
+private:
+    void rebuildEntries();
+
+    QMap<QString, QJsonObject> m_scheduleConfigs;
+    QList<BScheduleEntry> m_entries;
+};
+
+
+// ============================================================================
+// BJobDurationStats - Historical job duration statistics
+// ============================================================================
+
+/**
+ * @brief Collects and aggregates historical job durations per job name
+ *
+ * Parses "list jobs" responses and provides min/avg/max duration statistics
+ * for use in Gantt bar width estimation.
+ */
+class BJobDurationStats : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit BJobDurationStats(QObject *parent = nullptr);
+
+    /**
+     * @brief Feeds job data from "list jobs" JSON response
+     * @param jsonResponse JSON response from Director
+     */
+    void feedJobs(const QString &jsonResponse);
+
+    /**
+     * @brief Clears all collected statistics
+     */
+    void clear();
+
+    /**
+     * @brief Returns average duration in seconds for a job name
+     * @return Average duration, or 0 if no data
+     */
+    int averageDuration(const QString &jobName) const;
+
+    /**
+     * @brief Returns minimum duration in seconds
+     */
+    int minDuration(const QString &jobName) const;
+
+    /**
+     * @brief Returns maximum duration in seconds
+     */
+    int maxDuration(const QString &jobName) const;
+
+    /**
+     * @brief Returns number of recorded durations for a job
+     */
+    int sampleCount(const QString &jobName) const;
+
+    /**
+     * @brief Returns all known job names
+     */
+    QStringList jobNames() const;
+
+    /**
+     * @brief Parses a Bareos duration string (HH:MM:SS) to seconds
+     */
+    static int parseDuration(const QString &durationStr);
+
+private:
+    struct DurationData {
+        QVector<int> durations;  ///< individual durations in seconds
+        int minSecs = 0;
+        int maxSecs = 0;
+        int avgSecs = 0;
+    };
+
+    void recalculate(DurationData &data);
+
+    QMap<QString, DurationData> m_stats;
 };
 
 #endif // BRESOURCEMODELS_H

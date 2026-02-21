@@ -1,23 +1,23 @@
 #pragma once
 
 // Project version information - auto-generated from CMakeLists.txt
-#define PROJECT_VERSION        "0.1.0"
+#define PROJECT_VERSION        "0.2.0"
 #define PROJECT_VERSION_MAJOR  0
-#define PROJECT_VERSION_MINOR  1
+#define PROJECT_VERSION_MINOR  2
 #define PROJECT_VERSION_PATCH  0
 #define PROJECT_NAME           "onesimus"
 
 // Build information
-#define BUILD_NUMBER           345
+#define BUILD_NUMBER           354
 #define BUILD_DATE             "2026-02-21"
-#define BUILD_TIME             "15:37:08"
-#define BUILD_TIMESTAMP        "2026-02-21 15:37:08"
-#define GIT_COMMIT_HASH        "1612e84"
+#define BUILD_TIME             "19:13:33"
+#define BUILD_TIMESTAMP        "2026-02-21 19:13:33"
+#define GIT_COMMIT_HASH        "1b93ff2"
 #define GIT_BRANCH             "development"
-#define GIT_DESCRIBE           "1612e84-dirty"
+#define GIT_DESCRIBE           "1b93ff2-dirty"
 
 // Full version string with build number
-#define VERSION_FULL           "0.1.0.345"
+#define VERSION_FULL           "0.2.0.354"
 
 // Release date
 #define BDATE                  "2026.02"

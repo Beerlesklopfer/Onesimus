@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QRegularExpression>
 
 // ============================================================================
 // BFilesetModel Implementation
@@ -562,4 +563,404 @@ QList<BConfigResource> BJobConfigModel::jobDefsResources() const
 QStringList BJobConfigModel::jobDefsNames() const
 {
     return m_jobDefsConfigs.keys();
+}
+
+
+// ============================================================================
+// BScheduleEntry Implementation
+// ============================================================================
+
+QString BScheduleEntry::toRunDirective() const
+{
+    QStringList parts;
+
+    // Level
+    if (level != None) {
+        parts.append(levelToString(level));
+    }
+
+    // Week specification (1st, 2nd-5th, etc.)
+    if (!weekSpec.isEmpty()) {
+        parts.append(weekSpec);
+    }
+
+    // Days
+    static const QStringList dayAbbrev = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"};
+
+    if (daysOfWeek.size() == 7) {
+        parts.append("daily");
+    } else if (daysOfWeek.size() == 6 && !daysOfWeek.contains(6)) {
+        parts.append("mon-sat");
+    } else if (daysOfWeek.size() == 5 && !daysOfWeek.contains(5) && !daysOfWeek.contains(6)) {
+        parts.append("mon-fri");
+    } else {
+        QStringList dayParts;
+        for (int d : daysOfWeek) {
+            if (d >= 0 && d < 7) {
+                dayParts.append(dayAbbrev[d]);
+            }
+        }
+        parts.append(dayParts.join(","));
+    }
+
+    // Time
+    parts.append(QString("at %1:%2")
+                 .arg(hour, 2, 10, QChar('0'))
+                 .arg(minute, 2, 10, QChar('0')));
+
+    // Optional overrides
+    if (!pool.isEmpty()) {
+        parts.append(QString("pool=%1").arg(pool));
+    }
+    if (!storage.isEmpty()) {
+        parts.append(QString("storage=%1").arg(storage));
+    }
+    if (!messages.isEmpty()) {
+        parts.append(QString("messages=%1").arg(messages));
+    }
+    if (priority != 10) {
+        parts.append(QString("priority=%1").arg(priority));
+    }
+
+    return parts.join(" ");
+}
+
+BScheduleEntry BScheduleEntry::fromRunDirective(const QString &run)
+{
+    BScheduleEntry entry;
+    QString lower = run.toLower().trimmed();
+
+    // Extract level
+    entry.level = levelFromString(run);
+
+    // Extract time
+    QRegularExpression timeRx("at\\s+(\\d{1,2}):(\\d{2})");
+    QRegularExpressionMatch timeMatch = timeRx.match(lower);
+    if (timeMatch.hasMatch()) {
+        entry.hour = timeMatch.captured(1).toInt();
+        entry.minute = timeMatch.captured(2).toInt();
+    }
+
+    // Extract optional overrides: pool=, storage=, messages=, priority=
+    QRegularExpression poolRx("pool=(\\S+)", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch poolMatch = poolRx.match(run);
+    if (poolMatch.hasMatch()) {
+        entry.pool = poolMatch.captured(1);
+    }
+
+    QRegularExpression storageRx("storage=(\\S+)", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch storageMatch = storageRx.match(run);
+    if (storageMatch.hasMatch()) {
+        entry.storage = storageMatch.captured(1);
+    }
+
+    QRegularExpression messagesRx("messages=(\\S+)", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch messagesMatch = messagesRx.match(run);
+    if (messagesMatch.hasMatch()) {
+        entry.messages = messagesMatch.captured(1);
+    }
+
+    QRegularExpression prioRx("priority=(\\d+)", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch prioMatch = prioRx.match(run);
+    if (prioMatch.hasMatch()) {
+        entry.priority = prioMatch.captured(1).toInt();
+    }
+
+    // Extract week specification (1st, 2nd-5th, last, etc.)
+    QRegularExpression weekRx("\\b((?:1st|2nd|3rd|4th|5th|last)(?:-(?:1st|2nd|3rd|4th|5th|last))?)\\b",
+                              QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch weekMatch = weekRx.match(run);
+    if (weekMatch.hasMatch()) {
+        entry.weekSpec = weekMatch.captured(1).toLower();
+    }
+
+    // Extract days
+    if (lower.contains("daily")) {
+        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
+    } else if (lower.contains("hourly")) {
+        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
+    } else if (lower.contains("mon-sat")) {
+        for (int i = 0; i < 6; ++i) entry.daysOfWeek.append(i);
+    } else if (lower.contains("mon-fri")) {
+        for (int i = 0; i < 5; ++i) entry.daysOfWeek.append(i);
+    } else if (lower.contains("sun-fri")) {
+        entry.daysOfWeek = {6, 0, 1, 2, 3, 4};
+    } else if (lower.contains("sun-sat")) {
+        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
+    } else {
+        // Check individual day names
+        // Order: mon=0, tue=1, wed=2, thu=3, fri=4, sat=5, sun=6
+        if (lower.contains("mon")) entry.daysOfWeek.append(0);
+        if (lower.contains("tue")) entry.daysOfWeek.append(1);
+        if (lower.contains("wed")) entry.daysOfWeek.append(2);
+        if (lower.contains("thu")) entry.daysOfWeek.append(3);
+        if (lower.contains("fri")) entry.daysOfWeek.append(4);
+        if (lower.contains("sat")) entry.daysOfWeek.append(5);
+        if (lower.contains("sun")) entry.daysOfWeek.append(6);
+    }
+
+    return entry;
+}
+
+QString BScheduleEntry::levelToString(BackupLevel level)
+{
+    switch (level) {
+    case Full:         return QStringLiteral("Full");
+    case Differential: return QStringLiteral("Differential");
+    case Incremental:  return QStringLiteral("Incremental");
+    case VirtualFull:  return QStringLiteral("VirtualFull");
+    case None:
+    default:           return QString();
+    }
+}
+
+BScheduleEntry::BackupLevel BScheduleEntry::levelFromString(const QString &str)
+{
+    QString lower = str.toLower();
+
+    if (lower.contains("virtualfull") || lower.contains("level=virtualfull")) {
+        return VirtualFull;
+    }
+    if (lower.contains("differential") || lower.contains("level=differential")) {
+        return Differential;
+    }
+    if (lower.contains("incremental") || lower.contains("level=incremental")) {
+        return Incremental;
+    }
+    if (lower.contains("full") || lower.contains("level=full")) {
+        return Full;
+    }
+
+    // Default to Incremental if no level specified
+    return Incremental;
+}
+
+
+// ============================================================================
+// BScheduleModel Implementation
+// ============================================================================
+
+BScheduleModel::BScheduleModel(QObject *parent)
+    : BListModel(parent)
+{
+}
+
+void BScheduleModel::parseSchedules(const QString &jsonResponse)
+{
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        BLOG_WARNING() << "BScheduleModel: Failed to parse .schedule response:" << parseError.errorString();
+        clear();
+        return;
+    }
+
+    if (!doc.isObject()) {
+        BLOG_WARNING() << "BScheduleModel: .schedule response is not a JSON object";
+        clear();
+        return;
+    }
+
+    // Store full configs
+    m_scheduleConfigs.clear();
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonArray schedulesArray = result["schedules"].toArray();
+
+    for (const QJsonValue &val : schedulesArray) {
+        if (val.isObject()) {
+            QJsonObject sched = val.toObject();
+            QString name = sched["name"].toString();
+            if (!name.isEmpty()) {
+                m_scheduleConfigs[name] = sched;
+            }
+        }
+    }
+
+    setData(doc, "schedules");
+    rebuildEntries();
+
+    BLOG_DEBUG() << "BScheduleModel: Loaded" << m_scheduleConfigs.size()
+                 << "schedules with" << m_entries.size() << "run entries";
+}
+
+QStringList BScheduleModel::scheduleNames() const
+{
+    QStringList names;
+    for (int i = 0; i < m_items.size(); ++i) {
+        QJsonObject item = m_items[i].toObject();
+        QString name = item["name"].toString();
+        if (!name.isEmpty()) {
+            names.append(name);
+        }
+    }
+    return names;
+}
+
+QJsonObject BScheduleModel::scheduleByName(const QString &name) const
+{
+    return m_scheduleConfigs.value(name);
+}
+
+QList<BScheduleEntry> BScheduleModel::entriesForSchedule(const QString &scheduleName) const
+{
+    QList<BScheduleEntry> result;
+    for (const BScheduleEntry &entry : m_entries) {
+        if (entry.scheduleName == scheduleName) {
+            result.append(entry);
+        }
+    }
+    return result;
+}
+
+QString BScheduleModel::getDisplayText(const QJsonObject &item) const
+{
+    return item["name"].toString();
+}
+
+void BScheduleModel::rebuildEntries()
+{
+    m_entries.clear();
+
+    for (auto it = m_scheduleConfigs.constBegin(); it != m_scheduleConfigs.constEnd(); ++it) {
+        const QString &scheduleName = it.key();
+        QJsonArray runs = it.value()["run"].toArray();
+
+        for (const QJsonValue &runVal : runs) {
+            if (!runVal.isString()) continue;
+
+            BScheduleEntry entry = BScheduleEntry::fromRunDirective(runVal.toString());
+            entry.scheduleName = scheduleName;
+            m_entries.append(entry);
+        }
+    }
+}
+
+
+// ============================================================================
+// BJobDurationStats Implementation
+// ============================================================================
+
+BJobDurationStats::BJobDurationStats(QObject *parent)
+    : QObject(parent)
+{
+}
+
+void BJobDurationStats::feedJobs(const QString &jsonResponse)
+{
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        BLOG_WARNING() << "BJobDurationStats: Failed to parse response:" << parseError.errorString();
+        return;
+    }
+
+    if (!doc.isObject()) return;
+
+    QJsonObject root = doc.object();
+    QJsonObject result = root["result"].toObject();
+    QJsonArray jobsArray = result["jobs"].toArray();
+
+    for (const QJsonValue &val : jobsArray) {
+        if (!val.isObject()) continue;
+
+        QJsonObject job = val.toObject();
+        QString name = job["name"].toString();
+        if (name.isEmpty()) continue;
+
+        // Parse duration (format: "00:02:35" or seconds as int)
+        int durationSecs = 0;
+        QJsonValue durVal = job["duration"];
+        if (durVal.isString()) {
+            durationSecs = parseDuration(durVal.toString());
+        } else if (durVal.isDouble()) {
+            durationSecs = durVal.toInt();
+        }
+
+        // Only record completed jobs with positive duration
+        if (durationSecs > 0) {
+            m_stats[name].durations.append(durationSecs);
+            recalculate(m_stats[name]);
+        }
+    }
+
+    BLOG_DEBUG() << "BJobDurationStats: Tracking" << m_stats.size() << "unique jobs";
+}
+
+void BJobDurationStats::clear()
+{
+    m_stats.clear();
+}
+
+int BJobDurationStats::averageDuration(const QString &jobName) const
+{
+    auto it = m_stats.find(jobName);
+    if (it == m_stats.end()) return 0;
+    return it->avgSecs;
+}
+
+int BJobDurationStats::minDuration(const QString &jobName) const
+{
+    auto it = m_stats.find(jobName);
+    if (it == m_stats.end()) return 0;
+    return it->minSecs;
+}
+
+int BJobDurationStats::maxDuration(const QString &jobName) const
+{
+    auto it = m_stats.find(jobName);
+    if (it == m_stats.end()) return 0;
+    return it->maxSecs;
+}
+
+int BJobDurationStats::sampleCount(const QString &jobName) const
+{
+    auto it = m_stats.find(jobName);
+    if (it == m_stats.end()) return 0;
+    return it->durations.size();
+}
+
+QStringList BJobDurationStats::jobNames() const
+{
+    return m_stats.keys();
+}
+
+int BJobDurationStats::parseDuration(const QString &durationStr)
+{
+    // Format: "HH:MM:SS" or "H:MM:SS"
+    QRegularExpression rx("(\\d+):(\\d{2}):(\\d{2})");
+    QRegularExpressionMatch match = rx.match(durationStr);
+    if (match.hasMatch()) {
+        int hours = match.captured(1).toInt();
+        int minutes = match.captured(2).toInt();
+        int seconds = match.captured(3).toInt();
+        return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    // Try plain number (seconds)
+    bool ok;
+    int secs = durationStr.toInt(&ok);
+    return ok ? secs : 0;
+}
+
+void BJobDurationStats::recalculate(DurationData &data)
+{
+    if (data.durations.isEmpty()) {
+        data.minSecs = data.maxSecs = data.avgSecs = 0;
+        return;
+    }
+
+    data.minSecs = data.durations.first();
+    data.maxSecs = data.durations.first();
+    long long total = 0;
+
+    for (int d : data.durations) {
+        if (d < data.minSecs) data.minSecs = d;
+        if (d > data.maxSecs) data.maxSecs = d;
+        total += d;
+    }
+
+    data.avgSecs = static_cast<int>(total / data.durations.size());
 }

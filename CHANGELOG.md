@@ -5,6 +5,42 @@ All notable changes to Onesimus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-02-21
+
+### Added
+- **Gantt Scheduler**: Full timeline/Gantt visualization for backup schedule planning
+  - BScheduleGanttWidget: horizontal timeline with job duration bars
+  - Day view (24h) and Week view (7x24h) with smooth toggle
+  - Color-coded backup levels: Full (green), Differential (orange), Incremental (blue), VirtualFull (purple)
+  - Bar width represents estimated job duration from historical data
+  - Zoom control (Ctrl+Scroll or slider, 30-240 px/hour)
+  - Now-marker: red vertical line showing current time
+  - Group by Schedule or by Client
+  - Rich tooltips: schedule name, level, time, client, duration, pool
+- **Utilization Heatmap**: color-coded strip at bottom of Gantt view
+  - Green (0-1 jobs), Yellow (2-3 jobs), Red (4+ parallel jobs)
+  - 15-minute resolution, hover tooltips with concurrent job count
+- **Collision Detection**: automatic detection of scheduling conflicts
+  - Client collisions: multiple jobs on same client simultaneously
+  - Storage collisions: multiple jobs writing to same storage
+  - Visual: red border on conflicting bars, collision count in toolbar
+- **BScheduleModel**: proper Qt model for schedule resources (like BFilesetModel, BPoolModel)
+  - Parses `.schedule` response into structured BScheduleEntry objects
+  - Automatic Run directive parsing (level, days, time, pool, storage, priority)
+- **BJobDurationStats**: historical job duration statistics engine
+  - Collects min/avg/max duration per job from `list jobs` data
+  - Duration uncertainty bands on Gantt bars (dark=avg, light=max)
+- **i18n**: all Schedule widget strings wrapped in `tr()` (previously hardcoded German)
+
+### Changed
+- **Version bumped to 0.2.0** — Gantt Scheduler milestone
+- **BScheduleWidget**: completely rebuilt with Gantt as default view
+  - Toolbar: view toggle (Timeline/Grid), Day/Week, day navigation, zoom, grouping
+  - Grid view (BWeeklyPlanner) retained as compact alternative
+- **BWeeklyPlanner**: day names and tooltips now use `tr()` for i18n
+
+---
+
 ## [0.1.0] - 2026-02-21 (Build 345)
 
 ### Added

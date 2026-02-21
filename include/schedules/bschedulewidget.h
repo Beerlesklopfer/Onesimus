@@ -4,20 +4,26 @@
 #include <QWidget>
 #include <QListWidget>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QPushButton>
+#include <QToolButton>
+#include <QComboBox>
+#include <QSlider>
+#include <QLabel>
+#include <QScrollArea>
 #include "director/bdirector.h"
 #include "schedules/bweeklyplanner.h"
+#include "schedules/bscheduleganttwidget.h"
+#include "models/bresourcemodels.h"
 
 /**
  * @brief Widget for displaying and managing backup schedules
- * @since 2.7
  *
- * Displays a list of schedules on the left and a weekly planner view on the right.
- * Similar to Windows logon hours configuration.
+ * Provides two views:
+ * - Gantt/Timeline view: horizontal bars with duration, heatmap, collisions
+ * - Grid view: compact 7x24 weekly planner (legacy)
  *
- * @note BClientJobsModel (in clients/bclientdetailsdialog.h) can be used to
- *       calculate average job durations per client, which is useful for
- *       estimating scheduled job time windows in the planner.
+ * Left panel: schedule list. Right panel: switchable visualization.
  */
 class BScheduleWidget : public QWidget
 {
@@ -27,33 +33,16 @@ public:
     explicit BScheduleWidget(QWidget *parent = nullptr);
     ~BScheduleWidget();
 
-    /**
-     * @brief Sets the director for schedule operations
-     * @param director Pointer to BDirector
-     */
     void setDirector(BDirector *director) { m_director = director; }
-
-    /**
-     * @brief Triggers refresh action
-     */
     void triggerRefresh() { onRefreshClicked(); }
-
-    /**
-     * @brief Clears all data from the widget
-     */
     void clearData();
 
-public slots:
-    /**
-     * @brief Processes .schedule dot-command response
-     * @param jsonData JSON response from .schedule command
-     */
-    void processDotScheduleResponse(const QString &jsonData);
+    BScheduleModel *scheduleModel() { return m_scheduleModel; }
+    BJobDurationStats *durationStats() { return m_durationStats; }
 
-    /**
-     * @brief Updates UI based on connection state
-     * @param connected True if connected to Director
-     */
+public slots:
+    void processDotScheduleResponse(const QString &jsonData);
+    void processListJobsResponse(const QString &jsonData);
     void setConnectionState(bool connected);
 
 signals:
@@ -64,15 +53,45 @@ private slots:
     void onRefreshClicked();
     void onScheduleSelectionChanged();
     void onScheduleDoubleClicked(QListWidgetItem *item);
+    void onViewModeChanged(int index);
+    void onDayViewModeChanged(int index);
+    void onDayNavigationPrev();
+    void onDayNavigationNext();
+    void onZoomChanged(int value);
+    void onGroupModeChanged(int index);
+    void onCollisionsDetected(int count);
 
 private:
     void setupUI();
+    void updateGanttEntries();
 
+    // --- Models ---
+    BScheduleModel *m_scheduleModel;
+    BJobDurationStats *m_durationStats;
+
+    // --- UI ---
     QSplitter *m_splitter;
     QListWidget *m_scheduleList;
+
+    // Right panel
+    QStackedWidget *m_viewStack;
+    BScheduleGanttWidget *m_ganttWidget;
+    QScrollArea *m_ganttScrollArea;
     BWeeklyPlanner *m_weeklyPlanner;
+
+    // Toolbar
     QPushButton *m_refreshButton;
+    QComboBox *m_viewModeCombo;       // Gantt / Grid
+    QComboBox *m_dayViewCombo;        // Day / Week
+    QToolButton *m_prevDayButton;
+    QToolButton *m_nextDayButton;
+    QLabel *m_dayLabel;
+    QSlider *m_zoomSlider;
+    QComboBox *m_groupModeCombo;      // By Schedule / By Client
+    QLabel *m_collisionLabel;
+
     BDirector *m_director;
+    int m_currentDay;                 // 0=Mon..6=Sun
 };
 
 #endif // BSCHEDULEWIDGET_H

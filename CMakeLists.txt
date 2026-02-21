@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(onesimus VERSION 0.1.0 LANGUAGES CXX)
+project(onesimus VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -439,6 +439,7 @@ set(SOURCES
 
     src/schedules/bschedulewidget.cpp
     src/schedules/bweeklyplanner.cpp
+    src/schedules/bscheduleganttwidget.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -522,6 +523,7 @@ set(HEADERS
 
     include/schedules/bschedulewidget.h
     include/schedules/bweeklyplanner.h
+    include/schedules/bscheduleganttwidget.h
 
     include/messages/bmessageswidget.h
 
