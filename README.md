@@ -277,11 +277,13 @@ brew install cmake git qt@6 perl
 
 ### Debugging Options
 
-| Option | Description |
-|--------|-------------|
-| `DEBUG_PACKETS=ON` | Packet-level debugging |
-| `DEBUG_JSON=ON` | JSON parsing debugging |
-| `LOG_JSON=ON` | Log JSON responses |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `IS_DEVELOPER` | Auto (`Debug` builds) | Enables developer menus, extra logging, and diagnostic UI. Automatically set when `CMAKE_BUILD_TYPE=Debug` |
+| `DEBUG_PACKETS=ON` | OFF | Packet-level debugging — logs raw binary telegrams sent/received over the TCP connection |
+| `DEBUG_JSON=ON` | OFF | JSON parsing debugging — logs JSON-RPC request/response message contents |
+| `LOG_JSON=ON` | OFF | Writes all JSON responses to a log file for offline analysis |
+| `ONESIMUS_FILE_LOGGING=ON` | OFF | Enables `BLOG_*` macros (DEBUG/INFO/WARNING/ERROR) writing to `AppDataLocation/onesimus.log` |
 
 ### Example
 
