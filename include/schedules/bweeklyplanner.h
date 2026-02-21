@@ -121,13 +121,17 @@ private:
      */
     bool getDayHourFromPos(const QPoint &pos, int &day, int &hour) const;
 
-    static const int CELL_WIDTH = 30;
-    static const int CELL_HEIGHT = 30;
-    static const int HEADER_HEIGHT = 40;
-    static const int DAY_LABEL_WIDTH = 100;
-    static const int LEGEND_HEIGHT = 30;
-    static const int DAYS = 7;
-    static const int HOURS = 24;
+    static constexpr int MIN_CELL_WIDTH = 30;
+    static constexpr int MIN_CELL_HEIGHT = 30;
+    static constexpr int HEADER_HEIGHT = 40;
+    static constexpr int DAY_LABEL_WIDTH = 100;
+    static constexpr int LEGEND_HEIGHT = 30;
+    static constexpr int DAYS = 7;
+    static constexpr int HOURS = 24;
+
+    // Dynamic cell size (computed from widget size)
+    int cellWidth() const;
+    int cellHeight() const;
 
     // Schedule data: [day][hour] = list of levels (for side-by-side display)
     QVector<BackupLevel> m_schedule[DAYS][HOURS];

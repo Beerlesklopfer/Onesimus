@@ -1387,8 +1387,10 @@ void BMainWindow::onAboutTriggered()
     // Copyright and Author
     QLabel* copyrightLabel = new QLabel(
         "<p><b>Author:</b> Jörg Bernau &lt;joerg@bernau.family&gt;</p>"
-        "<p><b>Copyright:</b> © 2026 Jörg Bernau. All rights reserved.</p>"
-        "<p><b>Website:</b> <a href='https://github.com/Beerlesklopfer/Onesimus'>github.com/Beerlesklopfer/Onesimus</a></p>"
+        "<p><b>Copyright:</b> © 2025-2026 Jörg Bernau. All rights reserved.</p>"
+        "<p><b>Website:</b> <a href='https://onesimus.io'>https://onesimus.io</a></p>"
+        "<p><b>Support:</b> <a href='mailto:support@onesimus.io'>support@onesimus.io</a></p>"
+        "<p><b>Source:</b> <a href='https://github.com/Beerlesklopfer/Onesimus'>github.com/Beerlesklopfer/Onesimus</a></p>"
     );
     copyrightLabel->setWordWrap(true);
     copyrightLabel->setOpenExternalLinks(true);

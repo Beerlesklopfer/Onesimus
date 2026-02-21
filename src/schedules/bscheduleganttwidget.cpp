@@ -50,6 +50,7 @@ void BScheduleGanttWidget::setViewMode(ViewMode mode)
 {
     if (m_viewMode == mode) return;
     m_viewMode = mode;
+    updateMinimumSize();
     recalcHeatmap();
     detectCollisions();
     update();
@@ -73,8 +74,11 @@ void BScheduleGanttWidget::setCurrentDay(int dayOfWeek)
 
 void BScheduleGanttWidget::setZoomLevel(int pixelsPerHour)
 {
-    Q_UNUSED(pixelsPerHour);
-    // Zoom is now computed dynamically from widget width — no-op
+    m_zoomMinPph = qMax(MIN_PIXELS_PER_HOUR, pixelsPerHour);
+    m_pixelsPerHour = m_zoomMinPph;
+    updateMinimumSize();
+    recalcHeatmap();
+    update();
 }
 
 void BScheduleGanttWidget::resizeEvent(QResizeEvent *event)
@@ -86,16 +90,17 @@ void BScheduleGanttWidget::resizeEvent(QResizeEvent *event)
     if (availableWidth < 100) availableWidth = 100;
 
     int hours = totalHours();
-    m_pixelsPerHour = qMax(MIN_PIXELS_PER_HOUR, availableWidth / hours);
+    int fitPph = availableWidth / hours;
+
+    // Respect zoom minimum (slider-driven in week mode, default in day mode)
+    m_pixelsPerHour = qMax(m_zoomMinPph, fitPph);
 
     recalcHeatmap();
 }
 
 QSize BScheduleGanttWidget::sizeHint() const
 {
-    // Width: stretch to fill parent (handled by QScrollArea + widgetResizable)
-    // Height: content-driven (rows + header + heatmap)
-    return QSize(400, contentHeight() + 20);
+    return QSize(LABEL_WIDTH + contentWidth() + 20, contentHeight() + 20);
 }
 
 QSize BScheduleGanttWidget::minimumSizeHint() const
@@ -120,6 +125,20 @@ int BScheduleGanttWidget::contentWidth() const
 int BScheduleGanttWidget::contentHeight() const
 {
     return HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT + HEATMAP_HEIGHT;
+}
+
+void BScheduleGanttWidget::updateMinimumSize()
+{
+    // Height: content-driven so vertical scrollbar appears
+    setMinimumHeight(contentHeight() + 20);
+
+    // Width: in week mode, enforce minimum from zoom so horizontal scrollbar appears
+    if (m_viewMode == WeekView) {
+        int minWidth = LABEL_WIDTH + totalHours() * m_zoomMinPph + 20;
+        setMinimumWidth(minWidth);
+    } else {
+        setMinimumWidth(0);  // day mode: stretch to fit
+    }
 }
 
 int BScheduleGanttWidget::timeToX(int hour, int minute) const
@@ -234,6 +253,8 @@ void BScheduleGanttWidget::rebuildRows()
             }
         }
     }
+
+    updateMinimumSize();
 }
 
 QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int dayOffset) const
@@ -301,53 +322,97 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
 
     int hours = totalHours();
 
-    // Header background
-    QRect headerRect(LABEL_WIDTH, 0, contentWidth(), HEADER_HEIGHT);
-    painter.fillRect(headerRect, palette().alternateBase());
+    // Header background — full widget width to clear old paint after view switch
+    QRect headerBg(LABEL_WIDTH, 0, width() - LABEL_WIDTH, HEADER_HEIGHT);
+    painter.fillRect(headerBg, palette().alternateBase());
 
-    painter.setPen(palette().text().color());
     QFont font = painter.font();
+
+    // === Row 1: Weekday names ===
+    static const QStringList dayNames = {
+        tr("Monday"), tr("Tuesday"), tr("Wednesday"), tr("Thursday"),
+        tr("Friday"), tr("Saturday"), tr("Sunday")
+    };
+    static const QStringList dayAbbrev = {
+        tr("Mon"), tr("Tue"), tr("Wed"), tr("Thu"),
+        tr("Fri"), tr("Sat"), tr("Sun")
+    };
+
     font.setPointSize(8);
+    font.setBold(true);
     painter.setFont(font);
 
-    // Determine label interval based on zoom
-    int interval = 1;
-    if (m_pixelsPerHour < 40) interval = 4;
-    else if (m_pixelsPerHour < 60) interval = 2;
+    if (m_viewMode == WeekView) {
+        // Week: one label per day spanning 24 hours
+        for (int d = 0; d < 7; ++d) {
+            int x1 = timeToX(d * 24, 0);
+            int x2 = timeToX((d + 1) * 24, 0);
+            int dayWidth = x2 - x1;
 
-    for (int h = 0; h < hours; ++h) {
-        int x = timeToX(h, 0);
-
-        // Major tick line
-        painter.setPen(QPen(palette().mid().color(), 1));
-        painter.drawLine(x, HEADER_HEIGHT - 5, x, HEADER_HEIGHT);
-
-        // Hour label
-        if (h % interval == 0) {
-            int displayHour = h % 24;
-            QString label;
-            if (m_viewMode == WeekView && h % 24 == 0) {
-                static const QStringList dayAbbrev = {
-                    tr("Mon"), tr("Tue"), tr("Wed"), tr("Thu"),
-                    tr("Fri"), tr("Sat"), tr("Sun")
-                };
-                int dayIdx = h / 24;
-                if (dayIdx < 7) {
-                    label = dayAbbrev[dayIdx];
-                }
+            // Alternating day background in row 1
+            if (d % 2 == 0) {
+                painter.fillRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT,
+                                 QColor(70, 130, 180, 40));  // steel blue tint
             } else {
-                label = QString("%1:00").arg(displayHour, 2, 10, QChar('0'));
+                painter.fillRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT,
+                                 QColor(70, 130, 180, 20));
             }
 
-            painter.setPen(palette().text().color());
-            QRect textRect(x - 20, 2, 40, HEADER_HEIGHT - 7);
-            painter.drawText(textRect, Qt::AlignCenter, label);
+            // Day name — use abbreviation if too narrow
+            QString label = (dayWidth > 80) ? dayNames[d] : dayAbbrev[d];
+            painter.setPen(QColor(30, 80, 140));  // dark blue
+            QRect textRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT);
+            painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, label);
+
+            // Vertical separator between days
+            painter.setPen(QPen(QColor(70, 130, 180, 100), 1));
+            painter.drawLine(x1, 0, x1, HEADER_ROW1_HEIGHT);
         }
+    } else {
+        // Day mode: single day name centered
+        int dayIdx = qBound(0, m_currentDay, 6);
+        painter.fillRect(LABEL_WIDTH, 0, width() - LABEL_WIDTH, HEADER_ROW1_HEIGHT,
+                         QColor(70, 130, 180, 30));
+        painter.setPen(QColor(30, 80, 140));
+        QRect textRect(LABEL_WIDTH, 0, contentWidth(), HEADER_ROW1_HEIGHT);
+        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, dayNames[dayIdx]);
+    }
+
+    // Separator line between row 1 and row 2
+    painter.setPen(QPen(palette().mid().color(), 1));
+    painter.drawLine(LABEL_WIDTH, HEADER_ROW1_HEIGHT, width(), HEADER_ROW1_HEIGHT);
+
+    // === Row 2: Hour labels ===
+    font.setBold(false);
+    font.setPointSize(7);
+    painter.setFont(font);
+
+    int labelIntervalMin = (m_viewMode == DayView) ? 60 : qMax(60, m_dragSnapMinutes);
+    int totalMinutes = hours * 60;
+
+    for (int m = 0; m < totalMinutes; m += labelIntervalMin) {
+        int h = m / 60;
+        int min = m % 60;
+        int x = timeToX(h, min);
+
+        // Tick line at bottom of row 2
+        painter.setPen(QPen(palette().mid().color(), 1));
+        painter.drawLine(x, HEADER_HEIGHT - 4, x, HEADER_HEIGHT);
+
+        // Hour label
+        int displayHour = h % 24;
+        QString label = QString("%1:%2")
+            .arg(displayHour, 2, 10, QChar('0'))
+            .arg(min, 2, 10, QChar('0'));
+
+        painter.setPen(palette().text().color());
+        QRect textRect(x - 20, HEADER_ROW1_HEIGHT, 40, HEADER_ROW2_HEIGHT);
+        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, label);
     }
 
     // Bottom border
     painter.setPen(QPen(palette().mid().color(), 1));
-    painter.drawLine(LABEL_WIDTH, HEADER_HEIGHT, LABEL_WIDTH + contentWidth(), HEADER_HEIGHT);
+    painter.drawLine(LABEL_WIDTH, HEADER_HEIGHT, width(), HEADER_HEIGHT);
 
     painter.restore();
 }
@@ -440,12 +505,22 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
         painter.drawLine(0, y + ROW_HEIGHT, LABEL_WIDTH + contentWidth(), y + ROW_HEIGHT);
     }
 
-    // Grid: vertical lines for each hour
-    painter.setPen(QPen(palette().mid().color(), 0.3));
-    int hours = totalHours();
-    for (int h = 0; h <= hours; ++h) {
-        int x = timeToX(h, 0);
-        painter.drawLine(x, HEADER_HEIGHT, x, HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT);
+    // Grid: vertical lines at snap interval
+    int snapMin = qMax(1, m_dragSnapMinutes);
+    int totalMin = totalHours() * 60;
+    int rowsBottom = HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT;
+    for (int m = 0; m <= totalMin; m += snapMin) {
+        int h = m / 60;
+        int min = m % 60;
+        int x = timeToX(h, min);
+        // Stronger line at day boundaries in week view, medium at hour boundaries
+        if (m_viewMode == WeekView && m % (24 * 60) == 0)
+            painter.setPen(QPen(palette().mid().color(), 1.0));
+        else if (min == 0)
+            painter.setPen(QPen(palette().mid().color(), 0.5));
+        else
+            painter.setPen(QPen(palette().mid().color(), 0.2));
+        painter.drawLine(x, HEADER_HEIGHT, x, rowsBottom);
     }
 
     painter.restore();

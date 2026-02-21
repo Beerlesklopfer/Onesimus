@@ -12,6 +12,7 @@
 #include <QScrollArea>
 #include <QGroupBox>
 #include <QTableWidget>
+#include <QSlider>
 #include "director/bdirector.h"
 #include "schedules/bweeklyplanner.h"
 #include "schedules/bscheduleganttwidget.h"
@@ -72,6 +73,8 @@ private slots:
                            const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
     void onSnapChanged(int index);
     void onScheduleCheckChanged(QListWidgetItem *item);
+    void onZoomSliderChanged(int value);
+    void onJobSelectionChanged();
 
 private:
     void setupUI();
@@ -79,10 +82,12 @@ private:
     void setupStatsPanel();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
+    void updateJobList(const QString &scheduleName);
     void handleDragCompleted(BScheduleGanttWidget *source, int entryIndex,
                              int newHour, int newMinute,
                              const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
     void resizeBothGanttWidgets();
+    void updateSnapComboForViewMode(BScheduleGanttWidget::ViewMode mode);
 
     // --- Models ---
     BScheduleModel *m_scheduleModel;
@@ -92,7 +97,10 @@ private:
 
     // --- UI ---
     QSplitter *m_splitter;
+    QSplitter *m_leftSplitter;            // Vertical: schedules top, jobs bottom
     QListWidget *m_scheduleList;
+    QLabel *m_jobListLabel;
+    QTableWidget *m_jobList;
 
     // Right panel — dual Gantt timelines
     QStackedWidget *m_viewStack;
@@ -102,6 +110,7 @@ private:
     BScheduleGanttWidget *m_sdGanttWidget; // SD/Storage timeline
     QScrollArea *m_sdScrollArea;
     BWeeklyPlanner *m_weeklyPlanner;
+    QScrollArea *m_gridScrollArea;
 
     // Toolbar
     QPushButton *m_refreshButton;
@@ -111,6 +120,8 @@ private:
     QToolButton *m_nextDayButton;
     QLabel *m_dayLabel;
     QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour
+    QLabel *m_zoomLabel;
+    QSlider *m_zoomSlider;             // Zoom in week mode (px/hour)
     QLabel *m_collisionLabel;
 
     // Stats panel

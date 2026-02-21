@@ -1,7 +1,7 @@
 # Onesimus - Technical Documentation
 
-**Version:** 0.1.0 (Build 274)
-**Last Updated:** 2026-02-08
+**Version:** 0.2.0 (Build 445)
+**Last Updated:** 2026-02-22
 **Project:** Bareos/Bacula GUI Configuration Manager
 
 ---
@@ -15,10 +15,11 @@
 5. [Schema-Driven Forms](#5-schema-driven-forms)
 6. [Wizards](#6-wizards)
 7. [Model/View Architecture](#7-modelview-architecture)
-8. [Password & Authentication](#8-password--authentication)
-9. [Connection Wizard](#9-connection-wizard)
-10. [UI Patterns](#10-ui-patterns)
-11. [Deprecated: Database Approach](#11-deprecated-database-approach)
+8. [Schedule Visualization (WIP)](#8-schedule-visualization-wip)
+9. [Password & Authentication](#9-password--authentication)
+10. [Connection Wizard](#10-connection-wizard)
+11. [UI Patterns](#11-ui-patterns)
+12. [Deprecated: Database Approach](#12-deprecated-database-approach)
 
 ---
 
@@ -267,7 +268,7 @@ Multi-page wizard for creating FileSet resources:
 - Template selection from 22 predefined templates
 - Deploy mode: `configure add fileset` or manual config export
 
-### Job/JobDefs Wizard (BJobWizard) — WIP, Build 274
+### Job/JobDefs Wizard (BJobWizard)
 
 5-page wizard for creating Job or JobDefs resources:
 
@@ -339,7 +340,79 @@ Director Command → BareosDirector → JSON Response
 
 ---
 
-## 8. Password & Authentication
+## 8. Schedule Visualization (WIP)
+
+> **Work in Progress** — The schedule visualization module is under active development. Features described here are partially implemented and subject to change.
+
+### Overview
+
+The Schedules tab (`BScheduleWidget`) provides visual tools for inspecting and planning backup schedules. It queries schedule data via `.schedules` and `show schedules` commands and cross-references job configurations to build a complete picture of when backups run.
+
+### Views
+
+| View | Widget | Description |
+|------|--------|-------------|
+| **Timeline (Gantt)** | `BScheduleGanttWidget` | Dual stacked horizontal timelines — FD/Client (top) and SD/Storage (bottom) |
+| **Grid** | `BWeeklyPlanner` | Compact 7-day x 24-hour weekly overview grid |
+
+### Gantt Timeline
+
+- **Dual timelines** — FD grouped by client, SD grouped by storage, in a vertical splitter
+- **Job bars** colored by backup level: Full (green), Differential (orange), Incremental (blue)
+- **Bar width** represents estimated duration from historical job run statistics (`BJobDurationStats`)
+- **Day / Week mode** — Day shows a single 24h timeline; Week shows 7x24h with day headers
+- **Two-row header** — Row 1: weekday names (tinted blue), Row 2: hour labels
+- **Zoom slider** — In Week mode, controls pixels-per-hour (10–60 px/h) with horizontal scrollbar
+- **Snap granularity** — Day mode: 15min/30min/1h; Week mode: 1h/2h/4h
+- **Heatmap** — Bottom bar showing concurrent job count per 15-min time slot
+- **Collision detection** — Highlights overlapping jobs on the same client or storage
+- **Now marker** — Red vertical line at the current time
+- **Drag & drop** — Drag job bars to reschedule; shows dependency edges and generates `configure` commands via `BScheduleDragResultDialog`
+
+### Left Panel
+
+- **Schedule list** (top) — Checkboxes to filter which schedules appear on the timeline
+- **Job list** (bottom) — Table showing jobs associated with the selected schedule (Name, Client, Duration)
+- Selecting a job triggers the statistics panel for that job
+
+### Statistics Panel
+
+Clicking a job bar or selecting a job in the job list opens a collapsible stats panel showing:
+- Min / Avg / Max duration from historical runs
+- Trend indicator
+- Recent run history table
+
+### Data Models
+
+| Class | Purpose |
+|-------|---------|
+| `BScheduleModel` | Parses `.schedules` and `show schedules` JSON into `BScheduleEntry` list |
+| `BJobDurationStats` | Collects historical job durations for bar width and stats panel |
+| `BJobScheduleIndex` | Maps schedule names to their associated jobs via `QMultiMap<QString, JobRef>` |
+
+### Not Yet Implemented
+
+- Drag & drop from job list onto the timeline to assign jobs to schedule time slots
+- Multi-select jobs for batch schedule changes
+- Schedule conflict resolution wizard
+- Export/print of schedule overview
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `include/schedules/bschedulewidget.h` | Main schedule widget (left panel + right views) |
+| `src/schedules/bschedulewidget.cpp` | Layout, toolbar, data wiring, job list |
+| `include/schedules/bscheduleganttwidget.h` | Gantt timeline widget |
+| `src/schedules/bscheduleganttwidget.cpp` | Painting, drag & drop, collision detection |
+| `include/schedules/bweeklyplanner.h` | Weekly grid planner widget |
+| `src/schedules/bweeklyplanner.cpp` | Grid painting, schedule parsing |
+| `include/schedules/bjobscheduleindex.h` | Schedule-to-job mapping index |
+| `include/models/bresourcemodels.h` | `BScheduleModel`, `BScheduleEntry`, `BJobDurationStats` |
+
+---
+
+## 9. Password & Authentication
 
 ### MD5 Password Hashing
 
@@ -381,7 +454,7 @@ Console {
 
 ---
 
-## 9. Connection Wizard
+## 10. Connection Wizard
 
 ### BConnectionWizard
 
@@ -416,7 +489,7 @@ struct BConnectionProfile {
 
 ---
 
-## 10. UI Patterns
+## 11. UI Patterns
 
 ### Conditional Field Visibility
 
@@ -464,7 +537,7 @@ wizard.setReferenceData(refData);
 
 ---
 
-## 11. Deprecated: Database Approach
+## 12. Deprecated: Database Approach
 
 > **Note:** The original design (January 2026) used a "database-first" architecture with SQLite for all persistent storage. This approach has been **deprecated** in favor of direct Director communication. The current architecture queries the Director in real-time via `.api 2` JSON-RPC commands.
 
@@ -494,5 +567,5 @@ The `include/db/` and `src/db/` directories still contain the database classes. 
 
 **End of Documentation**
 
-**Version:** 0.1.0 (Build 274)
-**Last Updated:** 2026-02-08
+**Version:** 0.2.0 (Build 445)
+**Last Updated:** 2026-02-22

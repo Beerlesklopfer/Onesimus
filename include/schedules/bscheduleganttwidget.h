@@ -116,7 +116,7 @@ public:
     /**
      * @brief Sets the snap granularity for drag operations
      */
-    void setSnapMinutes(int minutes) { m_dragSnapMinutes = minutes; }
+    void setSnapMinutes(int minutes) { m_dragSnapMinutes = minutes; update(); }
     int snapMinutes() const { return m_dragSnapMinutes; }
 
     // Minimum pixels per hour (prevents labels from overlapping)
@@ -147,7 +147,9 @@ protected:
 private:
     // --- Layout constants ---
     static const int ROW_HEIGHT = 28;
-    static const int HEADER_HEIGHT = 32;
+    static const int HEADER_ROW1_HEIGHT = 18;  // Weekday row
+    static const int HEADER_ROW2_HEIGHT = 18;  // Hours row
+    static const int HEADER_HEIGHT = HEADER_ROW1_HEIGHT + HEADER_ROW2_HEIGHT;
     static const int LABEL_WIDTH = 180;
     static const int HEATMAP_HEIGHT = 24;
     static const int GROUP_HEADER_HEIGHT = 22;
@@ -177,6 +179,7 @@ private:
     QRect barRect(const BScheduleEntry &entry, int row, int dayOffset) const;
     int contentHeight() const;
     int contentWidth() const;
+    void updateMinimumSize();
 
     // --- Heatmap calculation ---
     void recalcHeatmap();
@@ -209,6 +212,7 @@ private:
     GroupMode m_groupMode = GroupBySchedule;
     int m_currentDay = 0;  // 0=Monday
     int m_pixelsPerHour = 60;  // recalculated dynamically in resizeEvent
+    int m_zoomMinPph = MIN_PIXELS_PER_HOUR;  // minimum px/h from zoom slider
 
     // --- Layout cache ---
     QVector<RowInfo> m_rows;

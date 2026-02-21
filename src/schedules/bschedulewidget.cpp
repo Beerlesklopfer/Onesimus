@@ -12,13 +12,17 @@
 #include <QJsonArray>
 #include <QDate>
 #include <QHeaderView>
+#include <QScrollBar>
 
 BScheduleWidget::BScheduleWidget(QWidget *parent)
     : QWidget(parent)
     , m_scheduleModel(new BScheduleModel(this))
     , m_durationStats(new BJobDurationStats(this))
     , m_splitter(new QSplitter(Qt::Horizontal, this))
+    , m_leftSplitter(new QSplitter(Qt::Vertical, this))
     , m_scheduleList(new QListWidget(this))
+    , m_jobListLabel(new QLabel(tr("Jobs:"), this))
+    , m_jobList(new QTableWidget(this))
     , m_viewStack(new QStackedWidget(this))
     , m_ganttSplitter(new QSplitter(Qt::Vertical, this))
     , m_fdGanttWidget(new BScheduleGanttWidget(this))
@@ -75,12 +79,17 @@ void BScheduleWidget::setupUI()
     toolbarLayout->addWidget(m_dayViewCombo);
 
     // Day navigation
-    m_prevDayButton->setIcon(QIcon::fromTheme("go-previous"));
-    m_prevDayButton->setAutoRaise(true);
-    m_nextDayButton->setIcon(QIcon::fromTheme("go-next"));
-    m_nextDayButton->setAutoRaise(true);
+    QString navBtnStyle =
+        "QToolButton { color: #333; font-weight: bold; border: 1px solid #aaa;"
+        " border-radius: 3px; background: #ddd; padding: 2px 6px; }"
+        "QToolButton:hover { background: #bbb; }"
+        "QToolButton:disabled { color: #aaa; background: #eee; border-color: #ccc; }";
+    m_prevDayButton->setText(QStringLiteral("\u25C0"));  // ◀
+    m_prevDayButton->setStyleSheet(navBtnStyle);
+    m_nextDayButton->setText(QStringLiteral("\u25B6"));  // ▶
+    m_nextDayButton->setStyleSheet(navBtnStyle);
 
-    m_dayLabel->setMinimumWidth(50);
+    m_dayLabel->setFixedWidth(80);
     m_dayLabel->setAlignment(Qt::AlignCenter);
 
     toolbarLayout->addWidget(m_prevDayButton);
@@ -89,12 +98,23 @@ void BScheduleWidget::setupUI()
 
     toolbarLayout->addSpacing(10);
 
-    // Snap granularity
+    // Snap granularity (items populated by updateSnapComboForViewMode)
     toolbarLayout->addWidget(new QLabel(tr("Snap:"), this));
-    m_snapCombo->addItem(tr("15 min"), 15);
-    m_snapCombo->addItem(tr("30 min"), 30);
-    m_snapCombo->addItem(tr("1 hour"), 60);
     toolbarLayout->addWidget(m_snapCombo);
+
+    toolbarLayout->addSpacing(10);
+
+    // Zoom slider (visible in week mode)
+    m_zoomLabel = new QLabel(tr("Zoom:"), this);
+    m_zoomSlider = new QSlider(Qt::Horizontal, this);
+    m_zoomSlider->setRange(10, 60);    // px per hour: 10 (compact) to 60 (detailed)
+    m_zoomSlider->setValue(15);
+    m_zoomSlider->setFixedWidth(120);
+    m_zoomSlider->setToolTip(tr("Zoom level (pixels per hour)"));
+    m_zoomLabel->setVisible(false);
+    m_zoomSlider->setVisible(false);
+    toolbarLayout->addWidget(m_zoomLabel);
+    toolbarLayout->addWidget(m_zoomSlider);
 
     toolbarLayout->addStretch();
 
@@ -111,17 +131,42 @@ void BScheduleWidget::setupUI()
     mainLayout->addLayout(toolbarLayout);
 
     // === Splitter ===
-    // Left side: Schedule list
-    QWidget *leftWidget = new QWidget(this);
-    QVBoxLayout *leftLayout = new QVBoxLayout(leftWidget);
+    // Left side: Schedules (top) + Jobs (bottom) in vertical splitter
 
+    // --- Schedule pane ---
+    QWidget *schedulePane = new QWidget(this);
+    QVBoxLayout *scheduleLayout = new QVBoxLayout(schedulePane);
+    scheduleLayout->setContentsMargins(0, 0, 0, 0);
+    scheduleLayout->setSpacing(2);
     QLabel *listLabel = new QLabel(tr("Schedules:"), this);
     listLabel->setStyleSheet("font-weight: bold; font-size: 12pt;");
     listLabel->setAlignment(Qt::AlignRight);
-    leftLayout->addWidget(listLabel);
-
+    scheduleLayout->addWidget(listLabel);
     m_scheduleList->setAlternatingRowColors(true);
-    leftLayout->addWidget(m_scheduleList);
+    scheduleLayout->addWidget(m_scheduleList);
+
+    // --- Job pane ---
+    QWidget *jobPane = new QWidget(this);
+    QVBoxLayout *jobLayout = new QVBoxLayout(jobPane);
+    jobLayout->setContentsMargins(0, 0, 0, 0);
+    jobLayout->setSpacing(2);
+    m_jobListLabel->setStyleSheet("font-weight: bold; font-size: 10pt;");
+    jobLayout->addWidget(m_jobListLabel);
+
+    m_jobList->setColumnCount(3);
+    m_jobList->setHorizontalHeaderLabels({tr("Job"), tr("Client"), tr("Duration")});
+    m_jobList->setAlternatingRowColors(true);
+    m_jobList->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_jobList->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_jobList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_jobList->verticalHeader()->setVisible(false);
+    m_jobList->horizontalHeader()->setStretchLastSection(true);
+    m_jobList->setDragEnabled(true);
+    jobLayout->addWidget(m_jobList);
+
+    m_leftSplitter->addWidget(schedulePane);
+    m_leftSplitter->addWidget(jobPane);
+    m_leftSplitter->setSizes(QList<int>() << 200 << 200);
 
     // Right side: Stacked widget (Gantt / Grid)
     QWidget *rightWidget = new QWidget(this);
@@ -137,7 +182,7 @@ void BScheduleWidget::setupUI()
     fdLayout->addWidget(fdLabel);
     m_fdScrollArea->setWidget(m_fdGanttWidget);
     m_fdScrollArea->setWidgetResizable(true);
-    m_fdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_fdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_fdScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     fdLayout->addWidget(m_fdScrollArea);
 
@@ -151,7 +196,7 @@ void BScheduleWidget::setupUI()
     sdLayout->addWidget(sdLabel);
     m_sdScrollArea->setWidget(m_sdGanttWidget);
     m_sdScrollArea->setWidgetResizable(true);
-    m_sdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_sdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_sdScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     sdLayout->addWidget(m_sdScrollArea);
 
@@ -161,7 +206,14 @@ void BScheduleWidget::setupUI()
     m_ganttSplitter->setSizes(QList<int>() << 300 << 200);
 
     m_viewStack->addWidget(m_ganttSplitter);   // index 0 = Gantt (dual)
-    m_viewStack->addWidget(m_weeklyPlanner);    // index 1 = Grid
+
+    // Wrap weekly planner in scroll area
+    m_gridScrollArea = new QScrollArea(this);
+    m_gridScrollArea->setWidget(m_weeklyPlanner);
+    m_gridScrollArea->setWidgetResizable(true);
+    m_gridScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_gridScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_viewStack->addWidget(m_gridScrollArea);    // index 1 = Grid
 
     rightLayout->addWidget(m_viewStack, 1);
 
@@ -169,7 +221,7 @@ void BScheduleWidget::setupUI()
     setupStatsPanel();
     rightLayout->addWidget(m_statsPanel);
 
-    m_splitter->addWidget(leftWidget);
+    m_splitter->addWidget(m_leftSplitter);
     m_splitter->addWidget(rightWidget);
     m_splitter->setSizes(QList<int>() << 200 << 800);
 
@@ -184,6 +236,8 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onScheduleDoubleClicked);
     connect(m_scheduleList, &QListWidget::itemChanged,
             this, &BScheduleWidget::onScheduleCheckChanged);
+    connect(m_jobList, &QTableWidget::itemSelectionChanged,
+            this, &BScheduleWidget::onJobSelectionChanged);
 
     connect(m_viewModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BScheduleWidget::onViewModeChanged);
@@ -195,6 +249,8 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onDayNavigationNext);
     connect(m_snapCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BScheduleWidget::onSnapChanged);
+    connect(m_zoomSlider, &QSlider::valueChanged,
+            this, &BScheduleWidget::onZoomSliderChanged);
 
     // FD Gantt widget signals
     connect(m_fdGanttWidget, &BScheduleGanttWidget::collisionsDetected,
@@ -212,6 +268,18 @@ void BScheduleWidget::setupUI()
     connect(m_sdGanttWidget, &BScheduleGanttWidget::dragCompleted,
             this, &BScheduleWidget::onSdDragCompleted);
 
+    // Horizontal scroll sync between FD and SD
+    connect(m_fdScrollArea->horizontalScrollBar(), &QScrollBar::valueChanged,
+            this, [this](int value) {
+        if (m_sdScrollArea->horizontalScrollBar()->value() != value)
+            m_sdScrollArea->horizontalScrollBar()->setValue(value);
+    });
+    connect(m_sdScrollArea->horizontalScrollBar(), &QScrollBar::valueChanged,
+            this, [this](int value) {
+        if (m_fdScrollArea->horizontalScrollBar()->value() != value)
+            m_fdScrollArea->horizontalScrollBar()->setValue(value);
+    });
+
     // === Restore settings ===
     BSettings &s = BSettings::instance();
 
@@ -223,8 +291,16 @@ void BScheduleWidget::setupUI()
 
     m_currentDay = s.schedulesCurrentDay();
 
+    // Populate snap combo for the restored view mode, then restore index
+    BScheduleGanttWidget::ViewMode ganttViewMode = (dayViewMode == 0)
+        ? BScheduleGanttWidget::DayView : BScheduleGanttWidget::WeekView;
+    updateSnapComboForViewMode(ganttViewMode);
     int snapIndex = s.schedulesSnapIndex();
-    m_snapCombo->setCurrentIndex(snapIndex);
+    if (snapIndex < m_snapCombo->count())
+        m_snapCombo->setCurrentIndex(snapIndex);
+    int snapMinutes = m_snapCombo->currentData().toInt();
+    m_fdGanttWidget->setSnapMinutes(snapMinutes);
+    m_sdGanttWidget->setSnapMinutes(snapMinutes);
 
     QByteArray splitterState = s.schedulesSplitterState();
     if (!splitterState.isEmpty()) {
@@ -455,7 +531,45 @@ void BScheduleWidget::onRefreshClicked()
 
 void BScheduleWidget::onScheduleSelectionChanged()
 {
-    // Selection is now handled via checkboxes (onScheduleCheckChanged)
+    QListWidgetItem *item = m_scheduleList->currentItem();
+    if (item) {
+        updateJobList(item->text());
+    } else {
+        updateJobList(QString());
+    }
+}
+
+void BScheduleWidget::updateJobList(const QString &scheduleName)
+{
+    m_jobList->setRowCount(0);
+
+    if (scheduleName.isEmpty()) {
+        m_jobListLabel->setText(tr("Jobs:"));
+        return;
+    }
+
+    m_jobListLabel->setText(tr("Jobs (%1):").arg(scheduleName));
+
+    if (!m_jobScheduleIndex->isValid()) return;
+
+    QList<BJobScheduleIndex::JobRef> jobs = m_jobScheduleIndex->jobsForSchedule(scheduleName);
+
+    m_jobList->setRowCount(jobs.size());
+    for (int i = 0; i < jobs.size(); ++i) {
+        const BJobScheduleIndex::JobRef &job = jobs[i];
+
+        m_jobList->setItem(i, 0, new QTableWidgetItem(job.jobName));
+        m_jobList->setItem(i, 1, new QTableWidgetItem(job.client));
+
+        // Duration from historical stats
+        int avgSecs = m_durationStats->averageDuration(job.jobName);
+        QString durStr = (avgSecs > 0)
+            ? BJobDurationStats::formatDuration(avgSecs)
+            : tr("-");
+        m_jobList->setItem(i, 2, new QTableWidgetItem(durStr));
+    }
+
+    m_jobList->resizeColumnsToContents();
 }
 
 void BScheduleWidget::onScheduleDoubleClicked(QListWidgetItem *item)
@@ -482,6 +596,9 @@ void BScheduleWidget::onViewModeChanged(int index)
     m_dayLabel->setVisible(isGantt);
     m_nextDayButton->setVisible(isGantt);
     m_snapCombo->setVisible(isGantt);
+    bool isWeekGantt = isGantt && (m_dayViewCombo->currentIndex() == 1);
+    m_zoomLabel->setVisible(isWeekGantt);
+    m_zoomSlider->setVisible(isWeekGantt);
 
     BSettings::instance().setSchedulesViewMode(index);
 
@@ -500,6 +617,14 @@ void BScheduleWidget::onDayViewModeChanged(int index)
 
     m_prevDayButton->setEnabled(index == 0);
     m_nextDayButton->setEnabled(index == 0);
+
+    // Show zoom slider only in week mode
+    bool isWeek = (mode == BScheduleGanttWidget::WeekView);
+    m_zoomLabel->setVisible(isWeek);
+    m_zoomSlider->setVisible(isWeek);
+
+    updateSnapComboForViewMode(mode);
+    resizeBothGanttWidgets();
 
     BSettings::instance().setSchedulesDayViewMode(index);
 }
@@ -556,9 +681,13 @@ void BScheduleWidget::setupStatsPanel()
     titleRow->addWidget(m_statsTitle, 1);
 
     QToolButton *closeButton = new QToolButton(this);
-    closeButton->setIcon(QIcon::fromTheme("window-close"));
-    closeButton->setAutoRaise(true);
+    closeButton->setText(QStringLiteral("\u2715"));  // Unicode ✕
     closeButton->setToolTip(tr("Close"));
+    closeButton->setFixedSize(20, 20);
+    closeButton->setStyleSheet(
+        "QToolButton { color: #333; font-weight: bold; border: 1px solid #aaa;"
+        " border-radius: 3px; background: #ddd; }"
+        "QToolButton:hover { background: #c44; color: white; }");
     connect(closeButton, &QToolButton::clicked, m_statsPanel, [this]() {
         m_statsPanel->setVisible(false);
     });
@@ -686,12 +815,49 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
     }
 }
 
+void BScheduleWidget::onZoomSliderChanged(int value)
+{
+    m_fdGanttWidget->setZoomLevel(value);
+    m_sdGanttWidget->setZoomLevel(value);
+    resizeBothGanttWidgets();
+}
+
 void BScheduleWidget::onSnapChanged(int index)
 {
     int minutes = m_snapCombo->itemData(index).toInt();
     m_fdGanttWidget->setSnapMinutes(minutes);
     m_sdGanttWidget->setSnapMinutes(minutes);
     BSettings::instance().setSchedulesSnapIndex(index);
+}
+
+void BScheduleWidget::updateSnapComboForViewMode(BScheduleGanttWidget::ViewMode mode)
+{
+    m_snapCombo->blockSignals(true);
+    int oldMinutes = m_snapCombo->currentData().toInt();
+    m_snapCombo->clear();
+
+    if (mode == BScheduleGanttWidget::WeekView) {
+        m_snapCombo->addItem(tr("1 hour"), 60);
+        m_snapCombo->addItem(tr("2 hours"), 120);
+        m_snapCombo->addItem(tr("4 hours"), 240);
+    } else {
+        m_snapCombo->addItem(tr("15 min"), 15);
+        m_snapCombo->addItem(tr("30 min"), 30);
+        m_snapCombo->addItem(tr("1 hour"), 60);
+    }
+
+    // Try to keep the closest matching value selected
+    int bestIndex = 0;
+    for (int i = 0; i < m_snapCombo->count(); ++i) {
+        if (m_snapCombo->itemData(i).toInt() <= oldMinutes)
+            bestIndex = i;
+    }
+    m_snapCombo->setCurrentIndex(bestIndex);
+    m_snapCombo->blockSignals(false);
+
+    int minutes = m_snapCombo->itemData(bestIndex).toInt();
+    m_fdGanttWidget->setSnapMinutes(minutes);
+    m_sdGanttWidget->setSnapMinutes(minutes);
 }
 
 void BScheduleWidget::updateGanttEntries()
@@ -809,4 +975,26 @@ void BScheduleWidget::handleDragCompleted(
             this, &BScheduleWidget::sendCommand);
 
     dialog->show();
+}
+
+void BScheduleWidget::onJobSelectionChanged()
+{
+    QList<QTableWidgetItem *> selected = m_jobList->selectedItems();
+    if (selected.isEmpty()) return;
+
+    // Get the job name from column 0 of the selected row
+    int row = selected.first()->row();
+    QTableWidgetItem *nameItem = m_jobList->item(row, 0);
+    if (!nameItem) return;
+
+    QString jobName = nameItem->text();
+
+    // Find matching entry in the FD Gantt widget entries
+    const QList<BScheduleEntry> &entries = m_fdGanttWidget->entries();
+    for (const BScheduleEntry &entry : entries) {
+        if (entry.jobName == jobName) {
+            onEntryClicked(entry);
+            return;
+        }
+    }
 }

@@ -16,7 +16,8 @@ BWeeklyPlanner::BWeeklyPlanner(QWidget *parent)
                << tr("Friday") << tr("Saturday") << tr("Sunday");
 
     setMouseTracking(true);
-    setMinimumSize(sizeHint());
+    setMinimumSize(DAY_LABEL_WIDTH + HOURS * MIN_CELL_WIDTH + 20,
+                   HEADER_HEIGHT + DAYS * MIN_CELL_HEIGHT + LEGEND_HEIGHT + 20);
 }
 
 BWeeklyPlanner::~BWeeklyPlanner()
@@ -26,9 +27,21 @@ BWeeklyPlanner::~BWeeklyPlanner()
 QSize BWeeklyPlanner::sizeHint() const
 {
     return QSize(
-        DAY_LABEL_WIDTH + (HOURS * CELL_WIDTH) + 20,
-        HEADER_HEIGHT + (DAYS * CELL_HEIGHT) + LEGEND_HEIGHT + 20
+        DAY_LABEL_WIDTH + (HOURS * MIN_CELL_WIDTH) + 20,
+        HEADER_HEIGHT + (DAYS * MIN_CELL_HEIGHT) + LEGEND_HEIGHT + 20
     );
+}
+
+int BWeeklyPlanner::cellWidth() const
+{
+    int available = width() - DAY_LABEL_WIDTH - 10;
+    return qMax(MIN_CELL_WIDTH, available / HOURS);
+}
+
+int BWeeklyPlanner::cellHeight() const
+{
+    int available = height() - HEADER_HEIGHT - LEGEND_HEIGHT - 10;
+    return qMax(MIN_CELL_HEIGHT, available / DAYS);
 }
 
 void BWeeklyPlanner::setSchedule(const QJsonObject &schedule)
@@ -291,11 +304,14 @@ void BWeeklyPlanner::paintEvent(QPaintEvent *event)
 
 void BWeeklyPlanner::drawGrid(QPainter &painter)
 {
+    int cw = cellWidth();
+    int ch = cellHeight();
+
     painter.setPen(QPen(Qt::gray, 1));
 
     // Draw day labels
     for (int day = 0; day < DAYS; ++day) {
-        QRect labelRect(10, HEADER_HEIGHT + day * CELL_HEIGHT, DAY_LABEL_WIDTH - 10, CELL_HEIGHT);
+        QRect labelRect(10, HEADER_HEIGHT + day * ch, DAY_LABEL_WIDTH - 10, ch);
         painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, m_dayNames[day]);
     }
 
@@ -306,9 +322,14 @@ void BWeeklyPlanner::drawGrid(QPainter &painter)
     font.setPointSize(8);
     painter.setFont(font);
 
-    for (int hour = 0; hour < HOURS; hour += 2) {  // Show every 2 hours
-        int x = DAY_LABEL_WIDTH + hour * CELL_WIDTH;
-        QRect headerRect(x, 10, CELL_WIDTH * 2, HEADER_HEIGHT - 10);
+    // Determine label interval based on cell width
+    int labelInterval = 1;
+    if (cw < 25) labelInterval = 4;
+    else if (cw < 35) labelInterval = 2;
+
+    for (int hour = 0; hour < HOURS; hour += labelInterval) {
+        int x = DAY_LABEL_WIDTH + hour * cw;
+        QRect headerRect(x, 10, cw * labelInterval, HEADER_HEIGHT - 10);
         painter.drawText(headerRect, Qt::AlignCenter, QString("%1").arg(hour, 2, 10, QChar('0')));
     }
     painter.restore();
@@ -318,14 +339,14 @@ void BWeeklyPlanner::drawGrid(QPainter &painter)
 
     // Horizontal lines
     for (int day = 0; day <= DAYS; ++day) {
-        int y = HEADER_HEIGHT + day * CELL_HEIGHT;
-        painter.drawLine(DAY_LABEL_WIDTH, y, DAY_LABEL_WIDTH + HOURS * CELL_WIDTH, y);
+        int y = HEADER_HEIGHT + day * ch;
+        painter.drawLine(DAY_LABEL_WIDTH, y, DAY_LABEL_WIDTH + HOURS * cw, y);
     }
 
     // Vertical lines
     for (int hour = 0; hour <= HOURS; ++hour) {
-        int x = DAY_LABEL_WIDTH + hour * CELL_WIDTH;
-        painter.drawLine(x, HEADER_HEIGHT, x, HEADER_HEIGHT + DAYS * CELL_HEIGHT);
+        int x = DAY_LABEL_WIDTH + hour * cw;
+        painter.drawLine(x, HEADER_HEIGHT, x, HEADER_HEIGHT + DAYS * ch);
     }
 }
 
@@ -362,7 +383,8 @@ void BWeeklyPlanner::drawSchedule(QPainter &painter)
 
 void BWeeklyPlanner::drawLegend(QPainter &painter)
 {
-    int legendY = HEADER_HEIGHT + DAYS * CELL_HEIGHT + 10;
+    int ch = cellHeight();
+    int legendY = HEADER_HEIGHT + DAYS * ch + 10;
     int x = DAY_LABEL_WIDTH;
     int boxSize = 16;
     int spacing = 20;
@@ -404,19 +426,24 @@ void BWeeklyPlanner::drawLegend(QPainter &painter)
 
 QRect BWeeklyPlanner::getCellRect(int day, int hour) const
 {
-    int x = DAY_LABEL_WIDTH + hour * CELL_WIDTH;
-    int y = HEADER_HEIGHT + day * CELL_HEIGHT;
-    return QRect(x + 1, y + 1, CELL_WIDTH - 2, CELL_HEIGHT - 2);
+    int cw = cellWidth();
+    int ch = cellHeight();
+    int x = DAY_LABEL_WIDTH + hour * cw;
+    int y = HEADER_HEIGHT + day * ch;
+    return QRect(x + 1, y + 1, cw - 2, ch - 2);
 }
 
 bool BWeeklyPlanner::getDayHourFromPos(const QPoint &pos, int &day, int &hour) const
 {
+    int cw = cellWidth();
+    int ch = cellHeight();
+
     if (pos.x() < DAY_LABEL_WIDTH || pos.y() < HEADER_HEIGHT) {
         return false;
     }
 
-    hour = (pos.x() - DAY_LABEL_WIDTH) / CELL_WIDTH;
-    day = (pos.y() - HEADER_HEIGHT) / CELL_HEIGHT;
+    hour = (pos.x() - DAY_LABEL_WIDTH) / cw;
+    day = (pos.y() - HEADER_HEIGHT) / ch;
 
     if (hour >= 0 && hour < HOURS && day >= 0 && day < DAYS) {
         return true;
