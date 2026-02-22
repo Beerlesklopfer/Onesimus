@@ -1,75 +1,36 @@
-# Onesimus - Modern Backup Management UI
+# Onesimus — Modern Backup Management UI
 
 <p align="center">
-  <strong>A modern, cross-platform management interface for Bacula and Bareos backup systems</strong><br>
-  <a href="https://onesimus.io">🌐 onesimus.io</a>
+  <strong>Every backup admin asks the same 5 questions. No tool answers them visually. Until now.</strong><br>
+  <a href="https://onesimus.io">onesimus.io</a> · <a href="https://onesimus.io/docs/">Documentation</a> · <a href="https://github.com/Beerlesklopfer/Onesimus/issues">Report Bug</a>
 </p>
-
-> *In the Letter to Philemon, the Apostle Paul sends back Onesimus — a runaway slave whose name means "the useful one" in Greek. Once lost, now returned with purpose: no longer useless, but indispensable.*
->
-> *Backups share that story. Data slips away — through failure, accident, or time. What matters is that it comes back, intact and useful, when you need it most. Onesimus helps you manage that journey: keeping watch over your Bareos environment, so that nothing stays lost for long.*
 
 <p align="center">
   <img src="https://img.shields.io/badge/Qt-6.8%2B-green?logo=qt" alt="Qt 6.8+">
   <img src="https://img.shields.io/badge/C%2B%2B-17-blue?logo=c%2B%2B" alt="C++ 17">
   <img src="https://img.shields.io/badge/OpenSSL-3.6-orange?logo=openssl" alt="OpenSSL 3.6">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Cross-Platform">
-  <img src="https://img.shields.io/badge/i18n-6%20Languages-blue" alt="6 Languages">
   <img src="https://img.shields.io/badge/Status-Alpha-red" alt="Alpha">
+  <img src="https://img.shields.io/badge/License-GPL--3.0-blue" alt="GPL-3.0">
 </p>
 
 ---
 
-> **⚠️ ENTWICKLUNGSHINWEIS / DEVELOPMENT NOTICE**
->
-> **Deutsch:** Dieses Projekt befindet sich in aktiver Entwicklung und dient derzeit nur zu Testzwecken. Es ist **nicht für den produktiven Einsatz** geeignet. Funktionen können sich jederzeit ändern oder unvollständig sein. Nutzung auf eigenes Risiko. Siehe [Haftungsausschluss](https://onesimus.io/de/legal/disclaimer/).
->
-> **English:** This project is under active development and is currently for **testing purposes only**. It is **not suitable for production use**. Features may change or be incomplete at any time. Use at your own risk. See [Disclaimer](https://onesimus.io/legal/disclaimer/).
->
-> **Aktuelle Entwicklung / Current Development:** [`development` branch](https://github.com/Beerlesklopfer/Onesimus/tree/development)
+## The 5 Questions
+
+| # | Question | Answer | Tier |
+|---|----------|--------|------|
+| 1 | **Where does my storage go?** | Pool overview & visualization | Community (free) |
+| 2 | **When will the pool be full?** | Growth trends & capacity forecasts | Pro |
+| 3 | **Which jobs/clients consume the most?** | Storage consumption per job & client | Community (free) |
+| 4 | **What happens if I change retention?** | Retention analysis & what-if simulation | Enterprise |
+| 5 | **Which volumes can I recycle?** | Smart recycling recommendations | Pro |
+
+Onesimus is a native Qt6 desktop application that connects directly to your Bareos Director. It replaces bconsole terminal workflows with a visual interface that gives you immediate answers — no scripting, no spreadsheets, no guesswork.
+
+> **Alpha Notice:** This project is under active development. Not suitable for production use. Features may change. Use at your own risk. See [Disclaimer](https://onesimus.io/legal/disclaimer/). Current development: [`development` branch](https://github.com/Beerlesklopfer/Onesimus/tree/development).
 
 ---
-
-## 🆕 What's New (v0.2.0 - 2026-02-21)
-
-### Gantt Scheduler
-- **Timeline/Gantt visualization** for backup schedule planning — the heart of schedule management
-  - Horizontal timeline with job duration bars (Day view 24h / Week view 7x24h)
-  - Color-coded backup levels: Full (green), Differential (orange), Incremental (blue), VirtualFull (purple)
-  - Bar width represents estimated job duration from historical data
-  - Zoom control (Ctrl+Scroll or slider), group by Schedule or Client
-  - Now-marker showing current time, rich tooltips with job details
-- **Utilization Heatmap** — color-coded strip showing concurrent job load per 15-min slot
-- **Collision Detection** — automatic detection of client/storage scheduling conflicts with visual warnings
-- **Duration Statistics Panel** — click a job bar to see min/avg/max duration, trend, last 5 runs
-- **BScheduleModel** — proper Qt model for schedule resources with parsed Run entries
-- **BJobDurationStats** — historical job duration statistics (min/avg/max) for realistic planning
-
-### Schedule Wizard (NEW)
-- **Schema-driven 3-page QWizard** for creating new backup schedules
-  - Basics page: name, description, 5 predefined templates from `schedule.json`
-  - Runs page: visual Run directive editor with Add/Edit/Remove/Duplicate
-  - Preview page: generated config text, `configure add` command, copy/execute
-  - All values loaded from schema metadata — no hardcoded dropdown entries
-  - Menu: Schedules → Add Schedule... (Ctrl+Shift+S)
-  - Wizards toolbar section with Add Job and Add Schedule buttons
-
-### Previous Releases
-- **v0.1.0** (2026-02-21): Restore Wizard, ACL Visualization, Schema-Driven Resource Editing, New Client Wizard
-- **Catalog Resource Support** — Full catalog model with Bareos object-format parsing
-- **Unified Job/JobDefs Model** — BJobConfigModel handles both `show jobs` and `show jobdefs`
-- **Debian Package** — CPack DEB generator with automatic dependency detection
-- **Application Icon** — Window icon from bundled Bareos/Bacula logos
-
-### Previous Release (v0.0.9 - 2026-01-31)
-- Job Preselection in Run Job dialog
-- Complete Status Filters (Running, Canceled)
-- Run New Job Dialog with command preview
-- BVFS File Browser in job details
-- Job Delete Options (delete vs purge)
-- Connection Wizard with auto-detection
-- TLS Certificate Authentication (X.509)
-- Connection Profiles for multiple Directors
 
 ## ✨ Features
 
@@ -102,21 +63,20 @@
 - ~~**Client Details Dialog:** Full client information~~ *(not yet implemented)*
 - **Filtering:** Filter clients by status and name
 
-### 🗄️ Storage Management
-- **Storage Overview:** All storage daemons and devices
-- **Volume Management:** Pools, volumes, media status
-- ~~**Volume Operations:** Label, mount, unmount volumes~~ *(not yet implemented)*
-- **Capacities:** Free/Used storage space per pool
-- **Device Status:** Status and availability of storage devices
+### 🗄️ Pool & Storage — *"Where does my storage go?"*
+- **Pool Overview:** Visual pool overview with volume status
+- **Storage per Job/Client:** See exactly which jobs and clients consume storage
+- **Volume Management:** Pools, volumes, media status, capacity per pool
+- **Storage Daemons:** Device status and availability
+- ~~**Volume Operations:** Label, mount, unmount~~ *(not yet implemented)*
 
-### 📅 Schedule Management
-- **Gantt Timeline:** Horizontal timeline with job duration bars, zoom, grouping
+### 📅 Schedule Visualization — *"When do my jobs run?"*
+- **Gantt Timeline:** Horizontal timeline with job duration bars, zoom, dual FD/SD view
+- **Weekly Planner:** Compact 7x24 grid showing backup windows at a glance
 - **Utilization Heatmap:** Color-coded concurrent job load per 15-min slot
 - **Collision Detection:** Client/storage conflict warnings with visual indicators
 - **Duration Statistics:** Click a job to see min/avg/max duration, trend, last runs
 - **Schedule Wizard:** 3-page QWizard with 5 templates and Run directive editor
-- **Schedule Overview:** All configured backup schedules with details
-- ~~**Schedule Control:** Enable/disable schedules~~ *(not yet implemented)*
 
 ### 🔐 Security & Connection
 - **Connection Wizard:** Step-by-step setup with auto-detection of server capabilities
@@ -568,17 +528,25 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - ✅ Cross-platform build scripts (Windows/Linux/macOS)
 - ✅ Comprehensive documentation
 
-### Planned Features
-- 🚧 Add Job/JobDefs Wizard (5-page QWizard with RunScript editor — WIP, Build 274)
-- 🔜 Apply resource changes to Director (`configure add`/`configure update`)
-- 🔜 Live job monitoring with progress bars
-- 🔜 Job start/stop/cancel functions
-- 🔜 Volume management (label, mount, unmount)
-- 🔜 Enhanced statistics and charts
-- 🔜 Backup job templates
-- 🔜 Email notifications
-- 🔜 Dashboard with overview
-- 💤 Bacula support *(future)*
+### Roadmap
+
+**Community (free, MIT)** — See what IS:
+- ✅ Pool overview & visualization
+- ✅ Storage consumption per job/client
+- ✅ Gantt timeline & weekly planner
+- 🚧 Job/JobDefs Wizard (WIP)
+- 🔜 Live job monitoring, volume operations
+
+**Pro** — See what COULD BE:
+- 🔜 Storage growth trends & capacity forecasts
+- 🔜 Optimization suggestions & volume recycling recommendations
+- 🔜 Schedule conflict detection & backup window optimization
+
+**Enterprise** — Scale across infrastructure:
+- 🔜 Multi-Director support
+- 🔜 Capacity planning
+- 🔜 Retention analysis & what-if simulation
+- 🔜 RBAC, LDAP/AD integration
 
 ---
 
