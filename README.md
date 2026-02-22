@@ -459,6 +459,14 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - [Bacula](https://www.bacula.org/) - Open Source Backup
 - [Bareos](https://www.bareos.com/) - Bacula Fork with Enterprise Features
 
+## 💛 Support the Project
+
+Onesimus is built by one developer in spare time. If it saves you hours of `bconsole` work, consider buying me a coffee:
+
+**PayPal:** [Joerg.Bernau@web.de](https://www.paypal.com/paypalme/JoergBernau)
+
+Every contribution helps keep development going — and shows that open source backup tooling matters.
+
 ## 📞 Support
 
 - 🌐 Website: [onesimus.io](https://onesimus.io)
@@ -538,6 +546,8 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - ✅ Job, Client & Schedule management
 - ✅ Gantt timeline & weekly planner
 - ✅ Restore wizard with BVFS file browser
+- ✅ Schedule conflict detection (collision warnings)
+- ✅ Multi-Director support (connection profiles)
 - 🚧 Job/JobDefs Wizard (WIP)
 - 🔜 Pool management (v0.3.0)
 - 🔜 Live job monitoring, volume operations
@@ -547,10 +557,10 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - 🔜 Storage consumption per job/client
 - 🔜 Growth trends & capacity forecasts
 - 🔜 Volume recycle recommendations
-- 🔜 Schedule conflict detection & backup window optimization
+- 🔜 Pre-built signed binaries
 
 **Enterprise** — Scale across infrastructure:
-- 🔜 Multi-Director support *(may move to Pro)*
+- 🔜 Simultaneous Director connections
 - 🔜 Capacity planning
 - 🔜 Retention analysis & what-if simulation
 - 🔜 RBAC, LDAP/AD integration *(depends on Bareos team upstream support)*
