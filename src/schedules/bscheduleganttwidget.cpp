@@ -1,4 +1,5 @@
 #include "schedules/bscheduleganttwidget.h"
+#include "jobs/blevelcolors.h"
 #include "blogging.h"
 #include <QPainter>
 #include <QToolTip>
@@ -799,19 +800,21 @@ void BScheduleGanttWidget::detectCollisions()
 
 QColor BScheduleGanttWidget::colorForLevel(BScheduleEntry::BackupLevel level, bool hovered) const
 {
+    QString code;
     switch (level) {
-    case BScheduleEntry::Full:
-        return hovered ? QColor(76, 200, 100) : QColor(56, 160, 72);     // Green
-    case BScheduleEntry::Differential:
-        return hovered ? QColor(255, 180, 50) : QColor(230, 150, 20);    // Orange
-    case BScheduleEntry::Incremental:
-        return hovered ? QColor(100, 160, 255) : QColor(60, 120, 220);   // Blue
-    case BScheduleEntry::VirtualFull:
-        return hovered ? QColor(180, 130, 255) : QColor(140, 90, 220);   // Purple
+    case BScheduleEntry::Full:         code = "F"; break;
+    case BScheduleEntry::Differential: code = "D"; break;
+    case BScheduleEntry::Incremental:  code = "I"; break;
+    case BScheduleEntry::VirtualFull:  code = "V"; break;
     case BScheduleEntry::None:
     default:
         return Qt::transparent;
     }
+
+    QColor base = BLevelColors::getLevelColor(code);
+    if (hovered)
+        return base.lighter(130);
+    return base;
 }
 
 // ============================================================================

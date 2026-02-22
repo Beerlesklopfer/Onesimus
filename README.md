@@ -182,7 +182,7 @@ cmake .. -DBACKUP_SYSTEM=BACULA
 cmake .. -DBACKUP_SYSTEM=BOTH
 ```
 
-📖 **Details:** [BACKUP_SYSTEMS.md](BACKUP_SYSTEMS.md)
+
 
 ## 🚀 Quick Start
 
@@ -193,21 +193,12 @@ cmake .. -DBACKUP_SYSTEM=BOTH
 .\build-windows.ps1
 ```
 
-### Linux
+### Linux / macOS
 
-```bash
-# Bash
-./build.sh
-
-# Fish
-./build.fish
-```
-
-Both scripts accept the same command-line arguments:
+macOS: `brew install qt@6 cmake` (see [Prerequisites](#-prerequisites))
 
 ```bash
 ./build.sh [OPTIONS]
-./build.fish [OPTIONS]
 
 Options:
   -t, --type TYPE        Build type: Release (default), Debug, RelWithDebInfo
@@ -224,12 +215,7 @@ Examples:
   ./build.sh -j4 -t Debug        # Debug, 4 jobs
 ```
 
-### macOS
-
-```bash
-brew install qt@6 cmake
-./build.sh
-```
+Also available as `./build.fish` for Fish shell users (same options).
 
 ## 📦 Prerequisites
 
@@ -299,17 +285,6 @@ cmake .. \
 
 Full documentation is available at **[onesimus.io/docs/](https://onesimus.io/docs/)**
 
-### Build Guides
-- [BUILD_WINDOWS.md](BUILD_WINDOWS.md) - Windows build instructions
-- [BUILD_LINUX.md](BUILD_LINUX.md) - Linux build instructions
-- [BUILD_OSX.md](BUILD_OSX.md) - macOS build instructions
-- [BACKUP_SYSTEMS.md](BACKUP_SYSTEMS.md) - Bacula vs. Bareos
-- [STATIC_OPENSSL.md](STATIC_OPENSSL.md) - OpenSSL integration
-- [VISUAL_STUDIO_ENV.md](VISUAL_STUDIO_ENV.md) - VS environment setup
-
-### Developer Resources
-- [Local Test Director](https://github.com/Beerlesklopfer/Onesimus/wiki/Wiki-Local-Test-Director) - Set up a local Bareos Director for development and testing
-
 ## 🎨 Screenshots
 
 ### Main Window
@@ -357,57 +332,93 @@ Create certificates with:
 
 ```
 onesimus/
-├── include/                         # Headers (.h)
-│   ├── bmainwindow.h                #   Application shell, menus, toolbar, ACL dialog
-│   ├── bconnectionwizard.h          #   Connection wizard (auto-detect, TLS)
-│   ├── btranslations.h              #   i18n singleton (6 languages)
-│   ├── clients/                     # Client management
-│   │   ├── bclientswidget.h         #   Client list + filtering
-│   │   └── bnewclientdialog.h       #   New Client Wizard (3-page)
-│   ├── config/                      # Configuration & settings
-│   │   ├── bdirectiveschema.h       #   JSON directive schema loader (singleton)
-│   │   ├── bresourceform.h          #   Schema-driven form widget (auto-generated UI)
-│   │   ├── bsettings.h              #   Application settings (QSettings singleton)
-│   │   └── bsettingsdialog.h        #   Settings UI (categorized)
-│   ├── db/                          # SQLite database layer
-│   │   └── bresourcemodel.h         #   Resource model (QSqlTableModel)
-│   ├── director/                    # Director communication
-│   │   ├── bdirector.h              #   Abstract base — thread-safe command queue
-│   │   ├── bareosdirector.h         #   Bareos JSON-RPC protocol implementation
-│   │   ├── bareosauth.h             #   CRAM-MD5 / TLS-PSK / X.509 auth
-│   │   ├── bjsonstreamreader.h      #   Streaming JSON parser (large responses)
-│   │   └── bresourcedialog.h        #   Schema-driven resource edit dialog
-│   ├── jobs/                        # Job management
-│   │   ├── bjobwidget.h             #   Main job tab (table, filters, stats, log)
-│   │   ├── bjobmodels.h             #   BJobsModel, BJobsFilterModel, BJobLogModel
-│   │   ├── bbvfsmodel.h             #   BVFS tree model (QAbstractItemModel)
-│   │   ├── brestorewizard.h         #   Restore Wizard (5-page QWizard)
-│   │   ├── bjobwizard.h             #   Add Job/JobDefs Wizard (WIP)
-│   │   ├── bnewjobdialog.h          #   Run New Job dialog
-│   │   └── bfilesetwizard.h         #   FileSet creation wizard
-│   ├── models/                      # Shared data models
-│   │   ├── bbasemodels.h            #   BListModel, BTableModel (base classes)
-│   │   └── bresourcemodels.h        #   BFilesetModel, BPoolModel, BCatalogModel, ...
-│   └── schedules/
-│       ├── bschedulewidget.h        #   Schedule tab (Gantt + stats panel)
-│       ├── bscheduleganttwidget.h   #   Gantt timeline widget
-│       ├── bschedulewizard.h        #   Schedule Wizard (3-page QWizard)
-│       └── bweeklyplanner.h         #   Compact 7x24 grid view
-├── src/                             # Implementations (.cpp) — mirrors include/
-├── resources/                       # Qt resources (embedded at build time)
-│   ├── directives/                  #   JSON schemas for 11 resource types
-│   ├── templates/filesets/          #   22 FileSet presets
-│   ├── icons/                       #   50+ SVG/PNG icons
-│   ├── themes/                      #   QSS stylesheets (dark/light)
-│   └── sql/                         #   DB schema + migrations (v1–v5)
-├── ui/                              # Qt Designer .ui files
-├── translations/                    # Qt Linguist .ts files (6 languages)
-├── test/                            # Tests, test configs, test data generator
-├── external/openssl/                # OpenSSL 3.x (Git submodule)
-├── build.sh / build.fish            # Linux build scripts
-├── build-windows.ps1                # Windows build script
-├── CMakeLists.txt                   # Build configuration
-└── CHANGELOG.md / LICENSE / todo.md # Project docs
+├── include/                             # Headers (.h)
+│   ├── bmainwindow.h                    #   Application shell, menus, toolbar, ACL dialog
+│   ├── bconnectionwizard.h              #   Connection wizard (auto-detect, TLS)
+│   ├── blogging.h                       #   Conditional file logging (BLOG_* macros)
+│   ├── bpasswordutil.h                  #   MD5 password hashing for CRAM-MD5 auth
+│   ├── btranslations.h                  #   i18n singleton (6 languages)
+│   ├── bcleanupdialog.h                 #   Old job cleanup dialog with filters
+│   ├── bcheckableheaderview.h           #   Table header with checkboxes
+│   ├── bconnectionprofile.h             #   Connection profile data structure
+│   ├── bconsolemodel.h                  #   Console resource model
+│   ├── bpaginationwidget.h              #   Pagination controls for large tables
+│   ├── storagewidget.h                  #   Storage/volume management tab
+│   ├── version.h                        #   Auto-generated version, build number, git info
+│   ├── clients/                         # Client management
+│   │   ├── bclientswidget.h             #   Client list + filtering
+│   │   ├── bclientwidget.h              #   Single client detail widget
+│   │   ├── bclientdetailsdialog.h       #   Client details dialog
+│   │   ├── bclientsmodel.h              #   Client list model with online/offline status
+│   │   └── bnewclientdialog.h           #   New Client Wizard (3-page)
+│   ├── config/                          # Configuration & settings
+│   │   ├── bdirectiveschema.h           #   JSON directive schema loader (singleton)
+│   │   ├── bresourceform.h              #   Schema-driven form widget (auto-generated UI)
+│   │   ├── bconfigexporter.h            #   Config export (bconsole.conf, client config)
+│   │   ├── bconfigparser.h              #   Config file parser
+│   │   ├── bcolumnconfiguration.h       #   Table column visibility/order settings
+│   │   ├── bincludeoptionsform.h        #   FileSet include options form
+│   │   ├── beditablelistwidget.h        #   Editable list widget (add/remove/reorder)
+│   │   ├── bprofilesettingsdialog.h     #   Connection profile settings dialog
+│   │   ├── bsettings.h                  #   Application settings (QSettings singleton)
+│   │   └── bsettingsdialog.h            #   Settings UI (categorized)
+│   ├── db/                              # SQLite database layer (deprecated)
+│   │   └── bresourcemodel.h             #   Resource model (QSqlTableModel)
+│   ├── director/                        # Director communication
+│   │   ├── bdirector.h                  #   Abstract base — thread-safe command queue
+│   │   ├── bareosdirector.h             #   Bareos JSON-RPC protocol implementation
+│   │   ├── bareosauth.h                 #   CRAM-MD5 / TLS-PSK / X.509 auth
+│   │   ├── bjsonstreamreader.h          #   Streaming JSON parser (large responses)
+│   │   ├── bresourcedialog.h            #   Schema-driven resource edit dialog
+│   │   ├── bresourcewidget.h            #   Resource browser widget
+│   │   └── bresourcewidgets.h           #   Specialized resource edit widgets
+│   ├── jobs/                            # Job management
+│   │   ├── bjobwidget.h                 #   Main job tab (table, filters, stats, log)
+│   │   ├── bjobmodels.h                 #   BJobsModel, BJobsFilterModel, BJobLogModel
+│   │   ├── bjobdetailsdialog.h          #   Job details dialog with BVFS browser
+│   │   ├── bjoblogdialog.h              #   Job log viewer dialog
+│   │   ├── bjobfileswidget.h            #   BVFS file browser widget
+│   │   ├── bjobsstatisticswidget.h      #   Job statistics charts/counters
+│   │   ├── bbvfsmodel.h                 #   BVFS tree model (QAbstractItemModel)
+│   │   ├── brestorewizard.h             #   Restore Wizard (5-page QWizard)
+│   │   ├── bjobwizard.h                 #   Add Job/JobDefs Wizard (WIP)
+│   │   ├── bnewjobdialog.h              #   Run New Job dialog
+│   │   ├── bfilesetwizard.h             #   FileSet creation wizard
+│   │   ├── bjsonjobview.h               #   Raw JSON job data viewer
+│   │   ├── blevelcolors.h               #   Backup level color definitions
+│   │   ├── bviewpresets.h               #   Table view presets (column sets)
+│   │   └── fileset/                     # FileSet sub-components
+│   │       ├── bfilesetdocument.h       #   FileSet document model
+│   │       └── bincludeblockwidget.h    #   Include/Exclude block editor
+│   ├── messages/                        # Messages management
+│   │   └── bmessageswidget.h            #   Messages resource tab
+│   ├── models/                          # Shared data models
+│   │   ├── bbasemodels.h                #   BListModel, BTableModel (base classes)
+│   │   └── bresourcemodels.h            #   BScheduleModel, BJobDurationStats, BFilesetModel, ...
+│   └── schedules/                       # Schedule visualization (WIP)
+│       ├── bschedulewidget.h            #   Schedule tab (left panel + Gantt/Grid views)
+│       ├── bscheduleganttwidget.h       #   Gantt timeline widget (dual FD/SD)
+│       ├── bweeklyplanner.h             #   Compact 7x24 weekly grid view
+│       ├── bschedulewizard.h            #   Schedule Wizard (3-page QWizard)
+│       ├── bscheduledragresultdialog.h  #   Drag result dialog (configure commands)
+│       └── bjobscheduleindex.h          #   Schedule-to-job mapping index
+├── src/                                 # Implementations (.cpp) — mirrors include/
+├── resources/                           # Qt resources (embedded at build time)
+│   ├── directives/                      #   JSON schemas for 13 resource types
+│   ├── templates/filesets/              #   22 FileSet presets
+│   ├── icons/                           #   53 SVG/PNG icons
+│   ├── themes/                          #   QSS stylesheets (dark/light)
+│   ├── translations/                    #   Directive translation files
+│   └── sql/                             #   DB schema + migrations (v1–v5)
+├── translations/                        # Qt Linguist .ts files (6 languages)
+├── test/                                # Tests, test configs, test data generator
+├── external/openssl/                    # OpenSSL 3.x (Git submodule)
+├── wiki/                                # GitHub Wiki (Git submodule)
+├── docs/                                # Technical documentation
+├── build.sh / build.fish                # Linux build scripts
+├── build-windows.ps1                    # Windows build script
+├── CMakeLists.txt                       # Build configuration
+└── CHANGELOG.md / LICENSE / todo.md     # Project docs
 ```
 
 ### Architecture

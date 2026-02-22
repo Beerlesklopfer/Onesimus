@@ -102,12 +102,7 @@ private:
     void drawSchedule(QPainter &painter);
 
     /**
-     * @brief Draws the color legend below the grid
-     */
-    void drawLegend(QPainter &painter);
-
-    /**
-     * @brief Gets color for backup level
+     * @brief Gets color for backup level (from settings)
      */
     QColor getColorForLevel(BackupLevel level, bool hovered = false) const;
 
@@ -125,7 +120,6 @@ private:
     static constexpr int MIN_CELL_HEIGHT = 30;
     static constexpr int HEADER_HEIGHT = 40;
     static constexpr int DAY_LABEL_WIDTH = 100;
-    static constexpr int LEGEND_HEIGHT = 30;
     static constexpr int DAYS = 7;
     static constexpr int HOURS = 24;
 

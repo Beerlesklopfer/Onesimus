@@ -1,4 +1,5 @@
 #include "schedules/bweeklyplanner.h"
+#include "jobs/blevelcolors.h"
 #include "blogging.h"
 #include <QPainter>
 #include <QToolTip>
@@ -17,7 +18,7 @@ BWeeklyPlanner::BWeeklyPlanner(QWidget *parent)
 
     setMouseTracking(true);
     setMinimumSize(DAY_LABEL_WIDTH + HOURS * MIN_CELL_WIDTH + 20,
-                   HEADER_HEIGHT + DAYS * MIN_CELL_HEIGHT + LEGEND_HEIGHT + 20);
+                   HEADER_HEIGHT + DAYS * MIN_CELL_HEIGHT + 20);
 }
 
 BWeeklyPlanner::~BWeeklyPlanner()
@@ -28,7 +29,7 @@ QSize BWeeklyPlanner::sizeHint() const
 {
     return QSize(
         DAY_LABEL_WIDTH + (HOURS * MIN_CELL_WIDTH) + 20,
-        HEADER_HEIGHT + (DAYS * MIN_CELL_HEIGHT) + LEGEND_HEIGHT + 20
+        HEADER_HEIGHT + (DAYS * MIN_CELL_HEIGHT) + 20
     );
 }
 
@@ -40,7 +41,7 @@ int BWeeklyPlanner::cellWidth() const
 
 int BWeeklyPlanner::cellHeight() const
 {
-    int available = height() - HEADER_HEIGHT - LEGEND_HEIGHT - 10;
+    int available = height() - HEADER_HEIGHT - 10;
     return qMax(MIN_CELL_HEIGHT, available / DAYS);
 }
 
@@ -277,17 +278,20 @@ QVector<int> BWeeklyPlanner::extractDays(const QString &scheduleRun) const
 
 QColor BWeeklyPlanner::getColorForLevel(BackupLevel level, bool hovered) const
 {
+    QString code;
     switch (level) {
-        case LEVEL_FULL:
-            return hovered ? QColor(60, 180, 75, 200) : QColor(40, 140, 55);  // Green
-        case LEVEL_DIFFERENTIAL:
-            return hovered ? QColor(255, 165, 0, 200) : QColor(220, 130, 0);  // Orange
-        case LEVEL_INCREMENTAL:
-            return hovered ? QColor(100, 150, 255) : QColor(50, 100, 200);  // Blue
+        case LEVEL_FULL:         code = "F"; break;
+        case LEVEL_DIFFERENTIAL: code = "D"; break;
+        case LEVEL_INCREMENTAL:  code = "I"; break;
         case LEVEL_NONE:
         default:
             return Qt::transparent;
     }
+
+    QColor base = BLevelColors::getLevelColor(code);
+    if (hovered)
+        return base.lighter(130);
+    return base;
 }
 
 void BWeeklyPlanner::paintEvent(QPaintEvent *event)
@@ -299,7 +303,6 @@ void BWeeklyPlanner::paintEvent(QPaintEvent *event)
 
     drawGrid(painter);
     drawSchedule(painter);
-    drawLegend(painter);
 }
 
 void BWeeklyPlanner::drawGrid(QPainter &painter)
@@ -379,49 +382,6 @@ void BWeeklyPlanner::drawSchedule(QPainter &painter)
             }
         }
     }
-}
-
-void BWeeklyPlanner::drawLegend(QPainter &painter)
-{
-    int ch = cellHeight();
-    int legendY = HEADER_HEIGHT + DAYS * ch + 10;
-    int x = DAY_LABEL_WIDTH;
-    int boxSize = 16;
-    int spacing = 20;
-
-    struct LegendItem {
-        BackupLevel level;
-        QString label;
-    };
-
-    QVector<LegendItem> items = {
-        { LEVEL_FULL, tr("Full") },
-        { LEVEL_DIFFERENTIAL, tr("Differential") },
-        { LEVEL_INCREMENTAL, tr("Incremental") }
-    };
-
-    painter.save();
-    QFont font = painter.font();
-    font.setPointSize(9);
-    painter.setFont(font);
-    QFontMetrics fm(font);
-
-    for (const auto &item : items) {
-        QRect colorBox(x, legendY + (LEGEND_HEIGHT - boxSize) / 2 - 5, boxSize, boxSize);
-        painter.fillRect(colorBox, getColorForLevel(item.level));
-        painter.setPen(Qt::gray);
-        painter.drawRect(colorBox);
-
-        int textX = x + boxSize + 4;
-        int textWidth = fm.horizontalAdvance(item.label);
-        QRect textRect(textX, legendY - 5, textWidth, LEGEND_HEIGHT);
-        painter.setPen(Qt::black);
-        painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, item.label);
-
-        x = textX + textWidth + spacing;
-    }
-
-    painter.restore();
 }
 
 QRect BWeeklyPlanner::getCellRect(int day, int hour) const

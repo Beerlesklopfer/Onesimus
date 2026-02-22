@@ -9,6 +9,7 @@
 #include "jobs/bfilesetwizard.h"
 #include "jobs/bjobwizard.h"
 #include "schedules/bschedulewizard.h"
+#include "config/bdirectiveschema.h"
 #include "director/bresourcedialog.h"
 #include "director/bresourcewidgets.h"
 #include "models/bresourcemodels.h"
@@ -952,6 +953,7 @@ void BMainWindow::createActions()
     m_addScheduleAction->setShortcut(QKeySequence("Ctrl+Shift+S"));
     m_addScheduleAction->setEnabled(false);
     connect(m_addScheduleAction, &QAction::triggered, this, [this]() {
+        BDirectiveSchema::instance().loadSchemas();
         BScheduleWizard wizard(m_director, this);
         QMap<QString, QStringList> refData;
         refData["Pool"] = m_jobWidget->poolNames();
