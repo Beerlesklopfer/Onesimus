@@ -26,9 +26,15 @@
 | 4 | **What happens if I change retention?** | Retention analysis & what-if simulation | Enterprise |
 | 5 | **Which volumes can I recycle?** | Smart recycling recommendations | Pro |
 
-Onesimus is a native Qt6 desktop application that connects directly to your Bareos Director via the bconsole protocol — no web server, no PHP, no additional infrastructure.
+Onesimus is a native Qt6 desktop application that connects directly to your Bareos Director via the bconsole protocol.
 
-**Why not Bareos WebUI?** The [Bareos WebUI](https://docs.bareos.org/IntroductionAndTutorial/BareosWebui.html) is a PHP web application that requires Apache/Nginx, PHP-FPM, and runs on the server. Onesimus runs on your workstation and connects directly to the Director — like bconsole, but visual. No server-side deployment, no browser, no session management. Install it, enter your Director credentials, and you're connected. It's designed for admins who want a desktop tool that works offline, starts instantly, and doesn't add attack surface to the backup server.
+### 🖥️ Desktop-Native — No Server Required
+
+Unlike the [Bareos WebUI](https://docs.bareos.org/IntroductionAndTutorial/BareosWebui.html) (PHP, Apache/Nginx, server-side), Onesimus runs on **your workstation**. No web server, no PHP, no browser, no session management. Install it, enter your Director credentials, done. It starts instantly, works offline, and doesn't add attack surface to the backup server.
+
+### 🔒 Native Bareos API — No Direct SQL
+
+Onesimus **never accesses the database directly**. No SQL queries, no direct catalog access. All data flows through the native **Bareos JSON-RPC API** — the same protocol bconsole uses. Every action passes through the Director's **ACL checks and audit trail**. Onesimus can't bypass permissions, and everything it does is logged.
 
 > **Alpha Notice:** This project is under active development. Not suitable for production use. Features may change. Use at your own risk. See [Disclaimer](https://onesimus.io/legal/disclaimer/). Current development: [`development` branch](https://github.com/Beerlesklopfer/Onesimus/tree/development).
 
