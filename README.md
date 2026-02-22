@@ -495,7 +495,19 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - ✅ Configure success detection fix for Bareos JSON API
 - ✅ Build number auto-increment system (triplet.build versioning)
 
-### v1.1.0 (January 2026)
+### v0.0.1 (January 2026)
+- ✅ Renamed to "Onesimus"
+- ✅ Internationalization (i18n): 6 languages with automatic language detection
+- ✅ Bareos support with JSON-RPC added
+- ✅ CMake backup system selection (Bacula/Bareos/Both)
+- ✅ Job Management: Overview, filters, statistics, export
+- ✅ Client Management: Status overview, details
+- ✅ Storage Management: Pools, volumes, devices
+- ✅ Schedule Management: Schedule overview
+- ✅ Settings dialog with Industrial Dark design
+- ✅ MVC architecture with reusable models
+- ✅ Static OpenSSL 3.6 via Git submodule
+- ✅ Cross-platform build scripts (Windows/Linux/macOS)
 - ✅ BVFS File Browser in Job Details Dialog
   - Toggle "Current Job" / "All Related Jobs" mode
   - Windows Explorer-style directory tree and file list
@@ -510,23 +522,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - ✅ Test data generator for Bareos database
 - ✅ Complete German translation
 - ✅ Enhanced status bar with configurable colors
-- ✅ Improved wizard data persistence
 - ✅ Better debug logging with component prefixes
-
-### v1.0.0 (January 2026)
-- ✅ Renamed to "Onesimus"
-- ✅ Internationalization (i18n): 6 languages with automatic language detection
-- ✅ Bareos support with JSON-RPC added
-- ✅ CMake backup system selection (Bacula/Bareos/Both)
-- ✅ Job Management: Overview, filters, statistics, export
-- ✅ Client Management: Status overview, details
-- ✅ Storage Management: Pools, volumes, devices
-- ✅ Schedule Management: Schedule overview
-- ✅ Settings dialog with Industrial Dark design
-- ✅ MVC architecture with reusable models
-- ✅ Static OpenSSL 3.6 via Git submodule
-- ✅ Cross-platform build scripts (Windows/Linux/macOS)
-- ✅ Comprehensive documentation
 
 ### Roadmap
 
@@ -546,13 +542,13 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 - 🔜 Schedule conflict detection & backup window optimization
 
 **Enterprise** — Scale across infrastructure:
-- 🔜 Multi-Director support
+- 🔜 Multi-Director support *(may move to Pro)*
 - 🔜 Capacity planning
 - 🔜 Retention analysis & what-if simulation
-- 🔜 RBAC, LDAP/AD integration
+- 🔜 RBAC, LDAP/AD integration *(depends on Bareos team upstream support)*
 
 ---
 
 <p align="center">
-  Made with ❤️ using Qt6 and C++17
+  Made with ❤️ using Qt6 and C++17 <a href="https://onesimus.io/about/">to praise my Lord</a>
 </p>
