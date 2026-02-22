@@ -463,7 +463,7 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 
 Onesimus is built by one developer in spare time. If it saves you hours of `bconsole` work, consider buying me a coffee:
 
-**PayPal:** [Joerg.Bernau@web.de](https://www.paypal.com/paypalme/JoergBernau)
+**PayPal:** [Donate via PayPal Pool](https://www.paypal.com/pool/9mSSenuhxX?sr=wccr)
 
 Every contribution helps keep development going — and shows that open source backup tooling matters.
 

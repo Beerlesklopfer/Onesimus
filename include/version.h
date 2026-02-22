@@ -8,16 +8,16 @@
 #define PROJECT_NAME           "onesimus"
 
 // Build information
-#define BUILD_NUMBER           451
+#define BUILD_NUMBER           457
 #define BUILD_DATE             "2026-02-22"
-#define BUILD_TIME             "01:05:13"
-#define BUILD_TIMESTAMP        "2026-02-22 01:05:13"
-#define GIT_COMMIT_HASH        "12ad9ec"
+#define BUILD_TIME             "17:33:08"
+#define BUILD_TIMESTAMP        "2026-02-22 17:33:08"
+#define GIT_COMMIT_HASH        "c4d3d68"
 #define GIT_BRANCH             "development"
-#define GIT_DESCRIBE           "12ad9ec-dirty"
+#define GIT_DESCRIBE           "c4d3d68-dirty"
 
 // Full version string with build number
-#define VERSION_FULL           "0.2.0.451"
+#define VERSION_FULL           "0.2.0.457"
 
 // Release date
 #define BDATE                  "2026.02"
@@ -30,7 +30,7 @@
 #define DISTVER                "13"
 
 // Build configuration
-#define BUILD_TYPE             "Debug"
+#define BUILD_TYPE             "Release"
 #define COMPILER_ID            "GNU"
 #define COMPILER_VERSION       "14.2.0"
 
