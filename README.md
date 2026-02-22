@@ -20,9 +20,9 @@
 
 | # | Question | Answer | Tier |
 |---|----------|--------|------|
-| 1 | **Where does my storage go?** | Pool overview & visualization | Community (free) |
+| 1 | **Where does my storage go?** | Pool overview & visualization | Pro |
 | 2 | **When will the pool be full?** | Growth trends & capacity forecasts | Pro |
-| 3 | **Which jobs/clients consume the most?** | Storage consumption per job & client | Community (free) |
+| 3 | **Which jobs/clients consume the most?** | Storage consumption per job & client | Pro |
 | 4 | **What happens if I change retention?** | Retention analysis & what-if simulation | Enterprise |
 | 5 | **Which volumes can I recycle?** | Smart recycling recommendations | Pro |
 
@@ -63,10 +63,10 @@ Onesimus is a native Qt6 desktop application that connects directly to your Bare
 - ~~**Client Details Dialog:** Full client information~~ *(not yet implemented)*
 - **Filtering:** Filter clients by status and name
 
-### 🗄️ Pool & Storage — *"Where does my storage go?"*
-- **Pool Overview:** Visual pool overview with volume status
-- **Storage per Job/Client:** See exactly which jobs and clients consume storage
-- **Volume Management:** Pools, volumes, media status, capacity per pool
+### 🗄️ Pool & Storage *(v0.3.0 — planned)*
+- **Pool Overview:** Visual pool overview with volume status *(planned)*
+- **Storage per Job/Client:** See exactly which jobs and clients consume storage *(planned)*
+- **Volume Management:** Pools, volumes, media status, capacity per pool *(planned)*
 - **Storage Daemons:** Device status and availability
 - ~~**Volume Operations:** Label, mount, unmount~~ *(not yet implemented)*
 
@@ -530,16 +530,19 @@ This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for 
 
 ### Roadmap
 
-**Community (free, MIT)** — See what IS:
-- ✅ Pool overview & visualization
-- ✅ Storage consumption per job/client
+**Community (free, MIT)** — Modern management interface:
+- ✅ Job, Client & Schedule management
 - ✅ Gantt timeline & weekly planner
+- ✅ Restore wizard with BVFS file browser
 - 🚧 Job/JobDefs Wizard (WIP)
+- 🔜 Pool management (v0.3.0)
 - 🔜 Live job monitoring, volume operations
 
-**Pro** — See what COULD BE:
-- 🔜 Storage growth trends & capacity forecasts
-- 🔜 Optimization suggestions & volume recycling recommendations
+**Pro** — Storage intelligence:
+- 🔜 Pool overview & storage visualization
+- 🔜 Storage consumption per job/client
+- 🔜 Growth trends & capacity forecasts
+- 🔜 Volume recycle recommendations
 - 🔜 Schedule conflict detection & backup window optimization
 
 **Enterprise** — Scale across infrastructure:
