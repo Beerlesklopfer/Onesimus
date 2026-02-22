@@ -26,7 +26,9 @@
 | 4 | **What happens if I change retention?** | Retention analysis & what-if simulation | Enterprise |
 | 5 | **Which volumes can I recycle?** | Smart recycling recommendations | Pro |
 
-Onesimus is a native Qt6 desktop application that connects directly to your Bareos Director. It replaces bconsole terminal workflows with a visual interface that gives you immediate answers — no scripting, no spreadsheets, no guesswork.
+Onesimus is a native Qt6 desktop application that connects directly to your Bareos Director via the bconsole protocol — no web server, no PHP, no additional infrastructure.
+
+**Why not Bareos WebUI?** The [Bareos WebUI](https://docs.bareos.org/IntroductionAndTutorial/BareosWebui.html) is a PHP web application that requires Apache/Nginx, PHP-FPM, and runs on the server. Onesimus runs on your workstation and connects directly to the Director — like bconsole, but visual. No server-side deployment, no browser, no session management. Install it, enter your Director credentials, and you're connected. It's designed for admins who want a desktop tool that works offline, starts instantly, and doesn't add attack surface to the backup server.
 
 > **Alpha Notice:** This project is under active development. Not suitable for production use. Features may change. Use at your own risk. See [Disclaimer](https://onesimus.io/legal/disclaimer/). Current development: [`development` branch](https://github.com/Beerlesklopfer/Onesimus/tree/development).
 
