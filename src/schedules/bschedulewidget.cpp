@@ -648,6 +648,13 @@ void BScheduleWidget::onDayViewModeChanged(int index)
     m_fdGanttWidget->setViewMode(mode);
     m_sdGanttWidget->setViewMode(mode);
 
+    // Apply current zoom value immediately when entering week mode so that
+    // m_zoomMinPph is set correctly and scrollbars appear right away.
+    if (mode == BScheduleGanttWidget::WeekView) {
+        m_fdGanttWidget->setZoomLevel(m_zoomSlider->value());
+        m_sdGanttWidget->setZoomLevel(m_zoomSlider->value());
+    }
+
     m_prevDayButton->setEnabled(index == 0);
     m_nextDayButton->setEnabled(index == 0);
 

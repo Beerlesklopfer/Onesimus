@@ -133,6 +133,15 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
         }
     }
 
+    // Foreground color: contrast against level background
+    if (role == Qt::ForegroundRole) {
+        QString level = job["level"].toString();
+        QColor levelColor = BLevelColors::getLevelColor(level);
+        if (levelColor.isValid()) {
+            return QBrush(BLevelColors::contrastColor(levelColor));
+        }
+    }
+
     // Tooltip
     if (role == Qt::ToolTipRole) {
         QString status = job["jobstatus"].toString();

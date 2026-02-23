@@ -528,19 +528,6 @@ void BSettingsDialog::createAppearancePage()
     titleLabel->setObjectName("pageTitle");
     layout->addWidget(titleLabel);
 
-    // Theme
-    QGroupBox *themeGroup = new QGroupBox(tr("Color Scheme"));
-    themeGroup->setObjectName("settingsGroup");
-    QFormLayout *themeLayout = new QFormLayout(themeGroup);
-
-    m_themeCombo = new QComboBox();
-    m_themeCombo->addItem(tr("🌙 Dark (Industrial)"), "dark");
-    m_themeCombo->addItem(tr("☀️ Light"), "light");
-    m_themeCombo->addItem(tr("🖥️ System"), "system");
-    themeLayout->addRow(tr("Theme:"), m_themeCombo);
-
-    layout->addWidget(themeGroup);
-
     // Font
     QGroupBox *fontGroup = new QGroupBox(tr("Font Size"));
     fontGroup->setObjectName("settingsGroup");
@@ -1143,9 +1130,6 @@ void BSettingsDialog::loadSettings()
     m_connectionTimeoutSpin->setValue(settings.connectionTimeout());
 
     // Appearance
-    QString theme = settings.appearanceTheme();
-    int themeIndex = m_themeCombo->findData(theme);
-    if (themeIndex >= 0) m_themeCombo->setCurrentIndex(themeIndex);
     m_fontSizeSpin->setValue(settings.appearanceFontSize());
     m_animationsCheck->setChecked(settings.appearanceAnimations());
     m_compactModeCheck->setChecked(settings.appearanceCompactMode());
@@ -1247,7 +1231,6 @@ void BSettingsDialog::saveSettings()
     settings.setConnectionTimeout(m_connectionTimeoutSpin->value());
 
     // Appearance
-    settings.setAppearanceTheme(m_themeCombo->currentData().toString());
     settings.setAppearanceFontSize(m_fontSizeSpin->value());
     settings.setAppearanceAnimations(m_animationsCheck->isChecked());
     settings.setAppearanceCompactMode(m_compactModeCheck->isChecked());

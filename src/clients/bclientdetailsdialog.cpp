@@ -367,11 +367,7 @@ void BClientDetailsDialog::setupInfoTab()
     }
 
     m_statusLabel = new QLabel(statusText);
-    if (statusText.contains("Online")) {
-        m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
-    } else {
-        m_statusLabel->setStyleSheet("color: gray;");
-    }
+    m_statusLabel->setProperty("state", statusText.contains("Online") ? "success" : "muted");
 
     connForm->addRow(tr("Status:"), m_statusLabel);
     connForm->addRow(tr("Last Connection:"), m_lastConnLabel);

@@ -22,6 +22,7 @@
 #include "director/bconfigimportdialog.h"
 #include "db/bdatabase.h"
 #include "config/bsettings.h"
+#include "jobs/blevelcolors.h"
 #include "bconnectionprofile.h"
 #include "version.h"
 
@@ -458,6 +459,7 @@ void BMainWindow::applyTheme(const QString &themeName)
     QFile themeFile(themePath);
     if (themeFile.open(QFile::ReadOnly | QFile::Text)) {
         QString stylesheet = QLatin1String(themeFile.readAll());
+        stylesheet += "\n" + BLevelColors::generateLevelQss();
         qApp->setStyleSheet(stylesheet);
         themeFile.close();
 

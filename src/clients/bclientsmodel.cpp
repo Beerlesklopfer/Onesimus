@@ -1,4 +1,5 @@
 #include "clients/bclientsmodel.h"
+#include "jobs/blevelcolors.h"
 #include <QBrush>
 #include <QColor>
 #include <QDateTime>
@@ -155,6 +156,11 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
     // Background color for status column
     if (role == Qt::BackgroundRole && index.column() == COL_STATUS) {
         return QBrush(getStatusColor(getClientStatus(client)));
+    }
+
+    // Foreground: contrast text on the status background
+    if (role == Qt::ForegroundRole && index.column() == COL_STATUS) {
+        return QBrush(BLevelColors::contrastColor(getStatusColor(getClientStatus(client))));
     }
 
     // Text alignment

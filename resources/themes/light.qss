@@ -4,6 +4,9 @@
 QWidget {
     background-color: #ffffff;
     color: #000000;
+    alternate-background-color: #f0f0f0;
+    selection-background-color: #0078d4;
+    selection-color: #ffffff;
     font-family: "Segoe UI", "Ubuntu", sans-serif;
     font-size: 10pt;
 }
@@ -448,4 +451,50 @@ QStatusBar QLabel#connectionLabel[connected="false"] {
 QStatusBar QLabel#statusLabel {
     color: #ffffff;
     padding: 2px 8px;
+}
+
+/* ============================================================
+   Semantic state labels  (set via setProperty("state", "..."))
+   ============================================================ */
+QLabel[state="success"] { color: green; font-weight: bold; }
+QLabel[state="info"]    { color: green; }
+QLabel[state="warning"] { color: darkorange; font-weight: bold; }
+QLabel[state="error"]   { color: red; }
+QLabel[state="muted"]   { color: gray; }
+
+/* Hint / instructional text in dialogs */
+QLabel#hintLabel {
+    color: gray;
+    font-style: italic;
+    margin-top: 16px;
+}
+
+/* Monospace hash / fingerprint display */
+QLabel#md5HashLabel {
+    color: gray;
+    font-family: monospace;
+    font-size: 10px;
+}
+
+/* Client statistics bar */
+QLabel#clientStatsBoldLabel { font-weight: bold; }
+QLabel#clientOnlineLabel    { font-weight: bold; color: green; }
+QLabel#clientOnlineValue    { color: green; }
+QLabel#clientOfflineLabel   { font-weight: bold; color: gray; }
+QLabel#clientOfflineValue   { color: gray; }
+
+/* Level Filter Checkboxes
+   background-color / color are appended dynamically by applyTheme()
+   via BLevelColors::generateLevelQss() using QCheckBox[level="X"] selectors. */
+QCheckBox[level] {
+    padding: 3px;
+    border-radius: 3px;
+}
+
+/* ============================================================
+   Gantt / Schedule Timeline Widget
+   Custom-painted; inherits palette roles from global QWidget rule.
+   ============================================================ */
+BScheduleGanttWidget {
+    border: none;
 }

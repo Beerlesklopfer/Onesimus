@@ -941,19 +941,10 @@ void BJobWidget::processDotLevelsResponse(const QString &jsonData)
         QString checkboxText = QString("%1 (%2)").arg(levelName).arg(levelCode);
         QCheckBox *checkbox = new QCheckBox(checkboxText, this);
 
-        // Apply background color based on level
-        QColor levelColor = BLevelColors::getLevelColor(levelCode);
-        if (levelColor.isValid()) {
-            // Create a stylesheet with the level color as background
-            QString styleSheet = QString(
-                "QCheckBox { "
-                "  background-color: rgb(%1, %2, %3); "
-                "  padding: 3px; "
-                "  border-radius: 3px; "
-                "}"
-            ).arg(levelColor.red()).arg(levelColor.green()).arg(levelColor.blue());
-            checkbox->setStyleSheet(styleSheet);
-        }
+        // Tag the checkbox so QCheckBox[level="X"] rules in the global stylesheet apply.
+        // Colors are generated dynamically by BLevelColors::generateLevelQss() and
+        // appended to the stylesheet in applyTheme(); no inline setStyleSheet() needed.
+        checkbox->setProperty("level", levelCode);
 
         // Restore state from settings (default to checked)
         QString checkboxKey = QString("level_%1").arg(levelCode);

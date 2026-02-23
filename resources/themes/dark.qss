@@ -4,6 +4,9 @@
 QWidget {
     background-color: #1e1e1e;
     color: #d4d4d4;
+    alternate-background-color: #252526;
+    selection-background-color: #094771;
+    selection-color: #ffffff;
     font-family: "Segoe UI", "Ubuntu", sans-serif;
     font-size: 10pt;
 }
@@ -440,4 +443,51 @@ QStatusBar QLabel#connectionLabel[connected="false"] {
 QStatusBar QLabel#statusLabel {
     color: #ffffff;
     padding: 2px 8px;
+}
+
+/* ============================================================
+   Semantic state labels  (set via setProperty("state", "..."))
+   ============================================================ */
+QLabel[state="success"] { color: #6af06a; font-weight: bold; }
+QLabel[state="info"]    { color: #6af06a; }
+QLabel[state="warning"] { color: orange; font-weight: bold; }
+QLabel[state="error"]   { color: #ff6b6b; }
+QLabel[state="muted"]   { color: #888888; }
+
+/* Hint / instructional text in dialogs */
+QLabel#hintLabel {
+    color: #888888;
+    font-style: italic;
+    margin-top: 16px;
+}
+
+/* Monospace hash / fingerprint display */
+QLabel#md5HashLabel {
+    color: #888888;
+    font-family: monospace;
+    font-size: 10px;
+}
+
+/* Client statistics bar */
+QLabel#clientStatsBoldLabel { font-weight: bold; }
+QLabel#clientOnlineLabel    { font-weight: bold; color: #6af06a; }
+QLabel#clientOnlineValue    { color: #6af06a; }
+QLabel#clientOfflineLabel   { font-weight: bold; color: #888888; }
+QLabel#clientOfflineValue   { color: #888888; }
+
+/* Level Filter Checkboxes
+   background-color / color are appended dynamically by applyTheme()
+   via BLevelColors::generateLevelQss() using QCheckBox[level="X"] selectors. */
+QCheckBox[level] {
+    padding: 3px;
+    border-radius: 3px;
+}
+
+/* ============================================================
+   Gantt / Schedule Timeline Widget
+   Custom-painted; inherits palette roles from global QWidget rule.
+   Override here only if the Gantt needs values different from the theme defaults.
+   ============================================================ */
+BScheduleGanttWidget {
+    border: none;
 }

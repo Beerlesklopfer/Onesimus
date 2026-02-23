@@ -2,6 +2,7 @@
 #include "jobs/blevelcolors.h"
 #include "blogging.h"
 #include <QPainter>
+#include <QStyleOption>
 #include <QToolTip>
 #include <QDateTime>
 #include <QWheelEvent>
@@ -12,6 +13,8 @@ BScheduleGanttWidget::BScheduleGanttWidget(QWidget *parent)
     : QWidget(parent)
     , m_nowTimer(new QTimer(this))
 {
+    // Allow QSS to control background-color and other palette roles
+    setAttribute(Qt::WA_StyledBackground, true);
     setMouseTracking(true);
 
     // Update now-marker every minute
@@ -298,8 +301,10 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    // Background
-    painter.fillRect(rect(), palette().window());
+    // Background — drawn via style engine so QSS background-color is honored
+    QStyleOption opt;
+    opt.initFrom(this);
+    style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
 
     // Time header
     drawTimeHeader(painter);
@@ -348,6 +353,13 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
     font.setBold(true);
     painter.setFont(font);
 
+    // Derive palette-based colors for the header
+    QColor hlBase = palette().highlight().color();
+    QColor hlTintEven = hlBase; hlTintEven.setAlpha(40);
+    QColor hlTintOdd  = hlBase; hlTintOdd.setAlpha(20);
+    QColor hlTintDay  = hlBase; hlTintDay.setAlpha(30);
+    QColor hlSep      = hlBase; hlSep.setAlpha(100);
+
     if (m_viewMode == WeekView) {
         // Week: one label per day spanning 24 hours
         for (int d = 0; d < 7; ++d) {
@@ -356,30 +368,24 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
             int dayWidth = x2 - x1;
 
             // Alternating day background in row 1
-            if (d % 2 == 0) {
-                painter.fillRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT,
-                                 QColor(70, 130, 180, 40));  // steel blue tint
-            } else {
-                painter.fillRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT,
-                                 QColor(70, 130, 180, 20));
-            }
+            painter.fillRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT,
+                             (d % 2 == 0) ? hlTintEven : hlTintOdd);
 
             // Day name — use abbreviation if too narrow
             QString label = (dayWidth > 80) ? dayNames[d] : dayAbbrev[d];
-            painter.setPen(QColor(30, 80, 140));  // dark blue
+            painter.setPen(palette().text().color());
             QRect textRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT);
             painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, label);
 
             // Vertical separator between days
-            painter.setPen(QPen(QColor(70, 130, 180, 100), 1));
+            painter.setPen(QPen(hlSep, 1));
             painter.drawLine(x1, 0, x1, HEADER_ROW1_HEIGHT);
         }
     } else {
         // Day mode: single day name centered
         int dayIdx = qBound(0, m_currentDay, 6);
-        painter.fillRect(LABEL_WIDTH, 0, width() - LABEL_WIDTH, HEADER_ROW1_HEIGHT,
-                         QColor(70, 130, 180, 30));
-        painter.setPen(QColor(30, 80, 140));
+        painter.fillRect(LABEL_WIDTH, 0, width() - LABEL_WIDTH, HEADER_ROW1_HEIGHT, hlTintDay);
+        painter.setPen(palette().text().color());
         QRect textRect(LABEL_WIDTH, 0, contentWidth(), HEADER_ROW1_HEIGHT);
         painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, dayNames[dayIdx]);
     }
@@ -481,9 +487,10 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
             font.setBold(false);
             painter.setFont(font);
 
-            // Group header background
-            painter.fillRect(LABEL_WIDTH, y, contentWidth(), ROW_HEIGHT,
-                             QColor(0, 0, 0, 15));
+            // Group header background — palette-derived tint, works in dark and light
+            QColor groupTint = palette().highlight().color();
+            groupTint.setAlpha(20);
+            painter.fillRect(LABEL_WIDTH, y, contentWidth(), ROW_HEIGHT, groupTint);
         } else {
             painter.setPen(palette().text().color());
             painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, row.label);
@@ -623,7 +630,8 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
         QColor color;
 
         if (count == 0) {
-            color = QColor(220, 220, 220, 80);  // Light gray
+            color = palette().mid().color();
+            color.setAlpha(80);
         } else if (count <= 1) {
             color = QColor(76, 175, 80, 150);    // Green
         } else if (count <= 3) {
@@ -1263,7 +1271,8 @@ void BScheduleGanttWidget::drawDragOverlay(QPainter &painter)
 
     // --- 4. Snap line: vertical dotted line at snap position ---
     int snapX = timeToX(m_dragDayOffset * 24 + m_dragNewHour, m_dragNewMinute);
-    QPen snapPen(QColor(100, 100, 100, 120), 1, Qt::DotLine);
+    QColor snapColor = palette().mid().color(); snapColor.setAlpha(150);
+    QPen snapPen(snapColor, 1, Qt::DotLine);
     painter.setPen(snapPen);
     painter.drawLine(snapX, HEADER_HEIGHT, snapX, HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT);
 

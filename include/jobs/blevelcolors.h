@@ -55,6 +55,46 @@ public:
 
         return level;
     }
+
+    /**
+     * @brief Returns black or white depending on background luminance
+     * @param bg The background color
+     * @return QColor(Qt::black) for light backgrounds, QColor(Qt::white) for dark ones
+     */
+    static QColor contrastColor(const QColor &bg)
+    {
+        double lum = 0.299 * bg.red() + 0.587 * bg.green() + 0.114 * bg.blue();
+        return (lum > 140.0) ? QColor(Qt::black) : QColor(Qt::white);
+    }
+
+    /**
+     * @brief Generates QSS rules for QCheckBox[level="X"] selectors
+     *
+     * Called by applyTheme() and appended to the global stylesheet so that
+     * level-filter checkboxes pick up the correct background/foreground colors
+     * from BSettings without any inline setStyleSheet() in widget code.
+     *
+     * @return QSS string with one rule per known backup level
+     */
+    static QString generateLevelQss()
+    {
+        const QStringList levels = {"F", "I", "D", "V"};
+        QString qss;
+        for (const QString &level : levels) {
+            QColor bg = BSettings::instance().levelColor(level);
+            if (!bg.isValid()) continue;
+            QColor fg = contrastColor(bg);
+            qss += QString(
+                "QCheckBox[level=\"%1\"] {"
+                " background-color: rgb(%2,%3,%4);"
+                " color: rgb(%5,%6,%7);"
+                " }\n"
+            ).arg(level)
+             .arg(bg.red()).arg(bg.green()).arg(bg.blue())
+             .arg(fg.red()).arg(fg.green()).arg(fg.blue());
+        }
+        return qss;
+    }
 };
 
 #endif // BLEVELCOLORS_H

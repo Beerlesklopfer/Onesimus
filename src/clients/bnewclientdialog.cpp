@@ -27,6 +27,16 @@
 
 #define CLIENT_DEBUG BLOG_DEBUG()
 
+// Helper: set a semantic state property on a label and re-polish so QSS picks it up.
+// Pass an empty string to revert to the default (theme-defined) label style.
+static void setLabelState(QLabel *label, const QString &state)
+{
+    label->setProperty("state", state.isEmpty() ? QVariant{} : QVariant{state});
+    label->style()->unpolish(label);
+    label->style()->polish(label);
+    label->update();
+}
+
 // ============================================================================
 // BNewClientWizard
 // ============================================================================
@@ -102,7 +112,7 @@ BNewClientDirectorPage::BNewClientDirectorPage(QWidget *parent)
            "The client authenticates against this Director using a shared password."),
         this);
     hint->setWordWrap(true);
-    hint->setStyleSheet("color: gray; font-style: italic; margin-top: 16px;");
+    hint->setObjectName("hintLabel");
     layout->addRow(hint);
 }
 
@@ -216,7 +226,7 @@ BNewClientSettingsPage::BNewClientSettingsPage(QWidget *parent)
     basicLayout->addRow(tr("Password:"), pwdLayout);
 
     m_md5Label = new QLabel(this);
-    m_md5Label->setStyleSheet("color: gray; font-family: monospace; font-size: 10px;");
+    m_md5Label->setObjectName("md5HashLabel");
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
     basicLayout->addRow(tr("MD5 Hash:"), m_md5Label);
 
@@ -573,7 +583,7 @@ void BNewClientPreviewPage::initializePage()
     m_waitingForReload = false;
     m_timeoutTimer->stop();
     m_statusLabel->clear();
-    m_statusLabel->setStyleSheet("");
+    setLabelState(m_statusLabel, "");
     m_progressBar->setVisible(false);
 
     // Show/hide Director Command preview based on execute checkbox
@@ -788,7 +798,7 @@ void BNewClientPreviewPage::validateConfigs()
     // Display validation results
     if (d.validationErrors.isEmpty() && d.validationWarnings.isEmpty()) {
         m_validationLabel->setText(tr("Validation passed."));
-        m_validationLabel->setStyleSheet("color: green; font-weight: bold;");
+        setLabelState(m_validationLabel, "success");
     } else {
         QString text;
         for (const QString &e : d.validationErrors) {
@@ -881,7 +891,7 @@ void BNewClientPreviewPage::onCopyCurrentTab()
     if (!text.isEmpty()) {
         QApplication::clipboard()->setText(text);
         m_statusLabel->setText(tr("Copied '%1' to clipboard.").arg(m_tabWidget->tabText(idx)));
-        m_statusLabel->setStyleSheet("color: green;");
+        setLabelState(m_statusLabel, "info");
     }
 }
 
@@ -1020,7 +1030,7 @@ void BNewClientPreviewPage::executeConfigureCommand()
     auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
     if (!wiz || !wiz->director() || !wiz->director()->isConnected()) {
         m_statusLabel->setText(tr("ERROR: No director connection available."));
-        m_statusLabel->setStyleSheet("color: red;");
+        setLabelState(m_statusLabel, "error");
         return;
     }
 
@@ -1029,7 +1039,7 @@ void BNewClientPreviewPage::executeConfigureCommand()
 
     m_progressBar->setVisible(true);
     m_statusLabel->setText(tr("Sending configure command..."));
-    m_statusLabel->setStyleSheet("");
+    setLabelState(m_statusLabel, "");
 
     connect(wiz->director(), &BDirector::jsonResult,
             this, &BNewClientPreviewPage::onJsonResponse);
@@ -1080,7 +1090,7 @@ void BNewClientPreviewPage::onJsonResponse(BDirector::Command cmd, const QString
                 tr("Client '%1' added and Director reloaded successfully.\n"
                    "Deploy the FD config files to the client machine and restart bareos-fd.")
                     .arg(clientName));
-            m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
+            setLabelState(m_statusLabel, "success");
         } else {
             CLIENT_DEBUG << "Director reload FAILED";
             m_statusLabel->setText(
@@ -1088,7 +1098,7 @@ void BNewClientPreviewPage::onJsonResponse(BDirector::Command cmd, const QString
                    "Run 'reload' manually on the Director or restart bareos-dir.\n"
                    "Deploy the FD config files to the client machine and restart bareos-fd.")
                     .arg(clientName));
-            m_statusLabel->setStyleSheet("color: orange; font-weight: bold;");
+            setLabelState(m_statusLabel, "warning");
         }
         return;
     }
@@ -1128,7 +1138,7 @@ void BNewClientPreviewPage::onJsonResponse(BDirector::Command cmd, const QString
             m_statusLabel->setText(
                 tr("Client '%1' added to Director. Reloading Director...")
                     .arg(wiz->data().clientName));
-            m_statusLabel->setStyleSheet("color: green;");
+            setLabelState(m_statusLabel, "info");
         } else {
             m_progressBar->setVisible(false);
             // Disconnect signals — no reload possible
@@ -1142,7 +1152,7 @@ void BNewClientPreviewPage::onJsonResponse(BDirector::Command cmd, const QString
                 tr("Client '%1' added to Director.\n"
                    "Deploy the FD config files to the client machine and restart bareos-fd.")
                     .arg(wiz ? wiz->data().clientName : "?"));
-            m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
+            setLabelState(m_statusLabel, "success");
         }
     } else {
         m_progressBar->setVisible(false);
@@ -1166,7 +1176,7 @@ void BNewClientPreviewPage::onJsonResponse(BDirector::Command cmd, const QString
         m_statusLabel->setText(
             tr("Failed to add client to Director: %1\n"
                "You can still export the FD config files manually.").arg(errorMsg));
-        m_statusLabel->setStyleSheet("color: red;");
+        setLabelState(m_statusLabel, "error");
     }
 }
 
@@ -1195,7 +1205,7 @@ void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QStr
                 tr("Client '%1' added and Director reloaded successfully.\n"
                    "Deploy the FD config files to the client machine and restart bareos-fd.")
                     .arg(clientName));
-            m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
+            setLabelState(m_statusLabel, "success");
         } else {
             CLIENT_DEBUG << "Director reload FAILED: " << response.left(200);
             m_statusLabel->setText(
@@ -1203,7 +1213,7 @@ void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QStr
                    "Run 'reload' manually on the Director or restart bareos-dir.\n"
                    "Deploy the FD config files to the client machine and restart bareos-fd.")
                     .arg(clientName));
-            m_statusLabel->setStyleSheet("color: orange; font-weight: bold;");
+            setLabelState(m_statusLabel, "warning");
         }
         return;
     }
@@ -1228,7 +1238,7 @@ void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QStr
             m_statusLabel->setText(
                 tr("Client '%1' added to Director. Reloading Director...")
                     .arg(wiz->data().clientName));
-            m_statusLabel->setStyleSheet("color: green;");
+            setLabelState(m_statusLabel, "info");
         } else {
             m_progressBar->setVisible(false);
             if (wiz && wiz->director()) {
@@ -1241,7 +1251,7 @@ void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QStr
                 tr("Client '%1' added to Director.\n"
                    "Deploy the FD config files to the client machine and restart bareos-fd.")
                     .arg(wiz ? wiz->data().clientName : "?"));
-            m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
+            setLabelState(m_statusLabel, "success");
         }
     } else {
         m_progressBar->setVisible(false);
@@ -1255,7 +1265,7 @@ void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QStr
         m_statusLabel->setText(
             tr("Failed to add client to Director: %1\n"
                "You can still export the FD config files manually.").arg(response.left(200)));
-        m_statusLabel->setStyleSheet("color: red;");
+        setLabelState(m_statusLabel, "error");
     }
 }
 
@@ -1302,6 +1312,6 @@ void BNewClientPreviewPage::onConfigureTimeout()
         m_statusLabel->setText(
             tr("Configure command timed out.\n"
                "You can export the FD config files and configure the Director manually."));
-        m_statusLabel->setStyleSheet("color: orange; font-weight: bold;");
+        setLabelState(m_statusLabel, "warning");
     }
 }

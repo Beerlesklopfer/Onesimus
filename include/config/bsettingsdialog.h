@@ -143,7 +143,6 @@ private:
     QLineEdit *m_cipherListEdit;        ///< PSK cipher list (colon-separated)
 
     // Appearance-Einstellungen
-    QComboBox *m_themeCombo;
     QSpinBox *m_fontSizeSpin;
     QCheckBox *m_animationsCheck;
     QCheckBox *m_compactModeCheck;

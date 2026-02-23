@@ -86,24 +86,24 @@ void BClientsWidget::setupUI()
     QHBoxLayout *statsLayout = new QHBoxLayout(statsGroup);
 
     QLabel *totalLabel = new QLabel(tr("Total:"));
-    totalLabel->setStyleSheet("font-weight: bold;");
+    totalLabel->setObjectName("clientStatsBoldLabel");
     statsLayout->addWidget(totalLabel);
     statsLayout->addWidget(m_totalClientsLabel);
 
     statsLayout->addSpacing(20);
 
     QLabel *onlineLabel = new QLabel(tr("Online:"));
-    onlineLabel->setStyleSheet("font-weight: bold; color: green;");
+    onlineLabel->setObjectName("clientOnlineLabel");
     statsLayout->addWidget(onlineLabel);
-    m_onlineClientsLabel->setStyleSheet("color: green;");
+    m_onlineClientsLabel->setObjectName("clientOnlineValue");
     statsLayout->addWidget(m_onlineClientsLabel);
 
     statsLayout->addSpacing(20);
 
     QLabel *offlineLabel = new QLabel(tr("Offline:"));
-    offlineLabel->setStyleSheet("font-weight: bold; color: gray;");
+    offlineLabel->setObjectName("clientOfflineLabel");
     statsLayout->addWidget(offlineLabel);
-    m_offlineClientsLabel->setStyleSheet("color: gray;");
+    m_offlineClientsLabel->setObjectName("clientOfflineValue");
     statsLayout->addWidget(m_offlineClientsLabel);
 
     statsLayout->addStretch();
