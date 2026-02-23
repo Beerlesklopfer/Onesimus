@@ -47,6 +47,11 @@ void BScheduleGanttWidget::setDurationStats(BJobDurationStats *stats)
     m_durationStats = stats;
 }
 
+void BScheduleGanttWidget::setJobConfigModel(BJobConfigModel *model)
+{
+    m_jobConfigModel = model;
+}
+
 void BScheduleGanttWidget::setViewMode(ViewMode mode)
 {
     if (m_viewMode == mode) return;
@@ -935,6 +940,24 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         }
         if (!e.pool.isEmpty()) {
             tooltip += QString("<br>%1: %2").arg(tr("Pool"), e.pool);
+        }
+        if (!e.storage.isEmpty()) {
+            tooltip += QString("<br>%1: %2").arg(tr("Storage"), e.storage);
+        }
+        if (m_jobConfigModel && !e.jobName.isEmpty()) {
+            const auto &raw = m_jobConfigModel->jobConfigsRaw();
+            if (raw.contains(e.jobName)) {
+                const QJsonObject &cfg = raw[e.jobName];
+                QString type = cfg["type"].toString();
+                QString fileset = cfg["fileset"].toString();
+                if (!type.isEmpty())
+                    tooltip += QString("<br>%1: %2").arg(tr("Type"), type);
+                if (!fileset.isEmpty())
+                    tooltip += QString("<br>%1: %2").arg(tr("FileSet"), fileset);
+            }
+        }
+        if (e.priority != 10) {
+            tooltip += QString("<br>%1: %2").arg(tr("Priority")).arg(e.priority);
         }
 
         QToolTip::showText(event->globalPosition().toPoint(), tooltip, this);

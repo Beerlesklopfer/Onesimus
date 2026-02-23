@@ -190,6 +190,7 @@ BMainWindow::BMainWindow(QWidget *parent)
         m_clientWidget->triggerRefresh();          // ListClients
         m_scheduleWidget->triggerRefresh();        // DotSchedule + ShowSchedules
         onSendCommand(BDirector::Command::ShowClients, "");
+        onSendCommand(BDirector::Command::ShowJobs, "");     // Populate job config model (for Gantt/schedule cross-ref)
         onSendCommand(BDirector::Command::ShowJobDefs, "");  // Populate jobdefs model
         onSendCommand(BDirector::Command::ListBackups, "");
         onSendCommand(BDirector::Command::Messages, "");
@@ -362,6 +363,57 @@ BMainWindow::BMainWindow(QWidget *parent)
 
     // Pass job config model to schedule widget for job→schedule cross-referencing
     m_scheduleWidget->setJobConfigModel(m_jobWidget->jobConfigModel());
+
+    // Double-click on job in schedule widget opens the job edit dialog pre-selected
+    connect(m_scheduleWidget, &BScheduleWidget::editJobRequested,
+            this, [this](const QString &jobName) {
+        QDialog dlg(this);
+        dlg.setWindowTitle(tr("Job: %1").arg(jobName));
+        dlg.setMinimumSize(900, 600);
+        dlg.resize(1000, 700);
+
+        QVBoxLayout *layout = new QVBoxLayout(&dlg);
+        BJobResourceWidget *jobWidget = new BJobResourceWidget("Job", m_director, &dlg);
+        layout->addWidget(jobWidget);
+
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
+        connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+        layout->addWidget(buttonBox);
+
+        BJobConfigModel *model = m_jobWidget->jobConfigModel();
+        BJobWidget *jobW = m_jobWidget;
+        BScheduleWidget *schedW = m_scheduleWidget;
+        auto populate = [model, jobWidget, jobW, schedW, jobName]() {
+            jobWidget->setResources(model->jobResources());
+            QMap<QString, QStringList> refData;
+            refData["Client"]   = jobW->clientNames();
+            refData["FileSet"]  = jobW->filesetNames();
+            refData["Storage"]  = jobW->storageNames();
+            refData["Pool"]     = jobW->poolNames();
+            refData["Schedule"] = schedW->scheduleModel()->scheduleNames();
+            refData["Messages"] = QStringList();
+            refData["Job"]      = model->jobNames();
+            refData["JobDefs"]  = jobW->jobDefsNames();
+            refData["Catalog"]  = jobW->catalogNames();
+            jobWidget->setReferenceData(refData);
+            jobWidget->selectResource(jobName);
+        };
+
+        if (model->hasConfigs()) {
+            populate();
+        } else {
+            QMetaObject::Connection *conn = new QMetaObject::Connection();
+            *conn = connect(m_director, &BDirector::showJobsResult, &dlg,
+                            [populate, conn](const QString &) {
+                populate();
+                QObject::disconnect(*conn);
+                delete conn;
+            });
+            m_director->doSend(BDirector::Command::ShowJobs);
+        }
+
+        dlg.exec();
+    });
     connect(m_director, &BDirector::dotCatalogsResult,
             m_jobWidget, &BJobWidget::processDotCatalogsResponse);
 
@@ -676,7 +728,7 @@ void BMainWindow::createActions()
         refData["FileSet"] = m_jobWidget->filesetNames();
         refData["Storage"] = m_jobWidget->storageNames();
         refData["Pool"] = m_jobWidget->poolNames();
-        refData["Schedule"] = QStringList();
+        refData["Schedule"] = m_scheduleWidget->scheduleModel()->scheduleNames();
         refData["Messages"] = QStringList();
         refData["Catalog"] = m_jobWidget->catalogNames();
         refData["JobDefs"] = m_jobWidget->jobDefsNames();
@@ -714,7 +766,8 @@ void BMainWindow::createActions()
         // Helper to populate resources + reference data
         BJobConfigModel *model = m_jobWidget->jobConfigModel();
         BJobWidget *jobW = m_jobWidget;
-        auto populateWidget = [model, jobWidget, jobW]() {
+        BScheduleWidget *schedW = m_scheduleWidget;
+        auto populateWidget = [model, jobWidget, jobW, schedW]() {
             QList<BConfigResource> resources = model->jobResources();
             jobWidget->setResources(resources);
 
@@ -724,7 +777,7 @@ void BMainWindow::createActions()
             refData["FileSet"] = jobW->filesetNames();
             refData["Storage"] = jobW->storageNames();
             refData["Pool"] = jobW->poolNames();
-            refData["Schedule"] = QStringList();
+            refData["Schedule"] = schedW->scheduleModel()->scheduleNames();
             refData["Messages"] = QStringList();
             refData["Job"] = model->jobNames();
             refData["JobDefs"] = jobW->jobDefsNames();
@@ -768,7 +821,7 @@ void BMainWindow::createActions()
         refData["FileSet"] = m_jobWidget->filesetNames();
         refData["Storage"] = m_jobWidget->storageNames();
         refData["Pool"] = m_jobWidget->poolNames();
-        refData["Schedule"] = QStringList();
+        refData["Schedule"] = m_scheduleWidget->scheduleModel()->scheduleNames();
         refData["Messages"] = QStringList();
         refData["Catalog"] = m_jobWidget->catalogNames();
         refData["JobDefs"] = m_jobWidget->jobDefsNames();
@@ -799,9 +852,10 @@ void BMainWindow::createActions()
         // Use centralized model from BJobWidget (populated at startup)
         BJobConfigModel *model = m_jobWidget->jobConfigModel();
         BJobWidget *jobW = m_jobWidget;
+        BScheduleWidget *schedW = m_scheduleWidget;
 
         // Populate from cached data, then refresh
-        auto populateWidget = [model, jdWidget, jobW]() {
+        auto populateWidget = [model, jdWidget, jobW, schedW]() {
             QList<BConfigResource> resources = model->jobDefsResources();
             jdWidget->setResources(resources);
 
@@ -810,7 +864,7 @@ void BMainWindow::createActions()
             refData["FileSet"] = jobW->filesetNames();
             refData["Storage"] = jobW->storageNames();
             refData["Pool"] = jobW->poolNames();
-            refData["Schedule"] = QStringList();
+            refData["Schedule"] = schedW->scheduleModel()->scheduleNames();
             refData["Messages"] = QStringList();
             refData["Job"] = jobW->jobNames();
             refData["JobDefs"] = jobW->jobDefsNames();

@@ -153,8 +153,8 @@ void BScheduleWidget::setupUI()
     m_jobListLabel->setStyleSheet("font-weight: bold; font-size: 10pt;");
     jobLayout->addWidget(m_jobListLabel);
 
-    m_jobList->setColumnCount(3);
-    m_jobList->setHorizontalHeaderLabels({tr("Job"), tr("Client"), tr("Duration")});
+    m_jobList->setColumnCount(6);
+    m_jobList->setHorizontalHeaderLabels({tr("Job"), tr("Type"), tr("Client"), tr("Storage"), tr("FileSet"), tr("Duration")});
     m_jobList->setAlternatingRowColors(true);
     m_jobList->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_jobList->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -238,6 +238,8 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onScheduleCheckChanged);
     connect(m_jobList, &QTableWidget::itemSelectionChanged,
             this, &BScheduleWidget::onJobSelectionChanged);
+    connect(m_jobList, &QTableWidget::cellDoubleClicked,
+            this, &BScheduleWidget::onJobListDoubleClicked);
 
     connect(m_viewModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BScheduleWidget::onViewModeChanged);
@@ -406,6 +408,7 @@ void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
     // Update both views with all schedules (all checked initially)
     updateFilteredViews();
     updateGanttEntries();
+    updateJobList();
 }
 
 void BScheduleWidget::processShowSchedulesResponse(const QString &jsonData)
@@ -494,6 +497,7 @@ void BScheduleWidget::processShowSchedulesResponse(const QString &jsonData)
 
     updateFilteredViews();
     updateGanttEntries();
+    updateJobList();
 }
 
 void BScheduleWidget::processListJobsResponse(const QString &jsonData)
@@ -502,6 +506,7 @@ void BScheduleWidget::processListJobsResponse(const QString &jsonData)
 
     // Re-enrich Gantt entries with updated durations
     updateGanttEntries();
+    updateJobList();  // Refresh duration column with updated stats
 }
 
 void BScheduleWidget::processShowJobsResponse(const QString &)
@@ -510,12 +515,15 @@ void BScheduleWidget::processShowJobsResponse(const QString &)
     if (m_jobConfigModel) {
         m_jobScheduleIndex->rebuild(m_jobConfigModel);
         updateGanttEntries();
+        updateJobList();
     }
 }
 
 void BScheduleWidget::setJobConfigModel(BJobConfigModel *model)
 {
     m_jobConfigModel = model;
+    m_fdGanttWidget->setJobConfigModel(model);
+    m_sdGanttWidget->setJobConfigModel(model);
     if (model && model->hasConfigs()) {
         m_jobScheduleIndex->rebuild(model);
     }
@@ -531,42 +539,67 @@ void BScheduleWidget::onRefreshClicked()
 
 void BScheduleWidget::onScheduleSelectionChanged()
 {
-    QListWidgetItem *item = m_scheduleList->currentItem();
-    if (item) {
-        updateJobList(item->text());
-    } else {
-        updateJobList(QString());
-    }
+    updateJobList();
 }
 
-void BScheduleWidget::updateJobList(const QString &scheduleName)
+void BScheduleWidget::updateJobList()
 {
     m_jobList->setRowCount(0);
 
-    if (scheduleName.isEmpty()) {
+    // Collect all checked schedule names (same filter as Gantt)
+    QStringList checkedNames;
+    for (int i = 0; i < m_scheduleList->count(); ++i) {
+        QListWidgetItem *item = m_scheduleList->item(i);
+        if (item->checkState() == Qt::Checked)
+            checkedNames.append(item->text());
+    }
+
+    if (checkedNames.isEmpty()) {
         m_jobListLabel->setText(tr("Jobs:"));
         return;
     }
 
-    m_jobListLabel->setText(tr("Jobs (%1):").arg(scheduleName));
+    if (checkedNames.size() == 1)
+        m_jobListLabel->setText(tr("Jobs (%1):").arg(checkedNames.first()));
+    else
+        m_jobListLabel->setText(tr("Jobs (%1 Schedules):").arg(checkedNames.size()));
 
     if (!m_jobScheduleIndex->isValid()) return;
 
-    QList<BJobScheduleIndex::JobRef> jobs = m_jobScheduleIndex->jobsForSchedule(scheduleName);
+    // Aggregate and deduplicate jobs across all checked schedules
+    QMap<QString, BJobScheduleIndex::JobRef> jobMap;
+    for (const QString &scheduleName : checkedNames) {
+        for (const BJobScheduleIndex::JobRef &job : m_jobScheduleIndex->jobsForSchedule(scheduleName)) {
+            if (!jobMap.contains(job.jobName))
+                jobMap.insert(job.jobName, job);
+        }
+    }
 
-    m_jobList->setRowCount(jobs.size());
-    for (int i = 0; i < jobs.size(); ++i) {
-        const BJobScheduleIndex::JobRef &job = jobs[i];
+    const QList<BJobScheduleIndex::JobRef> allJobs = jobMap.values();
+    m_jobList->setRowCount(allJobs.size());
+
+    for (int i = 0; i < allJobs.size(); ++i) {
+        const BJobScheduleIndex::JobRef &job = allJobs[i];
 
         m_jobList->setItem(i, 0, new QTableWidgetItem(job.jobName));
-        m_jobList->setItem(i, 1, new QTableWidgetItem(job.client));
 
-        // Duration from historical stats
+        QString jobType = tr("-");
+        if (m_jobConfigModel) {
+            const auto &raw = m_jobConfigModel->jobConfigsRaw();
+            if (raw.contains(job.jobName))
+                jobType = raw[job.jobName]["type"].toString(tr("-"));
+        }
+        m_jobList->setItem(i, 1, new QTableWidgetItem(jobType));
+
+        m_jobList->setItem(i, 2, new QTableWidgetItem(job.client));
+        m_jobList->setItem(i, 3, new QTableWidgetItem(job.storage));
+        m_jobList->setItem(i, 4, new QTableWidgetItem(job.fileset));
+
         int avgSecs = m_durationStats->averageDuration(job.jobName);
         QString durStr = (avgSecs > 0)
             ? BJobDurationStats::formatDuration(avgSecs)
             : tr("-");
-        m_jobList->setItem(i, 2, new QTableWidgetItem(durStr));
+        m_jobList->setItem(i, 5, new QTableWidgetItem(durStr));
     }
 
     m_jobList->resizeColumnsToContents();
@@ -694,6 +727,39 @@ void BScheduleWidget::setupStatsPanel()
     titleRow->addWidget(closeButton);
     statsLayout->addLayout(titleRow);
 
+    // --- Job config info row ---
+    QHBoxLayout *configRow = new QHBoxLayout();
+    configRow->setSpacing(20);
+
+    auto addConfigBox = [&](const QString &label) -> QLabel* {
+        QVBoxLayout *box = new QVBoxLayout();
+        box->setSpacing(0);
+        QLabel *hdr = new QLabel(label, this);
+        hdr->setStyleSheet("color: gray; font-size: 9pt;");
+        hdr->setAlignment(Qt::AlignLeft);
+        QLabel *val = new QLabel("-", this);
+        val->setWordWrap(false);
+        val->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        box->addWidget(hdr);
+        box->addWidget(val);
+        configRow->addLayout(box);
+        return val;
+    };
+
+    m_statsJobType  = addConfigBox(tr("Type"));
+    m_statsClient   = addConfigBox(tr("Client"));
+    m_statsFileSet  = addConfigBox(tr("FileSet"));
+    m_statsStorage  = addConfigBox(tr("Storage"));
+    m_statsPriority = addConfigBox(tr("Priority"));
+    configRow->addStretch();
+    statsLayout->addLayout(configRow);
+
+    // Separator
+    QFrame *hSep = new QFrame(this);
+    hSep->setFrameShape(QFrame::HLine);
+    hSep->setFrameShadow(QFrame::Sunken);
+    statsLayout->addWidget(hSep);
+
     // Duration stats row: Min | Avg | Max | Samples | Trend
     QHBoxLayout *statsRow = new QHBoxLayout();
     statsRow->setSpacing(16);
@@ -759,6 +825,36 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
         .arg(entry.hour, 2, 10, QChar('0'))
         .arg(entry.minute, 2, 10, QChar('0'));
     m_statsTitle->setText(title);
+
+    // --- Job config fields ---
+    {
+        QString type = "-", client = "-", fileset = "-", storage = "-";
+        int priority = entry.priority;
+
+        // Prefer data from BScheduleEntry (already enriched)
+        if (!entry.client.isEmpty())  client  = entry.client;
+        if (!entry.storage.isEmpty()) storage = entry.storage;
+
+        // Enrich further from BJobConfigModel if available
+        if (m_jobConfigModel && !entry.jobName.isEmpty()) {
+            const auto &raw = m_jobConfigModel->jobConfigsRaw();
+            if (raw.contains(entry.jobName)) {
+                const QJsonObject &cfg = raw[entry.jobName];
+                if (!cfg["type"].toString().isEmpty())    type    = cfg["type"].toString();
+                if (!cfg["fileset"].toString().isEmpty()) fileset = cfg["fileset"].toString();
+                if (!cfg["client"].toString().isEmpty() && client == "-")
+                    client = cfg["client"].toString();
+                if (!cfg["storage"].toString().isEmpty() && storage == "-")
+                    storage = cfg["storage"].toString();
+            }
+        }
+
+        m_statsJobType->setText(type);
+        m_statsClient->setText(client);
+        m_statsFileSet->setText(fileset);
+        m_statsStorage->setText(storage);
+        m_statsPriority->setText(QString::number(priority));
+    }
 
     // Look up job name for level-specific duration stats
     QString lookupName = entry.jobName;
@@ -916,6 +1012,7 @@ void BScheduleWidget::onScheduleCheckChanged(QListWidgetItem *item)
     }
     updateFilteredViews();
     updateGanttEntries();
+    updateJobList();
 }
 
 void BScheduleWidget::updateFilteredViews()
@@ -997,4 +1094,14 @@ void BScheduleWidget::onJobSelectionChanged()
             return;
         }
     }
+}
+
+void BScheduleWidget::onJobListDoubleClicked(int row, int /*column*/)
+{
+    QTableWidgetItem *nameItem = m_jobList->item(row, 0);
+    if (!nameItem) return;
+
+    const QString jobName = nameItem->text();
+    if (!jobName.isEmpty())
+        emit editJobRequested(jobName);
 }

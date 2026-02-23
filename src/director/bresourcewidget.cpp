@@ -110,6 +110,18 @@ void BResourceWidget::setResources(const QList<BConfigResource> &resources)
     m_exportZipButton->setEnabled(hasResources);
 }
 
+void BResourceWidget::selectResource(const QString &name)
+{
+    for (int i = 0; i < m_treeWidget->topLevelItemCount(); ++i) {
+        QTreeWidgetItem *item = m_treeWidget->topLevelItem(i);
+        if (item && item->text(0) == name) {
+            m_treeWidget->setCurrentItem(item);
+            m_treeWidget->scrollToItem(item);
+            return;
+        }
+    }
+}
+
 void BResourceWidget::updateCountLabel()
 {
     m_countLabel->setText(tr("%1: %2 resource(s)")

@@ -81,6 +81,11 @@ public:
     void setReferenceData(const QMap<QString, QStringList> &referenceData) { m_referenceData = referenceData; }
 
     /**
+     * @brief Select and scroll to the resource with the given name
+     */
+    void selectResource(const QString &name);
+
+    /**
      * @brief Export all resources to a .conf file
      */
     void exportToConf();

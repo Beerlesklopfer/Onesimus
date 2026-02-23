@@ -59,6 +59,11 @@ public:
     void setDurationStats(BJobDurationStats *stats);
 
     /**
+     * @brief Sets the job config model for enriched tooltips (Type, FileSet)
+     */
+    void setJobConfigModel(BJobConfigModel *model);
+
+    /**
      * @brief Sets the current view mode (Day/Week)
      */
     void setViewMode(ViewMode mode);
@@ -206,6 +211,7 @@ private:
     // --- Data ---
     QList<BScheduleEntry> m_entries;
     BJobDurationStats *m_durationStats = nullptr;
+    BJobConfigModel *m_jobConfigModel = nullptr;
 
     // --- View state ---
     ViewMode m_viewMode = DayView;

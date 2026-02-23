@@ -56,6 +56,7 @@ public slots:
 signals:
     void sendCommand(const BDirector::Command cmd, const QString &args);
     void statusMessageChanged(const QString &message);
+    void editJobRequested(const QString &jobName);
 
 private slots:
     void onRefreshClicked();
@@ -75,6 +76,7 @@ private slots:
     void onScheduleCheckChanged(QListWidgetItem *item);
     void onZoomSliderChanged(int value);
     void onJobSelectionChanged();
+    void onJobListDoubleClicked(int row, int column);
 
 private:
     void setupUI();
@@ -82,7 +84,7 @@ private:
     void setupStatsPanel();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
-    void updateJobList(const QString &scheduleName);
+    void updateJobList();  // Aggregates jobs from all checked schedules
     void handleDragCompleted(BScheduleGanttWidget *source, int entryIndex,
                              int newHour, int newMinute,
                              const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
@@ -127,6 +129,13 @@ private:
     // Stats panel
     QGroupBox *m_statsPanel;
     QLabel *m_statsTitle;
+    // Job config section
+    QLabel *m_statsJobType;
+    QLabel *m_statsClient;
+    QLabel *m_statsFileSet;
+    QLabel *m_statsStorage;
+    QLabel *m_statsPriority;
+    // Duration stats
     QLabel *m_statsMin;
     QLabel *m_statsAvg;
     QLabel *m_statsMax;
