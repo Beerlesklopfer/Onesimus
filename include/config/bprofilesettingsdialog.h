@@ -5,7 +5,7 @@
  * Provides UI for configuring advanced TLS settings, ACLs, and other
  * connection parameters that are not part of the basic wizard flow.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

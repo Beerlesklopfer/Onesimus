@@ -18,7 +18,7 @@ class BEditableListModel;
  * - Edit item (supports merge for continuous typing)
  * - Move item
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

@@ -660,7 +660,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Credits
 
 ### Development
-- **Author**: Joerg Bernau <Joerg@bernau.family>
+- **Author**: Joerg Bernau <support@onesimus.io>
 - **Project**: Onesimus
 - **License**: GPL-3.0
 

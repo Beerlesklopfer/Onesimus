@@ -40,8 +40,10 @@ if (-not $env:VSINSTALLDIR) {
         try {
             & $vsDevShellScript -Architecture x64
 
-            if ($LASTEXITCODE -ne 0) {
-                throw "Import-VsDevShell.ps1 ist fehlgeschlagen"
+            # Pruefe ob VS-Umgebung tatsaechlich geladen wurde (LASTEXITCODE
+            # ist unzuverlaessig, da Enter-VsDevShell intern vswhere aufruft)
+            if (-not $env:VSINSTALLDIR) {
+                throw "Import-VsDevShell.ps1 hat die VS-Umgebung nicht gesetzt"
             }
         } catch {
             Write-Host ""
@@ -201,7 +203,7 @@ if ($QtPath -and (Test-Path "$QtPath\bin\qmake.exe")) {
             foreach ($versionDir in $versionDirs) {
                 # Suche nach Compiler-Verzeichnissen (msvc2022_64, etc.)
                 $compilerDirs = Get-ChildItem -Path $versionDir.FullName -Directory -ErrorAction SilentlyContinue |
-                               Where-Object { $_.Name -like "msvc*64" }
+                               Where-Object { $_.Name -like "msvc*64" -and $_.Name -notlike "*arm*" }
 
                 foreach ($compilerDir in $compilerDirs) {
                     $path = $compilerDir.FullName

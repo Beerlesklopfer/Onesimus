@@ -2,7 +2,7 @@
  * @file bjobscheduleindex.cpp
  * @brief Implementation of Job-Schedule cross-reference index
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

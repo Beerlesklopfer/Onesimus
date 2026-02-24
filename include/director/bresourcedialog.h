@@ -18,7 +18,7 @@ class BResourceForm;
  * Uses BResourceForm internally to generate form fields dynamically
  * from JSON directive schemas.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 class BResourceDialog : public QDialog

@@ -2,7 +2,7 @@
  * @file bmessageswidget.cpp
  * @brief Implementation of Director messages widget
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

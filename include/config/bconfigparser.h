@@ -26,7 +26,7 @@
  * }
  * @endcode
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

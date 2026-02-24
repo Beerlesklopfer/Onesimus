@@ -576,7 +576,7 @@ cat > onesimus_1.0.0/DEBIAN/control << EOF
 Package: onesimus
 Version: 1.0.0
 Architecture: amd64
-Maintainer: Joerg Bernau <Joerg@bernau.family>
+Maintainer: Joerg Bernau <support@onesimus.io>
 Description: Modern Qt UI for Bareos/Bacula Backup
 Depends: libqt6core6, libqt6gui6, libqt6widgets6, libqt6network6
 EOF

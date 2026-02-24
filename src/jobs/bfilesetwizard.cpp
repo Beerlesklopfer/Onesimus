@@ -2,7 +2,7 @@
  * @file bfilesetwizard.cpp
  * @brief Unified wizard for creating and editing FileSet resources
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

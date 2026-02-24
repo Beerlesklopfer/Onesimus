@@ -2,7 +2,7 @@
  * @file bschedulewizard.cpp
  * @brief Wizard for creating new Schedule resources
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

@@ -2,7 +2,7 @@
  * @file bfilesetdocument.cpp
  * @brief Pure data model for FileSet editing with undo/redo support
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

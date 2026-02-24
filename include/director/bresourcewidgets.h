@@ -9,7 +9,7 @@
  *
  * Each widget provides type-specific columns and details display.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

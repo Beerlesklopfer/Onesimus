@@ -2,7 +2,7 @@
  * @file bundocommands.cpp
  * @brief Generic undo commands for editable list models
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

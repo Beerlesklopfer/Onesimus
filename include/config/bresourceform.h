@@ -25,7 +25,7 @@
  * Generates form fields dynamically from JSON directive schemas.
  * Can be embedded in dialogs, wizard pages, or any other container.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 class BResourceForm : public QWidget

@@ -2,7 +2,7 @@
  * @file beditablelistwidget.cpp
  * @brief Complete editable list widget with add/remove, context menu, undo/redo
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

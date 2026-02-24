@@ -2,7 +2,7 @@
  * @file beditablelistdelegate.cpp
  * @brief Delegate for inline list item editing with optional buttons
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

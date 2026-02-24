@@ -2,7 +2,7 @@
  * @file bincludeblockwidget.cpp
  * @brief Widget for editing a single FileSet Include block
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

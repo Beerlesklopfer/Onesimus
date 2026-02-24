@@ -2,7 +2,7 @@
  * @file bincludeoptionsform.cpp
  * @brief Schema-driven form for FileSet Include Options
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

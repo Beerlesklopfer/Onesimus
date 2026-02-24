@@ -15,7 +15,7 @@
  * This class loads directive schemas from Qt resources and provides
  * validation and metadata for resource directives.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

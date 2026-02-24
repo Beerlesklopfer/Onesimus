@@ -185,9 +185,16 @@ if(USE_STATIC_OPENSSL)
     # Plattform-spezifische Build-Konfiguration
     if(WIN32)
         # Windows mit Visual Studio
-        find_program(PERL_EXECUTABLE perl)
+        # Strawberry Perl bevorzugen (Git-MSYS-Perl hat nicht alle Module)
+        find_program(PERL_EXECUTABLE perl
+            HINTS "C:/Strawberry/perl/bin"
+            NO_DEFAULT_PATH
+        )
         if(NOT PERL_EXECUTABLE)
-            message(FATAL_ERROR 
+            find_program(PERL_EXECUTABLE perl)
+        endif()
+        if(NOT PERL_EXECUTABLE)
+            message(FATAL_ERROR
                 "Perl not found! Required for OpenSSL Windows build.\n"
                 "\n"
                 "Install Strawberry Perl:\n"
@@ -1069,7 +1076,7 @@ elseif(UNIX)
     set(CPACK_GENERATOR "DEB")
 
     # Debian package settings
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joerg Bernau <joerg@bernau.family>")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joerg Bernau <support@onesimus.io>")
     set(CPACK_DEBIAN_PACKAGE_SECTION "admin")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Beerlesklopfer/Onesimus")
@@ -1081,7 +1088,7 @@ elseif(UNIX)
     set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
     # RPM package settings
-    set(CPACK_RPM_PACKAGE_LICENSE "Proprietary")
+    set(CPACK_RPM_PACKAGE_LICENSE "MIT")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
     set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= 6.2")
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)

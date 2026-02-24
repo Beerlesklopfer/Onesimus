@@ -67,7 +67,7 @@
       "architecture": "x64",
       "binaryDir": "${sourceDir}/BUILD",
       "cacheVariables": {
-        "CMAKE_PREFIX_PATH": "C:/Qt/6.10.1/msvc2022_64",
+        "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}",
         "PERL_EXECUTABLE": "C:/Strawberry/perl/bin/perl.exe"
       }
     },

@@ -5,7 +5,7 @@
  * Builds the mapping: ScheduleName -> list of Jobs that reference it.
  * Used to enrich BScheduleEntry objects with job-level data (jobName, client, storage).
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

@@ -10,7 +10,7 @@
  * - USE_BACULA_ONLY: Uses BaculaDirector (not yet implemented)
  * - USE_BAREOS_ONLY: Uses BareosDirector (default)
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  * @version 1.0.0
  */

@@ -5,7 +5,7 @@
  * Creates tar archives (Linux) or zip archives (Windows) containing
  * the Bareos configuration files generated from a connection profile.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

@@ -2,7 +2,7 @@
  * @file bresourceform.cpp
  * @brief Reusable schema-driven form widget for Bareos/Bacula resources
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

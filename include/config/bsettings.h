@@ -14,7 +14,7 @@
  * It ensures consistent access to settings across all components and provides
  * type-safe getters/setters for all configuration values.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  * @version 1.0.0
  */

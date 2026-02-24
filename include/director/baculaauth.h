@@ -7,7 +7,7 @@
  * negotiation.
  *
  * @author Original Bacula code by Kern Sibbald
- * @author Qt port and modifications by [Joerg Bernau <Joerg@bernau.family>]
+ * @author Qt port and modifications by [Joerg Bernau <support@onesimus.io>]
  *
  * @version 1.2.0
  * @date 2025-01-21

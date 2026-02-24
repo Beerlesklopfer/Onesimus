@@ -46,7 +46,7 @@
  * - BareosDirector/BaculaDirector: Implementation (runs in WorkerThread)
  * - Auth: Authentication (runs in WorkerThread)
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  * @version 1.0.0
  */

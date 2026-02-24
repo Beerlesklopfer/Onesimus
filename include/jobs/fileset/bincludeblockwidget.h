@@ -32,7 +32,7 @@ class QTabWidget;
  * │ └─────────────────────────────────────────────────────┘ │
  * └─────────────────────────────────────────────────────────┘
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 class BIncludeBlockWidget : public QWidget

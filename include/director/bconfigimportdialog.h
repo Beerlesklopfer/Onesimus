@@ -25,7 +25,7 @@
  *
  * Each resource type is displayed in its own tab with specialized widgets.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 class BConfigImportDialog : public QDialog

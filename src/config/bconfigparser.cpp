@@ -2,7 +2,7 @@
  * @file bconfigparser.cpp
  * @brief Implementation of Bareos/Bacula configuration parser
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

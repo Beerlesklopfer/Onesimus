@@ -7,7 +7,7 @@
  * - common_schedules: predefined templates (DailyIncremental, WeeklyCycle, etc.)
  * - time_specification_reference: day/week/month/time values
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

@@ -17,7 +17,7 @@
  * Based on Bareos Console Configuration:
  * https://docs.bareos.org/Configuration/Console.html
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 struct BConnectionProfile

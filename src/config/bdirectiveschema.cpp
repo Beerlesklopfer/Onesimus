@@ -2,7 +2,7 @@
  * @file bdirectiveschema.cpp
  * @brief Implementation of directive schema loader
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

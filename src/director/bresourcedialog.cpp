@@ -2,7 +2,7 @@
  * @file bresourcedialog.cpp
  * @brief Dynamic schema-driven dialog for editing Bareos/Bacula resources
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

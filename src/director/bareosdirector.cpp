@@ -9,7 +9,7 @@
  * @note m_backupSystem is deprecated and only kept for backward compatibility.
  *       Use the compile-time constant BACKUP_SYSTEM_NAME instead.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  * @version 1.0.0
  */

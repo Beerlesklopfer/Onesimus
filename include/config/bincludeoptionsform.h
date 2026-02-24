@@ -24,7 +24,7 @@ class BEditableListWidget;
  * Can be used for both Include Options (full set) or Exclude block
  * (limited set of options).
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 class BIncludeOptionsForm : public QWidget

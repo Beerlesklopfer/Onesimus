@@ -251,7 +251,7 @@ security find-identity -v -p codesigning
 
 # App signieren
 codesign --force --deep \
-    --sign "Developer ID Application: Joerg Bernau <Joerg@bernau.family> (TEAM_ID)" \
+    --sign "Developer ID Application: Joerg Bernau <support@onesimus.io> (TEAM_ID)" \
     --options runtime \
     BaculaQtUI.app
 

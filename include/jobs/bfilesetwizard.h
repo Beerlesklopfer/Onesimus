@@ -8,7 +8,7 @@
  * Uses BFileSetDocument as the data model and BIncludeBlockWidget for
  * editing Include blocks with full undo/redo support.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 #ifndef BFILESETWIZARD_H

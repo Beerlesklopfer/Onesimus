@@ -2,7 +2,7 @@
  * @file bjobwizard.h
  * @brief Wizard for creating new Job or JobDefs resources
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

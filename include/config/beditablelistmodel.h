@@ -18,7 +18,7 @@
  *
  * Used for FileSet paths, Job run directives, Schedule statements, etc.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 class BEditableListModel : public QAbstractListModel

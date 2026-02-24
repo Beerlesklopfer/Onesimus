@@ -93,6 +93,7 @@ $qtFiles = @(
     "imageformats",
     "platforms",
     "styles",
+    "tls",
     "translations"
 )
 

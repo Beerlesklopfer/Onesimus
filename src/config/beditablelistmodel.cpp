@@ -2,7 +2,7 @@
  * @file beditablelistmodel.cpp
  * @brief Generic editable list model with undo/redo support
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 

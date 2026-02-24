@@ -2,7 +2,7 @@
  * @file bresourcewidget.cpp
  * @brief Implementation of base resource widget
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 

@@ -7,6 +7,7 @@
 #include <QIcon>
 #include <QStandardPaths>
 #include <QDir>
+#include <QSslSocket>
 #include <version.h>
 
 void usage();
@@ -332,6 +333,14 @@ int main(int argc, char *argv[])
 
     QCoreApplication::addLibraryPath(
         QCoreApplication::applicationDirPath() + "/plugins");
+
+    // On Windows, Qt6 defaults to the Schannel TLS backend which does NOT support
+    // PSK cipher suites required by Bareos/Bacula. Force the OpenSSL backend.
+#ifdef Q_OS_WIN
+    if (QSslSocket::availableBackends().contains("openssl")) {
+        QSslSocket::setActiveBackend("openssl");
+    }
+#endif
 
     app.setApplicationName(PROJECT_NAME);
     app.setApplicationVersion(PROJECT_VERSION);

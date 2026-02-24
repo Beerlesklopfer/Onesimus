@@ -11,7 +11,7 @@
  *   BLOG_WARNING() << "Warning message";
  *   BLOG_ERROR() << "Error message";
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 #ifndef BLOGGING_H

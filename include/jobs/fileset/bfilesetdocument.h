@@ -21,7 +21,7 @@ class BConfigResource;
  * This is a PURE DATA MODEL - no Director reference. All Director communication
  * (validate, import, export) happens in the wizard/dialog layer.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
  */
 class BFileSetDocument : public QObject

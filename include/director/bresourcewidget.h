@@ -20,7 +20,7 @@
  * parsed from configuration files. Each resource type can subclass
  * this to provide type-specific display and validation.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  */
 class BResourceWidget : public QWidget

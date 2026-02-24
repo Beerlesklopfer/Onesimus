@@ -58,7 +58,7 @@
  * This class provides a high-level interface for communicating with
  * Bacula or Bareos Director daemons via bconsole protocol.
  *
- * @author Joerg Bernau <Joerg@bernau.family>
+ * @author Joerg Bernau <support@onesimus.io>
  * @date 2025
  * @version 1.0.0
  */
