@@ -2,12 +2,23 @@
 //!
 //! This crate implements the custom Bareos network protocol used for
 //! communication between Director, File Daemon, and Storage Daemon.
+//!
+//! # Protocol layers
+//!
+//! 1. **TCP** — raw socket connection
+//! 2. **TLS** — optional encryption (wraps entire socket)
+//! 3. **BNET** — length-prefixed framing: `[i32 BE length][payload]`
+//! 4. **Hello** — first message identifies connection type
+//! 5. **CRAM-MD5** — two-way authentication
 
 pub mod wire;
 pub mod signal;
 pub mod tls;
 pub mod cram_md5;
+pub mod hello;
 
 // Re-exports
 pub use signal::BnetSignal;
-pub use wire::{BnetMessage, BnetStream};
+pub use wire::{BnetMessage, BnetStream, BnetError};
+pub use hello::Hello;
+pub use cram_md5::{CramMd5Auth, AuthResult};

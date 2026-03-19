@@ -8,12 +8,11 @@
 //!
 //! - Positive length: data message (payload follows)
 //! - Negative length: out-of-band signal (no payload)
-//! - Zero length: keepalive / empty message
+//! - Zero length: empty message / soft EOF
 
 use std::io::{self, Read, Write};
-use std::net::TcpStream;
 
-use crate::signal::BnetSignal;
+use crate::signal::{BnetSignal, MAX_MESSAGE_LEN, MAX_PACKET_SIZE};
 
 /// A message on the BNET wire: either data or a signal.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,83 +23,140 @@ pub enum BnetMessage {
     Signal(BnetSignal),
 }
 
-/// A BNET connection over a TCP stream (plaintext or TLS).
-pub struct BnetStream {
-    stream: TcpStream,
+/// Errors specific to the BNET protocol.
+#[derive(Debug, thiserror::Error)]
+pub enum BnetError {
+    #[error("IO error: {0}")]
+    Io(#[from] io::Error),
+    #[error("unknown BNET signal: {0}")]
+    UnknownSignal(i32),
+    #[error("packet too large: {0} bytes (max {MAX_PACKET_SIZE})")]
+    PacketTooLarge(usize),
+    #[error("connection terminated by peer")]
+    Terminated,
+    #[error("hard EOF")]
+    HardEof,
 }
 
-impl BnetStream {
-    /// Wrap an existing TCP stream.
-    pub fn new(stream: TcpStream) -> Self {
-        Self { stream }
+/// A BNET connection over any Read+Write stream.
+pub struct BnetStream<S> {
+    stream: S,
+    /// Tracks whether the peer sent BNET_TERMINATE.
+    terminated: bool,
+}
+
+impl<S: Read + Write> BnetStream<S> {
+    /// Wrap an existing stream.
+    pub fn new(stream: S) -> Self {
+        Self {
+            stream,
+            terminated: false,
+        }
     }
 
-    /// Send a data message.
-    pub fn send(&mut self, data: &[u8]) -> io::Result<()> {
-        let len = data.len() as i32;
-        self.stream.write_all(&len.to_be_bytes())?;
-        if !data.is_empty() {
-            self.stream.write_all(data)?;
+    /// Send a data message (may be split into multiple packets if > MAX_MESSAGE_LEN).
+    pub fn send(&mut self, data: &[u8]) -> Result<(), BnetError> {
+        if data.is_empty() {
+            // Empty message: send zero-length header
+            self.stream.write_all(&0i32.to_be_bytes())?;
+            self.stream.flush()?;
+            return Ok(());
         }
-        self.stream.flush()
+
+        let mut written = 0usize;
+        while written < data.len() {
+            let remaining = data.len() - written;
+            let chunk_len = remaining.min(MAX_MESSAGE_LEN);
+            let header = (chunk_len as i32).to_be_bytes();
+            self.stream.write_all(&header)?;
+            self.stream.write_all(&data[written..written + chunk_len])?;
+            written += chunk_len;
+        }
+        self.stream.flush()?;
+        Ok(())
     }
 
     /// Send a signal (negative length, no payload).
-    pub fn send_signal(&mut self, signal: BnetSignal) -> io::Result<()> {
-        let len = signal as i32;
-        self.stream.write_all(&len.to_be_bytes())?;
-        self.stream.flush()
+    pub fn send_signal(&mut self, signal: BnetSignal) -> Result<(), BnetError> {
+        let header = (signal as i32).to_be_bytes();
+        self.stream.write_all(&header)?;
+        self.stream.flush()?;
+        Ok(())
     }
 
     /// Receive the next message.
-    pub fn recv(&mut self) -> io::Result<BnetMessage> {
-        let mut len_buf = [0u8; 4];
-        self.stream.read_exact(&mut len_buf)?;
-        let len = i32::from_be_bytes(len_buf);
+    pub fn recv(&mut self) -> Result<BnetMessage, BnetError> {
+        let mut header_buf = [0u8; 4];
+        match self.stream.read_exact(&mut header_buf) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                return Err(BnetError::HardEof);
+            }
+            Err(e) => return Err(BnetError::Io(e)),
+        }
+
+        let len = i32::from_be_bytes(header_buf);
 
         if len < 0 {
+            // Signal
+            if len == BnetSignal::Terminate as i32 {
+                self.terminated = true;
+            }
             match BnetSignal::from_i32(len) {
                 Some(sig) => Ok(BnetMessage::Signal(sig)),
-                None => Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("unknown BNET signal: {len}"),
-                )),
+                None => Err(BnetError::UnknownSignal(len)),
             }
         } else if len == 0 {
+            // Empty message
             Ok(BnetMessage::Data(Vec::new()))
         } else {
-            let mut buf = vec![0u8; len as usize];
+            let len = len as usize;
+            if len > MAX_PACKET_SIZE {
+                return Err(BnetError::PacketTooLarge(len));
+            }
+            let mut buf = vec![0u8; len];
             self.stream.read_exact(&mut buf)?;
             Ok(BnetMessage::Data(buf))
         }
     }
 
     /// Send a UTF-8 string as data message.
-    pub fn send_str(&mut self, s: &str) -> io::Result<()> {
+    pub fn send_str(&mut self, s: &str) -> Result<(), BnetError> {
         self.send(s.as_bytes())
     }
 
-    /// Receive a data message and decode as UTF-8 string.
-    /// Returns an error if the message is a signal.
-    pub fn recv_str(&mut self) -> io::Result<String> {
+    /// Receive a data message as UTF-8 string.
+    /// Returns error on signal or invalid UTF-8.
+    pub fn recv_str(&mut self) -> Result<String, BnetError> {
         match self.recv()? {
             BnetMessage::Data(data) => String::from_utf8(data).map_err(|e| {
-                io::Error::new(io::ErrorKind::InvalidData, e)
+                BnetError::Io(io::Error::new(io::ErrorKind::InvalidData, e))
             }),
-            BnetMessage::Signal(sig) => Err(io::Error::new(
+            BnetMessage::Signal(BnetSignal::Terminate) => Err(BnetError::Terminated),
+            BnetMessage::Signal(sig) => Err(BnetError::Io(io::Error::new(
                 io::ErrorKind::UnexpectedEof,
                 format!("expected data, got signal: {sig:?}"),
-            )),
+            ))),
         }
     }
 
-    /// Access the underlying TCP stream.
-    pub fn inner(&self) -> &TcpStream {
+    /// Whether the peer has sent BNET_TERMINATE.
+    pub fn is_terminated(&self) -> bool {
+        self.terminated
+    }
+
+    /// Access the underlying stream.
+    pub fn inner(&self) -> &S {
         &self.stream
     }
 
-    /// Consume and return the underlying TCP stream.
-    pub fn into_inner(self) -> TcpStream {
+    /// Access the underlying stream mutably.
+    pub fn inner_mut(&mut self) -> &mut S {
+        &mut self.stream
+    }
+
+    /// Consume and return the underlying stream.
+    pub fn into_inner(self) -> S {
         self.stream
     }
 }
@@ -108,9 +164,9 @@ impl BnetStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::TcpListener;
+    use std::net::{TcpListener, TcpStream};
 
-    fn make_pair() -> (BnetStream, BnetStream) {
+    fn make_pair() -> (BnetStream<TcpStream>, BnetStream<TcpStream>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         let client = TcpStream::connect(addr).unwrap();
@@ -122,32 +178,28 @@ mod tests {
     fn data_roundtrip() {
         let (mut a, mut b) = make_pair();
         a.send(b"hello bareos").unwrap();
-        let msg = b.recv().unwrap();
-        assert_eq!(msg, BnetMessage::Data(b"hello bareos".to_vec()));
+        assert_eq!(b.recv().unwrap(), BnetMessage::Data(b"hello bareos".to_vec()));
     }
 
     #[test]
     fn signal_roundtrip() {
         let (mut a, mut b) = make_pair();
         a.send_signal(BnetSignal::Eod).unwrap();
-        let msg = b.recv().unwrap();
-        assert_eq!(msg, BnetMessage::Signal(BnetSignal::Eod));
+        assert_eq!(b.recv().unwrap(), BnetMessage::Signal(BnetSignal::Eod));
     }
 
     #[test]
     fn string_roundtrip() {
         let (mut a, mut b) = make_pair();
         a.send_str("status dir").unwrap();
-        let s = b.recv_str().unwrap();
-        assert_eq!(s, "status dir");
+        assert_eq!(b.recv_str().unwrap(), "status dir");
     }
 
     #[test]
     fn empty_message() {
         let (mut a, mut b) = make_pair();
         a.send(b"").unwrap();
-        let msg = b.recv().unwrap();
-        assert_eq!(msg, BnetMessage::Data(Vec::new()));
+        assert_eq!(b.recv().unwrap(), BnetMessage::Data(Vec::new()));
     }
 
     #[test]
@@ -163,10 +215,70 @@ mod tests {
     }
 
     #[test]
-    fn terminate_signal() {
+    fn terminate_sets_flag() {
         let (mut a, mut b) = make_pair();
+        assert!(!b.is_terminated());
         a.send_signal(BnetSignal::Terminate).unwrap();
         let msg = b.recv().unwrap();
         assert_eq!(msg, BnetMessage::Signal(BnetSignal::Terminate));
+        assert!(b.is_terminated());
+    }
+
+    #[test]
+    fn large_message_splitting() {
+        let (mut a, mut b) = make_pair();
+        // Send a message larger than MAX_MESSAGE_LEN to trigger splitting
+        let large_data = vec![0x42u8; MAX_MESSAGE_LEN + 100];
+        a.send(&large_data).unwrap();
+
+        // Receiver should get two packets that together form the message
+        let msg1 = b.recv().unwrap();
+        let msg2 = b.recv().unwrap();
+
+        match (msg1, msg2) {
+            (BnetMessage::Data(d1), BnetMessage::Data(d2)) => {
+                assert_eq!(d1.len(), MAX_MESSAGE_LEN);
+                assert_eq!(d2.len(), 100);
+                let mut combined = d1;
+                combined.extend_from_slice(&d2);
+                assert_eq!(combined, large_data);
+            }
+            _ => panic!("expected two data messages"),
+        }
+    }
+
+    #[test]
+    fn all_console_signals() {
+        let (mut a, mut b) = make_pair();
+        let signals = [
+            BnetSignal::MainPrompt,
+            BnetSignal::SubPrompt,
+            BnetSignal::TextInput,
+            BnetSignal::YesNo,
+            BnetSignal::StartSelect,
+            BnetSignal::EndSelect,
+            BnetSignal::CmdOk,
+            BnetSignal::CmdFailed,
+            BnetSignal::ErrorMsg,
+            BnetSignal::WarningMsg,
+            BnetSignal::InfoMsg,
+        ];
+        for sig in &signals {
+            a.send_signal(*sig).unwrap();
+        }
+        for sig in &signals {
+            assert_eq!(b.recv().unwrap(), BnetMessage::Signal(*sig));
+        }
+    }
+
+    #[test]
+    fn hard_eof_on_disconnect() {
+        let (mut a, mut b) = make_pair();
+        drop(a); // Close sender
+        match b.recv() {
+            Err(BnetError::HardEof) => {} // expected
+            Err(BnetError::Io(_)) => {}   // also acceptable
+            other => panic!("expected HardEof or Io error, got {other:?}"),
+        }
     }
 }
