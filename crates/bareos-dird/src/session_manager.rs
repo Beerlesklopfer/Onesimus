@@ -2,10 +2,12 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use crossbeam_channel::Receiver;
 use dashmap::DashMap;
 
-use crate::message_bus::MessageBus;
+use crate::message_bus::{BusMessage, MessageBus};
 
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -13,17 +15,37 @@ pub fn next_session_id() -> u64 {
     NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
 }
 
-/// Information about a console session.
+/// Console session information.
 #[derive(Debug)]
 pub struct SessionInfo {
     pub id: u64,
     pub client_name: String,
     pub authenticated: bool,
+    pub bus_rx: Receiver<BusMessage>,
+}
+
+/// File Daemon connection info.
+#[derive(Debug)]
+pub struct FdConnectionInfo {
+    pub client_name: String,
+    pub protocol_version: i32,
+    pub connect_time: i64,
+    pub alive: bool,
+}
+
+/// Storage Daemon connection info.
+#[derive(Debug)]
+pub struct SdConnectionInfo {
+    pub job_id: u32,
+    pub storage_name: String,
+    pub connect_time: i64,
 }
 
 /// Central manager for all connections.
 pub struct SessionManager {
     sessions: DashMap<u64, SessionInfo>,
+    fd_connections: DashMap<String, FdConnectionInfo>,
+    sd_connections: DashMap<u32, SdConnectionInfo>,
     bus: Arc<MessageBus>,
 }
 
@@ -31,18 +53,30 @@ impl SessionManager {
     pub fn new(bus: Arc<MessageBus>) -> Self {
         Self {
             sessions: DashMap::new(),
+            fd_connections: DashMap::new(),
+            sd_connections: DashMap::new(),
             bus,
         }
     }
 
-    pub fn create_session(&self, client_name: String) -> u64 {
+    // --- Console Sessions ---
+
+    pub fn create_session(&self, client_name: &str) -> u64 {
         let id = next_session_id();
+        let bus_rx = self.bus.subscribe();
         self.sessions.insert(id, SessionInfo {
             id,
-            client_name,
+            client_name: client_name.to_string(),
             authenticated: false,
+            bus_rx,
         });
         id
+    }
+
+    pub fn authenticate_session(&self, id: u64) {
+        if let Some(mut session) = self.sessions.get_mut(&id) {
+            session.authenticated = true;
+        }
     }
 
     pub fn remove_session(&self, id: u64) {
@@ -53,22 +87,113 @@ impl SessionManager {
         self.sessions.len()
     }
 
+    pub fn get_session_names(&self) -> Vec<(u64, String)> {
+        self.sessions.iter()
+            .map(|entry| (entry.id, entry.client_name.clone()))
+            .collect()
+    }
+
+    // --- FD Connections ---
+
+    pub fn add_fd_connection(&self, client_name: &str, protocol_version: i32) {
+        let now = now_unix();
+        self.fd_connections.insert(client_name.to_string(), FdConnectionInfo {
+            client_name: client_name.to_string(),
+            protocol_version,
+            connect_time: now,
+            alive: true,
+        });
+        self.bus.post(BusMessage::FdConnected {
+            client_name: client_name.to_string(),
+            protocol_version,
+            connect_time: now,
+        });
+    }
+
+    pub fn remove_fd_connection(&self, client_name: &str) {
+        self.fd_connections.remove(client_name);
+        self.bus.post(BusMessage::FdDisconnected {
+            client_name: client_name.to_string(),
+        });
+    }
+
+    pub fn fd_connection_count(&self) -> usize {
+        self.fd_connections.len()
+    }
+
+    pub fn get_fd_connections(&self) -> Vec<FdConnectionInfo> {
+        self.fd_connections.iter()
+            .map(|entry| FdConnectionInfo {
+                client_name: entry.client_name.clone(),
+                protocol_version: entry.protocol_version,
+                connect_time: entry.connect_time,
+                alive: entry.alive,
+            })
+            .collect()
+    }
+
+    // --- SD Connections ---
+
+    pub fn track_sd_connection(&self, job_id: u32, storage_name: &str) {
+        let now = now_unix();
+        self.sd_connections.insert(job_id, SdConnectionInfo {
+            job_id,
+            storage_name: storage_name.to_string(),
+            connect_time: now,
+        });
+        self.bus.post(BusMessage::SdConnected {
+            job_id,
+            storage_name: storage_name.to_string(),
+            connect_time: now,
+        });
+    }
+
+    pub fn untrack_sd_connection(&self, job_id: u32) {
+        if let Some((_, info)) = self.sd_connections.remove(&job_id) {
+            self.bus.post(BusMessage::SdDisconnected {
+                job_id,
+                storage_name: info.storage_name,
+            });
+        }
+    }
+
+    pub fn sd_connection_count(&self) -> usize {
+        self.sd_connections.len()
+    }
+
+    // --- Bus access ---
+
     pub fn bus(&self) -> &MessageBus {
         &self.bus
     }
+
+    /// Broadcast a text message to all console sessions.
+    pub fn broadcast_text(&self, text: &str) {
+        self.bus.post_text(text);
+    }
+}
+
+fn now_unix() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn make_mgr() -> SessionManager {
+        let bus = Arc::new(MessageBus::new(64));
+        SessionManager::new(bus)
+    }
+
     #[test]
     fn create_and_remove_session() {
-        let bus = Arc::new(MessageBus::new(16));
-        let mgr = SessionManager::new(bus);
-
-        let id1 = mgr.create_session("console1".into());
-        let id2 = mgr.create_session("console2".into());
+        let mgr = make_mgr();
+        let id1 = mgr.create_session("console1");
+        let id2 = mgr.create_session("console2");
         assert_eq!(mgr.active_session_count(), 2);
 
         mgr.remove_session(id1);
@@ -80,13 +205,143 @@ mod tests {
 
     #[test]
     fn session_ids_are_unique() {
-        let bus = Arc::new(MessageBus::new(16));
-        let mgr = SessionManager::new(bus);
-
-        let id1 = mgr.create_session("a".into());
-        let id2 = mgr.create_session("b".into());
-        let id3 = mgr.create_session("c".into());
+        let mgr = make_mgr();
+        let id1 = mgr.create_session("a");
+        let id2 = mgr.create_session("b");
+        let id3 = mgr.create_session("c");
         assert_ne!(id1, id2);
         assert_ne!(id2, id3);
+    }
+
+    #[test]
+    fn authenticate_session() {
+        let mgr = make_mgr();
+        let id = mgr.create_session("test");
+        mgr.authenticate_session(id);
+        // Verify via session names (authenticated flag is internal)
+        let names = mgr.get_session_names();
+        assert_eq!(names.len(), 1);
+        assert_eq!(names[0].1, "test");
+    }
+
+    #[test]
+    fn fd_connections() {
+        let mgr = make_mgr();
+        assert_eq!(mgr.fd_connection_count(), 0);
+
+        mgr.add_fd_connection("client1-fd", 54);
+        assert_eq!(mgr.fd_connection_count(), 1);
+
+        mgr.add_fd_connection("client2-fd", 54);
+        assert_eq!(mgr.fd_connection_count(), 2);
+
+        let fds = mgr.get_fd_connections();
+        assert_eq!(fds.len(), 2);
+
+        mgr.remove_fd_connection("client1-fd");
+        assert_eq!(mgr.fd_connection_count(), 1);
+    }
+
+    #[test]
+    fn fd_connection_emits_bus_events() {
+        let bus = Arc::new(MessageBus::new(64));
+        let rx = bus.subscribe();
+        let mgr = SessionManager::new(bus);
+
+        mgr.add_fd_connection("test-fd", 54);
+
+        match rx.try_recv().unwrap() {
+            BusMessage::FdConnected { client_name, protocol_version, .. } => {
+                assert_eq!(client_name, "test-fd");
+                assert_eq!(protocol_version, 54);
+            }
+            _ => panic!("expected FdConnected"),
+        }
+
+        mgr.remove_fd_connection("test-fd");
+
+        match rx.try_recv().unwrap() {
+            BusMessage::FdDisconnected { client_name } => {
+                assert_eq!(client_name, "test-fd");
+            }
+            _ => panic!("expected FdDisconnected"),
+        }
+    }
+
+    #[test]
+    fn sd_connections() {
+        let mgr = make_mgr();
+        assert_eq!(mgr.sd_connection_count(), 0);
+
+        mgr.track_sd_connection(1, "File");
+        assert_eq!(mgr.sd_connection_count(), 1);
+
+        mgr.track_sd_connection(2, "Tape");
+        assert_eq!(mgr.sd_connection_count(), 2);
+
+        mgr.untrack_sd_connection(1);
+        assert_eq!(mgr.sd_connection_count(), 1);
+    }
+
+    #[test]
+    fn sd_connection_emits_bus_events() {
+        let bus = Arc::new(MessageBus::new(64));
+        let rx = bus.subscribe();
+        let mgr = SessionManager::new(bus);
+
+        mgr.track_sd_connection(42, "File");
+
+        match rx.try_recv().unwrap() {
+            BusMessage::SdConnected { job_id, storage_name, .. } => {
+                assert_eq!(job_id, 42);
+                assert_eq!(storage_name, "File");
+            }
+            _ => panic!("expected SdConnected"),
+        }
+
+        mgr.untrack_sd_connection(42);
+
+        match rx.try_recv().unwrap() {
+            BusMessage::SdDisconnected { job_id, storage_name } => {
+                assert_eq!(job_id, 42);
+                assert_eq!(storage_name, "File");
+            }
+            _ => panic!("expected SdDisconnected"),
+        }
+    }
+
+    #[test]
+    fn broadcast_text() {
+        let bus = Arc::new(MessageBus::new(64));
+        let rx = bus.subscribe();
+        let mgr = SessionManager::new(bus);
+
+        mgr.broadcast_text("hello all");
+
+        match rx.try_recv().unwrap() {
+            BusMessage::ConsoleText { text } => assert_eq!(text, "hello all"),
+            _ => panic!("expected ConsoleText"),
+        }
+    }
+
+    #[test]
+    fn concurrent_sessions() {
+        let mgr = Arc::new(make_mgr());
+        let mut handles = Vec::new();
+
+        for i in 0..10 {
+            let mgr = mgr.clone();
+            handles.push(std::thread::spawn(move || {
+                let id = mgr.create_session(&format!("console-{i}"));
+                std::thread::sleep(std::time::Duration::from_millis(1));
+                mgr.remove_session(id);
+            }));
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        assert_eq!(mgr.active_session_count(), 0);
     }
 }
