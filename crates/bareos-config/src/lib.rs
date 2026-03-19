@@ -1,11 +1,11 @@
 //! Bareos configuration file parser.
 //!
 //! Parses the Bareos Director configuration syntax into typed resource structs.
-//! Supports all 14 resource types: Director, Client, Job, JobDefs, Storage,
-//! Catalog, Schedule, FileSet, Pool, Messages, Counter, Profile, Console, User.
-//!
-//! Implementation will be filled in Phase R2.
+//! Supports all major resource types and directive value formats.
 
 pub mod resources;
+pub mod parser;
+pub mod values;
 
 pub use resources::*;
+pub use parser::parse_config;
