@@ -33,5 +33,6 @@ nix.workspace = true
 libc.workspace = true
 ctrlc.workspace = true
 tokio-stream = "0.1"
+chrono = "0.4"
 
 [dev-dependencies]

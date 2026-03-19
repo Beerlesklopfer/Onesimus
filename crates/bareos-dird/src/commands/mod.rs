@@ -1,3 +1,11 @@
 //! Command implementations, grouped by category.
 
-// TODO(R7): Add command modules (status, run, list, configure, acl, sql, ...)
+pub mod basic;
+pub mod status;
+pub mod dot;
+pub mod job;
+pub mod list;
+pub mod admin;
+pub mod configure;
+pub mod sql;
+pub mod acl;
