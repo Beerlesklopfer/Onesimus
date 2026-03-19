@@ -1,0 +1,23 @@
+[package]
+name = "bareos-console"
+description = "baReos bconsole — Rust console client for the Bareos Director"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "bconsole"
+path = "src/main.rs"
+
+[dependencies]
+bareos-bnet.workspace = true
+bareos-proto-rs.workspace = true
+
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+crossbeam-channel.workspace = true
+tonic.workspace = true
+tokio.workspace = true

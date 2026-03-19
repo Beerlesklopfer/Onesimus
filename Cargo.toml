@@ -6,6 +6,7 @@ members = [
     "crates/bareos-catalog",
     "crates/bareos-proto-rs",
     "crates/bareos-dird",
+    "crates/bareos-console",
 ]
 
 [workspace.package]
@@ -60,6 +61,9 @@ libc = "0.2"
 
 # Signal handling
 ctrlc = "3"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
 
 # Error handling
 anyhow = "1"
