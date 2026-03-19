@@ -1,0 +1,17 @@
+[package]
+name = "bareos-catalog"
+description = "PostgreSQL catalog interface for Bareos Director"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+sqlx.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]

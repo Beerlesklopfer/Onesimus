@@ -1,0 +1,17 @@
+[package]
+name = "bareos-config"
+description = "Bareos configuration file parser"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+nom.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]

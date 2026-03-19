@@ -1,0 +1,71 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/bareos-bnet",
+    "crates/bareos-config",
+    "crates/bareos-catalog",
+    "crates/bareos-proto-rs",
+    "crates/bareos-dird",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Joerg Bernau <joerg@bernau.family>"]
+license = "AGPL-3.0"
+repository = "https://github.com/Beerlesklopfer/baReos-dird"
+
+[workspace.dependencies]
+# Async runtime (only for gRPC)
+tokio = { version = "1", features = ["full"] }
+
+# gRPC
+tonic = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres"] }
+
+# Parsing
+nom = "7"
+
+# Crypto
+hmac = "0.12"
+sha2 = "0.10"
+md-5 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+
+# TLS
+rustls = "0.23"
+rustls-pemfile = "2"
+tokio-rustls = "0.26"
+
+# Concurrency
+crossbeam-channel = "0.5"
+dashmap = "6"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# OS
+nix = { version = "0.29", features = ["process", "signal"] }
+
+# Signal handling
+ctrlc = "3"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Workspace crates
+bareos-bnet = { path = "crates/bareos-bnet" }
+bareos-config = { path = "crates/bareos-config" }
+bareos-catalog = { path = "crates/bareos-catalog" }
+bareos-proto-rs = { path = "crates/bareos-proto-rs" }

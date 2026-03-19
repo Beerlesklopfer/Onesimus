@@ -1,0 +1,15 @@
+[package]
+name = "bareos-proto-rs"
+description = "Generated Rust types from Bareos gRPC protocol definitions"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+tonic.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+
+[build-dependencies]
+tonic-build = "0.12"

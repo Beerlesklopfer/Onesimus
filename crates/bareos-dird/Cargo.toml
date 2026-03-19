@@ -1,0 +1,35 @@
+[package]
+name = "bareos-dird"
+description = "baReos Director — Rust rewrite of the Bareos Director daemon"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "bareos-dird"
+path = "src/main.rs"
+
+[dependencies]
+bareos-bnet.workspace = true
+bareos-config.workspace = true
+bareos-catalog.workspace = true
+bareos-proto-rs.workspace = true
+
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+prost.workspace = true
+crossbeam-channel.workspace = true
+dashmap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+nix.workspace = true
+ctrlc.workspace = true
+
+[dev-dependencies]
