@@ -27,6 +27,7 @@ use std::thread;
 use tracing::{info, error};
 use tracing_subscriber::EnvFilter;
 
+use crate::command_queue::CommandQueue;
 use crate::message_bus::MessageBus;
 use crate::session_manager::SessionManager;
 
@@ -44,21 +45,20 @@ fn main() {
 
     info!("baReos Director starting");
 
-    // TODO(R2): Load configuration from file
-    // let config = bareos_config::parse_config(&config_path)?;
-
     // Shared state
     let bus = Arc::new(MessageBus::new(1024));
     let session_mgr = Arc::new(SessionManager::new(bus.clone()));
+    let cmd_queue = Arc::new(CommandQueue::new(256));
 
     // Named threads
-    let threads = spawn_named_threads(session_mgr.clone(), bus.clone());
+    let threads = spawn_named_threads(session_mgr.clone(), bus.clone(), cmd_queue.clone());
 
     // Wait for shutdown signal (SIGTERM / SIGINT)
     wait_for_shutdown();
 
     info!("baReos Director shutting down");
     SHUTDOWN.store(true, Ordering::SeqCst);
+    cmd_queue.shutdown();
 
     // Join all threads
     for (name, handle) in threads {
@@ -73,6 +73,7 @@ fn main() {
 fn spawn_named_threads(
     session_mgr: Arc<SessionManager>,
     bus: Arc<MessageBus>,
+    cmd_queue: Arc<CommandQueue>,
 ) -> Vec<(String, thread::JoinHandle<()>)> {
     let mut threads = Vec::new();
 
@@ -117,11 +118,12 @@ fn spawn_named_threads(
     {
         let smgr = session_mgr.clone();
         let b = bus.clone();
+        let q = cmd_queue.clone();
         let handle = thread::Builder::new()
             .name("dir:grpc".into())
             .spawn(move || {
                 info!("dir:grpc thread started");
-                grpc::run_grpc_server(&smgr, &b, &SHUTDOWN);
+                grpc::run_grpc_server(&smgr, &b, &q, 9101, &SHUTDOWN);
             })
             .expect("failed to spawn dir:grpc");
         threads.push(("dir:grpc".into(), handle));
@@ -148,12 +150,8 @@ fn wait_for_shutdown() {
     use std::sync::mpsc;
     let (tx, rx) = mpsc::channel();
 
-    ctrlc_handler(tx);
-    let _ = rx.recv(); // Block until signal
-}
-
-fn ctrlc_handler(tx: std::sync::mpsc::Sender<()>) {
     let _ = ctrlc::set_handler(move || {
         let _ = tx.send(());
     });
+    let _ = rx.recv(); // Block until signal
 }

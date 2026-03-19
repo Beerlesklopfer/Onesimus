@@ -31,5 +31,6 @@ hmac.workspace = true
 sha2.workspace = true
 nix.workspace = true
 ctrlc.workspace = true
+tokio-stream = "0.1"
 
 [dev-dependencies]
