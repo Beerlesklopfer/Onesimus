@@ -80,11 +80,13 @@ fn spawn_named_threads(
     // dir:accept — TCP connection listener
     {
         let smgr = session_mgr.clone();
+        let q = cmd_queue.clone();
         let handle = thread::Builder::new()
             .name("dir:accept".into())
             .spawn(move || {
                 info!("dir:accept thread started");
-                accept::accept_loop(&smgr, &SHUTDOWN);
+                let config = accept::AcceptConfig::default();
+                accept::accept_loop(&smgr, &q, &config, &SHUTDOWN);
             })
             .expect("failed to spawn dir:accept");
         threads.push(("dir:accept".into(), handle));
