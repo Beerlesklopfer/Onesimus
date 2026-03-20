@@ -39,34 +39,99 @@ pub fn cmd_status(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 }
 
 pub fn cmd_dot_status(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    // Machine-readable status
     cmd_status(ast, ctx)
 }
 
-fn status_director(_ctx: &ExecContext) -> CommandResult {
+fn status_director(ctx: &ExecContext) -> CommandResult {
     let version = env!("CARGO_PKG_VERSION");
     let now = chrono::Local::now();
-    let output = format!(
-        "baReos Director Version: {version}\n\
-         Status: running\n\
-         Time: {}\n\
-         Scheduled Jobs: 0\n\
-         Running Jobs: 0\n\
-         Console Connections: 0\n\
-         FD Connections: 0\n\
-         SD Connections: 0\n",
-        now.format("%Y-%m-%d %H:%M:%S")
+
+    let mut output = format!(
+        "bareos-dir Version: {version}\n\
+         Daemon started {}\n\
+         \n",
+        now.format("%d-%b-%Y %H:%M:%S")
     );
-    // TODO(R7-full): Pull real data from SessionManager, Scheduler
+
+    // Config info
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            output.push_str(&format!(
+                "Director: {}\n\
+                 Clients: {}\n\
+                 Jobs: {}\n\
+                 Storages: {}\n\
+                 Pools: {}\n\
+                 Schedules: {}\n\
+                 Catalogs: {}\n\
+                 \n",
+                cfg.director.name,
+                cfg.clients.len(),
+                cfg.jobs.len(),
+                cfg.storages.len(),
+                cfg.pools.len(),
+                cfg.schedules.len(),
+                cfg.catalogs.len(),
+            ));
+        }
+    }
+
+    // Session info
+    if let Some(smgr) = &ctx.session_mgr {
+        let sessions = smgr.active_session_count();
+        let fds = smgr.fd_connection_count();
+        let sds = smgr.sd_connection_count();
+
+        output.push_str(&format!(
+            "Console Connections: {sessions}\n\
+             FD Connections: {fds}\n\
+             SD Connections: {sds}\n\
+             \n"
+        ));
+
+        // List connected clients
+        let fd_list = smgr.get_fd_connections();
+        if !fd_list.is_empty() {
+            output.push_str("Connected File Daemons:\n");
+            for fd in &fd_list {
+                output.push_str(&format!(
+                    "  {} (proto={}, alive={})\n",
+                    fd.client_name, fd.protocol_version, fd.alive
+                ));
+            }
+            output.push('\n');
+        }
+
+        // List sessions
+        let session_list = smgr.get_session_names();
+        if !session_list.is_empty() {
+            output.push_str("Console Sessions:\n");
+            for (id, name) in &session_list {
+                output.push_str(&format!("  #{id}: {name}\n"));
+            }
+            output.push('\n');
+        }
+    } else {
+        output.push_str(
+            "Console Connections: 0\n\
+             FD Connections: 0\n\
+             SD Connections: 0\n\n"
+        );
+    }
+
+    output.push_str("Scheduled Jobs:\n");
+    output.push_str("  No scheduled jobs.\n\n");
+    output.push_str("Running Jobs:\n");
+    output.push_str("  No running jobs.\n");
+    output.push_str("====\n");
+
     CommandResult::ok(output)
 }
 
 fn status_client(name: &str, _ctx: &ExecContext) -> CommandResult {
-    // TODO(R7-full): Connect to FD and get status
     CommandResult::ok(format!("Client {name}: status query pending\n"))
 }
 
 fn status_storage(name: &str, _ctx: &ExecContext) -> CommandResult {
-    // TODO(R7-full): Connect to SD and get status
     CommandResult::ok(format!("Storage {name}: status query pending\n"))
 }

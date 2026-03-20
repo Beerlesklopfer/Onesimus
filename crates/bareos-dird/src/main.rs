@@ -181,6 +181,7 @@ fn spawn_named_threads(
         let q = cmd_queue.clone();
         let pw = password.clone();
         let tls_cfg = tls_config.clone();
+        let shared_cfg = config.clone();
         let handle = thread::Builder::new()
             .name("dir:accept".into())
             .spawn(move || {
@@ -189,6 +190,7 @@ fn spawn_named_threads(
                     port,
                     password: pw,
                     tls_config: tls_cfg,
+                    shared_config: Some(shared_cfg),
                 };
                 accept::accept_loop(&smgr, &q, &config, &SHUTDOWN);
             })

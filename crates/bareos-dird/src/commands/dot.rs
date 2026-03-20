@@ -4,24 +4,63 @@ use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
 
-pub fn cmd_dot_clients(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    // TODO(R7-full): Query from config/catalog
+pub fn cmd_dot_clients(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            let output: String = cfg.clients.iter()
+                .map(|c| format!("{}\n", c.name))
+                .collect();
+            return CommandResult::ok(output);
+        }
+    }
     CommandResult::ok("".to_string())
 }
 
-pub fn cmd_dot_jobs(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_dot_jobs(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            let output: String = cfg.jobs.iter()
+                .map(|j| format!("{}\n", j.name))
+                .collect();
+            return CommandResult::ok(output);
+        }
+    }
     CommandResult::ok("".to_string())
 }
 
-pub fn cmd_dot_pools(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_dot_pools(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            let output: String = cfg.pools.iter()
+                .map(|p| format!("{}\n", p.name))
+                .collect();
+            return CommandResult::ok(output);
+        }
+    }
     CommandResult::ok("".to_string())
 }
 
-pub fn cmd_dot_storage(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_dot_storage(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            let output: String = cfg.storages.iter()
+                .map(|s| format!("{}\n", s.name))
+                .collect();
+            return CommandResult::ok(output);
+        }
+    }
     CommandResult::ok("".to_string())
 }
 
-pub fn cmd_dot_filesets(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_dot_filesets(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            let output: String = cfg.filesets.iter()
+                .map(|f| format!("{}\n", f.name))
+                .collect();
+            return CommandResult::ok(output);
+        }
+    }
     CommandResult::ok("".to_string())
 }
 

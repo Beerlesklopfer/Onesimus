@@ -5,6 +5,7 @@
 //! gRPC upgrade.
 
 use std::io::{Read, Write};
+use std::sync::Arc;
 
 use tracing::{info, debug, warn, error};
 
@@ -14,6 +15,7 @@ use bareos_bnet::tls::TlsOrPlain;
 use crate::command_ast::{CommandAst, Argument, CommandSource, ResponseFormat};
 use crate::command_executor::{self, ExecContext};
 use crate::command_queue::CommandQueue;
+use crate::director_config::SharedConfig;
 use crate::fsm::SessionState;
 use crate::session_manager::SessionManager;
 
@@ -23,8 +25,9 @@ pub fn handle_console_session<S: Read + Write>(
     session_id: u64,
     console_name: &str,
     password: &str,
-    session_mgr: &SessionManager,
+    session_mgr: &Arc<SessionManager>,
     cmd_queue: &CommandQueue,
+    config: &Option<SharedConfig>,
 ) {
     // Register session
     let mgr_session_id = session_mgr.create_session(console_name);
@@ -122,7 +125,11 @@ pub fn handle_console_session<S: Read + Write>(
         }
 
         // Execute command
-        let ctx = ExecContext { session_id };
+        let ctx = ExecContext {
+            session_id,
+            config: config.clone(),
+            session_mgr: Some(session_mgr.clone()),
+        };
         let result = command_executor::dispatch(&ast, &ctx);
 
         // Send result

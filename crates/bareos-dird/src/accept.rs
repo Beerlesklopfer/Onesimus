@@ -20,11 +20,14 @@ use crate::command_queue::CommandQueue;
 use crate::session;
 
 /// Accept loop configuration.
+use crate::director_config::SharedConfig;
+
 pub struct AcceptConfig {
     pub bind_address: String,
     pub port: u16,
     pub password: String,
     pub tls_config: Option<TlsConfig>,
+    pub shared_config: Option<SharedConfig>,
 }
 
 impl Default for AcceptConfig {
@@ -34,6 +37,7 @@ impl Default for AcceptConfig {
             port: 9101,
             password: String::new(),
             tls_config: None,
+            shared_config: None,
         }
     }
 }
@@ -89,12 +93,13 @@ pub fn accept_loop(
                 let q = cmd_queue.clone();
                 let password = config.password.clone();
                 let tls_cfg = tls_server_config.clone();
+                let shared_cfg = config.shared_config.clone();
                 let session_id = crate::session_manager::next_session_id();
 
                 thread::Builder::new()
                     .name(format!("dir:session:{session_id}"))
                     .spawn(move || {
-                        handle_connection(stream, session_id, &password, tls_cfg, &smgr, &q);
+                        handle_connection(stream, session_id, &password, tls_cfg, &smgr, &q, &shared_cfg);
                     })
                     .ok();
             }
@@ -117,8 +122,9 @@ fn handle_connection(
     session_id: u64,
     password: &str,
     tls_config: Option<Arc<rustls::ServerConfig>>,
-    session_mgr: &SessionManager,
+    session_mgr: &Arc<SessionManager>,
     cmd_queue: &CommandQueue,
+    shared_config: &Option<SharedConfig>,
 ) {
     // TLS handshake if configured (before reading any BNET messages)
     let tls_stream: TlsOrPlain = if let Some(tls_cfg) = tls_config {
@@ -160,13 +166,13 @@ fn handle_connection(
         Hello::DefaultConsole => {
             debug!("default console connected (session {session_id})");
             session::handle_console_session(
-                bnet, session_id, "*UserAgent*", password, session_mgr, cmd_queue,
+                bnet, session_id, "*UserAgent*", password, session_mgr, cmd_queue, shared_config,
             );
         }
         Hello::NamedConsole { name, version, wants_grpc } => {
             debug!("named console '{name}' v{version} connected (grpc={wants_grpc})");
             session::handle_console_session(
-                bnet, session_id, &name, password, session_mgr, cmd_queue,
+                bnet, session_id, &name, password, session_mgr, cmd_queue, shared_config,
             );
         }
         Hello::FileDaemon { client_name, fd_protocol_version } => {

@@ -1,13 +1,18 @@
 //! Command dispatcher — routes CommandAST to command handlers.
 
+use std::sync::Arc;
+
 use crate::command_ast::CommandAst;
 use crate::command_queue::CommandResult;
 use crate::commands;
+use crate::director_config::SharedConfig;
+use crate::session_manager::SessionManager;
 
 /// Execution context passed to each command handler.
 pub struct ExecContext {
     pub session_id: u64,
-    // TODO(R7-full): Add references to SessionManager, CatalogDb, Config, etc.
+    pub config: Option<SharedConfig>,
+    pub session_mgr: Option<Arc<SessionManager>>,
 }
 
 /// Dispatch a command to the appropriate handler.
@@ -86,7 +91,7 @@ mod tests {
     }
 
     fn make_ctx() -> ExecContext {
-        ExecContext { session_id: 1 }
+        ExecContext { session_id: 1, config: None, session_mgr: None }
     }
 
     #[test]
