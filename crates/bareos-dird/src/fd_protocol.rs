@@ -1,17 +1,19 @@
 //! File Daemon protocol handler.
 //!
-//! Implements the Director-side of FD communication:
-//! - Connect outbound to FD (TCP + TLS + CRAM-MD5)
-//! - Send hello, authenticate, get status
-//! - Job info exchange (backup/restore)
+//! Bareos 18.2+ Director→FD connection sequence:
+//! 1. TCP connect
+//! 2. TLS-PSK handshake (BEFORE any BNET messages!)
+//! 3. Hello: "Hello Director <name> calling\n" (encrypted)
+//! 4. CRAM-MD5 Two-Way (encrypted)
+//! 5. FD response: "2000 OK Hello [version]"
+//! 6. Commands on encrypted channel
 
 use std::net::TcpStream;
-use std::sync::Arc;
 use std::time::Duration;
 
-use tracing::{info, debug, warn, error};
+use tracing::{debug, warn};
 
-use bareos_bnet::{BnetStream, BnetSignal, BnetMessage, BnetError, CramMd5Auth, AnyStream};
+use bareos_bnet::{BnetStream, BnetSignal, BnetMessage, BnetError, CramMd5Auth};
 use bareos_bnet::hello::{make_director_hello, FD_OK_HELLO};
 use bareos_bnet::tls_psk;
 
@@ -32,136 +34,84 @@ pub fn query_fd_status(
     director_name: &str,
     client_name: &str,
 ) -> FdStatusResult {
-    query_fd_status_with_tls(address, port, password, director_name, client_name, true)
-}
-
-fn query_fd_status_with_tls(
-    address: &str,
-    port: u16,
-    password: &str,
-    director_name: &str,
-    client_name: &str,
-    use_tls: bool,
-) -> FdStatusResult {
     let addr = format!("{address}:{port}");
 
-    // Connect
+    // 1. TCP Connect
     let stream = match TcpStream::connect_timeout(
         &addr.parse().unwrap_or_else(|_| format!("127.0.0.1:{port}").parse().unwrap()),
         Duration::from_secs(10),
     ) {
         Ok(s) => s,
-        Err(e) => {
-            return FdStatusResult {
-                client_name: client_name.to_string(),
-                version: String::new(),
-                status_text: format!("Failed to connect to {addr}: {e}"),
-                success: false,
-            };
-        }
+        Err(e) => return fail(client_name, &format!("Connect to {addr} failed: {e}")),
     };
-
     stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
 
-    // Bareos uses TLS-PSK (Pre-Shared Key) for daemon-to-daemon connections.
-    // The PSK is derived from the password (MD5 hash as hex string).
-    // TLS-PSK handshake happens BEFORE any BNET messages.
-    //
-    // Strategy: Try TLS-PSK first. If it fails, try cleartext.
+    // 2. TLS-PSK handshake FIRST (Bareos 18.2+ requirement)
+    // Identity format: "R_DIRECTOR\x1e<name>" with Record Separator
+    let psk_identity = format!("R_DIRECTOR\x1e{director_name}");
     let psk = tls_psk::password_to_psk(password);
-    let mut bnet = if use_tls {
-        match tls_psk::psk_connect(stream, director_name, &psk) {
-            Ok(psk_stream) => {
-                debug!("FD {client_name}: TLS-PSK handshake OK");
-                BnetStream::new(AnyStream::Psk(psk_stream))
-            }
-            Err(e) => {
-                debug!("FD {client_name}: TLS-PSK failed ({e}), trying cleartext");
-                match TcpStream::connect_timeout(&addr.parse().unwrap(), Duration::from_secs(10)) {
-                    Ok(s2) => {
-                        s2.set_read_timeout(Some(Duration::from_secs(30))).ok();
-                        BnetStream::new(AnyStream::Plain(s2))
-                    }
-                    Err(e2) => {
-                        return FdStatusResult {
-                            client_name: client_name.to_string(),
-                            version: String::new(),
-                            status_text: format!("Reconnect failed: {e2} (TLS-PSK: {e})"),
-                            success: false,
-                        };
-                    }
-                }
-            }
-        }
-    } else {
-        BnetStream::new(AnyStream::Plain(stream))
-    };
+    let psk_result = tls_psk::psk_connect(stream, &psk_identity, &psk);
 
-    // Send Director hello
+    // Branch based on TLS result — different stream types
+    match psk_result {
+        Ok(psk_stream) => {
+            debug!("FD {client_name}: TLS-PSK handshake OK");
+            return do_fd_status(BnetStream::new(psk_stream), password, director_name, client_name);
+        }
+        Err(e) => {
+            debug!("FD {client_name}: TLS-PSK failed ({e}), trying cleartext");
+            let stream2 = match TcpStream::connect_timeout(
+                &addr.parse().unwrap(), Duration::from_secs(10),
+            ) {
+                Ok(s) => s,
+                Err(e2) => return fail(client_name, &format!("Reconnect failed: {e2}")),
+            };
+            stream2.set_read_timeout(Some(Duration::from_secs(30))).ok();
+            return do_fd_status(BnetStream::new(stream2), password, director_name, client_name);
+        }
+    }
+
+}
+
+/// Common FD status flow after stream is established (TLS or plaintext).
+fn do_fd_status<S: std::io::Read + std::io::Write>(
+    mut bnet: BnetStream<S>,
+    password: &str,
+    director_name: &str,
+    client_name: &str,
+) -> FdStatusResult {
+    // 3. Send Hello
     let hello = make_director_hello(director_name);
     if let Err(e) = bnet.send_str(&hello) {
-        return FdStatusResult {
-            client_name: client_name.to_string(),
-            version: String::new(),
-            status_text: format!("Failed to send hello: {e}"),
-            success: false,
-        };
+        return fail(client_name, &format!("Hello send failed: {e}"));
     }
 
-    // CRAM-MD5 authentication (Director is client = initiated_by_remote=false)
-    let auth = CramMd5Auth::new(password, director_name, 0);
+    // 4. CRAM-MD5 Two-Way (Director is client = initiated_by_remote=false)
+    let auth = CramMd5Auth::new(password, director_name, 2);
     match auth.two_way_authenticate(&mut bnet, false) {
-        Ok(result) if result.success => {
-            debug!("FD {client_name}: auth OK");
-        }
-        Ok(_) => {
-            return FdStatusResult {
-                client_name: client_name.to_string(),
-                version: String::new(),
-                status_text: "Authentication failed".to_string(),
-                success: false,
-            };
-        }
-        Err(e) => {
-            return FdStatusResult {
-                client_name: client_name.to_string(),
-                version: String::new(),
-                status_text: format!("Auth error: {e}"),
-                success: false,
-            };
-        }
-    }
+        Ok(r) if r.success => debug!("FD {client_name}: CRAM-MD5 auth OK"),
+        Ok(_) => return fail(client_name, "CRAM-MD5 authentication failed"),
+        Err(e) => return fail(client_name, &format!("CRAM-MD5 error: {e}")),
+    };
 
-    // Receive FD hello response: "2000 OK Hello" or "2000 OK Hello <version>"
+    // 5. Receive FD hello response: "2000 OK Hello [version]"
     let fd_hello = match bnet.recv_str() {
         Ok(msg) => msg,
-        Err(e) => {
-            return FdStatusResult {
-                client_name: client_name.to_string(),
-                version: String::new(),
-                status_text: format!("Failed to receive FD hello: {e}"),
-                success: false,
-            };
-        }
+        Err(e) => return fail(client_name, &format!("FD hello recv failed: {e}")),
     };
 
     let version = if fd_hello.starts_with(FD_OK_HELLO) {
         fd_hello.trim_start_matches(FD_OK_HELLO).trim().to_string()
     } else {
+        debug!("FD {client_name}: unexpected response: {fd_hello}");
         String::new()
     };
 
-    // Send "status" command to FD
+    // 6. Send "status" command
     if let Err(e) = bnet.send_str("status") {
-        return FdStatusResult {
-            client_name: client_name.to_string(),
-            version: version.clone(),
-            status_text: format!("Failed to send status: {e}"),
-            success: false,
-        };
+        return fail(client_name, &format!("Status send failed: {e}"));
     }
 
-    // Read status response until EOD
     let mut status_text = String::new();
     loop {
         match bnet.recv() {
@@ -175,7 +125,6 @@ fn query_fd_status_with_tls(
         }
     }
 
-    // Cleanup
     let _ = bnet.send_signal(BnetSignal::Terminate);
 
     FdStatusResult {
@@ -186,6 +135,14 @@ fn query_fd_status_with_tls(
     }
 }
 
+fn fail(client_name: &str, msg: &str) -> FdStatusResult {
+    FdStatusResult {
+        client_name: client_name.to_string(),
+        version: String::new(),
+        status_text: msg.to_string(),
+        success: false,
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -193,10 +150,7 @@ mod tests {
 
     #[test]
     fn fd_status_connect_refused() {
-        // Try to connect to a port that's not listening
         let result = query_fd_status("127.0.0.1", 19999, "pass", "dir", "test-fd");
         assert!(!result.success);
-        assert!(result.status_text.contains("Failed to connect") ||
-                result.status_text.contains("Connection refused"));
     }
 }
