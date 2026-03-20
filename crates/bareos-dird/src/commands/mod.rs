@@ -9,3 +9,4 @@ pub mod admin;
 pub mod configure;
 pub mod sql;
 pub mod acl;
+pub mod extra;

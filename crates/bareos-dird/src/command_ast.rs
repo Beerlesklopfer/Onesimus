@@ -1,8 +1,9 @@
 //! Unified command representation (CommandAST).
 
 /// Source protocol of the command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CommandSource {
+    #[default]
     Cli,
     JsonRpc,
     Grpc,
@@ -10,8 +11,9 @@ pub enum CommandSource {
 }
 
 /// Response format for command output.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ResponseFormat {
+    #[default]
     Default,
     Text,
     Api,
@@ -27,7 +29,7 @@ pub struct Argument {
 }
 
 /// Parsed command ready for execution.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CommandAst {
     pub command_name: String,
     pub arguments: Vec<Argument>,
