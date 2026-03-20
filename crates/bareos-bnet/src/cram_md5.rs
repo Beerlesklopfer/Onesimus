@@ -36,9 +36,21 @@ pub struct CramMd5Auth {
 }
 
 impl CramMd5Auth {
-    pub fn new(password: &str, qualified_name: &str, tls_policy: i32) -> Self {
+    /// Create authenticator with raw password (already MD5-hashed hex string).
+    pub fn new_raw(password_md5: &str, qualified_name: &str, tls_policy: i32) -> Self {
         Self {
-            password: password.to_string(),
+            password: password_md5.to_string(),
+            qualified_name: bash_spaces(qualified_name),
+            tls_policy,
+        }
+    }
+
+    /// Create authenticator from plaintext password.
+    /// The password is first MD5-hashed to a hex string (Bareos convention).
+    pub fn new(password: &str, qualified_name: &str, tls_policy: i32) -> Self {
+        let password_md5 = md5_hash_password(password);
+        Self {
+            password: password_md5,
             qualified_name: bash_spaces(qualified_name),
             tls_policy,
         }
@@ -77,10 +89,27 @@ impl CramMd5Auth {
         // Receive HMAC response
         let response = stream.recv_str()?;
 
-        // Compute expected HMAC
-        let expected = compute_hmac_md5_base64(challenge.as_bytes(), self.password.as_bytes());
+        // Compute HMAC-MD5
+        let mut mac = HmacMd5::new_from_slice(self.password.as_bytes())
+            .expect("HMAC accepts any key length");
+        mac.update(challenge.as_bytes());
+        let hmac = mac.finalize().into_bytes();
 
-        let ok = response.trim() == expected.trim();
+        // Try all encoding variants (like C++ CramMd5Challenge does)
+        let expected_std = BASE64.encode(&hmac);
+        let expected_compat = bareos_bin_to_base64(&hmac, true);
+        let expected_bareos = bareos_bin_to_base64(&hmac, false);
+
+        let resp = response.trim().trim_end_matches('\0');
+        tracing::debug!("CRAM-MD5 challenge sent: {challenge:?}");
+        tracing::debug!("CRAM-MD5 response got={resp:?} std={expected_std:?} compat={expected_compat:?} bareos={expected_bareos:?}");
+
+        let ok = resp == expected_std.trim()
+              || resp == expected_std.trim_end_matches('=')
+              || resp == expected_compat
+              || resp == expected_bareos;
+
+        tracing::debug!("CRAM-MD5 challenge phase: match={ok}");
 
         // Send result
         if ok {
@@ -100,19 +129,22 @@ impl CramMd5Auth {
     ) -> Result<(bool, String), BnetError> {
         // Receive challenge
         let challenge_msg = stream.recv_str()?;
+        tracing::debug!("CRAM-MD5 respond: received={challenge_msg:?}");
 
         // Parse challenge: "auth cram-md5 <...> ssl=N\n"
         let challenge = parse_challenge(&challenge_msg)
             .unwrap_or_default();
 
-        // Compute HMAC-MD5
-        let hmac = compute_hmac_md5_base64(challenge.as_bytes(), self.password.as_bytes());
+        // Compute HMAC-MD5 using Bareos-compatible encoding (compatible_=false)
+        let hmac_response = compute_hmac_md5_bareos_base64(challenge.as_bytes(), self.password.as_bytes());
+        tracing::debug!("CRAM-MD5 respond: sending={hmac_response:?}");
 
         // Send response
-        stream.send_str(&hmac)?;
+        stream.send_str(&hmac_response)?;
 
         // Receive result
         let result = stream.recv_str()?;
+        tracing::debug!("CRAM-MD5 respond: result={result:?}");
         let ok = result.contains("1000 OK auth");
 
         Ok((ok, challenge))
@@ -159,13 +191,66 @@ impl CramMd5Auth {
     }
 }
 
-/// Compute HMAC-MD5 and return Base64-encoded result.
+/// Compute HMAC-MD5 and return Base64-encoded result (standard encoding).
 fn compute_hmac_md5_base64(challenge: &[u8], password: &[u8]) -> String {
     let mut mac = HmacMd5::new_from_slice(password)
         .expect("HMAC accepts any key length");
     mac.update(challenge);
     let result = mac.finalize().into_bytes();
     BASE64.encode(result)
+}
+
+/// Compute HMAC-MD5 and return Bareos-compatible Base64 (non-standard).
+fn compute_hmac_md5_bareos_base64(challenge: &[u8], password: &[u8]) -> String {
+    let mut mac = HmacMd5::new_from_slice(password)
+        .expect("HMAC accepts any key length");
+    mac.update(challenge);
+    let result = mac.finalize().into_bytes();
+    bareos_bin_to_base64(&result, false)
+}
+
+/// Bareos-specific Base64 encoding — exact port of C++ BinToBase64 from base64.cc.
+///
+/// compatible=true: treats input bytes as uint8_t (standard)
+/// compatible=false: treats input bytes as int8_t (sign-extension, Bareos-specific)
+pub fn bareos_bin_to_base64(bin: &[u8], compatible: bool) -> String {
+    const DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    let mut buf = Vec::new();
+    let mut reg: u32 = 0;
+    let mut rem: u32 = 0;
+    let mut i: usize = 0;
+
+    while i < bin.len() {
+        if rem < 6 {
+            reg <<= 8;
+            if compatible {
+                reg |= bin[i] as u32;
+            } else {
+                // C++: reg |= (int8_t)bin[i];
+                // int8_t sign-extends negative values, wrapping in u32
+                reg |= (bin[i] as i8 as i32 as u32);
+            }
+            i += 1;
+            rem += 8;
+        }
+        let save = reg;
+        reg >>= rem - 6;
+        buf.push(DIGITS[(reg & 0x3F) as usize]);
+        reg = save;
+        rem -= 6;
+    }
+
+    if rem > 0 {
+        let mask: u32 = (1 << rem) - 1;
+        if compatible {
+            buf.push(DIGITS[((reg & mask) << (6 - rem)) as usize]);
+        } else {
+            buf.push(DIGITS[(reg & mask) as usize]);
+        }
+    }
+
+    String::from_utf8(buf).unwrap()
 }
 
 /// Parse the challenge string from an auth message.
@@ -205,6 +290,16 @@ pub fn bash_spaces(s: &str) -> String {
 /// Replace underscores with spaces (Bareos "UnbashSpaces" convention).
 pub fn unbash_spaces(s: &str) -> String {
     s.replace('_', " ")
+}
+
+/// MD5-hash a plaintext password to hex string (Bareos password storage convention).
+/// "testpassword" → "e16b2ab8d12314bf4efbd6203906ea6c"
+pub fn md5_hash_password(password: &str) -> String {
+    use md5::{Md5, Digest};
+    let mut hasher = Md5::new();
+    hasher.update(password.as_bytes());
+    let result = hasher.finalize();
+    hex::encode(result)
 }
 
 /// Derive a session token from password and server challenge using HMAC-SHA256.
@@ -290,6 +385,26 @@ mod tests {
         let t3 = derive_session_token("pass1", "<challenge2>");
         assert_ne!(t1, t2);
         assert_ne!(t1, t3);
+    }
+
+    #[test]
+    fn bareos_base64_compatible() {
+        // Standard base64 of the HMAC test vector
+        let hmac_bytes = hex::decode("750c783e6ab0b503eaa86e310a5db738").unwrap();
+        let compatible = bareos_bin_to_base64(&hmac_bytes, true);
+        let standard = BASE64.encode(&hmac_bytes);
+        // compatible=true should match standard base64 (minus padding)
+        assert_eq!(compatible, standard.trim_end_matches('='));
+    }
+
+    #[test]
+    fn bareos_base64_non_compatible() {
+        // Non-compatible encoding differs from standard
+        let hmac_bytes = hex::decode("750c783e6ab0b503eaa86e310a5db738").unwrap();
+        let non_compat = bareos_bin_to_base64(&hmac_bytes, false);
+        // Should produce output without '=' padding and possibly different chars
+        assert!(!non_compat.is_empty());
+        assert!(!non_compat.contains('='));
     }
 
     #[test]

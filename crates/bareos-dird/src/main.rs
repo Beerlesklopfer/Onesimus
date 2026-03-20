@@ -57,6 +57,18 @@ struct Cli {
     /// Debug level (0-999)
     #[arg(short, long, default_value_t = 0)]
     debug_level: u32,
+
+    /// TLS certificate file (PEM)
+    #[arg(long)]
+    tls_cert: Option<String>,
+
+    /// TLS private key file (PEM)
+    #[arg(long)]
+    tls_key: Option<String>,
+
+    /// TLS CA certificate file (PEM)
+    #[arg(long)]
+    tls_ca: Option<String>,
 }
 
 fn main() {
@@ -74,6 +86,9 @@ fn main() {
                 .unwrap_or_else(|_| EnvFilter::new(&filter)),
         )
         .init();
+
+    // Install rustls CryptoProvider for TLS support
+    let _ = rustls::crypto::ring::default_provider().install_default();
 
     info!("baReos Director Version {} starting", env!("CARGO_PKG_VERSION"));
 
@@ -105,6 +120,18 @@ fn main() {
     let dir_name = config.director.name.clone();
     let dir_password = config.director.password.clone();
 
+    // TLS config from CLI args
+    let tls_config = if cli.tls_cert.is_some() && cli.tls_key.is_some() {
+        Some(bareos_bnet::tls::TlsConfig {
+            certfile: cli.tls_cert.clone(),
+            keyfile: cli.tls_key.clone(),
+            ca_certfile: cli.tls_ca.clone(),
+            verify_peer: false,
+        })
+    } else {
+        None
+    };
+
     // Shared state
     let shared_config: SharedConfig = Arc::new(std::sync::RwLock::new(config));
     let bus = Arc::new(MessageBus::new(1024));
@@ -116,7 +143,7 @@ fn main() {
     // Named threads
     let threads = spawn_named_threads(
         session_mgr.clone(), bus.clone(), cmd_queue.clone(),
-        shared_config.clone(), port, grpc_enabled, dir_password,
+        shared_config.clone(), port, grpc_enabled, dir_password, tls_config,
     );
 
     // Wait for shutdown signal (SIGTERM / SIGINT)
@@ -144,6 +171,7 @@ fn spawn_named_threads(
     port: u16,
     grpc_enabled: bool,
     password: String,
+    tls_config: Option<bareos_bnet::tls::TlsConfig>,
 ) -> Vec<(String, thread::JoinHandle<()>)> {
     let mut threads = Vec::new();
 
@@ -152,6 +180,7 @@ fn spawn_named_threads(
         let smgr = session_mgr.clone();
         let q = cmd_queue.clone();
         let pw = password.clone();
+        let tls_cfg = tls_config.clone();
         let handle = thread::Builder::new()
             .name("dir:accept".into())
             .spawn(move || {
@@ -159,6 +188,7 @@ fn spawn_named_threads(
                     bind_address: "0.0.0.0".to_string(),
                     port,
                     password: pw,
+                    tls_config: tls_cfg,
                 };
                 accept::accept_loop(&smgr, &q, &config, &SHUTDOWN);
             })

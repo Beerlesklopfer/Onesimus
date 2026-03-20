@@ -4,11 +4,12 @@
 //! The session FSM handles authentication, command loop, and optional
 //! gRPC upgrade.
 
-use std::net::TcpStream;
+use std::io::{Read, Write};
 
 use tracing::{info, debug, warn, error};
 
 use bareos_bnet::{BnetStream, BnetSignal, BnetMessage, BnetError, CramMd5Auth};
+use bareos_bnet::tls::TlsOrPlain;
 
 use crate::command_ast::{CommandAst, Argument, CommandSource, ResponseFormat};
 use crate::command_executor::{self, ExecContext};
@@ -17,8 +18,8 @@ use crate::fsm::SessionState;
 use crate::session_manager::SessionManager;
 
 /// Handle a console session (BNET mode).
-pub fn handle_console_session(
-    mut bnet: BnetStream<TcpStream>,
+pub fn handle_console_session<S: Read + Write>(
+    mut bnet: BnetStream<S>,
     session_id: u64,
     console_name: &str,
     password: &str,
