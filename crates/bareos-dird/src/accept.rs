@@ -126,24 +126,46 @@ fn handle_connection(
     cmd_queue: &CommandQueue,
     shared_config: &Option<SharedConfig>,
 ) {
-    // TLS handshake if configured (before reading any BNET messages)
-    let tls_stream: TlsOrPlain = if let Some(tls_cfg) = tls_config {
-        match tls::tls_accept(stream, &tls_cfg) {
-            Ok(tls) => {
-                debug!("session {session_id}: TLS handshake OK");
-                TlsOrPlain::TlsServer(tls)
-            }
-            Err(e) => {
-                // TLS failed — try plaintext fallback (non-TLS client)
-                debug!("session {session_id}: TLS failed ({e}), connection dropped");
-                return;
+    // Peek at first byte to detect TLS ClientHello (0x16) vs plaintext BNET
+    let mut peek_buf = [0u8; 1];
+    stream.set_nonblocking(false).ok();
+    match stream.peek(&mut peek_buf) {
+        Ok(1) => {
+            if peek_buf[0] == 0x16 {
+                // TLS ClientHello — do TLS-PSK accept
+                let psk = bareos_bnet::tls_psk::password_to_psk(password);
+                match bareos_bnet::tls_psk::psk_accept(stream, &psk) {
+                    Ok(psk_stream) => {
+                        debug!("session {session_id}: TLS-PSK accept OK");
+                        handle_hello(BnetStream::new(psk_stream), session_id, password,
+                                     session_mgr, cmd_queue, shared_config);
+                    }
+                    Err(e) => {
+                        debug!("session {session_id}: TLS-PSK accept failed: {e}");
+                    }
+                }
+            } else {
+                // Plaintext BNET — first byte is part of i32 length header
+                debug!("session {session_id}: plaintext connection detected");
+                handle_hello(BnetStream::new(stream), session_id, password,
+                             session_mgr, cmd_queue, shared_config);
             }
         }
-    } else {
-        TlsOrPlain::Plain(stream)
-    };
+        Ok(_) | Err(_) => {
+            debug!("session {session_id}: peek failed, dropping connection");
+        }
+    }
+}
 
-    let mut bnet = BnetStream::new(tls_stream);
+/// Handle connection after stream type is determined.
+fn handle_hello<S: std::io::Read + std::io::Write>(
+    mut bnet: BnetStream<S>,
+    session_id: u64,
+    password: &str,
+    session_mgr: &Arc<SessionManager>,
+    cmd_queue: &CommandQueue,
+    shared_config: &Option<SharedConfig>,
+) {
 
     // Read hello message
     let hello_msg = match bnet.recv_str() {
