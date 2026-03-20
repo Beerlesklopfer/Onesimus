@@ -125,11 +125,19 @@ pub fn handle_console_session<S: Read + Write>(
         }
 
         // Execute command
+        // Build catalog URL from config if available
+        let catalog_url = config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
+            cfg.catalogs.first().map(|cat| {
+                format!("host={} port={} dbname={} user={} password={}",
+                    cat.db_address, cat.db_port, cat.db_name, cat.db_user, cat.db_password)
+            })
+        });
+
         let ctx = ExecContext {
             session_id,
             config: config.clone(),
             session_mgr: Some(session_mgr.clone()),
-            catalog_url: None,
+            catalog_url,
         };
         let result = command_executor::dispatch(&ast, &ctx);
 

@@ -267,9 +267,105 @@ fn run_grpc_mode(cli: &Cli, addr: &str) {
 
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        // TODO: tonic gRPC client
-        eprintln!("gRPC client not yet fully implemented");
-        eprintln!("Use --no-grpc for BNET mode");
+        use bareos_proto_rs::bareos::director::{
+            director_client::DirectorClient,
+            CommandRequest, CommandArgument, ListCommandsRequest,
+        };
+
+        let url = format!("http://{addr}");
+        let mut client = match DirectorClient::connect(url.clone()).await {
+            Ok(c) => {
+                eprintln!("Connected to gRPC Director at {addr}");
+                c
+            }
+            Err(e) => {
+                eprintln!("gRPC connect failed: {e}");
+                return;
+            }
+        };
+
+        // Single command mode
+        if let Some(cmd) = &cli.command {
+            let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
+            let command_name = parts[0].to_string();
+            let arguments = if parts.len() > 1 {
+                parts[1].split_whitespace().map(|arg| {
+                    if let Some(eq) = arg.find('=') {
+                        CommandArgument {
+                            key: arg[..eq].to_string(),
+                            value: Some(bareos_proto_rs::bareos::director::command_argument::Value::StringValue(
+                                arg[eq+1..].to_string()
+                            )),
+                        }
+                    } else {
+                        CommandArgument { key: arg.to_string(), value: None }
+                    }
+                }).collect()
+            } else {
+                Vec::new()
+            };
+
+            let request = tonic::Request::new(CommandRequest {
+                command_name,
+                arguments,
+                session_id: String::new(),
+                response_format: 0,
+            });
+
+            match client.execute_command(request).await {
+                Ok(response) => {
+                    let resp = response.into_inner();
+                    if resp.success {
+                        print!("{}", resp.text_output);
+                    } else {
+                        eprintln!("Error: {}", resp.error_message);
+                    }
+                }
+                Err(e) => eprintln!("gRPC error: {e}"),
+            }
+            return;
+        }
+
+        // Interactive mode
+        let stdin = std::io::stdin();
+        let mut stdout = std::io::stdout();
+        loop {
+            print!("* ");
+            use std::io::Write;
+            stdout.flush().ok();
+
+            let mut line = String::new();
+            use std::io::BufRead;
+            match stdin.lock().read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {}
+                Err(_) => break,
+            }
+
+            let cmd = line.trim();
+            if cmd.is_empty() { continue; }
+            if matches!(cmd, "quit" | "exit") { break; }
+
+            let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
+            let request = tonic::Request::new(CommandRequest {
+                command_name: parts[0].to_string(),
+                arguments: Vec::new(),
+                session_id: String::new(),
+                response_format: 0,
+            });
+
+            match client.execute_command(request).await {
+                Ok(response) => {
+                    let resp = response.into_inner();
+                    if resp.success {
+                        print!("{}", resp.text_output);
+                    } else {
+                        eprintln!("{}", resp.error_message);
+                    }
+                }
+                Err(e) => eprintln!("gRPC error: {e}"),
+            }
+        }
     });
 }
 
