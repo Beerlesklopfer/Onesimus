@@ -53,13 +53,21 @@ pub fn handle_console_session<S: Read + Write>(
         session_mgr.authenticate_session(mgr_session_id);
     }
 
-    // Send welcome banner in Post-18.2 format:
-    // MessageID<RS>arg1<RS>arg2...
-    // RS = Record Separator (0x1e)
+    // Post-18.2 protocol: send MessageID-based responses
+    // Format: "<id><RS><payload>" where RS = 0x1e (Record Separator)
     let version = env!("CARGO_PKG_VERSION");
-    let rs = '\x1e';  // RECORD_SEPARATOR
-    let banner = format!("1000{rs}OK:{rs}baReos-dir Version: {version}\n");
-    if bnet.send_str(&banner).is_err() {
+    let rs = "\x1e";
+
+    // 1. kMessageIdOk (1000) with version info
+    let ok_msg = format!("1000{rs}OK: bareos-dir Version: {version}");
+    if bnet.send_str(&ok_msg).is_err() {
+        session_mgr.remove_session(mgr_session_id);
+        return;
+    }
+
+    // 2. kMessageIdInfoMessage (1002) with connection info
+    let info_msg = format!("1002{rs}You are connected using the default console");
+    if bnet.send_str(&info_msg).is_err() {
         session_mgr.remove_session(mgr_session_id);
         return;
     }
