@@ -53,9 +53,12 @@ pub fn handle_console_session<S: Read + Write>(
         session_mgr.authenticate_session(mgr_session_id);
     }
 
-    // Send welcome banner
+    // Send welcome banner in Post-18.2 format:
+    // MessageID<RS>arg1<RS>arg2...
+    // RS = Record Separator (0x1e)
     let version = env!("CARGO_PKG_VERSION");
-    let banner = format!("1000 OK: baReos-dir Version: {version}\n");
+    let rs = '\x1e';  // RECORD_SEPARATOR
+    let banner = format!("1000{rs}OK:{rs}baReos-dir Version: {version}\n");
     if bnet.send_str(&banner).is_err() {
         session_mgr.remove_session(mgr_session_id);
         return;
