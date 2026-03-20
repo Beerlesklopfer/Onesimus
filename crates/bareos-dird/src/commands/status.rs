@@ -5,9 +5,10 @@ use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
 
 pub fn cmd_status(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    // "status dir" → bare arg "dir"
+    // "status client=bareos-fd" → key="client" value="bareos-fd"
     let target = ast.arguments.first()
-        .and_then(|a| a.value.as_deref())
-        .or_else(|| ast.arguments.first().map(|a| a.key.as_str()))
+        .map(|a| a.key.as_str())
         .unwrap_or("dir");
 
     match target.to_lowercase().as_str() {
