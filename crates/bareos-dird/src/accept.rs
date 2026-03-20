@@ -21,6 +21,7 @@ use crate::session;
 pub struct AcceptConfig {
     pub bind_address: String,
     pub port: u16,
+    pub password: String,
 }
 
 impl Default for AcceptConfig {
@@ -28,6 +29,7 @@ impl Default for AcceptConfig {
         Self {
             bind_address: "0.0.0.0".to_string(),
             port: 9101,
+            password: String::new(),
         }
     }
 }
@@ -63,12 +65,13 @@ pub fn accept_loop(
 
                 let smgr = session_mgr.clone();
                 let q = cmd_queue.clone();
+                let password = config.password.clone();
                 let session_id = crate::session_manager::next_session_id();
 
                 thread::Builder::new()
                     .name(format!("dir:session:{session_id}"))
                     .spawn(move || {
-                        handle_connection(stream, session_id, &smgr, &q);
+                        handle_connection(stream, session_id, &password, &smgr, &q);
                     })
                     .ok();
             }
@@ -90,6 +93,7 @@ pub fn accept_loop(
 fn handle_connection(
     stream: TcpStream,
     session_id: u64,
+    password: &str,
     session_mgr: &SessionManager,
     cmd_queue: &CommandQueue,
 ) {
@@ -118,13 +122,13 @@ fn handle_connection(
         Hello::DefaultConsole => {
             debug!("default console connected (session {session_id})");
             session::handle_console_session(
-                bnet, session_id, "*UserAgent*", session_mgr, cmd_queue,
+                bnet, session_id, "*UserAgent*", password, session_mgr, cmd_queue,
             );
         }
         Hello::NamedConsole { name, version, wants_grpc } => {
             debug!("named console '{name}' v{version} connected (grpc={wants_grpc})");
             session::handle_console_session(
-                bnet, session_id, &name, session_mgr, cmd_queue,
+                bnet, session_id, &name, password, session_mgr, cmd_queue,
             );
         }
         Hello::FileDaemon { client_name, fd_protocol_version } => {

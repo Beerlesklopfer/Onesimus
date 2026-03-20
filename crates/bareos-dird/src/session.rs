@@ -8,7 +8,7 @@ use std::net::TcpStream;
 
 use tracing::{info, debug, warn, error};
 
-use bareos_bnet::{BnetStream, BnetSignal, BnetMessage, BnetError};
+use bareos_bnet::{BnetStream, BnetSignal, BnetMessage, BnetError, CramMd5Auth};
 
 use crate::command_ast::{CommandAst, Argument, CommandSource, ResponseFormat};
 use crate::command_executor::{self, ExecContext};
@@ -21,14 +21,36 @@ pub fn handle_console_session(
     mut bnet: BnetStream<TcpStream>,
     session_id: u64,
     console_name: &str,
+    password: &str,
     session_mgr: &SessionManager,
     cmd_queue: &CommandQueue,
 ) {
     // Register session
     let mgr_session_id = session_mgr.create_session(console_name);
 
-    // TODO(R8-full): CRAM-MD5 authentication
-    session_mgr.authenticate_session(mgr_session_id);
+    // CRAM-MD5 two-way authentication (Director is server = initiated_by_remote=true)
+    if !password.is_empty() {
+        let auth = CramMd5Auth::new(password, "bareos-dir", 0);
+        match auth.two_way_authenticate(&mut bnet, true) {
+            Ok(result) if result.success => {
+                debug!("session {session_id}: CRAM-MD5 auth OK");
+                session_mgr.authenticate_session(mgr_session_id);
+            }
+            Ok(_) => {
+                warn!("session {session_id}: CRAM-MD5 auth failed for '{console_name}'");
+                session_mgr.remove_session(mgr_session_id);
+                return;
+            }
+            Err(e) => {
+                warn!("session {session_id}: CRAM-MD5 error: {e}");
+                session_mgr.remove_session(mgr_session_id);
+                return;
+            }
+        }
+    } else {
+        // No password configured — allow unauthenticated
+        session_mgr.authenticate_session(mgr_session_id);
+    }
 
     // Send welcome banner
     let version = env!("CARGO_PKG_VERSION");

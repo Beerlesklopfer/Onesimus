@@ -103,6 +103,7 @@ fn main() {
     let port = config.director.port;
     let grpc_enabled = config.director.enable_grpc;
     let dir_name = config.director.name.clone();
+    let dir_password = config.director.password.clone();
 
     // Shared state
     let shared_config: SharedConfig = Arc::new(std::sync::RwLock::new(config));
@@ -115,7 +116,7 @@ fn main() {
     // Named threads
     let threads = spawn_named_threads(
         session_mgr.clone(), bus.clone(), cmd_queue.clone(),
-        shared_config.clone(), port, grpc_enabled,
+        shared_config.clone(), port, grpc_enabled, dir_password,
     );
 
     // Wait for shutdown signal (SIGTERM / SIGINT)
@@ -142,6 +143,7 @@ fn spawn_named_threads(
     config: SharedConfig,
     port: u16,
     grpc_enabled: bool,
+    password: String,
 ) -> Vec<(String, thread::JoinHandle<()>)> {
     let mut threads = Vec::new();
 
@@ -149,12 +151,14 @@ fn spawn_named_threads(
     {
         let smgr = session_mgr.clone();
         let q = cmd_queue.clone();
+        let pw = password.clone();
         let handle = thread::Builder::new()
             .name("dir:accept".into())
             .spawn(move || {
                 let config = accept::AcceptConfig {
                     bind_address: "0.0.0.0".to_string(),
                     port,
+                    password: pw,
                 };
                 accept::accept_loop(&smgr, &q, &config, &SHUTDOWN);
             })
