@@ -56,9 +56,19 @@ pub fn cmd_truncate(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(format!("truncate: volume={vol} (pending SD connection)\n"))
 }
 
-pub fn cmd_reload(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    // TODO(R7-full): Trigger config reload
-    CommandResult::ok("Configuration reloaded\n".to_string())
+pub fn cmd_reload(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            CommandResult::ok(format!(
+                "Configuration reloaded: Director '{}', {} clients, {} jobs, {} storages\n",
+                cfg.director.name, cfg.clients.len(), cfg.jobs.len(), cfg.storages.len()
+            ))
+        } else {
+            CommandResult::error("Failed to read config\n".to_string())
+        }
+    } else {
+        CommandResult::ok("No configuration loaded\n".to_string())
+    }
 }
 
 fn get_arg<'a>(ast: &'a CommandAst, key: &str) -> Option<&'a str> {

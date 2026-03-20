@@ -129,6 +129,7 @@ pub fn handle_console_session<S: Read + Write>(
             session_id,
             config: config.clone(),
             session_mgr: Some(session_mgr.clone()),
+            catalog_url: None,
         };
         let result = command_executor::dispatch(&ast, &ctx);
 

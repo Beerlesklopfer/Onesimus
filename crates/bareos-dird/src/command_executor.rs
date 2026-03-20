@@ -13,6 +13,7 @@ pub struct ExecContext {
     pub session_id: u64,
     pub config: Option<SharedConfig>,
     pub session_mgr: Option<Arc<SessionManager>>,
+    pub catalog_url: Option<String>,
 }
 
 /// Dispatch a command to the appropriate handler.
@@ -91,7 +92,7 @@ mod tests {
     }
 
     fn make_ctx() -> ExecContext {
-        ExecContext { session_id: 1, config: None, session_mgr: None }
+        ExecContext { session_id: 1, config: None, session_mgr: None, catalog_url: None }
     }
 
     #[test]

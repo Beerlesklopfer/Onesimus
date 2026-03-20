@@ -128,8 +128,56 @@ fn status_director(ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(output)
 }
 
-fn status_client(name: &str, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok(format!("Client {name}: status query pending\n"))
+fn status_client(name: &str, ctx: &ExecContext) -> CommandResult {
+    let config = match &ctx.config {
+        Some(c) => c.read().ok(),
+        None => return CommandResult::ok(format!("Client {name}: no config loaded\n")),
+    };
+    let config = match config {
+        Some(c) => c,
+        None => return CommandResult::ok(format!("Client {name}: config lock error\n")),
+    };
+
+    let dir_name = config.director.name.clone();
+
+    // Find all matching clients
+    let clients: Vec<_> = if name == "*" {
+        config.clients.iter().collect()
+    } else {
+        config.clients.iter().filter(|c| c.name == name).collect()
+    };
+
+    if clients.is_empty() {
+        return CommandResult::ok(format!("Client '{name}' not found in configuration\n"));
+    }
+
+    let mut output = String::new();
+    for client in &clients {
+        output.push_str(&format!("Connecting to Client {} at {}:{}\n",
+                                  client.name, client.address, client.port));
+
+        let result = crate::fd_protocol::query_fd_status(
+            &client.address,
+            client.port,
+            &client.password,
+            &dir_name,
+            &client.name,
+        );
+
+        if result.success {
+            output.push_str(&format!("Connected to Client {}", client.name));
+            if !result.version.is_empty() {
+                output.push_str(&format!(" Version: {}", result.version));
+            }
+            output.push('\n');
+            output.push_str(&result.status_text);
+        } else {
+            output.push_str(&format!("Failed: {}\n", result.status_text));
+        }
+        output.push('\n');
+    }
+
+    CommandResult::ok(output)
 }
 
 fn status_storage(name: &str, _ctx: &ExecContext) -> CommandResult {

@@ -15,6 +15,7 @@ mod fsm;
 mod grpc;
 mod job_worker;
 mod message_bus;
+mod reload;
 mod scheduler;
 mod sd_protocol;
 mod session;
@@ -145,6 +146,9 @@ fn main() {
         session_mgr.clone(), bus.clone(), cmd_queue.clone(),
         shared_config.clone(), port, grpc_enabled, dir_password, tls_config,
     );
+
+    // SIGHUP handler for config reload
+    reload::setup_sighup_handler(cli.config.clone(), shared_config.clone());
 
     // Wait for shutdown signal (SIGTERM / SIGINT)
     wait_for_shutdown();
