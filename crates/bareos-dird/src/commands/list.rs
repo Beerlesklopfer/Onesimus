@@ -27,9 +27,11 @@ pub fn cmd_list(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         "jobs" => list_jobs_from_config(ctx),
         "clients" => list_clients_from_config(ctx),
         "pools" => list_pools_from_config(ctx),
-        "volumes" | "media" => CommandResult::ok("No catalog connection — cannot list volumes\n".to_string()),
-        "files" => CommandResult::ok("No catalog connection — cannot list files\n".to_string()),
-        other => CommandResult::ok(format!("list {other}: not implemented\n")),
+        "storages" | "storage" => list_storages_from_config(ctx),
+        "schedules" | "schedule" => list_schedules_from_config(ctx),
+        "volumes" | "media" => CommandResult::ok("No catalog connection — use .sql for volume queries\n".to_string()),
+        "files" => CommandResult::ok("No catalog connection — use .sql for file queries\n".to_string()),
+        other => CommandResult::ok(format!("list {other}: try jobs, clients, pools, storages, schedules\n")),
     }
 }
 
@@ -108,9 +110,130 @@ fn list_pools_from_config(ctx: &ExecContext) -> CommandResult {
     CommandResult::ok("No configuration loaded\n".to_string())
 }
 
+fn list_storages_from_config(ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            if cfg.storages.is_empty() {
+                return CommandResult::ok("No storages configured\n".to_string());
+            }
+            let mut output = format!("{:<20} {:<20} {:<10} {:<15} {:<10}\n",
+                "Name", "Address", "Port", "MediaType", "Enabled");
+            output.push_str(&"-".repeat(75));
+            output.push('\n');
+            for s in &cfg.storages {
+                output.push_str(&format!("{:<20} {:<20} {:<10} {:<15} {:<10}\n",
+                    s.name, s.address, s.port, s.media_type,
+                    if s.enabled { "yes" } else { "no" },
+                ));
+            }
+            return CommandResult::ok(output);
+        }
+    }
+    CommandResult::ok("No configuration loaded\n".to_string())
+}
+
+fn list_schedules_from_config(ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            if cfg.schedules.is_empty() {
+                return CommandResult::ok("No schedules configured\n".to_string());
+            }
+            let mut output = String::new();
+            for s in &cfg.schedules {
+                output.push_str(&format!("Schedule: {} ({})\n", s.name,
+                    if s.enabled { "enabled" } else { "disabled" }));
+                for run in &s.runs {
+                    let level = run.level.map(|l| format!("{l:?}")).unwrap_or_default();
+                    output.push_str(&format!("  Run {level} at {:02}:{:02}", run.hour, run.minute));
+                    if let Some(pool) = &run.pool {
+                        output.push_str(&format!(" pool={pool}"));
+                    }
+                    if let Some(stor) = &run.storage {
+                        output.push_str(&format!(" storage={stor}"));
+                    }
+                    output.push('\n');
+                }
+            }
+            return CommandResult::ok(output);
+        }
+    }
+    CommandResult::ok("No configuration loaded\n".to_string())
+}
+
 fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
-    // TODO: Async DB query via sqlx
-    CommandResult::ok(format!("list {what} limit={limit}: catalog query pending (url: {url})\n"))
+    let query = match what {
+        "jobs" => format!(
+            "SELECT j.jobid, j.name, j.type, j.level, j.jobstatus, \
+             j.starttime, j.endtime, j.jobfiles, j.jobbytes \
+             FROM job j ORDER BY j.jobid DESC LIMIT {limit}"
+        ),
+        "volumes" | "media" => format!(
+            "SELECT mediaid, volumename, volstatus, volbytes, volfiles, mediatype \
+             FROM media ORDER BY mediaid DESC LIMIT {limit}"
+        ),
+        "clients" => "SELECT clientid, name, uname FROM client ORDER BY name".to_string(),
+        "pools" => "SELECT poolid, name, pooltype, numvols, maxvols FROM pool ORDER BY name".to_string(),
+        "files" => format!(
+            "SELECT fileid, jobid, filename FROM file ORDER BY fileid DESC LIMIT {limit}"
+        ),
+        other => return CommandResult::ok(format!("list {other}: unsupported catalog query\n")),
+    };
+
+    // Execute via blocking sqlx
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => return CommandResult::error(format!("Runtime error: {e}\n")),
+    };
+
+    match rt.block_on(run_query(url, &query)) {
+        Ok(output) => CommandResult::ok(output),
+        Err(e) => CommandResult::error(format!("Catalog error: {e}\n")),
+    }
+}
+
+async fn run_query(url: &str, query: &str) -> Result<String, String> {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(url)
+        .await
+        .map_err(|e| format!("DB connect: {e}"))?;
+
+    let rows = sqlx::query(query)
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| format!("Query: {e}"))?;
+
+    use sqlx::{Row, Column};
+    let mut output = String::new();
+
+    if rows.is_empty() {
+        output.push_str("No results.\n");
+        return Ok(output);
+    }
+
+    // Header
+    let columns = rows[0].columns();
+    for col in columns {
+        output.push_str(&format!("{:<20}", col.name()));
+    }
+    output.push('\n');
+    output.push_str(&"-".repeat(columns.len() * 20));
+    output.push('\n');
+
+    // Data
+    for row in &rows {
+        for col in columns {
+            let val: String = row.try_get::<String, _>(col.ordinal())
+                .or_else(|_| row.try_get::<i64, _>(col.ordinal()).map(|v| v.to_string()))
+                .or_else(|_| row.try_get::<i32, _>(col.ordinal()).map(|v| v.to_string()))
+                .or_else(|_| row.try_get::<bool, _>(col.ordinal()).map(|v| v.to_string()))
+                .unwrap_or_else(|_| "NULL".to_string());
+            output.push_str(&format!("{:<20}", val));
+        }
+        output.push('\n');
+    }
+
+    Ok(output)
 }
 
 fn format_bytes(bytes: u64) -> String {

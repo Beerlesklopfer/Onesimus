@@ -191,6 +191,73 @@ fn configure_delete(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     CommandResult::ok("configure delete: specify client=<name>, job=<name>, pool=<name>, etc.\n".to_string())
 }
 
-fn configure_update(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("configure update: not yet implemented\n".to_string())
+fn configure_update(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let config = match &ctx.config {
+        Some(c) => c,
+        None => return CommandResult::error("No config loaded\n".to_string()),
+    };
+
+    let get_arg = |key: &str| -> Option<&str> {
+        ast.arguments.iter()
+            .find(|a| a.key == key)
+            .and_then(|a| a.value.as_deref())
+    };
+
+    // configure update client=<name> address=<new> port=<new>
+    if let Some(name) = get_arg("client") {
+        let mut cfg = config.write().unwrap();
+        if let Some(c) = cfg.clients.iter_mut().find(|c| c.name == name) {
+            let mut changes = Vec::new();
+            if let Some(addr) = get_arg("address") {
+                c.address = addr.to_string();
+                changes.push(format!("address={addr}"));
+            }
+            if let Some(port) = get_arg("port") {
+                if let Ok(p) = port.parse() {
+                    c.port = p;
+                    changes.push(format!("port={port}"));
+                }
+            }
+            if let Some(pw) = get_arg("password") {
+                c.password = pw.to_string();
+                changes.push("password=***".to_string());
+            }
+            if changes.is_empty() {
+                return CommandResult::ok(format!("Client '{name}': no changes specified\n"));
+            }
+            return CommandResult::ok(format!("Client '{name}' updated: {}\n", changes.join(", ")));
+        }
+        return CommandResult::error(format!("Client '{name}' not found\n"));
+    }
+
+    if let Some(name) = get_arg("job") {
+        let mut cfg = config.write().unwrap();
+        if let Some(j) = cfg.jobs.iter_mut().find(|j| j.name == name) {
+            let mut changes = Vec::new();
+            if let Some(client) = get_arg("newclient") {
+                j.client = client.to_string();
+                changes.push(format!("client={client}"));
+            }
+            if let Some(storage) = get_arg("newstorage") {
+                j.storage = storage.to_string();
+                changes.push(format!("storage={storage}"));
+            }
+            if let Some(pool) = get_arg("newpool") {
+                j.pool = pool.to_string();
+                changes.push(format!("pool={pool}"));
+            }
+            if changes.is_empty() {
+                return CommandResult::ok(format!("Job '{name}': no changes specified\n"));
+            }
+            return CommandResult::ok(format!("Job '{name}' updated: {}\n", changes.join(", ")));
+        }
+        return CommandResult::error(format!("Job '{name}' not found\n"));
+    }
+
+    CommandResult::ok(
+        "configure update: specify resource to update:\n  \
+         configure update client=<name> address=<new> port=<new>\n  \
+         configure update job=<name> newclient=<c> newstorage=<s>\n"
+            .to_string()
+    )
 }

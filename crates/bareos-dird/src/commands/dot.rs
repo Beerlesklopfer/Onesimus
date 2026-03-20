@@ -64,7 +64,38 @@ pub fn cmd_dot_filesets(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     CommandResult::ok("".to_string())
 }
 
-pub fn cmd_dot_defaults(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_dot_defaults(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let job_name = ast.arguments.iter()
+        .find(|a| a.key == "job")
+        .and_then(|a| a.value.as_deref());
+
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            match job_name {
+                Some(name) => {
+                    if let Some(job) = cfg.find_job(name) {
+                        let output = format!(
+                            "job={}\nlevel={:?}\nclient={}\nstorage={}\npool={}\nfileset={}\n",
+                            job.name, job.level, job.client, job.storage, job.pool, job.fileset
+                        );
+                        return CommandResult::ok(output);
+                    }
+                    return CommandResult::ok(format!("Job '{name}' not found\n"));
+                }
+                None => {
+                    // List defaults for all jobs
+                    let mut output = String::new();
+                    for job in &cfg.jobs {
+                        output.push_str(&format!(
+                            "job={} level={:?} client={} storage={}\n",
+                            job.name, job.level, job.client, job.storage
+                        ));
+                    }
+                    return CommandResult::ok(output);
+                }
+            }
+        }
+    }
     CommandResult::ok("".to_string())
 }
 

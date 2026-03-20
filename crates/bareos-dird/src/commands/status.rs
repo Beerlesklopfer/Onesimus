@@ -35,7 +35,10 @@ pub fn cmd_status(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
             out.push_str(&status_storage("*", ctx).text_output);
             CommandResult::ok(out)
         }
-        other => CommandResult::ok(format!("status {other}: not yet implemented\n")),
+        other => {
+            // Try as client name
+            status_client(other, ctx)
+        }
     }
 }
 
