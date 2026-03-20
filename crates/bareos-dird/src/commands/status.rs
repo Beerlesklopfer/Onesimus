@@ -181,6 +181,43 @@ fn status_client(name: &str, ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(output)
 }
 
-fn status_storage(name: &str, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok(format!("Storage {name}: status query pending\n"))
+fn status_storage(name: &str, ctx: &ExecContext) -> CommandResult {
+    let config = match &ctx.config {
+        Some(c) => match c.read() {
+            Ok(c) => c,
+            Err(_) => return CommandResult::ok(format!("Storage {name}: config error\n")),
+        },
+        None => return CommandResult::ok(format!("Storage {name}: no config\n")),
+    };
+
+    let dir_name = config.director.name.clone();
+    let storages: Vec<_> = if name == "*" {
+        config.storages.iter().collect()
+    } else {
+        config.storages.iter().filter(|s| s.name == name).collect()
+    };
+
+    if storages.is_empty() {
+        return CommandResult::ok(format!("Storage '{name}' not found\n"));
+    }
+
+    let mut output = String::new();
+    for stor in &storages {
+        output.push_str(&format!("Connecting to Storage {} at {}:{}\n",
+                                  stor.name, stor.address, stor.port));
+
+        let result = crate::sd_protocol::query_sd_status(
+            &stor.address, stor.port, &stor.password, &dir_name, &stor.name,
+        );
+
+        if result.success {
+            output.push_str(&format!("Connected to Storage {}\n", stor.name));
+            output.push_str(&result.status_text);
+        } else {
+            output.push_str(&format!("Failed: {}\n", result.status_text));
+        }
+        output.push('\n');
+    }
+
+    CommandResult::ok(output)
 }
