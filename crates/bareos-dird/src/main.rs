@@ -14,6 +14,7 @@ mod director_config;
 mod fd_protocol;
 mod fsm;
 mod grpc;
+mod job_runner;
 mod job_worker;
 mod message_bus;
 mod reload;
