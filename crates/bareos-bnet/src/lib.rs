@@ -14,6 +14,8 @@
 pub mod wire;
 pub mod signal;
 pub mod tls;
+pub mod tls_psk;
+pub mod stream;
 pub mod cram_md5;
 pub mod hello;
 
@@ -21,4 +23,5 @@ pub mod hello;
 pub use signal::BnetSignal;
 pub use wire::{BnetMessage, BnetStream, BnetError};
 pub use hello::Hello;
+pub use crate::stream::AnyStream;
 pub use cram_md5::{CramMd5Auth, AuthResult};

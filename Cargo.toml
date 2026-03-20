@@ -47,6 +47,9 @@ rustls = { version = "0.23", features = ["ring"] }
 rustls-pemfile = "2"
 tokio-rustls = "0.26"
 
+# TLS-PSK (for FD/SD connections — Bareos uses PSK, not certificates)
+openssl = "0.10"
+
 # Concurrency
 crossbeam-channel = "0.5"
 dashmap = "6"
