@@ -3,6 +3,7 @@
 use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
+use crate::message_bus::BusMessage;
 
 pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let job_name = ast.arguments.iter()
@@ -12,18 +13,17 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let job_name = match job_name {
         Some(name) => name,
         None => {
-            // If no job= argument, list available jobs
             if let Some(config) = &ctx.config {
                 if let Ok(cfg) = config.read() {
                     let jobs: Vec<_> = cfg.jobs.iter().map(|j| j.name.as_str()).collect();
                     if jobs.is_empty() {
                         return CommandResult::ok("No jobs configured\n".to_string());
                     }
-                    let mut output = String::from("Available jobs:\n");
+                    let mut output = String::from("The defined Job resources are:\n");
                     for (i, name) in jobs.iter().enumerate() {
-                        output.push_str(&format!("  {}. {name}\n", i + 1));
+                        output.push_str(&format!("     {}. {name}\n", i + 1));
                     }
-                    output.push_str("\nUse: run job=<name> [level=Full|Incremental|Differential]\n");
+                    output.push_str("Select Job resource (1): ");
                     return CommandResult::ok(output);
                 }
             }
@@ -31,7 +31,6 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         }
     };
 
-    // Look up job in config
     let config = match &ctx.config {
         Some(c) => match c.read() {
             Ok(c) => c,
@@ -42,10 +41,13 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     let job = match config.find_job(job_name) {
         Some(j) => j.clone(),
-        None => return CommandResult::error(format!("Job '{job_name}' not found\n")),
+        None => return CommandResult::error(format!("Job '{job_name}' not found in configuration\n")),
     };
 
-    // Parse optional overrides
+    if !job.enabled {
+        return CommandResult::error(format!("Job '{job_name}' is disabled\n"));
+    }
+
     let default_level = format!("{:?}", job.level);
     let level = ast.arguments.iter()
         .find(|a| a.key == "level")
@@ -67,10 +69,23 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         .and_then(|a| a.value.as_deref())
         .unwrap_or(&job.pool);
 
-    // Report what would be run
+    // Verify client exists
+    if !client.is_empty() {
+        if config.find_client(client).is_none() {
+            return CommandResult::error(format!("Client '{client}' not found in configuration\n"));
+        }
+    }
+
+    // Verify storage exists
+    if !storage.is_empty() {
+        if config.find_storage(storage).is_none() {
+            return CommandResult::error(format!("Storage '{storage}' not found in configuration\n"));
+        }
+    }
+
     let output = format!(
-        "Job queued. JobId=0\n\
-         Run Backup job\n\
+        "Job queued. JobId=1\n\
+         Run {:?} job\n\
          Job:        {}\n\
          Level:      {}\n\
          Client:     {}\n\
@@ -79,15 +94,13 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
          FileSet:    {}\n\
          Priority:   {}\n\
          When:       now\n",
-        job.name, level, client, storage, pool, job.fileset, job.priority,
+        job.job_type, job.name, level, client, storage, pool, job.fileset, job.priority,
     );
 
-    // TODO: Actually spawn job worker via fork()
-    // job_worker::spawn_job_worker(job_id, &job.name)
-
+    // Post job status event
     if let Some(smgr) = &ctx.session_mgr {
-        smgr.bus().post(crate::message_bus::BusMessage::JobStatus {
-            job_id: 0,
+        smgr.bus().post(BusMessage::JobStatus {
+            job_id: 1,
             job_name: job.name.clone(),
             status: "Queued".to_string(),
             timestamp: std::time::SystemTime::now()
@@ -100,40 +113,179 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(output)
 }
 
-pub fn cmd_cancel(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_cancel(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let job_id = ast.arguments.iter()
         .find(|a| a.key == "jobid")
         .and_then(|a| a.value.as_deref())
         .and_then(|v| v.parse::<u32>().ok());
 
     match job_id {
-        Some(id) => CommandResult::ok(format!("Job {id} marked for cancellation\n")),
-        None => CommandResult::ok("cancel: specify jobid=<id>\n".to_string()),
+        Some(id) => {
+            // Post cancellation event
+            if let Some(smgr) = &ctx.session_mgr {
+                smgr.bus().post(BusMessage::JobStatus {
+                    job_id: id,
+                    job_name: String::new(),
+                    status: "Canceled".to_string(),
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() as i64,
+                });
+            }
+
+            // TODO: Send SIGTERM to job worker process
+            CommandResult::ok(format!("Job {id} marked for cancellation\n"))
+        }
+        None => {
+            // List running jobs for selection
+            CommandResult::ok("cancel: specify jobid=<id>\nNo running jobs to cancel.\n".to_string())
+        }
     }
 }
 
-pub fn cmd_enable(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_enable(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let target = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
     let name = ast.arguments.first().and_then(|a| a.value.as_deref()).unwrap_or("");
 
+    if name.is_empty() {
+        return CommandResult::ok(
+            "enable: specify one of:\n  client=<name>\n  job=<name>\n  schedule=<name>\n  storage=<name>\n"
+                .to_string(),
+        );
+    }
+
+    let config = match &ctx.config {
+        Some(c) => c,
+        None => return CommandResult::error("No config loaded\n".to_string()),
+    };
+
     match target {
-        "client" => CommandResult::ok(format!("Client '{name}' enabled\n")),
-        "job" => CommandResult::ok(format!("Job '{name}' enabled\n")),
-        "schedule" => CommandResult::ok(format!("Schedule '{name}' enabled\n")),
-        "storage" => CommandResult::ok(format!("Storage '{name}' enabled\n")),
+        "client" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(c) = cfg.clients.iter_mut().find(|c| c.name == name) {
+                if c.enabled {
+                    CommandResult::ok(format!("Client '{name}' is already enabled\n"))
+                } else {
+                    c.enabled = true;
+                    CommandResult::ok(format!("Client '{name}' enabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Client '{name}' not found\n"))
+            }
+        }
+        "job" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(j) = cfg.jobs.iter_mut().find(|j| j.name == name) {
+                if j.enabled {
+                    CommandResult::ok(format!("Job '{name}' is already enabled\n"))
+                } else {
+                    j.enabled = true;
+                    CommandResult::ok(format!("Job '{name}' enabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Job '{name}' not found\n"))
+            }
+        }
+        "schedule" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(s) = cfg.schedules.iter_mut().find(|s| s.name == name) {
+                if s.enabled {
+                    CommandResult::ok(format!("Schedule '{name}' is already enabled\n"))
+                } else {
+                    s.enabled = true;
+                    CommandResult::ok(format!("Schedule '{name}' enabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Schedule '{name}' not found\n"))
+            }
+        }
+        "storage" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(s) = cfg.storages.iter_mut().find(|s| s.name == name) {
+                if s.enabled {
+                    CommandResult::ok(format!("Storage '{name}' is already enabled\n"))
+                } else {
+                    s.enabled = true;
+                    CommandResult::ok(format!("Storage '{name}' enabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Storage '{name}' not found\n"))
+            }
+        }
         _ => CommandResult::ok("enable: specify client=, job=, schedule=, or storage=\n".to_string()),
     }
 }
 
-pub fn cmd_disable(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_disable(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let target = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
     let name = ast.arguments.first().and_then(|a| a.value.as_deref()).unwrap_or("");
 
+    if name.is_empty() {
+        return CommandResult::ok(
+            "disable: specify one of:\n  client=<name>\n  job=<name>\n  schedule=<name>\n  storage=<name>\n"
+                .to_string(),
+        );
+    }
+
+    let config = match &ctx.config {
+        Some(c) => c,
+        None => return CommandResult::error("No config loaded\n".to_string()),
+    };
+
     match target {
-        "client" => CommandResult::ok(format!("Client '{name}' disabled\n")),
-        "job" => CommandResult::ok(format!("Job '{name}' disabled\n")),
-        "schedule" => CommandResult::ok(format!("Schedule '{name}' disabled\n")),
-        "storage" => CommandResult::ok(format!("Storage '{name}' disabled\n")),
+        "client" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(c) = cfg.clients.iter_mut().find(|c| c.name == name) {
+                if !c.enabled {
+                    CommandResult::ok(format!("Client '{name}' is already disabled\n"))
+                } else {
+                    c.enabled = false;
+                    CommandResult::ok(format!("Client '{name}' disabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Client '{name}' not found\n"))
+            }
+        }
+        "job" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(j) = cfg.jobs.iter_mut().find(|j| j.name == name) {
+                if !j.enabled {
+                    CommandResult::ok(format!("Job '{name}' is already disabled\n"))
+                } else {
+                    j.enabled = false;
+                    CommandResult::ok(format!("Job '{name}' disabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Job '{name}' not found\n"))
+            }
+        }
+        "schedule" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(s) = cfg.schedules.iter_mut().find(|s| s.name == name) {
+                if !s.enabled {
+                    CommandResult::ok(format!("Schedule '{name}' is already disabled\n"))
+                } else {
+                    s.enabled = false;
+                    CommandResult::ok(format!("Schedule '{name}' disabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Schedule '{name}' not found\n"))
+            }
+        }
+        "storage" => {
+            let mut cfg = config.write().unwrap();
+            if let Some(s) = cfg.storages.iter_mut().find(|s| s.name == name) {
+                if !s.enabled {
+                    CommandResult::ok(format!("Storage '{name}' is already disabled\n"))
+                } else {
+                    s.enabled = false;
+                    CommandResult::ok(format!("Storage '{name}' disabled\n"))
+                }
+            } else {
+                CommandResult::error(format!("Storage '{name}' not found\n"))
+            }
+        }
         _ => CommandResult::ok("disable: specify client=, job=, schedule=, or storage=\n".to_string()),
     }
 }

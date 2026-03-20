@@ -57,11 +57,21 @@ pub fn cmd_truncate(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
 }
 
 pub fn cmd_reload(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    // Send SIGHUP to ourselves to trigger config reload
+    #[cfg(unix)]
+    {
+        unsafe {
+            libc::kill(libc::getpid(), libc::SIGHUP);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+
     if let Some(config) = &ctx.config {
         if let Ok(cfg) = config.read() {
             CommandResult::ok(format!(
-                "Configuration reloaded: Director '{}', {} clients, {} jobs, {} storages\n",
-                cfg.director.name, cfg.clients.len(), cfg.jobs.len(), cfg.storages.len()
+                "Configuration reloaded: Director '{}', {} clients, {} jobs, {} storages, {} pools\n",
+                cfg.director.name, cfg.clients.len(), cfg.jobs.len(),
+                cfg.storages.len(), cfg.pools.len()
             ))
         } else {
             CommandResult::error("Failed to read config\n".to_string())
