@@ -11,14 +11,19 @@ pub fn cmd_configure(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     match action {
         "add" => configure_add(ast, ctx),
-        "delete" => configure_delete(ast, ctx),
+        "read" | "show" | "get" => configure_read(ast, ctx),
         "update" => configure_update(ast, ctx),
+        "delete" => configure_delete(ast, ctx),
+        "export" => configure_export(ast, ctx),
         _ => CommandResult::ok(
-            "configure: specify one of:\n  add client name=<n> address=<a> password=<p>\n  \
-             add job name=<n> client=<c> type=Backup\n  \
-             add pool name=<n>\n  \
-             delete client=<name>\n  \
-             delete job=<name>\n"
+            "configure: CRUD operations on resources:\n  \
+             configure add client name=<n> address=<a> password=<p>\n  \
+             configure add job name=<n> client=<c> type=Backup\n  \
+             configure add pool name=<n>\n  \
+             configure read client=<name>\n  \
+             configure update client=<name> address=<new>\n  \
+             configure delete client=<name>\n  \
+             configure export\n"
                 .to_string(),
         ),
     }
@@ -189,6 +194,119 @@ fn configure_delete(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     }
 
     CommandResult::ok("configure delete: specify client=<name>, job=<name>, pool=<name>, etc.\n".to_string())
+}
+
+fn configure_read(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let config = match &ctx.config {
+        Some(c) => match c.read() {
+            Ok(c) => c,
+            Err(_) => return CommandResult::error("Config error\n".to_string()),
+        },
+        None => return CommandResult::error("No config\n".to_string()),
+    };
+
+    let get_arg = |key: &str| -> Option<&str> {
+        ast.arguments.iter().find(|a| a.key == key).and_then(|a| a.value.as_deref())
+    };
+
+    if let Some(name) = get_arg("client") {
+        if let Some(c) = config.find_client(name) {
+            return CommandResult::ok(format!(
+                "Client {{\n  Name = \"{}\"\n  Address = \"{}\"\n  Port = {}\n  Enabled = {}\n}}\n",
+                c.name, c.address, c.port, if c.enabled { "yes" } else { "no" }
+            ));
+        }
+        return CommandResult::error(format!("Client '{name}' not found\n"));
+    }
+    if let Some(name) = get_arg("job") {
+        if let Some(j) = config.find_job(name) {
+            return CommandResult::ok(format!(
+                "Job {{\n  Name = \"{}\"\n  Type = {:?}\n  Level = {:?}\n  Client = \"{}\"\n  \
+                 Storage = \"{}\"\n  Pool = \"{}\"\n  FileSet = \"{}\"\n  Priority = {}\n  Enabled = {}\n}}\n",
+                j.name, j.job_type, j.level, j.client, j.storage, j.pool, j.fileset, j.priority,
+                if j.enabled { "yes" } else { "no" }
+            ));
+        }
+        return CommandResult::error(format!("Job '{name}' not found\n"));
+    }
+    if let Some(name) = get_arg("pool") {
+        if let Some(p) = config.find_pool(name) {
+            return CommandResult::ok(format!(
+                "Pool {{\n  Name = \"{}\"\n  Pool Type = \"{}\"\n  Recycle = {}\n  \
+                 Auto Prune = {}\n  Maximum Volumes = {}\n}}\n",
+                p.name, p.pool_type, if p.recycle { "yes" } else { "no" },
+                if p.auto_prune { "yes" } else { "no" }, p.maximum_volumes
+            ));
+        }
+        return CommandResult::error(format!("Pool '{name}' not found\n"));
+    }
+    if let Some(name) = get_arg("storage") {
+        if let Some(s) = config.find_storage(name) {
+            return CommandResult::ok(format!(
+                "Storage {{\n  Name = \"{}\"\n  Address = \"{}\"\n  Port = {}\n  \
+                 Device = \"{}\"\n  Media Type = \"{}\"\n}}\n",
+                s.name, s.address, s.port, s.device, s.media_type
+            ));
+        }
+        return CommandResult::error(format!("Storage '{name}' not found\n"));
+    }
+
+    CommandResult::ok("configure read: specify client=, job=, pool=, or storage=\n".to_string())
+}
+
+fn configure_export(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let config = match &ctx.config {
+        Some(c) => match c.read() {
+            Ok(c) => c,
+            Err(_) => return CommandResult::error("Config error\n".to_string()),
+        },
+        None => return CommandResult::error("No config\n".to_string()),
+    };
+
+    let mut output = String::new();
+
+    // Director
+    output.push_str(&format!(
+        "Director {{\n  Name = \"{}\"\n  Port = {}\n  Maximum Concurrent Jobs = {}\n}}\n\n",
+        config.director.name, config.director.port, config.director.max_concurrent_jobs
+    ));
+
+    // Clients
+    for c in &config.clients {
+        output.push_str(&format!(
+            "Client {{\n  Name = \"{}\"\n  Address = \"{}\"\n  Port = {}\n  Enabled = {}\n}}\n\n",
+            c.name, c.address, c.port, if c.enabled { "yes" } else { "no" }
+        ));
+    }
+
+    // Jobs
+    for j in &config.jobs {
+        output.push_str(&format!(
+            "Job {{\n  Name = \"{}\"\n  Type = {:?}\n  Level = {:?}\n  Client = \"{}\"\n  \
+             Storage = \"{}\"\n  Pool = \"{}\"\n}}\n\n",
+            j.name, j.job_type, j.level, j.client, j.storage, j.pool
+        ));
+    }
+
+    // Storages
+    for s in &config.storages {
+        output.push_str(&format!(
+            "Storage {{\n  Name = \"{}\"\n  Address = \"{}\"\n  Port = {}\n  \
+             Device = \"{}\"\n  Media Type = \"{}\"\n}}\n\n",
+            s.name, s.address, s.port, s.device, s.media_type
+        ));
+    }
+
+    // Pools
+    for p in &config.pools {
+        output.push_str(&format!(
+            "Pool {{\n  Name = \"{}\"\n  Pool Type = \"{}\"\n  Recycle = {}\n  \
+             Maximum Volumes = {}\n}}\n\n",
+            p.name, p.pool_type, if p.recycle { "yes" } else { "no" }, p.maximum_volumes
+        ));
+    }
+
+    CommandResult::ok(output)
 }
 
 fn configure_update(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
