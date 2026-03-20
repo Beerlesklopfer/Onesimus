@@ -9,6 +9,10 @@ members = [
     "crates/bareos-console",
 ]
 
+# bareos-plugins requires python3-dev: cargo build -p bareos-plugins
+[workspace.metadata.optional-members]
+plugins = ["crates/bareos-plugins"]
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
@@ -64,6 +68,9 @@ ctrlc = "3"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
+
+# Python plugins
+pyo3 = { version = "0.23", features = ["auto-initialize"] }
 
 # Error handling
 anyhow = "1"
