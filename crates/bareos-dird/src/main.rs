@@ -8,6 +8,7 @@ mod command_ast;
 mod command_executor;
 mod command_queue;
 mod commands;
+mod command_worker;
 mod connection_monitor;
 mod director_config;
 mod fd_protocol;
@@ -204,10 +205,11 @@ fn spawn_named_threads(
 
     // dir:scheduler — job scheduling
     {
+        let sched_config = config.clone();
         let handle = thread::Builder::new()
             .name("dir:scheduler".into())
             .spawn(move || {
-                scheduler::scheduler_loop(&SHUTDOWN);
+                scheduler::scheduler_loop(Some(sched_config), &SHUTDOWN);
             })
             .expect("failed to spawn dir:scheduler");
         threads.push(("dir:scheduler".into(), handle));
@@ -237,6 +239,20 @@ fn spawn_named_threads(
             })
             .expect("failed to spawn dir:grpc");
         threads.push(("dir:grpc".into(), handle));
+    }
+
+    // dir:cmdworker — processes commands from gRPC and other queue submitters
+    {
+        let q = cmd_queue.clone();
+        let cfg = config.clone();
+        let smgr = session_mgr.clone();
+        let handle = thread::Builder::new()
+            .name("dir:cmdworker".into())
+            .spawn(move || {
+                command_worker::command_worker_loop(&q, Some(cfg), Some(smgr), &SHUTDOWN);
+            })
+            .expect("failed to spawn dir:cmdworker");
+        threads.push(("dir:cmdworker".into(), handle));
     }
 
     // dir:monitor — FD/SD connection health checks

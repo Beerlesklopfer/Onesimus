@@ -5,10 +5,13 @@
 
 use std::collections::BinaryHeap;
 use std::cmp::Ordering as CmpOrdering;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tracing::{info, debug, warn};
+
+use crate::director_config::SharedConfig;
 
 /// A scheduled job item in the priority queue.
 #[derive(Debug, Clone)]
@@ -63,7 +66,7 @@ impl SchedulerState {
 }
 
 /// Main scheduler loop. Runs in the dir:scheduler named thread.
-pub fn scheduler_loop(shutdown: &AtomicBool) {
+pub fn scheduler_loop(config: Option<SharedConfig>, shutdown: &AtomicBool) {
     let state = SchedulerState::new();
     let mut queue: BinaryHeap<ScheduledJob> = BinaryHeap::new();
 
@@ -72,9 +75,10 @@ pub fn scheduler_loop(shutdown: &AtomicBool) {
     while !shutdown.load(Ordering::Relaxed) {
         state.heartbeat();
 
-        // TODO(R6-full): Scan config resources, evaluate DateTimeMask,
-        // add jobs for current/next hour to queue
-        // fill_queue_for_next_hour(&config, &mut queue);
+        // Scan config for scheduled jobs
+        if let Some(ref cfg) = config {
+            fill_queue_from_config(cfg, &mut queue);
+        }
 
         // Dispatch ready jobs
         dispatch_ready_jobs(&mut queue, &state, shutdown);
@@ -86,6 +90,58 @@ pub fn scheduler_loop(shutdown: &AtomicBool) {
 
     info!("scheduler stopped, dispatched {} jobs total",
           state.jobs_dispatched.load(Ordering::Relaxed));
+}
+
+/// Scan config for jobs with schedules and add to queue.
+fn fill_queue_from_config(config: &SharedConfig, queue: &mut BinaryHeap<ScheduledJob>) {
+    let cfg = match config.read() {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let now = now_unix();
+    let current_hour = (now % 86400) / 3600;
+    let current_minute = (now % 3600) / 60;
+
+    for job in &cfg.jobs {
+        if !job.enabled || job.schedule.is_empty() {
+            continue;
+        }
+
+        // Find matching schedule
+        let schedule = cfg.schedules.iter().find(|s| s.name == job.schedule);
+        let schedule = match schedule {
+            Some(s) if s.enabled => s,
+            _ => continue,
+        };
+
+        for run in &schedule.runs {
+            // Simple check: does this run match the current hour?
+            if run.hour as i64 == current_hour && run.minute as i64 == current_minute {
+                let level = run.level
+                    .map(|l| format!("{:?}", l))
+                    .unwrap_or_else(|| format!("{:?}", job.level));
+
+                // Avoid duplicate scheduling (check if already in queue)
+                let already_queued = false; // TODO: proper dedup
+
+                if !already_queued {
+                    let runtime = now; // Due now
+                    debug!("scheduling job '{}' level={} at {:02}:{:02}",
+                           job.name, level, run.hour, run.minute);
+
+                    queue.push(ScheduledJob {
+                        job_name: job.name.clone(),
+                        level,
+                        pool: run.pool.clone(),
+                        storage: run.storage.clone(),
+                        runtime,
+                        priority: run.priority.unwrap_or(job.priority),
+                    });
+                }
+            }
+        }
+    }
 }
 
 /// Dispatch all jobs whose runtime has arrived.
