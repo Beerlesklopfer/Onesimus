@@ -1,0 +1,9 @@
+bareos-director-rust (0.25.0-1) unstable; urgency=medium
+
+  * Initial release — Rust drop-in replacement for Bareos Director
+  * 135 unit tests, 8192 parallel connections verified
+  * JSON Schema ORM for catalog management
+  * TLS-PSK + CRAM-MD5 + gRPC support
+  * Compatible with Bareos 25.x FD/SD
+
+ -- Joerg Bernau <joerg@bernau.family>  Sat, 21 Mar 2026 11:57:56 +0100

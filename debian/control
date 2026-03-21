@@ -1,0 +1,16 @@
+Source: bareos-director-rust
+Section: admin
+Priority: optional
+Maintainer: Joerg Bernau <joerg@bernau.family>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/Beerlesklopfer/baReos-dird
+
+Package: bareos-director-rust
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}, bareos-common
+Description: baReos Director - Rust drop-in replacement
+ High-performance Bareos Director written in Rust.
+ Drop-in replacement reading /etc/bareos/bareos-dir.d/ config tree.
+ .
+ Binaries: bareos-dird (Director), brconsole (Console)
