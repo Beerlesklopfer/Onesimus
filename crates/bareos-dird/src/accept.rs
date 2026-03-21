@@ -57,8 +57,9 @@ pub fn accept_loop(
             l
         }
         Err(e) => {
-            error!("failed to bind {addr}: {e}");
-            return;
+            error!("FATAL: failed to bind {addr}: {e}");
+            error!("Another director already running? Check: ss -tlnp | grep {}", config.port);
+            std::process::exit(1);
         }
     };
 
