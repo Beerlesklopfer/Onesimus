@@ -120,13 +120,14 @@ pub fn run_backup(
     make_result(job_id, &job.name, JobStatus::Success, start_time, 0, 0, 0)
 }
 
-fn connect_to_fd<'a>(
+fn connect_to_fd(
     client: &ClientResource,
     director_name: &str,
 ) -> Result<BnetStream<bareos_bnet::tls_psk::PskStream>, String> {
     let addr = format!("{}:{}", client.address, client.port);
+    let sock_addr = resolve_addr(&addr)?;
     let stream = std::net::TcpStream::connect_timeout(
-        &addr.parse().map_err(|e| format!("addr parse: {e}"))?,
+        &sock_addr,
         std::time::Duration::from_secs(10),
     ).map_err(|e| format!("FD connect {addr}: {e}"))?;
 
@@ -163,8 +164,9 @@ fn connect_to_sd(
     director_name: &str,
 ) -> Result<BnetStream<bareos_bnet::tls_psk::PskStream>, String> {
     let addr = format!("{}:{}", storage.address, storage.port);
+    let sock_addr = resolve_addr(&addr)?;
     let stream = std::net::TcpStream::connect_timeout(
-        &addr.parse().map_err(|e| format!("addr parse: {e}"))?,
+        &sock_addr,
         std::time::Duration::from_secs(10),
     ).map_err(|e| format!("SD connect {addr}: {e}"))?;
 
@@ -204,6 +206,14 @@ fn make_result(job_id: u32, name: &str, status: JobStatus, start: i64, files: i6
         start_time: start,
         end_time: now_unix(),
     }
+}
+
+fn resolve_addr(addr: &str) -> Result<std::net::SocketAddr, String> {
+    use std::net::ToSocketAddrs;
+    addr.to_socket_addrs()
+        .map_err(|e| format!("DNS resolve {addr}: {e}"))?
+        .next()
+        .ok_or_else(|| format!("DNS resolve {addr}: no addresses found"))
 }
 
 fn now_unix() -> i64 {

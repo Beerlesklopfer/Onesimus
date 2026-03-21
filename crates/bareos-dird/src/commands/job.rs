@@ -1,9 +1,14 @@
 //! Job control commands: run, cancel, enable, disable
 
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
+use crate::job_runner;
 use crate::message_bus::BusMessage;
+
+static NEXT_JOB_ID: AtomicU32 = AtomicU32::new(1);
 
 pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let job_name = ast.arguments.iter()
@@ -97,10 +102,12 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         job.job_type, job.name, level, client, storage, pool, job.fileset, job.priority,
     );
 
-    // Post job status event
+    let job_id = NEXT_JOB_ID.fetch_add(1, Ordering::Relaxed);
+
+    // Post job queued event
     if let Some(smgr) = &ctx.session_mgr {
         smgr.bus().post(BusMessage::JobStatus {
-            job_id: 1,
+            job_id,
             job_name: job.name.clone(),
             status: "Queued".to_string(),
             timestamp: std::time::SystemTime::now()
@@ -109,6 +116,41 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
                 .as_secs() as i64,
         });
     }
+
+    // Spawn job in background thread (fork will happen inside)
+    let job_clone = job.clone();
+    let client_res = config.find_client(client).cloned();
+    let storage_res = config.find_storage(storage).cloned();
+    let dir_name = config.director.name.clone();
+    drop(config); // Release RwLock before spawning
+
+    if let (Some(client_res), Some(storage_res)) = (client_res, storage_res) {
+        let bus = ctx.session_mgr.as_ref().map(|s| s.bus().clone());
+        std::thread::Builder::new()
+            .name(format!("job:{job_id}"))
+            .spawn(move || {
+                let result = job_runner::run_backup(
+                    job_id, &job_clone, &client_res, &storage_res, &dir_name,
+                );
+                tracing::info!("Job {job_id} '{}': status={:?} files={} bytes={} errors={}",
+                    result.job_name, result.status, result.files, result.bytes, result.errors);
+            })
+            .ok();
+    }
+
+    let output = format!(
+        "Job queued. JobId={job_id}\n\
+         Run {:?} job\n\
+         Job:        {}\n\
+         Level:      {level}\n\
+         Client:     {client}\n\
+         Storage:    {storage}\n\
+         Pool:       {pool}\n\
+         FileSet:    {}\n\
+         Priority:   {}\n\
+         When:       now\n",
+        job.job_type, job.name, job.fileset, job.priority,
+    );
 
     CommandResult::ok(output)
 }

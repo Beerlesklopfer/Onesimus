@@ -38,7 +38,11 @@ pub fn query_fd_status(
 
     // 1. TCP Connect
     let stream = match TcpStream::connect_timeout(
-        &addr.parse().unwrap_or_else(|_| format!("127.0.0.1:{port}").parse().unwrap()),
+        &{
+            use std::net::ToSocketAddrs;
+            addr.to_socket_addrs().ok().and_then(|mut a| a.next())
+                .unwrap_or_else(|| format!("127.0.0.1:{port}").parse().unwrap())
+        },
         Duration::from_secs(10),
     ) {
         Ok(s) => s,
