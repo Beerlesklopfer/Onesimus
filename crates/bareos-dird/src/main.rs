@@ -293,6 +293,25 @@ fn main() {
     let session_mgr = Arc::new(SessionManager::new(bus.clone()));
     let cmd_queue = Arc::new(CommandQueue::new(256));
 
+    // Daemonize wenn NICHT -f/--foreground
+    if !cli.foreground && !cli.test_config {
+        info!("daemonizing...");
+        let mut daemon = daemonize::Daemonize::new()
+            .working_directory("/var/lib/bareos");
+
+        if let Some(ref pid_file) = cli.pid_file {
+            daemon = daemon.pid_file(pid_file);
+        }
+
+        match daemon.start() {
+            Ok(_) => info!("daemon started"),
+            Err(e) => {
+                error!("FATAL: daemonize failed: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
+
     info!("Director '{}' listening on port {}", dir_name, port);
 
     // Named threads

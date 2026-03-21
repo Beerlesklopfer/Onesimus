@@ -70,6 +70,9 @@ libc = "0.2"
 # Signal handling
 ctrlc = "3"
 
+# Daemonize
+daemonize = "0.5"
+
 # CLI
 clap = { version = "4", features = ["derive"] }
 rustyline = "15"
