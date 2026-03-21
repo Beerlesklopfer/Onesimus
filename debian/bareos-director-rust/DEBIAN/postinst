@@ -1,5 +1,50 @@
-#!/bin/sh
+#!/bin/bash
 set -e
+
+case "$1" in
+    configure)
+        # Erstelle bareos User/Gruppe falls nicht vorhanden
+        if ! getent group bareos >/dev/null 2>&1; then
+            addgroup --system bareos
+        fi
+        if ! getent passwd bareos >/dev/null 2>&1; then
+            adduser --system --home /var/lib/bareos --no-create-home \
+                    --ingroup bareos --shell /usr/sbin/nologin bareos
+        fi
+
+        # Verzeichnisse
+        install -d -m 750 -o bareos -g bareos /var/lib/bareos
+        install -d -m 750 -o bareos -g bareos /var/log/bareos
+        install -d -m 750 -o bareos -g bareos /etc/bareos
+
+        # Default-Configs nur installieren wenn bareos-dir.d/ leer oder nicht existiert
+        if [ ! -d /etc/bareos/bareos-dir.d ] || [ -z "$(find /etc/bareos/bareos-dir.d/ -name '*.conf' 2>/dev/null)" ]; then
+            echo "Installiere Default-Konfiguration nach /etc/bareos/bareos-dir.d/ ..."
+            cp -r /usr/share/bareos/defaultconfigs/bareos-dir.d /etc/bareos/
+            chown -R bareos:bareos /etc/bareos/bareos-dir.d
+            chmod -R u=rwX,g=rX,o= /etc/bareos/bareos-dir.d
+
+            # Generiere zufaelliges Passwort
+            DIR_PW=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)
+            sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/bareos-dir.d/director/*.conf 2>/dev/null || true
+            sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/bareos-dir.d/catalog/*.conf 2>/dev/null || true
+            sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/bareos-dir.d/client/*.conf 2>/dev/null || true
+            sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/bareos-dir.d/storage/*.conf 2>/dev/null || true
+            echo "Default-Konfiguration installiert. Passwoerter generiert."
+        else
+            echo "Bestehende Konfiguration in /etc/bareos/bareos-dir.d/ gefunden — nicht ueberschrieben."
+        fi
+
+        systemctl daemon-reload 2>/dev/null || true
+        echo ""
+        echo "baReos Director (Rust) installiert."
+        echo "  Director: /usr/sbin/bareos-dird"
+        echo "  Console:  /usr/bin/brconsole"
+        echo "  Config:   /etc/bareos/bareos-dir.d/"
+        echo "  Service:  systemctl start bareos-director-rust"
+        ;;
+esac
+
 # Automatically added by dh_installsystemd/13.24.2
 if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
 	# The following line should be removed in trixie or trixie+1
@@ -30,3 +75,6 @@ if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-decon
 	fi
 fi
 # End automatically added section
+
+
+exit 0
