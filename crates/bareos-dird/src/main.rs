@@ -113,6 +113,26 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
+    // Debug-Level Hilfe
+    if cli.debug_level == 999 {
+        println!("Debug-Level Referenz (kompatibel mit C++ Bareos Dmsg):");
+        println!();
+        println!("  Level   Beschreibung");
+        println!("  -----   ----------------------------------------");
+        println!("  0       Aus (keine Debug-Ausgaben)");
+        println!("  1-49    Basis (Startup, Shutdown, Config)");
+        println!("  50-99   Ausfuehrlich (Commands, Sessions, Jobs)");
+        println!("  100     Protokoll (TLS-PSK, CRAM-MD5)");
+        println!("  110     Daemon-Messages (>stored:, <filed:)");
+        println!("  116     Wire (gesendete/empfangene BNET-Strings)");
+        println!("  150     Detail (Auth-Schritte, Config-Parse)");
+        println!("  200     Trace (Memory, Locks, Funktionsaufrufe)");
+        println!("  999     Diese Hilfe anzeigen");
+        println!();
+        println!("Beispiel: bareos-dird -d 100 -f");
+        std::process::exit(0);
+    }
+
     // Logging
     let filter = if cli.debug_level > 0 {
         format!("debug,hyper=info,h2=info,tower=info")
@@ -129,7 +149,15 @@ fn main() {
     // Install rustls CryptoProvider for TLS support
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    // Bareos-kompatibles Debug-Level System
+    bareos_bnet::debug::set_debug_level(cli.debug_level);
+    bareos_bnet::debug::set_debug_timestamps(cli.debug_timestamps);
+    bareos_bnet::debug::set_daemon_name("bareos-dir");
+
     info!("baReos Director Version {} starting", env!("CARGO_PKG_VERSION"));
+    if cli.debug_level > 0 {
+        info!("debug level set to {}", cli.debug_level);
+    }
 
     // Load configuration
     let config = if cli.config.exists() {

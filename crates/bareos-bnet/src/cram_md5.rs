@@ -101,15 +101,15 @@ impl CramMd5Auth {
         let expected_bareos = bareos_bin_to_base64(&hmac, false);
 
         let resp = response.trim().trim_end_matches('\0');
-        tracing::debug!("CRAM-MD5 challenge sent: {challenge:?}");
-        tracing::debug!("CRAM-MD5 response got={resp:?} std={expected_std:?} compat={expected_compat:?} bareos={expected_bareos:?}");
+        crate::dmsg!(100, "CRAM-MD5 challenge sent: {challenge:?}");
+        crate::dmsg!(100, "CRAM-MD5 response got={resp:?} expected_bareos={expected_bareos:?}");
 
         let ok = resp == expected_std.trim()
               || resp == expected_std.trim_end_matches('=')
               || resp == expected_compat
               || resp == expected_bareos;
 
-        tracing::debug!("CRAM-MD5 challenge phase: match={ok}");
+        crate::dmsg!(100, "CRAM-MD5 challenge phase: match={ok}");
 
         // Send result
         if ok {
@@ -129,7 +129,7 @@ impl CramMd5Auth {
     ) -> Result<(bool, String), BnetError> {
         // Receive challenge
         let challenge_msg = stream.recv_str()?;
-        tracing::debug!("CRAM-MD5 respond: received={challenge_msg:?}");
+        crate::dmsg!(100, "CRAM-MD5 respond: received challenge");
 
         // Parse challenge: "auth cram-md5 <...> ssl=N\n"
         let challenge = parse_challenge(&challenge_msg)
@@ -137,14 +137,14 @@ impl CramMd5Auth {
 
         // Compute HMAC-MD5 using Bareos-compatible encoding (compatible_=false)
         let hmac_response = compute_hmac_md5_bareos_base64(challenge.as_bytes(), self.password.as_bytes());
-        tracing::debug!("CRAM-MD5 respond: sending={hmac_response:?}");
+        crate::dmsg!(116, "CRAM-MD5 respond: sending HMAC");
 
         // Send response
         stream.send_str(&hmac_response)?;
 
         // Receive result
         let result = stream.recv_str()?;
-        tracing::debug!("CRAM-MD5 respond: result={result:?}");
+        crate::dmsg!(100, "CRAM-MD5 respond: result={}", result.trim());
         let ok = result.contains("1000 OK auth");
 
         Ok((ok, challenge))
