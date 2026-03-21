@@ -85,7 +85,11 @@ fn load_console_config(path: &str) -> ConsoleConfig {
 
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
-        Err(_) => return cfg,
+        Err(e) => {
+            eprintln!("\x1b[33mWarnung: Config {} nicht lesbar: {e}\x1b[0m", path);
+            eprintln!("\x1b[33mTipp: Benutzer zur Gruppe 'bareos' hinzufuegen oder sudo verwenden\x1b[0m");
+            return cfg;
+        }
     };
 
     for line in content.lines() {
