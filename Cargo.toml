@@ -72,6 +72,7 @@ ctrlc = "3"
 
 # CLI
 clap = { version = "4", features = ["derive"] }
+rustyline = "15"
 
 # Python plugins
 pyo3 = { version = "0.23", features = ["auto-initialize"] }
