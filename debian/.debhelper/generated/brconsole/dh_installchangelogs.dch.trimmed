@@ -1,0 +1,9 @@
+bareos-director-rust (0.25.0-1) unstable; urgency=medium
+
+  * Split into two packages: bareos-director-rust + brconsole
+  * Tab-completion from Director AST, readline, syntax coloring
+  * All CLI switches compatible with C++ bareos-dir
+  * Config directory tree support (/etc/bareos/bareos-dir.d/)
+  * 135 unit tests, 8192 parallel connections verified
+
+ -- Joerg Bernau <joerg@bernau.family>  Sat, 21 Mar 2026 12:50:01 +0100

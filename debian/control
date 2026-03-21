@@ -13,4 +13,14 @@ Description: baReos Director - Rust drop-in replacement
  High-performance Bareos Director written in Rust.
  Drop-in replacement reading /etc/bareos/bareos-dir.d/ config tree.
  .
- Binaries: bareos-dird (Director), brconsole (Console)
+ Binary: /usr/sbin/bareos-dird
+
+Package: brconsole
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: baReos Console - Rust console with tab-completion
+ Interactive console for the Bareos Director with readline,
+ tab-completion from Director AST, and syntax coloring.
+ .
+ Binary: /usr/bin/brconsole
+ Config: /etc/bareos/brconsole.conf

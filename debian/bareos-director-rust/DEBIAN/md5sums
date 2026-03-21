@@ -1,8 +1,7 @@
-37d805f1f1bf1b8ff5ddd9fe409a128f  usr/bin/brconsole
 44177d433811605cfe948d0027fe5cc3  usr/lib/bareos/scripts/ddl/v001_initial.json
 1277ba75deb65a18cb96bf7fcddc9982  usr/lib/bareos/scripts/ddl/v002_remove_metadata_bloat.json
 64da3a31197ef0490a6e3afb01e5f709  usr/lib/systemd/system/bareos-director-rust.service
-956b717f71db508f3871910b3472cf1c  usr/sbin/bareos-dird
+1a1e956d29b35ea34ea80773e8bb4569  usr/sbin/bareos-dird
 dc9ef42e75bc2f99d128aa7cf8f68957  usr/share/bareos/defaultconfigs/bareos-dir.d/catalog/MyCatalog.conf
 1488427c441b6bd9926418d6ebcd1eab  usr/share/bareos/defaultconfigs/bareos-dir.d/client/bareos-fd.conf
 0d7cf13a587c7f7fc9943773d98966ef  usr/share/bareos/defaultconfigs/bareos-dir.d/director/bareos-dir.conf
@@ -11,4 +10,4 @@ dc9ef42e75bc2f99d128aa7cf8f68957  usr/share/bareos/defaultconfigs/bareos-dir.d/c
 aa45e3096d7edcac0742e7fe3a88bd9c  usr/share/bareos/defaultconfigs/bareos-dir.d/pool/Full.conf
 447ed183809da24c493f1a2ab2168035  usr/share/bareos/defaultconfigs/bareos-dir.d/schedule/WeeklyCycle.conf
 d8910317b107538597e7b37f34097cc3  usr/share/bareos/defaultconfigs/bareos-dir.d/storage/File.conf
-61b7c8d67c04888bb106fddb094fe5c3  usr/share/doc/bareos-director-rust/changelog.Debian.gz
+904f81a2d2fa1b17e0c83f60bd6f57e8  usr/share/doc/bareos-director-rust/changelog.Debian.gz

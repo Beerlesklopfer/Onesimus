@@ -2,7 +2,7 @@ Package: bareos-director-rust
 Version: 0.25.0-1
 Architecture: amd64
 Maintainer: Joerg Bernau <joerg@bernau.family>
-Installed-Size: 11821
+Installed-Size: 8253
 Depends: libc6 (>= 2.38), libgcc-s1 (>= 4.2), libssl3t64 (>= 3.0.0), bareos-common
 Section: admin
 Priority: optional
@@ -11,4 +11,4 @@ Description: baReos Director - Rust drop-in replacement
  High-performance Bareos Director written in Rust.
  Drop-in replacement reading /etc/bareos/bareos-dir.d/ config tree.
  .
- Binaries: bareos-dird (Director), brconsole (Console)
+ Binary: /usr/sbin/bareos-dird

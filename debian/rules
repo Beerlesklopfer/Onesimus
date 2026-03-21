@@ -6,41 +6,28 @@ override_dh_auto_build:
 	cargo build --release -p bareos-dird -p bareos-console
 
 override_dh_auto_install:
-	# Binaries
+	# === bareos-director-rust package ===
 	install -D -m 755 target/release/bareos-dird debian/bareos-director-rust/usr/sbin/bareos-dird
-	install -D -m 755 target/release/brconsole debian/bareos-director-rust/usr/bin/brconsole
 	# Schema
 	install -D -m 644 catalog/schema/v001_initial.json debian/bareos-director-rust/usr/lib/bareos/scripts/ddl/v001_initial.json
 	install -D -m 644 catalog/schema/v002_remove_metadata_bloat.json debian/bareos-director-rust/usr/lib/bareos/scripts/ddl/v002_remove_metadata_bloat.json
-	# Default configs (templates, installed by postinst if needed)
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/catalog
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/client
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/console
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/director
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/fileset
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/job
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/jobdefs
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/messages
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/pool
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/profile
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/schedule
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/storage
-	install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/user
-	install -m 644 config/bareos-dir.d/director/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/director/
-	install -m 644 config/bareos-dir.d/catalog/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/catalog/
-	install -m 644 config/bareos-dir.d/client/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/client/
-	install -m 644 config/bareos-dir.d/storage/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/storage/
-	install -m 644 config/bareos-dir.d/pool/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/pool/
-	install -m 644 config/bareos-dir.d/schedule/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/schedule/
-	install -m 644 config/bareos-dir.d/job/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/job/
-	install -m 644 config/bareos-dir.d/messages/*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/messages/
+	# Default configs
+	for dir in catalog client console director fileset job jobdefs messages pool profile schedule storage user; do \
+		install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/$$dir; \
+	done
+	for f in config/bareos-dir.d/*/; do \
+		install -m 644 $$f*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/$$(basename $$f)/ 2>/dev/null || true; \
+	done
+	# === brconsole package ===
+	install -D -m 755 target/release/brconsole debian/brconsole/usr/bin/brconsole
+	install -D -m 644 config/brconsole.conf debian/brconsole/usr/share/bareos/defaultconfigs/brconsole.conf
 
 override_dh_auto_test:
 	cargo test --release
 
 override_dh_strip:
 	strip debian/bareos-director-rust/usr/sbin/bareos-dird
-	strip debian/bareos-director-rust/usr/bin/brconsole
+	strip debian/brconsole/usr/bin/brconsole
 
 override_dh_auto_clean:
 	cargo clean 2>/dev/null || true
