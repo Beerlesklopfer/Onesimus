@@ -74,8 +74,32 @@ fn run_bnet_mode(cli: &Cli, addr: &str) {
     };
     stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
 
+    // Try TLS-PSK if password is set
+    if !cli.password.is_empty() {
+        let psk_identity = format!("R_CONSOLE\x1e{}", cli.name);
+        let psk = bareos_bnet::tls_psk::password_to_psk(&cli.password);
+        match bareos_bnet::tls_psk::psk_connect(stream, &psk_identity, &psk) {
+            Ok(psk_stream) => {
+                eprintln!(" Encryption: TLS-PSK");
+                let mut bnet = BnetStream::new(psk_stream);
+                run_bnet_session(cli, bnet);
+                return;
+            }
+            Err(e) => {
+                debug!("TLS-PSK failed ({e}), reconnecting plaintext");
+                let stream2 = TcpStream::connect(addr).unwrap();
+                stream2.set_read_timeout(Some(Duration::from_secs(30))).ok();
+                let mut bnet = BnetStream::new(stream2);
+                run_bnet_session(cli, bnet);
+                return;
+            }
+        }
+    }
     let mut bnet = BnetStream::new(stream);
+    run_bnet_session(cli, bnet);
+}
 
+fn run_bnet_session<S: std::io::Read + std::io::Write>(cli: &Cli, mut bnet: BnetStream<S>) {
     // Send hello
     let version = env!("CARGO_PKG_VERSION");
     let hello = if cli.name == "*UserAgent*" {
@@ -127,7 +151,7 @@ fn run_bnet_mode(cli: &Cli, addr: &str) {
     interactive_loop(&mut bnet);
 }
 
-fn execute_single_command(bnet: &mut BnetStream<TcpStream>, cmd: &str) {
+fn execute_single_command<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>, cmd: &str) {
     // Wait for prompt
     drain_signals(bnet);
 
@@ -155,7 +179,7 @@ fn execute_single_command(bnet: &mut BnetStream<TcpStream>, cmd: &str) {
     let _ = bnet.send_str("quit");
 }
 
-fn interactive_loop(bnet: &mut BnetStream<TcpStream>) {
+fn interactive_loop<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>) {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
@@ -245,10 +269,8 @@ fn interactive_loop(bnet: &mut BnetStream<TcpStream>) {
 }
 
 /// Drain pending signals (prompts, etc.) without blocking.
-fn drain_signals(bnet: &mut BnetStream<TcpStream>) {
-    // Set short timeout to drain
-    bnet.inner().set_read_timeout(Some(Duration::from_millis(500))).ok();
-
+fn drain_signals<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>) {
+    // Read until we get MainPrompt or error
     loop {
         match bnet.recv() {
             Ok(BnetMessage::Signal(BnetSignal::MainPrompt)) => break,
@@ -257,9 +279,6 @@ fn drain_signals(bnet: &mut BnetStream<TcpStream>) {
             Err(_) => break,
         }
     }
-
-    // Restore normal timeout
-    bnet.inner().set_read_timeout(Some(Duration::from_secs(30))).ok();
 }
 
 fn run_grpc_mode(cli: &Cli, addr: &str) {
