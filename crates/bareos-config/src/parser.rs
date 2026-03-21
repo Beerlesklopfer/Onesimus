@@ -164,6 +164,32 @@ fn parse_raw_resources(input: &str) -> Result<Vec<RawResource>, String> {
                 return Err(format!("unexpected EOF in resource '{resource_type}'"));
             }
 
+            // Check for nested block (Include { ... }, Options { ... }, etc.)
+            // If the next non-whitespace after a word is '{', skip the entire block
+            let trimmed = remaining.trim_start();
+            if let Some(brace_pos) = trimmed.find('{') {
+                let before_brace = trimmed[..brace_pos].trim();
+                // If no '=' before '{', this is a nested block — skip it
+                if !before_brace.contains('=') && !before_brace.is_empty() {
+                    let block_name = before_brace.split_whitespace().next().unwrap_or("");
+                    remaining = &trimmed[brace_pos + 1..];
+                    let mut depth = 1;
+                    while depth > 0 && !remaining.is_empty() {
+                        if let Some(pos) = remaining.find(|c| c == '{' || c == '}') {
+                            if remaining.as_bytes()[pos] == b'{' {
+                                depth += 1;
+                            } else {
+                                depth -= 1;
+                            }
+                            remaining = &remaining[pos + 1..];
+                        } else {
+                            break;
+                        }
+                    }
+                    continue;
+                }
+            }
+
             // Parse directive key (may contain spaces: "Maximum Concurrent Jobs")
             let (key, rest) = parse_directive_key(remaining)?;
             remaining = rest;
@@ -445,7 +471,15 @@ fn convert_raw_resource(raw: &RawResource) -> Result<Resource, ConfigError> {
             Ok(Resource::Console(con))
         }
 
-        other => Err(ConfigError::UnknownResourceType(other.to_string())),
+        // Unbekannte Resource-Typen tolerieren (Profile, Messages, etc.)
+        _other => {
+            tracing::debug!("skipping unknown resource type: {}", raw.resource_type);
+            // Return a dummy — skip silently
+            Ok(Resource::Console(ConsoleResource {
+                name: format!("_skip_{}", raw.resource_type),
+                password: String::new(),
+            }))
+        }
     }
 }
 
@@ -774,9 +808,9 @@ Console {
     }
 
     #[test]
-    fn unknown_resource_type_error() {
+    fn unknown_resource_type_skipped() {
         let input = "UnknownType { Name = foo }";
         let result = parse_config(input);
-        assert!(result.is_err());
+        assert!(result.is_ok()); // Unknown types are skipped, not errors
     }
 }
