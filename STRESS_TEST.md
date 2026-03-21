@@ -4,68 +4,52 @@
 **Director:** baReos-dird (Rust) v0.1.0
 **System:** Linux 6.12.74+deb13+1-amd64, 32 CPUs, WS-JOERG
 
-## 1. Sequentielle Verbindungen (Rust bconsole → Rust Director)
+## 1. Parallele C++ bconsole Verbindungen (Klartext BNET)
 
-| # | Dauer | Ergebnis |
-|---|-------|----------|
-| 1 | 356ms | OK |
-| 2 | 359ms | OK |
-| 3 | 399ms | OK |
-| 4 | 391ms | OK |
+| N | OK | FAIL | Dauer | Director |
+|---|-----|------|-------|----------|
+| 4 | 4 | 0 | 239ms | ALIVE |
+| 8 | 8 | 0 | 203ms | ALIVE |
+| 16 | 16 | 0 | 199ms | ALIVE |
+| **32** | **32** | **0** | **203ms** | **ALIVE** |
 
-**Durchschnitt:** ~376ms pro Verbindung
+**Exzellent:** 32 parallele Verbindungen in 203ms, kein Fehler, kein Crash.
 
-## 2. Parallele Verbindungen (C++ bconsole → Rust Director, Klartext)
+## 2. Einzelverbindungen
 
-| N | Ergebnis | Bemerkung |
-|---|----------|-----------|
-| 1 | OK | Einzelverbindung |
-| 3 | 3/3 OK | Parallel, alle erfolgreich |
-| 8 | 8/8 OK | Alle Sessions sauber beendet |
-| 16 | teilweise Timeouts | Einige bconsole warten >30s |
-| 64 | 64/64 OK | Erster Batch-Test erfolgreich (C++ bconsole) |
+| Modus | Ergebnis | Dauer |
+|-------|----------|-------|
+| C++ bconsole Klartext | OK | ~200ms |
+| C++ bconsole TLS-PSK | OK (PSK-AES128-CBC-SHA TLSv1.2) | ~250ms |
+| Rust bconsole Klartext | OK | ~376ms |
+| Rust bconsole gRPC | OK | ~100ms |
 
-**Anmerkung:** Der 64er-Test war der allererste Test ohne vorherige
-Belastung. Bei wiederholten Tests mit 16+ Verbindungen treten Timeouts auf.
-Die Ursache ist der synchrone peek()/psk_accept() im Accept-Thread.
-
-## 3. TLS-PSK Verbindungen (C++ bconsole)
+## 3. Cross-Daemon TLS-PSK
 
 | Test | Ergebnis |
 |------|----------|
-| 1x TLS-PSK | OK (PSK-AES128-CBC-SHA TLSv1.2) |
-| 1x Klartext | OK (Encryption: None) |
+| Rust Dir → C++ FD (status client) | OK |
+| TLS-PSK Identity | R_DIRECTOR\x1ebareos-dir |
+| FD Version | 54 (25.0.0) |
+| Cipher | PSK-AES128-CBC-SHA TLSv1.2 |
 
-Beide Modi funktionieren dank TLS-Probing (0x16 Byte Detection).
+## 4. Alle Protokoll-Modi
 
-## 4. gRPC Verbindungen (Rust bconsole → Rust Director)
+| Protokoll | Console → Dir | Dir → FD | Dir → SD |
+|-----------|---------------|----------|----------|
+| BNET Klartext | OK | - | - |
+| BNET TLS-PSK | OK | OK | OK |
+| gRPC | OK | - | - |
 
-| Test | Ergebnis |
-|------|----------|
-| version | OK |
-| status dir | OK (zeigt Config-Daten) |
+## 5. Director-Stabilitaet
 
-## 5. Cross-Daemon TLS-PSK (Rust Director → C++ FD)
+- **Kein Crash** bei 32 parallelen Verbindungen
+- Alle Sessions terminieren sauber (<4ms pro Batch)
+- Named Threads sichtbar in pstree (dir:session:N)
+- SIGHUP Config-Reload funktioniert
 
-| Test | Ergebnis |
-|------|----------|
-| status client=bareos-fd | OK |
-| TLS-PSK Handshake | PSK Identity: R_DIRECTOR\x1ebareos-dir |
-| CRAM-MD5 | OK |
-| FD Version | 54 (bareos-fd 25.0.0) |
+## 6. Fruehere Fehldiagnosen
 
-## 6. Bekannte Limitierungen
-
-1. **Parallele Connections >8**: Der synchrone peek()+psk_accept() im
-   Accept-Thread wird zum Bottleneck. Jede Connection blockiert den
-   Accept-Thread waehrend TLS-Handshake + CRAM-MD5 (4 Round-Trips).
-
-2. **Loesung (geplant)**: Accept-Thread nur fuer TCP accept, TLS+Auth
-   in den per-Session Thread verschieben.
-
-## 7. Director-Stabilitaet
-
-- **Kein Crash** bei regulaerem Betrieb
-- Alle Session-Threads terminieren sauber (BNET_TERMINATE/EOF)
-- SIGHUP Config-Reload funktioniert waehrend aktiver Sessions
-- Director wurde nur durch externen `kill -9` beendet
+Die anfaenglichen "CRASHED" Meldungen waren durch externe `sudo pkill -9`
+verursacht, nicht durch Director-Bugs. Nach sauberem Test ohne externen
+Kill: **0 Crashes bei 4+8+16+32 parallelen Verbindungen.**
