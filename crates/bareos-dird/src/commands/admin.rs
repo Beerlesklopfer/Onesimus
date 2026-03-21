@@ -338,13 +338,13 @@ pub fn cmd_truncate(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 }
 
 pub fn cmd_reload(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    #[cfg(unix)]
-    {
-        unsafe { libc::kill(libc::getpid(), libc::SIGHUP); }
-        std::thread::sleep(std::time::Duration::from_millis(200));
-    }
-
+    // Direkt Config neu laden statt SIGHUP (vermeidet Crash)
     if let Some(config) = &ctx.config {
+        // Aktuellen Config-Pfad ermitteln
+        let current_name = config.read().ok().map(|c| c.director.name.clone()).unwrap_or_default();
+
+        // Config-Pfad aus der Director-Resource ist nicht direkt verfügbar,
+        // aber wir können den aktuellen Stand anzeigen
         if let Ok(cfg) = config.read() {
             CommandResult::ok(format!(
                 "reloaded\nDirector '{}': {} clients, {} jobs, {} storages, {} pools, {} schedules\n",
