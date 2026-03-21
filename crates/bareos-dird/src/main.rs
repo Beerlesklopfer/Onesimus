@@ -148,10 +148,98 @@ fn main() {
         DirectorConfig::from_str("Director { Name = bareos-dir\n Port = 9101\n Password = default\n }").unwrap()
     };
 
+    // --test-config: validate and exit
     if cli.test_config {
-        info!("configuration OK: Director '{}', {} clients, {} jobs",
-              config.director.name, config.clients.len(), config.jobs.len());
+        println!("configuration OK: Director '{}', {} clients, {} jobs, {} storages, {} pools, {} schedules",
+              config.director.name, config.clients.len(), config.jobs.len(),
+              config.storages.len(), config.pools.len(), config.schedules.len());
         std::process::exit(0);
+    }
+
+    // --export-schema: print JSON schema and exit
+    if cli.export_schema {
+        let schema_dir = std::path::Path::new("/usr/lib/bareos/scripts/ddl");
+        let migrator = bareos_orm::migration::Migrator::new(schema_dir);
+        match migrator.latest() {
+            Ok(Some(schema)) => {
+                println!("{}", serde_json::to_string_pretty(&schema).unwrap());
+            }
+            _ => {
+                eprintln!("No schema found in {}", schema_dir.display());
+            }
+        }
+        std::process::exit(0);
+    }
+
+    // --export-config: print config resources and exit
+    if cli.export_config.is_some() {
+        println!("Director {{");
+        println!("  Name = \"{}\"", config.director.name);
+        println!("  Port = {}", config.director.port);
+        println!("  Maximum Concurrent Jobs = {}", config.director.max_concurrent_jobs);
+        println!("}}");
+        for c in &config.clients {
+            println!("\nClient {{");
+            println!("  Name = \"{}\"", c.name);
+            println!("  Address = \"{}\"", c.address);
+            println!("  Port = {}", c.port);
+            println!("  Enabled = {}", if c.enabled { "yes" } else { "no" });
+            println!("}}");
+        }
+        for j in &config.jobs {
+            println!("\nJob {{");
+            println!("  Name = \"{}\"", j.name);
+            println!("  Type = {:?}", j.job_type);
+            println!("  Client = \"{}\"", j.client);
+            println!("  Storage = \"{}\"", j.storage);
+            println!("  Pool = \"{}\"", j.pool);
+            println!("}}");
+        }
+        for s in &config.storages {
+            println!("\nStorage {{");
+            println!("  Name = \"{}\"", s.name);
+            println!("  Address = \"{}\"", s.address);
+            println!("  Port = {}", s.port);
+            println!("}}");
+        }
+        for p in &config.pools {
+            println!("\nPool {{");
+            println!("  Name = \"{}\"", p.name);
+            println!("  Pool Type = \"{}\"", p.pool_type);
+            println!("  Recycle = {}", if p.recycle { "yes" } else { "no" });
+            println!("  Maximum Volumes = {}", p.maximum_volumes);
+            println!("}}");
+        }
+        std::process::exit(0);
+    }
+
+    // -u/--user, -g/--group: drop privileges
+    #[cfg(unix)]
+    {
+        if let Some(ref group_name) = cli.group {
+            if let Ok(group) = nix::unistd::Group::from_name(group_name) {
+                if let Some(group) = group {
+                    nix::unistd::setgid(group.gid).ok();
+                    info!("switched to group {}", group_name);
+                }
+            }
+        }
+        if let Some(ref user_name) = cli.user {
+            if let Ok(user) = nix::unistd::User::from_name(user_name) {
+                if let Some(user) = user {
+                    nix::unistd::setuid(user.uid).ok();
+                    info!("switched to user {}", user_name);
+                }
+            }
+        }
+    }
+
+    // -p/--pid-file: write PID
+    if let Some(ref pid_file) = cli.pid_file {
+        let pid = std::process::id();
+        if let Err(e) = std::fs::write(pid_file, format!("{pid}\n")) {
+            error!("cannot write PID file {}: {e}", pid_file.display());
+        }
     }
 
     let port = config.director.port;
