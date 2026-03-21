@@ -15,7 +15,7 @@ Description: baReos Director - Rust drop-in replacement
  .
  Binary: /usr/sbin/bareos-dird
 
-Package: brconsole
+Package: bareos-bconsole-rust
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: baReos Console - Rust console with tab-completion

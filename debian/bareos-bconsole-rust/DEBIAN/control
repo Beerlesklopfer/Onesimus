@@ -1,9 +1,9 @@
-Package: brconsole
+Package: bareos-bconsole-rust
 Source: bareos-director-rust
 Version: 0.25.0-1
 Architecture: amd64
 Maintainer: Joerg Bernau <joerg@bernau.family>
-Installed-Size: 4045
+Installed-Size: 4046
 Depends: libc6 (>= 2.38), libgcc-s1 (>= 4.2), libssl3t64 (>= 3.0.0)
 Section: admin
 Priority: optional

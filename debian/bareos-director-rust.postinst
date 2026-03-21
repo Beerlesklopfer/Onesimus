@@ -30,6 +30,10 @@ case "$1" in
             sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/bareos-dir.d/catalog/*.conf 2>/dev/null || true
             sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/bareos-dir.d/client/*.conf 2>/dev/null || true
             sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/bareos-dir.d/storage/*.conf 2>/dev/null || true
+            # Passwort fuer brconsole bereitstellen
+            echo "${DIR_PW}" > /etc/bareos/.rndpwd
+            chown bareos:bareos /etc/bareos/.rndpwd
+            chmod 640 /etc/bareos/.rndpwd
             echo "Default-Konfiguration installiert. Passwoerter generiert."
         else
             echo "Bestehende Konfiguration in /etc/bareos/bareos-dir.d/ gefunden — nicht ueberschrieben."

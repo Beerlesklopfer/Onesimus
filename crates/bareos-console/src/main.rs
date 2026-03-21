@@ -233,7 +233,7 @@ fn run_bnet_session<S: std::io::Read + std::io::Write>(cli: &EffCli, mut bnet: B
     }
 
     // Interactive mode
-    interactive_loop(&mut bnet);
+    interactive_loop(&mut bnet, &cli.name, "bareos-dir");
 }
 
 fn execute_single_command<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>, cmd: &str) {
@@ -372,7 +372,11 @@ impl Validator for BareosHelper {}
 
 impl Helper for BareosHelper {}
 
-fn interactive_loop<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>) {
+fn interactive_loop<S: std::io::Read + std::io::Write>(
+    bnet: &mut BnetStream<S>,
+    console_name: &str,
+    director_name: &str,
+) {
     // Load command list from Director for tab-completion
     let mut helper = BareosHelper::new();
     drain_signals(bnet); // consume initial MainPrompt
@@ -386,12 +390,16 @@ fn interactive_loop<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>)
     let history_file = dirs_home().join(".brconsole_history");
     let _ = rl.load_history(&history_file);
 
+    // Prompt: console@director[version]>
+    let version = env!("CARGO_PKG_VERSION");
+    let prompt = format!("{}@{}[{}]> ", console_name, director_name, version);
+
     loop {
         // Drain any pending signals/prompts
         drain_signals(bnet);
 
         // Read with tab-completion and coloring
-        match rl.readline("* ") {
+        match rl.readline(&prompt) {
             Ok(line) => {
                 let cmd = line.trim();
                 if cmd.is_empty() { continue; }
