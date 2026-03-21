@@ -9,6 +9,7 @@ license.workspace = true
 [[bin]]
 name = "bareos-dird"
 path = "src/main.rs"
+# Drop-in: /usr/sbin/bareos-dird (similar name as C++ bareos-dir)
 
 [dependencies]
 bareos-bnet.workspace = true

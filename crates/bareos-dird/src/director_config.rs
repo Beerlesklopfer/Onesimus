@@ -24,17 +24,28 @@ pub struct DirectorConfig {
 }
 
 impl DirectorConfig {
-    /// Load configuration from a file.
+    /// Load configuration from a file or directory tree.
+    /// If path is a directory (e.g. /etc/bareos/bareos-dir.d/), reads all *.conf recursively.
+    /// If path is a file, reads it as a single config file.
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| ConfigError::ParseError(format!("cannot read {}: {e}", path.display())))?;
-        Self::from_str(&content)
+        if path.is_dir() {
+            let resources = parser::parse_config_dir(path)?;
+            Self::from_resources(resources)
+        } else {
+            let content = std::fs::read_to_string(path)
+                .map_err(|e| ConfigError::ParseError(format!("cannot read {}: {e}", path.display())))?;
+            Self::from_str(&content)
+        }
     }
 
     /// Parse configuration from a string.
     pub fn from_str(input: &str) -> Result<Self, ConfigError> {
         let resources = parser::parse_config(input)?;
+        Self::from_resources(resources)
+    }
 
+    /// Build config from parsed resources.
+    fn from_resources(resources: Vec<bareos_config::Resource>) -> Result<Self, ConfigError> {
         let mut config = DirectorConfig {
             director: DirectorResource::default(),
             clients: Vec::new(),

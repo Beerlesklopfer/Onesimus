@@ -46,7 +46,8 @@ static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 #[command(name = "bareos-dird", version, about)]
 struct Cli {
     /// Configuration file path
-    #[arg(short, long, default_value = "/etc/bareos/bareos-dir.conf")]
+    /// Configuration file or directory (bareos-dir.d/)
+    #[arg(short, long, default_value = "/etc/bareos/bareos-dir.d")]
     config: PathBuf,
 
     /// Foreground mode (don't daemonize)

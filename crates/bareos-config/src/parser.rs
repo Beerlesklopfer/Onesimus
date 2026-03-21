@@ -22,6 +22,51 @@ pub struct RawResource {
     pub directives: Vec<RawDirective>,
 }
 
+/// Parse a Bareos config directory tree (bareos-dir.d/**/*.conf).
+pub fn parse_config_dir(dir: &std::path::Path) -> Result<Vec<Resource>, ConfigError> {
+    let mut all_input = String::new();
+
+    if dir.is_file() {
+        // Single file mode
+        let content = std::fs::read_to_string(dir)
+            .map_err(|e| ConfigError::ParseError(format!("read {}: {e}", dir.display())))?;
+        return parse_config(&content);
+    }
+
+    if !dir.is_dir() {
+        return Err(ConfigError::ParseError(format!("{} is not a file or directory", dir.display())));
+    }
+
+    // Walk all subdirectories and collect .conf files
+    fn walk_dir(dir: &std::path::Path, output: &mut String) -> Result<(), ConfigError> {
+        let entries = std::fs::read_dir(dir)
+            .map_err(|e| ConfigError::ParseError(format!("readdir {}: {e}", dir.display())))?;
+
+        let mut paths: Vec<_> = entries
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .collect();
+        paths.sort();
+
+        for path in paths {
+            if path.is_dir() {
+                walk_dir(&path, output)?;
+            } else if path.extension().map(|e| e == "conf").unwrap_or(false) {
+                let content = std::fs::read_to_string(&path)
+                    .map_err(|e| ConfigError::ParseError(
+                        format!("read {}: {e}", path.display())
+                    ))?;
+                output.push_str(&content);
+                output.push('\n');
+            }
+        }
+        Ok(())
+    }
+
+    walk_dir(dir, &mut all_input)?;
+    parse_config(&all_input)
+}
+
 /// Parse a complete Bareos configuration into typed resources.
 pub fn parse_config(input: &str) -> Result<Vec<Resource>, ConfigError> {
     let cleaned = strip_comments(input);
