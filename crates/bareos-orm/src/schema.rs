@@ -1,0 +1,463 @@
+//! Schema-Definition aus JSON-Dateien.
+
+use std::collections::HashMap;
+use std::path::Path;
+
+use serde::{Deserialize, Serialize};
+
+use crate::error::OrmError;
+
+/// Vollständiges Catalog-Schema mit Versionierung.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CatalogSchema {
+    /// Schema-Version (monoton steigend)
+    pub version: u32,
+    /// Beschreibung dieser Version
+    pub description: String,
+    /// Datum der Erstellung (ISO 8601)
+    pub created: String,
+    /// Autor
+    pub author: String,
+    /// Minimale kompatible Version (für Downgrades)
+    pub min_compatible_version: Option<u32>,
+    /// Tabellen-Definitionen
+    pub tables: Vec<TableDef>,
+}
+
+/// Tabellen-Definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableDef {
+    /// Tabellenname (z.B. "job", "media", "client")
+    pub name: String,
+    /// Beschreibung
+    #[serde(default)]
+    pub description: String,
+    /// Spalten
+    pub columns: Vec<ColumnDef>,
+    /// Primärschlüssel (Spaltenname)
+    pub primary_key: String,
+    /// Indizes
+    #[serde(default)]
+    pub indices: Vec<IndexDef>,
+    /// Foreign Keys
+    #[serde(default)]
+    pub foreign_keys: Vec<ForeignKeyDef>,
+    /// Zusätzliche Constraints
+    #[serde(default)]
+    pub constraints: Vec<ConstraintDef>,
+}
+
+/// Spalten-Definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnDef {
+    /// Spaltenname
+    pub name: String,
+    /// SQL-Typ (z.B. "serial", "text", "bigint", "timestamp", "jsonb", "boolean")
+    #[serde(rename = "type")]
+    pub col_type: String,
+    /// NOT NULL?
+    #[serde(default)]
+    pub not_null: bool,
+    /// Default-Wert (SQL-Ausdruck)
+    #[serde(default)]
+    pub default: Option<String>,
+    /// Beschreibung
+    #[serde(default)]
+    pub description: String,
+    /// JSONB: Schema-Validierung für JSON-Spalten
+    #[serde(default)]
+    pub json_schema: Option<serde_json::Value>,
+}
+
+/// Index-Definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexDef {
+    /// Index-Name
+    pub name: String,
+    /// Spalten
+    pub columns: Vec<String>,
+    /// UNIQUE?
+    #[serde(default)]
+    pub unique: bool,
+    /// Index-Typ (btree, hash, gin, gist)
+    #[serde(default = "default_index_type")]
+    pub index_type: String,
+    /// WHERE-Klausel (partial index)
+    #[serde(default)]
+    pub where_clause: Option<String>,
+}
+
+fn default_index_type() -> String {
+    "btree".to_string()
+}
+
+/// Foreign-Key-Definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForeignKeyDef {
+    /// Spalte in dieser Tabelle
+    pub column: String,
+    /// Referenzierte Tabelle
+    pub references_table: String,
+    /// Referenzierte Spalte
+    pub references_column: String,
+    /// ON DELETE Aktion
+    #[serde(default = "default_fk_action")]
+    pub on_delete: String,
+}
+
+fn default_fk_action() -> String {
+    "CASCADE".to_string()
+}
+
+/// Constraint-Definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintDef {
+    /// Constraint-Name
+    pub name: String,
+    /// Typ: "check", "unique", "exclude"
+    #[serde(rename = "type")]
+    pub constraint_type: String,
+    /// SQL-Ausdruck
+    pub expression: String,
+}
+
+impl CatalogSchema {
+    /// Lade Schema aus einer JSON-Datei.
+    pub fn load(path: &Path) -> Result<Self, OrmError> {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| OrmError::Other(format!("read {}: {e}", path.display())))?;
+        let schema: Self = serde_json::from_str(&content)?;
+        Ok(schema)
+    }
+
+    /// Speichere Schema als JSON-Datei.
+    pub fn save(&self, path: &Path) -> Result<(), OrmError> {
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(path, json)
+            .map_err(|e| OrmError::Other(format!("write {}: {e}", path.display())))?;
+        Ok(())
+    }
+
+    /// Generiere CREATE TABLE SQL für alle Tabellen.
+    pub fn to_ddl(&self) -> String {
+        let mut sql = String::new();
+        sql.push_str(&format!("-- Bareos Catalog Schema v{}\n", self.version));
+        sql.push_str(&format!("-- {}\n", self.description));
+        sql.push_str(&format!("-- Generated from JSON schema\n\n"));
+
+        for table in &self.tables {
+            sql.push_str(&table.to_create_sql());
+            sql.push('\n');
+
+            for idx in &table.indices {
+                sql.push_str(&idx.to_sql(&table.name));
+                sql.push('\n');
+            }
+            sql.push('\n');
+        }
+
+        sql
+    }
+
+    /// Finde eine Tabelle nach Name.
+    pub fn find_table(&self, name: &str) -> Option<&TableDef> {
+        self.tables.iter().find(|t| t.name == name)
+    }
+}
+
+impl TableDef {
+    /// Generiere CREATE TABLE SQL.
+    pub fn to_create_sql(&self) -> String {
+        let mut sql = format!("CREATE TABLE IF NOT EXISTS {} (\n", self.name);
+
+        for (i, col) in self.columns.iter().enumerate() {
+            sql.push_str(&format!("    {} {}", col.name, col.col_type));
+            if col.not_null {
+                sql.push_str(" NOT NULL");
+            }
+            if let Some(ref default) = col.default {
+                sql.push_str(&format!(" DEFAULT {default}"));
+            }
+            if i < self.columns.len() - 1 || !self.foreign_keys.is_empty() || !self.constraints.is_empty() {
+                sql.push(',');
+            }
+            if !col.description.is_empty() {
+                sql.push_str(&format!("  -- {}", col.description));
+            }
+            sql.push('\n');
+        }
+
+        // Primary Key
+        sql.push_str(&format!("    PRIMARY KEY ({})", self.primary_key));
+
+        // Foreign Keys
+        for fk in &self.foreign_keys {
+            sql.push_str(&format!(
+                ",\n    FOREIGN KEY ({}) REFERENCES {}({}) ON DELETE {}",
+                fk.column, fk.references_table, fk.references_column, fk.on_delete
+            ));
+        }
+
+        // Constraints
+        for c in &self.constraints {
+            sql.push_str(&format!(",\n    CONSTRAINT {} CHECK ({})", c.name, c.expression));
+        }
+
+        sql.push_str("\n);\n");
+        sql
+    }
+
+    /// Generiere ALTER TABLE SQL für eine Spalten-Änderung.
+    pub fn alter_add_column(table: &str, col: &ColumnDef) -> String {
+        let mut sql = format!("ALTER TABLE {} ADD COLUMN {} {}", table, col.name, col.col_type);
+        if col.not_null {
+            if let Some(ref default) = col.default {
+                sql.push_str(&format!(" NOT NULL DEFAULT {default}"));
+            }
+        }
+        sql.push_str(";\n");
+        sql
+    }
+}
+
+impl IndexDef {
+    /// Generiere CREATE INDEX SQL.
+    pub fn to_sql(&self, table: &str) -> String {
+        let unique = if self.unique { "UNIQUE " } else { "" };
+        let using = if self.index_type != "btree" {
+            format!(" USING {}", self.index_type)
+        } else {
+            String::new()
+        };
+        let cols = self.columns.join(", ");
+        let where_clause = self.where_clause.as_ref()
+            .map(|w| format!(" WHERE {w}"))
+            .unwrap_or_default();
+
+        format!(
+            "CREATE {unique}INDEX IF NOT EXISTS {}{using} ON {} ({cols}){where_clause};",
+            self.name, table
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_schema() -> CatalogSchema {
+        serde_json::from_str(SAMPLE_SCHEMA_JSON).unwrap()
+    }
+
+    #[test]
+    fn parse_schema() {
+        let schema = sample_schema();
+        assert_eq!(schema.version, 1);
+        assert_eq!(schema.tables.len(), 5);
+        assert_eq!(schema.tables[0].name, "client");
+    }
+
+    #[test]
+    fn generate_ddl() {
+        let schema = sample_schema();
+        let ddl = schema.to_ddl();
+        assert!(ddl.contains("CREATE TABLE IF NOT EXISTS client"));
+        assert!(ddl.contains("CREATE TABLE IF NOT EXISTS job"));
+        assert!(ddl.contains("CREATE TABLE IF NOT EXISTS media"));
+        assert!(ddl.contains("PRIMARY KEY"));
+        assert!(ddl.contains("FOREIGN KEY"));
+    }
+
+    #[test]
+    fn find_table() {
+        let schema = sample_schema();
+        assert!(schema.find_table("job").is_some());
+        assert!(schema.find_table("nonexistent").is_none());
+    }
+
+    #[test]
+    fn roundtrip_json() {
+        let schema = sample_schema();
+        let json = serde_json::to_string_pretty(&schema).unwrap();
+        let parsed: CatalogSchema = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.version, schema.version);
+        assert_eq!(parsed.tables.len(), schema.tables.len());
+    }
+
+    #[test]
+    fn index_sql() {
+        let idx = IndexDef {
+            name: "idx_job_name".to_string(),
+            columns: vec!["name".to_string()],
+            unique: false,
+            index_type: "btree".to_string(),
+            where_clause: None,
+        };
+        let sql = idx.to_sql("job");
+        assert_eq!(sql, "CREATE INDEX IF NOT EXISTS idx_job_name ON job (name);");
+    }
+
+    #[test]
+    fn gin_index_sql() {
+        let idx = IndexDef {
+            name: "idx_job_metadata".to_string(),
+            columns: vec!["metadata".to_string()],
+            unique: false,
+            index_type: "gin".to_string(),
+            where_clause: None,
+        };
+        let sql = idx.to_sql("job");
+        assert!(sql.contains("USING gin"));
+    }
+
+    #[test]
+    fn partial_index_sql() {
+        let idx = IndexDef {
+            name: "idx_job_running".to_string(),
+            columns: vec!["jobstatus".to_string()],
+            unique: false,
+            index_type: "btree".to_string(),
+            where_clause: Some("jobstatus = 'R'".to_string()),
+        };
+        let sql = idx.to_sql("job");
+        assert!(sql.contains("WHERE jobstatus = 'R'"));
+    }
+
+    const SAMPLE_SCHEMA_JSON: &str = r#"{
+  "version": 1,
+  "description": "Bareos Catalog Initial Schema",
+  "created": "2026-03-21",
+  "author": "baReos",
+  "tables": [
+    {
+      "name": "client",
+      "description": "Registered backup clients (File Daemons)",
+      "primary_key": "clientid",
+      "columns": [
+        {"name": "clientid",  "type": "serial",    "not_null": true, "description": "Unique client ID"},
+        {"name": "name",      "type": "text",      "not_null": true, "description": "Client name"},
+        {"name": "uname",     "type": "text",      "not_null": false, "description": "Client uname output"},
+        {"name": "autoprune", "type": "boolean",   "not_null": true, "default": "true"},
+        {"name": "fileretention", "type": "bigint", "not_null": true, "default": "5184000"},
+        {"name": "jobretention",  "type": "bigint", "not_null": true, "default": "15552000"},
+        {"name": "metadata",  "type": "jsonb",     "description": "Extensible client metadata"}
+      ],
+      "indices": [
+        {"name": "idx_client_name", "columns": ["name"], "unique": true}
+      ]
+    },
+    {
+      "name": "pool",
+      "description": "Volume pools",
+      "primary_key": "poolid",
+      "columns": [
+        {"name": "poolid",    "type": "serial",  "not_null": true},
+        {"name": "name",      "type": "text",    "not_null": true},
+        {"name": "pooltype",  "type": "text",    "not_null": true, "default": "'Backup'"},
+        {"name": "numvols",   "type": "integer", "not_null": true, "default": "0"},
+        {"name": "maxvols",   "type": "integer", "not_null": true, "default": "0"},
+        {"name": "labelformat", "type": "text"},
+        {"name": "recycle",   "type": "boolean", "not_null": true, "default": "true"},
+        {"name": "autoprune", "type": "boolean", "not_null": true, "default": "true"},
+        {"name": "volretention", "type": "bigint", "not_null": true, "default": "31536000"},
+        {"name": "maxvolbytes", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "metadata",  "type": "jsonb"}
+      ],
+      "indices": [
+        {"name": "idx_pool_name", "columns": ["name"], "unique": true}
+      ]
+    },
+    {
+      "name": "media",
+      "description": "Backup volumes",
+      "primary_key": "mediaid",
+      "columns": [
+        {"name": "mediaid",     "type": "serial",  "not_null": true},
+        {"name": "volumename",  "type": "text",    "not_null": true},
+        {"name": "poolid",      "type": "integer", "not_null": true},
+        {"name": "mediatype",   "type": "text",    "not_null": true},
+        {"name": "volstatus",   "type": "text",    "not_null": true, "default": "'Append'"},
+        {"name": "volbytes",    "type": "bigint",  "not_null": true, "default": "0"},
+        {"name": "volfiles",    "type": "integer", "not_null": true, "default": "0"},
+        {"name": "maxvolbytes", "type": "bigint",  "not_null": true, "default": "0"},
+        {"name": "recycle",     "type": "boolean", "not_null": true, "default": "true"},
+        {"name": "firstwritten", "type": "timestamp"},
+        {"name": "lastwritten",  "type": "timestamp"},
+        {"name": "metadata",    "type": "jsonb"}
+      ],
+      "indices": [
+        {"name": "idx_media_volumename", "columns": ["volumename"], "unique": true},
+        {"name": "idx_media_poolid", "columns": ["poolid"]},
+        {"name": "idx_media_volstatus", "columns": ["volstatus"]}
+      ],
+      "foreign_keys": [
+        {"column": "poolid", "references_table": "pool", "references_column": "poolid"}
+      ]
+    },
+    {
+      "name": "job",
+      "description": "Backup/restore/verify job history",
+      "primary_key": "jobid",
+      "columns": [
+        {"name": "jobid",       "type": "serial",    "not_null": true},
+        {"name": "job",         "type": "text",      "not_null": true, "description": "Unique job instance name"},
+        {"name": "name",        "type": "text",      "not_null": true, "description": "Job resource name"},
+        {"name": "type",        "type": "char(1)",   "not_null": true, "description": "B=Backup R=Restore V=Verify"},
+        {"name": "level",       "type": "char(1)",   "not_null": true, "description": "F=Full I=Incr D=Diff"},
+        {"name": "clientid",    "type": "integer",   "not_null": true, "default": "0"},
+        {"name": "jobstatus",   "type": "char(1)",   "not_null": true, "description": "T=OK E=Error A=Cancel R=Running"},
+        {"name": "schedtime",   "type": "timestamp"},
+        {"name": "starttime",   "type": "timestamp"},
+        {"name": "endtime",     "type": "timestamp"},
+        {"name": "realendtime", "type": "timestamp"},
+        {"name": "jobtdate",    "type": "bigint",    "not_null": true, "default": "0"},
+        {"name": "volsessionid", "type": "integer",  "not_null": true, "default": "0"},
+        {"name": "volsessiontime", "type": "integer", "not_null": true, "default": "0"},
+        {"name": "jobfiles",    "type": "bigint",    "not_null": true, "default": "0"},
+        {"name": "jobbytes",    "type": "bigint",    "not_null": true, "default": "0"},
+        {"name": "joberrors",   "type": "integer",   "not_null": true, "default": "0"},
+        {"name": "poolid",      "type": "integer",   "not_null": true, "default": "0"},
+        {"name": "filesetid",   "type": "integer",   "not_null": true, "default": "0"},
+        {"name": "priorjobid",  "type": "integer",   "not_null": true, "default": "0"},
+        {"name": "comment",     "type": "text"},
+        {"name": "metadata",    "type": "jsonb",     "description": "Extensible job metadata"}
+      ],
+      "indices": [
+        {"name": "idx_job_name",     "columns": ["name"]},
+        {"name": "idx_job_clientid", "columns": ["clientid"]},
+        {"name": "idx_job_status",   "columns": ["jobstatus"]},
+        {"name": "idx_job_starttime", "columns": ["starttime"]},
+        {"name": "idx_job_metadata", "columns": ["metadata"], "index_type": "gin"}
+      ],
+      "foreign_keys": [
+        {"column": "clientid", "references_table": "client", "references_column": "clientid"},
+        {"column": "poolid", "references_table": "pool", "references_column": "poolid"}
+      ]
+    },
+    {
+      "name": "file",
+      "description": "Backed up files catalog",
+      "primary_key": "fileid",
+      "columns": [
+        {"name": "fileid",   "type": "bigserial", "not_null": true},
+        {"name": "jobid",    "type": "integer",   "not_null": true},
+        {"name": "pathid",   "type": "integer",   "not_null": true},
+        {"name": "filename", "type": "text",      "not_null": true},
+        {"name": "markid",   "type": "integer",   "not_null": true, "default": "0"},
+        {"name": "lstat",    "type": "text",      "not_null": true},
+        {"name": "md5",      "type": "text"},
+        {"name": "deltaseq", "type": "smallint",  "not_null": true, "default": "0"},
+        {"name": "metadata", "type": "jsonb"}
+      ],
+      "indices": [
+        {"name": "idx_file_jobid", "columns": ["jobid"]},
+        {"name": "idx_file_pathid_filename", "columns": ["pathid", "filename"]},
+        {"name": "idx_file_metadata", "columns": ["metadata"], "index_type": "gin"}
+      ],
+      "foreign_keys": [
+        {"column": "jobid", "references_table": "job", "references_column": "jobid"}
+      ]
+    }
+  ]
+}"#;
+}
