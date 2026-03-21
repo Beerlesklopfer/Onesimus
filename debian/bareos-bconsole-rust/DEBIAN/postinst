@@ -3,20 +3,42 @@ set -e
 
 case "$1" in
     configure)
+        # Config-Datei anlegen falls nicht vorhanden
         if [ ! -f /etc/bareos/brconsole.conf ]; then
             install -D -m 640 -o root -g bareos \
                 /usr/share/bareos/defaultconfigs/brconsole.conf \
                 /etc/bareos/brconsole.conf 2>/dev/null || true
-
-            # Passwort aus Director-Installation uebernehmen (out-of-the-box)
-            if [ -f /etc/bareos/.rndpwd ]; then
-                DIR_PW=$(cat /etc/bareos/.rndpwd)
-                sed -i "s/CHANGEME/${DIR_PW}/" /etc/bareos/brconsole.conf 2>/dev/null || true
-                echo "brconsole: Passwort automatisch aus Director-Config uebernommen."
-            else
-                echo "brconsole: WARNUNG — Passwort manuell in /etc/bareos/brconsole.conf setzen!"
-            fi
         fi
+
+        # Passwort IMMER aus Director-Config synchronisieren
+        # 1. Versuch: aus .rndpwd (Neuinstallation)
+        # 2. Versuch: direkt aus Director-Config auslesen (bestehende Installation)
+        DIR_PW=""
+        if [ -f /etc/bareos/.rndpwd ]; then
+            DIR_PW=$(cat /etc/bareos/.rndpwd 2>/dev/null)
+        fi
+
+        if [ -z "$DIR_PW" ]; then
+            # Aus Director-Config extrahieren (C++ oder Rust)
+            for f in /etc/bareos/bareos-dir.d/director/*.conf /etc/bareos/bareos-dir.conf; do
+                if [ -f "$f" ]; then
+                    DIR_PW=$(grep -i 'Password' "$f" 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/')
+                    if [ -n "$DIR_PW" ]; then
+                        break
+                    fi
+                fi
+            done
+        fi
+
+        if [ -n "$DIR_PW" ]; then
+            # Passwort in brconsole.conf setzen (ersetzt CHANGEME oder altes Passwort)
+            sed -i "s|Password = .*|Password = \"${DIR_PW}\"|" /etc/bareos/brconsole.conf 2>/dev/null || true
+            echo "brconsole: Passwort aus Director-Config synchronisiert."
+        else
+            echo "brconsole: WARNUNG — kein Director-Passwort gefunden!"
+            echo "  Bitte manuell setzen: /etc/bareos/brconsole.conf"
+        fi
+
         echo "brconsole installiert: /usr/bin/brconsole"
         ;;
 esac
