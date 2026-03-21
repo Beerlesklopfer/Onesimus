@@ -72,6 +72,9 @@ pub fn dispatch(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         // ACL commands
         ".acl" => commands::acl::cmd_dot_acl(ast, ctx),
 
+        // Catalog schema management
+        ".catalog" => commands::catalog::cmd_dot_catalog(ast, ctx),
+
         // Additional dot commands
         ".api" => commands::extra::cmd_dot_api(ast, ctx),
         ".authorized" => commands::extra::cmd_dot_authorized(ast, ctx),
