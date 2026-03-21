@@ -4,52 +4,51 @@
 **Director:** baReos-dird (Rust) v0.1.0
 **System:** Linux 6.12.74+deb13+1-amd64, 32 CPUs, WS-JOERG
 
-## 1. Parallele C++ bconsole Verbindungen (Klartext BNET)
+## Parallele C++ bconsole Verbindungen (BNET Klartext)
 
 | N | OK | FAIL | Dauer | Director |
 |---|-----|------|-------|----------|
-| 4 | 4 | 0 | 239ms | ALIVE |
-| 8 | 8 | 0 | 203ms | ALIVE |
-| 16 | 16 | 0 | 199ms | ALIVE |
-| **32** | **32** | **0** | **203ms** | **ALIVE** |
+| 32 | 32 | 0 | 247ms | ALIVE |
+| 64 | 64 | 0 | 238ms | ALIVE |
+| 128 | 128 | 0 | 250ms | ALIVE |
+| 256 | 256 | 0 | 1302ms | ALIVE |
+| 512 | 512 | 0 | 1562ms | ALIVE |
+| **1024** | **1024** | **0** | **2429ms** | **ALIVE** |
 
-**Exzellent:** 32 parallele Verbindungen in 203ms, kein Fehler, kein Crash.
+**Ergebnis:** 1024 parallele Verbindungen in 2.4s, 0 Fehler, kein Crash.
 
-## 2. Einzelverbindungen
+## Vergleich mit C++ Director (aus TESTPROTOKOLL.md)
 
-| Modus | Ergebnis | Dauer |
-|-------|----------|-------|
-| C++ bconsole Klartext | OK | ~200ms |
-| C++ bconsole TLS-PSK | OK (PSK-AES128-CBC-SHA TLSv1.2) | ~250ms |
-| Rust bconsole Klartext | OK | ~376ms |
-| Rust bconsole gRPC | OK | ~100ms |
+| Metrik | C++ Director | Rust Director |
+|--------|-------------|---------------|
+| 64 parallel Legacy | 1.4s | 238ms |
+| 64 parallel gRPC | 0/64 TIMEOUT (>16 Limit) | nicht getestet |
+| Director Crash | Nie | Nie |
+| Max getestet | 64 | **1024** |
 
-## 3. Cross-Daemon TLS-PSK
+Der Rust Director ist bei 64 Verbindungen **~6x schneller** als der C++ Director
+und skaliert bis mindestens 1024 ohne Fehler.
+
+## Einzelverbindungen
+
+| Modus | Dauer |
+|-------|-------|
+| C++ bconsole Klartext | ~200ms |
+| C++ bconsole TLS-PSK | ~250ms (PSK-AES128-CBC-SHA TLSv1.2) |
+| Rust bconsole Klartext | ~376ms |
+| Rust bconsole gRPC | ~100ms |
+
+## Cross-Daemon TLS-PSK
 
 | Test | Ergebnis |
 |------|----------|
 | Rust Dir → C++ FD (status client) | OK |
 | TLS-PSK Identity | R_DIRECTOR\x1ebareos-dir |
 | FD Version | 54 (25.0.0) |
-| Cipher | PSK-AES128-CBC-SHA TLSv1.2 |
 
-## 4. Alle Protokoll-Modi
+## Director-Stabilitaet
 
-| Protokoll | Console → Dir | Dir → FD | Dir → SD |
-|-----------|---------------|----------|----------|
-| BNET Klartext | OK | - | - |
-| BNET TLS-PSK | OK | OK | OK |
-| gRPC | OK | - | - |
-
-## 5. Director-Stabilitaet
-
-- **Kein Crash** bei 32 parallelen Verbindungen
-- Alle Sessions terminieren sauber (<4ms pro Batch)
-- Named Threads sichtbar in pstree (dir:session:N)
-- SIGHUP Config-Reload funktioniert
-
-## 6. Fruehere Fehldiagnosen
-
-Die anfaenglichen "CRASHED" Meldungen waren durch externe `sudo pkill -9`
-verursacht, nicht durch Director-Bugs. Nach sauberem Test ohne externen
-Kill: **0 Crashes bei 4+8+16+32 parallelen Verbindungen.**
+- **0 Crashes** bei 1024 parallelen Verbindungen
+- Alle Sessions terminieren sauber
+- Named Threads (dir:session:N) bis N=2048+
+- Kein Memory-Leak beobachtet
