@@ -16,23 +16,31 @@ use bareos_bnet::cram_md5::CramMd5Auth;
 
 /// baReos bconsole — Bareos Console Client
 #[derive(Parser, Debug)]
-#[command(name = "bconsole", version, about)]
+#[command(
+    name = "brconsole",
+    version,
+    about = "The baReos Console.\n\nCopyright (C) 2026 Onesomus.io — Rust Version"
+)]
 struct Cli {
-    /// Director address
-    #[arg(short = 'a', long, default_value = "localhost")]
-    address: String,
+    /// Use <path> as configuration file.
+    #[arg(short, long, default_value = "/etc/bareos/brconsole.conf")]
+    config: Option<String>,
 
-    /// Director port
-    #[arg(short, long, default_value_t = 9101)]
-    port: u16,
+    /// Director address (overrides config)
+    #[arg(short = 'a', long)]
+    address: Option<String>,
 
-    /// Console name
-    #[arg(short, long, default_value = "*UserAgent*")]
-    name: String,
+    /// Director port (overrides config)
+    #[arg(short, long)]
+    port: Option<u16>,
 
-    /// Password
-    #[arg(short = 'w', long, default_value = "")]
-    password: String,
+    /// Console name (overrides config)
+    #[arg(short, long)]
+    name: Option<String>,
+
+    /// Password (overrides config)
+    #[arg(short = 'w', long)]
+    password: Option<String>,
 
     /// Use gRPC protocol
     #[arg(long)]
@@ -43,8 +51,69 @@ struct Cli {
     command: Option<String>,
 }
 
+/// Parsed config from brconsole.conf
+struct ConsoleConfig {
+    address: String,
+    port: u16,
+    name: String,
+    password: String,
+}
+
+/// Effective CLI — resolved from config file + CLI overrides
+struct EffCli {
+    address: String,
+    port: u16,
+    name: String,
+    password: String,
+    grpc: bool,
+    command: Option<String>,
+}
+
+fn load_console_config(path: &str) -> ConsoleConfig {
+    let mut cfg = ConsoleConfig {
+        address: "localhost".to_string(),
+        port: 9101,
+        name: "*UserAgent*".to_string(),
+        password: String::new(),
+    };
+
+    let content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return cfg,
+    };
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with('#') || line.is_empty() { continue; }
+        if let Some(pos) = line.find('=') {
+            let key = line[..pos].trim().to_lowercase();
+            let val = line[pos+1..].trim().trim_matches('"').to_string();
+            match key.as_str() {
+                "address" => cfg.address = val,
+                "port" | "dirport" => cfg.port = val.parse().unwrap_or(9101),
+                "name" => cfg.name = val,
+                "password" => cfg.password = val,
+                _ => {}
+            }
+        }
+    }
+
+    cfg
+}
+
 fn main() {
     let cli = Cli::parse();
+
+    // Load config file, then override with CLI args
+    let file_cfg = load_console_config(
+        cli.config.as_deref().unwrap_or("/etc/bareos/brconsole.conf")
+    );
+
+    // CLI args override config file
+    let address = cli.address.unwrap_or(file_cfg.address);
+    let port = cli.port.unwrap_or(file_cfg.port);
+    let name = cli.name.unwrap_or(file_cfg.name);
+    let password = cli.password.unwrap_or(file_cfg.password);
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -53,16 +122,26 @@ fn main() {
         )
         .init();
 
-    let addr = format!("{}:{}", cli.address, cli.port);
+    // Build effective CLI with resolved values
+    let eff = EffCli {
+        address: address.clone(),
+        port,
+        name: name.clone(),
+        password: password.clone(),
+        grpc: cli.grpc,
+        command: cli.command.clone(),
+    };
 
-    if cli.grpc {
-        run_grpc_mode(&cli, &addr);
+    let addr = format!("{}:{}", eff.address, eff.port);
+
+    if eff.grpc {
+        run_grpc_mode(&eff, &addr);
     } else {
-        run_bnet_mode(&cli, &addr);
+        run_bnet_mode(&eff, &addr);
     }
 }
 
-fn run_bnet_mode(cli: &Cli, addr: &str) {
+fn run_bnet_mode(cli: &EffCli, addr: &str) {
     // Connect
     eprintln!("Connecting to Director {addr}");
     let stream = match TcpStream::connect(addr) {
@@ -99,7 +178,7 @@ fn run_bnet_mode(cli: &Cli, addr: &str) {
     run_bnet_session(cli, bnet);
 }
 
-fn run_bnet_session<S: std::io::Read + std::io::Write>(cli: &Cli, mut bnet: BnetStream<S>) {
+fn run_bnet_session<S: std::io::Read + std::io::Write>(cli: &EffCli, mut bnet: BnetStream<S>) {
     // Send hello
     let version = env!("CARGO_PKG_VERSION");
     let hello = if cli.name == "*UserAgent*" {
@@ -281,7 +360,7 @@ fn drain_signals<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>) {
     }
 }
 
-fn run_grpc_mode(cli: &Cli, addr: &str) {
+fn run_grpc_mode(cli: &EffCli, addr: &str) {
     eprintln!("gRPC mode connecting to {addr}");
 
     let rt = tokio::runtime::Runtime::new().unwrap();

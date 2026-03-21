@@ -43,24 +43,59 @@ static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
 /// baReos Director — Backup Archiving REcovery Open Sourced
 #[derive(Parser, Debug)]
-#[command(name = "bareos-dird", version, about)]
+#[command(
+    name = "bareos-dird",
+    version,
+    about = "The baReos Director Daemon.\n\nCopyright (C) 2026 Onesomus.io — Rust Version\nBased on Bareos by Bareos GmbH & Co. KG"
+)]
 struct Cli {
-    /// Configuration file path
-    /// Configuration file or directory (bareos-dir.d/)
+    /// Use <path> as configuration file or directory.
     #[arg(short, long, default_value = "/etc/bareos/bareos-dir.d")]
     config: PathBuf,
 
-    /// Foreground mode (don't daemonize)
-    #[arg(short, long, default_value_t = true)]
+    /// Set debug level to <level>.
+    #[arg(short, long, default_value_t = 0)]
+    debug_level: u32,
+
+    /// Print timestamps in debug output.
+    #[arg(long = "dt", alias = "debug-timestamps")]
+    debug_timestamps: bool,
+
+    /// Run in foreground.
+    #[arg(short, long)]
     foreground: bool,
 
-    /// Test config only, then exit
+    /// Run as given user (requires starting as root).
+    #[arg(short, long)]
+    user: Option<String>,
+
+    /// Run as given group (requires starting as root).
+    #[arg(short, long)]
+    group: Option<String>,
+
+    /// Test - read configuration and exit.
     #[arg(short, long)]
     test_config: bool,
 
-    /// Debug level (0-999)
-    #[arg(short, long, default_value_t = 0)]
-    debug_level: u32,
+    /// Full path to pidfile (default: none).
+    #[arg(short, long)]
+    pid_file: Option<PathBuf>,
+
+    /// No signals (for debugging).
+    #[arg(short = 's', long)]
+    no_signals: bool,
+
+    /// Verbose user messages.
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
+
+    /// Print all or specific configuration resources and exit.
+    #[arg(long = "xc", alias = "export-config")]
+    export_config: Option<Option<String>>,
+
+    /// Print configuration schema in JSON format and exit.
+    #[arg(long = "xs", alias = "export-schema")]
+    export_schema: bool,
 
     /// TLS certificate file (PEM)
     #[arg(long)]
