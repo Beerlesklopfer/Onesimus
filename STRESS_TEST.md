@@ -62,3 +62,21 @@
 - Memory wird nach Session-Ende freigegeben
 - Named Threads (dir:session:N) bis N=16384+
 - Load skaliert linear mit Verbindungszahl
+
+## Mixed-Protokoll Stresstest (BNET + TLS-PSK + gRPC + DDoS)
+
+| Test | N | BNET-OK | TLS-OK | gRPC-OK | FAIL | Dauer | Load | Mem(KB) |
+|------|---|---------|--------|---------|------|-------|------|---------|
+| baseline | 0 | - | - | - | - | - | 0.18 | 9472 |
+| BNET | 64 | 64 | - | - | 0 | 283ms | 0.18 | 15056 |
+| BNET | 256 | 256 | - | - | 0 | 297ms | 0.18 | 35096 |
+| BNET | 1024 | 1024 | - | - | 0 | 2373ms | 0.17 | 109828 |
+| TLS-PSK | 64 | - | 64 | - | 0 | 256ms | 0.17 | 125804 |
+| TLS-PSK | 256 | - | 256 | - | 0 | 1301ms | 4.56 | 156364 |
+| gRPC | 64 | - | - | 64 | 0 | 21ms | 4.56 | 157264 |
+| gRPC | 256 | - | - | 256 | 0 | 78ms | 4.56 | 158464 |
+| MIXED | 64 | 21 | 21 | 21 | 0 | 263ms | 4.56 | 161512 |
+| MIXED | 256 | 85 | 85 | 85 | 0 | 1385ms | 4.19 | 173844 |
+| DDoS-nc | 1000 | - | - | - | - | 2124ms | 3.86 | 173828 |
+
+**0 Fehler. Director ALIVE nach DDoS mit 1000 Connects.**
