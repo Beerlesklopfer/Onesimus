@@ -127,8 +127,9 @@ fn handle_connection(
     shared_config: &Option<SharedConfig>,
 ) {
     // Peek at first byte to detect TLS ClientHello (0x16) vs plaintext BNET
+    // Use a short read timeout so we don't block forever
+    stream.set_read_timeout(Some(std::time::Duration::from_secs(30))).ok();
     let mut peek_buf = [0u8; 1];
-    stream.set_nonblocking(false).ok();
     match stream.peek(&mut peek_buf) {
         Ok(1) => {
             if peek_buf[0] == 0x16 {
