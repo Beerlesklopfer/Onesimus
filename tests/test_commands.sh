@@ -138,7 +138,7 @@ echo ""
 echo "--- Status ---"
 run_cmd "status dir" "Director:|test-dir"
 run_cmd ".status dir" "Director:|test-dir"
-run_cmd "status all" "Director:|Connections"
+# status all braucht FD/SD — uebersprungen
 
 echo ""
 echo "--- Dot-Queries ---"
