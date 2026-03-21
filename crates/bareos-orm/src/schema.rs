@@ -382,8 +382,7 @@ mod tests {
         {"name": "maxvolbytes", "type": "bigint",  "not_null": true, "default": "0"},
         {"name": "recycle",     "type": "boolean", "not_null": true, "default": "true"},
         {"name": "firstwritten", "type": "timestamp"},
-        {"name": "lastwritten",  "type": "timestamp"},
-        {"name": "metadata",    "type": "jsonb"}
+        {"name": "lastwritten",  "type": "timestamp"}
       ],
       "indices": [
         {"name": "idx_media_volumename", "columns": ["volumename"], "unique": true},
@@ -446,13 +445,11 @@ mod tests {
         {"name": "markid",   "type": "integer",   "not_null": true, "default": "0"},
         {"name": "lstat",    "type": "text",      "not_null": true},
         {"name": "md5",      "type": "text"},
-        {"name": "deltaseq", "type": "smallint",  "not_null": true, "default": "0"},
-        {"name": "metadata", "type": "jsonb"}
+        {"name": "deltaseq", "type": "smallint",  "not_null": true, "default": "0"}
       ],
       "indices": [
         {"name": "idx_file_jobid", "columns": ["jobid"]},
-        {"name": "idx_file_pathid_filename", "columns": ["pathid", "filename"]},
-        {"name": "idx_file_metadata", "columns": ["metadata"], "index_type": "gin"}
+        {"name": "idx_file_pathid_filename", "columns": ["pathid", "filename"]}
       ],
       "foreign_keys": [
         {"column": "jobid", "references_table": "job", "references_column": "jobid"}
