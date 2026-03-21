@@ -159,6 +159,18 @@ impl CatalogSchema {
         sql
     }
 
+    /// Generiere einzelne SQL-Statements (CREATE TABLE + CREATE INDEX).
+    pub fn to_statements(&self) -> Vec<String> {
+        let mut stmts = Vec::new();
+        for table in &self.tables {
+            stmts.push(table.to_create_sql());
+            for idx in &table.indices {
+                stmts.push(idx.to_sql(&table.name));
+            }
+        }
+        stmts
+    }
+
     /// Finde eine Tabelle nach Name.
     pub fn find_table(&self, name: &str) -> Option<&TableDef> {
         self.tables.iter().find(|t| t.name == name)
@@ -178,9 +190,7 @@ impl TableDef {
             if let Some(ref default) = col.default {
                 sql.push_str(&format!(" DEFAULT {default}"));
             }
-            if i < self.columns.len() - 1 || !self.foreign_keys.is_empty() || !self.constraints.is_empty() {
-                sql.push(',');
-            }
+            sql.push(',');
             if !col.description.is_empty() {
                 sql.push_str(&format!("  -- {}", col.description));
             }
@@ -235,7 +245,7 @@ impl IndexDef {
             .unwrap_or_default();
 
         format!(
-            "CREATE {unique}INDEX IF NOT EXISTS {}{using} ON {} ({cols}){where_clause};",
+            "CREATE {unique}INDEX IF NOT EXISTS {} ON {}{using} ({cols}){where_clause};",
             self.name, table
         )
     }

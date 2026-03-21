@@ -128,8 +128,14 @@ pub fn handle_console_session<S: Read + Write>(
         // Build catalog URL from config if available
         let catalog_url = config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
             cfg.catalogs.first().map(|cat| {
-                format!("host={} port={} dbname={} user={} password={}",
-                    cat.db_address, cat.db_port, cat.db_name, cat.db_user, cat.db_password)
+                let pass = if cat.db_password.is_empty() {
+                    String::new()
+                } else {
+                    format!(":{}", cat.db_password)
+                };
+                // Always TCP — DB is typically on an external SQL server
+                format!("postgres://{}{}@{}:{}/{}",
+                    cat.db_user, pass, cat.db_address, cat.db_port, cat.db_name)
             })
         });
 

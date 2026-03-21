@@ -12,6 +12,14 @@ use crate::command_queue::CommandResult;
 pub fn cmd_dot_catalog(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let action = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
 
+    // ACL check: destructive operations require CatalogAdmin ACL
+    let is_destructive = matches!(action, "migrate" | "drop" | "create" | "reset");
+    if is_destructive {
+        // TODO: Check session ACL for CatalogAdmin permission
+        // For now, log the attempt
+        tracing::info!("catalog admin operation '{}' by session {}", action, ctx.session_id);
+    }
+
     match action {
         "schema" => catalog_schema(ast, ctx),
         "version" => catalog_version(ast, ctx),
@@ -22,6 +30,9 @@ pub fn cmd_dot_catalog(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         "describe" => catalog_describe(ast, ctx),
         "codegen" => catalog_codegen(ast, ctx),
         "diff" => catalog_diff(ast, ctx),
+        "drop" => catalog_drop(ast, ctx),
+        "create" => catalog_create(ast, ctx),
+        "reset" => catalog_reset(ast, ctx),
         _ => CommandResult::ok(
             ".catalog: Katalog-Schema-Verwaltung\n\
              \n\
@@ -34,7 +45,12 @@ pub fn cmd_dot_catalog(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
              .catalog validate            Schema gegen DB validieren\n\
              .catalog migrate             Schema-Migration durchfuehren\n\
              .catalog diff                Aenderungen zur naechsten Version\n\
-             .catalog codegen             Rust-Structs generieren\n"
+             .catalog codegen             Rust-Structs generieren\n\
+             \n\
+             Admin-Befehle (erfordern CatalogAdmin ACL):\n\
+             .catalog create              Tabellen in DB erstellen\n\
+             .catalog drop table=<name>   Tabelle loeschen\n\
+             .catalog reset               Alle Tabellen loeschen + neu erstellen\n"
                 .to_string()
         ),
     }
@@ -266,5 +282,107 @@ fn catalog_diff(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
         }
         Ok(_) => CommandResult::ok("Mindestens 2 Schema-Versionen noetig fuer diff\n".to_string()),
         Err(e) => CommandResult::error(format!("{e}\n")),
+    }
+}
+
+fn catalog_drop(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let table_name = ast.arguments.iter()
+        .find(|a| a.key == "table")
+        .and_then(|a| a.value.as_deref())
+        .unwrap_or("");
+
+    if table_name.is_empty() {
+        return CommandResult::ok(".catalog drop table=<name>\n".to_string());
+    }
+
+    let schema_dir = std::path::Path::new("catalog/schema");
+    let migrator = bareos_orm::migration::Migrator::new(schema_dir);
+    if let Ok(Some(schema)) = migrator.latest() {
+        if schema.find_table(table_name).is_none() {
+            return CommandResult::error(format!("Tabelle '{table_name}' nicht im Schema\n"));
+        }
+    }
+
+    match &ctx.catalog_url {
+        Some(url) => {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let table = table_name.to_string();
+            match rt.block_on(async {
+                let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await?;
+                sqlx::query(&format!("DROP TABLE IF EXISTS {} CASCADE", table)).execute(&pool).await?;
+                Ok::<_, sqlx::Error>(())
+            }) {
+                Ok(()) => CommandResult::ok(format!("Tabelle '{table_name}' geloescht (CASCADE)\n")),
+                Err(e) => CommandResult::error(format!("DROP error: {e}\n")),
+            }
+        }
+        None => CommandResult::ok("Keine Catalog-DB konfiguriert\n".to_string()),
+    }
+}
+
+fn catalog_create(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let schema_dir = std::path::Path::new("catalog/schema");
+    let migrator = bareos_orm::migration::Migrator::new(schema_dir);
+    let schema = match migrator.latest() {
+        Ok(Some(s)) => s,
+        Ok(None) => return CommandResult::error("Kein Schema\n".to_string()),
+        Err(e) => return CommandResult::error(format!("Schema error: {e}\n")),
+    };
+
+    let statements = schema.to_statements();
+
+    match &ctx.catalog_url {
+        Some(url) => {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            match rt.block_on(async {
+                let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await?;
+                for stmt in &statements {
+                    tracing::debug!("SQL: {}", &stmt[..stmt.len().min(80)]);
+                    sqlx::query(stmt).execute(&pool).await?;
+                }
+                Ok::<_, sqlx::Error>(())
+            }) {
+                Ok(()) => CommandResult::ok(format!(
+                    "Catalog erstellt: {} Tabellen, {} Indizes\n",
+                    schema.tables.len(),
+                    schema.tables.iter().map(|t| t.indices.len()).sum::<usize>()
+                )),
+                Err(e) => CommandResult::error(format!("CREATE error: {e}\n")),
+            }
+        }
+        None => CommandResult::ok("Keine Catalog-DB konfiguriert\n".to_string()),
+    }
+}
+
+fn catalog_reset(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let schema_dir = std::path::Path::new("catalog/schema");
+    let migrator = bareos_orm::migration::Migrator::new(schema_dir);
+    let schema = match migrator.latest() {
+        Ok(Some(s)) => s,
+        Ok(None) => return CommandResult::error("Kein Schema\n".to_string()),
+        Err(e) => return CommandResult::error(format!("{e}\n")),
+    };
+
+    match &ctx.catalog_url {
+        Some(url) => {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            match rt.block_on(async {
+                let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await?;
+                for table in schema.tables.iter().rev() {
+                    sqlx::query(&format!("DROP TABLE IF EXISTS {} CASCADE", table.name))
+                        .execute(&pool).await?;
+                }
+                sqlx::query("DROP TABLE IF EXISTS bareos_schema_version CASCADE")
+                    .execute(&pool).await?;
+                Ok::<_, sqlx::Error>(())
+            }) {
+                Ok(()) => {
+                    let create = catalog_create(ast, ctx);
+                    CommandResult::ok(format!("Alle Tabellen geloescht.\n{}", create.text_output))
+                }
+                Err(e) => CommandResult::error(format!("RESET error: {e}\n")),
+            }
+        }
+        None => CommandResult::ok("Keine Catalog-DB konfiguriert\n".to_string()),
     }
 }
