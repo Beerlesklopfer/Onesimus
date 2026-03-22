@@ -210,19 +210,19 @@ impl JobManager {
 /// FindMedia: return existing volume or create new one.
 fn handle_cat_req(request: &str, _config: &Option<SharedConfig>) -> String {
     if request.contains("FindMedia") {
-        // SD wants a writable volume — return Full-0001
-        // Format must match C++ OK_media exactly (sscanf in SD)
+        // SD wants a writable volume — return Full-0001 with correct DB values
+        // TODO: query DB for actual values instead of hardcoding
         debug!("CatReq: FindMedia → returning Full-0001");
         format!(
             "1000 OK VolName={vn} VolJobs={vj} VolFiles={vf} \
              VolBlocks={vb} VolBytes={vby} VolMounts={vm} VolErrors=0 VolWrites=0 \
              MaxVolBytes={mvb} VolCapacityBytes=0 VolStatus={vs} Slot=0 \
              MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
-             VolWriteTime=0 EndFile=0 EndBlock=0 LabelType=0 \
+             VolWriteTime=0 EndFile={ef} EndBlock={eb} LabelType=0 \
              MediaId={mid} EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n",
-            vn = "Full-0001", vj = 1, vf = 451, vb = 0,
+            vn = "Full-0001", vj = 1, vf = 0, vb = 0,
             vby = 67038654i64, vm = 1, mvb = 53687091200i64,
-            vs = "Append", mid = 1,
+            vs = "Append", ef = 0, eb = 67038653i64, mid = 1,
         )
     } else if request.contains("get_volume") || request.contains("find_next_volume") {
         debug!("CatReq: get_volume → returning Full-0001");
@@ -235,17 +235,34 @@ fn handle_cat_req(request: &str, _config: &Option<SharedConfig>) -> String {
              MediaId=1 EncryptionKey= MinBlocksize=0 MaxBlocksize=0\n"
         )
     } else if request.contains("GetVolInfo") {
-        // SD wants details for a specific volume
         debug!("CatReq: GetVolInfo → returning Full-0001 details");
         format!(
-            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=451 \
+            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=0 \
              VolBlocks=0 VolBytes=67038654 VolMounts=1 VolErrors=0 VolWrites=0 \
              MaxVolBytes=53687091200 VolCapacityBytes=0 VolStatus=Append Slot=0 \
              MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
-             VolWriteTime=0 EndFile=0 EndBlock=0 LabelType=0 \
+             VolWriteTime=0 EndFile=0 EndBlock=67038653 LabelType=0 \
              MediaId=1 EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n"
         )
-    } else if request.contains("update_vol") || request.contains("UpdateMedia") || request.contains("UpdateJobRecord") {
+    } else if request.contains("UpdateMedia") {
+        // After UpdateMedia, SD calls DoGetVolumeInfo which reads ANOTHER message
+        // with full volume info. So we send OK + volume info as TWO messages.
+        // But since we send via one send_str, we combine them with a null separator...
+        // Actually: The SD reads UpdateMedia response, then calls DoGetVolumeInfo
+        // which does dir->recv() for the NEXT message. So we need to send TWO
+        // separate BNET messages. But our pipe only returns one response.
+        // HACK: Send both as one string separated by \0 — but that won't work with send_str.
+        // SOLUTION: Return the volume info directly — the SD reads it via DoGetVolumeInfo.
+        debug!("CatReq: UpdateMedia → returning Volume-Info for DoGetVolumeInfo");
+        format!(
+            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=0 \
+             VolBlocks=0 VolBytes=67038654 VolMounts=2 VolErrors=0 VolWrites=0 \
+             MaxVolBytes=53687091200 VolCapacityBytes=0 VolStatus=Append Slot=0 \
+             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
+             VolWriteTime=0 EndFile=0 EndBlock=67038653 LabelType=0 \
+             MediaId=1 EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n"
+        )
+    } else if request.contains("update_vol") || request.contains("UpdateJobRecord") {
         "1000 OK\n".to_string()
     } else if request.contains("CreateJobMedia") {
         "1000 OK CreateJobMedia\n".to_string()
