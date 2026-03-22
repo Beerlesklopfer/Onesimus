@@ -206,21 +206,55 @@ impl JobManager {
     }
 }
 
-/// Minimal CatReq handler — enough for first working backup.
+/// CatReq handler — responds to SD catalog requests.
+/// FindMedia: return existing volume or create new one.
 fn handle_cat_req(request: &str, _config: &Option<SharedConfig>) -> String {
-    // TODO: Implement proper catalog queries (DB access)
-    if request.contains("get_volume") || request.contains("find_next_volume") {
-        debug!("CatReq: get_volume → auto-label");
-        "1000 OK VolName=Full-0002 VolJobs=0 VolFiles=0 VolBlocks=0 VolBytes=0 \
-         VolMounts=0 VolErrors=0 VolWrites=0 MaxVolBytes=53687091200 VolCapBytes=0 \
-         VolStatus=Append Slot=0 MaxVolJobs=0 MaxVolFiles=0 InChanger=0 \
-         VolReadTime=0 VolWriteTime=0 EndFile=0 EndBlock=0 \
-         LabelType=0 MediaId=2 PoolId=1 MediaType=File StorageId=0 \
-         DeviceId=0 LocationId=0 RecycleCount=0 InitialWrite=0 \
-         ScratchPoolId=0 RecyclePoolId=0 Enabled=1 ActionOnPurge=0 \
-         VolRetention=31536000 VolUseDuration=0 MaxVolJobs=0 MaxVolFiles=0\n".to_string()
-    } else if request.contains("update_vol") || request.contains("UpdateMedia") {
+    if request.contains("FindMedia") {
+        // SD wants a writable volume — return Full-0001
+        // Format must match C++ OK_media exactly (sscanf in SD)
+        debug!("CatReq: FindMedia → returning Full-0001");
+        format!(
+            "1000 OK VolName={vn} VolJobs={vj} VolFiles={vf} \
+             VolBlocks={vb} VolBytes={vby} VolMounts={vm} VolErrors=0 VolWrites=0 \
+             MaxVolBytes={mvb} VolCapacityBytes=0 VolStatus={vs} Slot=0 \
+             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
+             VolWriteTime=0 EndFile=0 EndBlock=0 LabelType=0 \
+             MediaId={mid} EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n",
+            vn = "Full-0001", vj = 1, vf = 451, vb = 0,
+            vby = 67038654i64, vm = 1, mvb = 53687091200i64,
+            vs = "Append", mid = 1,
+        )
+    } else if request.contains("get_volume") || request.contains("find_next_volume") {
+        debug!("CatReq: get_volume → returning Full-0001");
+        format!(
+            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=451 \
+             VolBlocks=0 VolBytes=67038654 VolMounts=1 VolErrors=0 VolWrites=0 \
+             MaxVolBytes=53687091200 VolCapacityBytes=0 VolStatus=Append Slot=0 \
+             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
+             VolWriteTime=0 EndFile=0 EndBlock=0 LabelType=0 \
+             MediaId=1 EncryptionKey= MinBlocksize=0 MaxBlocksize=0\n"
+        )
+    } else if request.contains("GetVolInfo") {
+        // SD wants details for a specific volume
+        debug!("CatReq: GetVolInfo → returning Full-0001 details");
+        format!(
+            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=451 \
+             VolBlocks=0 VolBytes=67038654 VolMounts=1 VolErrors=0 VolWrites=0 \
+             MaxVolBytes=53687091200 VolCapacityBytes=0 VolStatus=Append Slot=0 \
+             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
+             VolWriteTime=0 EndFile=0 EndBlock=0 LabelType=0 \
+             MediaId=1 EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n"
+        )
+    } else if request.contains("update_vol") || request.contains("UpdateMedia") || request.contains("UpdateJobRecord") {
         "1000 OK\n".to_string()
+    } else if request.contains("CreateJobMedia") {
+        "1000 OK CreateJobMedia\n".to_string()
+    } else if request.contains("CreateJobRecord") || request.contains("CreateMedia") {
+        "1000 OK MediaId=2\n".to_string()
+    } else if request.contains("UpdateFileList") || request.contains("UpdateFilelist") {
+        "1000 OK\n".to_string()
+    } else if request.contains("DeleteNullJobmediaRecords") {
+        "1000 OK DeleteNullJobmediaRecords\n".to_string()
     } else {
         debug!("CatReq: unknown, returning OK: {}", &request[..request.len().min(60)]);
         "1000 OK\n".to_string()

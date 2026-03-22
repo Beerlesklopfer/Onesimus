@@ -393,20 +393,37 @@ fn sd_catrec_loop(
     loop {
         match sd.recv() {
             Ok(BnetMessage::Data(data)) => {
-                let msg = String::from_utf8_lossy(&data).trim().to_string();
+                let msg_raw = String::from_utf8_lossy(&data);
+                let msg = msg_raw.trim().to_string();
                 if msg.starts_with("CatReq") {
                     debug!("Worker {job_id} SD CatReq: {msg}");
                     let pipe_msg = PipeMessage::CatReq { job_id, request: msg };
                     if let Ok(json) = serde_json::to_string(&pipe_msg) {
                         let _ = writeln!(to_dir, "{json}");
                     }
-                    // Read response
+                    // Read CatResp from Director via pipe
                     let mut buf = String::new();
                     let mut reader = BufReader::new(&mut *from_dir);
-                    if reader.read_line(&mut buf).is_ok() {
-                        if let Ok(PipeMessage::CatResp { response }) = serde_json::from_str(&buf) {
-                            let _ = sd.send_str(&response);
-                        } else {
+                    match reader.read_line(&mut buf) {
+                        Ok(n) if n > 0 => {
+                            debug!("Worker {job_id} CatResp pipe ({n} bytes): {}", buf.trim());
+                            match serde_json::from_str::<PipeMessage>(&buf) {
+                                Ok(PipeMessage::CatResp { response }) => {
+                                    debug!("Worker {job_id} → SD: {}", &response[..response.len().min(60)]);
+                                    let _ = sd.send_str(&response);
+                                }
+                                other => {
+                                    warn!("Worker {job_id}: unexpected pipe msg: {other:?}, sending OK");
+                                    let _ = sd.send_str("1000 OK\n");
+                                }
+                            }
+                        }
+                        Ok(_) => {
+                            warn!("Worker {job_id}: pipe EOF while waiting for CatResp");
+                            let _ = sd.send_str("1000 OK\n");
+                        }
+                        Err(e) => {
+                            error!("Worker {job_id}: pipe read error: {e}");
                             let _ = sd.send_str("1000 OK\n");
                         }
                     }
@@ -416,7 +433,7 @@ fn sd_catrec_loop(
                 } else if msg.starts_with("3010 Job") {
                     debug!("Worker {job_id} SD: job start");
                 } else if msg.starts_with("Jmsg") {
-                    debug!("Worker {job_id} SD Jmsg: {}", &msg[..msg.len().min(80)]);
+                    debug!("Worker {job_id} SD Jmsg: {msg}");
                 } else {
                     debug!("Worker {job_id} SD: {}", &msg[..msg.len().min(80)]);
                 }
@@ -489,7 +506,7 @@ fn wait_for_fd_end_job(fd: &mut BnetStream<tls_psk::PskStream>, job_id: u32) -> 
                     }
                     return (f, b, e, tc);
                 }
-                debug!("Worker {job_id} FD: {}", &msg[..msg.len().min(80)]);
+                debug!("Worker {job_id} FD: {msg}");
             }
             Ok(BnetMessage::Signal(BnetSignal::Terminate)) => return (0, 0, 1, 2),
             Ok(BnetMessage::Signal(_)) => continue,
