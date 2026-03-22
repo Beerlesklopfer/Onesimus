@@ -170,6 +170,7 @@ pub fn handle_console_session<S: Read + Write>(
             catalog_url,
             api_mode,
             bus_rx: Some(bus_rx.clone()),
+            job_manager: None, // TODO: pass from main
         };
         let result = command_executor::dispatch(&ast, &ctx);
 

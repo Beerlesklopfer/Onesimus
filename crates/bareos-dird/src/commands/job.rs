@@ -6,7 +6,6 @@ use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
 use crate::job_worker::{self, JobParams};
-use crate::job_monitor;
 use crate::message_bus::BusMessage;
 use bareos_config::resources::JobType;
 
@@ -142,8 +141,10 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     match job_worker::spawn_job_worker(job_id, &job.name, &params) {
         Ok(handle) => {
             tracing::info!("Job {job_id} '{}': worker pid={}", job.name, handle.pid);
-            // Start monitor thread (reads pipe, handles CatReq, posts bus messages)
-            job_monitor::start_monitor(handle, ctx.session_mgr.clone());
+            // Register with JobManager — monitor thread polls all jobs
+            if let Some(ref mgr) = ctx.job_manager {
+                mgr.lock().unwrap().add_job(job_id, &job.name, handle);
+            }
         }
         Err(e) => {
             tracing::error!("Job {job_id}: fork failed: {e}");

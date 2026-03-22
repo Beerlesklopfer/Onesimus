@@ -8,6 +8,7 @@ use crate::command_ast::CommandAst;
 use crate::command_queue::CommandResult;
 use crate::commands;
 use crate::director_config::SharedConfig;
+use crate::job_manager::JobManager;
 use crate::message_bus::BusMessage;
 use crate::session_manager::SessionManager;
 
@@ -30,6 +31,8 @@ pub struct ExecContext {
     pub api_mode: ApiMode,
     /// Bus receiver for this session — drains pending messages.
     pub bus_rx: Option<Receiver<BusMessage>>,
+    /// Job manager for run/cancel/status commands
+    pub job_manager: Option<Arc<std::sync::Mutex<JobManager>>>,
 }
 
 /// Dispatch a command to the appropriate handler.
@@ -181,7 +184,7 @@ mod tests {
     }
 
     fn make_ctx() -> ExecContext {
-        ExecContext { session_id: 1, config: None, session_mgr: None, catalog_url: None, api_mode: ApiMode::Human, bus_rx: None }
+        ExecContext { session_id: 1, config: None, session_mgr: None, catalog_url: None, api_mode: ApiMode::Human, bus_rx: None, job_manager: None }
     }
 
     #[test]

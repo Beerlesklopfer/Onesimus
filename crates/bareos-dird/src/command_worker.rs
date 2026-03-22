@@ -31,6 +31,7 @@ pub fn command_worker_loop(
                 catalog_url: None,
                 api_mode: command_executor::ApiMode::Api,
                 bus_rx: None,
+                job_manager: None,
             };
 
             debug!("executing command '{}' from queue", cmd.ast.command_name);

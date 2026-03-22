@@ -1,0 +1,842 @@
+[2m2026-03-22T10:25:26.192617Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m baReos Director Version 0.25.0 starting
+[2m2026-03-22T10:25:26.192627Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m debug level set to 100
+[2m2026-03-22T10:25:26.192677Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m loaded configuration from /tmp/bareos-test-2Qnt9r/bareos-dir.conf
+[2m2026-03-22T10:25:26.192748Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m Director 'test-dir' listening on port 29101
+[2m2026-03-22T10:25:26.192839Z[0m [32m INFO[0m [2mbareos_dird::scheduler[0m[2m:[0m scheduler started
+[2m2026-03-22T10:25:26.192853Z[0m [32m INFO[0m [2mbareos_dird::accept[0m[2m:[0m listening on 0.0.0.0:29101
+[2m2026-03-22T10:25:26.192868Z[0m [32m INFO[0m [2mbareos_dird::watchdog[0m[2m:[0m watchdog started (interval=30s, timeout=120s)
+[2m2026-03-22T10:25:26.192899Z[0m [32m INFO[0m [2mbareos_dird::command_worker[0m[2m:[0m command worker started
+========================================================================
+baReos Director — Command Test Suite
+========================================================================
+Director: ./target/release/bareos-dird
+Console:  ./target/release/brconsole
+PID:      3251851
+Port:     29101
+Datum:    2026-03-22 11:25:28
+========================================================================
+
+--- 1. Basis ---
+[2m2026-03-22T10:25:28.294283Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43710
+[2m2026-03-22T10:25:28.296969Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 1: TLS-PSK accept OK
+[2m2026-03-22T10:25:28.342862Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:28.618872Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 1: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:28.706870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 1: command 'version'
+[2m2026-03-22T10:25:28.750910Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 1: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:28.750919Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 1 (test-dir) ended
+  [32mOK[0m   version                                      
+[2m2026-03-22T10:25:28.794699Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43712
+[2m2026-03-22T10:25:28.796254Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 3: TLS-PSK accept OK
+[2m2026-03-22T10:25:28.838853Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:29.118863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 3: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:29.210864Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 3: command 'time'
+[2m2026-03-22T10:25:29.254893Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 3: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:29.254900Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 3 (test-dir) ended
+  [32mOK[0m   time                                         
+[2m2026-03-22T10:25:29.295061Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43714
+[2m2026-03-22T10:25:29.296370Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 5: TLS-PSK accept OK
+[2m2026-03-22T10:25:29.338863Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:29.602881Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 5: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:29.698878Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 5: command 'quit'
+[2m2026-03-22T10:25:29.698919Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 5 (test-dir) ended
+  [32mOK[0m   quit                                         
+
+--- 2. Help-System ---
+[2m2026-03-22T10:25:29.795466Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43728
+[2m2026-03-22T10:25:29.796910Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 7: TLS-PSK accept OK
+[2m2026-03-22T10:25:29.838855Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:30.110867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 7: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:30.206852Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 7: command 'help'
+[2m2026-03-22T10:25:30.250886Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 7: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:30.250895Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 7 (test-dir) ended
+  [32mOK[0m   help                                         
+[2m2026-03-22T10:25:30.295849Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43736
+[2m2026-03-22T10:25:30.297154Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 9: TLS-PSK accept OK
+[2m2026-03-22T10:25:30.338881Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:30.610863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 9: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:30.698855Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 9: command 'help'
+[2m2026-03-22T10:25:30.742886Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 9: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:30.742893Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 9 (test-dir) ended
+  [32mOK[0m   help                                         
+[2m2026-03-22T10:25:30.796213Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43738
+[2m2026-03-22T10:25:30.797673Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 11: TLS-PSK accept OK
+[2m2026-03-22T10:25:30.842866Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:31.122878Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 11: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:31.210877Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 11: command 'help'
+[2m2026-03-22T10:25:31.254914Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 11: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:31.254920Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 11 (test-dir) ended
+  [32mOK[0m   help                                         
+[2m2026-03-22T10:25:31.296594Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43748
+[2m2026-03-22T10:25:31.298018Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 13: TLS-PSK accept OK
+[2m2026-03-22T10:25:31.338860Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:31.606869Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 13: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:31.698865Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 13: command '.help'
+[2m2026-03-22T10:25:31.746927Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 13: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:31.746939Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 13 (test-dir) ended
+  [32mOK[0m   .help                                        
+[2m2026-03-22T10:25:31.797030Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43762
+[2m2026-03-22T10:25:31.798569Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 15: TLS-PSK accept OK
+[2m2026-03-22T10:25:31.838860Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:32.102866Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 15: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:32.198845Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 15: command '.help'
+[2m2026-03-22T10:25:32.246915Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 15: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:32.246925Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 15 (test-dir) ended
+  [32mOK[0m   .help                                        
+[2m2026-03-22T10:25:32.297417Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43774
+[2m2026-03-22T10:25:32.298794Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 17: TLS-PSK accept OK
+[2m2026-03-22T10:25:32.342851Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:32.618861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 17: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:32.706854Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 17: command '.help'
+[2m2026-03-22T10:25:32.754904Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 17: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:32.754911Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 17 (test-dir) ended
+  [32mOK[0m   .help                                        
+[2m2026-03-22T10:25:32.797782Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:43784
+[2m2026-03-22T10:25:32.799085Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 19: TLS-PSK accept OK
+[2m2026-03-22T10:25:32.842853Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:33.110862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 19: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:33.198860Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 19: command '.help'
+[2m2026-03-22T10:25:33.242918Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 19: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:33.242928Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 19 (test-dir) ended
+  [32mOK[0m   .help                                        
+[2m2026-03-22T10:25:33.298172Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60810
+[2m2026-03-22T10:25:33.299695Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 21: TLS-PSK accept OK
+[2m2026-03-22T10:25:33.346873Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:33.622866Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 21: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:33.718881Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 21: command '.help all'
+[2m2026-03-22T10:25:33.762941Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 21: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:33.762952Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 21 (test-dir) ended
+  [32mOK[0m   .help all                                    
+
+--- 3. Status ---
+[2m2026-03-22T10:25:33.798592Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60814
+[2m2026-03-22T10:25:33.800060Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 23: TLS-PSK accept OK
+[2m2026-03-22T10:25:33.842855Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:34.114863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 23: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:34.206848Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 23: command 'status dir'
+[2m2026-03-22T10:25:34.250914Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 23: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:34.250922Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 23 (test-dir) ended
+  [32mOK[0m   status dir                                   
+[2m2026-03-22T10:25:34.298970Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60820
+[2m2026-03-22T10:25:34.300348Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 25: TLS-PSK accept OK
+[2m2026-03-22T10:25:34.342891Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:34.610867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 25: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:34.702860Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 25: command '.status dir'
+[2m2026-03-22T10:25:34.750916Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 25: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:34.750929Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 25 (test-dir) ended
+  [32mOK[0m   .status dir                                  
+  [33mSKIP[0m status all                                     (braucht FD/SD)
+
+--- 4. Dot-Commands (Resource Listing) ---
+[2m2026-03-22T10:25:34.799335Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60832
+[2m2026-03-22T10:25:34.800592Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 27: TLS-PSK accept OK
+[2m2026-03-22T10:25:34.842866Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:35.118860Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 27: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:35.210855Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 27: command '.clients'
+[2m2026-03-22T10:25:35.258885Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 27: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:35.258894Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 27 (test-dir) ended
+  [32mOK[0m   .clients                                     
+[2m2026-03-22T10:25:35.299716Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60848
+[2m2026-03-22T10:25:35.300904Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 29: TLS-PSK accept OK
+[2m2026-03-22T10:25:35.342864Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:35.614865Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 29: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:35.706874Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 29: command '.jobs'
+[2m2026-03-22T10:25:35.754943Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 29: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:35.754957Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 29 (test-dir) ended
+  [32mOK[0m   .jobs                                        
+[2m2026-03-22T10:25:35.800104Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60860
+[2m2026-03-22T10:25:35.801637Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 31: TLS-PSK accept OK
+[2m2026-03-22T10:25:35.842877Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:36.106859Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 31: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:36.194862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 31: command '.pools'
+[2m2026-03-22T10:25:36.238907Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 31: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:36.238915Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 31 (test-dir) ended
+  [32mOK[0m   .pools                                       
+[2m2026-03-22T10:25:36.300440Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60862
+[2m2026-03-22T10:25:36.301928Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 33: TLS-PSK accept OK
+[2m2026-03-22T10:25:36.342865Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:36.606874Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 33: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:36.694868Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 33: command '.storage'
+[2m2026-03-22T10:25:36.738894Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 33: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:36.738903Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 33 (test-dir) ended
+  [32mOK[0m   .storage                                     
+[2m2026-03-22T10:25:36.800783Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60866
+[2m2026-03-22T10:25:36.802195Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 35: TLS-PSK accept OK
+[2m2026-03-22T10:25:36.846873Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:37.110910Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 35: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:37.198878Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 35: command '.storages'
+[2m2026-03-22T10:25:37.242942Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 35: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:37.242955Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 35 (test-dir) ended
+  [32mOK[0m   .storages                                    
+[2m2026-03-22T10:25:37.301172Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60880
+[2m2026-03-22T10:25:37.302588Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 37: TLS-PSK accept OK
+[2m2026-03-22T10:25:37.346860Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:37.614883Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 37: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:37.702860Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 37: command '.filesets'
+[2m2026-03-22T10:25:37.702908Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 37: command 'quit'
+[2m2026-03-22T10:25:37.702920Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 37 (test-dir) ended
+  [32mOK[0m   .filesets                                    
+[2m2026-03-22T10:25:37.801553Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60894
+[2m2026-03-22T10:25:37.803191Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 39: TLS-PSK accept OK
+[2m2026-03-22T10:25:37.846878Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:38.110869Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 39: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:38.198862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 39: command '.schedule'
+[2m2026-03-22T10:25:38.246923Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 39: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:38.246932Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 39 (test-dir) ended
+  [32mOK[0m   .schedule                                    
+[2m2026-03-22T10:25:38.301903Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60896
+[2m2026-03-22T10:25:38.303570Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 41: TLS-PSK accept OK
+[2m2026-03-22T10:25:38.346854Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:38.614886Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 41: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:38.706854Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 41: command '.catalogs'
+[2m2026-03-22T10:25:38.706891Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 41: command 'quit'
+[2m2026-03-22T10:25:38.706903Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 41 (test-dir) ended
+  [32mOK[0m   .catalogs                                    
+[2m2026-03-22T10:25:38.802272Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60912
+[2m2026-03-22T10:25:38.803763Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 43: TLS-PSK accept OK
+[2m2026-03-22T10:25:38.846859Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:39.110869Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 43: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:39.202872Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 43: command '.consoles'
+[2m2026-03-22T10:25:39.246916Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 43: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:39.246924Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 43 (test-dir) ended
+  [32mOK[0m   .consoles                                    
+[2m2026-03-22T10:25:39.302623Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60914
+[2m2026-03-22T10:25:39.304057Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 45: TLS-PSK accept OK
+[2m2026-03-22T10:25:39.350865Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:39.618882Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 45: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:39.710895Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 45: command '.jobdefs'
+[2m2026-03-22T10:25:39.710972Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 45: command 'quit'
+[2m2026-03-22T10:25:39.710986Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 45 (test-dir) ended
+  [32mOK[0m   .jobdefs                                     
+[2m2026-03-22T10:25:39.803001Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60920
+[2m2026-03-22T10:25:39.804475Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 47: TLS-PSK accept OK
+[2m2026-03-22T10:25:39.846868Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:40.110862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 47: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:40.198858Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 47: command '.profiles'
+[2m2026-03-22T10:25:40.198898Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 47: command 'quit'
+[2m2026-03-22T10:25:40.198909Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 47 (test-dir) ended
+  [32mOK[0m   .profiles                                    
+[2m2026-03-22T10:25:40.203278Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60922
+[2m2026-03-22T10:25:40.208260Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 49: TLS-PSK accept OK
+[2m2026-03-22T10:25:40.250857Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:40.534861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 49: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:40.626856Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 49: command '.locations'
+[2m2026-03-22T10:25:40.626891Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 49: command 'quit'
+[2m2026-03-22T10:25:40.626903Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 49 (test-dir) ended
+  [32mOK[0m   .locations                                   
+[2m2026-03-22T10:25:40.703616Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60938
+[2m2026-03-22T10:25:40.705110Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 51: TLS-PSK accept OK
+[2m2026-03-22T10:25:40.746867Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:41.018874Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 51: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:41.106861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 51: command '.media'
+[2m2026-03-22T10:25:41.106893Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 51: command 'quit'
+[2m2026-03-22T10:25:41.106905Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 51 (test-dir) ended
+  [32mOK[0m   .media                                       
+[2m2026-03-22T10:25:41.203961Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60940
+[2m2026-03-22T10:25:41.205409Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 53: TLS-PSK accept OK
+[2m2026-03-22T10:25:41.246858Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:41.514869Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 53: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:41.606899Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 53: command '.mediatypes'
+[2m2026-03-22T10:25:41.650902Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 53: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:41.650912Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 53 (test-dir) ended
+  [32mOK[0m   .mediatypes                                  
+[2m2026-03-22T10:25:41.704319Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60942
+[2m2026-03-22T10:25:41.705587Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 55: TLS-PSK accept OK
+[2m2026-03-22T10:25:41.746894Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:42.014868Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 55: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:42.106866Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 55: command '.msgs'
+[2m2026-03-22T10:25:42.106896Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 55: command 'quit'
+[2m2026-03-22T10:25:42.106907Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 55 (test-dir) ended
+  [32mOK[0m   .msgs                                        
+[2m2026-03-22T10:25:42.204714Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60948
+[2m2026-03-22T10:25:42.206181Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 57: TLS-PSK accept OK
+[2m2026-03-22T10:25:42.246862Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:42.518867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 57: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:42.610856Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 57: command '.users'
+[2m2026-03-22T10:25:42.610886Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 57: command 'quit'
+[2m2026-03-22T10:25:42.610896Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 57 (test-dir) ended
+  [32mOK[0m   .users                                       
+
+--- 5. Dot-Commands (Queries) ---
+[2m2026-03-22T10:25:42.705065Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:60960
+[2m2026-03-22T10:25:42.706451Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 59: TLS-PSK accept OK
+[2m2026-03-22T10:25:42.746874Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:43.014872Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 59: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:43.106864Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 59: command '.defaults'
+[2m2026-03-22T10:25:43.150896Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 59: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:43.150903Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 59 (test-dir) ended
+  [32mOK[0m   .defaults                                    
+[2m2026-03-22T10:25:43.205415Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37756
+[2m2026-03-22T10:25:43.206914Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 61: TLS-PSK accept OK
+[2m2026-03-22T10:25:43.250874Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:43.522869Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 61: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:43.610872Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 61: command '.defaults job=BackupTest'
+[2m2026-03-22T10:25:43.654910Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 61: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:43.654918Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 61 (test-dir) ended
+  [32mOK[0m   .defaults job=BackupTest                     
+[2m2026-03-22T10:25:43.705777Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37772
+[2m2026-03-22T10:25:43.707266Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 63: TLS-PSK accept OK
+[2m2026-03-22T10:25:43.750877Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:44.022873Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 63: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:44.110874Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 63: command '.jobstatus'
+[2m2026-03-22T10:25:44.158926Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 63: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:44.158935Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 63 (test-dir) ended
+  [32mOK[0m   .jobstatus                                   
+[2m2026-03-22T10:25:44.206223Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37782
+[2m2026-03-22T10:25:44.207825Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 65: TLS-PSK accept OK
+[2m2026-03-22T10:25:44.250881Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:44.526855Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 65: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:44.622858Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 65: command '.levels'
+[2m2026-03-22T10:25:44.666916Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 65: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:44.666922Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 65 (test-dir) ended
+  [32mOK[0m   .levels                                      
+[2m2026-03-22T10:25:44.706564Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37798
+[2m2026-03-22T10:25:44.708026Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 67: TLS-PSK accept OK
+[2m2026-03-22T10:25:44.754862Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:45.022873Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 67: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:45.110862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 67: command '.types'
+[2m2026-03-22T10:25:45.154912Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 67: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:45.154920Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 67 (test-dir) ended
+  [32mOK[0m   .types                                       
+[2m2026-03-22T10:25:45.206905Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37812
+[2m2026-03-22T10:25:45.208361Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 69: TLS-PSK accept OK
+[2m2026-03-22T10:25:45.250860Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:45.522865Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 69: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:45.610862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 69: command '.volstatus'
+[2m2026-03-22T10:25:45.654901Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 69: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:45.654908Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 69 (test-dir) ended
+  [32mOK[0m   .volstatus                                   
+[2m2026-03-22T10:25:45.707258Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37822
+[2m2026-03-22T10:25:45.708555Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 71: TLS-PSK accept OK
+[2m2026-03-22T10:25:45.754892Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:46.026870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 71: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:46.114863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 71: command '.actiononpurge'
+[2m2026-03-22T10:25:46.158910Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 71: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:46.158918Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 71 (test-dir) ended
+  [32mOK[0m   .actiononpurge                               
+[2m2026-03-22T10:25:46.207616Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37830
+[2m2026-03-22T10:25:46.209193Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 73: TLS-PSK accept OK
+[2m2026-03-22T10:25:46.250869Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:46.514868Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 73: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:46.610885Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 73: command '.authorized'
+[2m2026-03-22T10:25:46.658916Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 73: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:46.658923Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 73 (test-dir) ended
+  [32mOK[0m   .authorized                                  
+[2m2026-03-22T10:25:46.707980Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37846
+[2m2026-03-22T10:25:46.709420Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 75: TLS-PSK accept OK
+[2m2026-03-22T10:25:46.750935Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:47.018868Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 75: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:47.110861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 75: command '.'
+[2m2026-03-22T10:25:47.110888Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 75: command 'quit'
+[2m2026-03-22T10:25:47.110900Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 75 (test-dir) ended
+  [32mOK[0m   .                                            
+
+--- 6. API/Protocol ---
+[2m2026-03-22T10:25:47.208360Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37854
+[2m2026-03-22T10:25:47.209786Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 77: TLS-PSK accept OK
+[2m2026-03-22T10:25:47.250863Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:47.514867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 77: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:47.602863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 77: command '.api 0'
+[2m2026-03-22T10:25:47.650903Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 77: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:47.650911Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 77 (test-dir) ended
+  [32mOK[0m   .api 0                                       
+[2m2026-03-22T10:25:47.708776Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37870
+[2m2026-03-22T10:25:47.710331Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 79: TLS-PSK accept OK
+[2m2026-03-22T10:25:47.750877Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:48.022876Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 79: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:48.114869Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 79: command '.api 1'
+[2m2026-03-22T10:25:48.158930Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 79: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:48.158939Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 79 (test-dir) ended
+  [32mOK[0m   .api 1                                       
+[2m2026-03-22T10:25:48.209158Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37886
+[2m2026-03-22T10:25:48.210595Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 81: TLS-PSK accept OK
+[2m2026-03-22T10:25:48.250867Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:48.518885Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 81: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:48.610863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 81: command '.api 2'
+[2m2026-03-22T10:25:48.654901Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 81: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:48.654908Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 81 (test-dir) ended
+  [32mOK[0m   .api 2                                       
+[2m2026-03-22T10:25:48.709534Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37894
+[2m2026-03-22T10:25:48.710751Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 83: TLS-PSK accept OK
+[2m2026-03-22T10:25:48.750869Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:49.022864Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 83: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:49.114861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 83: command '.grpc'
+[2m2026-03-22T10:25:49.162918Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 83: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:49.162927Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 83 (test-dir) ended
+  [32mOK[0m   .grpc                                        
+
+--- 7. BVFS ---
+[2m2026-03-22T10:25:49.209928Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37902
+[2m2026-03-22T10:25:49.211455Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 85: TLS-PSK accept OK
+[2m2026-03-22T10:25:49.254872Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:49.526870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 85: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:49.622898Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 85: command '.bvfs_update'
+[2m2026-03-22T10:25:49.666934Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 85: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:49.666946Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 85 (test-dir) ended
+  [32mOK[0m   .bvfs_update                                 
+[2m2026-03-22T10:25:49.710327Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37904
+[2m2026-03-22T10:25:49.711609Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 87: TLS-PSK accept OK
+[2m2026-03-22T10:25:49.754871Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:50.022874Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 87: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:50.114889Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 87: command '.bvfs_cleanup path=test'
+[2m2026-03-22T10:25:50.162951Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 87: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:50.162965Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 87 (test-dir) ended
+  [32mOK[0m   .bvfs_cleanup path=test                      
+[2m2026-03-22T10:25:50.210700Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37916
+[2m2026-03-22T10:25:50.212205Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 89: TLS-PSK accept OK
+[2m2026-03-22T10:25:50.254869Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:50.526862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 89: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:50.614866Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 89: command '.bvfs_clear_cache yes'
+[2m2026-03-22T10:25:50.658922Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 89: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:50.658932Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 89 (test-dir) ended
+  [32mOK[0m   .bvfs_clear_cache yes                        
+[2m2026-03-22T10:25:50.711046Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37922
+[2m2026-03-22T10:25:50.712496Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 91: TLS-PSK accept OK
+[2m2026-03-22T10:25:50.754874Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:51.022870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 91: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:51.114873Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 91: command '.bvfs_get_jobids jobid=1'
+[2m2026-03-22T10:25:51.158906Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 91: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:51.158915Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 91 (test-dir) ended
+  [32mOK[0m   .bvfs_get_jobids jobid=1                     
+[2m2026-03-22T10:25:51.211391Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37934
+[2m2026-03-22T10:25:51.212807Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 93: TLS-PSK accept OK
+[2m2026-03-22T10:25:51.254862Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:51.526874Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 93: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:51.618900Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 93: command '.bvfs_lsdirs jobid=1 path=/'
+[2m2026-03-22T10:25:51.666982Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 93: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:51.667002Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 93 (test-dir) ended
+  [32mOK[0m   .bvfs_lsdirs jobid=1 path=/                  
+[2m2026-03-22T10:25:51.711760Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37946
+[2m2026-03-22T10:25:51.713125Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 95: TLS-PSK accept OK
+[2m2026-03-22T10:25:51.754862Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:52.026873Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 95: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:52.118859Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 95: command '.bvfs_lsfiles jobid=1 path=/'
+[2m2026-03-22T10:25:52.162939Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 95: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:52.162948Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 95 (test-dir) ended
+  [32mOK[0m   .bvfs_lsfiles jobid=1 path=/                 
+[2m2026-03-22T10:25:52.212089Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37948
+[2m2026-03-22T10:25:52.213607Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 97: TLS-PSK accept OK
+[2m2026-03-22T10:25:52.254861Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:52.522874Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 97: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:52.610867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 97: command '.bvfs_versions client=test-fd pathid=1 filename=test'
+[2m2026-03-22T10:25:52.654896Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 97: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:52.654902Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 97 (test-dir) ended
+  [32mOK[0m   .bvfs_versions client=test-fd pathid=1 filename=test
+[2m2026-03-22T10:25:52.712446Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:37958
+[2m2026-03-22T10:25:52.713869Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 99: TLS-PSK accept OK
+[2m2026-03-22T10:25:52.754870Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:53.018867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 99: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:53.106861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 99: command '.bvfs_restore path=h1 jobid=1'
+[2m2026-03-22T10:25:53.150914Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 99: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:53.150920Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 99 (test-dir) ended
+  [32mOK[0m   .bvfs_restore path=h1 jobid=1                
+
+--- 8. List ---
+[2m2026-03-22T10:25:53.212807Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56136
+[2m2026-03-22T10:25:53.214324Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 101: TLS-PSK accept OK
+[2m2026-03-22T10:25:53.254870Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:53.518881Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 101: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:53.606864Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 101: command 'list jobs'
+[2m2026-03-22T10:25:53.650907Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 101: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:53.650916Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 101 (test-dir) ended
+  [32mOK[0m   list jobs                                    
+[2m2026-03-22T10:25:53.713199Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56140
+[2m2026-03-22T10:25:53.714636Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 103: TLS-PSK accept OK
+[2m2026-03-22T10:25:53.758858Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:54.030867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 103: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:54.122882Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 103: command 'list clients'
+[2m2026-03-22T10:25:54.166940Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 103: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:54.166951Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 103 (test-dir) ended
+  [32mOK[0m   list clients                                 
+[2m2026-03-22T10:25:54.213590Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56150
+[2m2026-03-22T10:25:54.215125Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 105: TLS-PSK accept OK
+[2m2026-03-22T10:25:54.258859Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:54.530863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 105: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:54.618870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 105: command 'list pools'
+[2m2026-03-22T10:25:54.662903Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 105: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:54.662909Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 105 (test-dir) ended
+  [32mOK[0m   list pools                                   
+[2m2026-03-22T10:25:54.713941Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56162
+[2m2026-03-22T10:25:54.715400Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 107: TLS-PSK accept OK
+[2m2026-03-22T10:25:54.758855Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:55.026852Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 107: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:55.114867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 107: command 'list storages'
+[2m2026-03-22T10:25:55.158892Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 107: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:55.158898Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 107 (test-dir) ended
+  [32mOK[0m   list storages                                
+[2m2026-03-22T10:25:55.214331Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56168
+[2m2026-03-22T10:25:55.215760Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 109: TLS-PSK accept OK
+[2m2026-03-22T10:25:55.258868Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:55.530863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 109: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:55.618870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 109: command 'list schedules'
+[2m2026-03-22T10:25:55.662901Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 109: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:55.662907Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 109 (test-dir) ended
+  [32mOK[0m   list schedules                               
+
+--- 9. Show ---
+[2m2026-03-22T10:25:55.714704Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56178
+[2m2026-03-22T10:25:55.716188Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 111: TLS-PSK accept OK
+[2m2026-03-22T10:25:55.758861Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:56.034858Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 111: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:56.130878Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 111: command 'show all'
+[2m2026-03-22T10:25:56.174929Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 111: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:56.174940Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 111 (test-dir) ended
+  [32mOK[0m   show all                                     
+[2m2026-03-22T10:25:56.215064Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56184
+[2m2026-03-22T10:25:56.216593Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 113: TLS-PSK accept OK
+[2m2026-03-22T10:25:56.262872Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:56.538853Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 113: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:56.630852Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 113: command 'show director'
+[2m2026-03-22T10:25:56.674897Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 113: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:56.674904Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 113 (test-dir) ended
+  [32mOK[0m   show director                                
+[2m2026-03-22T10:25:56.715448Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56194
+[2m2026-03-22T10:25:56.716668Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 115: TLS-PSK accept OK
+[2m2026-03-22T10:25:56.762857Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:57.046857Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 115: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:57.138857Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 115: command 'show clients'
+[2m2026-03-22T10:25:57.182927Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 115: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:57.182938Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 115 (test-dir) ended
+  [32mOK[0m   show clients                                 
+[2m2026-03-22T10:25:57.215812Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56202
+[2m2026-03-22T10:25:57.217365Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 117: TLS-PSK accept OK
+[2m2026-03-22T10:25:57.258857Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:57.530880Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 117: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:57.618876Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 117: command 'show jobs'
+[2m2026-03-22T10:25:57.666942Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 117: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:57.666950Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 117 (test-dir) ended
+  [32mOK[0m   show jobs                                    
+[2m2026-03-22T10:25:57.716191Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56206
+[2m2026-03-22T10:25:57.717585Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 119: TLS-PSK accept OK
+[2m2026-03-22T10:25:57.758866Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:58.026883Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 119: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:58.114882Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 119: command 'show storages'
+[2m2026-03-22T10:25:58.158917Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 119: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:58.158926Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 119 (test-dir) ended
+  [32mOK[0m   show storages                                
+[2m2026-03-22T10:25:58.216554Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56216
+[2m2026-03-22T10:25:58.218090Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 121: TLS-PSK accept OK
+[2m2026-03-22T10:25:58.258862Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:58.526879Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 121: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:58.618862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 121: command 'show pools'
+[2m2026-03-22T10:25:58.662919Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 121: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:58.662926Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 121 (test-dir) ended
+  [32mOK[0m   show pools                                   
+
+--- 10. Configure CRUD ---
+[2m2026-03-22T10:25:58.716934Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56232
+[2m2026-03-22T10:25:58.718455Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 123: TLS-PSK accept OK
+[2m2026-03-22T10:25:58.758872Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:59.022876Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 123: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:59.114858Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 123: command 'configure'
+[2m2026-03-22T10:25:59.158901Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 123: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:59.158913Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 123 (test-dir) ended
+  [32mOK[0m   configure                                    
+[2m2026-03-22T10:25:59.217294Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56248
+[2m2026-03-22T10:25:59.218713Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 125: TLS-PSK accept OK
+[2m2026-03-22T10:25:59.258881Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:25:59.534861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 125: CRAM-MD5 auth OK
+[2m2026-03-22T10:25:59.626867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 125: command 'configure add client name=new-fd address=10.0.0.5 password=x'
+[2m2026-03-22T10:25:59.670912Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 125: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:25:59.670920Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 125 (test-dir) ended
+  [32mOK[0m   configure add client name=new-fd address=10.0.0.5 password=x
+[2m2026-03-22T10:25:59.717641Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56256
+[2m2026-03-22T10:25:59.719113Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 127: TLS-PSK accept OK
+[2m2026-03-22T10:25:59.766871Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:00.030892Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 127: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:00.118873Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 127: command '.clients'
+[2m2026-03-22T10:26:00.166934Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 127: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:00.166943Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 127 (test-dir) ended
+  [32mOK[0m   .clients                                     
+[2m2026-03-22T10:26:00.218031Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56262
+[2m2026-03-22T10:26:00.219626Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 129: TLS-PSK accept OK
+[2m2026-03-22T10:26:00.266870Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:00.538873Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 129: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:00.626862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 129: command 'configure read client=new-fd'
+[2m2026-03-22T10:26:00.670918Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 129: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:00.670928Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 129 (test-dir) ended
+  [32mOK[0m   configure read client=new-fd                 
+[2m2026-03-22T10:26:00.718415Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56270
+[2m2026-03-22T10:26:00.719834Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 131: TLS-PSK accept OK
+[2m2026-03-22T10:26:00.762873Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:01.034870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 131: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:01.126861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 131: command 'configure update client=new-fd address=10.0.0.99'
+[2m2026-03-22T10:26:01.174913Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 131: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:01.174921Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 131 (test-dir) ended
+  [32mOK[0m   configure update client=new-fd address=10.0.0.99
+[2m2026-03-22T10:26:01.218786Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56276
+[2m2026-03-22T10:26:01.220220Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 133: TLS-PSK accept OK
+[2m2026-03-22T10:26:01.266897Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:01.538870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 133: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:01.626853Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 133: command 'configure delete client=new-fd'
+[2m2026-03-22T10:26:01.670908Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 133: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:01.670918Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 133 (test-dir) ended
+  [32mOK[0m   configure delete client=new-fd               
+[2m2026-03-22T10:26:01.719174Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56282
+[2m2026-03-22T10:26:01.720569Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 135: TLS-PSK accept OK
+[2m2026-03-22T10:26:01.762864Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:02.034885Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 135: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:02.122871Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 135: command 'configure export'
+[2m2026-03-22T10:26:02.166922Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 135: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:02.166934Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 135 (test-dir) ended
+  [32mOK[0m   configure export                             
+
+--- 11. Enable/Disable ---
+[2m2026-03-22T10:26:02.219565Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56292
+[2m2026-03-22T10:26:02.221125Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 137: TLS-PSK accept OK
+[2m2026-03-22T10:26:02.266869Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:02.534870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 137: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:02.622867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 137: command 'enable job=BackupTest'
+[2m2026-03-22T10:26:02.666904Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 137: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:02.666912Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 137 (test-dir) ended
+  [32mOK[0m   enable job=BackupTest                        
+[2m2026-03-22T10:26:02.719951Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:56302
+[2m2026-03-22T10:26:02.721357Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 139: TLS-PSK accept OK
+[2m2026-03-22T10:26:02.766858Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:03.030865Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 139: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:03.118867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 139: command 'disable job=BackupTest'
+[2m2026-03-22T10:26:03.162897Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 139: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:03.162906Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 139 (test-dir) ended
+  [32mOK[0m   disable job=BackupTest                       
+[2m2026-03-22T10:26:03.220332Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33600
+[2m2026-03-22T10:26:03.221821Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 141: TLS-PSK accept OK
+[2m2026-03-22T10:26:03.262862Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:03.526863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 141: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:03.618857Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 141: command '.jobs disabled'
+[2m2026-03-22T10:26:03.666893Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 141: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:03.666901Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 141 (test-dir) ended
+  [32mOK[0m   .jobs disabled                               
+[2m2026-03-22T10:26:03.720708Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33614
+[2m2026-03-22T10:26:03.722174Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 143: TLS-PSK accept OK
+[2m2026-03-22T10:26:03.766859Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:04.042869Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 143: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:04.130865Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 143: command 'enable job=BackupTest'
+[2m2026-03-22T10:26:04.174915Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 143: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:04.174926Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 143 (test-dir) ended
+  [32mOK[0m   enable job=BackupTest                        
+[2m2026-03-22T10:26:04.221105Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33618
+[2m2026-03-22T10:26:04.222719Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 145: TLS-PSK accept OK
+[2m2026-03-22T10:26:04.262860Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:04.526881Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 145: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:04.618862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 145: command '.jobs enabled'
+[2m2026-03-22T10:26:04.662896Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 145: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:04.662904Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 145 (test-dir) ended
+  [32mOK[0m   .jobs enabled                                
+
+--- 12. Admin/Session ---
+[2m2026-03-22T10:26:04.721491Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33634
+[2m2026-03-22T10:26:04.723050Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 147: TLS-PSK accept OK
+[2m2026-03-22T10:26:04.766857Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:05.042872Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 147: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:05.134856Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 147: command 'messages'
+[2m2026-03-22T10:26:05.182900Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 147: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:05.182910Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 147 (test-dir) ended
+  [32mOK[0m   messages                                     
+[2m2026-03-22T10:26:05.221873Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33640
+[2m2026-03-22T10:26:05.223268Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 149: TLS-PSK accept OK
+[2m2026-03-22T10:26:05.266866Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:05.538871Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 149: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:05.626856Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 149: command 'memory'
+[2m2026-03-22T10:26:05.670898Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 149: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:05.670907Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 149 (test-dir) ended
+  [32mOK[0m   memory                                       
+[2m2026-03-22T10:26:05.722263Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33656
+[2m2026-03-22T10:26:05.723720Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 151: TLS-PSK accept OK
+[2m2026-03-22T10:26:05.766855Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:06.030879Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 151: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:06.118868Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 151: command 'whoami'
+[2m2026-03-22T10:26:06.162914Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 151: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:06.162924Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 151 (test-dir) ended
+  [32mOK[0m   whoami                                       
+[2m2026-03-22T10:26:06.222645Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33662
+[2m2026-03-22T10:26:06.224207Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 153: TLS-PSK accept OK
+[2m2026-03-22T10:26:06.266856Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:06.534863Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 153: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:06.626860Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 153: command 'wait'
+[2m2026-03-22T10:26:06.674902Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 153: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:06.674910Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 153 (test-dir) ended
+  [32mOK[0m   wait                                         
+[2m2026-03-22T10:26:06.723024Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33664
+[2m2026-03-22T10:26:06.724473Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 155: TLS-PSK accept OK
+[2m2026-03-22T10:26:06.766859Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:07.042871Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 155: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:07.130864Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 155: command 'setdebug level=100'
+[2m2026-03-22T10:26:07.174892Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 155: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:07.174901Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 155 (test-dir) ended
+  [32mOK[0m   setdebug level=100                           
+[2m2026-03-22T10:26:07.223381Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33680
+[2m2026-03-22T10:26:07.224586Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 157: TLS-PSK accept OK
+[2m2026-03-22T10:26:07.266861Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:07.530877Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 157: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:07.618859Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 157: command 'autodisplay on'
+[2m2026-03-22T10:26:07.662903Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 157: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:07.662909Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 157 (test-dir) ended
+  [32mOK[0m   autodisplay on                               
+[2m2026-03-22T10:26:07.723750Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33692
+[2m2026-03-22T10:26:07.724899Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 159: TLS-PSK accept OK
+[2m2026-03-22T10:26:07.766868Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:08.030864Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 159: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:08.126887Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 159: command 'gui on'
+[2m2026-03-22T10:26:08.170929Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 159: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:08.170939Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 159 (test-dir) ended
+  [32mOK[0m   gui on                                       
+[2m2026-03-22T10:26:08.224100Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33698
+[2m2026-03-22T10:26:08.225701Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 161: TLS-PSK accept OK
+[2m2026-03-22T10:26:08.266863Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:08.530862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 161: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:08.626857Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 161: command 'use'
+[2m2026-03-22T10:26:08.670928Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 161: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:08.670937Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 161 (test-dir) ended
+  [32mOK[0m   use                                          
+[2m2026-03-22T10:26:08.724487Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33700
+[2m2026-03-22T10:26:08.726015Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 163: TLS-PSK accept OK
+[2m2026-03-22T10:26:08.766869Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:09.038870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 163: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:09.126876Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 163: command 'reload'
+[2m2026-03-22T10:26:09.170930Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 163: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:09.170937Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 163 (test-dir) ended
+  [32mOK[0m   reload                                       
+
+--- 13. Admin (Storage) ---
+[2m2026-03-22T10:26:09.224821Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33708
+[2m2026-03-22T10:26:09.226250Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 165: TLS-PSK accept OK
+[2m2026-03-22T10:26:09.266861Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:09.534878Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 165: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:09.630867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 165: command 'label'
+[2m2026-03-22T10:26:09.674904Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 165: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:09.674910Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 165 (test-dir) ended
+  [32mOK[0m   label                                        
+[2m2026-03-22T10:26:09.725181Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33714
+[2m2026-03-22T10:26:09.726674Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 167: TLS-PSK accept OK
+[2m2026-03-22T10:26:09.766870Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:10.042883Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 167: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:10.130871Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 167: command 'mount storage=File'
+[2m2026-03-22T10:26:10.178923Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 167: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:10.178934Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 167 (test-dir) ended
+  [32mOK[0m   mount storage=File                           
+[2m2026-03-22T10:26:10.225544Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33720
+[2m2026-03-22T10:26:10.227120Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 169: TLS-PSK accept OK
+[2m2026-03-22T10:26:10.274853Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:10.542879Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 169: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:10.630865Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 169: command 'unmount storage=File'
+[2m2026-03-22T10:26:10.674921Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 169: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:10.674931Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 169 (test-dir) ended
+  [32mOK[0m   unmount storage=File                         
+[2m2026-03-22T10:26:10.725889Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33726
+[2m2026-03-22T10:26:10.727491Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 171: TLS-PSK accept OK
+[2m2026-03-22T10:26:10.770877Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:11.038866Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 171: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:11.126867Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 171: command 'release storage=File'
+[2m2026-03-22T10:26:11.170899Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 171: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:11.170908Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 171 (test-dir) ended
+  [32mOK[0m   release storage=File                         
+[2m2026-03-22T10:26:11.226247Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33736
+[2m2026-03-22T10:26:11.227819Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 173: TLS-PSK accept OK
+[2m2026-03-22T10:26:11.270871Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:11.546870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 173: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:11.634859Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 173: command 'update'
+[2m2026-03-22T10:26:11.678902Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 173: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:11.678910Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 173 (test-dir) ended
+  [32mOK[0m   update                                       
+[2m2026-03-22T10:26:11.726592Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33742
+[2m2026-03-22T10:26:11.728083Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 175: TLS-PSK accept OK
+[2m2026-03-22T10:26:11.770886Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:12.046881Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 175: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:12.134877Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 175: command 'prune'
+[2m2026-03-22T10:26:12.178933Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 175: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:12.178944Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 175 (test-dir) ended
+  [32mOK[0m   prune                                        
+[2m2026-03-22T10:26:12.226951Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33748
+[2m2026-03-22T10:26:12.228478Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 177: TLS-PSK accept OK
+[2m2026-03-22T10:26:12.270868Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:12.538870Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 177: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:12.626861Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 177: command 'purge'
+[2m2026-03-22T10:26:12.670897Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 177: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:12.670903Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 177 (test-dir) ended
+  [32mOK[0m   purge                                        
+[2m2026-03-22T10:26:12.727280Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:33756
+[2m2026-03-22T10:26:12.728703Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 179: TLS-PSK accept OK
+[2m2026-03-22T10:26:12.770860Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:13.042859Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 179: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:13.138857Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 179: command 'truncate storage=File'
+[2m2026-03-22T10:26:13.183064Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 179: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:13.183073Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 179 (test-dir) ended
+  [32mOK[0m   truncate storage=File                        
+
+--- 14. Catalog Schema ---
+[2m2026-03-22T10:26:13.227629Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:42460
+[2m2026-03-22T10:26:13.229026Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 181: TLS-PSK accept OK
+[2m2026-03-22T10:26:13.270859Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:13.538872Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 181: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:13.626866Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 181: command '.catalog'
+[2m2026-03-22T10:26:13.670916Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 181: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:13.670925Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 181 (test-dir) ended
+  [32mOK[0m   .catalog                                     
+[2m2026-03-22T10:26:13.727987Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:42466
+[2m2026-03-22T10:26:13.729468Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 183: TLS-PSK accept OK
+[2m2026-03-22T10:26:13.770859Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:14.034896Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 183: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:14.122858Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 183: command '.catalog version'
+[2m2026-03-22T10:26:14.166922Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 183: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:14.166933Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 183 (test-dir) ended
+  [32mOK[0m   .catalog version                             
+[2m2026-03-22T10:26:14.228361Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:42470
+[2m2026-03-22T10:26:14.229950Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 185: TLS-PSK accept OK
+[2m2026-03-22T10:26:14.270865Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:14.538862Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 185: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:14.626859Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 185: command '.catalog tables'
+[2m2026-03-22T10:26:14.670907Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 185: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:14.670917Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 185 (test-dir) ended
+  [32mOK[0m   .catalog tables                              
+
+--- 15. Run ---
+[2m2026-03-22T10:26:14.728731Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:42472
+[2m2026-03-22T10:26:14.730166Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 187: TLS-PSK accept OK
+[2m2026-03-22T10:26:14.774861Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:15.038877Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 187: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:15.130864Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 187: command 'run'
+[2m2026-03-22T10:26:15.174909Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 187: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:15.174916Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 187 (test-dir) ended
+  [32mOK[0m   run                                          
+[2m2026-03-22T10:26:15.229107Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m new connection from 127.0.0.1:42488
+[2m2026-03-22T10:26:15.230431Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m session 189: TLS-PSK accept OK
+[2m2026-03-22T10:26:15.270869Z[0m [34mDEBUG[0m [2mbareos_dird::accept[0m[2m:[0m named console 'test-dir' v0.25.0 connected (grpc=false)
+[2m2026-03-22T10:26:15.542871Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 189: CRAM-MD5 auth OK
+[2m2026-03-22T10:26:15.634866Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 189: command 'run job=BackupTest'
+[2m2026-03-22T10:26:15.635322Z[0m [32m INFO[0m [2mbareos_dird::job_worker[0m[2m:[0m spawned worker pid=3253276 job=1 'BackupTest'
+[2m2026-03-22T10:26:15.635335Z[0m [32m INFO[0m [2mbareos_dird::commands::job[0m[2m:[0m Job 1 'BackupTest': worker pid=3253276
+[2m2026-03-22T10:26:15.635479Z[0m [34mDEBUG[0m [2mbareos_dird::job_worker[0m[2m:[0m Worker 1: Init → ConnectingFD
+[2m2026-03-22T10:26:15.640182Z[0m [34mDEBUG[0m [2mbareos_dird::job_worker[0m[2m:[0m Worker 1: ConnectingFD → Error
+[2m2026-03-22T10:26:15.640197Z[0m [31mERROR[0m [2mbareos_dird::job_worker[0m[2m:[0m Worker 1: error — FD connect: TLS-PSK: PSK connect: the handshake failed: error:0A000410:SSL routines:ssl3_read_bytes:ssl/tls alert handshake failure:../ssl/record/rec_layer_s3.c:918:SSL alert number 40
+[2m2026-03-22T10:26:15.678914Z[0m [34mDEBUG[0m [2mbareos_dird::session[0m[2m:[0m session 189: recv: IO error: Connection reset by peer (os error 104)
+[2m2026-03-22T10:26:15.678924Z[0m [32m INFO[0m [2mbareos_dird::session[0m[2m:[0m session 189 (test-dir) ended
+  [32mOK[0m   run job=BackupTest                           
+
+--- 16. Stabilitaet ---
+  [32mOK[0m   Director ALIVE nach allen Tests              
+
+========================================================================
+Ergebnis: [32m96 bestanden[0m, [31m0 fehlgeschlagen[0m, [33m1 uebersprungen[0m, 97 total
+[1;32mSTATUS: BESTANDEN[0m
+========================================================================
+
+--- 17. Director-Log Analyse ---
+tests/test_commands.sh: Zeile 419: [: 0
+0: Ganzzahliger Ausdruck erwartet.
+  [32mOK[0m   Director-Log: 0 unerwartete Fehler           
+tests/test_commands.sh: Zeile 433: [: 0
+0: Ganzzahliger Ausdruck erwartet.
+
+========================================================================
+Gesamt: [32m97 bestanden[0m, [31m0 fehlgeschlagen[0m, [33m1 uebersprungen[0m, 98 total
+[1;32mSTATUS: BESTANDEN[0m
+========================================================================
+tests/test_commands.sh: Zeile 76: [: 0
+0: Ganzzahliger Ausdruck erwartet.
+
+Artefakte gesichert: /home/INTRANET.BERNAU.FAMILY/Joerg.Bernau/Dokumente/Projekte/baReos-dird/tests/results/20260322-112526/
+  test_results.txt  — Testergebnisse
+  director.log      — Director-Log (debug=100)
+  bareos-dir.conf   — Test-Konfiguration
+  summary.txt       — Zusammenfassung
+
+Letzter Lauf: tests/results/latest/
