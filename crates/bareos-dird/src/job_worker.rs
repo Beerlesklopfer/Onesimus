@@ -584,10 +584,11 @@ fn fd_job_setup(fd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams, sd_auth_
     fd.send_str("getSecureEraseCmd\n").map_err(|e| format!("send secErase: {e}"))?;
     let _ = fd.recv_str(); // 2000 OK FDSecureEraseCmd *None*
 
-    let level_cmd = match p.level.as_str() {
-        "incremental" | "differential" => "level = since_utime=0 mtime_only=0 \n".to_string(),
-        _ => format!("level = {}\n", p.level),
-    };
+    // TODO: compute since_utime from last backup timestamp for incr/diff
+    // For now, always send "level = full" — incremental needs proper since_utime
+    // from the catalog (last successful backup's starttime as unix epoch).
+    // since_utime=0 causes FD fatal error.
+    let level_cmd = format!("level = {}\n", p.level);
     send_expect(fd, &level_cmd, "2000 OK level", p.job_id, "FD level")?;
 
     // FileSet

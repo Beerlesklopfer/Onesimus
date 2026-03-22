@@ -1,6 +1,7 @@
 //! Job control commands: run, cancel, enable, disable
 
 use std::sync::atomic::{AtomicU32, Ordering};
+use tracing::info;
 
 use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
@@ -55,11 +56,20 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     }
 
     let default_level = format!("{:?}", job.level);
-    let level = ast.arguments.iter()
+    let mut level = ast.arguments.iter()
         .find(|a| a.key == "level")
         .and_then(|a| a.value.as_deref())
         .unwrap_or(&default_level)
         .to_lowercase();
+
+    // TODO: implement incremental/differential with proper since_utime from catalog.
+    // For now, always upgrade to Full — since_utime=0 causes FD fatal error,
+    // and computing the correct since_utime requires querying the last successful
+    // backup's start time from the catalog.
+    if level != "full" {
+        info!("Upgrading level '{}' → 'full' (incremental not yet implemented)", level);
+        level = "full".to_string();
+    }
 
     let client_name = ast.arguments.iter()
         .find(|a| a.key == "client")

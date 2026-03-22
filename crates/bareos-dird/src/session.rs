@@ -199,13 +199,9 @@ pub fn handle_console_session<S: Read + Write>(
             }
         }
 
-        // Send EOD after command output
-        if bnet.send_signal(BnetSignal::Eod).is_err() {
-            break;
-        }
-
-        // Drain and send any pending bus messages
-        // TODO(R8-full): Drain session bus_rx and send as console text
+        // No EOD needed — the MainPrompt signal at the top of the loop
+        // tells bconsole that the response is complete and it can show the prompt.
+        // Sending EOD before MainPrompt causes bconsole to require double-Enter.
     }
 
     // Cleanup
