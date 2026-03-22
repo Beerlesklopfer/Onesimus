@@ -11,7 +11,12 @@ use crate::command_queue::CommandResult;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn cmd_version(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok(format!("baReos Director Version: {VERSION}"))
+    let os = std::fs::read_to_string("/etc/os-release").ok()
+        .and_then(|s| s.lines()
+            .find(|l| l.starts_with("PRETTY_NAME="))
+            .map(|l| l.trim_start_matches("PRETTY_NAME=").trim_matches('"').to_string()))
+        .unwrap_or_else(|| "Linux".to_string());
+    CommandResult::ok(format!("bareos-dir Version: {VERSION} ({os})"))
 }
 
 pub fn cmd_time(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {

@@ -83,10 +83,14 @@ pub fn handle_console_session<S: Read + Write>(
     let bus_rx = session_mgr.bus().subscribe();
 
     // Command loop
+    // C++ ua_session.cc CommandLoop():
+    //   api=true:  MainPrompt before recv, NO EOD after response
+    //   api=false: NO MainPrompt, EOD after response (HandleMessages)
+    // bconsole uses api=0 (default), so: NO MainPrompt, EOD after response.
     loop {
-        // Send main prompt
-        if bnet.send_signal(BnetSignal::MainPrompt).is_err() {
-            break;
+        // api mode: send MainPrompt before recv
+        if api_mode != command_executor::ApiMode::Human {
+            if bnet.send_signal(BnetSignal::MainPrompt).is_err() { break; }
         }
 
         // Receive command
@@ -199,9 +203,11 @@ pub fn handle_console_session<S: Read + Write>(
             }
         }
 
-        // No EOD needed — the MainPrompt signal at the top of the loop
-        // tells bconsole that the response is complete and it can show the prompt.
-        // Sending EOD before MainPrompt causes bconsole to require double-Enter.
+        // C++ ua_session.cc HandleMessages(): EOD only in non-API mode.
+        // bconsole uses api=0, so it expects EOD after each command response.
+        if api_mode == command_executor::ApiMode::Human {
+            if bnet.send_signal(BnetSignal::Eod).is_err() { break; }
+        }
     }
 
     // Cleanup
