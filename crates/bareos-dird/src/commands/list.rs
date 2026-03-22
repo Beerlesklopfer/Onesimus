@@ -25,6 +25,10 @@ pub fn cmd_list(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     // DB-Query wenn Catalog vorhanden
     if let Some(url) = &ctx.catalog_url {
+        // Check for argument-based queries first (jobid=N, job=NAME)
+        if let Some(result) = list_from_db_with_args(ast, url) {
+            return result;
+        }
         return list_from_db(what, limit, url);
     }
 
@@ -187,6 +191,48 @@ fn list_filesets_from_config(ctx: &ExecContext) -> CommandResult {
     CommandResult::ok("No configuration loaded\n".to_string())
 }
 
+fn list_from_db_with_args(ast: &CommandAst, url: &str) -> Option<CommandResult> {
+    // Handle "list jobid=N"
+    let jobid = ast.arguments.iter()
+        .find(|a| a.key == "jobid")
+        .and_then(|a| a.value.as_deref())
+        .and_then(|v| v.parse::<i64>().ok());
+    if let Some(id) = jobid {
+        let query = format!(
+            "SELECT j.jobid, j.name, j.type, j.level, j.jobstatus, \
+             j.starttime, j.endtime, j.jobfiles, j.jobbytes, j.joberrors \
+             FROM job j WHERE j.jobid = {id}"
+        );
+        return Some(run_db_query(&query, url));
+    }
+
+    // Handle "list job=NAME"
+    let jobname = ast.arguments.iter()
+        .find(|a| a.key == "job")
+        .and_then(|a| a.value.as_deref());
+    if let Some(name) = jobname {
+        let query = format!(
+            "SELECT j.jobid, j.name, j.type, j.level, j.jobstatus, \
+             j.starttime, j.endtime, j.jobfiles, j.jobbytes \
+             FROM job j WHERE j.name = '{}' ORDER BY j.jobid DESC", name.replace('\'', "''")
+        );
+        return Some(run_db_query(&query, url));
+    }
+
+    None
+}
+
+fn run_db_query(query: &str, url: &str) -> CommandResult {
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => return CommandResult::error(format!("Runtime error: {e}\n")),
+    };
+    match rt.block_on(run_query(url, query)) {
+        Ok(output) => CommandResult::ok(output),
+        Err(e) => CommandResult::error(format!("Catalog error: {e}\n")),
+    }
+}
+
 fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
     let query = match what {
         "jobs" => format!(
@@ -211,16 +257,7 @@ fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
         other => return CommandResult::ok(format!("list {other}: unsupported catalog query\n")),
     };
 
-    // Execute via blocking sqlx
-    let rt = match tokio::runtime::Runtime::new() {
-        Ok(rt) => rt,
-        Err(e) => return CommandResult::error(format!("Runtime error: {e}\n")),
-    };
-
-    match rt.block_on(run_query(url, &query)) {
-        Ok(output) => CommandResult::ok(output),
-        Err(e) => CommandResult::error(format!("Catalog error: {e}\n")),
-    }
+    run_db_query(&query, url)
 }
 
 async fn run_query(url: &str, query: &str) -> Result<String, String> {
