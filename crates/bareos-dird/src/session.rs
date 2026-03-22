@@ -76,6 +76,10 @@ pub fn handle_console_session<S: Read + Write>(
     }
 
     let mut state = SessionState::CommandLoop;
+    let mut api_mode = command_executor::ApiMode::Human;
+
+    // Subscribe to MessageBus for job messages, status updates, etc.
+    let bus_rx = session_mgr.bus().subscribe();
 
     // Command loop
     loop {
@@ -102,7 +106,8 @@ pub fn handle_console_session<S: Read + Write>(
                 break;
             }
             Err(e) => {
-                warn!("session {session_id}: recv error: {e}");
+                // Connection reset / broken pipe = normales Session-Ende (kein Fehler)
+                debug!("session {session_id}: recv: {e}");
                 break;
             }
         };
@@ -128,14 +133,33 @@ pub fn handle_console_session<S: Read + Write>(
         // Build catalog URL from config if available
         let catalog_url = config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
             cfg.catalogs.first().map(|cat| {
+                // URL-encode Passwort (Sonderzeichen wie @, :, / etc.)
                 let pass = if cat.db_password.is_empty() {
                     String::new()
                 } else {
-                    format!(":{}", cat.db_password)
+                    let encoded: String = cat.db_password.bytes().map(|b| {
+                        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
+                            format!("{}", b as char)
+                        } else {
+                            format!("%{:02X}", b)
+                        }
+                    }).collect();
+                    format!(":{}", encoded)
                 };
-                // Always TCP — DB is typically on an external SQL server
-                format!("postgres://{}{}@{}:{}/{}",
-                    cat.db_user, pass, cat.db_address, cat.db_port, cat.db_name)
+
+                // Leere/localhost Adresse → Unix-Socket (peer auth, wie C++ libpq)
+                // Explizite Adresse → TCP
+                if cat.db_address.is_empty()
+                    || cat.db_address == "localhost"
+                    || cat.db_address == "127.0.0.1"
+                {
+                    // Unix-Socket: sqlx braucht einen host in der URL + socket path
+                    format!("postgres://{}{}@localhost/{db}?host=/var/run/postgresql",
+                        cat.db_user, pass, db = cat.db_name)
+                } else {
+                    format!("postgres://{}{}@{}:{}/{}",
+                        cat.db_user, pass, cat.db_address, cat.db_port, cat.db_name)
+                }
             })
         });
 
@@ -144,8 +168,22 @@ pub fn handle_console_session<S: Read + Write>(
             config: config.clone(),
             session_mgr: Some(session_mgr.clone()),
             catalog_url,
+            api_mode,
+            bus_rx: Some(bus_rx.clone()),
         };
         let result = command_executor::dispatch(&ast, &ctx);
+
+        // .api command changes session api_mode
+        if ast.command_name == ".api" {
+            if let Some(mode_str) = ast.arguments.first().map(|a| a.value.as_deref().unwrap_or(a.key.as_str())) {
+                api_mode = match mode_str {
+                    "0" | "off" => command_executor::ApiMode::Human,
+                    "1" | "on" => command_executor::ApiMode::Api,
+                    "2" | "json" => command_executor::ApiMode::Json,
+                    _ => api_mode,
+                };
+            }
+        }
 
         // Send result
         if !result.text_output.is_empty() {

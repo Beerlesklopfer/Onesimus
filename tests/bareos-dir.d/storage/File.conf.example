@@ -1,0 +1,10 @@
+Storage {
+  Name = File       # Same name to replace the default single File storage
+  Description = "virtual file autochanger with autonumbered device"
+  Address = WS-JOERG.intranet.bernau.family                # N.B. Use a fully qualified name here (do not use "localhost" here).
+  Password = "P3K1L+hDqeAgSgCWMjWlZo3ApxDUWUETnJHOEx1oN95T"
+  Device = FileStorage
+  Media Type = File
+  # Better to keep this synchronized with storage->device->vfile Count parameters
+  Maximum Concurrent Jobs = 10
+}

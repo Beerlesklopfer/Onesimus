@@ -1,0 +1,470 @@
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1788050962.1774108413@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="+6o27w/J/+8gMz+Vw5IRJC" expected_bareos="+6o27w/J/+8gMz+Vw5IRJC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1509496734.1774108414@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="w9+WB9V5gW906y+9g2/QTC" expected_bareos="w9+WB9V5gW906y+9g2/QTC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1054938055.1774108414@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="mQpIIh+eZ9+lu5+rQEB5xA" expected_bareos="mQpIIh+eZ9+lu5+rQEB5xA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1658045380.1774108415@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="V8MBr8+7PU/8viQoi9+rKC" expected_bareos="V8MBr8+7PU/8viQoi9+rKC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1211681314.1774108415@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="u7Uxvy+qk9J5GV+q6G0yMC" expected_bareos="u7Uxvy+qk9J5GV+q6G0yMC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<640702889.1774108416@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="K9Z2yW+E2XgbD9/W//E3NC" expected_bareos="K9Z2yW+E2XgbD9/W//E3NC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<266122745.1774108416@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="rRwDlT+Ca4/cun/4+0++5C" expected_bareos="rRwDlT+Ca4/cun/4+0++5C"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3501755271.1774108417@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="s7+Fo2+nw1+okR/0l5/TKA" expected_bareos="s7+Fo2+nw1+okR/0l5/TKA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<231189579.1774108417@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="rj+cjQ1WYUBF49/2R+oGEB" expected_bareos="rj+cjQ1WYUBF49/2R+oGEB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3328438320.1774108418@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="dgJc5mp4t6Qddn1140Es+D" expected_bareos="dgJc5mp4t6Qddn1140Es+D"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2847758950.1774108418@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="BwUL94+x56+gzUpce+/0FD" expected_bareos="BwUL94+x56+gzUpce+/0FD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<205974114.1774108419@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="N4g9m6QSbA9NI9+Z+A+0YA" expected_bareos="N4g9m6QSbA9NI9+Z+A+0YA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3144391849.1774108419@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="e6p+M5+a95+zUAEdz4tYIC" expected_bareos="e6p+M5+a95+zUAEdz4tYIC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1100541932.1774108420@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="2/stJ6/6w1VA3FEysw+09B" expected_bareos="2/stJ6/6w1VA3FEysw+09B"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3442482061.1774108420@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="j/pJlT/8B7+t+hg70Fxz5C" expected_bareos="j/pJlT/8B7+t+hg70Fxz5C"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1028569613.1774108421@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="h9cWf+/7e5/Ui6sMr708XC" expected_bareos="h9cWf+/7e5/Ui6sMr708XC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2216336026.1774108421@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="ojhq25//3CZDWi+U44RM3C" expected_bareos="ojhq25//3CZDWi+U44RM3C"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3899913126.1774108422@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="A9l0hyR4PiZdCR8lo5/uFC" expected_bareos="A9l0hyR4PiZdCR8lo5/uFC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3648049835.1774108422@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="JS+hOx/s54+KA5/tzF/WHB" expected_bareos="JS+hOx/s54+KA5/tzF/WHB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3882976557.1774108423@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="y4+jg6+smR/v24wprigd4B" expected_bareos="y4+jg6+smR/v24wprigd4B"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3515509925.1774108423@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="pW/RfC/NhT/mLhIWVHBmDA" expected_bareos="pW/RfC/NhT/mLhIWVHBmDA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2642607469.1774108424@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="15c4d3xFL0/5JxZeaW/weC" expected_bareos="15c4d3xFL0/5JxZeaW/weC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3362306334.1774108424@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="Ci+Hu++Ar/dr6ywFH8hzrA" expected_bareos="Ci+Hu++Ar/dr6ywFH8hzrA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2886504844.1774108425@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="LA/TmXEkTl/zr7x649AwKC" expected_bareos="LA/TmXEkTl/zr7x649AwKC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1562499747.1774108425@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="O+9H6k/lT+AF29/pKi/UjD" expected_bareos="O+9H6k/lT+AF29/pKi/UjD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<16369164.1774108426@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="xU/EM+/rm9/Sjg/3g2+cdB" expected_bareos="xU/EM+/rm9/Sjg/3g2+cdB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<826211487.1774108426@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="a8N2/V/eSG/oaD+pUx+OKD" expected_bareos="a8N2/V/eSG/oaD+pUx+OKD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2207583516.1774108427@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="uA+9Mh9A62+6Hn/qu6FP/A" expected_bareos="uA+9Mh9A62+6Hn/qu6FP/A"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<4129275858.1774108427@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="MwR3m9+EH/+m7SpV15wHyA" expected_bareos="MwR3m9+EH/+m7SpV15wHyA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2604831664.1774108428@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="o8U8T7+wA6/xEg/rQgd9GB" expected_bareos="o8U8T7+wA6/xEg/rQgd9GB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2350320423.1774108428@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="U45c930UWGgmIAw4Uh+sCD" expected_bareos="U45c930UWGgmIAw4Uh+sCD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<921701878.1774108429@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="d6/YkB/Fb9+cQ5/Oz++bUD" expected_bareos="d6/YkB/Fb9+cQ5/Oz++bUD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3513013991.1774108429@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="X+A6P/wUe8/j8543h8/TbC" expected_bareos="X+A6P/wUe8/j8543h8/TbC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2646269632.1774108430@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="N5/5c/xeI9+uz4+MzkkZbB" expected_bareos="N5/5c/xeI9+uz4+MzkkZbB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3306146835.1774108430@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="c4Zr34Zo9+E61AlHm6+AZA" expected_bareos="c4Zr34Zo9+E61AlHm6+AZA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3971963909.1774108431@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="F70bjQ/GoD0Vm9/tPA/feC" expected_bareos="F70bjQ/GoD0Vm9/tPA/feC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3745938215.1774108431@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="+x/4nh/oy7+O8i/Rdj+1FB" expected_bareos="+x/4nh/oy7+O8i/Rdj+1FB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3756866335.1774108432@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="0xJgth+gLkopL/+rR+lUsA" expected_bareos="0xJgth+gLkopL/+rR+lUsA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3765707521.1774108432@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="DV/LXj+4wn4qd5/0q1/HRA" expected_bareos="DV/LXj+4wn4qd5/0q1/HRA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1173858435.1774108433@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="xElAp6+9Uk/w75/2e40huD" expected_bareos="xElAp6+9Uk/w75/2e40huD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3639465325.1774108433@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="0856G1+T0w+3b9IxXl/Q0B" expected_bareos="0856G1+T0w+3b9IxXl/Q0B"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1938542224.1774108434@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="J8/xR6/lCm+uV5+Gd6wu1A" expected_bareos="J8/xR6/lCm+uV5+Gd6wu1A"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<938280831.1774108434@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="hAA1FR+LG+/183Mle+dTxD" expected_bareos="hAA1FR+LG+/183Mle+dTxD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<4243336544.1774108435@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="d/+tYGYr0k/XQEpDoyleyA" expected_bareos="d/+tYGYr0k/XQEpDoyleyA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3667300519.1774108435@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="f5+sJC/7Tz/zvTN+H4/XAB" expected_bareos="f5+sJC/7Tz/zvTN+H4/XAB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<680473932.1774108436@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="nj+W16t+p6AGv50tIh0ldB" expected_bareos="nj+W16t+p6AGv50tIh0ldB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<583933584.1774108436@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="U6l8dx+XD9+ex4wxg8RGrC" expected_bareos="U6l8dx+XD9+ex4wxg8RGrC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2669060430.1774108437@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="Z9+R0HIdF8MBk5Jgj6sxjA" expected_bareos="Z9+R0HIdF8MBk5Jgj6sxjA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<365281160.1774108437@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="vj+nx++314++Cw/U16/a8B" expected_bareos="vj+nx++314++Cw/U16/a8B"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2580793495.1774108438@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="J5+9Y+/aR4AyU5/tm8+KQA" expected_bareos="J5+9Y+/aR4AyU5/tm8+KQA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3082089320.1774108438@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="F7/9cW8K9U/CQ+Jj18IHcB" expected_bareos="F7/9cW8K9U/CQ+Jj18IHcB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3693926809.1774108439@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="2y+wQnwoZjQ0e5/bm8VXUA" expected_bareos="2y+wQnwoZjQ0e5/bm8VXUA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3334056993.1774108439@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="g6Y/bSw+NH/C3/k37G/kaB" expected_bareos="g6Y/bSw+NH/C3/k37G/kaB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3154917050.1774108440@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="DX/dE9+ESX/CJn+9H8E7iC" expected_bareos="DX/dE9+ESX/CJn+9H8E7iC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3794828918.1774108440@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="M5/CxR+h8++8E5pvUR+7WB" expected_bareos="M5/CxR+h8++8E5pvUR+7WB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2492904675.1774108441@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="E6/n7C+sGUVQER/oTz/sWA" expected_bareos="E6/n7C+sGUVQER/oTz/sWA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<420635583.1774108441@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="5/MJJ/FBG4+JO9+4IC/TfB" expected_bareos="5/MJJ/FBG4+JO9+4IC/TfB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2176171687.1774108442@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="c/+P9y+xKV/z82/oX7Bw0D" expected_bareos="c/+P9y+xKV/z82/oX7Bw0D"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2515866628.1774108442@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="M4+7F+5SjU+D59/Gh7/MGA" expected_bareos="M4+7F+5SjU+D59/Gh7/MGA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<358533056.1774108443@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="48/QClIbtX4xo9NAa40BbA" expected_bareos="48/QClIbtX4xo9NAa40BbA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2001784464.1774108443@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="cA+JL+My7m/Gu3Rsq7x0jD" expected_bareos="cA+JL+My7m/Gu3Rsq7x0jD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2276912383.1774108444@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="L5/M9FYDvx////N6f+8KND" expected_bareos="L5/M9FYDvx////N6f+8KND"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1731365181.1774108444@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="b61ZSX/6Ohd5q/0LkiUW3B" expected_bareos="b61ZSX/6Ohd5q/0LkiUW3B"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2605229645.1774108445@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="KV+wLA+abk/LN7/Gn6/mVA" expected_bareos="KV+wLA+abk/LN7/Gn6/mVA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<757995435.1774108445@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="V7h6D40Gp8FobnZUJ6+lID" expected_bareos="V7h6D40Gp8FobnZUJ6+lID"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<867278886.1774108446@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="f5BMkA+StzABtmFdD7+RKB" expected_bareos="f5BMkA+StzABtmFdD7+RKB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<4104180486.1774108446@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="2A/C13Vs39h/Bl8WX4I1pC" expected_bareos="2A/C13Vs39h/Bl8WX4I1pC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1782818208.1774108447@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="oGh6b7/Wfh/pL4+Xw6+yiD" expected_bareos="oGh6b7/Wfh/pL4+Xw6+yiD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1771221810.1774108447@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="pGJcMzlVFi/U96/0JS+n2D" expected_bareos="pGJcMzlVFi/U96/0JS+n2D"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1275683357.1774108448@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="WkEUx5+mkQ+dV5N1GXE43A" expected_bareos="WkEUx5+mkQ+dV5N1GXE43A"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2073049537.1774108448@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="n683X4s487/q5G/7P8cmpD" expected_bareos="n683X4s487/q5G/7P8cmpD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2197270420.1774108449@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="e0+UyWUAci/PY//098+WPB" expected_bareos="e0+UyWUAci/PY//098+WPB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<4167480417.1774108449@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="N69te0xTk/hHAw/mW9+wYD" expected_bareos="N69te0xTk/hHAw/mW9+wYD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1886429971.1774108450@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="aV/di/+4Z9/BUF+mb8U2vA" expected_bareos="aV/di/+4Z9/BUF+mb8U2vA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<122700033.1774108450@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="Cl/zlj/trk+Z7+BO+V5UPC" expected_bareos="Cl/zlj/trk+Z7+BO+V5UPC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3897305065.1774108451@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="LTh437+EyDYnzy+jz++IvA" expected_bareos="LTh437+EyDYnzy+jz++IvA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2045280540.1774108451@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="n5g4hj5qNBEpCU/1i6VkyB" expected_bareos="n5g4hj5qNBEpCU/1i6VkyB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3564994775.1774108452@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="d+/Q4/NFh1pLm85yDgchwA" expected_bareos="d+/Q4/NFh1pLm85yDgchwA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3560247737.1774108452@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="c5J4x6/jFz+nn++vT//d/B" expected_bareos="c5J4x6/jFz+nn++vT//d/B"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<713105292.1774108453@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="Q9FBfz/3B7/pR++4v9+3ED" expected_bareos="Q9FBfz/3B7/pR++4v9+3ED"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3434179890.1774108453@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="i7+k6nQ6V1patxhofEg+TD" expected_bareos="i7+k6nQ6V1patxhofEg+TD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3123316238.1774108454@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="j4+krSQwyx+Xe7t+/1BzOB" expected_bareos="j4+krSQwyx+Xe7t+/1BzOB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<4203807583.1774108454@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="uG/Ms/Zyl//i1QIoM4BZsD" expected_bareos="uG/Ms/Zyl//i1QIoM4BZsD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1021243354.1774108455@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="/XM9oy1Cf8AH3gwEwmJLjC" expected_bareos="/XM9oy1Cf8AH3gwEwmJLjC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2761663860.1774108455@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="Y6Efo8/F1SAIgx/oK8/coA" expected_bareos="Y6Efo8/F1SAIgx/oK8/coA"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3959304511.1774108456@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="Gl/jOD+UC8sKTm/K/3gnXC" expected_bareos="Gl/jOD+UC8sKTm/K/3gnXC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<862226198.1774108456@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="g4/Di4kFHEE0T4/1D8/tSB" expected_bareos="g4/Di4kFHEE0T4/1D8/tSB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<55307481.1774108457@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="9w/b/59Q1iEtbGo4sh+dLB" expected_bareos="9w/b/59Q1iEtbGo4sh+dLB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3545648201.1774108457@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="C7EUW1ov341ZEV+nKGpklC" expected_bareos="C7EUW1ov341ZEV+nKGpklC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1485232366.1774108458@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="L//4uwoLgx+SWBxtd7+sHD" expected_bareos="L//4uwoLgx+SWBxtd7+sHD"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3819173772.1774108458@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="MnNJF6pmW++win/2/++3wC" expected_bareos="MnNJF6pmW++win/2/++3wC"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<1150884729.1774108459@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="hl/OI5Vz48//Pyg056lGjB" expected_bareos="hl/OI5Vz48//Pyg056lGjB"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<2025208472.1774108459@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="8+pfx58cg+/Jw+UM1x+b2A" expected_bareos="8+pfx58cg+/Jw+UM1x+b2A"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth
+bareos-dir (100): cram_md5.rs:104 CRAM-MD5 challenge sent: "<3072967048.1774108460@bareos-dir>"
+bareos-dir (100): cram_md5.rs:105 CRAM-MD5 response got="o7R1n/cyH4+e76k+hjZh0B" expected_bareos="o7R1n/cyH4+e76k+hjZh0B"
+bareos-dir (100): cram_md5.rs:112 CRAM-MD5 challenge phase: match=true
+bareos-dir (100): cram_md5.rs:132 CRAM-MD5 respond: received challenge
+bareos-dir (100): cram_md5.rs:147 CRAM-MD5 respond: result=1000 OK auth

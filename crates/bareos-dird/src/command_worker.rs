@@ -29,6 +29,8 @@ pub fn command_worker_loop(
                 config: config.clone(),
                 session_mgr: session_mgr.clone(),
                 catalog_url: None,
+                api_mode: command_executor::ApiMode::Api,
+                bus_rx: None,
             };
 
             debug!("executing command '{}' from queue", cmd.ast.command_name);

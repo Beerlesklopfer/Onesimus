@@ -129,7 +129,9 @@ fn handle_connection(
 ) {
     // Peek at first byte to detect TLS ClientHello (0x16) vs plaintext BNET
     // Use a short read timeout so we don't block forever
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(30))).ok();
+    // Console-Sessions: kein harter read-timeout — User kann lange am Prompt sitzen.
+    // Die Session endet durch quit/SIGTERM/Connection-Reset, nicht durch Timeout.
+    stream.set_read_timeout(None).ok();
     let mut peek_buf = [0u8; 1];
     match stream.peek(&mut peek_buf) {
         Ok(1) => {

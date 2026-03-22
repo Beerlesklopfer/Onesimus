@@ -14,6 +14,9 @@ pub enum Resource {
     FileSet(FileSetResource),
     Pool(PoolResource),
     Console(ConsoleResource),
+    JobDefs(JobDefsResource),
+    Messages(MessagesResource),
+    Profile(ProfileResource),
 }
 
 #[derive(Debug, Clone)]
@@ -78,10 +81,18 @@ pub struct JobResource {
     pub schedule: String,
     pub storage: String,
     pub pool: String,
+    pub full_backup_pool: String,
+    pub differential_backup_pool: String,
+    pub incremental_backup_pool: String,
     pub messages: String,
     pub priority: i32,
     pub max_concurrent_jobs: u32,
     pub enabled: bool,
+    pub write_bootstrap: String,
+    /// Name of the JobDefs resource to inherit from
+    pub jobdefs: String,
+    pub run_before_job: String,
+    pub run_after_job: String,
 }
 
 impl Default for JobResource {
@@ -95,10 +106,17 @@ impl Default for JobResource {
             schedule: String::new(),
             storage: String::new(),
             pool: String::new(),
+            full_backup_pool: String::new(),
+            differential_backup_pool: String::new(),
+            incremental_backup_pool: String::new(),
             messages: String::new(),
             priority: 10,
             max_concurrent_jobs: 1,
             enabled: true,
+            write_bootstrap: String::new(),
+            jobdefs: String::new(),
+            run_before_job: String::new(),
+            run_after_job: String::new(),
         }
     }
 }
@@ -220,4 +238,24 @@ pub struct PoolResource {
 pub struct ConsoleResource {
     pub name: String,
     pub password: String,
+}
+
+/// JobDefs resource — template for Job resources.
+/// Contains a full JobResource that serves as default values.
+#[derive(Debug, Clone)]
+pub struct JobDefsResource {
+    pub name: String,
+    pub job: JobResource,
+}
+
+/// Messages resource — message routing configuration.
+#[derive(Debug, Clone)]
+pub struct MessagesResource {
+    pub name: String,
+}
+
+/// Profile resource — ACL profile for Console access control.
+#[derive(Debug, Clone)]
+pub struct ProfileResource {
+    pub name: String,
 }

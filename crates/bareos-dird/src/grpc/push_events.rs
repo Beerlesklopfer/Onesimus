@@ -64,6 +64,12 @@ pub fn to_push_event(msg: &BusMessage) -> PushEvent {
                 timestamp: *timestamp,
             })
         }
+        BusMessage::JobMessage { job_id, job_name, text, timestamp, .. } => {
+            // JobMessage als ConsoleText ueber gRPC senden
+            push_event::Event::ConsoleText(ConsoleTextEvent {
+                text: format!("JobId={job_id} {job_name}: {text}"),
+            })
+        }
     };
 
     PushEvent { event: Some(event) }

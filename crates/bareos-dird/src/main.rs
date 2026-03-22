@@ -14,6 +14,7 @@ mod director_config;
 mod fd_protocol;
 mod fsm;
 mod grpc;
+mod job_monitor;
 mod job_runner;
 mod job_worker;
 mod message_bus;
@@ -30,7 +31,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use clap::Parser;
-use tracing::{info, error, warn};
+use tracing::{info, error, warn, debug};
 use tracing_subscriber::EnvFilter;
 
 use crate::command_queue::CommandQueue;
@@ -175,6 +176,42 @@ fn main() {
         warn!("config file {} not found, using defaults", cli.config.display());
         DirectorConfig::from_str("Director { Name = bareos-dir\n Port = 9101\n Password = default\n }").unwrap()
     };
+
+    // Auto-migrate catalog database if catalog is configured
+    if let Some(cat) = config.catalogs.first() {
+        let db_url = if cat.db_address.is_empty() || cat.db_address == "localhost" || cat.db_address == "127.0.0.1" {
+            format!("postgres://{}@localhost/{}?host=/var/run/postgresql", cat.db_user, cat.db_name)
+        } else {
+            format!("postgres://{}@{}:{}/{}", cat.db_user, cat.db_address, cat.db_port, cat.db_name)
+        };
+
+        // Schema-Verzeichnis: relativ zum Binary (dev) oder /usr/lib/bareos/ddl/schema (installed)
+        let schema_dir = [
+            // Dev: binary in target/release/, schema in crates/bareos-orm/schema/
+            std::env::current_exe().ok()
+                .and_then(|p| p.parent()?.parent()?.parent().map(|d| d.join("crates/bareos-orm/schema"))),
+            // Installed
+            Some(std::path::PathBuf::from("/usr/lib/bareos/ddl/schema")),
+        ].into_iter().flatten().find(|p| p.exists())
+         .unwrap_or_else(|| std::path::PathBuf::from("/usr/lib/bareos/ddl/schema"));
+
+        if schema_dir.exists() {
+            let migrator = bareos_orm::migration::Migrator::new(&schema_dir);
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            match rt.block_on(async {
+                let pool = sqlx::postgres::PgPoolOptions::new()
+                    .max_connections(1)
+                    .connect(&db_url).await?;
+                migrator.migrate(&pool).await
+            }) {
+                Ok(0) => info!("catalog '{}' schema up to date", cat.db_name),
+                Ok(n) => info!("catalog '{}': applied {} schema migration(s)", cat.db_name, n),
+                Err(e) => warn!("catalog migration failed: {e} (continuing without catalog)"),
+            }
+        } else {
+            debug!("no schema directory found at {}, skipping migration", schema_dir.display());
+        }
+    }
 
     // --test-config: validate and exit
     if cli.test_config {

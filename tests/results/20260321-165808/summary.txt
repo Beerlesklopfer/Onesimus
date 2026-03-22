@@ -1,0 +1,17 @@
+baReos Director — QM Test-Protokoll
+====================================
+Datum:      2026-03-21 16:58:57
+Timestamp:  20260321-165808
+Director:   ./target/release/bareos-dird
+Console:    ./target/release/brconsole
+Version:    bareos-dird 0.25.0
+Port:       29101
+Host:       WS-JOERG.intranet.bernau.family
+Kernel:     6.12.74+deb13+1-amd64
+
+Ergebnis:   95 bestanden, 1 fehlgeschlagen, 1 uebersprungen, 97 total
+Status:     FEHLGESCHLAGEN
+
+Director-Log:
+  WARN/ERROR Eintraege: 0
+0

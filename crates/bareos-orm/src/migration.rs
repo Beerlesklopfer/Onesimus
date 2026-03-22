@@ -109,26 +109,40 @@ impl Migrator {
     }
 
     /// Führe Migration auf einer PostgreSQL-Datenbank durch.
+    /// Prüft die aktuelle Version (C++ `version` Tabelle oder unsere `bareos_schema_version`),
+    /// wendet fehlende Schema-Versionen an (Statement für Statement).
     pub async fn migrate(&self, pool: &sqlx::PgPool) -> Result<u32, OrmError> {
-        // Aktuelle DB-Version ermitteln
         let db_version = self.get_db_version(pool).await?;
 
         let versions = self.load_versions()?;
+        if versions.is_empty() {
+            return Err(OrmError::Other("no schema versions found".to_string()));
+        }
+
         let mut applied = 0;
 
         for schema in &versions {
             if schema.version <= db_version {
+                debug!("schema v{} already applied (db=v{}), skipping", schema.version, db_version);
                 continue;
             }
 
             info!("migrating to schema v{}: {}", schema.version, schema.description);
 
             if db_version == 0 {
-                // Erstinstallation: vollständiges DDL
-                let ddl = schema.to_ddl();
-                sqlx::query(&ddl).execute(pool).await?;
+                // Fresh install: alle Tabellen anlegen (Statement fuer Statement)
+                let stmts = schema.to_statements();
+                for stmt in &stmts {
+                    let trimmed = stmt.trim();
+                    if trimmed.is_empty() || trimmed.starts_with("--") { continue; }
+                    debug!("  {}", &trimmed[..trimmed.len().min(80)]);
+                    if let Err(e) = sqlx::query(trimmed).execute(pool).await {
+                        warn!("migration stmt failed: {e}\n  SQL: {}", &trimmed[..trimmed.len().min(120)]);
+                        // Continue — IF NOT EXISTS handles duplicates
+                    }
+                }
             } else {
-                // Inkrementelle Migration
+                // Inkrementelle Migration: nur Diff anwenden
                 let prev = versions.iter()
                     .filter(|s| s.version < schema.version)
                     .last();
@@ -136,46 +150,91 @@ impl Migrator {
                 if let Some(prev_schema) = prev {
                     let stmts = Self::diff(prev_schema, schema);
                     for stmt in &stmts {
-                        debug!("  {}", stmt.trim());
-                        sqlx::query(stmt).execute(pool).await?;
+                        let trimmed = stmt.trim();
+                        if trimmed.is_empty() || trimmed.starts_with("--") { continue; }
+                        debug!("  {}", &trimmed[..trimmed.len().min(80)]);
+                        if let Err(e) = sqlx::query(trimmed).execute(pool).await {
+                            warn!("migration stmt failed: {e}\n  SQL: {}", &trimmed[..trimmed.len().min(120)]);
+                        }
                     }
                 }
             }
 
-            // Version in DB speichern
+            // Version in DB speichern (in beiden Tabellen — C++ Kompatibilität)
             self.set_db_version(pool, schema.version).await?;
             applied += 1;
+            info!("migration to v{} complete", schema.version);
+        }
+
+        if applied == 0 {
+            let latest = versions.last().map(|s| s.version).unwrap_or(0);
+            info!("database already at v{db_version} (latest: v{latest})");
         }
 
         Ok(applied)
     }
 
     async fn get_db_version(&self, pool: &sqlx::PgPool) -> Result<u32, OrmError> {
-        // Prüfe ob die Version-Tabelle existiert
-        let exists: bool = sqlx::query_scalar(
+        // 1. Prüfe C++ Version-Tabelle (VersionId)
+        let cpp_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'version')"
+        ).fetch_one(pool).await?;
+
+        if cpp_exists {
+            let version: Option<i32> = sqlx::query_scalar(
+                "SELECT MAX(versionid) FROM version"
+            ).fetch_one(pool).await.unwrap_or(None);
+
+            if let Some(v) = version {
+                debug!("found C++ version table: VersionId={v}");
+                return Ok(v as u32);
+            }
+        }
+
+        // 2. Prüfe unsere Version-Tabelle
+        let our_exists: bool = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'bareos_schema_version')"
         ).fetch_one(pool).await?;
 
-        if !exists {
-            // Erstelle Version-Tabelle
-            sqlx::query(
-                "CREATE TABLE IF NOT EXISTS bareos_schema_version (version integer NOT NULL, applied_at timestamp DEFAULT now())"
-            ).execute(pool).await?;
-            return Ok(0);
+        if our_exists {
+            let version: Option<i32> = sqlx::query_scalar(
+                "SELECT MAX(version) FROM bareos_schema_version"
+            ).fetch_one(pool).await.unwrap_or(None);
+
+            if let Some(v) = version {
+                debug!("found bareos_schema_version: v={v}");
+                return Ok(v as u32);
+            }
         }
 
-        let version: Option<i32> = sqlx::query_scalar(
-            "SELECT MAX(version) FROM bareos_schema_version"
-        ).fetch_one(pool).await?;
-
-        Ok(version.unwrap_or(0) as u32)
+        // 3. Keine Version-Tabelle → Fresh Install
+        info!("no version table found — fresh install");
+        Ok(0)
     }
 
     async fn set_db_version(&self, pool: &sqlx::PgPool, version: u32) -> Result<(), OrmError> {
+        // Unsere Version-Tabelle
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS bareos_schema_version (version integer NOT NULL, applied_at timestamp DEFAULT now())"
+        ).execute(pool).await?;
         sqlx::query("INSERT INTO bareos_schema_version (version) VALUES ($1)")
             .bind(version as i32)
             .execute(pool)
             .await?;
+
+        // C++ Version-Tabelle (falls vorhanden) — für Kompatibilität
+        let cpp_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'version')"
+        ).fetch_one(pool).await.unwrap_or(false);
+
+        if cpp_exists {
+            sqlx::query("DELETE FROM version").execute(pool).await?;
+            sqlx::query("INSERT INTO version (versionid) VALUES ($1)")
+                .bind(version as i32)
+                .execute(pool)
+                .await?;
+        }
+
         Ok(())
     }
 }

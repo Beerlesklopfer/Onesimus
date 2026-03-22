@@ -42,7 +42,7 @@ pub fn query_sd_status(
             addr.to_socket_addrs().ok().and_then(|mut a| a.next())
                 .unwrap_or_else(|| format!("127.0.0.1:{port}").parse().unwrap())
         },
-        Duration::from_secs(10),
+        Duration::from_secs(3),
     ) {
         Ok(s) => s,
         Err(e) => return fail(storage_name, &format!("Connect to {addr} failed: {e}")),
@@ -61,7 +61,12 @@ pub fn query_sd_status(
         }
         Err(e) => {
             debug!("SD {storage_name}: TLS-PSK failed ({e}), trying cleartext");
-            match TcpStream::connect_timeout(&addr.parse().unwrap(), Duration::from_secs(10)) {
+            use std::net::ToSocketAddrs;
+            let sock_addr = match addr.to_socket_addrs().ok().and_then(|mut a| a.next()) {
+                Some(a) => a,
+                None => return fail(storage_name, &format!("DNS resolve {addr} failed")),
+            };
+            match TcpStream::connect_timeout(&sock_addr, Duration::from_secs(3)) {
                 Ok(s2) => {
                     s2.set_read_timeout(Some(Duration::from_secs(30))).ok();
                     do_sd_status(BnetStream::new(s2), password, director_name, storage_name)
@@ -103,8 +108,8 @@ fn do_sd_status<S: std::io::Read + std::io::Write>(
         Err(e) => return fail(storage_name, &format!("SD hello recv failed: {e}")),
     }
 
-    // 6. Send status
-    if let Err(e) = bnet.send_str(".status") {
+    // 6. Send status (SD erwartet "status" ohne Punkt)
+    if let Err(e) = bnet.send_str("status") {
         return fail(storage_name, &format!("Status send failed: {e}"));
     }
 

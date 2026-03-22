@@ -5,8 +5,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
-use crate::job_runner;
+use crate::job_worker::{self, JobParams};
+use crate::job_monitor;
 use crate::message_bus::BusMessage;
+use bareos_config::resources::JobType;
 
 static NEXT_JOB_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -46,7 +48,7 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     let job = match config.find_job(job_name) {
         Some(j) => j.clone(),
-        None => return CommandResult::error(format!("Job '{job_name}' not found in configuration\n")),
+        None => return CommandResult::error(format!("Job '{job_name}' not found\n")),
     };
 
     if !job.enabled {
@@ -57,85 +59,96 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let level = ast.arguments.iter()
         .find(|a| a.key == "level")
         .and_then(|a| a.value.as_deref())
-        .unwrap_or(&default_level);
+        .unwrap_or(&default_level)
+        .to_lowercase();
 
-    let client = ast.arguments.iter()
+    let client_name = ast.arguments.iter()
         .find(|a| a.key == "client")
         .and_then(|a| a.value.as_deref())
         .unwrap_or(&job.client);
 
-    let storage = ast.arguments.iter()
+    let storage_name = ast.arguments.iter()
         .find(|a| a.key == "storage")
         .and_then(|a| a.value.as_deref())
         .unwrap_or(&job.storage);
 
-    let pool = ast.arguments.iter()
-        .find(|a| a.key == "pool")
-        .and_then(|a| a.value.as_deref())
-        .unwrap_or(&job.pool);
+    // Pool override based on level
+    let pool = match level.as_str() {
+        "full" if !job.full_backup_pool.is_empty() => &job.full_backup_pool,
+        "differential" if !job.differential_backup_pool.is_empty() => &job.differential_backup_pool,
+        "incremental" if !job.incremental_backup_pool.is_empty() => &job.incremental_backup_pool,
+        _ => &job.pool,
+    };
 
-    // Verify client exists
-    if !client.is_empty() {
-        if config.find_client(client).is_none() {
-            return CommandResult::error(format!("Client '{client}' not found in configuration\n"));
-        }
+    // Verify resources exist
+    let client_res = config.find_client(client_name);
+    let storage_res = config.find_storage(storage_name);
+    let fileset_res = config.find_fileset(&job.fileset);
+
+    if client_res.is_none() {
+        return CommandResult::error(format!("Client '{client_name}' not found\n"));
+    }
+    if storage_res.is_none() {
+        return CommandResult::error(format!("Storage '{storage_name}' not found\n"));
     }
 
-    // Verify storage exists
-    if !storage.is_empty() {
-        if config.find_storage(storage).is_none() {
-            return CommandResult::error(format!("Storage '{storage}' not found in configuration\n"));
-        }
-    }
-
-    let output = format!(
-        "Job queued. JobId=1\n\
-         Run {:?} job\n\
-         Job:        {}\n\
-         Level:      {}\n\
-         Client:     {}\n\
-         Storage:    {}\n\
-         Pool:       {}\n\
-         FileSet:    {}\n\
-         Priority:   {}\n\
-         When:       now\n",
-        job.job_type, job.name, level, client, storage, pool, job.fileset, job.priority,
-    );
+    let client = client_res.unwrap();
+    let storage = storage_res.unwrap();
+    let dir_name = config.director.name.clone();
 
     let job_id = NEXT_JOB_ID.fetch_add(1, Ordering::Relaxed);
 
-    // Post job queued event
+    // Unique job name
+    let now = chrono::Local::now();
+    let unique_job = format!("{}.{}", job.name, now.format("%Y-%m-%d_%H.%M.%S_%f"));
+
+    // Build JobParams for the autonomous worker
+    let params = JobParams {
+        job_id,
+        unique_job: unique_job.clone(),
+        job_name: job.name.clone(),
+        level: level.clone(),
+        fd_address: client.address.clone(),
+        fd_port: client.port,
+        fd_password: client.password.clone(),
+        sd_address: storage.address.clone(),
+        sd_port: storage.port,
+        sd_password: storage.password.clone(),
+        sd_device: storage.device.clone(),
+        sd_media_type: storage.media_type.clone(),
+        director_name: dir_name,
+        pool_name: pool.to_string(),
+        fileset_includes: fileset_res.map(|f| f.include_blocks.clone()).unwrap_or_default(),
+        fileset_excludes: fileset_res.map(|f| f.exclude_blocks.clone()).unwrap_or_default(),
+    };
+
+    drop(config); // Release RwLock before fork
+
+    // Post queued status
     if let Some(smgr) = &ctx.session_mgr {
         smgr.bus().post(BusMessage::JobStatus {
-            job_id,
-            job_name: job.name.clone(),
-            status: "Queued".to_string(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs() as i64,
+            job_id, job_name: job.name.clone(), status: "Queued".to_string(),
+            timestamp: now_unix(),
+        });
+        smgr.bus().post(BusMessage::JobMessage {
+            job_id, job_name: job.name.clone(),
+            msg_type: crate::message_bus::MsgType::Info,
+            text: format!("Start Backup JobId={job_id}, Job={}, Level={level}", job.name),
+            timestamp: now_unix(),
         });
     }
 
-    // Spawn job in background thread (fork will happen inside)
-    let job_clone = job.clone();
-    let client_res = config.find_client(client).cloned();
-    let storage_res = config.find_storage(storage).cloned();
-    let dir_name = config.director.name.clone();
-    drop(config); // Release RwLock before spawning
-
-    if let (Some(client_res), Some(storage_res)) = (client_res, storage_res) {
-        let bus = ctx.session_mgr.as_ref().map(|s| s.bus().clone());
-        std::thread::Builder::new()
-            .name(format!("job:{job_id}"))
-            .spawn(move || {
-                let result = job_runner::run_backup(
-                    job_id, &job_clone, &client_res, &storage_res, &dir_name,
-                );
-                tracing::info!("Job {job_id} '{}': status={:?} files={} bytes={} errors={}",
-                    result.job_name, result.status, result.files, result.bytes, result.errors);
-            })
-            .ok();
+    // Fork the autonomous job worker
+    match job_worker::spawn_job_worker(job_id, &job.name, &params) {
+        Ok(handle) => {
+            tracing::info!("Job {job_id} '{}': worker pid={}", job.name, handle.pid);
+            // Start monitor thread (reads pipe, handles CatReq, posts bus messages)
+            job_monitor::start_monitor(handle, ctx.session_mgr.clone());
+        }
+        Err(e) => {
+            tracing::error!("Job {job_id}: fork failed: {e}");
+            return CommandResult::error(format!("Failed to start job: {e}\n"));
+        }
     }
 
     let output = format!(
@@ -143,8 +156,8 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
          Run {:?} job\n\
          Job:        {}\n\
          Level:      {level}\n\
-         Client:     {client}\n\
-         Storage:    {storage}\n\
+         Client:     {client_name}\n\
+         Storage:    {storage_name}\n\
          Pool:       {pool}\n\
          FileSet:    {}\n\
          Priority:   {}\n\
@@ -163,98 +176,34 @@ pub fn cmd_cancel(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     match job_id {
         Some(id) => {
-            // Post cancellation event
             if let Some(smgr) = &ctx.session_mgr {
                 smgr.bus().post(BusMessage::JobStatus {
-                    job_id: id,
-                    job_name: String::new(),
-                    status: "Canceled".to_string(),
-                    timestamp: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs() as i64,
+                    job_id: id, job_name: String::new(), status: "Canceled".to_string(),
+                    timestamp: now_unix(),
                 });
             }
-
             // TODO: Send SIGTERM to job worker process
             CommandResult::ok(format!("Job {id} marked for cancellation\n"))
         }
-        None => {
-            // List running jobs for selection
-            CommandResult::ok("cancel: specify jobid=<id>\nNo running jobs to cancel.\n".to_string())
-        }
+        None => CommandResult::ok("cancel: specify jobid=<id>\nNo running jobs to cancel.\n".to_string()),
     }
 }
 
 pub fn cmd_enable(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let target = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
     let name = ast.arguments.first().and_then(|a| a.value.as_deref()).unwrap_or("");
-
     if name.is_empty() {
-        return CommandResult::ok(
-            "enable: specify one of:\n  client=<name>\n  job=<name>\n  schedule=<name>\n  storage=<name>\n"
-                .to_string(),
-        );
+        return CommandResult::ok("enable: specify client=, job=, schedule=, or storage=\n".to_string());
     }
-
     let config = match &ctx.config {
         Some(c) => c,
         None => return CommandResult::error("No config loaded\n".to_string()),
     };
-
     match target {
-        "client" => {
-            let mut cfg = config.write().unwrap();
-            if let Some(c) = cfg.clients.iter_mut().find(|c| c.name == name) {
-                if c.enabled {
-                    CommandResult::ok(format!("Client '{name}' is already enabled\n"))
-                } else {
-                    c.enabled = true;
-                    CommandResult::ok(format!("Client '{name}' enabled\n"))
-                }
-            } else {
-                CommandResult::error(format!("Client '{name}' not found\n"))
-            }
-        }
-        "job" => {
-            let mut cfg = config.write().unwrap();
-            if let Some(j) = cfg.jobs.iter_mut().find(|j| j.name == name) {
-                if j.enabled {
-                    CommandResult::ok(format!("Job '{name}' is already enabled\n"))
-                } else {
-                    j.enabled = true;
-                    CommandResult::ok(format!("Job '{name}' enabled\n"))
-                }
-            } else {
-                CommandResult::error(format!("Job '{name}' not found\n"))
-            }
-        }
-        "schedule" => {
-            let mut cfg = config.write().unwrap();
-            if let Some(s) = cfg.schedules.iter_mut().find(|s| s.name == name) {
-                if s.enabled {
-                    CommandResult::ok(format!("Schedule '{name}' is already enabled\n"))
-                } else {
-                    s.enabled = true;
-                    CommandResult::ok(format!("Schedule '{name}' enabled\n"))
-                }
-            } else {
-                CommandResult::error(format!("Schedule '{name}' not found\n"))
-            }
-        }
-        "storage" => {
-            let mut cfg = config.write().unwrap();
-            if let Some(s) = cfg.storages.iter_mut().find(|s| s.name == name) {
-                if s.enabled {
-                    CommandResult::ok(format!("Storage '{name}' is already enabled\n"))
-                } else {
-                    s.enabled = true;
-                    CommandResult::ok(format!("Storage '{name}' enabled\n"))
-                }
-            } else {
-                CommandResult::error(format!("Storage '{name}' not found\n"))
-            }
-        }
+        "client" => toggle_enabled(config, "client", name, true),
+        "job" => toggle_enabled(config, "job", name, true),
+        "schedule" => toggle_enabled(config, "schedule", name, true),
+        "storage" => toggle_enabled(config, "storage", name, true),
         _ => CommandResult::ok("enable: specify client=, job=, schedule=, or storage=\n".to_string()),
     }
 }
@@ -262,72 +211,64 @@ pub fn cmd_enable(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 pub fn cmd_disable(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let target = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
     let name = ast.arguments.first().and_then(|a| a.value.as_deref()).unwrap_or("");
-
     if name.is_empty() {
-        return CommandResult::ok(
-            "disable: specify one of:\n  client=<name>\n  job=<name>\n  schedule=<name>\n  storage=<name>\n"
-                .to_string(),
-        );
+        return CommandResult::ok("disable: specify client=, job=, schedule=, or storage=\n".to_string());
     }
-
     let config = match &ctx.config {
         Some(c) => c,
         None => return CommandResult::error("No config loaded\n".to_string()),
     };
-
     match target {
+        "client" => toggle_enabled(config, "client", name, false),
+        "job" => toggle_enabled(config, "job", name, false),
+        "schedule" => toggle_enabled(config, "schedule", name, false),
+        "storage" => toggle_enabled(config, "storage", name, false),
+        _ => CommandResult::ok("disable: specify client=, job=, schedule=, or storage=\n".to_string()),
+    }
+}
+
+fn toggle_enabled(config: &crate::director_config::SharedConfig, res_type: &str, name: &str, enable: bool) -> CommandResult {
+    let action = if enable { "enabled" } else { "disabled" };
+    let mut cfg = config.write().unwrap();
+    match res_type {
         "client" => {
-            let mut cfg = config.write().unwrap();
             if let Some(c) = cfg.clients.iter_mut().find(|c| c.name == name) {
-                if !c.enabled {
-                    CommandResult::ok(format!("Client '{name}' is already disabled\n"))
-                } else {
-                    c.enabled = false;
-                    CommandResult::ok(format!("Client '{name}' disabled\n"))
-                }
+                c.enabled = enable;
+                CommandResult::ok(format!("Client '{name}' {action}\n"))
             } else {
                 CommandResult::error(format!("Client '{name}' not found\n"))
             }
         }
         "job" => {
-            let mut cfg = config.write().unwrap();
             if let Some(j) = cfg.jobs.iter_mut().find(|j| j.name == name) {
-                if !j.enabled {
-                    CommandResult::ok(format!("Job '{name}' is already disabled\n"))
-                } else {
-                    j.enabled = false;
-                    CommandResult::ok(format!("Job '{name}' disabled\n"))
-                }
+                j.enabled = enable;
+                CommandResult::ok(format!("Job '{name}' {action}\n"))
             } else {
                 CommandResult::error(format!("Job '{name}' not found\n"))
             }
         }
         "schedule" => {
-            let mut cfg = config.write().unwrap();
             if let Some(s) = cfg.schedules.iter_mut().find(|s| s.name == name) {
-                if !s.enabled {
-                    CommandResult::ok(format!("Schedule '{name}' is already disabled\n"))
-                } else {
-                    s.enabled = false;
-                    CommandResult::ok(format!("Schedule '{name}' disabled\n"))
-                }
+                s.enabled = enable;
+                CommandResult::ok(format!("Schedule '{name}' {action}\n"))
             } else {
                 CommandResult::error(format!("Schedule '{name}' not found\n"))
             }
         }
         "storage" => {
-            let mut cfg = config.write().unwrap();
             if let Some(s) = cfg.storages.iter_mut().find(|s| s.name == name) {
-                if !s.enabled {
-                    CommandResult::ok(format!("Storage '{name}' is already disabled\n"))
-                } else {
-                    s.enabled = false;
-                    CommandResult::ok(format!("Storage '{name}' disabled\n"))
-                }
+                s.enabled = enable;
+                CommandResult::ok(format!("Storage '{name}' {action}\n"))
             } else {
                 CommandResult::error(format!("Storage '{name}' not found\n"))
             }
         }
-        _ => CommandResult::ok("disable: specify client=, job=, schedule=, or storage=\n".to_string()),
+        _ => CommandResult::ok(format!("{res_type}: not supported\n")),
     }
+}
+
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default().as_secs() as i64
 }

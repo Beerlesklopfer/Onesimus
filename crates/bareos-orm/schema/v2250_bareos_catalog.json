@@ -1,0 +1,506 @@
+{
+  "version": 2250,
+  "description": "Bareos Catalog Schema — compatible with C++ Bareos 25.0 (VersionId 2250)",
+  "created": "2026-03-21",
+  "author": "Converted from bareos/core/src/cats/ddl/creates/postgresql.sql",
+  "min_compatible_version": 2171,
+  "tables": [
+    {
+      "name": "path",
+      "description": "Directory paths for backed up files",
+      "columns": [
+        {"name": "pathid", "type": "serial", "not_null": true},
+        {"name": "path", "type": "text", "not_null": true}
+      ],
+      "primary_key": "pathid",
+      "indices": [
+        {"name": "path_name_idx", "columns": ["path"], "unique": true}
+      ]
+    },
+    {
+      "name": "file",
+      "description": "Backed up files with attributes and checksums",
+      "columns": [
+        {"name": "fileid", "type": "bigserial", "not_null": true},
+        {"name": "fileindex", "type": "integer", "not_null": true, "default": "0"},
+        {"name": "jobid", "type": "integer", "not_null": true},
+        {"name": "pathid", "type": "integer", "not_null": true},
+        {"name": "deltaseq", "type": "smallint", "not_null": true, "default": "0"},
+        {"name": "markid", "type": "integer", "not_null": true, "default": "0"},
+        {"name": "fhinfo", "type": "numeric(20)", "not_null": true, "default": "0"},
+        {"name": "fhnode", "type": "numeric(20)", "not_null": true, "default": "0"},
+        {"name": "lstat", "type": "text", "not_null": true},
+        {"name": "md5", "type": "text", "not_null": true},
+        {"name": "name", "type": "text", "not_null": true}
+      ],
+      "primary_key": "fileid",
+      "indices": [
+        {"name": "file_jpfid_idx", "columns": ["jobid", "pathid", "name"]},
+        {"name": "file_pjidpart_idx", "columns": ["pathid", "jobid"], "where_clause": "fileindex = 0 AND name = ''"}
+      ]
+    },
+    {
+      "name": "restoreobject",
+      "description": "Plugin-generated restore objects",
+      "columns": [
+        {"name": "restoreobjectid", "type": "serial", "not_null": true},
+        {"name": "objectname", "type": "text", "not_null": true},
+        {"name": "restoreobject", "type": "bytea", "not_null": true},
+        {"name": "pluginname", "type": "text", "not_null": true},
+        {"name": "objectlength", "type": "integer", "default": "0"},
+        {"name": "objectfulllength", "type": "integer", "default": "0"},
+        {"name": "objectindex", "type": "integer", "default": "0"},
+        {"name": "objecttype", "type": "integer", "default": "0"},
+        {"name": "fileindex", "type": "integer", "default": "0"},
+        {"name": "jobid", "type": "integer"},
+        {"name": "objectcompression", "type": "integer", "default": "0"}
+      ],
+      "primary_key": "restoreobjectid",
+      "indices": [
+        {"name": "restore_jobid_idx", "columns": ["jobid"]}
+      ]
+    },
+    {
+      "name": "job",
+      "description": "Backup/Restore/Verify job records",
+      "columns": [
+        {"name": "jobid", "type": "serial", "not_null": true},
+        {"name": "job", "type": "text", "not_null": true},
+        {"name": "name", "type": "text", "not_null": true},
+        {"name": "type", "type": "char(1)", "not_null": true},
+        {"name": "level", "type": "char(1)", "not_null": true},
+        {"name": "clientid", "type": "integer", "default": "0"},
+        {"name": "jobstatus", "type": "char(1)", "not_null": true},
+        {"name": "schedtime", "type": "timestamp without time zone"},
+        {"name": "starttime", "type": "timestamp without time zone"},
+        {"name": "endtime", "type": "timestamp without time zone"},
+        {"name": "realendtime", "type": "timestamp without time zone"},
+        {"name": "jobtdate", "type": "bigint", "default": "0"},
+        {"name": "volsessionid", "type": "integer", "default": "0"},
+        {"name": "volsessiontime", "type": "integer", "default": "0"},
+        {"name": "jobfiles", "type": "integer", "default": "0"},
+        {"name": "jobbytes", "type": "bigint", "default": "0"},
+        {"name": "readbytes", "type": "bigint", "default": "0"},
+        {"name": "joberrors", "type": "integer", "default": "0"},
+        {"name": "jobmissingfiles", "type": "integer", "default": "0"},
+        {"name": "poolid", "type": "integer", "default": "0"},
+        {"name": "filesetid", "type": "integer", "default": "0"},
+        {"name": "priorjobid", "type": "integer", "default": "0"},
+        {"name": "purgedfiles", "type": "smallint", "default": "0"},
+        {"name": "hasbase", "type": "smallint", "default": "0"},
+        {"name": "hascache", "type": "smallint", "default": "0"},
+        {"name": "reviewed", "type": "smallint", "default": "0"},
+        {"name": "comment", "type": "text"}
+      ],
+      "primary_key": "jobid",
+      "indices": [
+        {"name": "job_name_idx", "columns": ["name"]}
+      ]
+    },
+    {
+      "name": "jobhisto",
+      "description": "Long-term job statistics (same structure as job)",
+      "columns": [
+        {"name": "jobid", "type": "integer"},
+        {"name": "job", "type": "text"},
+        {"name": "name", "type": "text"},
+        {"name": "type", "type": "char(1)"},
+        {"name": "level", "type": "char(1)"},
+        {"name": "clientid", "type": "integer", "default": "0"},
+        {"name": "jobstatus", "type": "char(1)"},
+        {"name": "schedtime", "type": "timestamp without time zone"},
+        {"name": "starttime", "type": "timestamp without time zone"},
+        {"name": "endtime", "type": "timestamp without time zone"},
+        {"name": "realendtime", "type": "timestamp without time zone"},
+        {"name": "jobtdate", "type": "bigint", "default": "0"},
+        {"name": "volsessionid", "type": "integer", "default": "0"},
+        {"name": "volsessiontime", "type": "integer", "default": "0"},
+        {"name": "jobfiles", "type": "integer", "default": "0"},
+        {"name": "jobbytes", "type": "bigint", "default": "0"},
+        {"name": "readbytes", "type": "bigint", "default": "0"},
+        {"name": "joberrors", "type": "integer", "default": "0"},
+        {"name": "jobmissingfiles", "type": "integer", "default": "0"},
+        {"name": "poolid", "type": "integer", "default": "0"},
+        {"name": "filesetid", "type": "integer", "default": "0"},
+        {"name": "priorjobid", "type": "integer", "default": "0"},
+        {"name": "purgedfiles", "type": "smallint", "default": "0"},
+        {"name": "hasbase", "type": "smallint", "default": "0"},
+        {"name": "hascache", "type": "smallint", "default": "0"},
+        {"name": "reviewed", "type": "smallint", "default": "0"},
+        {"name": "comment", "type": "text"}
+      ],
+      "primary_key": "jobid",
+      "indices": [
+        {"name": "jobhisto_idx", "columns": ["starttime"]}
+      ]
+    },
+    {
+      "name": "location",
+      "description": "Physical storage locations",
+      "columns": [
+        {"name": "locationid", "type": "serial", "not_null": true},
+        {"name": "location", "type": "text", "not_null": true},
+        {"name": "cost", "type": "integer", "default": "0"},
+        {"name": "enabled", "type": "smallint"}
+      ],
+      "primary_key": "locationid"
+    },
+    {
+      "name": "fileset",
+      "description": "FileSet definitions used by jobs",
+      "columns": [
+        {"name": "filesetid", "type": "serial", "not_null": true},
+        {"name": "fileset", "type": "text", "not_null": true},
+        {"name": "filesettext", "type": "text", "default": "''"},
+        {"name": "md5", "type": "text", "not_null": true},
+        {"name": "createtime", "type": "timestamp without time zone", "not_null": true}
+      ],
+      "primary_key": "filesetid",
+      "indices": [
+        {"name": "fileset_name_idx", "columns": ["fileset"]}
+      ]
+    },
+    {
+      "name": "jobmedia",
+      "description": "Maps jobs to media volumes",
+      "columns": [
+        {"name": "jobmediaid", "type": "serial", "not_null": true},
+        {"name": "jobid", "type": "integer", "not_null": true},
+        {"name": "mediaid", "type": "integer", "not_null": true},
+        {"name": "firstindex", "type": "integer", "default": "0"},
+        {"name": "lastindex", "type": "integer", "default": "0"},
+        {"name": "startfile", "type": "integer", "default": "0"},
+        {"name": "endfile", "type": "integer", "default": "0"},
+        {"name": "startblock", "type": "bigint", "default": "0"},
+        {"name": "endblock", "type": "bigint", "default": "0"},
+        {"name": "jobbytes", "type": "numeric(20)", "default": "0"},
+        {"name": "volindex", "type": "integer", "default": "0"}
+      ],
+      "primary_key": "jobmediaid",
+      "indices": [
+        {"name": "job_media_job_id_media_id_idx", "columns": ["jobid", "mediaid"]},
+        {"name": "job_media_media_id_job_id_idx", "columns": ["mediaid", "jobid"]}
+      ]
+    },
+    {
+      "name": "media",
+      "description": "Backup volumes (tapes, disk files)",
+      "columns": [
+        {"name": "mediaid", "type": "serial", "not_null": true},
+        {"name": "volumename", "type": "text", "not_null": true},
+        {"name": "slot", "type": "bigint", "default": "0"},
+        {"name": "poolid", "type": "integer", "default": "0"},
+        {"name": "mediatype", "type": "text", "not_null": true},
+        {"name": "mediatypeid", "type": "integer", "default": "0"},
+        {"name": "labeltype", "type": "integer", "default": "0"},
+        {"name": "firstwritten", "type": "timestamp without time zone"},
+        {"name": "lastwritten", "type": "timestamp without time zone"},
+        {"name": "labeldate", "type": "timestamp without time zone"},
+        {"name": "voljobs", "type": "bigint", "default": "0"},
+        {"name": "volfiles", "type": "bigint", "default": "0"},
+        {"name": "volblocks", "type": "bigint", "default": "0"},
+        {"name": "volmounts", "type": "bigint", "default": "0"},
+        {"name": "volbytes", "type": "bigint", "default": "0"},
+        {"name": "volerrors", "type": "bigint", "default": "0"},
+        {"name": "volwrites", "type": "bigint", "default": "0"},
+        {"name": "volcapacitybytes", "type": "bigint", "default": "0"},
+        {"name": "volstatus", "type": "text", "not_null": true},
+        {"name": "enabled", "type": "smallint", "default": "1"},
+        {"name": "recycle", "type": "smallint", "default": "0"},
+        {"name": "actiononpurge", "type": "smallint", "default": "0"},
+        {"name": "volretention", "type": "bigint", "default": "0"},
+        {"name": "voluseduration", "type": "bigint", "default": "0"},
+        {"name": "maxvoljobs", "type": "bigint", "default": "0"},
+        {"name": "maxvolfiles", "type": "bigint", "default": "0"},
+        {"name": "maxvolbytes", "type": "bigint", "default": "0"},
+        {"name": "inchanger", "type": "smallint", "default": "0"},
+        {"name": "storageid", "type": "integer", "default": "0"},
+        {"name": "deviceid", "type": "integer", "default": "0"},
+        {"name": "mediaaddressing", "type": "smallint", "default": "0"},
+        {"name": "volreadtime", "type": "bigint", "default": "0"},
+        {"name": "volwritetime", "type": "bigint", "default": "0"},
+        {"name": "endfile", "type": "bigint", "default": "0"},
+        {"name": "endblock", "type": "bigint", "default": "0"},
+        {"name": "locationid", "type": "integer", "default": "0"},
+        {"name": "recyclecount", "type": "bigint", "default": "0"},
+        {"name": "minblocksize", "type": "bigint", "default": "0"},
+        {"name": "maxblocksize", "type": "bigint", "default": "0"},
+        {"name": "initialwrite", "type": "timestamp without time zone"},
+        {"name": "scratchpoolid", "type": "integer", "default": "0"},
+        {"name": "recyclepoolid", "type": "integer", "default": "0"},
+        {"name": "encryptionkey", "type": "text"},
+        {"name": "comment", "type": "text"}
+      ],
+      "primary_key": "mediaid",
+      "indices": [
+        {"name": "media_volumename_id", "columns": ["volumename"], "unique": true},
+        {"name": "media_poolid_idx", "columns": ["poolid"]}
+      ]
+    },
+    {
+      "name": "mediatype",
+      "description": "Media type definitions",
+      "columns": [
+        {"name": "mediatypeid", "type": "serial", "not_null": true},
+        {"name": "mediatype", "type": "text", "not_null": true},
+        {"name": "readonly", "type": "integer", "default": "0"}
+      ],
+      "primary_key": "mediatypeid"
+    },
+    {
+      "name": "storage",
+      "description": "Storage daemon resources",
+      "columns": [
+        {"name": "storageid", "type": "serial", "not_null": true},
+        {"name": "name", "type": "text", "not_null": true},
+        {"name": "autochanger", "type": "integer", "default": "0"}
+      ],
+      "primary_key": "storageid"
+    },
+    {
+      "name": "device",
+      "description": "Storage device statistics",
+      "columns": [
+        {"name": "deviceid", "type": "serial", "not_null": true},
+        {"name": "name", "type": "text", "not_null": true},
+        {"name": "mediatypeid", "type": "integer", "not_null": true},
+        {"name": "storageid", "type": "integer", "not_null": true},
+        {"name": "devmounts", "type": "integer", "not_null": true, "default": "0"},
+        {"name": "devreadbytes", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "devwritebytes", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "devreadbytessincecleaning", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "devwritebytessincecleaning", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "devreadtime", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "devwritetime", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "devreadtimesincecleaning", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "devwritetimesincecleaning", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "cleaningdate", "type": "timestamp without time zone"},
+        {"name": "cleaningperiod", "type": "bigint", "not_null": true, "default": "0"}
+      ],
+      "primary_key": "deviceid"
+    },
+    {
+      "name": "pool",
+      "description": "Volume pool definitions",
+      "columns": [
+        {"name": "poolid", "type": "serial", "not_null": true},
+        {"name": "name", "type": "text", "not_null": true},
+        {"name": "numvols", "type": "integer", "default": "0"},
+        {"name": "maxvols", "type": "integer", "default": "0"},
+        {"name": "useonce", "type": "smallint", "default": "0"},
+        {"name": "usecatalog", "type": "smallint", "default": "0"},
+        {"name": "acceptanyvolume", "type": "smallint", "default": "0"},
+        {"name": "volretention", "type": "bigint", "default": "0"},
+        {"name": "voluseduration", "type": "bigint", "default": "0"},
+        {"name": "maxvoljobs", "type": "integer", "default": "0"},
+        {"name": "maxvolfiles", "type": "integer", "default": "0"},
+        {"name": "maxvolbytes", "type": "bigint", "default": "0"},
+        {"name": "autoprune", "type": "smallint", "default": "0"},
+        {"name": "recycle", "type": "smallint", "default": "0"},
+        {"name": "actiononpurge", "type": "smallint", "default": "0"},
+        {"name": "pooltype", "type": "text"},
+        {"name": "labeltype", "type": "integer", "default": "0"},
+        {"name": "labelformat", "type": "text", "not_null": true},
+        {"name": "enabled", "type": "smallint", "default": "1"},
+        {"name": "scratchpoolid", "type": "integer", "default": "0"},
+        {"name": "recyclepoolid", "type": "integer", "default": "0"},
+        {"name": "nextpoolid", "type": "integer", "default": "0"},
+        {"name": "minblocksize", "type": "integer", "default": "0"},
+        {"name": "maxblocksize", "type": "integer", "default": "0"},
+        {"name": "migrationhighbytes", "type": "bigint", "default": "0"},
+        {"name": "migrationlowbytes", "type": "bigint", "default": "0"},
+        {"name": "migrationtime", "type": "bigint", "default": "0"}
+      ],
+      "primary_key": "poolid",
+      "indices": [
+        {"name": "pool_name_idx", "columns": ["name"]}
+      ]
+    },
+    {
+      "name": "client",
+      "description": "Backup client records",
+      "columns": [
+        {"name": "clientid", "type": "serial", "not_null": true},
+        {"name": "name", "type": "text", "not_null": true},
+        {"name": "uname", "type": "text", "not_null": true},
+        {"name": "autoprune", "type": "smallint", "default": "0"},
+        {"name": "fileretention", "type": "bigint", "default": "0"},
+        {"name": "jobretention", "type": "bigint", "default": "0"}
+      ],
+      "primary_key": "clientid",
+      "indices": [
+        {"name": "client_name_idx", "columns": ["name"], "unique": true}
+      ]
+    },
+    {
+      "name": "log",
+      "description": "Job log messages",
+      "columns": [
+        {"name": "logid", "type": "serial", "not_null": true},
+        {"name": "jobid", "type": "integer", "not_null": true},
+        {"name": "time", "type": "timestamp without time zone"},
+        {"name": "logtext", "type": "text", "not_null": true}
+      ],
+      "primary_key": "logid",
+      "indices": [
+        {"name": "log_name_idx", "columns": ["jobid"]}
+      ]
+    },
+    {
+      "name": "locationlog",
+      "description": "Volume location change log",
+      "columns": [
+        {"name": "loclogid", "type": "serial", "not_null": true},
+        {"name": "date", "type": "timestamp without time zone"},
+        {"name": "comment", "type": "text", "not_null": true},
+        {"name": "mediaid", "type": "integer", "default": "0"},
+        {"name": "locationid", "type": "integer", "default": "0"},
+        {"name": "newvolstatus", "type": "text", "not_null": true},
+        {"name": "newenabled", "type": "smallint"}
+      ],
+      "primary_key": "loclogid"
+    },
+    {
+      "name": "counters",
+      "description": "Named counters",
+      "columns": [
+        {"name": "counter", "type": "text", "not_null": true},
+        {"name": "minvalue", "type": "integer", "default": "0"},
+        {"name": "maxvalue", "type": "integer", "default": "0"},
+        {"name": "currentvalue", "type": "integer", "default": "0"},
+        {"name": "wrapcounter", "type": "text", "not_null": true}
+      ],
+      "primary_key": "counter"
+    },
+    {
+      "name": "basefiles",
+      "description": "Base backup file references",
+      "columns": [
+        {"name": "baseid", "type": "bigserial", "not_null": true},
+        {"name": "jobid", "type": "integer", "not_null": true},
+        {"name": "fileid", "type": "bigint", "not_null": true},
+        {"name": "fileindex", "type": "integer"},
+        {"name": "basejobid", "type": "integer"}
+      ],
+      "primary_key": "baseid",
+      "indices": [
+        {"name": "basefiles_jobid_idx", "columns": ["jobid"]}
+      ]
+    },
+    {
+      "name": "pathhierarchy",
+      "description": "BVFS path hierarchy cache",
+      "columns": [
+        {"name": "pathid", "type": "integer", "not_null": true},
+        {"name": "ppathid", "type": "integer", "not_null": true}
+      ],
+      "primary_key": "pathid",
+      "indices": [
+        {"name": "pathhierarchy_ppathid", "columns": ["ppathid"]}
+      ]
+    },
+    {
+      "name": "pathvisibility",
+      "description": "BVFS path visibility cache",
+      "columns": [
+        {"name": "pathid", "type": "integer", "not_null": true},
+        {"name": "jobid", "type": "integer", "not_null": true},
+        {"name": "size", "type": "bigint", "default": "0"},
+        {"name": "files", "type": "integer", "default": "0"}
+      ],
+      "primary_key": "jobid"
+    },
+    {
+      "name": "version",
+      "description": "Catalog schema version",
+      "columns": [
+        {"name": "versionid", "type": "integer", "not_null": true}
+      ],
+      "primary_key": "versionid"
+    },
+    {
+      "name": "status",
+      "description": "Job status code definitions",
+      "columns": [
+        {"name": "jobstatus", "type": "char(1)", "not_null": true},
+        {"name": "jobstatuslong", "type": "text"},
+        {"name": "severity", "type": "integer"}
+      ],
+      "primary_key": "jobstatus"
+    },
+    {
+      "name": "quota",
+      "description": "Client backup quotas",
+      "columns": [
+        {"name": "clientid", "type": "integer", "not_null": true},
+        {"name": "gracetime", "type": "bigint", "default": "0"},
+        {"name": "quotalimit", "type": "bigint", "default": "0"}
+      ],
+      "primary_key": "clientid"
+    },
+    {
+      "name": "ndmplevelmap",
+      "description": "NDMP backup level mapping",
+      "columns": [
+        {"name": "clientid", "type": "integer", "not_null": true},
+        {"name": "filesetid", "type": "integer", "default": "0"},
+        {"name": "filesystem", "type": "text", "not_null": true},
+        {"name": "dumplevel", "type": "integer", "not_null": true}
+      ],
+      "primary_key": "clientid"
+    },
+    {
+      "name": "ndmpjobenvironment",
+      "description": "NDMP job environment variables",
+      "columns": [
+        {"name": "jobid", "type": "integer", "not_null": true},
+        {"name": "fileindex", "type": "integer", "not_null": true},
+        {"name": "envname", "type": "text", "not_null": true},
+        {"name": "envvalue", "type": "text", "not_null": true}
+      ],
+      "primary_key": "jobid"
+    },
+    {
+      "name": "devicestats",
+      "description": "Device I/O statistics samples",
+      "columns": [
+        {"name": "deviceid", "type": "integer", "default": "0"},
+        {"name": "sampletime", "type": "timestamp without time zone", "not_null": true},
+        {"name": "readtime", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "writetime", "type": "bigint", "not_null": true, "default": "0"},
+        {"name": "readbytes", "type": "bigint", "default": "0"},
+        {"name": "writebytes", "type": "bigint", "default": "0"},
+        {"name": "spoolsize", "type": "bigint", "default": "0"},
+        {"name": "numwaiting", "type": "smallint", "default": "0"},
+        {"name": "numwriters", "type": "smallint", "default": "0"},
+        {"name": "mediaid", "type": "integer", "not_null": true},
+        {"name": "volcatbytes", "type": "bigint", "default": "0"},
+        {"name": "volcatfiles", "type": "bigint", "default": "0"},
+        {"name": "volcatblocks", "type": "bigint", "default": "0"}
+      ],
+      "primary_key": "deviceid"
+    },
+    {
+      "name": "jobstats",
+      "description": "Job I/O statistics samples",
+      "columns": [
+        {"name": "deviceid", "type": "integer", "default": "0"},
+        {"name": "sampletime", "type": "timestamp without time zone", "not_null": true},
+        {"name": "jobid", "type": "integer", "not_null": true},
+        {"name": "jobfiles", "type": "integer", "default": "0"},
+        {"name": "jobbytes", "type": "bigint", "default": "0"}
+      ],
+      "primary_key": "deviceid"
+    },
+    {
+      "name": "tapealerts",
+      "description": "Tape alert flags",
+      "columns": [
+        {"name": "deviceid", "type": "integer", "default": "0"},
+        {"name": "sampletime", "type": "timestamp without time zone", "not_null": true},
+        {"name": "alertflags", "type": "bigint", "default": "0"}
+      ],
+      "primary_key": "deviceid"
+    }
+  ]
+}

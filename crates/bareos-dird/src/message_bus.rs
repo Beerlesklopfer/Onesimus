@@ -19,6 +19,23 @@ pub enum BusMessage {
     SdDisconnected { job_id: u32, storage_name: String },
     SdStatus { job_id: u32, storage_name: String, alive: bool, check_time: i64 },
     JobStatus { job_id: u32, job_name: String, status: String, timestamp: i64 },
+    /// Job message — like C++ Jmsg(). Goes to all consoles that subscribed.
+    /// msg_type maps to Messages resource types: info, warning, error, fatal, mount, ...
+    JobMessage { job_id: u32, job_name: String, msg_type: MsgType, text: String, timestamp: i64 },
+}
+
+/// Message severity type (maps to C++ M_INFO, M_WARNING, M_ERROR, etc.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MsgType {
+    Info,
+    Warning,
+    Error,
+    Fatal,
+    Mount,
+    Saved,
+    Restored,
+    Skipped,
+    Audit,
 }
 
 /// Fan-out broadcast bus. Each subscriber gets its own channel.

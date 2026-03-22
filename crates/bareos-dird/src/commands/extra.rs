@@ -1,162 +1,10 @@
-//! Additional commands covering all 88 Director commands.
+//! Session/interactive commands — non-dot, non-admin commands.
+//!
+//! Dot commands have been consolidated into commands/dot.rs.
 
 use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
-
-// --- Dot query commands ---
-
-pub fn cmd_dot_api(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let mode = ast.arguments.first().and_then(|a| a.value.as_deref()).unwrap_or("0");
-    CommandResult::ok(format!("api: mode={mode}\n"))
-}
-
-pub fn cmd_dot_authorized(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("authorized: yes\n".to_string())
-}
-
-pub fn cmd_dot_catalogs(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    if let Some(config) = &ctx.config {
-        if let Ok(cfg) = config.read() {
-            let out: String = cfg.catalogs.iter().map(|c| format!("{}\n", c.name)).collect();
-            return CommandResult::ok(out);
-        }
-    }
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_consoles(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    if let Some(config) = &ctx.config {
-        if let Ok(cfg) = config.read() {
-            let out: String = cfg.consoles.iter().map(|c| format!("{}\n", c.name)).collect();
-            return CommandResult::ok(out);
-        }
-    }
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_jobdefs(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    // JobDefs are stored as Jobs in our config
-    if let Some(config) = &ctx.config {
-        if let Ok(cfg) = config.read() {
-            let out: String = cfg.jobs.iter().map(|j| format!("{}\n", j.name)).collect();
-            return CommandResult::ok(out);
-        }
-    }
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_levels(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("Full\nIncremental\nDifferential\nVirtualFull\nInitCatalog\nCatalog\nVolumeToCatalog\nDiskToCatalog\n".to_string())
-}
-
-pub fn cmd_dot_locations(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_media(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_mediatypes(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    if let Some(config) = &ctx.config {
-        if let Ok(cfg) = config.read() {
-            let mut types: Vec<_> = cfg.storages.iter().map(|s| s.media_type.as_str()).collect();
-            types.sort();
-            types.dedup();
-            let out: String = types.iter().map(|t| format!("{t}\n")).collect();
-            return CommandResult::ok(out);
-        }
-    }
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_messages(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_msgs(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_profiles(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_profile(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_schedule(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    if let Some(config) = &ctx.config {
-        if let Ok(cfg) = config.read() {
-            let out: String = cfg.schedules.iter().map(|s| format!("{}\n", s.name)).collect();
-            return CommandResult::ok(out);
-        }
-    }
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_storages(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    if let Some(config) = &ctx.config {
-        if let Ok(cfg) = config.read() {
-            let out: String = cfg.storages.iter().map(|s| format!("{}\n", s.name)).collect();
-            return CommandResult::ok(out);
-        }
-    }
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_types(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("Backup\nRestore\nVerify\nAdmin\nArchive\nCopy\nMigrate\nConsolidate\n".to_string())
-}
-
-pub fn cmd_dot_users(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("".to_string())
-}
-
-pub fn cmd_dot_volstatus(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("Append\nArchive\nDisabled\nError\nFull\nPurged\nRecycle\nUsed\n".to_string())
-}
-
-pub fn cmd_dot_actiononpurge(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("Truncate\nNone\n".to_string())
-}
-
-pub fn cmd_dot_grpc(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("gRPC: enabled\n".to_string())
-}
-
-pub fn cmd_dot_sqltables(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    crate::commands::sql::cmd_dot_sql(
-        &CommandAst { command_name: ".sql".into(), arguments: vec![crate::command_ast::Argument { key: "tables".into(), value: None }], ..Default::default() },
-        ctx,
-    )
-}
-
-pub fn cmd_dot_sqlschema(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    crate::commands::sql::cmd_dot_sql(
-        &CommandAst { command_name: ".sql".into(), arguments: vec![crate::command_ast::Argument { key: "schema".into(), value: None }], ..Default::default() },
-        ctx,
-    )
-}
-
-pub fn cmd_dot_sqlcount(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    match &ctx.catalog_url {
-        Some(url) => {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            match rt.block_on(async {
-                let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await?;
-                let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM job").fetch_one(&pool).await?;
-                Ok::<_, sqlx::Error>(row.0)
-            }) {
-                Ok(count) => CommandResult::ok(format!("Jobs: {count}\n")),
-                Err(e) => CommandResult::error(format!("SQL error: {e}\n")),
-            }
-        }
-        None => CommandResult::ok("No catalog\n".to_string()),
-    }
-}
 
 // --- Interactive/session commands ---
 
@@ -175,13 +23,57 @@ pub fn cmd_gui(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(format!("gui mode {on}\n"))
 }
 
-pub fn cmd_messages(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("No pending messages.\n".to_string())
+pub fn cmd_messages(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    use crate::message_bus::{BusMessage, MsgType};
+
+    let mut output = String::new();
+    let mut count = 0;
+
+    if let Some(rx) = &ctx.bus_rx {
+        loop {
+            match rx.try_recv() {
+                Ok(BusMessage::JobMessage { job_id, job_name, msg_type, text, timestamp }) => {
+                    let prefix = match msg_type {
+                        MsgType::Info     => "INFO",
+                        MsgType::Warning  => "WARNING",
+                        MsgType::Error    => "ERROR",
+                        MsgType::Fatal    => "FATAL",
+                        MsgType::Mount    => "MOUNT",
+                        MsgType::Saved    => "SAVED",
+                        MsgType::Restored => "RESTORED",
+                        MsgType::Skipped  => "SKIPPED",
+                        MsgType::Audit    => "AUDIT",
+                    };
+                    if job_id > 0 {
+                        output.push_str(&format!("{prefix} JobId={job_id} {job_name}: {text}\n"));
+                    } else {
+                        output.push_str(&format!("{prefix}: {text}\n"));
+                    }
+                    count += 1;
+                }
+                Ok(BusMessage::JobStatus { job_id, job_name, status, .. }) => {
+                    output.push_str(&format!("JobId={job_id} {job_name}: {status}\n"));
+                    count += 1;
+                }
+                Ok(BusMessage::ConsoleText { text }) => {
+                    output.push_str(&format!("{text}\n"));
+                    count += 1;
+                }
+                Ok(_) => { count += 1; } // FD/SD events — skip in console output
+                Err(_) => break,
+            }
+        }
+    }
+
+    if count == 0 {
+        CommandResult::ok("No pending messages.\n".to_string())
+    } else {
+        CommandResult::ok(output)
+    }
 }
 
 pub fn cmd_memory(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    // Report Rust memory usage
-    CommandResult::ok(format!("Memory usage information not available (Rust runtime)\n"))
+    CommandResult::ok("Memory usage information not available (Rust runtime)\n".to_string())
 }
 
 pub fn cmd_show(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
@@ -341,52 +233,4 @@ pub fn cmd_move(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     let to = ast.arguments.iter().find(|a| a.key == "dstslot")
         .and_then(|a| a.value.as_deref()).unwrap_or("?");
     CommandResult::ok(format!("Moving media from slot {from} to {to}\n"))
-}
-
-// --- BVFS commands (Virtual File System for restore browsing) ---
-
-pub fn cmd_bvfs_update(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("BVFS cache updated\n".to_string())
-}
-
-pub fn cmd_bvfs_cleanup(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("BVFS cache cleaned\n".to_string())
-}
-
-pub fn cmd_bvfs_clear_cache(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("BVFS cache cleared\n".to_string())
-}
-
-pub fn cmd_bvfs_get_jobids(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let client = ast.arguments.iter().find(|a| a.key == "client")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("jobids for client {client}: \n"))
-}
-
-pub fn cmd_bvfs_lsdirs(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let jobid = ast.arguments.iter().find(|a| a.key == "jobid")
-        .and_then(|a| a.value.as_deref()).unwrap_or("0");
-    let path = ast.arguments.iter().find(|a| a.key == "path")
-        .and_then(|a| a.value.as_deref()).unwrap_or("/");
-    CommandResult::ok(format!("lsdirs jobid={jobid} path={path}\n"))
-}
-
-pub fn cmd_bvfs_lsfiles(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let jobid = ast.arguments.iter().find(|a| a.key == "jobid")
-        .and_then(|a| a.value.as_deref()).unwrap_or("0");
-    let path = ast.arguments.iter().find(|a| a.key == "path")
-        .and_then(|a| a.value.as_deref()).unwrap_or("/");
-    CommandResult::ok(format!("lsfiles jobid={jobid} path={path}\n"))
-}
-
-pub fn cmd_bvfs_versions(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let fname = ast.arguments.iter().find(|a| a.key == "fname")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("versions of {fname}\n"))
-}
-
-pub fn cmd_bvfs_restore(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let fileid = ast.arguments.iter().find(|a| a.key == "fileid")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("Restoring fileid {fileid}\n"))
 }

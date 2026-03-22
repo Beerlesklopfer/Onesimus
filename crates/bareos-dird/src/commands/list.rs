@@ -17,21 +17,28 @@ pub fn cmd_list(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(25);
 
-    // If we have a catalog URL, query the database
+    // Config-only Ressourcen — stehen NICHT in der DB
+    match what {
+        "filesets" | "fileset" => return list_filesets_from_config(ctx),
+        _ => {}
+    }
+
+    // DB-Query wenn Catalog vorhanden
     if let Some(url) = &ctx.catalog_url {
         return list_from_db(what, limit, url);
     }
 
-    // Otherwise show what we know from config
+    // Kein Catalog — Config-Fallback
     match what {
         "jobs" => list_jobs_from_config(ctx),
         "clients" => list_clients_from_config(ctx),
         "pools" => list_pools_from_config(ctx),
         "storages" | "storage" => list_storages_from_config(ctx),
         "schedules" | "schedule" => list_schedules_from_config(ctx),
-        "volumes" | "media" => CommandResult::ok("No catalog connection — use .sql for volume queries\n".to_string()),
-        "files" => CommandResult::ok("No catalog connection — use .sql for file queries\n".to_string()),
-        other => CommandResult::ok(format!("list {other}: try jobs, clients, pools, storages, schedules\n")),
+        "volumes" | "media" => CommandResult::ok("No catalog — use .sql for volume queries\n".to_string()),
+        "files" => CommandResult::ok("No catalog — use .sql for file queries\n".to_string()),
+        "jobtotals" => CommandResult::ok("No catalog — jobtotals requires database\n".to_string()),
+        other => CommandResult::ok(format!("list {other}: try jobs, clients, pools, storages, schedules, filesets, volumes\n")),
     }
 }
 
@@ -160,6 +167,26 @@ fn list_schedules_from_config(ctx: &ExecContext) -> CommandResult {
     CommandResult::ok("No configuration loaded\n".to_string())
 }
 
+fn list_filesets_from_config(ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            if cfg.filesets.is_empty() {
+                return CommandResult::ok("No filesets configured\n".to_string());
+            }
+            let mut output = format!("{:<25} {:<40} {:<40}\n", "Name", "Include", "Exclude");
+            output.push_str(&"-".repeat(105));
+            output.push('\n');
+            for f in &cfg.filesets {
+                let inc = if f.include_blocks.is_empty() { "-".to_string() } else { f.include_blocks.join(", ") };
+                let exc = if f.exclude_blocks.is_empty() { "-".to_string() } else { f.exclude_blocks.join(", ") };
+                output.push_str(&format!("{:<25} {:<40} {:<40}\n", f.name, inc, exc));
+            }
+            return CommandResult::ok(output);
+        }
+    }
+    CommandResult::ok("No configuration loaded\n".to_string())
+}
+
 fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
     let query = match what {
         "jobs" => format!(
@@ -176,6 +203,9 @@ fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
         "files" => format!(
             "SELECT fileid, jobid, filename FROM file ORDER BY fileid DESC LIMIT {limit}"
         ),
+        "storages" | "storage" => "SELECT storageid, name, autochanger FROM storage ORDER BY name".to_string(),
+        "schedules" | "schedule" => "SELECT scheduleid, name, enabled FROM schedule ORDER BY name".to_string(),
+        "jobtotals" => "SELECT COUNT(*) AS jobs, COALESCE(SUM(jobfiles),0) AS files, COALESCE(SUM(jobbytes),0) AS bytes FROM job".to_string(),
         other => return CommandResult::ok(format!("list {other}: unsupported catalog query\n")),
     };
 

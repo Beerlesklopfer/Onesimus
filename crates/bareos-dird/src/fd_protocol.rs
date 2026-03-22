@@ -43,7 +43,7 @@ pub fn query_fd_status(
             addr.to_socket_addrs().ok().and_then(|mut a| a.next())
                 .unwrap_or_else(|| format!("127.0.0.1:{port}").parse().unwrap())
         },
-        Duration::from_secs(10),
+        Duration::from_secs(3),
     ) {
         Ok(s) => s,
         Err(e) => return fail(client_name, &format!("Connect to {addr} failed: {e}")),
@@ -64,9 +64,12 @@ pub fn query_fd_status(
         }
         Err(e) => {
             debug!("FD {client_name}: TLS-PSK failed ({e}), trying cleartext");
-            let stream2 = match TcpStream::connect_timeout(
-                &addr.parse().unwrap(), Duration::from_secs(10),
-            ) {
+            use std::net::ToSocketAddrs;
+            let sock_addr = match addr.to_socket_addrs().ok().and_then(|mut a| a.next()) {
+                Some(a) => a,
+                None => return fail(client_name, &format!("DNS resolve {addr} failed")),
+            };
+            let stream2 = match TcpStream::connect_timeout(&sock_addr, Duration::from_secs(3)) {
                 Ok(s) => s,
                 Err(e2) => return fail(client_name, &format!("Reconnect failed: {e2}")),
             };

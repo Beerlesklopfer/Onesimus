@@ -22,3 +22,4 @@ crossbeam-channel.workspace = true
 tonic.workspace = true
 tokio.workspace = true
 rustyline.workspace = true
+libc.workspace = true

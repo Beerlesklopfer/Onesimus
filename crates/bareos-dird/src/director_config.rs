@@ -21,6 +21,9 @@ pub struct DirectorConfig {
     pub pools: Vec<PoolResource>,
     pub filesets: Vec<FileSetResource>,
     pub consoles: Vec<ConsoleResource>,
+    pub jobdefs: Vec<JobDefsResource>,
+    pub messages: Vec<MessagesResource>,
+    pub profiles: Vec<ProfileResource>,
 }
 
 impl DirectorConfig {
@@ -56,6 +59,9 @@ impl DirectorConfig {
             pools: Vec::new(),
             filesets: Vec::new(),
             consoles: Vec::new(),
+            jobdefs: Vec::new(),
+            messages: Vec::new(),
+            profiles: Vec::new(),
         };
 
         for resource in resources {
@@ -68,11 +74,69 @@ impl DirectorConfig {
                 Resource::Schedule(s) => config.schedules.push(s),
                 Resource::Pool(p) => config.pools.push(p),
                 Resource::FileSet(f) => config.filesets.push(f),
-                Resource::Console(c) => config.consoles.push(c),
+                Resource::Console(c) => {
+                    // Skip dummy entries from unknown resource types
+                    if !c.name.starts_with("_skip_") {
+                        config.consoles.push(c);
+                    }
+                }
+                Resource::JobDefs(j) => config.jobdefs.push(j),
+                Resource::Messages(m) => config.messages.push(m),
+                Resource::Profile(p) => config.profiles.push(p),
             }
         }
 
+        // Resolve JobDefs: merge defaults into Jobs that reference a JobDefs
+        config.resolve_jobdefs();
+
         Ok(config)
+    }
+
+    /// Merge JobDefs defaults into Jobs.
+    /// For each Job with a non-empty `jobdefs` field, copy missing values
+    /// from the referenced JobDefs resource.
+    fn resolve_jobdefs(&mut self) {
+        // Clone jobdefs list to avoid borrow conflicts
+        let defs: Vec<_> = self.jobdefs.clone();
+
+        for job in &mut self.jobs {
+            if job.jobdefs.is_empty() { continue; }
+
+            let def = match defs.iter().find(|d| d.name == job.jobdefs) {
+                Some(d) => &d.job,
+                None => {
+                    tracing::warn!("Job '{}': JobDefs '{}' not found", job.name, job.jobdefs);
+                    continue;
+                }
+            };
+
+            // Merge: Job-Feld leer → aus JobDefs uebernehmen
+            if job.client.is_empty() { job.client = def.client.clone(); }
+            if job.fileset.is_empty() { job.fileset = def.fileset.clone(); }
+            if job.schedule.is_empty() { job.schedule = def.schedule.clone(); }
+            if job.storage.is_empty() { job.storage = def.storage.clone(); }
+            if job.pool.is_empty() { job.pool = def.pool.clone(); }
+            if job.full_backup_pool.is_empty() { job.full_backup_pool = def.full_backup_pool.clone(); }
+            if job.differential_backup_pool.is_empty() { job.differential_backup_pool = def.differential_backup_pool.clone(); }
+            if job.incremental_backup_pool.is_empty() { job.incremental_backup_pool = def.incremental_backup_pool.clone(); }
+            if job.messages.is_empty() { job.messages = def.messages.clone(); }
+            if job.write_bootstrap.is_empty() { job.write_bootstrap = def.write_bootstrap.clone(); }
+            // Type und Level nur uebernehmen wenn Job sie nicht explizit setzt
+            // (Default = Backup/Full — wenn Job diese hat und JobDefs andere, behaelt Job)
+            if job.job_type == JobType::Backup && def.job_type != JobType::Backup {
+                job.job_type = def.job_type;
+            }
+            if job.level == JobLevel::Full && def.level != JobLevel::Full {
+                job.level = def.level;
+            }
+            // Priority nur wenn Default (10)
+            if job.priority == 10 && def.priority != 10 {
+                job.priority = def.priority;
+            }
+
+            tracing::debug!("Job '{}': merged from JobDefs '{}' (client={}, fileset={}, storage={}, pool={})",
+                job.name, job.jobdefs, job.client, job.fileset, job.storage, job.pool);
+        }
     }
 
     /// Find a client by name.
@@ -88,6 +152,11 @@ impl DirectorConfig {
     /// Find a storage by name.
     pub fn find_storage(&self, name: &str) -> Option<&StorageResource> {
         self.storages.iter().find(|s| s.name == name)
+    }
+
+    /// Find a fileset by name.
+    pub fn find_fileset(&self, name: &str) -> Option<&FileSetResource> {
+        self.filesets.iter().find(|f| f.name == name)
     }
 
     /// Find a pool by name.

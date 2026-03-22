@@ -164,15 +164,15 @@ fn parse_raw_resources(input: &str) -> Result<Vec<RawResource>, String> {
                 return Err(format!("unexpected EOF in resource '{resource_type}'"));
             }
 
-            // Check for nested block (Include { ... }, Options { ... }, etc.)
-            // If the next non-whitespace after a word is '{', skip the entire block
+            // Check for nested block (Include { ... }, Exclude { ... }, Options { ... }, etc.)
             let trimmed = remaining.trim_start();
             if let Some(brace_pos) = trimmed.find('{') {
                 let before_brace = trimmed[..brace_pos].trim();
-                // If no '=' before '{', this is a nested block — skip it
                 if !before_brace.contains('=') && !before_brace.is_empty() {
-                    let block_name = before_brace.split_whitespace().next().unwrap_or("");
+                    let block_name = before_brace.split_whitespace().next().unwrap_or("").to_lowercase();
                     remaining = &trimmed[brace_pos + 1..];
+                    // Collect the block content
+                    let block_start = remaining;
                     let mut depth = 1;
                     while depth > 0 && !remaining.is_empty() {
                         if let Some(pos) = remaining.find(|c| c == '{' || c == '}') {
@@ -186,6 +186,13 @@ fn parse_raw_resources(input: &str) -> Result<Vec<RawResource>, String> {
                             break;
                         }
                     }
+                    // Store block content as a directive with "_block_" prefix
+                    let block_len = block_start.len() - remaining.len();
+                    let block_content = &block_start[..block_len];
+                    directives.push(RawDirective {
+                        key: format!("_block_{block_name}"),
+                        value: block_content.trim_end_matches('}').trim().to_string(),
+                    });
                     continue;
                 }
             }
@@ -279,6 +286,87 @@ fn parse_directive_value(input: &str) -> Result<(String, &str), String> {
     Ok((result.trim().to_string(), ""))
 }
 
+/// Extract File = <path> directives from a nested Include/Exclude block.
+/// The block content may contain nested Options { } blocks which we skip.
+fn extract_file_directives(block_content: &str) -> String {
+    let mut files = Vec::new();
+    for line in block_content.lines() {
+        let trimmed = line.trim();
+        // Skip comments, empty lines, and nested blocks
+        if trimmed.is_empty() || trimmed.starts_with('#') { continue; }
+        if trimmed.starts_with('{') || trimmed.starts_with('}') { continue; }
+        // Look for "File = <path>" directives
+        if let Some(pos) = trimmed.find('=') {
+            let key = trimmed[..pos].trim().to_lowercase();
+            let val = trimmed[pos+1..].trim().trim_matches('"');
+            if key == "file" {
+                files.push(val.to_string());
+            }
+        }
+    }
+    files.join("\n")
+}
+
+/// Parse Job/JobDefs directives into a JobResource.
+fn parse_job_fields(directives: &HashMap<String, String>) -> Result<JobResource, ConfigError> {
+    let get = |key: &str| directives.get(key).map(|s| s.as_str());
+    let require = |key: &str| -> Result<&str, ConfigError> {
+        get(key).ok_or_else(|| ConfigError::MissingRequired {
+            resource_type: "Job".to_string(),
+            directive: key.to_string(),
+        })
+    };
+
+    let mut job = JobResource::default();
+    job.name = require("name")?.to_string();
+    if let Some(v) = get("type") {
+        job.job_type = match v.to_lowercase().as_str() {
+            "backup" => JobType::Backup,
+            "restore" => JobType::Restore,
+            "verify" => JobType::Verify,
+            "admin" => JobType::Admin,
+            "copy" => JobType::Copy,
+            "migrate" => JobType::Migrate,
+            "consolidate" => JobType::Consolidate,
+            _ => JobType::Backup,
+        };
+    }
+    if let Some(v) = get("level") {
+        job.level = match v.to_lowercase().as_str() {
+            "full" => JobLevel::Full,
+            "incremental" => JobLevel::Incremental,
+            "differential" => JobLevel::Differential,
+            "virtualfull" => JobLevel::VirtualFull,
+            _ => JobLevel::Full,
+        };
+    }
+    if let Some(v) = get("client") { job.client = v.to_string(); }
+    if let Some(v) = get("fileset") { job.fileset = v.to_string(); }
+    if let Some(v) = get("file set") { job.fileset = v.to_string(); }
+    if let Some(v) = get("schedule") { job.schedule = v.to_string(); }
+    if let Some(v) = get("storage") { job.storage = v.to_string(); }
+    if let Some(v) = get("pool") { job.pool = v.to_string(); }
+    if let Some(v) = get("full backup pool") { job.full_backup_pool = v.to_string(); }
+    if let Some(v) = get("differential backup pool") { job.differential_backup_pool = v.to_string(); }
+    if let Some(v) = get("incremental backup pool") { job.incremental_backup_pool = v.to_string(); }
+    if let Some(v) = get("messages") { job.messages = v.to_string(); }
+    if let Some(v) = get("priority") { job.priority = v.parse().unwrap_or(10); }
+    if let Some(v) = get("maximum concurrent jobs") {
+        job.max_concurrent_jobs = v.parse().unwrap_or(1);
+    }
+    if let Some(v) = get("enabled") {
+        job.enabled = parse_bool(v).map(|(_, b)| b).unwrap_or(true);
+    }
+    if let Some(v) = get("jobdefs") { job.jobdefs = v.to_string(); }
+    if let Some(v) = get("write bootstrap") { job.write_bootstrap = v.to_string(); }
+    if let Some(v) = get("run before job") { job.run_before_job = v.to_string(); }
+    if let Some(v) = get("run after job") { job.run_after_job = v.to_string(); }
+    if let Some(v) = get("runbeforejob") { job.run_before_job = v.to_string(); }
+    if let Some(v) = get("runafterjob") { job.run_after_job = v.to_string(); }
+
+    Ok(job)
+}
+
 /// Convert a raw resource to a typed resource.
 fn convert_raw_resource(raw: &RawResource) -> Result<Resource, ConfigError> {
     let directives: HashMap<String, String> = raw
@@ -332,44 +420,14 @@ fn convert_raw_resource(raw: &RawResource) -> Result<Resource, ConfigError> {
             Ok(Resource::Client(client))
         }
 
-        "job" | "jobdefs" => {
-            let mut job = JobResource::default();
-            job.name = require("name")?.to_string();
-            if let Some(v) = get("type") {
-                job.job_type = match v.to_lowercase().as_str() {
-                    "backup" => JobType::Backup,
-                    "restore" => JobType::Restore,
-                    "verify" => JobType::Verify,
-                    "admin" => JobType::Admin,
-                    "copy" => JobType::Copy,
-                    "migrate" => JobType::Migrate,
-                    "consolidate" => JobType::Consolidate,
-                    _ => JobType::Backup,
-                };
-            }
-            if let Some(v) = get("level") {
-                job.level = match v.to_lowercase().as_str() {
-                    "full" => JobLevel::Full,
-                    "incremental" => JobLevel::Incremental,
-                    "differential" => JobLevel::Differential,
-                    "virtualfull" => JobLevel::VirtualFull,
-                    _ => JobLevel::Full,
-                };
-            }
-            if let Some(v) = get("client") { job.client = v.to_string(); }
-            if let Some(v) = get("fileset") { job.fileset = v.to_string(); }
-            if let Some(v) = get("schedule") { job.schedule = v.to_string(); }
-            if let Some(v) = get("storage") { job.storage = v.to_string(); }
-            if let Some(v) = get("pool") { job.pool = v.to_string(); }
-            if let Some(v) = get("messages") { job.messages = v.to_string(); }
-            if let Some(v) = get("priority") { job.priority = v.parse().unwrap_or(10); }
-            if let Some(v) = get("maximum concurrent jobs") {
-                job.max_concurrent_jobs = v.parse().unwrap_or(1);
-            }
-            if let Some(v) = get("enabled") {
-                job.enabled = parse_bool(v).map(|(_, b)| b).unwrap_or(true);
-            }
+        "job" => {
+            let job = parse_job_fields(&directives)?;
             Ok(Resource::Job(job))
+        }
+
+        "jobdefs" => {
+            let job = parse_job_fields(&directives)?;
+            Ok(Resource::JobDefs(JobDefsResource { name: job.name.clone(), job }))
         }
 
         "storage" => {
@@ -454,12 +512,24 @@ fn convert_raw_resource(raw: &RawResource) -> Result<Resource, ConfigError> {
         }
 
         "fileset" => {
-            let fs = FileSetResource {
-                name: require("name")?.to_string(),
-                include_blocks: Vec::new(), // TODO: parse Include {} blocks
-                exclude_blocks: Vec::new(), // TODO: parse Exclude {} blocks
-            };
-            Ok(Resource::FileSet(fs))
+            let name = require("name")?.to_string();
+            // Collect File= directives from Include/Exclude blocks
+            let mut include_blocks = Vec::new();
+            let mut exclude_blocks = Vec::new();
+            for d in raw.directives.iter() {
+                if d.key.starts_with("_block_include") {
+                    let files = extract_file_directives(&d.value);
+                    if !files.is_empty() {
+                        include_blocks.push(files);
+                    }
+                } else if d.key.starts_with("_block_exclude") {
+                    let files = extract_file_directives(&d.value);
+                    if !files.is_empty() {
+                        exclude_blocks.push(files);
+                    }
+                }
+            }
+            Ok(Resource::FileSet(FileSetResource { name, include_blocks, exclude_blocks }))
         }
 
         "console" => {
@@ -471,10 +541,21 @@ fn convert_raw_resource(raw: &RawResource) -> Result<Resource, ConfigError> {
             Ok(Resource::Console(con))
         }
 
-        // Unbekannte Resource-Typen tolerieren (Profile, Messages, etc.)
+        // "jobdefs" is handled above together with "job"
+
+        "messages" => {
+            let name = require("name")?.to_string();
+            Ok(Resource::Messages(MessagesResource { name }))
+        }
+
+        "profile" => {
+            let name = require("name")?.to_string();
+            Ok(Resource::Profile(ProfileResource { name }))
+        }
+
+        // Unbekannte Resource-Typen tolerieren
         _other => {
             tracing::debug!("skipping unknown resource type: {}", raw.resource_type);
-            // Return a dummy — skip silently
             Ok(Resource::Console(ConsoleResource {
                 name: format!("_skip_{}", raw.resource_type),
                 password: String::new(),

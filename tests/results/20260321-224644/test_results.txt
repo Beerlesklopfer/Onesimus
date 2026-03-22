@@ -1,0 +1,19 @@
+[2m2026-03-21T21:46:44.180077Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m baReos Director Version 0.25.0 starting
+[2m2026-03-21T21:46:44.180089Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m debug level set to 100
+[2m2026-03-21T21:46:44.180138Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m loaded configuration from /tmp/bareos-test-zHlp1r/bareos-dir.conf
+[2m2026-03-21T21:46:44.180195Z[0m [32m INFO[0m [2mbareos_dird[0m[2m:[0m Director 'test-dir' listening on port 29101
+[2m2026-03-21T21:46:44.180279Z[0m [32m INFO[0m [2mbareos_dird::scheduler[0m[2m:[0m scheduler started
+[2m2026-03-21T21:46:44.180287Z[0m [31mERROR[0m [2mbareos_dird::accept[0m[2m:[0m FATAL: failed to bind 0.0.0.0:29101: Address already in use (os error 98)
+[2m2026-03-21T21:46:44.180294Z[0m [31mERROR[0m [2mbareos_dird::accept[0m[2m:[0m Another director already running? Check: ss -tlnp | grep 29101
+[2m2026-03-21T21:46:44.180312Z[0m [32m INFO[0m [2mbareos_dird::watchdog[0m[2m:[0m watchdog started (interval=30s, timeout=120s)
+FATAL: Director konnte nicht gestartet werden
+tests/test_commands.sh: Zeile 76: [: 0
+0: Ganzzahliger Ausdruck erwartet.
+
+Artefakte gesichert: /home/INTRANET.BERNAU.FAMILY/Joerg.Bernau/Dokumente/Projekte/baReos-dird/tests/results/20260321-224644/
+  test_results.txt  — Testergebnisse
+  director.log      — Director-Log (debug=100)
+  bareos-dir.conf   — Test-Konfiguration
+  summary.txt       — Zusammenfassung
+
+Letzter Lauf: tests/results/latest/
