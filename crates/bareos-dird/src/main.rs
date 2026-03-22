@@ -328,6 +328,9 @@ fn main() {
     let bus = Arc::new(MessageBus::new(1024));
     let session_mgr = Arc::new(SessionManager::new(bus.clone()));
     let cmd_queue = Arc::new(CommandQueue::new(256));
+    let job_mgr = Arc::new(std::sync::Mutex::new(
+        job_manager::JobManager::new(bus.clone(), Some(shared_config.clone()))
+    ));
 
     // Daemonize wenn NICHT -f/--foreground
     if !cli.foreground && !cli.test_config {
@@ -351,10 +354,23 @@ fn main() {
     info!("Director '{}' listening on port {}", dir_name, port);
 
     // Named threads
-    let threads = spawn_named_threads(
+    let mut threads = spawn_named_threads(
         session_mgr.clone(), bus.clone(), cmd_queue.clone(),
         shared_config.clone(), port, grpc_enabled, dir_password, tls_config,
+        job_mgr.clone(),
     );
+
+    // dir:job-monitor — polls all job worker pipes
+    {
+        let mgr = job_mgr.clone();
+        let handle = thread::Builder::new()
+            .name("dir:job-monitor".into())
+            .spawn(move || {
+                job_manager::monitor_loop(mgr, &SHUTDOWN);
+            })
+            .expect("failed to spawn dir:job-monitor");
+        threads.push(("dir:job-monitor".into(), handle));
+    }
 
     // SIGHUP handler for config reload
     reload::setup_sighup_handler(cli.config.clone(), shared_config.clone());
@@ -385,6 +401,7 @@ fn spawn_named_threads(
     grpc_enabled: bool,
     password: String,
     tls_config: Option<bareos_bnet::tls::TlsConfig>,
+    job_mgr: Arc<std::sync::Mutex<job_manager::JobManager>>,
 ) -> Vec<(String, thread::JoinHandle<()>)> {
     let mut threads = Vec::new();
 
@@ -395,6 +412,7 @@ fn spawn_named_threads(
         let pw = password.clone();
         let tls_cfg = tls_config.clone();
         let shared_cfg = config.clone();
+        let jmgr = job_mgr.clone();
         let handle = thread::Builder::new()
             .name("dir:accept".into())
             .spawn(move || {
@@ -404,6 +422,7 @@ fn spawn_named_threads(
                     password: pw,
                     tls_config: tls_cfg,
                     shared_config: Some(shared_cfg),
+                    job_manager: Some(jmgr),
                 };
                 accept::accept_loop(&smgr, &q, &config, &SHUTDOWN);
             })

@@ -28,6 +28,7 @@ pub struct AcceptConfig {
     pub password: String,
     pub tls_config: Option<TlsConfig>,
     pub shared_config: Option<SharedConfig>,
+    pub job_manager: Option<Arc<std::sync::Mutex<crate::job_manager::JobManager>>>,
 }
 
 impl Default for AcceptConfig {
@@ -38,6 +39,7 @@ impl Default for AcceptConfig {
             password: String::new(),
             tls_config: None,
             shared_config: None,
+            job_manager: None,
         }
     }
 }
@@ -95,12 +97,13 @@ pub fn accept_loop(
                 let password = config.password.clone();
                 let tls_cfg = tls_server_config.clone();
                 let shared_cfg = config.shared_config.clone();
+                let job_mgr = config.job_manager.clone();
                 let session_id = crate::session_manager::next_session_id();
 
                 thread::Builder::new()
                     .name(format!("dir:session:{session_id}"))
                     .spawn(move || {
-                        handle_connection(stream, session_id, &password, tls_cfg, &smgr, &q, &shared_cfg);
+                        handle_connection(stream, session_id, &password, tls_cfg, &smgr, &q, &shared_cfg, &job_mgr);
                     })
                     .ok();
             }
@@ -126,6 +129,7 @@ fn handle_connection(
     session_mgr: &Arc<SessionManager>,
     cmd_queue: &CommandQueue,
     shared_config: &Option<SharedConfig>,
+    job_manager: &Option<Arc<std::sync::Mutex<crate::job_manager::JobManager>>>,
 ) {
     // Peek at first byte to detect TLS ClientHello (0x16) vs plaintext BNET
     // Use a short read timeout so we don't block forever
@@ -142,7 +146,7 @@ fn handle_connection(
                     Ok(psk_stream) => {
                         debug!("session {session_id}: TLS-PSK accept OK");
                         handle_hello(BnetStream::new(psk_stream), session_id, password,
-                                     session_mgr, cmd_queue, shared_config);
+                                     session_mgr, cmd_queue, shared_config, job_manager);
                     }
                     Err(e) => {
                         debug!("session {session_id}: TLS-PSK accept failed: {e}");
@@ -152,7 +156,7 @@ fn handle_connection(
                 // Plaintext BNET — first byte is part of i32 length header
                 debug!("session {session_id}: plaintext connection detected");
                 handle_hello(BnetStream::new(stream), session_id, password,
-                             session_mgr, cmd_queue, shared_config);
+                             session_mgr, cmd_queue, shared_config, job_manager);
             }
         }
         Ok(_) | Err(_) => {
@@ -169,6 +173,7 @@ fn handle_hello<S: std::io::Read + std::io::Write>(
     session_mgr: &Arc<SessionManager>,
     cmd_queue: &CommandQueue,
     shared_config: &Option<SharedConfig>,
+    job_manager: &Option<Arc<std::sync::Mutex<crate::job_manager::JobManager>>>,
 ) {
 
     // Read hello message
@@ -192,13 +197,13 @@ fn handle_hello<S: std::io::Read + std::io::Write>(
         Hello::DefaultConsole => {
             debug!("default console connected (session {session_id})");
             session::handle_console_session(
-                bnet, session_id, "*UserAgent*", password, session_mgr, cmd_queue, shared_config,
+                bnet, session_id, "*UserAgent*", password, session_mgr, cmd_queue, shared_config, job_manager,
             );
         }
         Hello::NamedConsole { name, version, wants_grpc } => {
             debug!("named console '{name}' v{version} connected (grpc={wants_grpc})");
             session::handle_console_session(
-                bnet, session_id, &name, password, session_mgr, cmd_queue, shared_config,
+                bnet, session_id, &name, password, session_mgr, cmd_queue, shared_config, job_manager,
             );
         }
         Hello::FileDaemon { client_name, fd_protocol_version } => {

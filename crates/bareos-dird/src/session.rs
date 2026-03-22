@@ -28,6 +28,7 @@ pub fn handle_console_session<S: Read + Write>(
     session_mgr: &Arc<SessionManager>,
     cmd_queue: &CommandQueue,
     config: &Option<SharedConfig>,
+    job_manager: &Option<Arc<std::sync::Mutex<crate::job_manager::JobManager>>>,
 ) {
     // Register session
     let mgr_session_id = session_mgr.create_session(console_name);
@@ -170,7 +171,7 @@ pub fn handle_console_session<S: Read + Write>(
             catalog_url,
             api_mode,
             bus_rx: Some(bus_rx.clone()),
-            job_manager: None, // TODO: pass from main
+            job_manager: job_manager.clone(),
         };
         let result = command_executor::dispatch(&ast, &ctx);
 
