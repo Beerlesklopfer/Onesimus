@@ -191,7 +191,7 @@ mod tests {
     fn dispatch_version() {
         let result = dispatch(&make_ast("version"), &make_ctx());
         assert!(result.success);
-        assert!(result.text_output.contains("baReos"));
+        assert!(result.text_output.contains("bareos-dir Version:"));
     }
 
     #[test]
