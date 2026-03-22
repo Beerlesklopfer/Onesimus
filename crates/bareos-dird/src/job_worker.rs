@@ -407,7 +407,10 @@ fn run_backup_phase(
         })
         .map_err(|e| format!("sd thread: {e}"))?;
 
-    // Main thread: read FD until "2800 End Job"
+    // Main thread: read FD messages until restore is done.
+    // The FD sends "2000 OK storage end" when SD data transfer is complete,
+    // then waits for the Director to signal end-of-commands (EOD/Terminate).
+    // After receiving the signal, FD sends "2800 End Job" and quits.
     let result = wait_for_fd_end_job(&mut fd, job_id);
     let _ = fd.send_signal(BnetSignal::Terminate);
     sd_handle.join().ok();
@@ -623,6 +626,7 @@ fn wait_for_fd_end_job(fd: &mut BnetStream<tls_psk::PskStream>, job_id: u32) -> 
             Ok(BnetMessage::Data(data)) => {
                 let msg = String::from_utf8_lossy(&data).trim().to_string();
                 if msg.starts_with("2800 End Job") {
+                    info!("Worker {job_id}: FD End Job: {msg}");
                     let mut tc = 0i32; let mut f = 0i64; let mut b = 0i64; let mut e = 0i32;
                     for part in msg.split_whitespace() {
                         if let Some(v) = part.strip_prefix("TermCode=") { tc = v.parse().unwrap_or(0); }
@@ -632,11 +636,23 @@ fn wait_for_fd_end_job(fd: &mut BnetStream<tls_psk::PskStream>, job_id: u32) -> 
                     }
                     return (f, b, e, tc);
                 }
-                debug!("Worker {job_id} FD: {msg}");
+                if msg.starts_with("2000 OK storage end") {
+                    // FD is done with SD data transfer. Signal end-of-commands
+                    // so FD exits its command loop and sends "2800 End Job".
+                    info!("Worker {job_id}: FD storage end — sending EOD");
+                    let _ = fd.send_signal(BnetSignal::Eod);
+                    continue;
+                }
+                debug!("Worker {job_id} FD: {}", &msg[..msg.len().min(120)]);
             }
-            Ok(BnetMessage::Signal(BnetSignal::Terminate)) => return (0, 0, 1, 2),
-            Ok(BnetMessage::Signal(_)) => continue,
-            Err(e) => { error!("Worker {job_id} FD recv: {e}"); return (0, 0, 1, 2); }
+            Ok(BnetMessage::Signal(sig)) => {
+                debug!("Worker {job_id} FD signal: {sig:?}");
+                if matches!(sig, BnetSignal::Terminate) { return (0, 0, 1, 2); }
+            }
+            Err(e) => {
+                error!("Worker {job_id} FD recv error: {e}");
+                return (0, 0, 1, 2);
+            }
         }
     }
 }
