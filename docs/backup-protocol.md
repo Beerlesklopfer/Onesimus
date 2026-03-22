@@ -331,3 +331,68 @@ sequenceDiagram
     Worker->>Pipe: {"type":"job_end","term_code":0,"files":451}
     Dir->>Dir: mark job Completed
 ```
+
+## Console Session Protocol (C++ ua_session.cc)
+
+bconsole connects with `api=0` (default). The `.api` dot-command changes the mode.
+
+### api=0 (bconsole default, "Human" mode)
+
+```
+Dir: recv()          ← blocks, waits for command
+Console: sends cmd   → "version\n"
+Dir: executes cmd
+Dir: send_str(result) → "bareos-dir Version: 0.25.0 ..."
+Dir: send_signal(EOD) → signal -1
+Dir: recv()          ← back to waiting
+```
+
+**NO MainPrompt signal.** bconsole in api=0 mode does not expect MainPrompt.
+bconsole uses the EOD signal to know the response is complete.
+
+### api>0 (after `.api 1` or `.api 2`)
+
+```
+Dir: send_signal(MainPrompt) → signal -18
+Dir: recv()
+Console: sends cmd
+Dir: executes cmd
+Dir: send_str(result)
+Dir: send_signal(MainPrompt) → next iteration
+```
+
+**NO EOD signal.** MainPrompt signals end of response and readiness.
+
+### Initial handshake (after CRAM-MD5 auth)
+
+```
+Dir → Console: "1000\x1eOK: bareos-dir Version: 0.25.0"  (data)
+Dir → Console: "1002\x1eYou are connected using the default console"  (data)
+```
+
+Then immediately into the command loop (api=0: no further signals before first recv).
+
+## Restore Phase 4: EOD to FD (critical!)
+
+After restore data transfer is complete, the FD sends "2000 OK storage end"
+to the Director. The FD then **waits for the Director to signal end-of-commands**
+(EOD or Terminate) before it sends "2800 End Job".
+
+Without this signal, the FD waits indefinitely in its command loop.
+
+```
+FD → Dir: "2000 OK storage end"
+Dir → FD: EOD signal (-1)          ← REQUIRED!
+FD → Dir: "2800 End Job TermCode=84 JobFiles=451 ..."
+```
+
+The backup flow does NOT have this issue because the FD sends "2800 End Job"
+after the data transfer completes (it doesn't re-enter the command loop).
+
+## Backup Level: since_utime
+
+- Full: `level = full\n`
+- Incremental: `level = since_utime=EPOCH mtime_only=0\n`
+- **since_utime=0 causes FD fatal error** (TermCode=102/'f')
+- C++ Director auto-upgrades to Full if no previous Full backup exists
+- EPOCH = unix timestamp of last successful backup's starttime
