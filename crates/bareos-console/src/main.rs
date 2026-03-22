@@ -230,14 +230,30 @@ fn run_bnet_session<S: std::io::Read + std::io::Write + Send + 'static>(cli: &Ef
         }
     }
 
-    // Receive banner
-    match bnet.recv_str() {
-        Ok(banner) => {
-            eprintln!("{}", banner.trim());
-        }
-        Err(e) => {
-            eprintln!("Failed to receive banner: {e}");
-            std::process::exit(1);
+    // Receive all init messages until EOD (api=0) or MainPrompt (api>0).
+    // The Director sends: 1000 OK + 1002 Info + EOD.
+    loop {
+        match bnet.recv() {
+            Ok(BnetMessage::Data(data)) => {
+                let text = String::from_utf8_lossy(&data);
+                // Parse MessageID\x1ePayload format
+                if let Some(pos) = text.find('\x1e') {
+                    eprintln!("{}", &text[pos+1..].trim());
+                } else {
+                    eprintln!("{}", text.trim());
+                }
+            }
+            Ok(BnetMessage::Signal(BnetSignal::Eod)) => break,
+            Ok(BnetMessage::Signal(BnetSignal::MainPrompt)) => break,
+            Ok(BnetMessage::Signal(BnetSignal::Terminate)) => {
+                eprintln!("Director terminated connection");
+                std::process::exit(1);
+            }
+            Ok(BnetMessage::Signal(_)) => continue,
+            Err(e) => {
+                eprintln!("Failed to receive banner: {e}");
+                std::process::exit(1);
+            }
         }
     }
 
@@ -252,20 +268,7 @@ fn run_bnet_session<S: std::io::Read + std::io::Write + Send + 'static>(cli: &Ef
 }
 
 fn execute_single_command<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>, cmd: &str) {
-    // Drain initial messages (1000 OK, 1002 Info) until EOD or MainPrompt.
-    // api=0: Director sends EOD after init, no MainPrompt.
-    // api>0: Director sends MainPrompt.
-    loop {
-        match bnet.recv() {
-            Ok(BnetMessage::Signal(BnetSignal::Eod)) => break,
-            Ok(BnetMessage::Signal(BnetSignal::MainPrompt)) => break,
-            Ok(BnetMessage::Signal(BnetSignal::Terminate)) => return,
-            Ok(_) => continue,
-            Err(_) => return,
-        }
-    }
-
-    // Send command
+    // Init messages already drained in run_bnet_session.
     if bnet.send_str(cmd).is_err() {
         return;
     }
@@ -736,8 +739,7 @@ fn interactive_loop<S: std::io::Read + std::io::Write + Send + 'static>(
 ) {
     let mut dir: Box<dyn DirectorConn> = Box::new(BnetConn { bnet });
 
-    // Initiales MainPrompt drain, dann Commands + Values laden
-    dir.drain();
+    // Init messages already drained in run_bnet_session before entering interactive mode.
     let mut helper = BareosHelper::new();
     helper.load_from_director(dir.as_mut());
     let total_completions: usize = helper.entries.iter().map(|e| e.completions.len()).sum();

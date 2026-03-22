@@ -82,6 +82,13 @@ pub fn handle_console_session<S: Read + Write>(
     // Subscribe to MessageBus for job messages, status updates, etc.
     let bus_rx = session_mgr.bus().subscribe();
 
+    // EOD after init messages — signals "ready for commands" to the console.
+    // EOD after init messages — signals "ready for commands".
+    if bnet.send_signal(BnetSignal::Eod).is_err() {
+        session_mgr.remove_session(mgr_session_id);
+        return;
+    }
+
     // Command loop
     // C++ ua_session.cc CommandLoop():
     //   api=true:  MainPrompt before recv, NO EOD after response
