@@ -95,8 +95,27 @@ pub fn cmd_show(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
                 }
                 "jobs" | "job" => {
                     for j in &cfg.jobs {
-                        output.push_str(&format!("Job: name={} type={:?} level={:?} client={} storage={} pool={} enabled={}\n",
-                            j.name, j.job_type, j.level, j.client, j.storage, j.pool, j.enabled));
+                        output.push_str(&format!("Job {{\n  Name = \"{}\"\n  Type = {:?}\n  Level = {:?}\n  Client = {}\n  FileSet = \"{}\"\n  Storage = {}\n  Pool = {}\n  Messages = {}\n  Priority = {}\n",
+                            j.name, j.job_type, j.level, j.client, j.fileset, j.storage, j.pool, j.messages, j.priority));
+                        if !j.schedule.is_empty() { output.push_str(&format!("  Schedule = \"{}\"\n", j.schedule)); }
+                        if !j.full_backup_pool.is_empty() { output.push_str(&format!("  Full Backup Pool = {}\n", j.full_backup_pool)); }
+                        if !j.differential_backup_pool.is_empty() { output.push_str(&format!("  Differential Backup Pool = {}\n", j.differential_backup_pool)); }
+                        if !j.incremental_backup_pool.is_empty() { output.push_str(&format!("  Incremental Backup Pool = {}\n", j.incremental_backup_pool)); }
+                        if !j.write_bootstrap.is_empty() { output.push_str(&format!("  Write Bootstrap = \"{}\"\n", j.write_bootstrap)); }
+                        output.push_str(&format!("  Enabled = {}\n}}\n\n", if j.enabled { "yes" } else { "no" }));
+                    }
+                }
+                "jobdefs" | "jobdef" => {
+                    for jd in &cfg.jobdefs {
+                        let j = &jd.job;
+                        output.push_str(&format!("JobDefs {{\n  Name = \"{}\"\n  Type = {:?}\n  Level = {:?}\n  Client = {}\n  FileSet = \"{}\"\n  Storage = {}\n  Pool = {}\n  Messages = {}\n  Priority = {}\n",
+                            jd.name, j.job_type, j.level, j.client, j.fileset, j.storage, j.pool, j.messages, j.priority));
+                        if !j.schedule.is_empty() { output.push_str(&format!("  Schedule = \"{}\"\n", j.schedule)); }
+                        if !j.full_backup_pool.is_empty() { output.push_str(&format!("  Full Backup Pool = {}\n", j.full_backup_pool)); }
+                        if !j.differential_backup_pool.is_empty() { output.push_str(&format!("  Differential Backup Pool = {}\n", j.differential_backup_pool)); }
+                        if !j.incremental_backup_pool.is_empty() { output.push_str(&format!("  Incremental Backup Pool = {}\n", j.incremental_backup_pool)); }
+                        if !j.write_bootstrap.is_empty() { output.push_str(&format!("  Write Bootstrap = \"{}\"\n", j.write_bootstrap)); }
+                        output.push_str(&format!("  Enabled = {}\n}}\n\n", if j.enabled { "yes" } else { "no" }));
                     }
                 }
                 "storages" | "storage" => {
@@ -115,12 +134,14 @@ pub fn cmd_show(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
                     output.push_str(&format!("Director: {}\n", cfg.director.name));
                     output.push_str(&format!("Clients: {}\n", cfg.clients.len()));
                     output.push_str(&format!("Jobs: {}\n", cfg.jobs.len()));
+                    output.push_str(&format!("JobDefs: {}\n", cfg.jobdefs.len()));
                     output.push_str(&format!("Storages: {}\n", cfg.storages.len()));
                     output.push_str(&format!("Pools: {}\n", cfg.pools.len()));
+                    output.push_str(&format!("FileSets: {}\n", cfg.filesets.len()));
                     output.push_str(&format!("Schedules: {}\n", cfg.schedules.len()));
                     output.push_str(&format!("Consoles: {}\n", cfg.consoles.len()));
                 }
-                other => output.push_str(&format!("show {other}: try director, clients, jobs, storages, pools, all\n")),
+                other => output.push_str(&format!("show {other}: try director, clients, jobs, jobdefs, storages, pools, all\n")),
             }
             return CommandResult::ok(output);
         }
