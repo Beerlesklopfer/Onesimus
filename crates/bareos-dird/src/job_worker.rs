@@ -272,7 +272,9 @@ pub fn run_worker(
             }
 
             WorkerState::Finishing { files, bytes, errors, term_code } => {
-                if term_code == 0 && errors == 0 {
+                // TermCode: 0=OK, 84='T'=Success, 87='W'=Warnings, 69='E'=Error, 102='f'=Fatal
+                let success = term_code == 0 || term_code == 84 || term_code == 87; // T or W
+                if success && errors == 0 {
                     WorkerState::Completed { files, bytes, errors }
                 } else {
                     WorkerState::Error(format!("TermCode={term_code} Errors={errors}"))

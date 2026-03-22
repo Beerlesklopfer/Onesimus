@@ -206,76 +206,126 @@ impl JobManager {
     }
 }
 
-/// CatReq handler — responds to SD catalog requests.
-/// FindMedia: return existing volume or create new one.
-fn handle_cat_req(request: &str, _config: &Option<SharedConfig>) -> String {
+/// CatReq handler — queries real DB for volume info.
+fn handle_cat_req(request: &str, config: &Option<SharedConfig>) -> String {
+    let catalog_url = config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
+        cfg.catalogs.first().map(|cat| {
+            if cat.db_address.is_empty() || cat.db_address == "localhost" || cat.db_address == "127.0.0.1" {
+                format!("postgres://{}@localhost/{}?host=/var/run/postgresql", cat.db_user, cat.db_name)
+            } else {
+                format!("postgres://{}@{}:{}/{}", cat.db_user, cat.db_address, cat.db_port, cat.db_name)
+            }
+        })
+    });
+
     if request.contains("FindMedia") {
-        // SD wants a writable volume — return Full-0001 with correct DB values
-        // TODO: query DB for actual values instead of hardcoding
-        debug!("CatReq: FindMedia → returning Full-0001");
-        format!(
-            "1000 OK VolName={vn} VolJobs={vj} VolFiles={vf} \
-             VolBlocks={vb} VolBytes={vby} VolMounts={vm} VolErrors=0 VolWrites=0 \
-             MaxVolBytes={mvb} VolCapacityBytes=0 VolStatus={vs} Slot=0 \
-             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
-             VolWriteTime=0 EndFile={ef} EndBlock={eb} LabelType=0 \
-             MediaId={mid} EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n",
-            vn = "Full-0001", vj = 1, vf = 0, vb = 0,
-            vby = 67038654i64, vm = 1, mvb = 53687091200i64,
-            vs = "Append", ef = 0, eb = 67038653i64, mid = 1,
-        )
-    } else if request.contains("get_volume") || request.contains("find_next_volume") {
-        debug!("CatReq: get_volume → returning Full-0001");
-        format!(
-            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=451 \
-             VolBlocks=0 VolBytes=67038654 VolMounts=1 VolErrors=0 VolWrites=0 \
-             MaxVolBytes=53687091200 VolCapacityBytes=0 VolStatus=Append Slot=0 \
-             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
-             VolWriteTime=0 EndFile=0 EndBlock=0 LabelType=0 \
-             MediaId=1 EncryptionKey= MinBlocksize=0 MaxBlocksize=0\n"
-        )
+        let pool = extract_field(request, "pool_name=").unwrap_or("Full".into());
+        debug!("CatReq: FindMedia pool={pool}");
+        let vol = query_appendable_volume(&catalog_url, &pool);
+        match vol {
+            Some(name) => query_volume_info(&catalog_url, &name).unwrap_or("1901 No Media.\n".into()),
+            None => "1901 No Media.\n".to_string(),
+        }
     } else if request.contains("GetVolInfo") {
-        debug!("CatReq: GetVolInfo → returning Full-0001 details");
-        format!(
-            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=0 \
-             VolBlocks=0 VolBytes=67038654 VolMounts=1 VolErrors=0 VolWrites=0 \
-             MaxVolBytes=53687091200 VolCapacityBytes=0 VolStatus=Append Slot=0 \
-             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
-             VolWriteTime=0 EndFile=0 EndBlock=67038653 LabelType=0 \
-             MediaId=1 EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n"
-        )
+        let vol = extract_field(request, "VolName=").unwrap_or("Full-0001".into());
+        debug!("CatReq: GetVolInfo vol={vol}");
+        query_volume_info(&catalog_url, &vol).unwrap_or("1901 No Media.\n".into())
     } else if request.contains("UpdateMedia") {
-        // After UpdateMedia, SD calls DoGetVolumeInfo which reads ANOTHER message
-        // with full volume info. So we send OK + volume info as TWO messages.
-        // But since we send via one send_str, we combine them with a null separator...
-        // Actually: The SD reads UpdateMedia response, then calls DoGetVolumeInfo
-        // which does dir->recv() for the NEXT message. So we need to send TWO
-        // separate BNET messages. But our pipe only returns one response.
-        // HACK: Send both as one string separated by \0 — but that won't work with send_str.
-        // SOLUTION: Return the volume info directly — the SD reads it via DoGetVolumeInfo.
-        debug!("CatReq: UpdateMedia → returning Volume-Info for DoGetVolumeInfo");
-        format!(
-            "1000 OK VolName=Full-0001 VolJobs=1 VolFiles=0 \
-             VolBlocks=0 VolBytes=67038654 VolMounts=2 VolErrors=0 VolWrites=0 \
-             MaxVolBytes=53687091200 VolCapacityBytes=0 VolStatus=Append Slot=0 \
-             MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
-             VolWriteTime=0 EndFile=0 EndBlock=67038653 LabelType=0 \
-             MediaId=1 EncryptionKey=*None* MinBlocksize=0 MaxBlocksize=0\n"
-        )
-    } else if request.contains("update_vol") || request.contains("UpdateJobRecord") {
-        "1000 OK\n".to_string()
+        let vol = extract_field(request, "VolName=").unwrap_or("Full-0001".into());
+        debug!("CatReq: UpdateMedia vol={vol}");
+        // Update DB with values from SD, then return fresh volume info
+        update_media_in_db(&catalog_url, request);
+        query_volume_info(&catalog_url, &vol).unwrap_or("1901 No Media.\n".into())
     } else if request.contains("CreateJobMedia") {
         "1000 OK CreateJobMedia\n".to_string()
-    } else if request.contains("CreateJobRecord") || request.contains("CreateMedia") {
-        "1000 OK MediaId=2\n".to_string()
-    } else if request.contains("UpdateFileList") || request.contains("UpdateFilelist") {
+    } else if request.contains("UpdateJobRecord") {
+        "1000 OK\n".to_string()
+    } else if request.contains("UpdateFileList") || request.contains("Filelist") {
         "1000 OK\n".to_string()
     } else if request.contains("DeleteNullJobmediaRecords") {
         "1000 OK DeleteNullJobmediaRecords\n".to_string()
     } else {
-        debug!("CatReq: unknown, returning OK: {}", &request[..request.len().min(60)]);
+        debug!("CatReq: unknown: {}", &request[..request.len().min(80)]);
         "1000 OK\n".to_string()
     }
+}
+
+/// Query full volume info from DB in OK_media format (24 fields).
+fn query_volume_info(url: &Option<String>, vol_name: &str) -> Option<String> {
+    let url = url.as_ref()?;
+    let rt = tokio::runtime::Runtime::new().ok()?;
+    rt.block_on(async {
+        let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await.ok()?;
+        let row: Option<(
+            String, i32, i64, i64, i64, i64, i64, i64, i64,
+            String, i64, i32, i64, i64, i64, i64,
+        )> = sqlx::query_as(
+            "SELECT volumename, COALESCE(voljobs,0)::int, COALESCE(volfiles,0)::bigint, \
+             COALESCE(volblocks,0)::bigint, COALESCE(volbytes,0)::bigint, COALESCE(volmounts,0)::bigint, \
+             COALESCE(volerrors,0)::bigint, COALESCE(volwrites,0)::bigint, COALESCE(maxvolbytes,0)::bigint, \
+             COALESCE(volstatus,'Append'), COALESCE(slot,0)::bigint, mediaid, \
+             COALESCE(endfile,0)::bigint, COALESCE(endblock,0)::bigint, \
+             COALESCE(minblocksize,0)::bigint, COALESCE(maxblocksize,0)::bigint \
+             FROM media WHERE volumename = $1"
+        ).bind(vol_name).fetch_optional(&pool).await.ok()?;
+
+        row.map(|(vn, vj, vf, vbl, vby, vm, ve, vw, mvb, vs, sl, mid, ef, eb, minbs, maxbs)| {
+            format!(
+                "1000 OK VolName={vn} VolJobs={vj} VolFiles={vf} \
+                 VolBlocks={vbl} VolBytes={vby} VolMounts={vm} VolErrors={ve} VolWrites={vw} \
+                 MaxVolBytes={mvb} VolCapacityBytes=0 VolStatus={vs} Slot={sl} \
+                 MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
+                 VolWriteTime=0 EndFile={ef} EndBlock={eb} LabelType=0 \
+                 MediaId={mid} EncryptionKey=*None* MinBlocksize={minbs} MaxBlocksize={maxbs}\n"
+            )
+        })
+    })
+}
+
+/// Find an appendable volume in a pool.
+fn query_appendable_volume(url: &Option<String>, pool_name: &str) -> Option<String> {
+    let url = url.as_ref()?;
+    let rt = tokio::runtime::Runtime::new().ok()?;
+    rt.block_on(async {
+        let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await.ok()?;
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT m.volumename FROM media m JOIN pool p ON m.poolid = p.poolid \
+             WHERE p.name = $1 AND m.volstatus = 'Append' ORDER BY m.mediaid LIMIT 1"
+        ).bind(pool_name).fetch_optional(&pool).await.ok()?;
+        row.map(|(name,)| name)
+    })
+}
+
+/// Update media record in DB from SD UpdateMedia values.
+fn update_media_in_db(url: &Option<String>, request: &str) {
+    let Some(url) = url.as_ref() else { return };
+    let vol = extract_field(request, "VolName=").unwrap_or_default();
+    if vol.is_empty() { return; }
+
+    let mounts: i64 = extract_field(request, "VolMounts=").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let bytes: i64 = extract_field(request, "VolBytes=").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let jobs: i32 = extract_field(request, "VolJobs=").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let files: i64 = extract_field(request, "VolFiles=").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let errors: i64 = extract_field(request, "VolErrors=").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let writes: i64 = extract_field(request, "VolWrites=").and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let _ = rt.block_on(async {
+        let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await?;
+        sqlx::query(
+            "UPDATE media SET volmounts=$1, volbytes=$2, voljobs=$3, volfiles=$4, \
+             volerrors=$5, volwrites=$6 WHERE volumename=$7"
+        )
+        .bind(mounts).bind(bytes).bind(jobs).bind(files).bind(errors).bind(writes).bind(&vol)
+        .execute(&pool).await
+    });
+    debug!("CatReq: UpdateMedia DB updated vol={vol} bytes={bytes} mounts={mounts}");
+}
+
+fn extract_field(request: &str, prefix: &str) -> Option<String> {
+    request.split_whitespace()
+        .find(|s| s.starts_with(prefix))
+        .map(|s| s[prefix.len()..].to_string())
 }
 
 /// Job monitor thread — polls all worker pipes periodically.
