@@ -201,7 +201,9 @@ fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
         "clients" => "SELECT clientid, name, uname FROM client ORDER BY name".to_string(),
         "pools" => "SELECT poolid, name, pooltype, numvols, maxvols FROM pool ORDER BY name".to_string(),
         "files" => format!(
-            "SELECT fileid, jobid, filename FROM file ORDER BY fileid DESC LIMIT {limit}"
+            "SELECT f.fileid, f.jobid, p.path || f.name AS filename \
+             FROM file f JOIN path p ON f.pathid = p.pathid \
+             ORDER BY f.fileid DESC LIMIT {limit}"
         ),
         "storages" | "storage" => "SELECT storageid, name, autochanger FROM storage ORDER BY name".to_string(),
         "schedules" | "schedule" => "SELECT scheduleid, name, enabled FROM schedule ORDER BY name".to_string(),
