@@ -83,13 +83,9 @@ pub fn handle_console_session<S: Read + Write>(
     let bus_rx = session_mgr.bus().subscribe();
 
     // EOD after init messages — signals "ready for commands" to the console.
-    // EOD after init messages — signals "ready for commands".
-    if bnet.send_signal(BnetSignal::Eod).is_err() {
-        session_mgr.remove_session(mgr_session_id);
-        return;
-    }
-
     // Command loop
+    // C++ Director: NO signal after init messages, goes straight to recv().
+    // Console must send command without waiting for prompt/EOD.
     // C++ ua_session.cc CommandLoop():
     //   api=true:  MainPrompt before recv, NO EOD after response
     //   api=false: NO MainPrompt, EOD after response (HandleMessages)

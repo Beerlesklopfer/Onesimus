@@ -230,13 +230,13 @@ fn run_bnet_session<S: std::io::Read + std::io::Write + Send + 'static>(cli: &Ef
         }
     }
 
-    // Receive all init messages until EOD (api=0) or MainPrompt (api>0).
-    // The Director sends: 1000 OK + 1002 Info + EOD.
-    loop {
+    // Receive init messages: 1000 OK + 1002 Info.
+    // C++ Director sends NO signal after init — goes straight to recv().
+    // Read exactly 2 data messages (1000 + 1002), then proceed.
+    for i in 0..2 {
         match bnet.recv() {
             Ok(BnetMessage::Data(data)) => {
                 let text = String::from_utf8_lossy(&data);
-                // Parse MessageID\x1ePayload format
                 if let Some(pos) = text.find('\x1e') {
                     eprintln!("{}", &text[pos+1..].trim());
                 } else {
