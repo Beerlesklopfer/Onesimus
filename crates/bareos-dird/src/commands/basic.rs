@@ -16,7 +16,7 @@ pub fn cmd_version(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
             .find(|l| l.starts_with("PRETTY_NAME="))
             .map(|l| l.trim_start_matches("PRETTY_NAME=").trim_matches('"').to_string()))
         .unwrap_or_else(|| "Linux".to_string());
-    CommandResult::ok(format!("bareos-dir Version: {VERSION} ({os})"))
+    CommandResult::ok(format!("bareos-dir Version: {VERSION} ({os})\n"))
 }
 
 pub fn cmd_time(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {

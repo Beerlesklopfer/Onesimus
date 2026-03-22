@@ -193,14 +193,20 @@ pub fn handle_console_session<S: Read + Write>(
 
         // Send result
         if !result.text_output.is_empty() {
-            if bnet.send_str(&result.text_output).is_err() {
-                break;
-            }
+            let out = if result.text_output.ends_with('\n') {
+                result.text_output.clone()
+            } else {
+                format!("{}\n", result.text_output)
+            };
+            if bnet.send_str(&out).is_err() { break; }
         }
         if !result.error_message.is_empty() {
-            if bnet.send_str(&result.error_message).is_err() {
-                break;
-            }
+            let err = if result.error_message.ends_with('\n') {
+                result.error_message.clone()
+            } else {
+                format!("{}\n", result.error_message)
+            };
+            if bnet.send_str(&err).is_err() { break; }
         }
 
         // C++ ua_session.cc HandleMessages(): EOD only in non-API mode.
