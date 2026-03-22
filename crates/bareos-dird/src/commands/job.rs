@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
-use crate::job_worker::{self, JobParams};
+use crate::job_worker::{self, JobParams, WorkerJobType};
 use crate::message_bus::BusMessage;
 use bareos_config::resources::JobType;
 
@@ -106,6 +106,7 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         job_id,
         unique_job: unique_job.clone(),
         job_name: job.name.clone(),
+        job_type: WorkerJobType::Backup,
         level: level.clone(),
         fd_address: client.address.clone(),
         fd_port: client.port,
@@ -119,6 +120,11 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         pool_name: pool.to_string(),
         fileset_includes: fileset_res.map(|f| f.include_blocks.clone()).unwrap_or_default(),
         fileset_excludes: fileset_res.map(|f| f.exclude_blocks.clone()).unwrap_or_default(),
+        // Write Bootstrap from job config
+        where_path: None,
+        replace: None,
+        restore_jobid: None,
+        bootstrap: if !job.write_bootstrap.is_empty() { Some(job.write_bootstrap.clone()) } else { None },
     };
 
     drop(config); // Release RwLock before fork

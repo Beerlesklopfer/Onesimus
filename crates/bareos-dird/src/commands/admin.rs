@@ -3,9 +3,16 @@
 //!
 //! These commands communicate with the Storage Daemon and/or catalog.
 
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
+use crate::job_worker::{self, JobParams, WorkerJobType};
+use crate::job_manager;
+use crate::message_bus::{BusMessage, MsgType};
+
+static NEXT_RESTORE_ID: AtomicU32 = AtomicU32::new(10000);
 
 pub fn cmd_label(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let vol = get_arg(ast, "volume");
@@ -132,51 +139,151 @@ pub fn cmd_update(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
 pub fn cmd_restore(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let where_path = get_arg(ast, "where").unwrap_or("/tmp/bareos-restore");
-    let client = get_arg(ast, "client");
-    let jobid = get_arg(ast, "jobid");
-    let fileset = get_arg(ast, "fileset");
+    let client_arg = get_arg(ast, "client");
+    let jobid_arg = get_arg(ast, "jobid");
+    let replace = get_arg(ast, "replace").unwrap_or("always");
 
-    let mut output = String::from("Restore command\n");
+    let config = match &ctx.config {
+        Some(c) => match c.read() {
+            Ok(c) => c,
+            _ => return CommandResult::error("Config read error\n".to_string()),
+        },
+        None => return CommandResult::error("No config loaded\n".to_string()),
+    };
 
     // Determine client
-    let client_name = match client {
+    let client_name = match client_arg {
         Some(c) => c.to_string(),
         None => {
-            if let Some(config) = &ctx.config {
-                if let Ok(cfg) = config.read() {
-                    if cfg.clients.len() == 1 {
-                        cfg.clients[0].name.clone()
-                    } else {
-                        let names: Vec<_> = cfg.clients.iter()
-                            .enumerate()
-                            .map(|(i, c)| format!("  {}. {}", i + 1, c.name))
-                            .collect();
-                        return CommandResult::ok(format!(
-                            "Select client:\n{}\nSpecify: restore client=<name>\n",
-                            names.join("\n")
-                        ));
-                    }
-                } else {
-                    "unknown".to_string()
-                }
+            if config.clients.len() == 1 {
+                config.clients[0].name.clone()
             } else {
-                "unknown".to_string()
+                let names: Vec<_> = config.clients.iter()
+                    .enumerate()
+                    .map(|(i, c)| format!("  {}. {}", i + 1, c.name))
+                    .collect();
+                return CommandResult::ok(format!(
+                    "Select client:\n{}\nSpecify: restore client=<name> where=<path> [jobid=<N>]\n",
+                    names.join("\n")
+                ));
             }
         }
     };
 
-    output.push_str(&format!("Client:  {client_name}\n"));
-    output.push_str(&format!("Where:   {where_path}\n"));
-    if let Some(jid) = jobid {
-        output.push_str(&format!("JobId:   {jid}\n"));
-    }
-    if let Some(fs) = fileset {
-        output.push_str(&format!("FileSet: {fs}\n"));
-    }
-    output.push_str("\nTo select files, use the \"mark\" and \"unmark\" commands.\n");
-    output.push_str("When done, enter \"done\" to start the restore.\n");
+    let client = match config.find_client(&client_name) {
+        Some(c) => c.clone(),
+        None => return CommandResult::error(format!("Client '{client_name}' not found\n")),
+    };
 
-    CommandResult::ok(output)
+    // Find backup JobId to restore from
+    let restore_jobid: u32 = match jobid_arg {
+        Some(s) => match s.parse() {
+            Ok(id) => id,
+            Err(_) => return CommandResult::error(format!("Invalid jobid: {s}\n")),
+        },
+        None => {
+            // Find most recent successful backup for this client
+            match job_manager::find_latest_backup_jobid(&ctx.config, &client_name) {
+                Some(id) => {
+                    tracing::info!("Restore: auto-selected JobId={id} for client={client_name}");
+                    id
+                }
+                None => return CommandResult::error(format!(
+                    "No successful backup found for client '{client_name}'\n\
+                     Specify: restore client={client_name} jobid=<N> where={where_path}\n"
+                )),
+            }
+        }
+    };
+
+    // Generate bootstrap from catalog
+    let bootstrap = match job_manager::generate_bootstrap(&ctx.config, restore_jobid) {
+        Some(bsr) => bsr,
+        None => return CommandResult::error(format!(
+            "Cannot generate bootstrap for JobId={restore_jobid} — no jobmedia records\n"
+        )),
+    };
+
+    // Find a storage resource
+    let storage = match config.storages.first() {
+        Some(s) => s.clone(),
+        None => return CommandResult::error("No storage configured\n".to_string()),
+    };
+
+    let dir_name = config.director.name.clone();
+    let job_id = NEXT_RESTORE_ID.fetch_add(1, Ordering::Relaxed);
+    let now = chrono::Local::now();
+    let unique_job = format!("RestoreFiles.{}", now.format("%Y-%m-%d_%H.%M.%S_%f"));
+
+    let params = JobParams {
+        job_id,
+        unique_job: unique_job.clone(),
+        job_name: "RestoreFiles".to_string(),
+        job_type: WorkerJobType::Restore,
+        level: "full".to_string(),
+        fd_address: client.address.clone(),
+        fd_port: client.port,
+        fd_password: client.password.clone(),
+        sd_address: storage.address.clone(),
+        sd_port: storage.port,
+        sd_password: storage.password.clone(),
+        sd_device: storage.device.clone(),
+        sd_media_type: storage.media_type.clone(),
+        director_name: dir_name,
+        pool_name: "Full".to_string(),
+        fileset_includes: vec![],
+        fileset_excludes: vec![],
+        where_path: Some(where_path.to_string()),
+        replace: Some(replace.to_string()),
+        restore_jobid: Some(restore_jobid),
+        bootstrap: Some(bootstrap),
+    };
+
+    drop(config); // Release RwLock before fork
+
+    // Post queued status
+    if let Some(smgr) = &ctx.session_mgr {
+        smgr.bus().post(BusMessage::JobStatus {
+            job_id, job_name: "RestoreFiles".to_string(),
+            status: "Queued".to_string(), timestamp: now_unix(),
+        });
+        smgr.bus().post(BusMessage::JobMessage {
+            job_id, job_name: "RestoreFiles".to_string(),
+            msg_type: MsgType::Info,
+            text: format!("Start Restore JobId={job_id} from Backup JobId={restore_jobid}, Where={where_path}"),
+            timestamp: now_unix(),
+        });
+    }
+
+    // Fork the autonomous restore worker
+    match job_worker::spawn_job_worker(job_id, "RestoreFiles", &params) {
+        Ok(handle) => {
+            tracing::info!("Restore {job_id}: worker pid={}, from backup {restore_jobid}", handle.pid);
+            if let Some(ref mgr) = ctx.job_manager {
+                mgr.lock().unwrap().add_job(job_id, "RestoreFiles", handle);
+            }
+        }
+        Err(e) => {
+            tracing::error!("Restore {job_id}: fork failed: {e}");
+            return CommandResult::error(format!("Failed to start restore: {e}\n"));
+        }
+    }
+
+    CommandResult::ok(format!(
+        "Restore job queued. JobId={job_id}\n\
+         Restore from:  Backup JobId={restore_jobid}\n\
+         Client:        {client_name}\n\
+         Storage:       {}\n\
+         Where:         {where_path}\n\
+         Replace:       {replace}\n",
+        storage.name,
+    ))
+}
+
+fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default().as_secs() as i64
 }
 
 pub fn cmd_estimate(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {

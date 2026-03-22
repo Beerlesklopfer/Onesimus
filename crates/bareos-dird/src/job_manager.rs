@@ -208,15 +208,7 @@ impl JobManager {
 
 /// CatReq handler — queries real DB for volume info.
 fn handle_cat_req(request: &str, config: &Option<SharedConfig>) -> String {
-    let catalog_url = config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
-        cfg.catalogs.first().map(|cat| {
-            if cat.db_address.is_empty() || cat.db_address == "localhost" || cat.db_address == "127.0.0.1" {
-                format!("postgres://{}@localhost/{}?host=/var/run/postgresql", cat.db_user, cat.db_name)
-            } else {
-                format!("postgres://{}@{}:{}/{}", cat.db_user, cat.db_address, cat.db_port, cat.db_name)
-            }
-        })
-    });
+    let catalog_url = catalog_url(config);
 
     if request.contains("FindMedia") {
         let pool = extract_field(request, "pool_name=").unwrap_or("Full".into());
@@ -326,6 +318,103 @@ fn extract_field(request: &str, prefix: &str) -> Option<String> {
     request.split_whitespace()
         .find(|s| s.starts_with(prefix))
         .map(|s| s[prefix.len()..].to_string())
+}
+
+/// Generate bootstrap data for a restore from a given backup JobId.
+/// Queries the catalog DB for jobmedia + media to build the BSR.
+pub fn generate_bootstrap(config: &Option<SharedConfig>, job_id: u32) -> Option<String> {
+    let url = catalog_url(config)?;
+    let rt = tokio::runtime::Runtime::new().ok()?;
+    rt.block_on(async {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&url).await.ok()?;
+
+        // Get job info (VolSessionId, VolSessionTime) from the job table
+        let job_row: Option<(i32, i32, String)> = sqlx::query_as(
+            "SELECT COALESCE(volsessionid,0)::int, COALESCE(volsessiontime,0)::int, \
+             COALESCE(name,'') FROM job WHERE jobid = $1"
+        ).bind(job_id as i32).fetch_optional(&pool).await.ok()?;
+
+        let (vol_session_id, vol_session_time, _job_name) = job_row?;
+
+        // Get jobmedia records (which volumes hold this job's data)
+        let jm_rows: Vec<(i32, i32, i32, i64, i64)> = sqlx::query_as(
+            "SELECT jm.mediaid, COALESCE(jm.firstindex,0)::int, COALESCE(jm.lastindex,0)::int, \
+             COALESCE(jm.startblock,0)::bigint, COALESCE(jm.endblock,0)::bigint \
+             FROM jobmedia jm WHERE jm.jobid = $1 ORDER BY jm.jobmediaid"
+        ).bind(job_id as i32).fetch_all(&pool).await.ok()?;
+
+        if jm_rows.is_empty() {
+            info!("No jobmedia records for JobId={job_id}");
+            return None;
+        }
+
+        let mut bsr = String::new();
+
+        for (media_id, first_idx, last_idx, start_block, end_block) in &jm_rows {
+            // Get volume name and media type
+            let vol_row: Option<(String, String)> = sqlx::query_as(
+                "SELECT volumename, COALESCE(mediatype,'File') FROM media WHERE mediaid = $1"
+            ).bind(media_id).fetch_optional(&pool).await.ok()?;
+
+            let (vol_name, media_type) = vol_row?;
+
+            // Get storage + device from config (we only have one storage typically)
+            let storage_name = "File"; // TODO: resolve from config
+            let device_name = "FileStorage"; // TODO: resolve from config
+
+            bsr.push_str(&format!("Storage=\"{storage_name}\"\n"));
+            bsr.push_str(&format!("Volume=\"{vol_name}\"\n"));
+            bsr.push_str(&format!("MediaType=\"{media_type}\"\n"));
+            bsr.push_str(&format!("Device=\"{device_name}\"\n"));
+            bsr.push_str(&format!("VolSessionId={vol_session_id}\n"));
+            bsr.push_str(&format!("VolSessionTime={vol_session_time}\n"));
+            // VolAddr: byte-offsets in the volume (startblock-endblock from jobmedia)
+            if *start_block > 0 || *end_block > 0 {
+                bsr.push_str(&format!("VolAddr={start_block}-{end_block}\n"));
+            }
+            if *first_idx > 0 && *last_idx > 0 {
+                bsr.push_str(&format!("FileIndex={first_idx}-{last_idx}\n"));
+            }
+            bsr.push_str(&format!("Count={}\n", last_idx - first_idx + 1));
+        }
+
+        debug!("Bootstrap for JobId={job_id}: {} lines", bsr.lines().count());
+        Some(bsr)
+    })
+}
+
+/// Find the most recent successful backup job for a client.
+pub fn find_latest_backup_jobid(config: &Option<SharedConfig>, client_name: &str) -> Option<u32> {
+    let url = catalog_url(config)?;
+    let rt = tokio::runtime::Runtime::new().ok()?;
+    rt.block_on(async {
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&url).await.ok()?;
+
+        let row: Option<(i32,)> = sqlx::query_as(
+            "SELECT j.jobid FROM job j \
+             JOIN client c ON j.clientid = c.clientid \
+             WHERE c.name = $1 AND j.type = 'B' AND j.jobstatus = 'T' \
+             ORDER BY j.jobid DESC LIMIT 1"
+        ).bind(client_name).fetch_optional(&pool).await.ok()?;
+
+        row.map(|(id,)| id as u32)
+    })
+}
+
+fn catalog_url(config: &Option<SharedConfig>) -> Option<String> {
+    config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
+        cfg.catalogs.first().map(|cat| {
+            if cat.db_address.is_empty() || cat.db_address == "localhost" || cat.db_address == "127.0.0.1" {
+                format!("postgres://{}@localhost/{}?host=/var/run/postgresql", cat.db_user, cat.db_name)
+            } else {
+                format!("postgres://{}@{}:{}/{}", cat.db_user, cat.db_address, cat.db_port, cat.db_name)
+            }
+        })
+    })
 }
 
 /// Job monitor thread — polls all worker pipes periodically.

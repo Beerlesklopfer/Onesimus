@@ -97,6 +97,30 @@ struct Cli {
     #[arg(long = "xs", alias = "export-schema")]
     export_schema: bool,
 
+    /// Override listening port (default: from config, typically 9101).
+    #[arg(long, short = 'P')]
+    port: Option<u16>,
+
+    /// Override bind address (default: 0.0.0.0).
+    #[arg(long, short = 'b')]
+    bind_address: Option<String>,
+
+    /// Override director name (default: from config).
+    #[arg(long)]
+    name: Option<String>,
+
+    /// Override working directory (default: /var/lib/bareos).
+    #[arg(short = 'w', long)]
+    working_directory: Option<PathBuf>,
+
+    /// Restore only mode — only accept restore jobs.
+    #[arg(short = 'r', long)]
+    restore_only: bool,
+
+    /// Maximum concurrent jobs override.
+    #[arg(short = 'm', long)]
+    max_jobs: Option<u32>,
+
     /// TLS certificate file (PEM)
     #[arg(long)]
     tls_cert: Option<String>,
@@ -160,7 +184,7 @@ fn main() {
     }
 
     // Load configuration
-    let config = if cli.config.exists() {
+    let mut config = if cli.config.exists() {
         match DirectorConfig::load(&cli.config) {
             Ok(c) => {
                 info!("loaded configuration from {}", cli.config.display());
@@ -306,7 +330,13 @@ fn main() {
         }
     }
 
+    // CLI overrides
+    if let Some(p) = cli.port { config.director.port = p; }
+    if let Some(ref n) = cli.name { config.director.name = n.clone(); }
+    if let Some(m) = cli.max_jobs { config.director.max_concurrent_jobs = m; }
+
     let port = config.director.port;
+    let bind_addr = cli.bind_address.clone().unwrap_or_else(|| "0.0.0.0".to_string());
     let grpc_enabled = config.director.enable_grpc;
     let dir_name = config.director.name.clone();
     let dir_password = config.director.password.clone();
@@ -356,7 +386,7 @@ fn main() {
     // Named threads
     let mut threads = spawn_named_threads(
         session_mgr.clone(), bus.clone(), cmd_queue.clone(),
-        shared_config.clone(), port, grpc_enabled, dir_password, tls_config,
+        shared_config.clone(), port, bind_addr, grpc_enabled, dir_password, tls_config,
         job_mgr.clone(),
     );
 
@@ -398,6 +428,7 @@ fn spawn_named_threads(
     cmd_queue: Arc<CommandQueue>,
     config: SharedConfig,
     port: u16,
+    bind_address: String,
     grpc_enabled: bool,
     password: String,
     tls_config: Option<bareos_bnet::tls::TlsConfig>,
@@ -417,7 +448,7 @@ fn spawn_named_threads(
             .name("dir:accept".into())
             .spawn(move || {
                 let config = accept::AcceptConfig {
-                    bind_address: "0.0.0.0".to_string(),
+                    bind_address: bind_address,
                     port,
                     password: pw,
                     tls_config: tls_cfg,

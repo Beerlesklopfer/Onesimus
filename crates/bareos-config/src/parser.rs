@@ -37,33 +37,34 @@ pub fn parse_config_dir(dir: &std::path::Path) -> Result<Vec<Resource>, ConfigEr
         return Err(ConfigError::ParseError(format!("{} is not a file or directory", dir.display())));
     }
 
-    // Walk all subdirectories and collect .conf files
-    fn walk_dir(dir: &std::path::Path, output: &mut String) -> Result<(), ConfigError> {
-        let entries = std::fs::read_dir(dir)
-            .map_err(|e| ConfigError::ParseError(format!("readdir {}: {e}", dir.display())))?;
+    // C++ Bareos convention: look for bareos-dir.d/ subdirectory first
+    let dir_d = dir.join("bareos-dir.d");
+    let config_dir = if dir_d.is_dir() { &dir_d } else { dir };
 
-        let mut paths: Vec<_> = entries
+    // C++ globs <path>/*/*.conf — one level of subdirectories, not recursive.
+    // Collect all .conf files from immediate subdirectories.
+    let entries = std::fs::read_dir(config_dir)
+        .map_err(|e| ConfigError::ParseError(format!("readdir {}: {e}", config_dir.display())))?;
+    let mut paths: Vec<_> = entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+    paths.sort();
+
+    for subdir in &paths {
+        if !subdir.is_dir() { continue; }
+        let sub_entries = std::fs::read_dir(subdir)
+            .map_err(|e| ConfigError::ParseError(format!("readdir {}: {e}", subdir.display())))?;
+        let mut conf_files: Vec<_> = sub_entries
             .filter_map(|e| e.ok())
             .map(|e| e.path())
+            .filter(|p| p.extension().map(|e| e == "conf").unwrap_or(false))
             .collect();
-        paths.sort();
-
-        for path in paths {
-            if path.is_dir() {
-                walk_dir(&path, output)?;
-            } else if path.extension().map(|e| e == "conf").unwrap_or(false) {
-                let content = std::fs::read_to_string(&path)
-                    .map_err(|e| ConfigError::ParseError(
-                        format!("read {}: {e}", path.display())
-                    ))?;
-                output.push_str(&content);
-                output.push('\n');
-            }
+        conf_files.sort();
+        for conf in conf_files {
+            let content = std::fs::read_to_string(&conf)
+                .map_err(|e| ConfigError::ParseError(format!("read {}: {e}", conf.display())))?;
+            all_input.push_str(&content);
+            all_input.push('\n');
         }
-        Ok(())
     }
-
-    walk_dir(dir, &mut all_input)?;
     parse_config(&all_input)
 }
 
@@ -245,7 +246,7 @@ fn parse_directive_key(input: &str) -> Result<(String, &str), String> {
     let end = eq_pos
         .ok_or_else(|| format!("expected '=' in directive near: {}", &input[..40.min(input.len())]))?;
 
-    let key = input[..end].trim().to_string();
+    let key = input[..end].trim().to_lowercase();
     Ok((key, &input[end..]))
 }
 

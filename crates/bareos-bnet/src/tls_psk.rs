@@ -5,11 +5,51 @@
 //! - X.509 Certificates: Optional, configured via TLS Certificate/Key/CA
 //!
 //! Uses OpenSSL via the `openssl` crate (rustls doesn't support PSK).
+//!
+//! # Limitierung: TLSv1.2 only fuer PSK
+//!
+//! TLS-PSK ist auf TLSv1.2 beschraenkt (`set_max_proto_version(TLS1_2)`).
+//!
+//! ## Grund
+//!
+//! TLSv1.3 hat einen grundlegend anderen PSK-Mechanismus als TLSv1.2:
+//!
+//! - **TLSv1.2**: `SSL_CTX_set_psk_server_callback` — der Callback bekommt
+//!   die Identity und gibt den PSK als Byte-Array zurueck. Die `openssl` Crate
+//!   exposed diesen Callback als `set_psk_server_callback()`.
+//!
+//! - **TLSv1.3**: `SSL_CTX_set_psk_find_session_callback` — der Callback muss
+//!   eine komplette `SSL_SESSION` mit Cipher, Protokoll-Version und Master-Key
+//!   erzeugen. OpenSSL verifiziert damit den PSK-Binder aus dem ClientHello.
+//!   Die `openssl` Crate (0.10.x) exposed diesen Callback **nicht**.
+//!
+//! Ohne den `find_session` Callback schickt ein TLSv1.3-Client einen PSK-Binder
+//! im ClientHello, OpenSSL kann ihn nicht verifizieren und bricht den Handshake
+//! mit `tls_psk_do_binder: binder does not verify` ab — noch bevor ein Fallback
+//! auf TLSv1.2 moeglich waere.
+//!
+//! ## Alternativen (nicht umgesetzt)
+//!
+//! - **openssl-sys FFI**: `SSL_CTX_set_psk_find_session_callback` direkt ueber
+//!   `openssl_sys` aufrufen, `SSL_SESSION` manuell mit `SSL_SESSION_new()`,
+//!   `SSL_SESSION_set_cipher()`, `SSL_SESSION_set1_master_key()` aufbauen.
+//!   Getestet, funktioniert prinzipiell, aber der Binder-Hash muss exakt zum
+//!   Client-Cipher passen (SHA256 vs SHA384). Fragil und schwer wartbar.
+//!
+//! - **Upstream PR**: Der `openssl` Crate einen `set_psk_find_session_callback`
+//!   hinzufuegen (analog zu `set_psk_server_callback`).
+//!
+//! ## Kompatibilitaet
+//!
+//! Der C++ Bareos Director hat die gleiche Einschraenkung: er setzt nur
+//! `SSL_CTX_set_psk_server_callback` (kein `find_session`), daher handelt
+//! auch er TLSv1.2 fuer PSK-Verbindungen aus. Clients (bconsole, FD, SD)
+//! akzeptieren TLSv1.2 problemlos. Es gibt keinen funktionalen Nachteil.
 
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use openssl::ssl::{SslMethod, SslConnector, SslAcceptor, SslStream, SslFiletype, SslVerifyMode};
+use openssl::ssl::{self, SslMethod, SslConnector, SslAcceptor, SslStream, SslFiletype, SslVerifyMode};
 
 /// TLS stream (PSK or certificate-based) wrapping a TCP connection.
 pub struct PskStream {
@@ -64,20 +104,31 @@ pub fn psk_connect(stream: TcpStream, identity: &str, psk: &[u8]) -> io::Result<
 
 /// Accept via TLS-PSK (server mode).
 pub fn psk_accept(stream: TcpStream, psk: &[u8]) -> io::Result<PskStream> {
-    let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())
+    let mut ctx = ssl::SslContext::builder(SslMethod::tls_server())
         .map_err(ssl_err)?;
 
+    // TLSv1.2 only — siehe Modul-Doku oben fuer die ausfuehrliche Begruendung.
+    // Kurzfassung: TLSv1.3 PSK braucht SSL_CTX_set_psk_find_session_callback,
+    // den die openssl Crate nicht exposed. Ohne ihn scheitert der TLSv1.3
+    // Binder-Check und der Handshake bricht ab ohne TLSv1.2-Fallback.
+    ctx.set_max_proto_version(Some(ssl::SslVersion::TLS1_2)).map_err(ssl_err)?;
+
+    // PSK server callback
     let psk_owned = psk.to_vec();
-    builder.set_psk_server_callback(move |_ssl, _identity, psk_buf| {
-        let psk_len = psk_owned.len().min(psk_buf.len());
-        psk_buf[..psk_len].copy_from_slice(&psk_owned[..psk_len]);
-        Ok(psk_len)
+    ctx.set_psk_server_callback(move |_ssl, _identity, psk_buf| {
+        let n = psk_owned.len().min(psk_buf.len());
+        psk_buf[..n].copy_from_slice(&psk_owned[..n]);
+        Ok(n)
     });
 
-    builder.set_cipher_list(BAREOS_CIPHERS).map_err(ssl_err)?;
-    let acceptor = builder.build();
-    let ssl_stream = acceptor.accept(stream)
+    ctx.set_cipher_list(BAREOS_CIPHERS).map_err(ssl_err)?;
+
+    let ctx = ctx.build();
+    let ssl_stream = ssl::Ssl::new(&ctx)
+        .map_err(ssl_err)?
+        .accept(stream)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("PSK accept: {e}")))?;
+
     Ok(PskStream { inner: ssl_stream })
 }
 
@@ -185,7 +236,12 @@ pub fn accept_any_tls(
 // Helpers
 // ============================================================================
 
-/// Derive PSK from a Bareos password (MD5 hash as hex bytes).
+/// PSK aus einem Bareos-Passwort ableiten.
+///
+/// Der C++ Config-Parser (StoreMd5Password) hasht Klartext-Passwoerter zu MD5-Hex
+/// und speichert das Ergebnis. Dieser 32-Byte ASCII-Hex-String ist der PSK.
+///
+/// Unser Rust-Parser speichert das Passwort als Klartext, daher hashen wir hier.
 pub fn password_to_psk(password: &str) -> Vec<u8> {
     crate::cram_md5::md5_hash_password(password).into_bytes()
 }

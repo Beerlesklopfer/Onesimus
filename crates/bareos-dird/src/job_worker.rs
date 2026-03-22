@@ -31,12 +31,20 @@ use bareos_bnet::tls_psk;
 // Public types (used by Director + Worker)
 // ============================================================================
 
+/// Job type for worker dispatch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkerJobType {
+    Backup,
+    Restore,
+}
+
 /// Parameters passed from Director to Worker.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct JobParams {
     pub job_id: u32,
     pub unique_job: String,
     pub job_name: String,
+    pub job_type: WorkerJobType,
     pub level: String,
     pub fd_address: String,
     pub fd_port: u16,
@@ -50,6 +58,11 @@ pub struct JobParams {
     pub pool_name: String,
     pub fileset_includes: Vec<String>,
     pub fileset_excludes: Vec<String>,
+    // Restore-specific
+    pub where_path: Option<String>,
+    pub replace: Option<String>,       // "always", "never", "ifnewer", "ifolder"
+    pub restore_jobid: Option<u32>,     // JobId of backup to restore from
+    pub bootstrap: Option<String>,      // Bootstrap data (volumes + file indices)
 }
 
 /// Messages on the Worker↔Director pipe (JSON, one per line).
@@ -85,10 +98,12 @@ enum WorkerState {
     SDJobSetup,
     SDUseDevice,
     SDRun,
+    SDBootstrap,    // Restore: send bootstrap to SD
     FDJobSetup,
     FDStorage,
     FDSession,
-    FDBackup,
+    FDBackup,       // Backup: "backup" command
+    FDRestore,      // Restore: "restore replace=a where=/path"
     Running,
     Paused,
     Canceling,
@@ -106,10 +121,12 @@ impl WorkerState {
             Self::SDJobSetup => "SDJobSetup",
             Self::SDUseDevice => "SDUseDevice",
             Self::SDRun => "SDRun",
+            Self::SDBootstrap => "SDBootstrap",
             Self::FDJobSetup => "FDJobSetup",
             Self::FDStorage => "FDStorage",
             Self::FDSession => "FDSession",
             Self::FDBackup => "FDBackup",
+            Self::FDRestore => "FDRestore",
             Self::Running => "Running",
             Self::Paused => "Paused",
             Self::Canceling => "Canceling",
@@ -202,30 +219,70 @@ pub fn run_worker(
             }
 
             WorkerState::SDRun => {
-                debug!("Worker {job_id}: SD run");
-                let _ = sd.as_mut().unwrap().send_str("run\n");
-                WorkerState::FDJobSetup
+                if params.job_type == WorkerJobType::Restore {
+                    WorkerState::SDBootstrap
+                } else {
+                    debug!("Worker {job_id}: SD run");
+                    let _ = sd.as_mut().unwrap().send_str("run\n");
+                    WorkerState::FDJobSetup
+                }
+            }
+
+            WorkerState::SDBootstrap => {
+                match sd_send_bootstrap(sd.as_mut().unwrap(), params) {
+                    Ok(()) => {
+                        debug!("Worker {job_id}: bootstrap sent to SD, sending run");
+                        // After bootstrap, SD expects "run" — then enters WaitFD()
+                        let _ = sd.as_mut().unwrap().send_str("run\n");
+                        WorkerState::FDJobSetup
+                    }
+                    Err(e) => WorkerState::Error(format!("SD bootstrap: {e}"))
+                }
             }
 
             WorkerState::FDJobSetup => {
-                match fd_job_setup(fd.as_mut().unwrap(), params, &sd_auth_key) {
+                let result = if params.job_type == WorkerJobType::Restore {
+                    fd_restore_setup(fd.as_mut().unwrap(), params, &sd_auth_key)
+                } else {
+                    fd_job_setup(fd.as_mut().unwrap(), params, &sd_auth_key)
+                };
+                match result {
                     Ok(()) => WorkerState::FDStorage,
                     Err(e) => WorkerState::Error(format!("FD setup: {e}"))
                 }
             }
 
             WorkerState::FDStorage => {
-                let cmd = format!("storage address={} port={} ssl=4\n", params.sd_address, params.sd_port);
+                // Restore: storage command includes Authorization (FD uses it to auth to SD)
+                let cmd = if params.job_type == WorkerJobType::Restore {
+                    format!("storage address={} port={} ssl=4 Authorization={}\n",
+                        params.sd_address, params.sd_port, sd_auth_key)
+                } else {
+                    format!("storage address={} port={} ssl=4\n",
+                        params.sd_address, params.sd_port)
+                };
                 match send_expect(fd.as_mut().unwrap(), &cmd, "2000 OK storage", job_id, "FD storage") {
-                    Ok(_) => WorkerState::FDSession,
+                    Ok(_) => {
+                        if params.job_type == WorkerJobType::Restore {
+                            // Restore: NO session command — FD does "read open session" itself
+                            WorkerState::FDRestore
+                        } else {
+                            WorkerState::FDSession
+                        }
+                    }
                     Err(e) => WorkerState::Error(format!("FD storage: {e}"))
                 }
             }
 
             WorkerState::FDSession => {
                 let cmd = format!("session {} 1 {} 0 0 0 0\n", "", now_unix());
+                let next = if params.job_type == WorkerJobType::Restore {
+                    WorkerState::FDRestore
+                } else {
+                    WorkerState::FDBackup
+                };
                 match send_expect(fd.as_mut().unwrap(), &cmd, "2000 OK session", job_id, "FD session") {
-                    Ok(_) => WorkerState::FDBackup,
+                    Ok(_) => next,
                     Err(e) => WorkerState::Error(format!("FD session: {e}"))
                 }
             }
@@ -237,6 +294,24 @@ pub fn run_worker(
                         WorkerState::Running
                     }
                     Err(e) => WorkerState::Error(format!("FD backup: {e}"))
+                }
+            }
+
+            WorkerState::FDRestore => {
+                let where_path = params.where_path.as_deref().unwrap_or("/tmp/bareos-restore");
+                let replace_char = match params.replace.as_deref() {
+                    Some("never") => 'n',
+                    Some("ifnewer") => 'i',
+                    Some("ifolder") => 'o',
+                    _ => 'a', // always
+                };
+                let cmd = format!("restore replace={replace_char} prelinks=0 where={where_path}\n");
+                match send_expect(fd.as_mut().unwrap(), &cmd, "2000 OK restore", job_id, "FD restore") {
+                    Ok(_) => {
+                        info!("Worker {job_id}: restore running → {where_path}");
+                        WorkerState::Running
+                    }
+                    Err(e) => WorkerState::Error(format!("FD restore: {e}"))
                 }
             }
 
@@ -345,29 +420,37 @@ fn run_backup_phase(
 // ============================================================================
 
 fn sd_job_setup(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Result<String, String> {
-    let level_int = match p.level.as_str() {
-        "full" => 70, "incremental" => 73, "differential" => 68, _ => 70,
+    let (type_int, level_int, fileset_md5, backup_fmt) = match p.job_type {
+        WorkerJobType::Backup => (66, match p.level.as_str() {  // 'B'
+            "full" => 70, "incremental" => 73, "differential" => 68, _ => 70,
+        }, "0", "NativeBackup"),
+        WorkerJobType::Restore => (82, 32, "**Dummy**", "Native"), // 'R', level=space
     };
     let cmd = format!(
         "JobId={} job={} job_name={} client_name={} \
-         type=66 level={level_int} FileSet=Unknown NoAttr=0 SpoolAttr=0 FileSetMD5=0 \
+         type={type_int} level={level_int} FileSet=LinuxAll NoAttr=0 SpoolAttr=0 FileSetMD5={fileset_md5} \
          SpoolData=0 PreferMountedVols=1 SpoolSize=0 \
          rerunning=0 VolSessionId=0 VolSessionTime=0 Quota=0 \
-         Protocol=0 BackupFormat=NativeBackup\n",
+         Protocol=0 BackupFormat={backup_fmt}\n",
         p.job_id, p.unique_job, p.job_name, p.fd_address
     );
     sd.send_str(&cmd).map_err(|e| format!("send: {e}"))?;
     let resp = sd.recv_str().map_err(|e| format!("recv: {e}"))?;
-    resp.split_whitespace()
+    let auth_key = resp.split_whitespace()
         .find(|s| s.starts_with("Authorization="))
         .and_then(|s| s.strip_prefix("Authorization="))
         .map(|s| s.to_string())
-        .ok_or_else(|| format!("no auth key: {resp}"))
+        .ok_or_else(|| format!("no auth key: {resp}"))?;
+    // getSecureEraseCmd (SD expects it after job setup)
+    sd.send_str("getSecureEraseCmd\n").map_err(|e| format!("send secErase: {e}"))?;
+    let _ = sd.recv_str(); // 2000 OK SDSecureEraseCmd *None*
+    Ok(auth_key)
 }
 
 fn sd_use_device(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Result<(), String> {
+    let append = if p.job_type == WorkerJobType::Restore { 0 } else { 1 };
     let cmd = format!(
-        "use storage=File media_type={} pool_name={} pool_type=Backup append=1 copy=0 stripe=0\n",
+        "use storage=File media_type={} pool_name={} pool_type=Backup append={append} copy=0 stripe=0\n",
         p.sd_media_type, p.pool_name
     );
     sd.send_str(&cmd).map_err(|e| format!("send: {e}"))?;
@@ -383,6 +466,44 @@ fn sd_use_device(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Resu
             Err(e) => return Err(format!("recv: {e}")),
         }
     }
+}
+
+/// Send bootstrap data to SD for restore — tells SD which volumes/files to read.
+fn sd_send_bootstrap(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Result<(), String> {
+    let bsr = p.bootstrap.as_deref().unwrap_or("");
+    if bsr.is_empty() {
+        return Err("no bootstrap data".into());
+    }
+    // SD expects: "bootstrap\n" then bootstrap lines then EOD
+    sd.send_str("bootstrap\n").map_err(|e| format!("send bootstrap: {e}"))?;
+    for line in bsr.lines() {
+        sd.send_str(&format!("{line}\n")).map_err(|e| format!("bsr line: {e}"))?;
+    }
+    sd.send_signal(BnetSignal::Eod).map_err(|e| format!("bsr eod: {e}"))?;
+
+    // Wait for "3000 OK bootstrap"
+    loop {
+        match sd.recv_str() {
+            Ok(r) if r.contains("3000 OK bootstrap") => return Ok(()),
+            Ok(r) if r.starts_with("Jmsg") => { debug!("Worker {} SD Jmsg: {}", p.job_id, r.trim()); continue; }
+            Ok(r) => return Err(format!("bootstrap resp: {r}")),
+            Err(e) => return Err(format!("bootstrap recv: {e}")),
+        }
+    }
+}
+
+/// FD setup for restore: JobId + storage only — NO level, NO fileset.
+/// C++ Director sends: JobId → storage → session → restore
+/// See: core/src/dird/fd_cmds.cc SendRunscriptsToFd / DoRestoreInit
+fn fd_restore_setup(fd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams, sd_auth_key: &str) -> Result<(), String> {
+    let cmd = format!("JobId={} Job={} SDid=1 SDtime={} Authorization={sd_auth_key} ssl=4\n",
+        p.job_id, p.unique_job, now_unix());
+    send_expect(fd, &cmd, "2000 OK Job", p.job_id, "FD JobId")?;
+    // getSecureEraseCmd
+    fd.send_str("getSecureEraseCmd\n").map_err(|e| format!("send secErase: {e}"))?;
+    let _ = fd.recv_str(); // 2000 OK FDSecureEraseCmd *None*
+    // Restore: NO level command, NO fileset — go straight to storage
+    Ok(())
 }
 
 fn sd_catrec_loop(
@@ -456,6 +577,9 @@ fn sd_catrec_loop(
 fn fd_job_setup(fd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams, sd_auth_key: &str) -> Result<(), String> {
     let cmd = format!("JobId={} Job={} SDid=1 SDtime={} Authorization={sd_auth_key} ssl=4\n", p.job_id, p.unique_job, now_unix());
     send_expect(fd, &cmd, "2000 OK Job", p.job_id, "FD JobId")?;
+    // getSecureEraseCmd
+    fd.send_str("getSecureEraseCmd\n").map_err(|e| format!("send secErase: {e}"))?;
+    let _ = fd.recv_str(); // 2000 OK FDSecureEraseCmd *None*
 
     let level_cmd = match p.level.as_str() {
         "incremental" | "differential" => "level = since_utime=0 mtime_only=0 \n".to_string(),

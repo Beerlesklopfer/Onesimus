@@ -403,8 +403,112 @@ else
 fi
 echo "========================================================================"
 
+# === 17. Backup Integration (optional — braucht laufende SD + FD) ===
 echo ""
-echo "--- 17. Director-Log Analyse ---"
+echo "--- 17. Backup Integration ---"
+
+# Prüfe ob SD und FD erreichbar sind
+SD_OK=false
+FD_OK=false
+(echo "" | timeout 2 nc -q0 localhost 9103 >/dev/null 2>&1) && SD_OK=true
+(echo "" | timeout 2 nc -q0 localhost 9102 >/dev/null 2>&1) && FD_OK=true
+
+if [ "$SD_OK" = true ] && [ "$FD_OK" = true ] && [ -d "${SCRIPT_DIR}/bareos-dir.d" ]; then
+    # Eigener Director mit voller Config (Catalog, JobDefs, etc.) auf Port 29102
+    INTEG_PORT=29102
+    INTEG_TMPDIR=$(mktemp -d /tmp/bareos-integ-XXXXXX)
+
+    # Director-Config mit angepasstem Port erstellen
+    # Wir patchen die director.conf temporär für unseren Port
+    cp -r "${SCRIPT_DIR}/bareos-dir.d" "$INTEG_TMPDIR/bareos-dir.d"
+    sed -i "s/}$/  Port = ${INTEG_PORT}\n}/" "$INTEG_TMPDIR/bareos-dir.d/director/bareos-dir.conf"
+
+    # Console-Config für brconsole
+    DIR_PW=$(grep -oP 'Password\s*=\s*"\K[^"]+' "${SCRIPT_DIR}/bareos-dir.d/director/bareos-dir.conf")
+    cat > "$INTEG_TMPDIR/brconsole.conf" << IEOF
+Director {
+  Name = bareos-dir
+  address = localhost
+  Port = ${INTEG_PORT}
+  Password = "${DIR_PW}"
+}
+IEOF
+
+    # Integrations-Director starten
+    $BAREOS_DIRD -c "$INTEG_TMPDIR/bareos-dir.d" -f -d100 2>"$INTEG_TMPDIR/director.log" &
+    INTEG_PID=$!
+    sleep 3
+
+    if kill -0 $INTEG_PID 2>/dev/null; then
+        # Backup starten und auf Ergebnis warten
+        INTEG_CMD="run job=backup-bareos-fd level=Full yes"
+        INTEG_OUT=$(timeout 120 $BRCONSOLE -c "$INTEG_TMPDIR/brconsole.conf" -e "$INTEG_CMD" 2>&1) || true
+        TOTAL=$((TOTAL+1))
+
+        if echo "$INTEG_OUT" | grep -qiE "queued|Job.*started|JobId"; then
+            printf "  \e[32mOK\e[0m   %-45s\n" "run job=backup-bareos-fd (gestartet)"
+            PASS=$((PASS+1))
+        else
+            printf "  \e[31mFAIL\e[0m %-45s  (konnte nicht starten)\n" "run job=backup-bareos-fd"
+            echo "        $(echo "$INTEG_OUT" | head -3)"
+            FAIL=$((FAIL+1))
+        fi
+
+        # Warte auf Job-Ende (max 60s) — pruefe via messages
+        BACKUP_OK=false
+        for i in $(seq 1 30); do
+            sleep 2
+            MSG_OUT=$(timeout 10 $BRCONSOLE -c "$INTEG_TMPDIR/brconsole.conf" -e "messages" 2>&1) || true
+            if echo "$MSG_OUT" | grep -qiE "Backup OK|Success|files=.*bytes="; then
+                BACKUP_OK=true
+                break
+            fi
+            if echo "$MSG_OUT" | grep -qiE "Backup Error|Fatal|failed"; then
+                break
+            fi
+        done
+
+        TOTAL=$((TOTAL+1))
+        if [ "$BACKUP_OK" = true ]; then
+            # Extrahiere Dateizahl
+            BACKUP_FILES=$(echo "$MSG_OUT" | grep -oP 'files=\K[0-9]+' | head -1 || echo "?")
+            BACKUP_BYTES=$(echo "$MSG_OUT" | grep -oP 'bytes=\K[0-9]+' | head -1 || echo "?")
+            printf "  \e[32mOK\e[0m   %-45s  (files=%s bytes=%s)\n" "Backup completed" "$BACKUP_FILES" "$BACKUP_BYTES"
+            PASS=$((PASS+1))
+        else
+            printf "  \e[31mFAIL\e[0m %-45s\n" "Backup completed"
+            echo "        Letzte messages:"
+            echo "$MSG_OUT" | grep -v "^$\|^Connecting\|Encryption" | head -5 | while read -r l; do
+                echo "        $l"
+            done
+            FAIL=$((FAIL+1))
+        fi
+
+        # Aufräumen
+        kill $INTEG_PID 2>/dev/null || true
+        wait $INTEG_PID 2>/dev/null || true
+        cp "$INTEG_TMPDIR/director.log" "$RESULT_DIR/director-integ.log" 2>/dev/null || true
+    else
+        printf "  \e[33mSKIP\e[0m %-45s  (Integrations-Director Start fehlgeschlagen)\n" "Backup Integration"
+        TOTAL=$((TOTAL+1))
+        SKIPPED=$((SKIPPED+1))
+        cat "$INTEG_TMPDIR/director.log" | tail -5
+    fi
+
+    rm -rf "$INTEG_TMPDIR"
+else
+    if [ "$SD_OK" = false ]; then
+        skip_cmd "Backup Integration" "SD nicht erreichbar (Port 9103)"
+    elif [ "$FD_OK" = false ]; then
+        skip_cmd "Backup Integration" "FD nicht erreichbar (Port 9102)"
+    else
+        skip_cmd "Backup Integration" "tests/bareos-dir.d/ nicht gefunden"
+    fi
+fi
+
+# === 18. Director-Log Analyse ===
+echo ""
+echo "--- 18. Director-Log Analyse ---"
 
 # WARN und ERROR im Director-Log sind Testfehler!
 # Erwartete Fehler (z.B. FD nicht erreichbar im Testkontext) werden ausgefiltert.
