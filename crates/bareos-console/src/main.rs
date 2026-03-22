@@ -252,12 +252,16 @@ fn run_bnet_session<S: std::io::Read + std::io::Write + Send + 'static>(cli: &Ef
 }
 
 fn execute_single_command<S: std::io::Read + std::io::Write>(bnet: &mut BnetStream<S>, cmd: &str) {
-    // Wait for prompt
+    // Drain initial messages (1000 OK, 1002 Info) until EOD or MainPrompt.
+    // api=0: Director sends EOD after init, no MainPrompt.
+    // api>0: Director sends MainPrompt.
     loop {
         match bnet.recv() {
+            Ok(BnetMessage::Signal(BnetSignal::Eod)) => break,
             Ok(BnetMessage::Signal(BnetSignal::MainPrompt)) => break,
+            Ok(BnetMessage::Signal(BnetSignal::Terminate)) => return,
             Ok(_) => continue,
-            Err(_) => break,
+            Err(_) => return,
         }
     }
 
@@ -266,7 +270,7 @@ fn execute_single_command<S: std::io::Read + std::io::Write>(bnet: &mut BnetStre
         return;
     }
 
-    // Read response until EOD
+    // Read response until EOD or MainPrompt
     loop {
         match bnet.recv() {
             Ok(BnetMessage::Data(data)) => {
@@ -281,7 +285,6 @@ fn execute_single_command<S: std::io::Read + std::io::Write>(bnet: &mut BnetStre
         }
     }
 
-    // Sauber abmelden — verhindert "Connection reset by peer" im Director-Log
     let _ = bnet.send_str("quit");
     let _ = bnet.send_signal(BnetSignal::Terminate);
 }
@@ -324,10 +327,8 @@ impl<S: std::io::Read + std::io::Write + Send> DirectorConn for BnetConn<S> {
             self.drain();
             return Vec::new();
         }
-        // Protokoll: Director sendet MainPrompt → wartet auf Command → Data → EOD → (loop)
-        // Wir muessen: MainPrompt lesen → Command senden → Data+EOD lesen
-        // Aber nach dem allerersten drain() sind wir schon hinter dem MainPrompt.
-        // Also: einfach senden, lesen bis EOD, dann MainPrompt lesen (fuer naechsten Query).
+        // api=0: send cmd → read Data → EOD marks end
+        // api>0: send cmd → read Data → MainPrompt marks end
         if self.bnet.send_str(cmd).is_err() { return Vec::new(); }
         let mut output = String::new();
         loop {
@@ -335,11 +336,7 @@ impl<S: std::io::Read + std::io::Write + Send> DirectorConn for BnetConn<S> {
                 Ok(BnetMessage::Data(data)) => {
                     output.push_str(&String::from_utf8_lossy(&data));
                 }
-                Ok(BnetMessage::Signal(BnetSignal::Eod)) => {
-                    // Nach EOD kommt MainPrompt — lesen damit der naechste query() senden kann
-                    self.drain();
-                    break;
-                }
+                Ok(BnetMessage::Signal(BnetSignal::Eod)) => break,
                 Ok(BnetMessage::Signal(BnetSignal::MainPrompt)) => break,
                 _ => break,
             }
@@ -370,11 +367,13 @@ impl<S: std::io::Read + std::io::Write + Send> DirectorConn for BnetConn<S> {
     }
 
     fn drain(&mut self) {
+        // Read until EOD (api=0) or MainPrompt (api>0) — whichever comes first.
         loop {
             match self.bnet.recv() {
+                Ok(BnetMessage::Signal(BnetSignal::Eod)) => break,
                 Ok(BnetMessage::Signal(BnetSignal::MainPrompt)) => break,
-                Ok(BnetMessage::Signal(_)) => continue,
-                Ok(BnetMessage::Data(_)) => continue,
+                Ok(BnetMessage::Signal(BnetSignal::Terminate)) => break,
+                Ok(_) => continue,
                 Err(_) => break,
             }
         }
@@ -815,8 +814,7 @@ fn interactive_loop<S: std::io::Read + std::io::Write + Send + 'static>(
                             }
                         }
                         Some(RecvResult::Signal(BnetSignal::Eod)) => {
-                            // Nach EOD kommt MainPrompt — lesen fuer naechsten Command
-                            dir.drain();
+                            // api=0: EOD marks end of response, no MainPrompt follows.
                             break;
                         }
                         Some(RecvResult::Signal(BnetSignal::MainPrompt)) => break,
