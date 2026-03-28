@@ -21,7 +21,7 @@ pub fn cmd_version(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
 
 pub fn cmd_time(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     let now = chrono::Local::now();
-    CommandResult::ok(format!("{}", now.format("%Y-%m-%d %H:%M:%S")))
+    CommandResult::ok(format!("{}\n", now.format("%Y-%m-%d %H:%M:%S")))
 }
 
 pub fn cmd_quit(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
