@@ -58,6 +58,9 @@ pub struct JobParams {
     pub pool_name: String,
     pub fileset_includes: Vec<String>,
     pub fileset_excludes: Vec<String>,
+    // Incremental/Differential: timestamp of reference backup
+    pub since_utime: i64,          // 0 = Full, >0 = epoch of last relevant backup
+    pub prev_job: String,          // unique job name of reference backup (for incr/diff)
     // Restore-specific
     pub where_path: Option<String>,
     pub replace: Option<String>,       // "always", "never", "ifnewer", "ifolder"
@@ -561,16 +564,15 @@ fn fd_job_setup(fd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams, sd_auth_
     // Incremental: "level = since_utime <epoch> mtime_only=0 prev_job=<name>\n"
     let level_str = match p.level.to_lowercase().as_str() {
         "full" | "f" => "level = full  mtime_only=0 \n".to_string(),
-        "incremental" | "i" => {
-            // TODO: compute since_utime from last backup's starttime
-            let since_utime = 0;
-            let prev_job = "";
-            format!("level =  since_utime {since_utime} mtime_only=0 prev_job={prev_job}\n")
-        }
-        "differential" | "d" => {
-            let since_utime = 0;
-            let prev_job = "";
-            format!("level =  since_utime {since_utime} mtime_only=0 prev_job={prev_job}\n")
+        "incremental" | "i" | "differential" | "d" => {
+            if p.since_utime == 0 {
+                // No reference backup → upgrade to Full
+                warn!("Worker {}: no reference backup for {} — upgrading to Full", p.job_id, p.level);
+                "level = full  mtime_only=0 \n".to_string()
+            } else {
+                format!("level =  since_utime {} mtime_only=0 prev_job={}\n",
+                    p.since_utime, p.prev_job)
+            }
         }
         other => format!("level = {other}  mtime_only=0 \n"),
     };

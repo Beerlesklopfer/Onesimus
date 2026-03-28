@@ -127,6 +127,18 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         NEXT_JOB_ID.fetch_add(1, Ordering::Relaxed)
     };
 
+    // Compute since_utime for Incremental/Differential (before fork — needs DB)
+    let (since_utime, prev_job) = match level_char {
+        "I" | "D" => {
+            if let Some(cat) = &ctx.catalog {
+                cat.since_utime(client_name, level_char).unwrap_or((0, String::new()))
+            } else {
+                (0, String::new())
+            }
+        }
+        _ => (0, String::new()),
+    };
+
     // Build JobParams for the autonomous worker
     let params = JobParams {
         job_id,
@@ -146,6 +158,8 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         pool_name: pool.to_string(),
         fileset_includes: fileset_res.map(|f| f.include_blocks.clone()).unwrap_or_default(),
         fileset_excludes: fileset_res.map(|f| f.exclude_blocks.clone()).unwrap_or_default(),
+        since_utime,
+        prev_job,
         // Write Bootstrap from job config
         where_path: None,
         replace: None,

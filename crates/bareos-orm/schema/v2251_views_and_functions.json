@@ -72,6 +72,15 @@
       "language": "plpgsql",
       "volatility": "VOLATILE",
       "body": "DECLARE\n  v_vol_index integer;\n  v_jm_id integer;\nBEGIN\n  -- VolIndex = count of existing jobmedia + 1 (same as C++)\n  SELECT COALESCE(COUNT(*), 0) + 1 INTO v_vol_index\n  FROM jobmedia WHERE jobid = p_job_id;\n\n  INSERT INTO jobmedia (jobid, mediaid, firstindex, lastindex,\n    startfile, endfile, startblock, endblock, volindex, jobbytes)\n  VALUES (p_job_id, p_media_id, p_first_index, p_last_index,\n    p_start_file, p_end_file, p_start_block, p_end_block,\n    v_vol_index, p_job_bytes)\n  RETURNING jobmediaid INTO v_jm_id;\n\n  -- Update Media EndFile/EndBlock (C++ does this too)\n  UPDATE media SET\n    endfile = GREATEST(endfile, p_end_file),\n    endblock = GREATEST(endblock, p_end_block)\n  WHERE mediaid = p_media_id;\n\n  RETURN v_jm_id;\nEND;"
+    },
+    {
+      "name": "fn_since_utime",
+      "description": "Berechne since_utime fuer Incremental/Differential Backup. Incremental: letzter erfolgreicher Backup (F/I/D). Differential: letzter erfolgreicher Full (F).",
+      "params": "p_client_name text, p_level char(1)",
+      "returns": "TABLE(since_utime bigint, prev_job text)",
+      "language": "sql",
+      "volatility": "STABLE",
+      "body": "SELECT COALESCE(EXTRACT(EPOCH FROM j.starttime)::bigint, 0) AS since_utime, j.job AS prev_job FROM job j JOIN client c ON j.clientid = c.clientid WHERE c.name = p_client_name AND j.type = 'B' AND j.jobstatus = 'T' AND (CASE WHEN p_level = 'D' THEN j.level = 'F' ELSE j.level IN ('F','I','D') END) ORDER BY j.starttime DESC LIMIT 1;"
     }
   ]
 }

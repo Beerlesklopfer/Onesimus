@@ -233,6 +233,8 @@ pub fn cmd_restore(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         pool_name: "Full".to_string(),
         fileset_includes: vec![],
         fileset_excludes: vec![],
+        since_utime: 0,
+        prev_job: String::new(),
         where_path: Some(where_path.to_string()),
         replace: Some(replace.to_string()),
         restore_jobid: Some(restore_jobid),

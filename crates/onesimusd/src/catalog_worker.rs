@@ -80,6 +80,8 @@ pub enum CatalogRequest {
     },
     /// Resolve a name to its ID (client, pool, fileset).
     ResolveId { table: String, name: String },
+    /// Get since_utime for incremental/differential backup.
+    SinceUtime { client_name: String, level: String },
     /// Ping / health check.
     Ping,
 }
@@ -98,6 +100,8 @@ pub enum CatalogResponse {
     Ok(u64),
     /// Error message.
     Error(String),
+    /// Since-utime result.
+    SinceUtime { since_utime: i64, prev_job: String },
     /// Pong.
     Pong,
 }
@@ -237,6 +241,20 @@ impl CatalogHandle {
         }
     }
 
+    /// Get since_utime + prev_job for Incremental/Differential backup.
+    /// level: "I" for incremental, "D" for differential.
+    pub fn since_utime(&self, client_name: &str, level: &str) -> Option<(i64, String)> {
+        match self.request(CatalogRequest::SinceUtime {
+            client_name: client_name.to_string(),
+            level: level.to_string(),
+        }) {
+            Ok(CatalogResponse::SinceUtime { since_utime, prev_job }) => {
+                if since_utime > 0 { Some((since_utime, prev_job)) } else { None }
+            }
+            _ => None,
+        }
+    }
+
     /// Health check.
     pub fn ping(&self) -> bool {
         matches!(self.request(CatalogRequest::Ping), Ok(CatalogResponse::Pong))
@@ -251,6 +269,7 @@ fn resp_debug(r: &CatalogResponse) -> &'static str {
         CatalogResponse::JobId(_) => "JobId",
         CatalogResponse::Ok(_) => "Ok",
         CatalogResponse::Error(_) => "Error",
+        CatalogResponse::SinceUtime { .. } => "SinceUtime",
         CatalogResponse::Pong => "Pong",
     }
 }
@@ -314,6 +333,8 @@ pub fn spawn_catalog_worker(
                             handle_create_jobmedia(&pool, job_id, media_id, first_index, last_index, start_file, end_file, start_block, end_block, copy, strip, job_bytes).await,
                         CatalogRequest::ResolveId { table, name } =>
                             handle_resolve_id(&pool, &table, &name).await,
+                        CatalogRequest::SinceUtime { client_name, level } =>
+                            handle_since_utime(&pool, &client_name, &level).await,
                         CatalogRequest::Ping => CatalogResponse::Pong,
                     };
 
@@ -501,6 +522,32 @@ async fn handle_generate_bootstrap(pool: &sqlx::PgPool, job_id: u32) -> CatalogR
 
     debug!("Bootstrap for JobId={job_id}: {} lines", bsr.lines().count());
     CatalogResponse::OptionalText(Some(bsr))
+}
+
+/// Get since_utime for incremental/differential backup.
+async fn handle_since_utime(pool: &sqlx::PgPool, client_name: &str, level: &str) -> CatalogResponse {
+    // fn_since_utime(client, level) RETURNS TABLE(since_utime, prev_job)
+    let row: Option<(i64, String)> = match sqlx::query_as(
+        "SELECT since_utime, prev_job FROM fn_since_utime($1, $2)"
+    ).bind(client_name).bind(level).fetch_optional(pool).await {
+        Ok(r) => r,
+        Err(_) => {
+            // Fallback: inline SQL
+            let level_filter = if level == "D" { "AND j.level = 'F'" } else { "AND j.level IN ('F','I','D')" };
+            let sql = format!(
+                "SELECT COALESCE(EXTRACT(EPOCH FROM j.starttime)::bigint, 0), j.job \
+                 FROM job j JOIN client c ON j.clientid = c.clientid \
+                 WHERE c.name = $1 AND j.type = 'B' AND j.jobstatus = 'T' {level_filter} \
+                 ORDER BY j.starttime DESC LIMIT 1"
+            );
+            sqlx::query_as(&sql).bind(client_name).fetch_optional(pool).await.ok().flatten()
+        }
+    };
+
+    match row {
+        Some((ts, prev)) => CatalogResponse::SinceUtime { since_utime: ts, prev_job: prev },
+        None => CatalogResponse::SinceUtime { since_utime: 0, prev_job: String::new() },
+    }
 }
 
 /// Create a JobMedia record — performance-critical (many per backup).
