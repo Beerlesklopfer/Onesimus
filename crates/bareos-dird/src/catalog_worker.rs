@@ -328,6 +328,8 @@ async fn handle_raw_query(pool: &sqlx::PgPool, sql: &str) -> CatalogResponse {
                 .or_else(|_| row.try_get::<i64, _>(col.ordinal()).map(|v| v.to_string()))
                 .or_else(|_| row.try_get::<i32, _>(col.ordinal()).map(|v| v.to_string()))
                 .or_else(|_| row.try_get::<bool, _>(col.ordinal()).map(|v| v.to_string()))
+                .or_else(|_| row.try_get::<chrono::NaiveDateTime, _>(col.ordinal()).map(|v| v.format("%Y-%m-%d %H:%M:%S").to_string()))
+                .or_else(|_| row.try_get::<chrono::DateTime<chrono::Utc>, _>(col.ordinal()).map(|v| v.format("%Y-%m-%d %H:%M:%S").to_string()))
                 .unwrap_or_else(|_| "NULL".to_string());
             output.push_str(&format!("{:<20}", val));
         }
@@ -511,8 +513,8 @@ async fn handle_create_job(
          StartTime, RealEndTime, JobTDate, VolSessionId, VolSessionTime, \
          JobFiles, JobBytes, JobErrors, PoolId, FileSetId, PriorJobId, \
          HasBase, HasCache, Reviewed, Comment) \
-         VALUES ($1, $2, $3, $4, $5, 'C', to_timestamp($6), to_timestamp($6), \
-                 to_timestamp($6), $6, 0, 0, 0, 0, 0, $7, $8, 0, 0, 0, 0, '') \
+         VALUES ($1, $2, $3, $4, $5, 'C', to_timestamp($6::float8), to_timestamp($6::float8), \
+                 to_timestamp($6::float8), $6, 0, 0, 0, 0, 0, $7, $8, 0, 0, 0, 0, '') \
          RETURNING JobId"
     )
     .bind(job_name)
@@ -539,8 +541,8 @@ async fn handle_update_job_end(
     vol_session_id: i32, vol_session_time: i32,
 ) -> CatalogResponse {
     match sqlx::query(
-        "UPDATE Job SET JobStatus=$2, EndTime=to_timestamp($3), \
-         RealEndTime=to_timestamp($3), JobFiles=$4, JobBytes=$5, \
+        "UPDATE Job SET JobStatus=$2, EndTime=to_timestamp($3::float8), \
+         RealEndTime=to_timestamp($3::float8), JobFiles=$4, JobBytes=$5, \
          JobErrors=$6, VolSessionId=$7, VolSessionTime=$8 WHERE JobId=$1"
     )
     .bind(job_id).bind(status).bind(end_time)

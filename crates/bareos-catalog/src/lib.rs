@@ -68,7 +68,7 @@ impl CatalogDb {
              StartTime, RealEndTime, JobTDate, VolSessionId, VolSessionTime, \
              JobFiles, JobBytes, JobErrors, PoolId, FileSetId, PriorJobId, \
              HasBase, HasCache, Reviewed, Comment) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 0, 0, 0, 0, \
+             VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::float8), to_timestamp($8::float8), to_timestamp($9::float8), $10, 0, 0, 0, 0, 0, \
                      $11, $12, 0, 0, 0, 0, '') \
              RETURNING JobId"
         )
@@ -116,8 +116,8 @@ impl CatalogDb {
         job_errors: i32,
     ) -> Result<(), CatalogError> {
         sqlx::query(
-            "UPDATE Job SET JobStatus=$2, EndTime=to_timestamp($3), \
-             RealEndTime=to_timestamp($3), JobFiles=$4, JobBytes=$5, \
+            "UPDATE Job SET JobStatus=$2, EndTime=to_timestamp($3::float8), \
+             RealEndTime=to_timestamp($3::float8), JobFiles=$4, JobBytes=$5, \
              JobErrors=$6 WHERE JobId=$1"
         )
         .bind(job_id)
