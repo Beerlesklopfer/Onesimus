@@ -160,7 +160,7 @@ impl JobManager {
                     PipeMessage::CatReq { request, .. } => {
                         debug!("JobManager: job {} CatReq: {}", job.job_id, &request[..request.len().min(60)]);
                         job.phase = DirJobPhase::WaitingCatReq;
-                        let response = handle_cat_req(&request, &self.catalog);
+                        let response = handle_cat_req(&request, &self.catalog, job.job_id);
                         job.handle.send_message(&PipeMessage::CatResp { response });
                         job.phase = DirJobPhase::Running;
                     }
@@ -222,7 +222,7 @@ impl JobManager {
 }
 
 /// CatReq handler — queries DB via CatalogHandle (MPSC channel).
-fn handle_cat_req(request: &str, catalog: &Option<CatalogHandle>) -> String {
+fn handle_cat_req(request: &str, catalog: &Option<CatalogHandle>, job_id: u32) -> String {
     let Some(cat) = catalog else {
         return "1000 OK\n".to_string();
     };
@@ -250,7 +250,34 @@ fn handle_cat_req(request: &str, catalog: &Option<CatalogHandle>) -> String {
         cat.update_media(&vol, mounts, bytes, jobs, files, errors, writes);
         cat.get_volume_info(&vol).unwrap_or("1901 No Media.\n".into())
     } else if request.contains("CreateJobMedia") {
-        "1000 OK CreateJobMedia\n".to_string()
+        // CatReq format: "CatReq Job=%s CreateJobMedia FirstIndex=%u LastIndex=%u
+        //   StartFile=%u EndFile=%u StartBlock=%u EndBlock=%u Copy=%d Strip=%d MediaId=%s"
+        let first_idx: i32 = extract_field(request, "FirstIndex=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let last_idx: i32 = extract_field(request, "LastIndex=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let start_file: i32 = extract_field(request, "StartFile=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let end_file: i32 = extract_field(request, "EndFile=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let start_block: i64 = extract_field(request, "StartBlock=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let end_block: i64 = extract_field(request, "EndBlock=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let copy: i32 = extract_field(request, "Copy=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let strip: i32 = extract_field(request, "Strip=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let media_id: i32 = extract_field(request, "MediaId=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        // job_id comes from the running job context (not from CatReq string,
+        // which only has Job=unique_name, not the numeric JobId)
+        let db_job_id = job_id as i32;
+
+        debug!("CatReq: CreateJobMedia job={db_job_id} media={media_id} fi={first_idx}-{last_idx} blk={start_block}-{end_block}");
+
+        match cat.create_jobmedia(db_job_id, media_id, first_idx, last_idx,
+            start_file, end_file, start_block, end_block, copy, strip, 0) {
+            Ok(jm_id) => {
+                info!("CreateJobMedia: JobMediaId={jm_id} job={job_id} media={media_id}");
+                "1000 OK CreateJobMedia\n".to_string()
+            }
+            Err(e) => {
+                error!("CreateJobMedia failed: {e}");
+                "1000 OK CreateJobMedia\n".to_string() // SD expects OK regardless
+            }
+        }
     } else if request.contains("UpdateJobRecord") {
         "1000 OK\n".to_string()
     } else if request.contains("UpdateFileList") || request.contains("Filelist") {

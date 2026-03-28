@@ -63,6 +63,15 @@
       "language": "sql",
       "volatility": "STABLE",
       "body": "SELECT j.jobid FROM job j JOIN client c ON j.clientid = c.clientid WHERE c.name = p_client_name AND j.type = 'B' AND j.jobstatus = 'T' ORDER BY j.jobid DESC LIMIT 1;"
+    },
+    {
+      "name": "sp_create_jobmedia",
+      "description": "Erstelle einen JobMedia-Record und update Media EndFile/EndBlock. Flaschenhals bei grossen Backups — SP vermeidet Round-Trips, spaeter durch Rust Batch-Insert ersetzbar.",
+      "params": "p_job_id integer, p_media_id integer, p_first_index integer, p_last_index integer, p_start_file integer, p_end_file integer, p_start_block bigint, p_end_block bigint, p_copy integer, p_strip integer, p_job_bytes bigint",
+      "returns": "integer",
+      "language": "plpgsql",
+      "volatility": "VOLATILE",
+      "body": "DECLARE\n  v_vol_index integer;\n  v_jm_id integer;\nBEGIN\n  -- VolIndex = count of existing jobmedia + 1 (same as C++)\n  SELECT COALESCE(COUNT(*), 0) + 1 INTO v_vol_index\n  FROM jobmedia WHERE jobid = p_job_id;\n\n  INSERT INTO jobmedia (jobid, mediaid, firstindex, lastindex,\n    startfile, endfile, startblock, endblock, volindex, jobbytes)\n  VALUES (p_job_id, p_media_id, p_first_index, p_last_index,\n    p_start_file, p_end_file, p_start_block, p_end_block,\n    v_vol_index, p_job_bytes)\n  RETURNING jobmediaid INTO v_jm_id;\n\n  -- Update Media EndFile/EndBlock (C++ does this too)\n  UPDATE media SET\n    endfile = GREATEST(endfile, p_end_file),\n    endblock = GREATEST(endblock, p_end_block)\n  WHERE mediaid = p_media_id;\n\n  RETURN v_jm_id;\nEND;"
     }
   ]
 }

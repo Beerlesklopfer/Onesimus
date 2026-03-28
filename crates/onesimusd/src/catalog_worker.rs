@@ -64,6 +64,20 @@ pub enum CatalogRequest {
         vol_session_id: i32,
         vol_session_time: i32,
     },
+    /// Create a JobMedia record (SD→Dir CatReq). Performance-critical.
+    CreateJobMedia {
+        job_id: i32,
+        media_id: i32,
+        first_index: i32,
+        last_index: i32,
+        start_file: i32,
+        end_file: i32,
+        start_block: i64,
+        end_block: i64,
+        copy: i32,
+        strip: i32,
+        job_bytes: i64,
+    },
     /// Resolve a name to its ID (client, pool, fileset).
     ResolveId { table: String, name: String },
     /// Ping / health check.
@@ -196,6 +210,23 @@ impl CatalogHandle {
         }
     }
 
+    /// Create a JobMedia record. Returns JobMediaId.
+    pub fn create_jobmedia(
+        &self, job_id: i32, media_id: i32, first_index: i32, last_index: i32,
+        start_file: i32, end_file: i32, start_block: i64, end_block: i64,
+        copy: i32, strip: i32, job_bytes: i64,
+    ) -> Result<i32, String> {
+        match self.request(CatalogRequest::CreateJobMedia {
+            job_id, media_id, first_index, last_index,
+            start_file, end_file, start_block, end_block,
+            copy, strip, job_bytes,
+        })? {
+            CatalogResponse::JobId(id) => Ok(id),
+            CatalogResponse::Error(e) => Err(e),
+            _ => Err("unexpected response".into()),
+        }
+    }
+
     /// Resolve a name to its DB ID (client, pool, fileset).
     pub fn resolve_id(&self, table: &str, name: &str) -> Option<i32> {
         match self.request(CatalogRequest::ResolveId {
@@ -279,6 +310,8 @@ pub fn spawn_catalog_worker(
                             handle_create_job(&pool, &job_name, &name, &job_type, &level, &client_name, &pool_name, &fileset_name, sched_time).await,
                         CatalogRequest::UpdateJobEnd { job_id, status, end_time, job_files, job_bytes, job_errors, vol_session_id, vol_session_time } =>
                             handle_update_job_end(&pool, job_id, &status, end_time, job_files, job_bytes, job_errors, vol_session_id, vol_session_time).await,
+                        CatalogRequest::CreateJobMedia { job_id, media_id, first_index, last_index, start_file, end_file, start_block, end_block, copy, strip, job_bytes } =>
+                            handle_create_jobmedia(&pool, job_id, media_id, first_index, last_index, start_file, end_file, start_block, end_block, copy, strip, job_bytes).await,
                         CatalogRequest::ResolveId { table, name } =>
                             handle_resolve_id(&pool, &table, &name).await,
                         CatalogRequest::Ping => CatalogResponse::Pong,
@@ -468,6 +501,55 @@ async fn handle_generate_bootstrap(pool: &sqlx::PgPool, job_id: u32) -> CatalogR
 
     debug!("Bootstrap for JobId={job_id}: {} lines", bsr.lines().count());
     CatalogResponse::OptionalText(Some(bsr))
+}
+
+/// Create a JobMedia record — performance-critical (many per backup).
+/// Uses sp_create_jobmedia SP with inline SQL fallback.
+async fn handle_create_jobmedia(
+    pool: &sqlx::PgPool, job_id: i32, media_id: i32,
+    first_index: i32, last_index: i32, start_file: i32, end_file: i32,
+    start_block: i64, end_block: i64, _copy: i32, _strip: i32, job_bytes: i64,
+) -> CatalogResponse {
+    // Try SP first
+    let result: Result<i32, _> = sqlx::query_scalar(
+        "SELECT sp_create_jobmedia($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)"
+    )
+    .bind(job_id).bind(media_id).bind(first_index).bind(last_index)
+    .bind(start_file).bind(end_file).bind(start_block).bind(end_block)
+    .bind(_copy).bind(_strip).bind(job_bytes)
+    .fetch_one(pool).await;
+
+    match result {
+        Ok(jm_id) => CatalogResponse::JobId(jm_id),
+        Err(_) => {
+            // Fallback: inline SQL
+            let vol_index: i32 = sqlx::query_scalar(
+                "SELECT COALESCE(COUNT(*), 0)::int + 1 FROM jobmedia WHERE jobid = $1"
+            ).bind(job_id).fetch_one(pool).await.unwrap_or(1);
+
+            match sqlx::query_scalar(
+                "INSERT INTO jobmedia (jobid, mediaid, firstindex, lastindex, \
+                 startfile, endfile, startblock, endblock, volindex, jobbytes) \
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING jobmediaid"
+            )
+            .bind(job_id).bind(media_id).bind(first_index).bind(last_index)
+            .bind(start_file).bind(end_file).bind(start_block).bind(end_block)
+            .bind(vol_index).bind(job_bytes)
+            .fetch_one(pool).await {
+                Ok(jm_id) => {
+                    // Update media EndFile/EndBlock
+                    let _ = sqlx::query(
+                        "UPDATE media SET endfile = GREATEST(endfile, $1), \
+                         endblock = GREATEST(endblock, $2) WHERE mediaid = $3"
+                    ).bind(end_file).bind(end_block).bind(media_id)
+                    .execute(pool).await;
+
+                    CatalogResponse::JobId(jm_id)
+                }
+                Err(e) => CatalogResponse::Error(format!("CreateJobMedia: {e}")),
+            }
+        }
+    }
 }
 
 async fn handle_find_latest_backup_jobid(pool: &sqlx::PgPool, client_name: &str) -> CatalogResponse {
