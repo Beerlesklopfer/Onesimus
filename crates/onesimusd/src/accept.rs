@@ -94,6 +94,7 @@ pub fn accept_loop(
             Ok((stream, peer_addr)) => {
                 debug!("new connection from {peer_addr}");
                 stream.set_nonblocking(false).ok();
+                stream.set_nodelay(true).ok(); // Disable Nagle — EOD signal must arrive immediately
 
                 let smgr = session_mgr.clone();
                 let q = cmd_queue.clone();
