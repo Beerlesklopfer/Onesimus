@@ -1,6 +1,6 @@
 [package]
-name = "bareos-console"
-description = "baReos bconsole — Rust console client for the Bareos Director"
+name = "onesimus-console"
+description = "Onesimus Console — Drop-in replacement for Bareos bconsole"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

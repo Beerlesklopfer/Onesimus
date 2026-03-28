@@ -3,7 +3,7 @@
 	dh $@
 
 override_dh_auto_build:
-	cargo build --release -p onesimusd -p bareos-console
+	cargo build --release -p onesimusd -p onesimus-console
 
 override_dh_auto_install:
 	# === bareos-director-rust package ===
