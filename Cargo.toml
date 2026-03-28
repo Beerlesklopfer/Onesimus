@@ -8,6 +8,7 @@ members = [
     "crates/onesimusd",
     "crates/onesimus-console",
     "crates/bareos-orm",
+    "crates/bareos-stored",
     "crates/bareos-filed",
 ]
 

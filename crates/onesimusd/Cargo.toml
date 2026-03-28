@@ -17,6 +17,7 @@ bareos-config.workspace = true
 bareos-catalog.workspace = true
 bareos-proto-rs.workspace = true
 bareos-orm = { path = "../bareos-orm" }
+bareos-stored = { path = "../bareos-stored" }
 
 anyhow.workspace = true
 thiserror.workspace = true
