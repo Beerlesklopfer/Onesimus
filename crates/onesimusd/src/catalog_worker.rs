@@ -502,32 +502,22 @@ async fn handle_create_job(
     job_name: &str, name: &str, job_type: &str, level: &str,
     client_name: &str, pool_name: &str, fileset_name: &str, sched_time: i64,
 ) -> CatalogResponse {
-    // Resolve names to IDs (create if not exists for client)
-    let client_id = resolve_or_create_client(pool, client_name).await;
-    let pool_id = resolve_name_id(pool, "poolid", "pool", pool_name).await.unwrap_or(0);
-    let fileset_id = resolve_name_id(pool, "filesetid", "fileset", fileset_name).await.unwrap_or(0);
-
-    let now = sched_time;
+    // Use stored procedure: create_job_record(job, name, type, level, client, pool, fileset, sched_time)
     let job_id: i32 = match sqlx::query_scalar(
-        "INSERT INTO Job (Job, Name, Type, Level, ClientId, JobStatus, SchedTime, \
-         StartTime, RealEndTime, JobTDate, VolSessionId, VolSessionTime, \
-         JobFiles, JobBytes, JobErrors, PoolId, FileSetId, PriorJobId, \
-         HasBase, HasCache, Reviewed, Comment) \
-         VALUES ($1, $2, $3, $4, $5, 'C', to_timestamp($6::float8), to_timestamp($6::float8), \
-                 to_timestamp($6::float8), $6, 0, 0, 0, 0, 0, $7, $8, 0, 0, 0, 0, '') \
-         RETURNING JobId"
+        "SELECT create_job_record($1, $2, $3, $4, $5, $6, $7, $8)"
     )
-    .bind(job_name)
-    .bind(name)
-    .bind(job_type)
-    .bind(level)
-    .bind(client_id)
-    .bind(now)
-    .bind(pool_id)
-    .bind(fileset_id)
+    .bind(job_name).bind(name).bind(job_type).bind(level)
+    .bind(client_name).bind(pool_name).bind(fileset_name).bind(sched_time)
     .fetch_one(pool).await {
         Ok(id) => id,
-        Err(e) => return CatalogResponse::Error(format!("CreateJob: {e}")),
+        Err(e) => {
+            // Fallback: SP not yet installed, use inline SQL
+            warn!("SP create_job_record not available ({e}), using inline SQL");
+            return handle_create_job_inline(
+                pool, job_name, name, job_type, level,
+                client_name, pool_name, fileset_name, sched_time,
+            ).await;
+        }
     };
 
     info!("Created job record: JobId={job_id} name={name} type={job_type} level={level}");
@@ -540,21 +530,69 @@ async fn handle_update_job_end(
     job_files: i64, job_bytes: i64, job_errors: i32,
     vol_session_id: i32, vol_session_time: i32,
 ) -> CatalogResponse {
-    match sqlx::query(
-        "UPDATE Job SET JobStatus=$2, EndTime=to_timestamp($3::float8), \
-         RealEndTime=to_timestamp($3::float8), JobFiles=$4, JobBytes=$5, \
-         JobErrors=$6, VolSessionId=$7, VolSessionTime=$8 WHERE JobId=$1"
+    // Try SP first, fallback to inline SQL
+    let result = sqlx::query(
+        "SELECT update_job_end_record($1, $2, $3, $4, $5, $6, $7, $8)"
     )
     .bind(job_id).bind(status).bind(end_time)
     .bind(job_files).bind(job_bytes).bind(job_errors)
     .bind(vol_session_id).bind(vol_session_time)
-    .execute(pool).await {
+    .execute(pool).await;
+
+    match result {
         Ok(_) => {
             info!("Updated job {job_id}: status={status} files={job_files} bytes={job_bytes}");
             CatalogResponse::Ok(1)
         }
-        Err(e) => CatalogResponse::Error(format!("UpdateJobEnd: {e}")),
+        Err(_) => {
+            // Fallback: SP not installed
+            match sqlx::query(
+                "UPDATE Job SET JobStatus=$2, EndTime=to_timestamp($3::float8), \
+                 RealEndTime=to_timestamp($3::float8), JobFiles=$4, JobBytes=$5, \
+                 JobErrors=$6, VolSessionId=$7, VolSessionTime=$8 WHERE JobId=$1"
+            )
+            .bind(job_id).bind(status).bind(end_time)
+            .bind(job_files).bind(job_bytes).bind(job_errors)
+            .bind(vol_session_id).bind(vol_session_time)
+            .execute(pool).await {
+                Ok(_) => {
+                    info!("Updated job {job_id}: status={status} files={job_files} bytes={job_bytes} (inline)");
+                    CatalogResponse::Ok(1)
+                }
+                Err(e) => CatalogResponse::Error(format!("UpdateJobEnd: {e}")),
+            }
+        }
     }
+}
+
+/// Inline fallback when SP create_job_record is not yet installed.
+async fn handle_create_job_inline(
+    pool: &sqlx::PgPool,
+    job_name: &str, name: &str, job_type: &str, level: &str,
+    client_name: &str, pool_name: &str, fileset_name: &str, sched_time: i64,
+) -> CatalogResponse {
+    let client_id = resolve_or_create_client(pool, client_name).await;
+    let pool_id = resolve_name_id(pool, "poolid", "pool", pool_name).await.unwrap_or(0);
+    let fileset_id = resolve_name_id(pool, "filesetid", "fileset", fileset_name).await.unwrap_or(0);
+
+    let job_id: i32 = match sqlx::query_scalar(
+        "INSERT INTO Job (Job, Name, Type, Level, ClientId, JobStatus, SchedTime, \
+         StartTime, RealEndTime, JobTDate, VolSessionId, VolSessionTime, \
+         JobFiles, JobBytes, JobErrors, PoolId, FileSetId, PriorJobId, \
+         HasBase, HasCache, Reviewed, Comment) \
+         VALUES ($1, $2, $3, $4, $5, 'C', to_timestamp($6::float8), to_timestamp($6::float8), \
+                 to_timestamp($6::float8), $6, 0, 0, 0, 0, 0, $7, $8, 0, 0, 0, 0, '') \
+         RETURNING JobId"
+    )
+    .bind(job_name).bind(name).bind(job_type).bind(level)
+    .bind(client_id).bind(sched_time).bind(pool_id).bind(fileset_id)
+    .fetch_one(pool).await {
+        Ok(id) => id,
+        Err(e) => return CatalogResponse::Error(format!("CreateJob inline: {e}")),
+    };
+
+    info!("Created job record (inline): JobId={job_id} name={name}");
+    CatalogResponse::JobId(job_id)
 }
 
 // Helper: resolve name → id

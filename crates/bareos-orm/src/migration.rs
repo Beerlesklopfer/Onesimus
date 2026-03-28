@@ -97,6 +97,16 @@ impl Migrator {
             }
         }
 
+        // Functions: CREATE OR REPLACE ist idempotent — immer anwenden
+        for func in &to.functions {
+            statements.push(func.to_sql());
+        }
+
+        // Views: CREATE OR REPLACE ist idempotent — immer anwenden
+        for view in &to.views {
+            statements.push(view.to_sql());
+        }
+
         statements
     }
 

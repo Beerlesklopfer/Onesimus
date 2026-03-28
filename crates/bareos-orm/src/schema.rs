@@ -22,6 +22,12 @@ pub struct CatalogSchema {
     pub min_compatible_version: Option<u32>,
     /// Tabellen-Definitionen
     pub tables: Vec<TableDef>,
+    /// Views
+    #[serde(default)]
+    pub views: Vec<ViewDef>,
+    /// Stored Procedures / Functions
+    #[serde(default)]
+    pub functions: Vec<FunctionDef>,
 }
 
 /// Tabellen-Definition.
@@ -121,6 +127,52 @@ pub struct ConstraintDef {
     pub expression: String,
 }
 
+/// View-Definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewDef {
+    /// View-Name (z.B. "job_summary")
+    pub name: String,
+    /// Beschreibung
+    #[serde(default)]
+    pub description: String,
+    /// SELECT-Query (ohne "CREATE VIEW ... AS")
+    pub query: String,
+    /// Materialized View? (Default: false)
+    #[serde(default)]
+    pub materialized: bool,
+}
+
+/// Stored Procedure / Function Definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionDef {
+    /// Funktionsname (z.B. "create_job")
+    pub name: String,
+    /// Beschreibung
+    #[serde(default)]
+    pub description: String,
+    /// Parameter als SQL-Fragment (z.B. "p_name text, p_type char(1)")
+    #[serde(default)]
+    pub params: String,
+    /// Rückgabetyp (z.B. "integer", "void", "TABLE(id int, name text)")
+    #[serde(default = "default_returns")]
+    pub returns: String,
+    /// Sprache (default: "plpgsql")
+    #[serde(default = "default_language")]
+    pub language: String,
+    /// Funktions-Body (PL/pgSQL oder SQL)
+    pub body: String,
+    /// SECURITY DEFINER? (Default: false)
+    #[serde(default)]
+    pub security_definer: bool,
+    /// Volatility: VOLATILE, STABLE, IMMUTABLE (Default: VOLATILE)
+    #[serde(default = "default_volatility")]
+    pub volatility: String,
+}
+
+fn default_returns() -> String { "void".to_string() }
+fn default_language() -> String { "plpgsql".to_string() }
+fn default_volatility() -> String { "VOLATILE".to_string() }
+
 impl CatalogSchema {
     /// Lade Schema aus einer JSON-Datei.
     pub fn load(path: &Path) -> Result<Self, OrmError> {
@@ -156,17 +208,42 @@ impl CatalogSchema {
             sql.push('\n');
         }
 
+        if !self.functions.is_empty() {
+            sql.push_str("-- Functions / Stored Procedures\n\n");
+            for func in &self.functions {
+                sql.push_str(&func.to_sql());
+                sql.push_str("\n\n");
+            }
+        }
+
+        if !self.views.is_empty() {
+            sql.push_str("-- Views\n\n");
+            for view in &self.views {
+                sql.push_str(&view.to_sql());
+                sql.push_str("\n\n");
+            }
+        }
+
         sql
     }
 
-    /// Generiere einzelne SQL-Statements (CREATE TABLE + CREATE INDEX).
+    /// Generiere einzelne SQL-Statements (Tables + Indices + Functions + Views).
     pub fn to_statements(&self) -> Vec<String> {
         let mut stmts = Vec::new();
+        // 1. Tables + Indices
         for table in &self.tables {
             stmts.push(table.to_create_sql());
             for idx in &table.indices {
                 stmts.push(idx.to_sql(&table.name));
             }
+        }
+        // 2. Functions (before views, views may reference functions)
+        for func in &self.functions {
+            stmts.push(func.to_sql());
+        }
+        // 3. Views (may reference tables and functions)
+        for view in &self.views {
+            stmts.push(view.to_sql());
         }
         stmts
     }
@@ -247,6 +324,36 @@ impl IndexDef {
         format!(
             "CREATE {unique}INDEX IF NOT EXISTS {} ON {}{using} ({cols}){where_clause};",
             self.name, table
+        )
+    }
+}
+
+impl ViewDef {
+    /// Generiere CREATE VIEW / CREATE MATERIALIZED VIEW SQL.
+    pub fn to_sql(&self) -> String {
+        if self.materialized {
+            format!(
+                "CREATE MATERIALIZED VIEW IF NOT EXISTS {} AS\n{};\n",
+                self.name, self.query
+            )
+        } else {
+            format!(
+                "CREATE OR REPLACE VIEW {} AS\n{};\n",
+                self.name, self.query
+            )
+        }
+    }
+}
+
+impl FunctionDef {
+    /// Generiere CREATE OR REPLACE FUNCTION SQL.
+    pub fn to_sql(&self) -> String {
+        let security = if self.security_definer { "\nSECURITY DEFINER" } else { "" };
+        format!(
+            "CREATE OR REPLACE FUNCTION {}({}) RETURNS {} AS $$\n{}\n$$ LANGUAGE {}\n{}{};",
+            self.name, self.params, self.returns,
+            self.body,
+            self.language, self.volatility, security,
         )
     }
 }
