@@ -19,7 +19,7 @@
 set -euo pipefail
 
 BAREOS_DIRD=${BAREOS_DIRD:-./target/release/onesimusd}
-BRCONSOLE=${BRCONSOLE:-./target/release/brconsole}
+BRCONSOLE=${BRCONSOLE:-./target/release/oconsole}
 PORT=29101
 PASSWORD="testpass-$(date +%s)"
 TMPDIR=$(mktemp -d /tmp/bareos-test-XXXXXX)

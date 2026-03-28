@@ -20,7 +20,7 @@ override_dh_auto_install:
 		install -m 644 $$f*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/$$(basename $$f)/ 2>/dev/null || true; \
 	done
 	# === brconsole package ===
-	install -D -m 755 target/release/brconsole debian/bareos-bconsole-rust/usr/bin/brconsole
+	install -D -m 755 target/release/oconsole debian/bareos-bconsole-rust/usr/bin/brconsole
 	install -D -m 644 config/brconsole.conf debian/bareos-bconsole-rust/usr/share/bareos/defaultconfigs/brconsole.conf
 
 override_dh_auto_test:

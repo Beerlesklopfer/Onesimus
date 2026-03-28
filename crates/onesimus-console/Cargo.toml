@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "brconsole"
+name = "oconsole"
 path = "src/main.rs"
 
 [dependencies]
