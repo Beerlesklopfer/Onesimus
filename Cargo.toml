@@ -5,7 +5,7 @@ members = [
     "crates/bareos-config",
     "crates/bareos-catalog",
     "crates/bareos-proto-rs",
-    "crates/bareos-dird",
+    "crates/onesimusd",
     "crates/bareos-console",
     "crates/bareos-orm",
     "crates/bareos-filed",

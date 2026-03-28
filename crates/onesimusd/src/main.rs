@@ -1,4 +1,4 @@
-//! baReos Director — Rust rewrite of the Bareos Director daemon.
+//! Onesimus Director — Drop-in replacement for the Bareos Director daemon.
 //!
 //! Named threads, fork-per-job, crossbeam channels for core,
 //! tokio only for gRPC.
@@ -42,12 +42,12 @@ use crate::session_manager::SessionManager;
 /// Global shutdown flag.
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
-/// baReos Director — Backup Archiving REcovery Open Sourced
+/// Onesimus Director — Drop-in replacement for the Bareos Director
 #[derive(Parser, Debug)]
 #[command(
-    name = "bareos-dird",
+    name = "onesimusd",
     version,
-    about = "The baReos Director Daemon.\n\nCopyright (C) 2026 Onesomus.io — Rust Version\nBased on Bareos by Bareos GmbH & Co. KG"
+    about = "The Onesimus Director Daemon.\n\nCopyright (C) 2026 Onesimus.io\nDrop-in compatible with Bareos FD/SD/bconsole"
 )]
 struct Cli {
     /// Use <path> as configuration file or directory.
@@ -154,7 +154,7 @@ fn main() {
         println!("  200     Trace (Memory, Locks, Funktionsaufrufe)");
         println!("  999     Diese Hilfe anzeigen");
         println!();
-        println!("Beispiel: bareos-dird -d 100 -f");
+        println!("Beispiel: onesimusd -d 100 -f");
         std::process::exit(0);
     }
 
@@ -177,9 +177,10 @@ fn main() {
     // Bareos-kompatibles Debug-Level System
     bareos_bnet::debug::set_debug_level(cli.debug_level);
     bareos_bnet::debug::set_debug_timestamps(cli.debug_timestamps);
+    // Keep "bareos-dir" for BNET protocol compatibility (C++ FD/SD expect it)
     bareos_bnet::debug::set_daemon_name("bareos-dir");
 
-    info!("baReos Director Version {} starting", env!("CARGO_PKG_VERSION"));
+    info!("Onesimus Director Version {} starting", env!("CARGO_PKG_VERSION"));
     if cli.debug_level > 0 {
         info!("debug level set to {}", cli.debug_level);
     }
@@ -423,7 +424,7 @@ fn main() {
     // Wait for shutdown signal (SIGTERM / SIGINT)
     wait_for_shutdown();
 
-    info!("baReos Director shutting down");
+    info!("Onesimus Director shutting down");
     SHUTDOWN.store(true, Ordering::SeqCst);
     cmd_queue.shutdown();
 
@@ -434,7 +435,7 @@ fn main() {
         }
     }
 
-    info!("baReos Director stopped");
+    info!("Onesimus Director stopped");
 }
 
 fn spawn_named_threads(
