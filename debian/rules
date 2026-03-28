@@ -8,9 +8,10 @@ override_dh_auto_build:
 override_dh_auto_install:
 	# === bareos-director-rust package ===
 	install -D -m 755 target/release/onesimusd debian/bareos-director-rust/usr/sbin/bareos-dird
-	# Schema
-	install -D -m 644 catalog/schema/v001_initial.json debian/bareos-director-rust/usr/lib/bareos/scripts/ddl/v001_initial.json
-	install -D -m 644 catalog/schema/v002_remove_metadata_bloat.json debian/bareos-director-rust/usr/lib/bareos/scripts/ddl/v002_remove_metadata_bloat.json
+	# Schema (all JSON files from ORM schema dir)
+	for f in crates/bareos-orm/schema/*.json; do \
+		install -D -m 644 $$f debian/bareos-director-rust/usr/lib/bareos/scripts/ddl/$$(basename $$f); \
+	done
 	# Default configs
 	for dir in catalog client console director fileset job jobdefs messages pool profile schedule storage user; do \
 		install -d debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/$$dir; \
