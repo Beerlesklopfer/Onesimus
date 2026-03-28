@@ -504,7 +504,7 @@ async fn handle_create_job(
 ) -> CatalogResponse {
     // Use stored procedure: create_job_record(job, name, type, level, client, pool, fileset, sched_time)
     let job_id: i32 = match sqlx::query_scalar(
-        "SELECT create_job_record($1, $2, $3, $4, $5, $6, $7, $8)"
+        "SELECT sp_create_job_record($1, $2, $3, $4, $5, $6, $7, $8)"
     )
     .bind(job_name).bind(name).bind(job_type).bind(level)
     .bind(client_name).bind(pool_name).bind(fileset_name).bind(sched_time)
@@ -512,7 +512,7 @@ async fn handle_create_job(
         Ok(id) => id,
         Err(e) => {
             // Fallback: SP not yet installed, use inline SQL
-            warn!("SP create_job_record not available ({e}), using inline SQL");
+            warn!("SP sp_create_job_record not available ({e}), using inline SQL");
             return handle_create_job_inline(
                 pool, job_name, name, job_type, level,
                 client_name, pool_name, fileset_name, sched_time,
@@ -532,7 +532,7 @@ async fn handle_update_job_end(
 ) -> CatalogResponse {
     // Try SP first, fallback to inline SQL
     let result = sqlx::query(
-        "SELECT update_job_end_record($1, $2, $3, $4, $5, $6, $7, $8)"
+        "SELECT sp_update_job_end($1, $2, $3, $4, $5, $6, $7, $8)"
     )
     .bind(job_id).bind(status).bind(end_time)
     .bind(job_files).bind(job_bytes).bind(job_errors)
