@@ -78,7 +78,9 @@ pub enum PipeMessage {
     #[serde(rename = "cat_resp")]
     CatResp { response: String },
     #[serde(rename = "job_end")]
-    JobEnd { job_id: u32, term_code: i32, files: i64, bytes: i64, errors: i32 },
+    JobEnd { job_id: u32, term_code: i32, files: i64, bytes: i64, errors: i32,
+             #[serde(default)] vol_session_id: Option<i32>,
+             #[serde(default)] vol_session_time: Option<i32> },
 }
 
 pub const EXIT_SUCCESS: i32 = 0;
@@ -182,6 +184,8 @@ pub fn run_worker(
     let mut fd: Option<BnetStream<tls_psk::PskStream>> = None;
     let mut sd: Option<BnetStream<tls_psk::PskStream>> = None;
     let mut sd_auth_key = String::new();
+    let mut vol_session_id: i32 = 0;
+    let mut vol_session_time: i32 = 0;
 
     loop {
         let old_name = state.name().to_string();
@@ -206,7 +210,13 @@ pub fn run_worker(
 
             WorkerState::SDJobSetup => {
                 match sd_job_setup(sd.as_mut().unwrap(), params) {
-                    Ok(key) => { sd_auth_key = key; info!("Worker {job_id}: SD auth key ({} chars)", sd_auth_key.len()); WorkerState::SDUseDevice }
+                    Ok(sess) => {
+                        sd_auth_key = sess.auth_key;
+                        vol_session_id = sess.vol_session_id;
+                        vol_session_time = sess.vol_session_time;
+                        info!("Worker {job_id}: SD auth key ({} chars) SDid={vol_session_id} SDtime={vol_session_time}", sd_auth_key.len());
+                        WorkerState::SDUseDevice
+                    }
                     Err(e) => WorkerState::Error(format!("SD job: {e}"))
                 }
             }
@@ -358,7 +368,10 @@ pub fn run_worker(
 
             WorkerState::Completed { files, bytes, errors } => {
                 info!("Worker {job_id}: completed — files={files} bytes={bytes}");
-                pipes.send(&PipeMessage::JobEnd { job_id, term_code: 0, files, bytes, errors });
+                pipes.send(&PipeMessage::JobEnd {
+                    job_id, term_code: 0, files, bytes, errors,
+                    vol_session_id: Some(vol_session_id), vol_session_time: Some(vol_session_time),
+                });
                 return EXIT_SUCCESS;
             }
 
@@ -366,7 +379,10 @@ pub fn run_worker(
                 error!("Worker {job_id}: error — {e}");
                 if let Some(ref mut f) = fd { let _ = f.send_signal(BnetSignal::Terminate); }
                 if let Some(ref mut s) = sd { let _ = s.send_signal(BnetSignal::Terminate); }
-                pipes.send(&PipeMessage::JobEnd { job_id, term_code: 2, files: 0, bytes: 0, errors: 1 });
+                pipes.send(&PipeMessage::JobEnd {
+                    job_id, term_code: 2, files: 0, bytes: 0, errors: 1,
+                    vol_session_id: Some(vol_session_id), vol_session_time: Some(vol_session_time),
+                });
                 return EXIT_FATAL;
             }
         };
@@ -422,7 +438,14 @@ fn run_backup_phase(
 // SD Protocol helpers
 // ============================================================================
 
-fn sd_job_setup(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Result<String, String> {
+/// SD session info returned from job setup.
+struct SdSession {
+    auth_key: String,
+    vol_session_id: i32,
+    vol_session_time: i32,
+}
+
+fn sd_job_setup(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Result<SdSession, String> {
     let (type_int, level_int, fileset_md5, backup_fmt) = match p.job_type {
         WorkerJobType::Backup => (66, match p.level.as_str() {  // 'B'
             "full" => 70, "incremental" => 73, "differential" => 68, _ => 70,
@@ -444,10 +467,20 @@ fn sd_job_setup(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Resul
         .and_then(|s| s.strip_prefix("Authorization="))
         .map(|s| s.to_string())
         .ok_or_else(|| format!("no auth key: {resp}"))?;
+    let vol_session_id: i32 = resp.split_whitespace()
+        .find(|s| s.starts_with("SDid="))
+        .and_then(|s| s.strip_prefix("SDid="))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    let vol_session_time: i32 = resp.split_whitespace()
+        .find(|s| s.starts_with("SDtime="))
+        .and_then(|s| s.strip_prefix("SDtime="))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
     // getSecureEraseCmd (SD expects it after job setup)
     sd.send_str("getSecureEraseCmd\n").map_err(|e| format!("send secErase: {e}"))?;
     let _ = sd.recv_str(); // 2000 OK SDSecureEraseCmd *None*
-    Ok(auth_key)
+    Ok(SdSession { auth_key, vol_session_id, vol_session_time })
 }
 
 fn sd_use_device(sd: &mut BnetStream<tls_psk::PskStream>, p: &JobParams) -> Result<(), String> {

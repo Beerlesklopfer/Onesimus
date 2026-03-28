@@ -165,13 +165,26 @@ impl JobManager {
                         job.phase = DirJobPhase::Running;
                     }
 
-                    PipeMessage::JobEnd { term_code, files, bytes, errors, .. } => {
+                    PipeMessage::JobEnd { term_code, files, bytes, errors,
+                                          vol_session_id, vol_session_time, .. } => {
                         let status = if term_code == 0 { "Success" } else { "Error" };
+                        let db_status = if term_code == 0 { "T" } else { "E" };
                         info!("JobManager: job {} '{}' ended — {status} files={files} bytes={bytes} errors={errors}",
                             job.job_id, job.job_name);
                         job.last_files = files;
                         job.last_bytes = bytes;
                         job.phase = if term_code == 0 { DirJobPhase::Completed } else { DirJobPhase::Error };
+
+                        // Update job record in DB
+                        if let Some(cat) = &self.catalog {
+                            if let Err(e) = cat.update_job_end(
+                                job.job_id as i32, db_status, now_unix(),
+                                files, bytes, errors as i32,
+                                vol_session_id.unwrap_or(0), vol_session_time.unwrap_or(0),
+                            ) {
+                                error!("JobManager: DB update_job_end failed for job {}: {e}", job.job_id);
+                            }
+                        }
 
                         // Post to message bus
                         let msg_type = if term_code == 0 { MsgType::Info } else { MsgType::Error };

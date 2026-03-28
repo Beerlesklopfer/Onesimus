@@ -42,6 +42,30 @@ pub enum CatalogRequest {
     GenerateBootstrap { job_id: u32 },
     /// Find the most recent successful backup job for a client.
     FindLatestBackupJobId { client_name: String },
+    /// Create a new job record in the catalog. Returns the DB JobId.
+    CreateJob {
+        job_name: String,      // e.g. "backup-bareos-fd.2026-03-28_20.14.22_01"
+        name: String,          // job resource name, e.g. "backup-bareos-fd"
+        job_type: String,      // "B" backup, "R" restore
+        level: String,         // "F" full, "I" incremental, "D" differential
+        client_name: String,   // resolved to client_id
+        pool_name: String,     // resolved to pool_id
+        fileset_name: String,  // resolved to fileset_id
+        sched_time: i64,       // unix epoch
+    },
+    /// Update job end record with final status, files, bytes.
+    UpdateJobEnd {
+        job_id: i32,
+        status: String,        // "T" success, "E" error, "f" fatal
+        end_time: i64,
+        job_files: i64,
+        job_bytes: i64,
+        job_errors: i32,
+        vol_session_id: i32,
+        vol_session_time: i32,
+    },
+    /// Resolve a name to its ID (client, pool, fileset).
+    ResolveId { table: String, name: String },
     /// Ping / health check.
     Ping,
 }
@@ -54,6 +78,8 @@ pub enum CatalogResponse {
     OptionalText(Option<String>),
     /// Optional job ID.
     OptionalJobId(Option<u32>),
+    /// Job ID (from CreateJob).
+    JobId(i32),
     /// Success with rows affected.
     Ok(u64),
     /// Error message.
@@ -133,6 +159,53 @@ impl CatalogHandle {
         }
     }
 
+    /// Create a job record in the DB. Returns the DB-assigned JobId.
+    pub fn create_job(
+        &self, job_name: &str, name: &str, job_type: &str, level: &str,
+        client_name: &str, pool_name: &str, fileset_name: &str, sched_time: i64,
+    ) -> Result<i32, String> {
+        match self.request(CatalogRequest::CreateJob {
+            job_name: job_name.to_string(),
+            name: name.to_string(),
+            job_type: job_type.to_string(),
+            level: level.to_string(),
+            client_name: client_name.to_string(),
+            pool_name: pool_name.to_string(),
+            fileset_name: fileset_name.to_string(),
+            sched_time,
+        })? {
+            CatalogResponse::JobId(id) => Ok(id),
+            CatalogResponse::Error(e) => Err(e),
+            _ => Err("unexpected response".into()),
+        }
+    }
+
+    /// Update job end record with final status.
+    pub fn update_job_end(
+        &self, job_id: i32, status: &str, end_time: i64,
+        job_files: i64, job_bytes: i64, job_errors: i32,
+        vol_session_id: i32, vol_session_time: i32,
+    ) -> Result<(), String> {
+        match self.request(CatalogRequest::UpdateJobEnd {
+            job_id, status: status.to_string(), end_time,
+            job_files, job_bytes, job_errors, vol_session_id, vol_session_time,
+        })? {
+            CatalogResponse::Ok(_) => Ok(()),
+            CatalogResponse::Error(e) => Err(e),
+            _ => Err("unexpected response".into()),
+        }
+    }
+
+    /// Resolve a name to its DB ID (client, pool, fileset).
+    pub fn resolve_id(&self, table: &str, name: &str) -> Option<i32> {
+        match self.request(CatalogRequest::ResolveId {
+            table: table.to_string(), name: name.to_string(),
+        }) {
+            Ok(CatalogResponse::OptionalJobId(Some(id))) => Some(id as i32),
+            _ => None,
+        }
+    }
+
     /// Health check.
     pub fn ping(&self) -> bool {
         matches!(self.request(CatalogRequest::Ping), Ok(CatalogResponse::Pong))
@@ -144,6 +217,7 @@ fn resp_debug(r: &CatalogResponse) -> &'static str {
         CatalogResponse::Text(_) => "Text",
         CatalogResponse::OptionalText(_) => "OptionalText",
         CatalogResponse::OptionalJobId(_) => "OptionalJobId",
+        CatalogResponse::JobId(_) => "JobId",
         CatalogResponse::Ok(_) => "Ok",
         CatalogResponse::Error(_) => "Error",
         CatalogResponse::Pong => "Pong",
@@ -201,6 +275,12 @@ pub fn spawn_catalog_worker(
                             handle_generate_bootstrap(&pool, job_id).await,
                         CatalogRequest::FindLatestBackupJobId { client_name } =>
                             handle_find_latest_backup_jobid(&pool, &client_name).await,
+                        CatalogRequest::CreateJob { job_name, name, job_type, level, client_name, pool_name, fileset_name, sched_time } =>
+                            handle_create_job(&pool, &job_name, &name, &job_type, &level, &client_name, &pool_name, &fileset_name, sched_time).await,
+                        CatalogRequest::UpdateJobEnd { job_id, status, end_time, job_files, job_bytes, job_errors, vol_session_id, vol_session_time } =>
+                            handle_update_job_end(&pool, job_id, &status, end_time, job_files, job_bytes, job_errors, vol_session_id, vol_session_time).await,
+                        CatalogRequest::ResolveId { table, name } =>
+                            handle_resolve_id(&pool, &table, &name).await,
                         CatalogRequest::Ping => CatalogResponse::Pong,
                     };
 
@@ -393,4 +473,112 @@ async fn handle_find_latest_backup_jobid(pool: &sqlx::PgPool, client_name: &str)
     };
 
     CatalogResponse::OptionalJobId(row.map(|(id,)| id as u32))
+}
+
+/// Resolve a name to its DB ID (client, pool, fileset, storage).
+async fn handle_resolve_id(pool: &sqlx::PgPool, table: &str, name: &str) -> CatalogResponse {
+    let (id_col, tbl) = match table {
+        "client" => ("clientid", "client"),
+        "pool" => ("poolid", "pool"),
+        "fileset" => ("filesetid", "fileset"),
+        "storage" => ("storageid", "storage"),
+        _ => return CatalogResponse::Error(format!("unknown table: {table}")),
+    };
+
+    let sql = format!("SELECT {id_col} FROM {tbl} WHERE name = $1");
+    let row: Option<(i32,)> = match sqlx::query_as(&sql).bind(name).fetch_optional(pool).await {
+        Ok(r) => r,
+        Err(e) => return CatalogResponse::Error(format!("ResolveId {table}/{name}: {e}")),
+    };
+
+    CatalogResponse::OptionalJobId(row.map(|(id,)| id as u32))
+}
+
+/// Create a job record in the DB, resolving client/pool/fileset names to IDs.
+async fn handle_create_job(
+    pool: &sqlx::PgPool,
+    job_name: &str, name: &str, job_type: &str, level: &str,
+    client_name: &str, pool_name: &str, fileset_name: &str, sched_time: i64,
+) -> CatalogResponse {
+    // Resolve names to IDs (create if not exists for client)
+    let client_id = resolve_or_create_client(pool, client_name).await;
+    let pool_id = resolve_name_id(pool, "poolid", "pool", pool_name).await.unwrap_or(0);
+    let fileset_id = resolve_name_id(pool, "filesetid", "fileset", fileset_name).await.unwrap_or(0);
+
+    let now = sched_time;
+    let job_id: i32 = match sqlx::query_scalar(
+        "INSERT INTO Job (Job, Name, Type, Level, ClientId, JobStatus, SchedTime, \
+         StartTime, RealEndTime, JobTDate, VolSessionId, VolSessionTime, \
+         JobFiles, JobBytes, JobErrors, PoolId, FileSetId, PriorJobId, \
+         HasBase, HasCache, Reviewed, Comment) \
+         VALUES ($1, $2, $3, $4, $5, 'C', to_timestamp($6), to_timestamp($6), \
+                 to_timestamp($6), $6, 0, 0, 0, 0, 0, $7, $8, 0, 0, 0, 0, '') \
+         RETURNING JobId"
+    )
+    .bind(job_name)
+    .bind(name)
+    .bind(job_type)
+    .bind(level)
+    .bind(client_id)
+    .bind(now)
+    .bind(pool_id)
+    .bind(fileset_id)
+    .fetch_one(pool).await {
+        Ok(id) => id,
+        Err(e) => return CatalogResponse::Error(format!("CreateJob: {e}")),
+    };
+
+    info!("Created job record: JobId={job_id} name={name} type={job_type} level={level}");
+    CatalogResponse::JobId(job_id)
+}
+
+/// Update job end record.
+async fn handle_update_job_end(
+    pool: &sqlx::PgPool, job_id: i32, status: &str, end_time: i64,
+    job_files: i64, job_bytes: i64, job_errors: i32,
+    vol_session_id: i32, vol_session_time: i32,
+) -> CatalogResponse {
+    match sqlx::query(
+        "UPDATE Job SET JobStatus=$2, EndTime=to_timestamp($3), \
+         RealEndTime=to_timestamp($3), JobFiles=$4, JobBytes=$5, \
+         JobErrors=$6, VolSessionId=$7, VolSessionTime=$8 WHERE JobId=$1"
+    )
+    .bind(job_id).bind(status).bind(end_time)
+    .bind(job_files).bind(job_bytes).bind(job_errors)
+    .bind(vol_session_id).bind(vol_session_time)
+    .execute(pool).await {
+        Ok(_) => {
+            info!("Updated job {job_id}: status={status} files={job_files} bytes={job_bytes}");
+            CatalogResponse::Ok(1)
+        }
+        Err(e) => CatalogResponse::Error(format!("UpdateJobEnd: {e}")),
+    }
+}
+
+// Helper: resolve name → id
+async fn resolve_name_id(pool: &sqlx::PgPool, id_col: &str, table: &str, name: &str) -> Option<i32> {
+    let sql = format!("SELECT {id_col} FROM {table} WHERE name = $1");
+    let row: Option<(i32,)> = sqlx::query_as(&sql).bind(name).fetch_optional(pool).await.ok()?;
+    row.map(|(id,)| id)
+}
+
+// Helper: resolve or auto-create client
+async fn resolve_or_create_client(pool: &sqlx::PgPool, client_name: &str) -> i32 {
+    // Try to find existing
+    if let Some(id) = resolve_name_id(pool, "clientid", "client", client_name).await {
+        return id;
+    }
+
+    // Auto-create client record
+    let id: i32 = sqlx::query_scalar(
+        "INSERT INTO Client (Name, Uname, AutoPrune, FileRetention, JobRetention) \
+         VALUES ($1, '', 1, 2592000, 15552000) RETURNING ClientId"
+    )
+    .bind(client_name)
+    .fetch_one(pool).await.unwrap_or(0);
+
+    if id > 0 {
+        info!("Auto-created client record: {client_name} → ClientId={id}");
+    }
+    id
 }

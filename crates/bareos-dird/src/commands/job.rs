@@ -105,11 +105,27 @@ pub fn cmd_run(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let storage = storage_res.unwrap();
     let dir_name = config.director.name.clone();
 
-    let job_id = NEXT_JOB_ID.fetch_add(1, Ordering::Relaxed);
-
     // Unique job name
     let now = chrono::Local::now();
     let unique_job = format!("{}.{}", job.name, now.format("%Y-%m-%d_%H.%M.%S_%f"));
+
+    // Create job record in DB — JobId comes from the database
+    let job_type_str = match job.job_type { JobType::Backup => "B", JobType::Restore => "R", _ => "B" };
+    let level_char = match level.to_lowercase().as_str() { "full" | "f" => "F", "incremental" | "i" => "I", "differential" | "d" => "D", _ => "F" };
+    let job_id = if let Some(cat) = &ctx.catalog {
+        match cat.create_job(
+            &unique_job, &job.name, job_type_str, level_char,
+            client_name, &pool, &job.fileset, now.timestamp(),
+        ) {
+            Ok(id) => id as u32,
+            Err(e) => {
+                tracing::error!("Failed to create job record: {e}");
+                NEXT_JOB_ID.fetch_add(1, Ordering::Relaxed)
+            }
+        }
+    } else {
+        NEXT_JOB_ID.fetch_add(1, Ordering::Relaxed)
+    };
 
     // Build JobParams for the autonomous worker
     let params = JobParams {
