@@ -24,12 +24,12 @@ pub fn cmd_list(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     }
 
     // DB-Query wenn Catalog vorhanden
-    if let Some(url) = &ctx.catalog_url {
+    if let Some(cat) = &ctx.catalog {
         // Check for argument-based queries first (jobid=N, job=NAME)
-        if let Some(result) = list_from_db_with_args(ast, url) {
+        if let Some(result) = list_from_db_with_args(ast, cat) {
             return result;
         }
-        return list_from_db(what, limit, url);
+        return list_from_db(what, limit, cat);
     }
 
     // Kein Catalog — Config-Fallback
@@ -191,7 +191,7 @@ fn list_filesets_from_config(ctx: &ExecContext) -> CommandResult {
     CommandResult::ok("No configuration loaded\n".to_string())
 }
 
-fn list_from_db_with_args(ast: &CommandAst, url: &str) -> Option<CommandResult> {
+fn list_from_db_with_args(ast: &CommandAst, cat: &crate::catalog_worker::CatalogHandle) -> Option<CommandResult> {
     // Handle "list jobid=N"
     let jobid = ast.arguments.iter()
         .find(|a| a.key == "jobid")
@@ -203,7 +203,7 @@ fn list_from_db_with_args(ast: &CommandAst, url: &str) -> Option<CommandResult> 
              j.starttime, j.endtime, j.jobfiles, j.jobbytes, j.joberrors \
              FROM job j WHERE j.jobid = {id}"
         );
-        return Some(run_db_query(&query, url));
+        return Some(run_db_query(&query, cat));
     }
 
     // Handle "list job=NAME"
@@ -216,24 +216,20 @@ fn list_from_db_with_args(ast: &CommandAst, url: &str) -> Option<CommandResult> 
              j.starttime, j.endtime, j.jobfiles, j.jobbytes \
              FROM job j WHERE j.name = '{}' ORDER BY j.jobid DESC", name.replace('\'', "''")
         );
-        return Some(run_db_query(&query, url));
+        return Some(run_db_query(&query, cat));
     }
 
     None
 }
 
-fn run_db_query(query: &str, url: &str) -> CommandResult {
-    let rt = match tokio::runtime::Runtime::new() {
-        Ok(rt) => rt,
-        Err(e) => return CommandResult::error(format!("Runtime error: {e}\n")),
-    };
-    match rt.block_on(run_query(url, query)) {
+fn run_db_query(query: &str, cat: &crate::catalog_worker::CatalogHandle) -> CommandResult {
+    match cat.raw_query(query) {
         Ok(output) => CommandResult::ok(output),
         Err(e) => CommandResult::error(format!("Catalog error: {e}\n")),
     }
 }
 
-fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
+fn list_from_db(what: &str, limit: i64, cat: &crate::catalog_worker::CatalogHandle) -> CommandResult {
     let query = match what {
         "jobs" => format!(
             "SELECT j.jobid, j.name, j.type, j.level, j.jobstatus, \
@@ -257,52 +253,7 @@ fn list_from_db(what: &str, limit: i64, url: &str) -> CommandResult {
         other => return CommandResult::ok(format!("list {other}: unsupported catalog query\n")),
     };
 
-    run_db_query(&query, url)
-}
-
-async fn run_query(url: &str, query: &str) -> Result<String, String> {
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(1)
-        .connect(url)
-        .await
-        .map_err(|e| format!("DB connect: {e}"))?;
-
-    let rows = sqlx::query(query)
-        .fetch_all(&pool)
-        .await
-        .map_err(|e| format!("Query: {e}"))?;
-
-    use sqlx::{Row, Column};
-    let mut output = String::new();
-
-    if rows.is_empty() {
-        output.push_str("No results.\n");
-        return Ok(output);
-    }
-
-    // Header
-    let columns = rows[0].columns();
-    for col in columns {
-        output.push_str(&format!("{:<20}", col.name()));
-    }
-    output.push('\n');
-    output.push_str(&"-".repeat(columns.len() * 20));
-    output.push('\n');
-
-    // Data
-    for row in &rows {
-        for col in columns {
-            let val: String = row.try_get::<String, _>(col.ordinal())
-                .or_else(|_| row.try_get::<i64, _>(col.ordinal()).map(|v| v.to_string()))
-                .or_else(|_| row.try_get::<i32, _>(col.ordinal()).map(|v| v.to_string()))
-                .or_else(|_| row.try_get::<bool, _>(col.ordinal()).map(|v| v.to_string()))
-                .unwrap_or_else(|_| "NULL".to_string());
-            output.push_str(&format!("{:<20}", val));
-        }
-        output.push('\n');
-    }
-
-    Ok(output)
+    run_db_query(&query, cat)
 }
 
 fn format_bytes(bytes: u64) -> String {

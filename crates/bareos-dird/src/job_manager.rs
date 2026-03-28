@@ -9,6 +9,7 @@ use std::thread;
 
 use tracing::{info, debug, warn, error};
 
+use crate::catalog_worker::CatalogHandle;
 use crate::job_worker::{JobHandle, PipeMessage};
 use crate::message_bus::{MessageBus, BusMessage, MsgType};
 use crate::director_config::SharedConfig;
@@ -57,11 +58,12 @@ pub struct JobManager {
     jobs: Vec<DirJob>,
     bus: Arc<MessageBus>,
     config: Option<SharedConfig>,
+    catalog: Option<CatalogHandle>,
 }
 
 impl JobManager {
-    pub fn new(bus: Arc<MessageBus>, config: Option<SharedConfig>) -> Self {
-        Self { jobs: Vec::new(), bus, config }
+    pub fn new(bus: Arc<MessageBus>, config: Option<SharedConfig>, catalog: Option<CatalogHandle>) -> Self {
+        Self { jobs: Vec::new(), bus, config, catalog }
     }
 
     pub fn add_job(&mut self, job_id: u32, job_name: &str, handle: JobHandle) {
@@ -158,7 +160,7 @@ impl JobManager {
                     PipeMessage::CatReq { request, .. } => {
                         debug!("JobManager: job {} CatReq: {}", job.job_id, &request[..request.len().min(60)]);
                         job.phase = DirJobPhase::WaitingCatReq;
-                        let response = handle_cat_req(&request, &self.config);
+                        let response = handle_cat_req(&request, &self.catalog);
                         job.handle.send_message(&PipeMessage::CatResp { response });
                         job.phase = DirJobPhase::Running;
                     }
@@ -206,28 +208,34 @@ impl JobManager {
     }
 }
 
-/// CatReq handler — queries real DB for volume info.
-fn handle_cat_req(request: &str, config: &Option<SharedConfig>) -> String {
-    let catalog_url = catalog_url(config);
+/// CatReq handler — queries DB via CatalogHandle (MPSC channel).
+fn handle_cat_req(request: &str, catalog: &Option<CatalogHandle>) -> String {
+    let Some(cat) = catalog else {
+        return "1000 OK\n".to_string();
+    };
 
     if request.contains("FindMedia") {
         let pool = extract_field(request, "pool_name=").unwrap_or("Full".into());
         debug!("CatReq: FindMedia pool={pool}");
-        let vol = query_appendable_volume(&catalog_url, &pool);
-        match vol {
-            Some(name) => query_volume_info(&catalog_url, &name).unwrap_or("1901 No Media.\n".into()),
+        match cat.find_appendable_volume(&pool) {
+            Some(name) => cat.get_volume_info(&name).unwrap_or("1901 No Media.\n".into()),
             None => "1901 No Media.\n".to_string(),
         }
     } else if request.contains("GetVolInfo") {
         let vol = extract_field(request, "VolName=").unwrap_or("Full-0001".into());
         debug!("CatReq: GetVolInfo vol={vol}");
-        query_volume_info(&catalog_url, &vol).unwrap_or("1901 No Media.\n".into())
+        cat.get_volume_info(&vol).unwrap_or("1901 No Media.\n".into())
     } else if request.contains("UpdateMedia") {
         let vol = extract_field(request, "VolName=").unwrap_or("Full-0001".into());
         debug!("CatReq: UpdateMedia vol={vol}");
-        // Update DB with values from SD, then return fresh volume info
-        update_media_in_db(&catalog_url, request);
-        query_volume_info(&catalog_url, &vol).unwrap_or("1901 No Media.\n".into())
+        let mounts: i64 = extract_field(request, "VolMounts=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let bytes: i64 = extract_field(request, "VolBytes=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let jobs: i32 = extract_field(request, "VolJobs=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let files: i64 = extract_field(request, "VolFiles=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let errors: i64 = extract_field(request, "VolErrors=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let writes: i64 = extract_field(request, "VolWrites=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        cat.update_media(&vol, mounts, bytes, jobs, files, errors, writes);
+        cat.get_volume_info(&vol).unwrap_or("1901 No Media.\n".into())
     } else if request.contains("CreateJobMedia") {
         "1000 OK CreateJobMedia\n".to_string()
     } else if request.contains("UpdateJobRecord") {
@@ -242,77 +250,6 @@ fn handle_cat_req(request: &str, config: &Option<SharedConfig>) -> String {
     }
 }
 
-/// Query full volume info from DB in OK_media format (24 fields).
-fn query_volume_info(url: &Option<String>, vol_name: &str) -> Option<String> {
-    let url = url.as_ref()?;
-    let rt = tokio::runtime::Runtime::new().ok()?;
-    rt.block_on(async {
-        let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await.ok()?;
-        let row: Option<(
-            String, i32, i64, i64, i64, i64, i64, i64, i64,
-            String, i64, i32, i64, i64, i64, i64,
-        )> = sqlx::query_as(
-            "SELECT volumename, COALESCE(voljobs,0)::int, COALESCE(volfiles,0)::bigint, \
-             COALESCE(volblocks,0)::bigint, COALESCE(volbytes,0)::bigint, COALESCE(volmounts,0)::bigint, \
-             COALESCE(volerrors,0)::bigint, COALESCE(volwrites,0)::bigint, COALESCE(maxvolbytes,0)::bigint, \
-             COALESCE(volstatus,'Append'), COALESCE(slot,0)::bigint, mediaid, \
-             COALESCE(endfile,0)::bigint, COALESCE(endblock,0)::bigint, \
-             COALESCE(minblocksize,0)::bigint, COALESCE(maxblocksize,0)::bigint \
-             FROM media WHERE volumename = $1"
-        ).bind(vol_name).fetch_optional(&pool).await.ok()?;
-
-        row.map(|(vn, vj, vf, vbl, vby, vm, ve, vw, mvb, vs, sl, mid, ef, eb, minbs, maxbs)| {
-            format!(
-                "1000 OK VolName={vn} VolJobs={vj} VolFiles={vf} \
-                 VolBlocks={vbl} VolBytes={vby} VolMounts={vm} VolErrors={ve} VolWrites={vw} \
-                 MaxVolBytes={mvb} VolCapacityBytes=0 VolStatus={vs} Slot={sl} \
-                 MaxVolJobs=0 MaxVolFiles=0 InChanger=0 VolReadTime=0 \
-                 VolWriteTime=0 EndFile={ef} EndBlock={eb} LabelType=0 \
-                 MediaId={mid} EncryptionKey=*None* MinBlocksize={minbs} MaxBlocksize={maxbs}\n"
-            )
-        })
-    })
-}
-
-/// Find an appendable volume in a pool.
-fn query_appendable_volume(url: &Option<String>, pool_name: &str) -> Option<String> {
-    let url = url.as_ref()?;
-    let rt = tokio::runtime::Runtime::new().ok()?;
-    rt.block_on(async {
-        let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await.ok()?;
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT m.volumename FROM media m JOIN pool p ON m.poolid = p.poolid \
-             WHERE p.name = $1 AND m.volstatus = 'Append' ORDER BY m.mediaid LIMIT 1"
-        ).bind(pool_name).fetch_optional(&pool).await.ok()?;
-        row.map(|(name,)| name)
-    })
-}
-
-/// Update media record in DB from SD UpdateMedia values.
-fn update_media_in_db(url: &Option<String>, request: &str) {
-    let Some(url) = url.as_ref() else { return };
-    let vol = extract_field(request, "VolName=").unwrap_or_default();
-    if vol.is_empty() { return; }
-
-    let mounts: i64 = extract_field(request, "VolMounts=").and_then(|s| s.parse().ok()).unwrap_or(0);
-    let bytes: i64 = extract_field(request, "VolBytes=").and_then(|s| s.parse().ok()).unwrap_or(0);
-    let jobs: i32 = extract_field(request, "VolJobs=").and_then(|s| s.parse().ok()).unwrap_or(0);
-    let files: i64 = extract_field(request, "VolFiles=").and_then(|s| s.parse().ok()).unwrap_or(0);
-    let errors: i64 = extract_field(request, "VolErrors=").and_then(|s| s.parse().ok()).unwrap_or(0);
-    let writes: i64 = extract_field(request, "VolWrites=").and_then(|s| s.parse().ok()).unwrap_or(0);
-
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let _ = rt.block_on(async {
-        let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await?;
-        sqlx::query(
-            "UPDATE media SET volmounts=$1, volbytes=$2, voljobs=$3, volfiles=$4, \
-             volerrors=$5, volwrites=$6 WHERE volumename=$7"
-        )
-        .bind(mounts).bind(bytes).bind(jobs).bind(files).bind(errors).bind(writes).bind(&vol)
-        .execute(&pool).await
-    });
-    debug!("CatReq: UpdateMedia DB updated vol={vol} bytes={bytes} mounts={mounts}");
-}
 
 fn extract_field(request: &str, prefix: &str) -> Option<String> {
     request.split_whitespace()
@@ -321,100 +258,13 @@ fn extract_field(request: &str, prefix: &str) -> Option<String> {
 }
 
 /// Generate bootstrap data for a restore from a given backup JobId.
-/// Queries the catalog DB for jobmedia + media to build the BSR.
-pub fn generate_bootstrap(config: &Option<SharedConfig>, job_id: u32) -> Option<String> {
-    let url = catalog_url(config)?;
-    let rt = tokio::runtime::Runtime::new().ok()?;
-    rt.block_on(async {
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&url).await.ok()?;
-
-        // Get job info (VolSessionId, VolSessionTime) from the job table
-        let job_row: Option<(i32, i32, String)> = sqlx::query_as(
-            "SELECT COALESCE(volsessionid,0)::int, COALESCE(volsessiontime,0)::int, \
-             COALESCE(name,'') FROM job WHERE jobid = $1"
-        ).bind(job_id as i32).fetch_optional(&pool).await.ok()?;
-
-        let (vol_session_id, vol_session_time, _job_name) = job_row?;
-
-        // Get jobmedia records (which volumes hold this job's data)
-        let jm_rows: Vec<(i32, i32, i32, i64, i64)> = sqlx::query_as(
-            "SELECT jm.mediaid, COALESCE(jm.firstindex,0)::int, COALESCE(jm.lastindex,0)::int, \
-             COALESCE(jm.startblock,0)::bigint, COALESCE(jm.endblock,0)::bigint \
-             FROM jobmedia jm WHERE jm.jobid = $1 ORDER BY jm.jobmediaid"
-        ).bind(job_id as i32).fetch_all(&pool).await.ok()?;
-
-        if jm_rows.is_empty() {
-            info!("No jobmedia records for JobId={job_id}");
-            return None;
-        }
-
-        let mut bsr = String::new();
-
-        for (media_id, first_idx, last_idx, start_block, end_block) in &jm_rows {
-            // Get volume name and media type
-            let vol_row: Option<(String, String)> = sqlx::query_as(
-                "SELECT volumename, COALESCE(mediatype,'File') FROM media WHERE mediaid = $1"
-            ).bind(media_id).fetch_optional(&pool).await.ok()?;
-
-            let (vol_name, media_type) = vol_row?;
-
-            // Get storage + device from config (we only have one storage typically)
-            let storage_name = "File"; // TODO: resolve from config
-            let device_name = "FileStorage"; // TODO: resolve from config
-
-            bsr.push_str(&format!("Storage=\"{storage_name}\"\n"));
-            bsr.push_str(&format!("Volume=\"{vol_name}\"\n"));
-            bsr.push_str(&format!("MediaType=\"{media_type}\"\n"));
-            bsr.push_str(&format!("Device=\"{device_name}\"\n"));
-            bsr.push_str(&format!("VolSessionId={vol_session_id}\n"));
-            bsr.push_str(&format!("VolSessionTime={vol_session_time}\n"));
-            // VolAddr: byte-offsets in the volume (startblock-endblock from jobmedia)
-            if *start_block > 0 || *end_block > 0 {
-                bsr.push_str(&format!("VolAddr={start_block}-{end_block}\n"));
-            }
-            if *first_idx > 0 && *last_idx > 0 {
-                bsr.push_str(&format!("FileIndex={first_idx}-{last_idx}\n"));
-            }
-            bsr.push_str(&format!("Count={}\n", last_idx - first_idx + 1));
-        }
-
-        debug!("Bootstrap for JobId={job_id}: {} lines", bsr.lines().count());
-        Some(bsr)
-    })
+pub fn generate_bootstrap(catalog: &Option<CatalogHandle>, job_id: u32) -> Option<String> {
+    catalog.as_ref()?.generate_bootstrap(job_id)
 }
 
 /// Find the most recent successful backup job for a client.
-pub fn find_latest_backup_jobid(config: &Option<SharedConfig>, client_name: &str) -> Option<u32> {
-    let url = catalog_url(config)?;
-    let rt = tokio::runtime::Runtime::new().ok()?;
-    rt.block_on(async {
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&url).await.ok()?;
-
-        let row: Option<(i32,)> = sqlx::query_as(
-            "SELECT j.jobid FROM job j \
-             JOIN client c ON j.clientid = c.clientid \
-             WHERE c.name = $1 AND j.type = 'B' AND j.jobstatus = 'T' \
-             ORDER BY j.jobid DESC LIMIT 1"
-        ).bind(client_name).fetch_optional(&pool).await.ok()?;
-
-        row.map(|(id,)| id as u32)
-    })
-}
-
-fn catalog_url(config: &Option<SharedConfig>) -> Option<String> {
-    config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
-        cfg.catalogs.first().map(|cat| {
-            if cat.db_address.is_empty() || cat.db_address == "localhost" || cat.db_address == "127.0.0.1" {
-                format!("postgres://{}@localhost/{}?host=/var/run/postgresql", cat.db_user, cat.db_name)
-            } else {
-                format!("postgres://{}@{}:{}/{}", cat.db_user, cat.db_address, cat.db_port, cat.db_name)
-            }
-        })
-    })
+pub fn find_latest_backup_jobid(catalog: &Option<CatalogHandle>, client_name: &str) -> Option<u32> {
+    catalog.as_ref()?.find_latest_backup_jobid(client_name)
 }
 
 /// Job monitor thread — polls all worker pipes periodically.

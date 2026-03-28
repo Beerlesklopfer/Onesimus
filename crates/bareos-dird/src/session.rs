@@ -12,6 +12,7 @@ use tracing::{info, debug, warn, error};
 use bareos_bnet::{BnetStream, BnetSignal, BnetMessage, BnetError, CramMd5Auth};
 use bareos_bnet::tls::TlsOrPlain;
 
+use crate::catalog_worker::CatalogHandle;
 use crate::command_ast::{CommandAst, Argument, CommandSource, ResponseFormat};
 use crate::command_executor::{self, ExecContext};
 use crate::command_queue::CommandQueue;
@@ -29,6 +30,7 @@ pub fn handle_console_session<S: Read + Write>(
     cmd_queue: &CommandQueue,
     config: &Option<SharedConfig>,
     job_manager: &Option<Arc<std::sync::Mutex<crate::job_manager::JobManager>>>,
+    catalog: &Option<CatalogHandle>,
 ) {
     // Register session
     let mgr_session_id = session_mgr.create_session(console_name);
@@ -138,44 +140,11 @@ pub fn handle_console_session<S: Read + Write>(
         }
 
         // Execute command
-        // Build catalog URL from config if available
-        let catalog_url = config.as_ref().and_then(|c| c.read().ok()).and_then(|cfg| {
-            cfg.catalogs.first().map(|cat| {
-                // URL-encode Passwort (Sonderzeichen wie @, :, / etc.)
-                let pass = if cat.db_password.is_empty() {
-                    String::new()
-                } else {
-                    let encoded: String = cat.db_password.bytes().map(|b| {
-                        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
-                            format!("{}", b as char)
-                        } else {
-                            format!("%{:02X}", b)
-                        }
-                    }).collect();
-                    format!(":{}", encoded)
-                };
-
-                // Leere/localhost Adresse → Unix-Socket (peer auth, wie C++ libpq)
-                // Explizite Adresse → TCP
-                if cat.db_address.is_empty()
-                    || cat.db_address == "localhost"
-                    || cat.db_address == "127.0.0.1"
-                {
-                    // Unix-Socket: sqlx braucht einen host in der URL + socket path
-                    format!("postgres://{}{}@localhost/{db}?host=/var/run/postgresql",
-                        cat.db_user, pass, db = cat.db_name)
-                } else {
-                    format!("postgres://{}{}@{}:{}/{}",
-                        cat.db_user, pass, cat.db_address, cat.db_port, cat.db_name)
-                }
-            })
-        });
-
         let ctx = ExecContext {
             session_id,
             config: config.clone(),
             session_mgr: Some(session_mgr.clone()),
-            catalog_url,
+            catalog: catalog.clone(),
             api_mode,
             bus_rx: Some(bus_rx.clone()),
             job_manager: job_manager.clone(),

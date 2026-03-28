@@ -54,6 +54,7 @@ openssl = "0.10"
 
 # Concurrency
 crossbeam-channel = "0.5"
+flume = "0.11"
 dashmap = "6"
 
 # Serialization

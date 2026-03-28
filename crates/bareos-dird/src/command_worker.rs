@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use tracing::{info, debug, warn};
 
+use crate::catalog_worker::CatalogHandle;
 use crate::command_executor::{self, ExecContext};
 use crate::command_queue::CommandQueue;
 use crate::director_config::SharedConfig;
@@ -18,6 +19,7 @@ pub fn command_worker_loop(
     cmd_queue: &Arc<CommandQueue>,
     config: Option<SharedConfig>,
     session_mgr: Option<Arc<SessionManager>>,
+    catalog: Option<CatalogHandle>,
     shutdown: &AtomicBool,
 ) {
     info!("command worker started");
@@ -28,7 +30,7 @@ pub fn command_worker_loop(
                 session_id: cmd.session_id,
                 config: config.clone(),
                 session_mgr: session_mgr.clone(),
-                catalog_url: None,
+                catalog: catalog.clone(),
                 api_mode: command_executor::ApiMode::Api,
                 bus_rx: None,
                 job_manager: None,

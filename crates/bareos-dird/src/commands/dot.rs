@@ -570,18 +570,11 @@ pub fn cmd_dot_sqlschema(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
 /// `.sqlcount [table=<name>] [catalog=<name>]`
 pub fn cmd_dot_sqlcount(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    match &ctx.catalog_url {
-        Some(url) => {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            match rt.block_on(async {
-                let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(url).await?;
-                let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM job").fetch_one(&pool).await?;
-                Ok::<_, sqlx::Error>(row.0)
-            }) {
-                Ok(count) => CommandResult::ok(format!("Jobs: {count}\n")),
-                Err(e) => CommandResult::error(format!("SQL error: {e}\n")),
-            }
-        }
+    match &ctx.catalog {
+        Some(cat) => match cat.raw_query("SELECT COUNT(*) FROM job") {
+            Ok(output) => CommandResult::ok(format!("Jobs: {}\n", output.trim())),
+            Err(e) => CommandResult::error(format!("SQL error: {e}\n")),
+        },
         None => CommandResult::ok("No catalog\n".to_string()),
     }
 }

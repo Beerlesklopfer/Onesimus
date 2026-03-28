@@ -183,7 +183,7 @@ pub fn cmd_restore(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
         },
         None => {
             // Find most recent successful backup for this client
-            match job_manager::find_latest_backup_jobid(&ctx.config, &client_name) {
+            match job_manager::find_latest_backup_jobid(&ctx.catalog, &client_name) {
                 Some(id) => {
                     tracing::info!("Restore: auto-selected JobId={id} for client={client_name}");
                     id
@@ -197,7 +197,7 @@ pub fn cmd_restore(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     };
 
     // Generate bootstrap from catalog
-    let bootstrap = match job_manager::generate_bootstrap(&ctx.config, restore_jobid) {
+    let bootstrap = match job_manager::generate_bootstrap(&ctx.catalog, restore_jobid) {
         Some(bsr) => bsr,
         None => return CommandResult::error(format!(
             "Cannot generate bootstrap for JobId={restore_jobid} — no jobmedia records\n"

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crossbeam_channel::Receiver;
 
+use crate::catalog_worker::CatalogHandle;
 use crate::command_ast::CommandAst;
 use crate::command_queue::CommandResult;
 use crate::commands;
@@ -27,7 +28,7 @@ pub struct ExecContext {
     pub session_id: u64,
     pub config: Option<SharedConfig>,
     pub session_mgr: Option<Arc<SessionManager>>,
-    pub catalog_url: Option<String>,
+    pub catalog: Option<CatalogHandle>,
     pub api_mode: ApiMode,
     /// Bus receiver for this session — drains pending messages.
     pub bus_rx: Option<Receiver<BusMessage>>,
@@ -184,7 +185,7 @@ mod tests {
     }
 
     fn make_ctx() -> ExecContext {
-        ExecContext { session_id: 1, config: None, session_mgr: None, catalog_url: None, api_mode: ApiMode::Human, bus_rx: None, job_manager: None }
+        ExecContext { session_id: 1, config: None, session_mgr: None, catalog: None, api_mode: ApiMode::Human, bus_rx: None, job_manager: None }
     }
 
     #[test]

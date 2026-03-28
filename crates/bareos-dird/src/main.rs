@@ -4,6 +4,7 @@
 //! tokio only for gRPC.
 
 mod accept;
+mod catalog_worker;
 mod command_ast;
 mod command_executor;
 mod command_queue;
@@ -200,13 +201,17 @@ fn main() {
         DirectorConfig::from_str("Director { Name = bareos-dir\n Port = 9101\n Password = default\n }").unwrap()
     };
 
-    // Auto-migrate catalog database if catalog is configured
-    if let Some(cat) = config.catalogs.first() {
-        let db_url = if cat.db_address.is_empty() || cat.db_address == "localhost" || cat.db_address == "127.0.0.1" {
+    // Build catalog URL and auto-migrate
+    let catalog_db_url = config.catalogs.first().map(|cat| {
+        if cat.db_address.is_empty() || cat.db_address == "localhost" || cat.db_address == "127.0.0.1" {
             format!("postgres://{}@localhost/{}?host=/var/run/postgresql", cat.db_user, cat.db_name)
         } else {
             format!("postgres://{}@{}:{}/{}", cat.db_user, cat.db_address, cat.db_port, cat.db_name)
-        };
+        }
+    });
+
+    if let Some(ref db_url) = catalog_db_url {
+        let cat = config.catalogs.first().unwrap();
 
         // Schema-Verzeichnis: relativ zum Binary (dev) oder /usr/lib/bareos/ddl/schema (installed)
         let schema_dir = [
@@ -235,6 +240,16 @@ fn main() {
             debug!("no schema directory found at {}, skipping migration", schema_dir.display());
         }
     }
+
+    // Spawn catalog worker (single DB pool for all queries)
+    let catalog_handle = if let Some(url) = catalog_db_url {
+        let (handle, join) = catalog_worker::spawn_catalog_worker(url, &SHUTDOWN);
+        // Store join handle for later
+        Some((handle, join))
+    } else {
+        None
+    };
+    let catalog = catalog_handle.as_ref().map(|(h, _)| h.clone());
 
     // --test-config: validate and exit
     if cli.test_config {
@@ -359,7 +374,7 @@ fn main() {
     let session_mgr = Arc::new(SessionManager::new(bus.clone()));
     let cmd_queue = Arc::new(CommandQueue::new(256));
     let job_mgr = Arc::new(std::sync::Mutex::new(
-        job_manager::JobManager::new(bus.clone(), Some(shared_config.clone()))
+        job_manager::JobManager::new(bus.clone(), Some(shared_config.clone()), catalog.clone())
     ));
 
     // Daemonize wenn NICHT -f/--foreground
@@ -387,7 +402,7 @@ fn main() {
     let mut threads = spawn_named_threads(
         session_mgr.clone(), bus.clone(), cmd_queue.clone(),
         shared_config.clone(), port, bind_addr, grpc_enabled, dir_password, tls_config,
-        job_mgr.clone(),
+        job_mgr.clone(), catalog.clone(),
     );
 
     // dir:job-monitor — polls all job worker pipes
@@ -433,6 +448,7 @@ fn spawn_named_threads(
     password: String,
     tls_config: Option<bareos_bnet::tls::TlsConfig>,
     job_mgr: Arc<std::sync::Mutex<job_manager::JobManager>>,
+    catalog: Option<catalog_worker::CatalogHandle>,
 ) -> Vec<(String, thread::JoinHandle<()>)> {
     let mut threads = Vec::new();
 
@@ -444,6 +460,7 @@ fn spawn_named_threads(
         let tls_cfg = tls_config.clone();
         let shared_cfg = config.clone();
         let jmgr = job_mgr.clone();
+        let cat = catalog.clone();
         let handle = thread::Builder::new()
             .name("dir:accept".into())
             .spawn(move || {
@@ -454,6 +471,7 @@ fn spawn_named_threads(
                     tls_config: tls_cfg,
                     shared_config: Some(shared_cfg),
                     job_manager: Some(jmgr),
+                    catalog: cat,
                 };
                 accept::accept_loop(&smgr, &q, &config, &SHUTDOWN);
             })
@@ -504,10 +522,11 @@ fn spawn_named_threads(
         let q = cmd_queue.clone();
         let cfg = config.clone();
         let smgr = session_mgr.clone();
+        let cat = catalog.clone();
         let handle = thread::Builder::new()
             .name("dir:cmdworker".into())
             .spawn(move || {
-                command_worker::command_worker_loop(&q, Some(cfg), Some(smgr), &SHUTDOWN);
+                command_worker::command_worker_loop(&q, Some(cfg), Some(smgr), cat, &SHUTDOWN);
             })
             .expect("failed to spawn dir:cmdworker");
         threads.push(("dir:cmdworker".into(), handle));
