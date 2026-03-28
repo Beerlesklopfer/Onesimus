@@ -369,15 +369,22 @@ async fn handle_get_volume_info(pool: &sqlx::PgPool, vol_name: &str) -> CatalogR
 }
 
 async fn handle_find_appendable_volume(pool: &sqlx::PgPool, pool_name: &str) -> CatalogResponse {
-    let row: Option<(String,)> = match sqlx::query_as(
-        "SELECT m.volumename FROM media m JOIN pool p ON m.poolid = p.poolid \
-         WHERE p.name = $1 AND m.volstatus = 'Append' ORDER BY m.mediaid LIMIT 1"
+    // fn_find_appendable_volume(p_pool_name text) RETURNS text
+    let row: Option<(Option<String>,)> = match sqlx::query_as(
+        "SELECT fn_find_appendable_volume($1)"
     ).bind(pool_name).fetch_optional(pool).await {
         Ok(r) => r,
-        Err(e) => return CatalogResponse::Error(format!("FindAppendableVolume: {e}")),
+        Err(_) => {
+            // Fallback: SP not installed
+            let r: Option<(String,)> = sqlx::query_as(
+                "SELECT m.volumename FROM media m JOIN pool p ON m.poolid = p.poolid \
+                 WHERE p.name = $1 AND m.volstatus = 'Append' ORDER BY m.mediaid LIMIT 1"
+            ).bind(pool_name).fetch_optional(pool).await.ok().flatten();
+            return CatalogResponse::OptionalText(r.map(|(n,)| n));
+        }
     };
 
-    CatalogResponse::OptionalText(row.map(|(name,)| name))
+    CatalogResponse::OptionalText(row.and_then(|(v,)| v))
 }
 
 async fn handle_update_media(
@@ -464,17 +471,23 @@ async fn handle_generate_bootstrap(pool: &sqlx::PgPool, job_id: u32) -> CatalogR
 }
 
 async fn handle_find_latest_backup_jobid(pool: &sqlx::PgPool, client_name: &str) -> CatalogResponse {
-    let row: Option<(i32,)> = match sqlx::query_as(
-        "SELECT j.jobid FROM job j \
-         JOIN client c ON j.clientid = c.clientid \
-         WHERE c.name = $1 AND j.type = 'B' AND j.jobstatus = 'T' \
-         ORDER BY j.jobid DESC LIMIT 1"
+    // fn_find_latest_backup(p_client_name text) RETURNS integer
+    let row: Option<(Option<i32>,)> = match sqlx::query_as(
+        "SELECT fn_find_latest_backup($1)"
     ).bind(client_name).fetch_optional(pool).await {
         Ok(r) => r,
-        Err(e) => return CatalogResponse::Error(format!("FindLatestBackupJobId: {e}")),
+        Err(_) => {
+            // Fallback: SP not installed
+            let r: Option<(i32,)> = sqlx::query_as(
+                "SELECT j.jobid FROM job j JOIN client c ON j.clientid = c.clientid \
+                 WHERE c.name = $1 AND j.type = 'B' AND j.jobstatus = 'T' \
+                 ORDER BY j.jobid DESC LIMIT 1"
+            ).bind(client_name).fetch_optional(pool).await.ok().flatten();
+            return CatalogResponse::OptionalJobId(r.map(|(id,)| id as u32));
+        }
     };
 
-    CatalogResponse::OptionalJobId(row.map(|(id,)| id as u32))
+    CatalogResponse::OptionalJobId(row.and_then(|(v,)| v).map(|id| id as u32))
 }
 
 /// Resolve a name to its DB ID (client, pool, fileset, storage).

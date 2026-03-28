@@ -232,20 +232,18 @@ fn run_db_query(query: &str, cat: &crate::catalog_worker::CatalogHandle) -> Comm
 fn list_from_db(what: &str, limit: i64, cat: &crate::catalog_worker::CatalogHandle) -> CommandResult {
     let query = match what {
         "jobs" => format!(
-            "SELECT j.jobid, j.name, j.type, j.level, j.jobstatus, \
-             j.starttime, j.endtime, j.jobfiles, j.jobbytes \
-             FROM job j ORDER BY j.jobid DESC LIMIT {limit}"
+            "SELECT jobid, jobname, type, level, jobstatus, clientname, \
+             starttime, endtime, jobfiles, jobbytes \
+             FROM vw_job_summary ORDER BY jobid DESC LIMIT {limit}"
         ),
         "volumes" | "media" => format!(
-            "SELECT mediaid, volumename, volstatus, volbytes, volfiles, mediatype \
-             FROM media ORDER BY mediaid DESC LIMIT {limit}"
+            "SELECT mediaid, volumename, volstatus, volbytes, voljobs, volfiles, mediatype, poolname, pct_full \
+             FROM vw_volume_status ORDER BY mediaid DESC LIMIT {limit}"
         ),
         "clients" => "SELECT clientid, name, uname FROM client ORDER BY name".to_string(),
         "pools" => "SELECT poolid, name, pooltype, numvols, maxvols FROM pool ORDER BY name".to_string(),
         "files" => format!(
-            "SELECT f.fileid, f.jobid, p.path || f.name AS filename \
-             FROM file f JOIN path p ON f.pathid = p.pathid \
-             ORDER BY f.fileid DESC LIMIT {limit}"
+            "SELECT fileid, jobid, filepath FROM vw_file_list ORDER BY fileid DESC LIMIT {limit}"
         ),
         "storages" | "storage" => "SELECT storageid, name, autochanger FROM storage ORDER BY name".to_string(),
         "schedules" | "schedule" => "SELECT scheduleid, name, enabled FROM schedule ORDER BY name".to_string(),
