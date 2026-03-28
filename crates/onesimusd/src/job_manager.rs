@@ -279,10 +279,27 @@ fn handle_cat_req(request: &str, catalog: &Option<CatalogHandle>, job_id: u32) -
             }
         }
     } else if request.contains("UpdateJobRecord") {
+        // "Catreq Job=%s UpdateJobRecord JobFiles=%u JobBytes=%llu"
+        let files: i64 = extract_field(request, "JobFiles=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        let bytes: i64 = extract_field(request, "JobBytes=").and_then(|s| s.parse().ok()).unwrap_or(0);
+        debug!("CatReq: UpdateJobRecord job={job_id} files={files} bytes={bytes}");
+        if let Err(e) = cat.raw_query(&format!(
+            "UPDATE job SET jobfiles={files}, jobbytes={bytes} WHERE jobid={job_id}")) {
+            warn!("UpdateJobRecord: {e}");
+        }
         "1000 OK\n".to_string()
     } else if request.contains("UpdateFileList") || request.contains("Filelist") {
+        // Fire-and-forget — SD signals new files written, no action needed
+        debug!("CatReq: UpdateFileList job={job_id}");
         "1000 OK\n".to_string()
     } else if request.contains("DeleteNullJobmediaRecords") {
+        // "CatReq Job=%s DeleteNullJobmediaRecords jobid=%u"
+        debug!("CatReq: DeleteNullJobmediaRecords job={job_id}");
+        if let Err(e) = cat.raw_query(&format!(
+            "DELETE FROM jobmedia WHERE jobid={job_id} AND firstindex=0 AND lastindex=0 \
+             AND startblock=0 AND endblock=0")) {
+            warn!("DeleteNullJobmediaRecords: {e}");
+        }
         "1000 OK DeleteNullJobmediaRecords\n".to_string()
     } else {
         debug!("CatReq: unknown: {}", &request[..request.len().min(80)]);
