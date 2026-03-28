@@ -5,3 +5,12 @@ Cargo.lock
 *~
 .idea/
 .vscode/
+
+# Debian build artifacts
+*.deb
+*.buildinfo
+*.changes
+debian/.debhelper/
+debian/bareos-director-rust/
+debian/bareos-bconsole-rust/
+debian/files
