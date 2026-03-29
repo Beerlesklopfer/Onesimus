@@ -353,8 +353,20 @@ pub fn cmd_dot_locations(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult
 }
 
 /// `.media` — list all media (volumes) from catalog
-pub fn cmd_dot_media(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    // Requires catalog query — stub until catalog is connected
+pub fn cmd_dot_media(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(cat) = &ctx.catalog {
+        match cat.raw_query("SELECT volumename FROM media ORDER BY volumename") {
+            Ok(result) => {
+                // Extract just the volume names (skip header)
+                let names: String = result.lines().skip(2) // skip header + separator
+                    .filter(|l| !l.trim().is_empty())
+                    .map(|l| format!("{}\n", l.trim()))
+                    .collect();
+                return CommandResult::ok(names);
+            }
+            Err(_) => {}
+        }
+    }
     CommandResult::ok(String::new())
 }
 

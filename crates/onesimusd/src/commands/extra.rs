@@ -211,18 +211,33 @@ pub fn cmd_relabel(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(format!("Relabeling volume {vol}\n"))
 }
 
-pub fn cmd_delete(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_delete(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let cat = match &ctx.catalog {
+        Some(c) => c,
+        None => return CommandResult::ok("No catalog configured\n".to_string()),
+    };
     let what = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
     match what {
         "volume" => {
             let vol = ast.arguments.iter().find(|a| a.key == "volume")
                 .and_then(|a| a.value.as_deref()).unwrap_or("?");
-            CommandResult::ok(format!("Volume {vol} deleted from catalog\n"))
+            // Delete jobmedia first (FK), then media record
+            let _ = cat.raw_query(&format!(
+                "DELETE FROM jobmedia WHERE mediaid IN (SELECT mediaid FROM media WHERE volumename = '{vol}')"));
+            match cat.raw_query(&format!("DELETE FROM media WHERE volumename = '{vol}'")) {
+                Ok(_) => CommandResult::ok(format!("Volume {vol} deleted from catalog\n")),
+                Err(e) => CommandResult::error(format!("Delete error: {e}\n")),
+            }
         }
         "jobid" => {
             let id = ast.arguments.iter().find(|a| a.key == "jobid")
-                .and_then(|a| a.value.as_deref()).unwrap_or("?");
-            CommandResult::ok(format!("JobId {id} deleted from catalog\n"))
+                .and_then(|a| a.value.as_deref()).unwrap_or("0");
+            let _ = cat.raw_query(&format!("DELETE FROM jobmedia WHERE jobid = {id}"));
+            let _ = cat.raw_query(&format!("DELETE FROM file WHERE jobid = {id}"));
+            match cat.raw_query(&format!("DELETE FROM job WHERE jobid = {id}")) {
+                Ok(_) => CommandResult::ok(format!("JobId {id} deleted from catalog\n")),
+                Err(e) => CommandResult::error(format!("Delete error: {e}\n")),
+            }
         }
         _ => CommandResult::ok("delete: specify volume=<name> or jobid=<id>\n".to_string()),
     }

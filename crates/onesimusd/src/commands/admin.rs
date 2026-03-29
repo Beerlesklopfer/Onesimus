@@ -349,60 +349,74 @@ pub fn cmd_prune(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let what = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
     let client = get_arg(ast, "client");
     let pool = get_arg(ast, "pool");
-    let volume = get_arg(ast, "volume");
+    let cat = match &ctx.catalog {
+        Some(c) => c,
+        None => return CommandResult::ok("No catalog configured\n".to_string()),
+    };
 
     match what {
-        "files" => {
-            let c = client.unwrap_or("*");
-            CommandResult::ok(format!(
-                "Pruning files for client {c}...\n\
-                 Pruned 0 files, 0 jobs from catalog.\n"
-            ))
-        }
-        "jobs" => {
-            let c = client.unwrap_or("*");
-            CommandResult::ok(format!(
-                "Pruning jobs for client {c}...\n\
-                 Pruned 0 jobs from catalog.\n"
-            ))
+        "jobs" | "files" => {
+            let client_arg = client.map(|c| format!("'{c}'")).unwrap_or("NULL".to_string());
+            match cat.raw_query(&format!("SELECT sp_prune_expired_jobs({client_arg}, 180)")) {
+                Ok(result) => CommandResult::ok(format!("Pruned jobs: {}\n", result.trim())),
+                Err(e) => CommandResult::error(format!("Prune error: {e}\n")),
+            }
         }
         "volumes" | "volume" => {
-            let v = volume.or(pool).unwrap_or("*");
-            CommandResult::ok(format!(
-                "Pruning volumes in pool {v}...\n\
-                 Pruned 0 volumes from catalog.\n"
-            ))
+            let pool_arg = pool.map(|p| format!("'{p}'")).unwrap_or("NULL".to_string());
+            match cat.raw_query(&format!("SELECT sp_prune_expired_volumes({pool_arg})")) {
+                Ok(result) => CommandResult::ok(format!("Pruned volumes: {}\n", result.trim())),
+                Err(e) => CommandResult::error(format!("Prune error: {e}\n")),
+            }
         }
         "" => CommandResult::ok(
-            "prune: specify one of:\n  prune files [client=<name>]\n  \
-             prune jobs [client=<name>]\n  prune volumes [pool=<name>]\n"
-                .to_string()
+            "prune: specify one of:\n  prune jobs [client=<name>]\n  \
+             prune volumes [pool=<name>]\n".to_string()
         ),
         other => CommandResult::ok(format!("prune {other}: not supported\n")),
     }
 }
 
-pub fn cmd_purge(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_purge(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let what = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
     let volume = get_arg(ast, "volume");
+    let cat = match &ctx.catalog {
+        Some(c) => c,
+        None => return CommandResult::ok("No catalog configured\n".to_string()),
+    };
 
     match what {
         "files" => {
-            let jobid = get_arg(ast, "jobid").unwrap_or("*");
-            CommandResult::ok(format!("Purged files from JobId {jobid}\n"))
+            let jobid = get_arg(ast, "jobid").unwrap_or("0");
+            match cat.raw_query(&format!(
+                "DELETE FROM file WHERE jobid = {jobid}")) {
+                Ok(_) => CommandResult::ok(format!("Purged files from JobId {jobid}\n")),
+                Err(e) => CommandResult::error(format!("Purge error: {e}\n")),
+            }
         }
         "jobs" => {
             let client = get_arg(ast, "client").unwrap_or("*");
-            CommandResult::ok(format!("Purged jobs for client {client}\n"))
+            let sql = if client == "*" {
+                "DELETE FROM jobmedia; DELETE FROM job".to_string()
+            } else {
+                format!("DELETE FROM jobmedia WHERE jobid IN (SELECT jobid FROM job j JOIN client c ON j.clientid = c.clientid WHERE c.name = '{client}'); \
+                         DELETE FROM job WHERE clientid IN (SELECT clientid FROM client WHERE name = '{client}')")
+            };
+            match cat.raw_query(&sql) {
+                Ok(_) => CommandResult::ok(format!("Purged jobs for client {client}\n")),
+                Err(e) => CommandResult::error(format!("Purge error: {e}\n")),
+            }
         }
-        "volumes" | "volume" => {
-            let v = volume.unwrap_or("*");
-            CommandResult::ok(format!("Volume \"{v}\" purged from catalog\n"))
+        "volumes" | "volume" | "" if volume.is_some() => {
+            let v = volume.unwrap();
+            match cat.raw_query(&format!("SELECT sp_purge_volume('{v}')")) {
+                Ok(result) => CommandResult::ok(format!("Volume \"{v}\" purged ({} jobmedia records removed)\n", result.trim())),
+                Err(e) => CommandResult::error(format!("Purge error: {e}\n")),
+            }
         }
         "" => CommandResult::ok(
             "purge: specify one of:\n  purge files jobid=<id>\n  \
-             purge jobs client=<name>\n  purge volumes [volume=<name>]\n"
-                .to_string()
+             purge jobs client=<name>\n  purge volume=<name>\n".to_string()
         ),
         other => CommandResult::ok(format!("purge {other}: not supported\n")),
     }
@@ -447,13 +461,15 @@ pub fn cmd_truncate(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 }
 
 pub fn cmd_reload(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
-    // Direkt Config neu laden statt SIGHUP (vermeidet Crash)
-    if let Some(config) = &ctx.config {
-        // Aktuellen Config-Pfad ermitteln
-        let current_name = config.read().ok().map(|c| c.director.name.clone()).unwrap_or_default();
+    // Send SIGHUP to ourselves — the dir:sighup thread picks it up,
+    // re-reads the config file, and swaps SharedConfig via RwLock.
+    #[cfg(unix)]
+    unsafe { libc::kill(libc::getpid(), libc::SIGHUP); }
 
-        // Config-Pfad aus der Director-Resource ist nicht direkt verfügbar,
-        // aber wir können den aktuellen Stand anzeigen
+    // Wait briefly for the reload thread to finish
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    if let Some(config) = &ctx.config {
         if let Ok(cfg) = config.read() {
             CommandResult::ok(format!(
                 "reloaded\nDirector '{}': {} clients, {} jobs, {} storages, {} pools, {} schedules\n",
@@ -461,7 +477,7 @@ pub fn cmd_reload(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
                 cfg.storages.len(), cfg.pools.len(), cfg.schedules.len()
             ))
         } else {
-            CommandResult::error("Failed to read config\n".to_string())
+            CommandResult::error("Failed to read config after reload\n".to_string())
         }
     } else {
         CommandResult::ok("No configuration loaded\n".to_string())
