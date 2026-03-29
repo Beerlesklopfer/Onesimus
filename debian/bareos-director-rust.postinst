@@ -41,9 +41,9 @@ case "$1" in
 
         systemctl daemon-reload 2>/dev/null || true
         echo ""
-        echo "baReos Director (Rust) installiert."
-        echo "  Director: /usr/sbin/bareos-dird"
-        echo "  Console:  /usr/bin/brconsole"
+        echo "Onesimus Director installiert."
+        echo "  Director: /usr/sbin/onesimusd"
+        echo "  Console:  /usr/bin/oconsole"
         echo "  Config:   /etc/bareos/bareos-dir.d/"
         echo "  Service:  systemctl start bareos-director-rust"
         ;;

@@ -6,8 +6,8 @@ override_dh_auto_build:
 	cargo build --release -p onesimusd -p onesimus-console
 
 override_dh_auto_install:
-	# === bareos-director-rust package ===
-	install -D -m 755 target/release/onesimusd debian/bareos-director-rust/usr/sbin/bareos-dird
+	# === onesimusd package ===
+	install -D -m 755 target/release/onesimusd debian/bareos-director-rust/usr/sbin/onesimusd
 	# Schema (all JSON files from ORM schema dir)
 	for f in crates/bareos-orm/schema/*.json; do \
 		install -D -m 644 $$f debian/bareos-director-rust/usr/lib/bareos/scripts/ddl/$$(basename $$f); \
@@ -19,16 +19,16 @@ override_dh_auto_install:
 	for f in config/bareos-dir.d/*/; do \
 		install -m 644 $$f*.conf debian/bareos-director-rust/usr/share/bareos/defaultconfigs/bareos-dir.d/$$(basename $$f)/ 2>/dev/null || true; \
 	done
-	# === brconsole package ===
-	install -D -m 755 target/release/oconsole debian/bareos-bconsole-rust/usr/bin/brconsole
-	install -D -m 644 config/brconsole.conf debian/bareos-bconsole-rust/usr/share/bareos/defaultconfigs/brconsole.conf
+	# === oconsole package ===
+	install -D -m 755 target/release/oconsole debian/bareos-bconsole-rust/usr/bin/oconsole
+	install -D -m 644 config/brconsole.conf debian/bareos-bconsole-rust/usr/share/bareos/defaultconfigs/oconsole.conf
 
 override_dh_auto_test:
 	cargo test --release
 
 override_dh_strip:
-	strip debian/bareos-director-rust/usr/sbin/bareos-dird
-	strip debian/bareos-bconsole-rust/usr/bin/brconsole
+	strip debian/bareos-director-rust/usr/sbin/onesimusd
+	strip debian/bareos-bconsole-rust/usr/bin/oconsole
 
 override_dh_auto_clean:
 	cargo clean 2>/dev/null || true

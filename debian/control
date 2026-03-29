@@ -9,18 +9,18 @@ Homepage: https://github.com/Beerlesklopfer/baReos-dird
 Package: bareos-director-rust
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}, bareos-common
-Description: baReos Director - Rust drop-in replacement
- High-performance Bareos Director written in Rust.
- Drop-in replacement reading /etc/bareos/bareos-dir.d/ config tree.
+Description: Onesimus Director - drop-in replacement for Bareos Director
+ High-performance Director daemon written in Rust.
+ Reads /etc/bareos/bareos-dir.d/ config tree (Bareos-compatible).
  .
- Binary: /usr/sbin/bareos-dird
+ Binary: /usr/sbin/onesimusd
 
 Package: bareos-bconsole-rust
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: baReos Console - Rust console with tab-completion
- Interactive console for the Bareos Director with readline,
+Description: Onesimus Console - interactive console with tab-completion
+ Interactive console for the Director with readline,
  tab-completion from Director AST, and syntax coloring.
  .
- Binary: /usr/bin/brconsole
- Config: /etc/bareos/brconsole.conf
+ Binary: /usr/bin/oconsole
+ Config: /etc/bareos/oconsole.conf

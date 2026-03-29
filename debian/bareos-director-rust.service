@@ -1,5 +1,5 @@
 [Unit]
-Description=Bareos Director Daemon (Rust)
+Description=Onesimus Director Daemon
 After=network-online.target postgresql.service
 Wants=network-online.target
 
@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=bareos
 Group=bareos
-ExecStart=/usr/sbin/bareos-dird -c /etc/bareos/bareos-dir.d -f
+ExecStart=/usr/sbin/onesimusd -c /etc/bareos/bareos-dir.d -f
 ExecReload=/bin/kill -HUP $MAINPID
 LimitNOFILE=65536
 Restart=on-failure
