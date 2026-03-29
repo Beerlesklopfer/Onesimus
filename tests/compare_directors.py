@@ -596,11 +596,21 @@ def generate_pdf(report: Report, path: Path):
         bars_rust = ax.barh(list(y), rust_times, bar_h,
                             label=f"Rust (avg {avg_rust}ms)", color="#FF9800", alpha=0.8)
 
+        # Value labels on bars
+        for bar, val in zip(bars_cpp, cpp_times):
+            if val > 0:
+                ax.text(bar.get_width() + 2, bar.get_y() + bar.get_height()/2,
+                        f"{val}ms", va="center", fontsize=6, color="#1565C0")
+        for bar, val in zip(bars_rust, rust_times):
+            if val > 0:
+                ax.text(bar.get_width() + 2, bar.get_y() + bar.get_height()/2,
+                        f"{val}ms", va="center", fontsize=6, color="#E65100")
+
         ax.set_yticks([i + bar_h/2 for i in y])
         ax.set_yticklabels(names, fontsize=7)
         ax.set_xlabel("Response Time (ms)")
-        ax.set_title("Command Response Time: C++ vs Rust")
-        ax.legend()
+        ax.set_title(f"Command Response Time: C++ vs Rust  (Speedup: {speedup:.1f}x)")
+        ax.legend(loc="lower right")
         ax.invert_yaxis()
         plt.tight_layout()
 

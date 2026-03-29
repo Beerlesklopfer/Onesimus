@@ -1,0 +1,6 @@
+--- C++ (port 9101)
++++ Rust (port 29101)
+
+  line 1:
+    C++:  Director: name=bareos-dir port=9101 maxjobs=10
+    Rust: Director: name=bareos-dir port=29101 maxjobs=10
