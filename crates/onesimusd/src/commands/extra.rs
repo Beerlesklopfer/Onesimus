@@ -73,7 +73,20 @@ pub fn cmd_messages(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 }
 
 pub fn cmd_memory(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("Memory usage information not available (Rust runtime)\n".to_string())
+    // Read /proc/self/status for VmRSS (resident set size)
+    let mut output = String::new();
+    if let Ok(status) = std::fs::read_to_string("/proc/self/status") {
+        for line in status.lines() {
+            if line.starts_with("VmRSS:") || line.starts_with("VmSize:") ||
+               line.starts_with("VmPeak:") || line.starts_with("Threads:") {
+                output.push_str(&format!("{line}\n"));
+            }
+        }
+    }
+    if output.is_empty() {
+        output.push_str("Memory info not available\n");
+    }
+    CommandResult::ok(output)
 }
 
 pub fn cmd_show(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
@@ -182,7 +195,13 @@ pub fn cmd_wait(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     }
 }
 
-pub fn cmd_whoami(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_whoami(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(smgr) = &ctx.session_mgr {
+        let sessions = smgr.get_session_names();
+        if let Some((_, name)) = sessions.iter().find(|(id, _)| *id == ctx.session_id) {
+            return CommandResult::ok(format!("{name}\n"));
+        }
+    }
     CommandResult::ok("*UserAgent*\n".to_string())
 }
 
@@ -241,10 +260,38 @@ pub fn cmd_resolve(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     }
 }
 
-pub fn cmd_rerun(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_rerun(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let jobid = ast.arguments.iter().find(|a| a.key == "jobid")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("Rerunning job {jobid}\n"))
+        .and_then(|a| a.value.as_deref());
+    let Some(id) = jobid else {
+        return CommandResult::ok("rerun: specify jobid=<id>\n".to_string());
+    };
+    // Look up job name from catalog, then dispatch to cmd_run
+    if let Some(cat) = &ctx.catalog {
+        match cat.raw_query(&format!(
+            "SELECT name FROM job WHERE jobid = {id}")) {
+            Ok(result) => {
+                let job_name = result.lines().skip(2).next()
+                    .map(|l| l.trim().to_string())
+                    .unwrap_or_default();
+                if job_name.is_empty() {
+                    return CommandResult::ok(format!("JobId {id} not found in catalog\n"));
+                }
+                // Build a synthetic AST for "run job=<name> yes"
+                let run_ast = crate::command_ast::CommandAst {
+                    command_name: "run".to_string(),
+                    arguments: vec![
+                        crate::command_ast::Argument { key: "job".to_string(), value: Some(job_name.clone()) },
+                        crate::command_ast::Argument { key: "yes".to_string(), value: None },
+                    ],
+                    ..Default::default()
+                };
+                return crate::commands::job::cmd_run(&run_ast, ctx);
+            }
+            Err(e) => return CommandResult::error(format!("Catalog error: {e}\n")),
+        }
+    }
+    CommandResult::ok(format!("No catalog — cannot look up JobId {id}\n"))
 }
 
 pub fn cmd_relabel(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
@@ -316,8 +363,29 @@ pub fn cmd_create(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(format!("{created} pool(s) created from resource\n"))
 }
 
-pub fn cmd_add(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("Volume added to pool\n".to_string())
+pub fn cmd_add(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let pool = ast.arguments.iter().find(|a| a.key == "pool")
+        .and_then(|a| a.value.as_deref()).unwrap_or("Full");
+    let volume = ast.arguments.iter().find(|a| a.key == "volume")
+        .and_then(|a| a.value.as_deref());
+    let cat = match &ctx.catalog {
+        Some(c) => c,
+        None => return CommandResult::ok("No catalog configured\n".to_string()),
+    };
+    match volume {
+        Some(vol) => {
+            let sql = format!(
+                "INSERT INTO media (volumename, mediatype, poolid, volstatus, volbytes, voljobs, volfiles, maxvolbytes) \
+                 SELECT '{vol}', 'File', poolid, 'Append', 0, 0, 0, 0 FROM pool WHERE name = '{pool}' \
+                 ON CONFLICT DO NOTHING"
+            );
+            match cat.raw_query(&sql) {
+                Ok(_) => CommandResult::ok(format!("Volume \"{vol}\" added to pool \"{pool}\"\n")),
+                Err(e) => CommandResult::error(format!("Add error: {e}\n")),
+            }
+        }
+        None => CommandResult::ok("add: specify volume=<name> pool=<name>\n".to_string()),
+    }
 }
 
 pub fn cmd_import(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
