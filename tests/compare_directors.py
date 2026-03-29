@@ -492,35 +492,42 @@ def generate_pdf(report: Report, path: Path):
     sysinfo = gather_system_info()
 
     with PdfPages(str(path)) as pdf:
-        # --- Page 1: Title + System Info + Summary ---
+        # --- Page 1: System Info ---
         fig, ax = plt.subplots(figsize=(11, 8.5))
         ax.axis("off")
 
-        ax.text(0.5, 0.95, "Onesimus Director — Comparison Report",
-                fontsize=20, ha="center", fontweight="bold")
-        ax.text(0.5, 0.91, f"Date: {report.timestamp}",
+        ax.text(0.5, 0.96, "Onesimus Director — Comparison Report",
+                fontsize=22, ha="center", fontweight="bold")
+        ax.text(0.5, 0.93, f"Date: {report.timestamp}",
                 fontsize=11, ha="center", color="gray")
 
-        # System info box
+        # System info — left column
         sys_text = (
             f"Host:     {sysinfo['hostname']}\n"
             f"OS:       {sysinfo['os']}\n"
             f"Kernel:   {sysinfo['kernel']}\n"
             f"CPU:      {sysinfo['cpu']}\n"
             f"RAM:      {sysinfo['ram_gb']}\n"
-            f"Python:   {sysinfo['python']}\n"
-            f"\n"
-            f"C++ Director:  port {report.cpp_port}  {sysinfo['cpp_version']}\n"
-            f"Rust Director: port {report.rust_port}  {sysinfo['rust_version']}\n"
-            f"\n"
-            f"Test method: bconsole sends command, stdout captured, ANSI stripped,\n"
-            f"timestamps/versions/IDs normalized before comparison."
+            f"Python:   {sysinfo['python']}"
         )
-        ax.text(0.05, 0.72, sys_text, fontsize=9, va="top",
+        ax.text(0.03, 0.88, sys_text, fontsize=8, va="top",
                 fontfamily="monospace",
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="#E3F2FD", edgecolor="#1565C0"))
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="#E3F2FD", edgecolor="#1565C0"))
 
-        # Summary box
+        # Directors — right column
+        dir_text = (
+            f"C++ Director:\n"
+            f"  Port: {report.cpp_port}\n"
+            f"  {sysinfo['cpp_version']}\n\n"
+            f"Rust Director:\n"
+            f"  Port: {report.rust_port}\n"
+            f"  {sysinfo['rust_version']}"
+        )
+        ax.text(0.55, 0.88, dir_text, fontsize=8, va="top",
+                fontfamily="monospace",
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="#FFF3E0", edgecolor="#E65100"))
+
+        # Summary — centered below system info
         total = report.total
         passed = report.passed
         failed = report.failed
@@ -530,19 +537,24 @@ def generate_pdf(report: Report, path: Path):
         speedup = (avg_cpp / avg_rust) if avg_rust > 0 else 0
 
         summary_text = (
-            f"Total Tests: {total}\n"
-            f"Passed: {passed}  ({pct:.0f}%)\n"
-            f"Failed: {failed}\n"
-            f"Skipped: {report.skipped}\n\n"
-            f"Avg Response: C++ = {avg_cpp} ms,  Rust = {avg_rust} ms\n"
+            f"Total: {total}    "
+            f"Passed: {passed} ({pct:.0f}%)    "
+            f"Failed: {failed}    "
+            f"Skipped: {report.skipped}\n"
+            f"Avg Response:  C++ = {avg_cpp} ms    Rust = {avg_rust} ms    "
             f"Speedup: {speedup:.1f}x"
         )
-        ax.text(0.5, 0.55, summary_text, fontsize=14, ha="center", va="center",
+        ax.text(0.5, 0.58, summary_text, fontsize=12, ha="center", va="center",
                 fontfamily="monospace",
-                bbox=dict(boxstyle="round,pad=1", facecolor="#f0f0f0", edgecolor="gray"))
+                bbox=dict(boxstyle="round,pad=0.6", facecolor="#f0f0f0", edgecolor="gray"))
 
-        # Pass/Fail donut
-        ax_donut = fig.add_axes([0.35, 0.08, 0.3, 0.3])
+        # Test method
+        ax.text(0.5, 0.49, "Method: bconsole pipes command → stdout captured → "
+                "ANSI stripped → timestamps/versions/IDs normalized → sorted line comparison",
+                fontsize=8, ha="center", color="gray", style="italic")
+
+        # Pass/Fail donut — lower half, centered
+        ax_donut = fig.add_axes([0.15, 0.05, 0.3, 0.38])
         colors = ["#4CAF50", "#F44336", "#FFC107"]
         sizes = [passed, failed, report.skipped]
         labels = [f"PASS ({passed})", f"FAIL ({failed})", f"SKIP ({report.skipped})"]
@@ -554,7 +566,18 @@ def generate_pdf(report: Report, path: Path):
         )
         centre_circle = plt.Circle((0, 0), 0.50, fc="white")
         ax_donut.add_artist(centre_circle)
-        ax_donut.set_title("Test Results")
+
+        # Failure reasons — right of donut
+        fail_tests = [t for t in tests if t["match"] != "yes" and t["match"] != "skip"]
+        if fail_tests:
+            reasons = []
+            for t in fail_tests:
+                comment = classify_failure(t["name"], t.get("diff", ""))
+                reasons.append(f"  {t['name']}: {comment[:55]}")
+            reason_text = "Failure Analysis:\n" + "\n".join(reasons[:8])
+            ax.text(0.55, 0.35, reason_text, fontsize=7, va="top",
+                    fontfamily="monospace",
+                    bbox=dict(boxstyle="round,pad=0.4", facecolor="#FFEBEE", edgecolor="#C62828"))
 
         pdf.savefig(fig)
         plt.close(fig)
