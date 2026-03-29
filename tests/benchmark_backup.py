@@ -117,37 +117,38 @@ def start_backup(conf_path: str, job_name: str) -> int:
 
 
 def poll_job_status(conf_path: str, job_id: int) -> dict:
-    """Query job status via 'list jobid=N' — parses both C++ and Rust output."""
-    output = bconsole_cmd(conf_path, f"list jobid={job_id}", timeout=10)
+    """Query job status via API mode 1 (tab-separated, same format for both Directors)."""
+    # .api 1 → list jobid=N → .api 0  (all in one bconsole session)
+    output = bconsole_cmd(conf_path,
+        f".api 1\nlist jobid={job_id}\n.api 0", timeout=10)
     result = {"files": 0, "bytes": 0, "status": "R"}
 
     for line in output.split("\n"):
-        # Skip headers/separators
-        if not line.strip() or line.startswith("+") or line.startswith("-") or "jobid" in line.lower():
+        if not line.strip() or "api:" in line or "jobid" in line.lower():
+            continue
+        # API mode 1: tab-separated fields
+        fields = line.split("\t")
+        if len(fields) < 5:
+            # Fallback: whitespace split
+            fields = line.split()
+
+        # Find field with job_id
+        if not any(f.strip() == str(job_id) for f in fields):
             continue
 
-        # Find the line containing our job_id
-        if str(job_id) not in line:
-            continue
-
-        # Extract all numbers and single-char status from the line
-        # Remove pipe chars (C++ format) and commas in numbers
-        clean = line.replace("|", " ").replace(",", "")
-        tokens = clean.split()
-
-        # Find jobstatus (single char: T, R, C, E, f, A)
-        for t in tokens:
-            if len(t) == 1 and t in "TREfACBDFSsmMjcdtpialLW":
-                result["status"] = t
-
-        # Find jobfiles and jobbytes (large numbers near end)
-        numbers = [int(t) for t in tokens if t.isdigit() and int(t) != job_id]
-        if len(numbers) >= 2:
-            # Last two large numbers are typically jobfiles and jobbytes
-            result["files"] = numbers[-2] if numbers[-2] < 10_000_000 else numbers[-2]
-            result["bytes"] = numbers[-1]
-        elif len(numbers) == 1:
-            result["bytes"] = numbers[0]
+        # Parse: find jobstatus (single char), jobfiles, jobbytes
+        for f in fields:
+            f = f.strip().replace(",", "")
+            if len(f) == 1 and f in "TREfACBDFSsmMjcdtpialLW":
+                result["status"] = f
+            elif f.isdigit():
+                val = int(f)
+                if val == job_id:
+                    continue
+                elif val < 10_000_000:
+                    result["files"] = val  # jobfiles < 10M
+                else:
+                    result["bytes"] = val  # jobbytes is large
 
     return result
 
