@@ -121,11 +121,23 @@ pub fn cmd_dot_help(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
             output.push_str("]\n");
         }
         ApiMode::Api => {
+            // C++ compatible: name\tdescription\tusage\targuments\taudit
+            // arguments = comma-separated, !prefix for bare keywords
             for def in &commands {
-                let arg_str: String = def.args.iter()
-                    .map(|a| format!("{}=<{:?}>", a.name, a.arg_type)).collect::<Vec<_>>().join(" ");
-                output.push_str(&format!("{}\t{}\t{} {}\t{}\n",
-                    def.name, def.description, def.name, arg_str, !def.dot_command));
+                use crate::command_registry::{ArgType, CompletionSource};
+                let usage: String = {
+                    let args: String = def.args.iter().map(|a| format!(" [{}=<{}>]", a.name, a.name)).collect();
+                    format!("{}{}", def.name, args)
+                };
+                let arguments: String = def.args.iter().map(|a| {
+                    match a.arg_type {
+                        ArgType::Bool | ArgType::String if a.name == "yes" || a.name == "all" || a.name == "done"
+                            => format!("!{}", a.name), // bare keyword
+                        _ => a.name.to_string(), // key=value arg
+                    }
+                }).collect::<Vec<_>>().join(",");
+                output.push_str(&format!("{}\t{}\t{}\t{}\t{}\n",
+                    def.name, def.description, usage, arguments, !def.dot_command));
             }
         }
         ApiMode::Human => {
