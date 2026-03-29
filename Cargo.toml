@@ -6,7 +6,7 @@ members = [
     "crates/bareos-catalog",
     "crates/bareos-proto-rs",
     "crates/onesimusd",
-    "crates/onesimus-console",
+    "crates/oconsole",
     "crates/bareos-orm",
     "crates/bareos-stored",
     "crates/bareos-filed",

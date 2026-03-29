@@ -1,5 +1,5 @@
 [package]
-name = "onesimus-console"
+name = "oconsole"
 description = "Onesimus Console — Drop-in replacement for Bareos bconsole"
 version.workspace = true
 edition.workspace = true

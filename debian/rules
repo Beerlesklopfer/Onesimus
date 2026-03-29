@@ -3,7 +3,7 @@
 	dh $@
 
 override_dh_auto_build:
-	cargo build --release -p onesimusd -p onesimus-console
+	cargo build --release -p onesimusd -p oconsole
 
 override_dh_auto_install:
 	# === onesimusd package ===
