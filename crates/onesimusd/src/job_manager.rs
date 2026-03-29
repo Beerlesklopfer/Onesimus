@@ -87,6 +87,14 @@ impl JobManager {
         self.jobs.iter().find(|j| j.job_id == job_id)
     }
 
+    /// List running jobs: (job_id, job_name, phase).
+    pub fn running_jobs(&self) -> Vec<(u32, String, String)> {
+        self.jobs.iter()
+            .filter(|j| !matches!(j.phase, DirJobPhase::Completed | DirJobPhase::Error))
+            .map(|j| (j.job_id, j.job_name.clone(), j.phase.name().to_string()))
+            .collect()
+    }
+
     pub fn cancel_job(&mut self, job_id: u32) -> bool {
         if let Some(job) = self.jobs.iter_mut().find(|j| j.job_id == job_id) {
             job.handle.cancel();

@@ -223,16 +223,49 @@ pub fn cmd_cancel(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     match job_id {
         Some(id) => {
-            if let Some(smgr) = &ctx.session_mgr {
-                smgr.bus().post(BusMessage::JobStatus {
-                    job_id: id, job_name: String::new(), status: "Canceled".to_string(),
-                    timestamp: now_unix(),
-                });
+            // Send SIGTERM to worker process via JobManager
+            let canceled = if let Some(ref mgr) = ctx.job_manager {
+                mgr.lock().unwrap().cancel_job(id)
+            } else {
+                false
+            };
+
+            if canceled {
+                if let Some(smgr) = &ctx.session_mgr {
+                    smgr.bus().post(BusMessage::JobStatus {
+                        job_id: id, job_name: String::new(), status: "Canceled".to_string(),
+                        timestamp: now_unix(),
+                    });
+                }
+                // Update DB status
+                if let Some(cat) = &ctx.catalog {
+                    let _ = cat.update_job_end(id as i32, "A", now_unix() as i64, 0, 0, 0, 0, 0);
+                }
+                CommandResult::ok(format!("Job {id} canceled (SIGTERM sent to worker)\n"))
+            } else {
+                CommandResult::ok(format!("Job {id} not found or already finished\n"))
             }
-            // TODO: Send SIGTERM to job worker process
-            CommandResult::ok(format!("Job {id} marked for cancellation\n"))
         }
-        None => CommandResult::ok("cancel: specify jobid=<id>\nNo running jobs to cancel.\n".to_string()),
+        None => {
+            // List running jobs if no jobid specified
+            if let Some(ref mgr) = ctx.job_manager {
+                let jobs = mgr.lock().unwrap();
+                let running: Vec<String> = jobs.running_jobs().iter()
+                    .map(|(id, name, phase)| format!("  {id:<8} {name:<30} {phase}"))
+                    .collect();
+                if running.is_empty() {
+                    CommandResult::ok("No running jobs to cancel.\n".to_string())
+                } else {
+                    let mut out = String::from("Running jobs:\n");
+                    out.push_str("  JobId    Name                           Phase\n");
+                    for line in &running { out.push_str(line); out.push('\n'); }
+                    out.push_str("\ncancel jobid=<id> to cancel a job.\n");
+                    CommandResult::ok(out)
+                }
+            } else {
+                CommandResult::ok("cancel: specify jobid=<id>\n".to_string())
+            }
+        }
     }
 }
 
