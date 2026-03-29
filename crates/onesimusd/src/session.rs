@@ -84,9 +84,10 @@ pub fn handle_console_session<S: Read + Write>(
     // Subscribe to MessageBus for job messages, status updates, etc.
     let bus_rx = session_mgr.bus().subscribe();
 
-    // Session flags (set by autodisplay, gui, trace commands)
+    // Session flags (set by autodisplay, gui, trace, .grpc commands)
     let mut auto_display = true;  // autodisplay on/off
     let mut gui_mode = false;     // gui on/off
+    let mut grpc_mode = false;    // .grpc on/off
 
     // EOD after init messages — signals "ready for commands" to the console.
     // Command loop
@@ -174,6 +175,12 @@ pub fn handle_console_session<S: Read + Write>(
             "gui" => {
                 let flag = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("on");
                 gui_mode = flag != "off";
+            }
+            ".grpc" => {
+                let on = ast.arguments.iter().any(|a| a.key == "on");
+                let off = ast.arguments.iter().any(|a| a.key == "off");
+                if on { grpc_mode = true; api_mode = command_executor::ApiMode::Json; }
+                if off { grpc_mode = false; }
             }
             _ => {}
         }

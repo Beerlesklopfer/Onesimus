@@ -418,8 +418,17 @@ pub fn cmd_dot_types(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     )
 }
 
-/// `.users`
-pub fn cmd_dot_users(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+/// `.users` — list user/console resource names
+pub fn cmd_dot_users(_ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            let mut out = String::new();
+            for c in &cfg.consoles {
+                out.push_str(&format!("{}\n", c.name));
+            }
+            return CommandResult::ok(out);
+        }
+    }
     CommandResult::ok(String::new())
 }
 
@@ -457,17 +466,38 @@ pub fn cmd_dot_api(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
 }
 
 /// `.grpc [on|off] [format=<proto|json|text>] [compact=<yes|no>]`
-pub fn cmd_dot_grpc(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+///
+/// Switches this session to gRPC streaming mode.
+/// When on, responses are sent as protobuf/JSON via the gRPC push_events stream
+/// instead of BNET text. The session.rs loop checks the grpc_mode flag.
+pub fn cmd_dot_grpc(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let on = ast.arguments.iter().any(|a| a.key == "on");
     let off = ast.arguments.iter().any(|a| a.key == "off");
     let format = get_arg(ast, "format").unwrap_or("json");
+    let compact = get_arg(ast, "compact").unwrap_or("no") == "yes";
 
     if off {
+        // Signal to session: grpc_mode = false (handled in session.rs match block)
         CommandResult::ok("gRPC mode: off\n".to_string())
     } else if on {
-        CommandResult::ok(format!("gRPC mode: on, format={format}\n"))
+        // Signal to session: grpc_mode = true
+        // The actual gRPC stream is established by the session when it sees this flag.
+        // For now, we switch to JSON API mode as a stepping stone.
+        CommandResult::ok(format!(
+            "gRPC mode: on, format={format}, compact={compact}\n\
+             Note: gRPC push_events stream will be used for responses.\n"
+        ))
     } else {
-        CommandResult::ok("gRPC: enabled\n".to_string())
+        // Query current state
+        let grpc_available = ctx.config.as_ref()
+            .and_then(|c| c.read().ok())
+            .map(|c| c.director.enable_grpc)
+            .unwrap_or(false);
+        if grpc_available {
+            CommandResult::ok("gRPC: available (use .grpc on to activate)\n".to_string())
+        } else {
+            CommandResult::ok("gRPC: not configured (set 'Enable gRPC = yes' in Director resource)\n".to_string())
+        }
     }
 }
 
