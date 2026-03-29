@@ -6,6 +6,21 @@ use crate::command_ast::CommandAst;
 use crate::command_executor::ExecContext;
 use crate::command_queue::CommandResult;
 
+/// Send SD command via bareos-stored crate (resolves storage from config).
+fn sd_cmd_via_config(ctx: &ExecContext, storage_name: &str, command: &str) -> Result<String, String> {
+    let config = ctx.config.as_ref()
+        .and_then(|c| c.read().ok())
+        .ok_or("No config")?;
+    let stor = config.storages.iter().find(|s| s.name == storage_name)
+        .ok_or(format!("Storage '{storage_name}' not found"))?;
+    let dir_name = config.director.name.clone();
+    let addr = stor.address.clone();
+    let port = stor.port;
+    let password = stor.password.clone();
+    drop(config);
+    bareos_stored::command::sd_command(&addr, port, &password, &dir_name, command)
+}
+
 // --- Interactive/session commands ---
 
 pub fn cmd_autodisplay(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
@@ -294,10 +309,27 @@ pub fn cmd_rerun(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(format!("No catalog — cannot look up JobId {id}\n"))
 }
 
-pub fn cmd_relabel(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let vol = ast.arguments.iter().find(|a| a.key == "volume" || a.key == "oldvolume")
+pub fn cmd_relabel(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let oldvol = ast.arguments.iter().find(|a| a.key == "oldvolume")
         .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("Relabeling volume {vol}\n"))
+    let newvol = ast.arguments.iter().find(|a| a.key == "volume")
+        .and_then(|a| a.value.as_deref());
+    let stor = ast.arguments.iter().find(|a| a.key == "storage")
+        .and_then(|a| a.value.as_deref()).unwrap_or("File");
+
+    let Some(newname) = newvol else {
+        return CommandResult::ok("relabel: specify oldvolume=<old> volume=<new> storage=<name>\n".to_string());
+    };
+
+    match sd_cmd_via_config(ctx, stor, &format!("relabel OldVolume=\"{oldvol}\" Volume=\"{newname}\"")) {
+        Ok(resp) => {
+            if let Some(cat) = &ctx.catalog {
+                let _ = cat.raw_query(&format!("UPDATE media SET volumename='{newname}' WHERE volumename='{oldvol}'"));
+            }
+            CommandResult::ok(format!("Relabel {oldvol} → {newname}:\n{resp}\n"))
+        }
+        Err(e) => CommandResult::error(format!("relabel: {e}\n")),
+    }
 }
 
 pub fn cmd_delete(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
@@ -388,22 +420,40 @@ pub fn cmd_add(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     }
 }
 
-pub fn cmd_import(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_import(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let stor = ast.arguments.iter().find(|a| a.key == "storage")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("Import from storage {stor}\n"))
+        .and_then(|a| a.value.as_deref()).unwrap_or("File");
+    let srcslots = ast.arguments.iter().find(|a| a.key == "srcslots")
+        .and_then(|a| a.value.as_deref()).unwrap_or("0");
+
+    match sd_cmd_via_config(ctx, stor, &format!("import srcslots={srcslots}")) {
+        Ok(resp) => CommandResult::ok(format!("Import from storage {stor}:\n{resp}\n")),
+        Err(e) => CommandResult::error(format!("import {stor}: {e}\n")),
+    }
 }
 
-pub fn cmd_export(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_export(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let stor = ast.arguments.iter().find(|a| a.key == "storage")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("Export from storage {stor}\n"))
+        .and_then(|a| a.value.as_deref()).unwrap_or("File");
+    let srcslots = ast.arguments.iter().find(|a| a.key == "srcslots")
+        .and_then(|a| a.value.as_deref()).unwrap_or("0");
+
+    match sd_cmd_via_config(ctx, stor, &format!("export srcslots={srcslots}")) {
+        Ok(resp) => CommandResult::ok(format!("Export from storage {stor}:\n{resp}\n")),
+        Err(e) => CommandResult::error(format!("export {stor}: {e}\n")),
+    }
 }
 
-pub fn cmd_move(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
+pub fn cmd_move(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let stor = ast.arguments.iter().find(|a| a.key == "storage")
+        .and_then(|a| a.value.as_deref()).unwrap_or("File");
     let from = ast.arguments.iter().find(|a| a.key == "srcslot")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
+        .and_then(|a| a.value.as_deref()).unwrap_or("0");
     let to = ast.arguments.iter().find(|a| a.key == "dstslot")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("Moving media from slot {from} to {to}\n"))
+        .and_then(|a| a.value.as_deref()).unwrap_or("0");
+
+    match sd_cmd_via_config(ctx, stor, &format!("move srcslot={from} dstslot={to}")) {
+        Ok(resp) => CommandResult::ok(format!("Move slot {from} → {to} on {stor}:\n{resp}\n")),
+        Err(e) => CommandResult::error(format!("move: {e}\n")),
+    }
 }

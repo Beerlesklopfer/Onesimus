@@ -12,6 +12,22 @@ use crate::job_worker::{self, JobParams, WorkerJobType};
 use crate::job_manager;
 use crate::message_bus::{BusMessage, MsgType};
 
+/// Send a command to a named Storage Daemon (resolves from config).
+fn sd_command(ctx: &ExecContext, storage_name: &str, command: &str) -> Result<String, String> {
+    let config = ctx.config.as_ref()
+        .and_then(|c| c.read().ok())
+        .ok_or("No config")?;
+    let stor = config.storages.iter().find(|s| s.name == storage_name)
+        .ok_or(format!("Storage '{storage_name}' not found"))?;
+    let dir_name = config.director.name.clone();
+    let addr = stor.address.clone();
+    let port = stor.port;
+    let password = stor.password.clone();
+    drop(config);
+
+    bareos_stored::command::sd_command(&addr, port, &password, &dir_name, command)
+}
+
 static NEXT_RESTORE_ID: AtomicU32 = AtomicU32::new(10000);
 
 pub fn cmd_label(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
@@ -48,14 +64,29 @@ pub fn cmd_label(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     match vol {
         Some(v) => {
-            // TODO: Send label command to SD via TLS-PSK
+            let pool_name = pool.unwrap_or("Full");
             let mut output = format!("Connecting to Storage daemon {stor_name} ...\n");
-            output.push_str(&format!("Sending label command for Volume \"{v}\""));
-            if let Some(p) = pool {
-                output.push_str(&format!(" Pool \"{p}\""));
+
+            // Send label command to SD
+            let cmd = format!("label Volume=\"{v}\" PoolName=\"{pool_name}\" MediaType=\"File\" Slot=0 drive=0");
+            match sd_command(ctx, stor_name, &cmd) {
+                Ok(resp) => {
+                    output.push_str(&format!("Label Volume \"{v}\" Pool \"{pool_name}\":\n"));
+                    output.push_str(&resp);
+                    // Create media record in catalog
+                    if let Some(cat) = &ctx.catalog {
+                        let _ = cat.raw_query(&format!(
+                            "INSERT INTO media (volumename, mediatype, poolid, volstatus, volbytes, voljobs, volfiles, maxvolbytes) \
+                             SELECT '{v}', 'File', poolid, 'Append', 0, 0, 0, 0 FROM pool WHERE name = '{pool_name}' \
+                             ON CONFLICT DO NOTHING"
+                        ));
+                    }
+                    output.push_str(&format!("\nVolume \"{v}\" labeled and added to catalog.\n"));
+                }
+                Err(e) => {
+                    output.push_str(&format!("SD label failed: {e}\n"));
+                }
             }
-            output.push_str(&format!(" Slot 0 drive 0 ...\n"));
-            output.push_str("Label command sent to SD. Waiting for response...\n");
             CommandResult::ok(output)
         }
         None if barcode => {
@@ -70,31 +101,34 @@ pub fn cmd_label(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 pub fn cmd_mount(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let stor = get_arg_or_first(ast, "storage");
     if let Err(e) = verify_storage(stor, ctx) { return e; }
+    let slot = get_arg(ast, "slot").unwrap_or("0");
+    let drive = get_arg(ast, "drive").unwrap_or("0");
 
-    CommandResult::ok(format!(
-        "Sending \"mount\" to Storage daemon {stor} ...\n\
-         Device \"{stor}\" mounted.\n"
-    ))
+    match sd_command(ctx, stor, &format!("mount slot={slot} drive={drive}")) {
+        Ok(resp) => CommandResult::ok(format!("Sending \"mount\" to Storage {stor}...\n{resp}\n")),
+        Err(e) => CommandResult::error(format!("mount {stor}: {e}\n")),
+    }
 }
 
 pub fn cmd_unmount(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let stor = get_arg_or_first(ast, "storage");
     if let Err(e) = verify_storage(stor, ctx) { return e; }
+    let drive = get_arg(ast, "drive").unwrap_or("0");
 
-    CommandResult::ok(format!(
-        "Sending \"unmount\" to Storage daemon {stor} ...\n\
-         Device \"{stor}\" unmounted.\n"
-    ))
+    match sd_command(ctx, stor, &format!("unmount drive={drive}")) {
+        Ok(resp) => CommandResult::ok(format!("Sending \"unmount\" to Storage {stor}...\n{resp}\n")),
+        Err(e) => CommandResult::error(format!("unmount {stor}: {e}\n")),
+    }
 }
 
 pub fn cmd_release(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let stor = get_arg_or_first(ast, "storage");
     if let Err(e) = verify_storage(stor, ctx) { return e; }
 
-    CommandResult::ok(format!(
-        "Sending \"release\" to Storage daemon {stor} ...\n\
-         Device \"{stor}\" released.\n"
-    ))
+    match sd_command(ctx, stor, "release") {
+        Ok(resp) => CommandResult::ok(format!("Sending \"release\" to Storage {stor}...\n{resp}\n")),
+        Err(e) => CommandResult::error(format!("release {stor}: {e}\n")),
+    }
 }
 
 pub fn cmd_update(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
@@ -488,17 +522,42 @@ pub fn cmd_truncate(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
     match volume {
         Some(v) => {
-            CommandResult::ok(format!(
-                "Sending truncate command for Volume \"{v}\" on Storage \"{stor}\"...\n\
-                 Volume \"{v}\" truncated.\n"
-            ))
+            match sd_command(ctx, &stor, &format!("truncate Volume=\"{v}\"")) {
+                Ok(resp) => {
+                    // Reset volume bytes in catalog
+                    if let Some(cat) = &ctx.catalog {
+                        let _ = cat.raw_query(&format!(
+                            "UPDATE media SET volbytes=0, volfiles=0, volstatus='Purged' WHERE volumename='{v}'"
+                        ));
+                    }
+                    CommandResult::ok(format!("Truncate Volume \"{v}\" on Storage \"{stor}\":\n{resp}\n"))
+                }
+                Err(e) => CommandResult::error(format!("truncate {v}: {e}\n")),
+            }
         }
         None => {
+            // Truncate all purged volumes in pool
             let p = pool.unwrap_or("*");
-            CommandResult::ok(format!(
-                "Truncating all purged volumes in pool \"{p}\" on storage \"{stor}\"...\n\
-                 0 volumes truncated.\n"
-            ))
+            let mut count = 0;
+            if let Some(cat) = &ctx.catalog {
+                let query = if p == "*" {
+                    "SELECT volumename FROM media WHERE volstatus='Purged'".to_string()
+                } else {
+                    format!("SELECT m.volumename FROM media m JOIN pool p ON m.poolid=p.poolid WHERE m.volstatus='Purged' AND p.name='{p}'")
+                };
+                if let Ok(result) = cat.raw_query(&query) {
+                    for line in result.lines().skip(2) {
+                        let vol = line.trim();
+                        if !vol.is_empty() {
+                            if sd_command(ctx, &stor, &format!("truncate Volume=\"{vol}\"")).is_ok() {
+                                let _ = cat.raw_query(&format!("UPDATE media SET volbytes=0, volfiles=0 WHERE volumename='{vol}'"));
+                                count += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            CommandResult::ok(format!("{count} purged volume(s) truncated on storage \"{stor}\"\n"))
         }
     }
 }

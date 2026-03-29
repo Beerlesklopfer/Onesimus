@@ -23,6 +23,7 @@
 //! Der tote Code wird vom Linker (LTO) im Release-Build gestrippt.
 
 pub mod connect;
+pub mod command;
 pub mod job;
 pub mod catrec;
 pub mod status;
