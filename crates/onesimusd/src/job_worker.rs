@@ -744,9 +744,21 @@ pub struct JobHandle {
 impl JobHandle {
     pub fn try_read_message(&mut self) -> Option<PipeMessage> {
         let r = self.from_worker.as_mut()?;
+        // poll() to check if data is available before blocking read
+        use std::os::unix::io::AsRawFd;
+        let fd = r.as_raw_fd();
+        let mut pfd = libc::pollfd { fd, events: libc::POLLIN, revents: 0 };
+        let ready = unsafe { libc::poll(&mut pfd, 1, 0) }; // timeout=0 → non-blocking
+        if ready <= 0 || (pfd.revents & libc::POLLIN) == 0 {
+            return None; // no data available
+        }
+        // Data is available — safe to read_line (will not block)
         let mut buf = String::new();
-        let mut reader = BufReader::new(r);
-        match reader.read_line(&mut buf) { Ok(0) | Err(_) => None, Ok(_) => serde_json::from_str(&buf).ok() }
+        let mut reader = BufReader::new(&*r);
+        match reader.read_line(&mut buf) {
+            Ok(n) if n > 0 => serde_json::from_str(&buf).ok(),
+            _ => None,
+        }
     }
 
     pub fn send_message(&mut self, msg: &PipeMessage) -> bool {

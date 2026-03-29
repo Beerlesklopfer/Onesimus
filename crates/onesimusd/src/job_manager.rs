@@ -339,14 +339,24 @@ pub fn monitor_loop(
 ) {
     debug!("job monitor started");
     while !shutdown.load(Ordering::Relaxed) {
+        let had_work;
         {
             let mut mgr = manager.lock().unwrap();
+            let before = mgr.active_count();
             mgr.poll_all();
+            had_work = before > 0;
         }
-        thread::sleep(std::time::Duration::from_millis(10));
+        // Adaptive sleep: 0.1ms when jobs running (low latency CatReq),
+        // 50ms when idle (save CPU)
+        if had_work {
+            thread::sleep(std::time::Duration::from_micros(100));
+        } else {
+            thread::sleep(std::time::Duration::from_millis(50));
+        }
     }
     debug!("job monitor stopped");
 }
+
 
 fn now_unix() -> i64 {
     std::time::SystemTime::now()
