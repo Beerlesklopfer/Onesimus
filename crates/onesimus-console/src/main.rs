@@ -1,4 +1,4 @@
-//! baReos bconsole — Interactive console client for the Bareos Director.
+//! Onesimus Console (oconsole) — Interactive console client for the Director.
 //!
 //! Connects via BNET (TCP + TLS + CRAM-MD5) or gRPC.
 
@@ -25,16 +25,16 @@ use bareos_bnet::{BnetStream, BnetSignal, BnetMessage, BnetError};
 use bareos_bnet::hello::make_console_hello;
 use bareos_bnet::cram_md5::CramMd5Auth;
 
-/// baReos bconsole — Bareos Console Client
+/// Onesimus Console — Interactive Director Client
 #[derive(Parser, Debug)]
 #[command(
-    name = "brconsole",
+    name = "oconsole",
     version,
-    about = "The baReos Console.\n\nCopyright (C) 2026 Onesomus.io — Rust Version"
+    about = "The Onesimus Console.\n\nCopyright (C) 2026 Onesimus.io"
 )]
 struct Cli {
     /// Use <path> as configuration file.
-    #[arg(short, long, default_value = "/etc/bareos/brconsole.conf")]
+    #[arg(short, long, default_value = "/etc/bareos/oconsole.conf")]
     config: Option<String>,
 
     /// Director address (overrides config)
@@ -62,7 +62,7 @@ struct Cli {
     command: Option<String>,
 }
 
-/// Parsed config from brconsole.conf
+/// Parsed config from oconsole.conf / bconsole.conf
 struct ConsoleConfig {
     address: String,
     port: u16,
@@ -121,7 +121,7 @@ fn main() {
 
     // Load config file, then override with CLI args
     let file_cfg = load_console_config(
-        cli.config.as_deref().unwrap_or("/etc/bareos/brconsole.conf")
+        cli.config.as_deref().unwrap_or("/etc/bareos/oconsole.conf")
     );
 
     // CLI args override config file
@@ -755,7 +755,7 @@ fn interactive_loop<S: std::io::Read + std::io::Write + Send + 'static>(
     let mut rl = Editor::with_config(rl_config).unwrap();
     rl.set_helper(Some(helper));
 
-    let history_file = dirs_home().join(".brconsole_history");
+    let history_file = dirs_home().join(".oconsole_history");
     let _ = rl.load_history(&history_file);
 
     let version = env!("CARGO_PKG_VERSION");
@@ -1034,7 +1034,7 @@ mod tests {
 
     #[test]
     fn cli_defaults() {
-        let cli = Cli::parse_from(["brconsole"]);
+        let cli = Cli::parse_from(["oconsole"]);
         assert!(cli.address.is_none());
         assert!(cli.port.is_none());
         assert!(cli.name.is_none());
@@ -1045,7 +1045,7 @@ mod tests {
     #[test]
     fn cli_with_args() {
         let cli = Cli::parse_from([
-            "brconsole", "-a", "10.0.0.1", "-p", "9102",
+            "oconsole", "-a", "10.0.0.1", "-p", "9102",
             "-n", "admin", "-e", "status dir",
         ]);
         assert_eq!(cli.address, Some("10.0.0.1".to_string()));
