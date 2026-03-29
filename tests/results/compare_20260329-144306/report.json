@@ -1,0 +1,86 @@
+{"timestamp":"20260329-144306","cpp_port":9101,"rust_port":29101,"tests":[
+  {"name":"version","match":"yes","cpp_ms":304,"rust_ms":19}
+,
+  {"name":"time","match":"yes","cpp_ms":286,"rust_ms":11}
+,
+  {"name":"help","match":"yes","cpp_ms":274,"rust_ms":24}
+,
+  {"name":".help_all","match":"yes","cpp_ms":278,"rust_ms":21}
+,
+  {"name":"status_dir","match":"yes","cpp_ms":273,"rust_ms":25}
+,
+  {"name":"status_client","match":"yes","cpp_ms":514,"rust_ms":320}
+,
+  {"name":"status_storage","match":"yes","cpp_ms":467,"rust_ms":328}
+,
+  {"name":"list_jobs","match":"yes","cpp_ms":240,"rust_ms":22}
+,
+  {"name":"list_jobs_5","match":"yes","cpp_ms":275,"rust_ms":23}
+,
+  {"name":"list_clients","match":"yes","cpp_ms":286,"rust_ms":10}
+,
+  {"name":"list_pools","match":"yes","cpp_ms":275,"rust_ms":22}
+,
+  {"name":"list_volumes","match":"yes","cpp_ms":280,"rust_ms":19}
+,
+  {"name":"list_storages","match":"yes","cpp_ms":274,"rust_ms":24}
+,
+  {"name":"list_filesets","match":"yes","cpp_ms":282,"rust_ms":15}
+,
+  {"name":"list_jobtotals","match":"yes","cpp_ms":278,"rust_ms":20}
+,
+  {"name":"dot_clients","match":"yes","cpp_ms":282,"rust_ms":15}
+,
+  {"name":"dot_jobs","match":"no","cpp_ms":278,"rust_ms":20}
+,
+  {"name":"dot_pools","match":"yes","cpp_ms":268,"rust_ms":24}
+,
+  {"name":"dot_storage","match":"yes","cpp_ms":277,"rust_ms":21}
+,
+  {"name":"dot_filesets","match":"no","cpp_ms":288,"rust_ms":8}
+,
+  {"name":"dot_schedule","match":"yes","cpp_ms":276,"rust_ms":21}
+,
+  {"name":"dot_levels","match":"yes","cpp_ms":268,"rust_ms":29}
+,
+  {"name":"dot_types","match":"yes","cpp_ms":272,"rust_ms":25}
+,
+  {"name":"dot_volstatus","match":"yes","cpp_ms":280,"rust_ms":17}
+,
+  {"name":"dot_media","match":"yes","cpp_ms":241,"rust_ms":57}
+,
+  {"name":"dot_catalogs","match":"yes","cpp_ms":275,"rust_ms":22}
+,
+  {"name":"dot_jobdefs","match":"yes","cpp_ms":280,"rust_ms":18}
+,
+  {"name":"dot_mediatypes","match":"yes","cpp_ms":280,"rust_ms":18}
+,
+  {"name":"dot_actiononpurge","match":"yes","cpp_ms":275,"rust_ms":23}
+,
+  {"name":"dot_jobstatus","match":"yes","cpp_ms":286,"rust_ms":11}
+,
+  {"name":"sql_count","match":"yes","cpp_ms":274,"rust_ms":23}
+,
+  {"name":"sql_clients","match":"yes","cpp_ms":285,"rust_ms":11}
+,
+  {"name":"dot_sqltables","match":"yes","cpp_ms":275,"rust_ms":24}
+,
+  {"name":"show_director","match":"partial","cpp_ms":273,"rust_ms":23}
+,
+  {"name":"show_clients","match":"yes","cpp_ms":274,"rust_ms":20}
+,
+  {"name":"show_jobs","match":"yes","cpp_ms":274,"rust_ms":24}
+,
+  {"name":"show_pools","match":"yes","cpp_ms":274,"rust_ms":25}
+,
+  {"name":"whoami","match":"yes","cpp_ms":277,"rust_ms":20}
+,
+  {"name":"messages","match":"yes","cpp_ms":281,"rust_ms":17}
+,
+  {"name":"memory","match":"yes","cpp_ms":269,"rust_ms":29}
+,
+  {"name":"configure_export","match":"yes","cpp_ms":277,"rust_ms":22}
+,
+  {"name":"setdebug_0","match":"yes","cpp_ms":276,"rust_ms":22}
+
+],"summary":{"total":42,"pass":39,"fail":3,"skip":0,"match":39,"mismatch":3}}

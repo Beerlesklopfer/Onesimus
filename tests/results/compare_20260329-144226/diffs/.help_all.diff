@@ -1,0 +1,188 @@
+C++ lines: 98, Rust lines: 96
+5,13c5,20
+<   [32madd                   [0m Add media to a pool
+<   [32mautodisplay           [0m Autodisplay console messages
+<   [32mautomount             [0m Automount after label
+<   [32mcancel                [0m Cancel a job
+<   [32mconfigure             [0m Configure director resources
+<   [32mcreate                [0m Create DB pool from resource
+<   [32mdelete                [0m Delete catalog records
+<   [32mdisable               [0m Disable a job/client/schedule
+<   [32menable                [0m Enable a job/client/schedule
+---
+>   [32mversion               [0m Show Director version
+>   [32mtime                  [0m Show current date and time
+>   [32mquit                  [0m Disconnect from Director
+>   [32mhelp                  [0m List available commands
+>   [32mstatus                [0m Show Director/Client/Storage status
+>   [32mrun                   [0m Start a backup/restore job
+>   [32mcancel                [0m Cancel a running job
+>   [32mrestore               [0m Restore files from backup
+>   [32menable                [0m Enable a resource
+>   [32mdisable               [0m Disable a resource
+>   [32mlist                  [0m List catalog records
+>   [32mlabel                 [0m Label a new volume
+>   [32mmount                 [0m Mount a storage device
+>   [32munmount               [0m Unmount a storage device
+>   [32mrelease               [0m Release a storage device
+>   [32mupdate                [0m Update volume/pool attributes
+15,23c22,31
+<   [32mexit                  [0m Terminate bconsole session
+<   [32mexport                [0m Export volumes from autochanger
+<   [32mgui                   [0m Switch to non-interactive gui mode
+<   [32mhelp                  [0m Print help on a specific command
+<   [32mimport                [0m Import volumes to autochanger
+<   [32mlabel                 [0m Label a volume
+<   [32mlist                  [0m List catalog contents
+<   [32mllist                 [0m Full or long list like list command
+<   [32mmemory                [0m Print memory usage
+---
+>   [32mdelete                [0m Delete volume or job records
+>   [32mprune                 [0m Prune expired catalog records
+>   [32mpurge                 [0m Purge all records from volume
+>   [32mtruncate              [0m Truncate purged volume
+>   [32mreload                [0m Reload Director configuration
+>   [32mconfigure             [0m Add/modify/delete resources
+>   [32msqlquery              [0m Execute raw SQL
+>   [32mautodisplay           [0m Toggle automatic message display
+>   [32mautomount             [0m Toggle automatic mounting
+>   [32mgui                   [0m Set GUI mode
+25,37c33,39
+<   [32mmount                 [0m Mount storage
+<   [32mmove                  [0m Move slots in autochanger
+<   [32mprune                 [0m Prune expired records from catalog
+<   [32mpurge                 [0m Purge records from catalog
+<   [32mquit                  [0m Terminate bconsole session
+<   [32mrelabel               [0m Relabel a volume
+<   [32mrelease               [0m Release storage
+<   [32mreload                [0m Reload configuration file
+<   [32mrerun                 [0m Rerun a job
+<   [32mresolve               [0m Resolve a hostname
+<   [32mrestore               [0m Restore files
+<   [32mrun                   [0m Run a job
+<   [32msetbandwidth          [0m Set bandwidth limit
+---
+>   [32mmemory                [0m Show memory usage
+>   [32mshow                  [0m Show resource configuration
+>   [32mtrace                 [0m Toggle trace output
+>   [32mvar                   [0m Display variable expansion
+>   [32mwait                  [0m Wait for a job to complete
+>   [32mwhoami                [0m Show current console identity
+>   [32muse                   [0m Switch catalog
+38a41,42
+>   [32msetbandwidth          [0m Set bandwidth limit
+>   [32msetip                 [0m Update client IP address
+40,88c44,81
+<   [32msetip                 [0m Set client address for a client
+<   [32mshow                  [0m Show resource records
+<   [32msqlquery              [0m Use SQL to query catalog
+<   [32mstatus                [0m Report status
+<   [32mtrace                 [0m Turn on/off trace to file
+<   [32mtruncate              [0m Truncate purged volumes
+<   [32munmount               [0m Unmount storage
+<   [32mupdate                [0m Update volume, pool, or slots
+<   [32muse                   [0m Use specific catalog
+<   [32mvar                   [0m Variable expansion
+<   [32mversion               [0m Print Director version
+<   [32mwait                  [0m Wait until no jobs are running
+<   [32mwhoami                [0m Print the currently logged in user
+<   [33m.                     [0m No op
+<   [33m.actiononpurge        [0m List possible actions on purge
+<   [33m.api                  [0m Switch between different api modes
+<   [33m.authorized           [0m Check for authorization
+<   [33m.bvfs_cleanup         [0m Cleanup BVFS cache for a certain handle
+<   [33m.bvfs_clear_cache     [0m Clear BVFS cache
+<   [33m.bvfs_get_jobids      [0m Get jobids required for a restore
+<   [33m.bvfs_lsdirs          [0m List directories using BVFS
+<   [33m.bvfs_lsfiles         [0m List files using BVFS
+<   [33m.bvfs_restore         [0m Mark BVFS files/directories for restore
+<   [33m.bvfs_update          [0m Update BVFS cache
+<   [33m.bvfs_versions        [0m List versions of a file
+<   [33m.catalog              [0m Catalog schema management
+<   [33m.catalogs             [0m List all catalog resources
+<   [33m.clients              [0m List all client resources
+<   [33m.consoles             [0m List all console resources
+<   [33m.defaults             [0m Get default settings
+<   [33m.filesets             [0m List all fileset resources
+<   [33m.grpc                 [0m Switch to gRPC/Protobuf response mode
+<   [33m.help                 [0m Print parsable information about a command
+<   [33m.jobdefs              [0m List all job defaults resources
+<   [33m.jobs                 [0m List all job resources
+<   [33m.jobstatus            [0m List jobstatus information
+<   [33m.levels               [0m List all backup levels
+<   [33m.locations            [0m List all location resources
+<   [33m.media                [0m List all media
+<   [33m.mediatypes           [0m List all media types
+<   [33m.messages             [0m Display pending messages
+<   [33m.msgs                 [0m List all message resources
+<   [33m.pools                [0m List all pool resources
+<   [33m.profiles             [0m List all profile resources
+<   [33m.quit                 [0m Close connection
+<   [33m.schedule             [0m List all schedule resources
+<   [33m.sql                  [0m Send an arbitrary SQL command
+<   [33m.sqlcount             [0m Show row count for tables
+<   [33m.sqlschema            [0m Show table schema
+---
+>   [32mresolve               [0m DNS resolve hostname
+>   [32mrerun                 [0m Re-run a failed job
+>   [32mrelabel               [0m Re-label a volume
+>   [32mcreate                [0m Create pool from resource
+>   [32madd                   [0m Add volume to pool
+>   [32mimport                [0m Import volumes from magazine
+>   [32mexport                [0m Export volumes to magazine
+>   [32mmove                  [0m Move volume between pools
+>   [33m.help                 [0m List commands (machine format)
+>   [33m.quit                 [0m Disconnect
+>   [33m.status               [0m Status (machine format)
+>   [33m.                     [0m No-op
+>   [33m.clients              [0m List client names
+>   [33m.jobs                 [0m List job names
+>   [33m.pools                [0m List pool names
+>   [33m.storage              [0m List storage names
+>   [33m.filesets             [0m List fileset names
+>   [33m.schedule             [0m List schedule names
+>   [33m.catalogs             [0m List catalog names
+>   [33m.consoles             [0m List console names
+>   [33m.jobdefs              [0m List jobdefs names
+>   [33m.profiles             [0m List profile names
+>   [33m.locations            [0m List location names
+>   [33m.media                [0m List volume names
+>   [33m.mediatypes           [0m List media types
+>   [33m.messages             [0m List message resource names
+>   [33m.msgs                 [0m List pending message types
+>   [33m.users                [0m List user names
+>   [33m.defaults             [0m Show default values
+>   [33m.jobstatus            [0m List job status codes
+>   [33m.authorized           [0m Check command authorization
+>   [33m.levels               [0m List backup levels
+>   [33m.types                [0m List job types
+>   [33m.volstatus            [0m List volume status values
+>   [33m.actiononpurge        [0m List action-on-purge options
+>   [33m.api                  [0m Set API mode (0/1/2)
+>   [33m.grpc                 [0m Toggle gRPC mode
+>   [33m.sql                  [0m Execute SQL
+90,94c83,84
+<   [33m.status               [0m Report status (machine-readable)
+<   [33m.storages             [0m List all storage resources
+<   [33m.types                [0m List all job types
+<   [33m.users                [0m List all user resources
+<   [33m.volstatus            [0m List all volume status
+---
+>   [33m.sqlschema            [0m Show catalog schema
+>   [33m.sqlcount             [0m Count catalog records
+96c86,94
+<   [33m.profile              [0m Manage ACL profiles
+---
+>   [33m.catalog              [0m Catalog management
+>   [33m.bvfs_update          [0m Update BVFS cache
+>   [33m.bvfs_cleanup         [0m Cleanup BVFS temp tables
+>   [33m.bvfs_clear_cache     [0m Clear BVFS cache
+>   [33m.bvfs_get_jobids      [0m Get job IDs for restore
+>   [33m.bvfs_lsdirs          [0m List directories (BVFS)
+>   [33m.bvfs_lsfiles         [0m List files (BVFS)
+>   [33m.bvfs_versions        [0m List file versions
+>   [33m.bvfs_restore         [0m Restore from BVFS selection
+98c96
+<   [2m92 commands total.[0m
+---
+>   [2m90 commands.[0m

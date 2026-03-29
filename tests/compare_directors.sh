@@ -95,15 +95,17 @@ NC='\033[0m'
 # Test runner
 # =============================================================================
 
-# run_cmd <config> <command> → stdout=output, sets REPLY_MS
+# run_cmd <config> <command> → stdout=output, sets global REPLY_MS
+REPLY_MS=0
 run_cmd() {
     local conf="$1"
     local cmd="$2"
-    local start_s=$(date +%s)
+    local start_s end_s
+    start_s=$(date +%s)
     local output
     output=$(echo "$cmd" | $BCONSOLE -c "$conf" -u "$TIMEOUT" 2>/dev/null | \
              grep -v '^Connecting\|^Enter a\|^You are\|^ Encryption\|^1000 OK' || true)
-    local end_s=$(date +%s)
+    end_s=$(date +%s)
     REPLY_MS=$(( (end_s - start_s) * 1000 ))
     echo "$output"
 }

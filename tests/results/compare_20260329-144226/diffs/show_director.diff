@@ -1,0 +1,4 @@
+3c3
+< Director: name=bareos-dir port=9101 maxjobs=10
+---
+> Director: name=bareos-dir port=29101 maxjobs=10

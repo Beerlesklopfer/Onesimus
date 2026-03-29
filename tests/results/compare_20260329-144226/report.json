@@ -1,0 +1,86 @@
+{"timestamp":"20260329-144226","cpp_port":9101,"rust_port":29101,"tests":[
+  {"name":"version","command":"version","mode":"contains","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"time","command":"time","mode":"contains","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"help","command":"help","mode":"structure","match":"structure_diff","cpp_ms":0,"rust_ms":0,"diff":"help.diff"}
+,
+  {"name":".help_all","command":".help all","mode":"structure","match":"structure_diff","cpp_ms":0,"rust_ms":0,"diff":".help_all.diff"}
+,
+  {"name":"status_dir","command":"status dir","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"status_client","command":"status client=bareos-fd","mode":"contains","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"status_storage","command":"status storage=File","mode":"contains","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"list_jobs","command":"list jobs","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"list_jobs_limit5","command":"list jobs limit=5","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"list_clients","command":"list clients","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"list_pools","command":"list pools","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"list_volumes","command":"list volumes","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"list_storages","command":"list storages","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"list_filesets","command":"list filesets","mode":"structure","match":"structure_diff","cpp_ms":0,"rust_ms":0,"diff":"list_filesets.diff"}
+,
+  {"name":"list_jobtotals","command":"list jobtotals","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_clients","command":".clients","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_jobs","command":".jobs","mode":"exact","match":"no","cpp_ms":0,"rust_ms":0,"diff":"dot_jobs.diff"}
+,
+  {"name":"dot_pools","command":".pools","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_storage","command":".storage","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_filesets","command":".filesets","mode":"exact","match":"no","cpp_ms":0,"rust_ms":0,"diff":"dot_filesets.diff"}
+,
+  {"name":"dot_schedule","command":".schedule","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_levels","command":".levels","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_types","command":".types","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_volstatus","command":".volstatus","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_media","command":".media","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_catalogs","command":".catalogs","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_jobdefs","command":".jobdefs","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_mediatypes","command":".mediatypes","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_actiononpurge","command":".actiononpurge","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_jobstatus","command":".jobstatus","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"sqlquery_count","command":"sqlquery SELECT COUNT(*) FROM job","mode":"contains","match":"partial","cpp_ms":0,"rust_ms":0,"diff":"sqlquery_count.diff"}
+,
+  {"name":"sqlquery_clients","command":"sqlquery SELECT name FROM client ORDER BY name","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"dot_sqltables","command":".sql tables","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"show_director","command":"show director","mode":"contains","match":"partial","cpp_ms":0,"rust_ms":0,"diff":"show_director.diff"}
+,
+  {"name":"show_clients","command":"show clients","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"show_jobs","command":"show jobs","mode":"structure","match":"structure_diff","cpp_ms":0,"rust_ms":0,"diff":"show_jobs.diff"}
+,
+  {"name":"show_pools","command":"show pools","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"whoami","command":"whoami","mode":"exact","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"messages","command":"messages","mode":"contains","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"memory","command":"memory","mode":"structure","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+,
+  {"name":"configure_export","command":"configure export","mode":"structure","match":"structure_diff","cpp_ms":0,"rust_ms":0,"diff":"configure_export.diff"}
+,
+  {"name":"setdebug_0","command":"setdebug level=0","mode":"contains","match":"yes","cpp_ms":0,"rust_ms":0,"diff":""}
+
+],"summary":{"total":42,"pass":33,"fail":9,"skip":0,"match":33,"mismatch":9}}

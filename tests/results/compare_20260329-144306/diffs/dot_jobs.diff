@@ -1,0 +1,4 @@
+1c1
+<  .jobs BackupCatalog RestoreFiles backup-bareos-fd
+---
+>  .jobs BackupCatalog RestoreFiles backup-bareos-fd backup-bareos-repo

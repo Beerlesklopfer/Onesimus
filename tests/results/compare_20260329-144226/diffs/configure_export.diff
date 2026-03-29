@@ -1,0 +1,15 @@
+C++ lines: 77, Rust lines: 86
+5c5
+<   Port = 9101
+---
+>   Port = 29101
+40a41,49
+> }
+> 
+> Job {
+>   Name = "backup-bareos-repo"
+>   Type = Backup
+>   Level = Full
+>   Client = "bareos-fd"
+>   Storage = "File"
+>   Pool = "Full"

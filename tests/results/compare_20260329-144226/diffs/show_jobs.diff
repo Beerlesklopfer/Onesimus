@@ -1,0 +1,67 @@
+C++ lines: 5, Rust lines: 63
+3,5c3,63
+< Job: name=BackupCatalog type=Backup level=Incremental client=bareos-fd storage=File pool=Incremental enabled=true
+< Job: name=RestoreFiles type=Restore level=Full client=bareos-fd storage=File pool=Incremental enabled=true
+< Job: name=backup-bareos-fd type=Backup level=Incremental client=bareos-fd storage=File pool=Incremental enabled=true
+---
+> Job {
+>   Name = "BackupCatalog"
+>   Type = Backup
+>   Level = Incremental
+>   Client = bareos-fd
+>   FileSet = "Catalog"
+>   Storage = File
+>   Pool = Incremental
+>   Messages = Standard
+>   Priority = 11
+>   Schedule = "WeeklyCycleAfterBackup"
+>   Full Backup Pool = Full
+>   Differential Backup Pool = Differential
+>   Incremental Backup Pool = Incremental
+>   Write Bootstrap = "|/usr/bin/bsmtp -h localhost -f "\(Bareos\) \ -s "Bootstrap for Job %j\ root"
+>   Enabled = yes
+> }
+> 
+> Job {
+>   Name = "RestoreFiles"
+>   Type = Restore
+>   Level = Full
+>   Client = bareos-fd
+>   FileSet = "LinuxAll"
+>   Storage = File
+>   Pool = Incremental
+>   Messages = Standard
+>   Priority = 10
+>   Enabled = yes
+> }
+> 
+> Job {
+>   Name = "backup-bareos-fd"
+>   Type = Backup
+>   Level = Incremental
+>   Client = bareos-fd
+>   FileSet = "SelfTest"
+>   Storage = File
+>   Pool = Incremental
+>   Messages = Standard
+>   Priority = 10
+>   Schedule = "WeeklyCycle"
+>   Full Backup Pool = Full
+>   Differential Backup Pool = Differential
+>   Incremental Backup Pool = Incremental
+>   Write Bootstrap = "/var/lib/bareos/%c.bsr"
+>   Enabled = yes
+> }
+> 
+> Job {
+>   Name = "backup-bareos-repo"
+>   Type = Backup
+>   Level = Full
+>   Client = bareos-fd
+>   FileSet = "baReosRepo"
+>   Storage = File
+>   Pool = Full
+>   Messages = Standard
+>   Priority = 10
+>   Enabled = yes
+> }
