@@ -410,25 +410,115 @@ def main():
 # PDF Report Generator
 # =============================================================================
 
+def gather_system_info() -> dict:
+    """Collect system information for the report."""
+    import platform
+    info = {
+        "hostname": platform.node(),
+        "os": platform.platform(),
+        "kernel": platform.release(),
+        "arch": platform.machine(),
+        "python": platform.python_version(),
+        "cpu": "unknown",
+        "ram_gb": "unknown",
+        "cpp_version": "unknown",
+        "rust_version": "unknown",
+    }
+    # CPU
+    try:
+        with open("/proc/cpuinfo") as f:
+            for line in f:
+                if line.startswith("model name"):
+                    info["cpu"] = line.split(":")[1].strip()
+                    break
+    except OSError:
+        pass
+    # RAM
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal"):
+                    kb = int(line.split()[1])
+                    info["ram_gb"] = f"{kb / 1024 / 1024:.1f} GB"
+                    break
+    except OSError:
+        pass
+    # Bareos C++ version
+    try:
+        out = subprocess.check_output(["/usr/sbin/bareos-dir", "--version"],
+                                       stderr=subprocess.STDOUT, text=True, timeout=3)
+        for line in out.split("\n"):
+            if "Version:" in line:
+                info["cpp_version"] = line.strip()
+                break
+    except Exception:
+        pass
+    # Rust onesimusd version
+    try:
+        out = subprocess.check_output(["target/debug/onesimusd", "--version"],
+                                       stderr=subprocess.STDOUT, text=True, timeout=3)
+        info["rust_version"] = out.strip()
+    except Exception:
+        pass
+    return info
+
+
+def classify_failure(name: str, diff: str) -> str:
+    """Explain WHY a test failed — config diff, format diff, or real bug."""
+    if not diff:
+        return ""
+    lower = diff.lower()
+    if "port" in lower and ("9101" in diff or "29101" in diff):
+        return "Port difference (C++ on 9101, Rust on 29101) — expected when running side-by-side."
+    if "bareos-repo" in lower or "baReosRepo" in lower:
+        return "Extra resource in Rust config (baReosRepo test job/fileset not in C++ config)."
+    if "version" in lower:
+        return "Version string difference — different binaries, expected."
+    if "lines:" in lower:
+        return "Output format difference — Rust shows more/fewer detail lines than C++."
+    if "Job {" in diff or "JobDefs" in diff:
+        return "Rust show jobs uses multi-line Bareos config format, C++ uses single-line summary."
+    return "Output content mismatch — check diff for details."
+
+
 def generate_pdf(report: Report, path: Path):
-    """Generate a PDF report with summary table and timing chart."""
+    """Generate a PDF report with system info, summary, timing chart, detail table."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
 
     tests = report.tests
+    sysinfo = gather_system_info()
 
     with PdfPages(str(path)) as pdf:
-        # --- Page 1: Title + Summary ---
+        # --- Page 1: Title + System Info + Summary ---
         fig, ax = plt.subplots(figsize=(11, 8.5))
         ax.axis("off")
 
-        ax.text(0.5, 0.92, "Onesimus Director — Comparison Report",
+        ax.text(0.5, 0.95, "Onesimus Director — Comparison Report",
                 fontsize=20, ha="center", fontweight="bold")
-        ax.text(0.5, 0.87, f"Date: {report.timestamp}   "
-                f"C++ port: {report.cpp_port}   Rust port: {report.rust_port}",
+        ax.text(0.5, 0.91, f"Date: {report.timestamp}",
                 fontsize=11, ha="center", color="gray")
+
+        # System info box
+        sys_text = (
+            f"Host:     {sysinfo['hostname']}\n"
+            f"OS:       {sysinfo['os']}\n"
+            f"Kernel:   {sysinfo['kernel']}\n"
+            f"CPU:      {sysinfo['cpu']}\n"
+            f"RAM:      {sysinfo['ram_gb']}\n"
+            f"Python:   {sysinfo['python']}\n"
+            f"\n"
+            f"C++ Director:  port {report.cpp_port}  {sysinfo['cpp_version']}\n"
+            f"Rust Director: port {report.rust_port}  {sysinfo['rust_version']}\n"
+            f"\n"
+            f"Test method: bconsole sends command, stdout captured, ANSI stripped,\n"
+            f"timestamps/versions/IDs normalized before comparison."
+        )
+        ax.text(0.05, 0.72, sys_text, fontsize=9, va="top",
+                fontfamily="monospace",
+                bbox=dict(boxstyle="round,pad=0.5", facecolor="#E3F2FD", edgecolor="#1565C0"))
 
         # Summary box
         total = report.total
@@ -494,39 +584,56 @@ def generate_pdf(report: Report, path: Path):
         pdf.savefig(fig)
         plt.close(fig)
 
-        # --- Page 3: Results Table ---
-        fig, ax = plt.subplots(figsize=(11, 8.5))
-        ax.axis("off")
-        ax.set_title("Test Results Detail", fontsize=14, fontweight="bold", pad=20)
-
-        col_labels = ["Test", "Command", "Mode", "Match", "C++ ms", "Rust ms"]
-        table_data = []
-        cell_colors = []
+        # --- Page 3+: Results Table with Comments ---
+        col_labels = ["Test", "Match", "C++", "Rust", "Comment"]
+        rows_per_page = 30
+        all_rows = []
+        all_colors = []
         for t in tests:
-            row = [t["name"], t["command"][:30], t["mode"], t["match"],
-                   str(t["cpp_ms"]), str(t["rust_ms"])]
-            table_data.append(row)
+            comment = ""
+            if t["match"] != "yes":
+                comment = classify_failure(t["name"], t.get("diff", ""))
+            row = [t["name"], t["match"],
+                   f"{t['cpp_ms']}ms", f"{t['rust_ms']}ms",
+                   comment[:60]]
+            all_rows.append(row)
             if t["match"] == "yes":
-                cell_colors.append(["#E8F5E9"] * 6)
+                all_colors.append(["#E8F5E9"] * 5)
             elif t["match"] == "skip":
-                cell_colors.append(["#FFF9C4"] * 6)
+                all_colors.append(["#FFF9C4"] * 5)
             else:
-                cell_colors.append(["#FFEBEE"] * 6)
+                all_colors.append(["#FFEBEE"] * 5)
 
-        table = ax.table(cellText=table_data, colLabels=col_labels,
-                         cellColours=cell_colors, loc="center", cellLoc="left")
-        table.auto_set_font_size(False)
-        table.set_fontsize(7)
-        table.scale(1.0, 1.2)
+        # Paginate
+        for page_start in range(0, len(all_rows), rows_per_page):
+            page_rows = all_rows[page_start:page_start + rows_per_page]
+            page_colors = all_colors[page_start:page_start + rows_per_page]
 
-        # Header colors
-        for j in range(len(col_labels)):
-            table[0, j].set_facecolor("#263238")
-            table[0, j].set_text_props(color="white", fontweight="bold")
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            ax.axis("off")
+            page_num = page_start // rows_per_page + 1
+            ax.set_title(f"Test Results Detail (Page {page_num})",
+                         fontsize=14, fontweight="bold", pad=20)
 
-        plt.tight_layout()
-        pdf.savefig(fig)
-        plt.close(fig)
+            table = ax.table(cellText=page_rows, colLabels=col_labels,
+                             cellColours=page_colors, loc="center", cellLoc="left")
+            table.auto_set_font_size(False)
+            table.set_fontsize(7)
+            table.scale(1.0, 1.2)
+
+            # Column widths
+            for j, w in enumerate([0.15, 0.08, 0.06, 0.06, 0.45]):
+                for i in range(len(page_rows) + 1):
+                    table[i, j].set_width(w)
+
+            # Header
+            for j in range(len(col_labels)):
+                table[0, j].set_facecolor("#263238")
+                table[0, j].set_text_props(color="white", fontweight="bold")
+
+            plt.tight_layout()
+            pdf.savefig(fig)
+            plt.close(fig)
 
 
 if __name__ == "__main__":

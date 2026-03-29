@@ -1,0 +1,14 @@
+--- C++ (port 9101)
++++ Rust (port 29101)
+
+C++ lines: 3, Rust lines: 58
+  line 1:
+    C++:  Job: name=BackupCatalog type=Backup level=Incremental client=bareos-fd storage=File pool=Incremental enabled=true
+    Rust: Job {
+  line 2:
+    C++:  Job: name=RestoreFiles type=Restore level=Full client=bareos-fd storage=File pool=Incremental enabled=true
+    Rust:   Name = "BackupCatalog"
+  line 3:
+    C++:  Job: name=backup-bareos-fd type=Backup level=Incremental client=bareos-fd storage=File pool=Incremental enabled=true
+    Rust:   Type = Backup
+  C++ has 3 lines, Rust has 58 lines
