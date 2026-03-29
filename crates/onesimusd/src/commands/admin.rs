@@ -99,6 +99,10 @@ pub fn cmd_release(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
 
 pub fn cmd_update(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     let what = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("");
+    let cat = match &ctx.catalog {
+        Some(c) => c,
+        None => return CommandResult::ok("No catalog configured\n".to_string()),
+    };
 
     match what {
         "volume" => {
@@ -106,32 +110,71 @@ pub fn cmd_update(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
             if vol.is_empty() {
                 return CommandResult::ok("update volume: specify volume=<name>\n".to_string());
             }
-            CommandResult::ok(format!("Volume \"{vol}\" updated in catalog\n"))
+            // Collect updateable fields from arguments
+            let mut sets = Vec::new();
+            if let Some(v) = get_arg(ast, "volstatus") { sets.push(format!("volstatus='{v}'")); }
+            if let Some(v) = get_arg(ast, "maxvolbytes") { sets.push(format!("maxvolbytes={v}")); }
+            if let Some(v) = get_arg(ast, "maxvoljobs") { sets.push(format!("maxvoljobs={v}")); }
+            if let Some(v) = get_arg(ast, "maxvolfiles") { sets.push(format!("maxvolfiles={v}")); }
+            if let Some(v) = get_arg(ast, "slot") { sets.push(format!("slot={v}")); }
+            if let Some(v) = get_arg(ast, "inchanger") { sets.push(format!("inchanger={v}")); }
+            if let Some(v) = get_arg(ast, "enabled") {
+                sets.push(format!("enabled={}", if v == "yes" || v == "1" { 1 } else { 0 }));
+            }
+            if sets.is_empty() {
+                return CommandResult::ok(format!(
+                    "update volume={vol}: specify attributes to change:\n  \
+                     volstatus=<Append|Full|Used|Purged|Recycle|Error>\n  \
+                     maxvolbytes=<N>  maxvoljobs=<N>  maxvolfiles=<N>\n  \
+                     slot=<N>  inchanger=<0|1>  enabled=<yes|no>\n"
+                ));
+            }
+            let sql = format!("UPDATE media SET {} WHERE volumename='{vol}'", sets.join(", "));
+            match cat.raw_query(&sql) {
+                Ok(_) => CommandResult::ok(format!("Volume \"{vol}\" updated: {}\n", sets.join(", "))),
+                Err(e) => CommandResult::error(format!("Update error: {e}\n")),
+            }
         }
         "pool" => {
-            let pool = get_arg(ast, "pool").unwrap_or(get_arg(ast, "name").unwrap_or(""));
-            if pool.is_empty() {
-                // List pools
+            let pool_name = get_arg(ast, "pool").unwrap_or(get_arg(ast, "name").unwrap_or(""));
+            if pool_name.is_empty() {
                 if let Some(config) = &ctx.config {
                     if let Ok(cfg) = config.read() {
                         let names: Vec<_> = cfg.pools.iter().map(|p| p.name.as_str()).collect();
                         return CommandResult::ok(format!(
-                            "update pool: specify pool=<name>\nAvailable: {}\n",
-                            names.join(", ")
-                        ));
+                            "update pool: specify pool=<name>\nAvailable: {}\n", names.join(", ")));
                     }
                 }
                 return CommandResult::ok("update pool: specify pool=<name>\n".to_string());
             }
-            CommandResult::ok(format!("Pool \"{pool}\" updated from resource\n"))
+            // Sync pool attributes from config to DB
+            if let Some(config) = &ctx.config {
+                if let Ok(cfg) = config.read() {
+                    if let Some(pool) = cfg.pools.iter().find(|p| p.name == pool_name) {
+                        let sql = format!(
+                            "UPDATE pool SET pooltype='{}', maxvols={}, autoprune={}, \
+                             volretention={}, fileretention={}, jobretention={} \
+                             WHERE name='{pool_name}'",
+                            pool.pool_type, pool.maximum_volumes,
+                            if pool.auto_prune { 1 } else { 0 },
+                            pool.volume_retention.as_secs(), 0, 0,
+                        );
+                        match cat.raw_query(&sql) {
+                            Ok(_) => return CommandResult::ok(format!("Pool \"{pool_name}\" updated from resource\n")),
+                            Err(e) => return CommandResult::error(format!("Update error: {e}\n")),
+                        }
+                    }
+                }
+            }
+            CommandResult::ok(format!("Pool \"{pool_name}\" not found in config\n"))
         }
         "slots" => {
             let stor = get_arg(ast, "storage").unwrap_or("?");
             CommandResult::ok(format!("Updating slots for storage {stor}...\nDone.\n"))
         }
         "" => CommandResult::ok(
-            "update: specify one of:\n  update volume=<name>\n  update pool=<name>\n  update slots storage=<name>\n"
-                .to_string()
+            "update: specify one of:\n  update volume=<name> [volstatus=<S>] [maxvolbytes=<N>] ...\n  \
+             update pool=<name>\n  update slots storage=<name>\n".to_string()
         ),
         other => CommandResult::ok(format!("update {other}: not supported\n")),
     }

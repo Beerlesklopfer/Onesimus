@@ -159,8 +159,27 @@ pub fn cmd_var(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(format!("Variable {name}: undefined\n"))
 }
 
-pub fn cmd_wait(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("No jobs running or queued.\n".to_string())
+pub fn cmd_wait(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let job_id = ast.arguments.iter()
+        .find(|a| a.key == "jobid")
+        .and_then(|a| a.value.as_deref())
+        .and_then(|v| v.parse::<u32>().ok());
+
+    if let Some(ref mgr) = ctx.job_manager {
+        loop {
+            let running = mgr.lock().unwrap().running_jobs();
+            let waiting_for = match job_id {
+                Some(id) => running.iter().any(|(jid, _, _)| *jid == id),
+                None => !running.is_empty(),
+            };
+            if !waiting_for { break; }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
+    match job_id {
+        Some(id) => CommandResult::ok(format!("Job {id} finished.\n")),
+        None => CommandResult::ok("No jobs running or queued.\n".to_string()),
+    }
 }
 
 pub fn cmd_whoami(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
@@ -172,8 +191,11 @@ pub fn cmd_use(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
 }
 
 pub fn cmd_setdebug(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let level = ast.arguments.iter().find(|a| a.key == "level")
-        .and_then(|a| a.value.as_deref()).unwrap_or("0");
+    let level: u32 = ast.arguments.iter().find(|a| a.key == "level")
+        .and_then(|a| a.value.as_deref())
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    bareos_bnet::debug::set_debug_level(level);
     CommandResult::ok(format!("Debug level set to {level}\n"))
 }
 
@@ -193,10 +215,30 @@ pub fn cmd_setdevice(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
     CommandResult::ok(format!("Device {device} selected\n"))
 }
 
-pub fn cmd_resolve(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    let client = ast.arguments.iter().find(|a| a.key == "client")
-        .and_then(|a| a.value.as_deref()).unwrap_or("?");
-    CommandResult::ok(format!("Resolving {client}: pending\n"))
+pub fn cmd_resolve(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let hostname = ast.arguments.iter()
+        .find(|a| a.key == "client")
+        .and_then(|a| a.value.as_deref())
+        .or_else(|| ast.arguments.first().map(|a| a.key.as_str()))
+        .unwrap_or("localhost");
+
+    // If it's a client name, resolve from config
+    let addr = if let Some(config) = &ctx.config {
+        if let Ok(cfg) = config.read() {
+            cfg.clients.iter().find(|c| c.name == hostname)
+                .map(|c| c.address.clone())
+                .unwrap_or_else(|| hostname.to_string())
+        } else { hostname.to_string() }
+    } else { hostname.to_string() };
+
+    use std::net::ToSocketAddrs;
+    match format!("{addr}:0").to_socket_addrs() {
+        Ok(addrs) => {
+            let ips: Vec<String> = addrs.map(|a| a.ip().to_string()).collect();
+            CommandResult::ok(format!("{hostname} resolves to: {}\n", ips.join(", ")))
+        }
+        Err(e) => CommandResult::ok(format!("{hostname}: resolution failed: {e}\n")),
+    }
 }
 
 pub fn cmd_rerun(ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
@@ -243,8 +285,35 @@ pub fn cmd_delete(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
     }
 }
 
-pub fn cmd_create(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {
-    CommandResult::ok("Pool created from resource\n".to_string())
+pub fn cmd_create(ast: &CommandAst, ctx: &ExecContext) -> CommandResult {
+    let pool_name = ast.arguments.iter().find(|a| a.key == "pool")
+        .and_then(|a| a.value.as_deref());
+    let cat = match &ctx.catalog {
+        Some(c) => c,
+        None => return CommandResult::ok("No catalog configured\n".to_string()),
+    };
+    let config = match &ctx.config {
+        Some(c) => match c.read() { Ok(c) => c, Err(_) => return CommandResult::error("Config error\n".to_string()) },
+        None => return CommandResult::ok("No config\n".to_string()),
+    };
+
+    let pools: Vec<_> = match pool_name {
+        Some(name) => config.pools.iter().filter(|p| p.name == name).collect(),
+        None => config.pools.iter().collect(),
+    };
+
+    let mut created = 0;
+    for pool in &pools {
+        let sql = format!(
+            "INSERT INTO pool (name, pooltype, maxvols, autoprune, volretention, fileretention, jobretention, numvols) \
+             VALUES ('{}', '{}', {}, {}, {}, {}, {}, 0) ON CONFLICT (name) DO NOTHING",
+            pool.name, pool.pool_type, pool.maximum_volumes,
+            if pool.auto_prune { 1 } else { 0 },
+            pool.volume_retention.as_secs(), 0, 0,
+        );
+        if cat.raw_query(&sql).is_ok() { created += 1; }
+    }
+    CommandResult::ok(format!("{created} pool(s) created from resource\n"))
 }
 
 pub fn cmd_add(_ast: &CommandAst, _ctx: &ExecContext) -> CommandResult {

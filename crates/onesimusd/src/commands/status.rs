@@ -123,10 +123,41 @@ fn status_director(ctx: &ExecContext) -> CommandResult {
         );
     }
 
-    output.push_str("Scheduled Jobs:\n");
-    output.push_str("  No scheduled jobs.\n\n");
+    // Running jobs from JobManager
     output.push_str("Running Jobs:\n");
-    output.push_str("  No running jobs.\n");
+    if let Some(ref mgr) = ctx.job_manager {
+        let jobs = mgr.lock().unwrap();
+        let running = jobs.running_jobs();
+        if running.is_empty() {
+            output.push_str("  No running jobs.\n");
+        } else {
+            output.push_str("  JobId    Name                           Phase\n");
+            output.push_str("  ============================================================\n");
+            for (id, name, phase) in &running {
+                output.push_str(&format!("  {id:<8} {name:<30} {phase}\n"));
+            }
+        }
+    } else {
+        output.push_str("  No running jobs.\n");
+    }
+
+    // Terminated jobs from catalog
+    output.push_str("\nTerminated Jobs:\n");
+    if let Some(cat) = &ctx.catalog {
+        match cat.raw_query(
+            "SELECT jobid, jobname, type, level, jobstatus, clientname, \
+             starttime, endtime, jobfiles, jobbytes \
+             FROM vw_job_summary WHERE jobstatus IN ('T','E','f','A') \
+             ORDER BY jobid DESC LIMIT 10"
+        ) {
+            Ok(result) if !result.contains("No results") => {
+                output.push_str(&result);
+            }
+            _ => output.push_str("  No terminated jobs.\n"),
+        }
+    } else {
+        output.push_str("  No terminated jobs.\n");
+    }
     output.push_str("====\n");
 
     CommandResult::ok(output)
