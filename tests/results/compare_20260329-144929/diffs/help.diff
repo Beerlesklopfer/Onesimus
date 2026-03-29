@@ -1,0 +1,34 @@
+--- C++ (port 9101)
++++ Rust (port 29101)
+
+C++ lines: 50, Rust lines: 49
+  line 2:
+    C++:    [32madd                 [0m Add media to a pool
+    Rust:   [32mversion             [0m Show Director version
+  line 3:
+    C++:    [32mautodisplay         [0m Autodisplay console messages
+    Rust:   [32mtime                [0m Show current date and time
+  line 4:
+    C++:    [32mautomount           [0m Automount after label
+    Rust:   [32mquit                [0m Disconnect from Director
+  line 5:
+    C++:    [32mcancel              [0m Cancel a job
+    Rust:   [32mhelp                [0m List available commands
+  line 6:
+    C++:    [32mconfigure           [0m Configure director resources
+    Rust:   [32mstatus              [0m Show Director/Client/Storage status
+  line 7:
+    C++:    [32mcreate              [0m Create DB pool from resource
+    Rust:   [32mrun                 [0m Start a backup/restore job
+  line 8:
+    C++:    [32mdelete              [0m Delete catalog records
+    Rust:   [32mcancel              [0m Cancel a running job
+  line 9:
+    C++:    [32mdisable             [0m Disable a job/client/schedule
+    Rust:   [32mrestore             [0m Restore files from backup
+  line 10:
+    C++:    [32menable              [0m Enable a job/client/schedule
+    Rust:   [32menable              [0m Enable a resource
+  line 11:
+    C++:    [32mestimate            [0m Estimate backup size
+    Rust:   [32mdisable             [0m Disable a resource

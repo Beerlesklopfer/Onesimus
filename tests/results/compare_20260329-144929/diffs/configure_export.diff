@@ -1,0 +1,34 @@
+--- C++ (port 9101)
++++ Rust (port 29101)
+
+C++ lines: 66, Rust lines: 74
+  line 3:
+    C++:    Port = 9101
+    Rust:   Port = 29101
+  line 36:
+    C++:  Storage {
+    Rust: Job {
+  line 37:
+    C++:    Name = "File"
+    Rust:   Name = "backup-bareos-repo"
+  line 38:
+    C++:    Address = "WS-JOERG.intranet.bernau.family"
+    Rust:   Type = Backup
+  line 39:
+    C++:    Port = 9103
+    Rust:   Level = Full
+  line 40:
+    C++:    Device = "FileStorage"
+    Rust:   Client = "bareos-fd"
+  line 41:
+    C++:    Media Type = "File"
+    Rust:   Storage = "File"
+  line 42:
+    C++:  }
+    Rust:   Pool = "Full"
+  line 43:
+    C++:  Pool {
+    Rust: }
+  line 44:
+    C++:    Name = "Differential"
+    Rust: Storage {
