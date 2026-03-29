@@ -8,6 +8,7 @@ mod catalog_worker;
 mod command_ast;
 mod command_executor;
 mod command_queue;
+mod command_registry;
 mod commands;
 mod command_worker;
 mod connection_monitor;
