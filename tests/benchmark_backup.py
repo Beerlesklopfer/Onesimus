@@ -153,33 +153,59 @@ def poll_job_status(conf_path: str, job_id: int) -> dict:
     return result
 
 
+def poll_sd_status(conf_path: str) -> dict:
+    """Poll SD status for live throughput data during backup."""
+    output = bconsole_cmd(conf_path, "status storage=File", timeout=8)
+    result = {"files": 0, "bytes": 0, "avg_bps": 0, "last_bps": 0, "writing": False}
+    for line in output.split("\n"):
+        line = line.strip().replace(",", "")
+        if "Files=" in line and "Bytes=" in line:
+            for part in line.split():
+                if part.startswith("Files="):
+                    try: result["files"] = int(part.split("=")[1])
+                    except: pass
+                elif part.startswith("Bytes=") and "AveBytes" not in part:
+                    try: result["bytes"] = int(part.split("=")[1])
+                    except: pass
+                elif part.startswith("AveBytes/sec="):
+                    try: result["avg_bps"] = int(part.split("=")[1])
+                    except: pass
+                elif part.startswith("LastBytes/sec="):
+                    try: result["last_bps"] = int(part.split("=")[1])
+                    except: pass
+            if "Writing" in line:
+                result["writing"] = True
+    return result
+
+
 def monitor_backup(conf_path: str, job_id: int, samples: list, stop_event: threading.Event):
-    """Poll job progress every 2 seconds until job completes."""
+    """Poll SD status + job status every 3 seconds."""
     start_time = time.monotonic()
-    last_bytes = 0
 
     while not stop_event.is_set():
         elapsed = time.monotonic() - start_time
-        status = poll_job_status(conf_path, job_id)
 
-        current_bytes = status["bytes"]
-        throughput = (current_bytes - last_bytes) / 2 / 1024 / 1024 if elapsed > 0 else 0  # MB/s over 2s window
-        if throughput < 0:
-            throughput = 0
-
+        # SD throughput data
+        sd = poll_sd_status(conf_path)
         samples.append(BackupSample(
             elapsed_s=round(elapsed, 1),
-            files=status["files"],
-            bytes=current_bytes,
-            throughput_mbps=round(throughput, 2),
+            files=sd["files"],
+            bytes=sd["bytes"],
+            throughput_mbps=round(sd["last_bps"] / 1024 / 1024, 1) if sd["last_bps"] > 0 else 0,
         ))
-        last_bytes = current_bytes
 
-        # Job finished?
-        if status["status"] in ("T", "E", "f", "A"):
+        # Job status is the primary termination check
+        js = poll_job_status(conf_path, job_id)
+        if js["status"] in ("T", "E", "f", "A"):
+            # Final sample with job's actual totals
+            if js["bytes"] > 0:
+                samples.append(BackupSample(
+                    elapsed_s=round(time.monotonic() - start_time, 1),
+                    files=js["files"], bytes=js["bytes"], throughput_mbps=0,
+                ))
             break
 
-        stop_event.wait(2.0)
+        stop_event.wait(3.0)
 
 
 def run_benchmark(conf_path: str, director_name: str, port: int, job_name: str) -> BackupRun:
@@ -359,8 +385,8 @@ def generate_pdf(cpp_run: BackupRun, rust_run: BackupRun, path: Path,
                      color="#FF9800", linewidth=2)
 
         ax2.set_xlabel("Elapsed Time (seconds)")
-        ax2.set_ylabel("Throughput (MB/s)")
-        ax2.set_title("Backup Throughput Over Time")
+        ax2.set_ylabel("Throughput (MB/s) — from SD LastBytes/sec")
+        ax2.set_title("Backup Throughput Over Time (SD Device Stats)")
         ax2.legend(loc="upper right")
         ax2.grid(True, alpha=0.3)
 
