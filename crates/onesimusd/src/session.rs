@@ -84,6 +84,10 @@ pub fn handle_console_session<S: Read + Write>(
     // Subscribe to MessageBus for job messages, status updates, etc.
     let bus_rx = session_mgr.bus().subscribe();
 
+    // Session flags (set by autodisplay, gui, trace commands)
+    let mut auto_display = true;  // autodisplay on/off
+    let mut gui_mode = false;     // gui on/off
+
     // EOD after init messages — signals "ready for commands" to the console.
     // Command loop
     // C++ Director: NO signal after init messages, goes straight to recv().
@@ -151,16 +155,27 @@ pub fn handle_console_session<S: Read + Write>(
         };
         let result = command_executor::dispatch(&ast, &ctx);
 
-        // .api command changes session api_mode
-        if ast.command_name == ".api" {
-            if let Some(mode_str) = ast.arguments.first().map(|a| a.value.as_deref().unwrap_or(a.key.as_str())) {
-                api_mode = match mode_str {
-                    "0" | "off" => command_executor::ApiMode::Human,
-                    "1" | "on" => command_executor::ApiMode::Api,
-                    "2" | "json" => command_executor::ApiMode::Json,
-                    _ => api_mode,
-                };
+        // Session-altering commands
+        match ast.command_name.as_str() {
+            ".api" => {
+                if let Some(mode_str) = ast.arguments.first().map(|a| a.value.as_deref().unwrap_or(a.key.as_str())) {
+                    api_mode = match mode_str {
+                        "0" | "off" => command_executor::ApiMode::Human,
+                        "1" | "on" => command_executor::ApiMode::Api,
+                        "2" | "json" => command_executor::ApiMode::Json,
+                        _ => api_mode,
+                    };
+                }
             }
+            "autodisplay" => {
+                let flag = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("on");
+                auto_display = flag != "off";
+            }
+            "gui" => {
+                let flag = ast.arguments.first().map(|a| a.key.as_str()).unwrap_or("on");
+                gui_mode = flag != "off";
+            }
+            _ => {}
         }
 
         // Send result
@@ -179,6 +194,27 @@ pub fn handle_console_session<S: Read + Write>(
                 format!("{}\n", result.error_message)
             };
             if bnet.send_str(&err).is_err() { break; }
+        }
+
+        // HandleMessages: drain pending bus messages (like C++ ua_session.cc)
+        if auto_display {
+            let mut has_messages = false;
+            while let Ok(msg) = bus_rx.try_recv() {
+                match msg {
+                    crate::message_bus::BusMessage::ConsoleText { text } => {
+                        let _ = bnet.send_str(&format!("{text}\n"));
+                        has_messages = true;
+                    }
+                    crate::message_bus::BusMessage::JobMessage { job_id, text, .. } if job_id > 0 => {
+                        let _ = bnet.send_str(&format!("{text}\n"));
+                        has_messages = true;
+                    }
+                    _ => {}
+                }
+            }
+            if has_messages && !gui_mode && api_mode == command_executor::ApiMode::Human {
+                let _ = bnet.send_str("You have messages.\n");
+            }
         }
 
         // C++ ua_session.cc HandleMessages(): EOD only in non-API mode.
