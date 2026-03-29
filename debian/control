@@ -1,4 +1,4 @@
-Source: bareos-director-rust
+Source: onesimusd
 Section: admin
 Priority: optional
 Maintainer: Joerg Bernau <joerg@bernau.family>
@@ -6,7 +6,7 @@ Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
 Homepage: https://github.com/Beerlesklopfer/baReos-dird
 
-Package: bareos-director-rust
+Package: onesimusd
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}, bareos-common
 Description: Onesimus Director - drop-in replacement for Bareos Director
@@ -15,7 +15,7 @@ Description: Onesimus Director - drop-in replacement for Bareos Director
  .
  Binary: /usr/sbin/onesimusd
 
-Package: bareos-bconsole-rust
+Package: oconsole
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Onesimus Console - interactive console with tab-completion

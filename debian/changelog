@@ -1,4 +1,4 @@
-bareos-director-rust (0.25.0-2) unstable; urgency=medium
+onesimusd (0.25.0-2) unstable; urgency=medium
 
   * TLS-PSK accept: C++ bconsole connects to Rust Director
   * Full Restore end-to-end: 451 files, 67MB, 0 errors
@@ -9,9 +9,9 @@ bareos-director-rust (0.25.0-2) unstable; urgency=medium
 
  -- Joerg Bernau <joerg@bernau.family>  Sun, 22 Mar 2026 18:00:00 +0100
 
-bareos-director-rust (0.25.0-1) unstable; urgency=medium
+onesimusd (0.25.0-1) unstable; urgency=medium
 
-  * Split into two packages: bareos-director-rust + brconsole
+  * Split into two packages: onesimusd + brconsole
   * Tab-completion from Director AST, readline, syntax coloring
   * All CLI switches compatible with C++ bareos-dir
   * Config directory tree support (/etc/bareos/bareos-dir.d/)

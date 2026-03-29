@@ -13,4 +13,9 @@ Cargo.lock
 debian/.debhelper/
 debian/bareos-director-rust/
 debian/bareos-bconsole-rust/
+debian/onesimusd/
+debian/oconsole/
 debian/files
+debian/*.substvars
+debian/*.debhelper
+debian/debhelper-build-stamp
