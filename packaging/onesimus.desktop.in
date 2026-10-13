@@ -5,6 +5,7 @@ GenericName=Backup Management
 Comment=Bareos/Bacula Backup Management Tool
 Exec=onesimus
 Icon=onesimus
+StartupWMClass=onesimus
 Terminal=false
 Categories=System;Utility;
 Keywords=bareos;bacula;backup;restore;

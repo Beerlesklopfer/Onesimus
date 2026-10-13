@@ -353,6 +353,9 @@ int main(int argc, char *argv[])
 #endif
     // Use Onesimus application icon
     app.setWindowIcon(QIcon(":/icons/icons/onesimus.svg"));
+    // Matches onesimus.desktop: Wayland app_id / X11 WM_CLASS, so GNOME (Shell,
+    // System Monitor) shows the desktop file's icon and name.
+    QGuiApplication::setDesktopFileName(QStringLiteral("onesimus"));
 
     // Command-Line parsen
     CommandLineOptions options = parseCommandLine(app);

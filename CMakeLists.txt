@@ -766,36 +766,62 @@ if(UNIX AND NOT APPLE)
         DESTINATION share/applications
     )
 
-    # Install icon (convert SVG to 256x256 PNG at build time)
+    # Install the app icon. The SVG goes to hicolor/scalable and is used by
+    # GTK/Qt at every size; PNG sizes are rendered in addition for tools that
+    # only read raster icons. (A broken SVG->PNG conversion once shipped an
+    # almost empty 256x256 PNG that GNOME preferred over everything else.)
+    install(FILES "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
+        DESTINATION share/icons/hicolor/scalable/apps
+    )
     find_program(RSVG_CONVERT rsvg-convert)
     find_program(MAGICK magick)
     find_program(CONVERT convert)
-    if(RSVG_CONVERT)
-        set(_ICON_CMD ${RSVG_CONVERT} -w 256 -h 256
-            "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
-            -o "${CMAKE_BINARY_DIR}/onesimus.png")
-    elseif(MAGICK)
-        set(_ICON_CMD ${MAGICK} convert -background none -resize 256x256
-            "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
-            "${CMAKE_BINARY_DIR}/onesimus.png")
+    if(MAGICK)
+        set(_IM ${MAGICK})
     elseif(CONVERT)
-        set(_ICON_CMD ${CONVERT} -background none -resize 256x256
-            "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
-            "${CMAKE_BINARY_DIR}/onesimus.png")
+        set(_IM ${CONVERT})
     endif()
-    if(_ICON_CMD)
+    set(_ICON_SVG "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg")
+    set(_ICON_256 "${CMAKE_BINARY_DIR}/icons/256x256/onesimus.png")
+    set(_ICON_OUTPUTS)
+    # The SVG is rendered once (ImageMagick may delegate SVG to Inkscape,
+    # which fails when several instances run in parallel); the smaller
+    # sizes are scaled down from the 256 px PNG.
+    if(RSVG_CONVERT)
+        set(_render ${RSVG_CONVERT} -w 256 -h 256 "${_ICON_SVG}" -o "${_ICON_256}")
+    elseif(_IM)
+        # High density: rasterizing at 72 dpi and scaling up/down ends up (almost) empty
+        set(_render ${_IM} -background none -density 1200 "${_ICON_SVG}" -resize 256x256 "${_ICON_256}")
+    endif()
+    if(_render)
         add_custom_command(
-            OUTPUT "${CMAKE_BINARY_DIR}/onesimus.png"
-            COMMAND ${_ICON_CMD}
-            DEPENDS "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.svg"
-            COMMENT "Converting onesimus.svg to PNG..."
+            OUTPUT "${_ICON_256}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/icons/256x256"
+            COMMAND ${_render}
+            DEPENDS "${_ICON_SVG}"
+            COMMENT "Rendering onesimus icon 256x256"
         )
-        add_custom_target(onesimus_icon ALL DEPENDS "${CMAKE_BINARY_DIR}/onesimus.png")
-        install(FILES "${CMAKE_BINARY_DIR}/onesimus.png"
-            DESTINATION share/icons/hicolor/256x256/apps
-        )
+        list(APPEND _ICON_OUTPUTS "${_ICON_256}")
+        install(FILES "${_ICON_256}" DESTINATION share/icons/hicolor/256x256/apps)
+        if(_IM)
+            foreach(_size 16 24 32 48 64 128)
+                set(_png "${CMAKE_BINARY_DIR}/icons/${_size}x${_size}/onesimus.png")
+                add_custom_command(
+                    OUTPUT "${_png}"
+                    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/icons/${_size}x${_size}"
+                    COMMAND ${_IM} "${_ICON_256}" -resize ${_size}x${_size} "${_png}"
+                    DEPENDS "${_ICON_256}"
+                    COMMENT "Scaling onesimus icon to ${_size}x${_size}"
+                )
+                list(APPEND _ICON_OUTPUTS "${_png}")
+                install(FILES "${_png}" DESTINATION share/icons/hicolor/${_size}x${_size}/apps)
+            endforeach()
+        endif()
+    endif()
+    if(_ICON_OUTPUTS)
+        add_custom_target(onesimus_icon ALL DEPENDS ${_ICON_OUTPUTS})
     else()
-        message(WARNING "No SVG converter found (rsvg-convert, magick, convert) — app icon will not be installed.")
+        message(STATUS "No SVG converter found (rsvg-convert, magick, convert) - installing the scalable SVG icon only.")
     endif()
 endif()
 
