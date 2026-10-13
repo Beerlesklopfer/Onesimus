@@ -12,6 +12,7 @@
 #include <QUdpSocket>
 #include <QTimer>
 #include <QNetworkInterface>
+#include <QRegularExpression>
 #include <QtEndian>
 #include <QSet>
 
@@ -108,8 +109,13 @@ void writeName(QByteArray &out, const QString &name)
 // subnet shared with one of them is only reachable from this host.
 bool isVirtualInterface(const QString &name)
 {
-    static const QStringList prefixes = {"virbr", "docker", "br-", "veth", "vnet",
+    static const QStringList prefixes = {"virbr", "docker", "veth", "vnet",
                                          "lxc", "lxdbr", "podman", "cni", "flannel", "tap"};
+    // Docker user networks are "br-" + 12 hex digits; br0 / br-lan are LAN bridges
+    static const QRegularExpression dockerBridge(QStringLiteral("^br-[0-9a-f]{12}$"));
+    if (dockerBridge.match(name).hasMatch()) {
+        return true;
+    }
     for (const QString &p : prefixes) {
         if (name.startsWith(p)) {
             return true;
