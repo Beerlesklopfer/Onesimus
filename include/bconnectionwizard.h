@@ -366,11 +366,23 @@ private:
     int m_grpcDirectorTab = -1;         // gRPC only
     QTextEdit *m_grpcDirectorEdit;
     QPushButton *m_copyGrpcDirectorButton;
+    // Client side: bconsole.conf / oconsole.conf for command-line consoles
+    QTabWidget *m_clientTabs;
+    QTextEdit *m_bconsoleEdit;
+    QTextEdit *m_oconsoleEdit;
+    int m_oconsoleTab = -1;             // gRPC only
+    QPushButton *m_copyClientButton;
+    QPushButton *m_saveClientButton;
+    QPushButton *m_saveClientZipButton;
+    bool isGrpc() const;
+    QString clientConsoleConfig(bool oconsoleGrpc) const;
     void updateConfigs();
 private slots:
     void onCopyConsoleConfig();
     void onCopyDirectorConfig();
     void onCopyGrpcDirectorConfig();
+    void onCopyClientConfig();
+    void onSaveClientConf();
     void onSaveConsoleConf();
     void onSaveConsoleZip();
     void onSaveDirectorConf();

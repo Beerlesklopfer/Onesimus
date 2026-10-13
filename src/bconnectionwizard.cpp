@@ -2118,6 +2118,64 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     m_grpcDirectorTab = tabs->addTab(grpcWidget, tr("Director (gRPC)"));
     tabs->setTabVisible(m_grpcDirectorTab, false);
 
+    // Client side: configuration for command-line consoles (bconsole / oconsole)
+    auto *clientWidget = new QWidget();
+    auto *clientLayout = new QVBoxLayout(clientWidget);
+    clientLayout->setContentsMargins(5, 5, 5, 5);
+
+    auto *clientLabel = new QLabel(tr("Configuration for command-line consoles on the client:"), clientWidget);
+    clientLabel->setStyleSheet("font-weight: bold;");
+    clientLayout->addWidget(clientLabel);
+
+    auto *clientPath = new QLabel(tr("Path: /etc/bareos/bconsole.conf (bconsole), "
+                                     "/etc/bareos/oconsole.conf or oconsole -c &lt;file&gt; (oconsole)"),
+                                  clientWidget);
+    clientPath->setStyleSheet("color: #666; font-size: 10px;");
+    clientPath->setWordWrap(true);
+    clientLayout->addWidget(clientPath);
+
+    auto *clientWarning = new QLabel(tr("Contains the console password: restrict the file to mode 0640 "
+                                        "root:bareos (or 0600 owned by the user running the console)."),
+                                     clientWidget);
+    clientWarning->setProperty("state", "warning");
+    clientWarning->setWordWrap(true);
+    clientLayout->addWidget(clientWarning);
+
+    m_clientTabs = new QTabWidget(clientWidget);
+    m_clientTabs->setDocumentMode(true);
+    m_bconsoleEdit = new QTextEdit(m_clientTabs);
+    m_bconsoleEdit->setReadOnly(true);
+    m_bconsoleEdit->setFont(QFont("monospace", 9));
+    m_bconsoleEdit->setMinimumHeight(150);
+    m_clientTabs->addTab(m_bconsoleEdit, "bconsole.conf");
+    m_oconsoleEdit = new QTextEdit(m_clientTabs);
+    m_oconsoleEdit->setReadOnly(true);
+    m_oconsoleEdit->setFont(QFont("monospace", 9));
+    m_oconsoleEdit->setMinimumHeight(150);
+    m_oconsoleTab = m_clientTabs->addTab(m_oconsoleEdit, "oconsole.conf");
+    clientLayout->addWidget(m_clientTabs);
+
+    auto *clientButtonLayout = new QHBoxLayout();
+    m_copyClientButton = new QPushButton(tr("Copy to Clipboard"), clientWidget);
+    m_copyClientButton->setIcon(QIcon::fromTheme("edit-copy"));
+    connect(m_copyClientButton, &QPushButton::clicked, this, &ConfigPreviewPage::onCopyClientConfig);
+    clientButtonLayout->addWidget(m_copyClientButton);
+
+    m_saveClientButton = new QPushButton(tr("Save .conf"), clientWidget);
+    m_saveClientButton->setIcon(QIcon::fromTheme("document-save"));
+    connect(m_saveClientButton, &QPushButton::clicked, this, &ConfigPreviewPage::onSaveClientConf);
+    clientButtonLayout->addWidget(m_saveClientButton);
+
+    m_saveClientZipButton = new QPushButton(tr("Save ZIP"), clientWidget);
+    m_saveClientZipButton->setIcon(QIcon::fromTheme("package-x-generic"));
+    connect(m_saveClientZipButton, &QPushButton::clicked, this, &ConfigPreviewPage::onSaveConsoleZip);
+    clientButtonLayout->addWidget(m_saveClientZipButton);
+
+    clientButtonLayout->addStretch();
+    clientLayout->addLayout(clientButtonLayout);
+
+    tabs->addTab(clientWidget, tr("Console client (bconsole / oconsole)"));
+
     m_layout->addWidget(tabs);
 
     setHint(tr("After copying, paste this into your Bareos Director config and restart bareos-dir."));
@@ -2143,7 +2201,7 @@ void ConfigPreviewPage::updateConfigs()
     // gRPC (Onesimus Director): login with console name + password only,
     // the BNET TLS directives do not apply
     BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
-    const bool grpc = wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc";
+    const bool grpc = isGrpc();
     m_tabs->setTabVisible(m_directorTlsTab, !grpc);
     m_tabs->setTabVisible(m_grpcDirectorTab, grpc);
     setHint(grpc ? tr("Add the Console resource and enable gRPC in the Director resource, "
@@ -2216,6 +2274,19 @@ void ConfigPreviewPage::updateConfigs()
 
     m_consoleConfigEdit->setPlainText(consoleConfig);
 
+    // Client side: one file for both consoles with BNET, a separate oconsole.conf
+    // with the gRPC keys (C++ bconsole rejects unknown directives)
+    m_bconsoleEdit->setPlainText(clientConsoleConfig(false));
+    m_clientTabs->setTabText(0, grpc ? QStringLiteral("bconsole.conf")
+                                     : QStringLiteral("bconsole.conf / oconsole.conf"));
+    m_clientTabs->setTabVisible(m_oconsoleTab, grpc);
+    if (grpc) {
+        m_oconsoleEdit->setPlainText(clientConsoleConfig(true));
+    } else {
+        m_oconsoleEdit->clear();
+        m_clientTabs->setCurrentIndex(0);
+    }
+
     if (grpc) {
         // Director-side hint for gRPC
         const int bnetPort = wiz->wizardData()->port > 0 ? wiz->wizardData()->port : 9101;
@@ -2273,6 +2344,138 @@ void ConfigPreviewPage::updateConfigs()
     directorConfig += QString("# sudo systemctl restart bareos-dir\n");
 
     m_directorConfigEdit->setPlainText(directorConfig);
+}
+
+bool ConfigPreviewPage::isGrpc() const
+{
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    return wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc";
+}
+
+/**
+ * Client-side configuration for command-line consoles (bconsole / oconsole).
+ * With oconsoleGrpc the Director block additionally carries the gRPC keys that
+ * only oconsole understands (C++ bconsole rejects unknown directives).
+ */
+QString ConfigPreviewPage::clientConsoleConfig(bool oconsoleGrpc) const
+{
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    const BConnectionWizardData *data = wiz ? wiz->wizardData() : nullptr;
+
+    // Live page fields first, wizard data as fallback
+    auto value = [this, data](const char *name, const QString &fallback) {
+        const QString v = field(QString::fromLatin1(name)).toString().trimmed();
+        return v.isEmpty() ? fallback : v;
+    };
+    const QString host = value("host", data ? data->host : QString());
+    const QString directorName = value("directorName", data ? data->directorName : QString());
+    const QString consoleName = value("consoleName", data ? data->consoleName : QString());
+    const QString password = value("password", data ? data->password : QString());
+    int port = field("port").toInt();
+    if (port <= 0)
+        port = data && data->port > 0 ? data->port : 9101;
+    const int grpcPort = data && data->grpcPort > 0 ? data->grpcPort : port + 1000;
+    const QString fingerprint = data ? data->grpcCertFingerprint.trimmed().toLower() : QString();
+    const QString authMethod = field("authMethod").toString();
+
+    const QString fileName = oconsoleGrpc ? QStringLiteral("oconsole.conf")
+                                          : (isGrpc() ? QStringLiteral("bconsole.conf")
+                                                      : QStringLiteral("bconsole.conf / oconsole.conf"));
+
+    QString config;
+    config += QString("# %1 for %2 on %3\n").arg(fileName, consoleName, directorName);
+    if (oconsoleGrpc) {
+        config += QString("# oconsole: /etc/bareos/oconsole.conf or oconsole -c <file>\n");
+    } else if (isGrpc()) {
+        config += QString("# bconsole: /etc/bareos/bconsole.conf (BNET only, see oconsole.conf for gRPC)\n");
+    } else {
+        config += QString("# bconsole: /etc/bareos/bconsole.conf   "
+                          "oconsole: /etc/bareos/oconsole.conf or oconsole -c <file>\n");
+    }
+    if (password.startsWith("[md5]")) {
+        config += "# " + tr("Password in \"[md5]<hex>\" form: accepted by oconsole and by C++ bconsole.") + "\n";
+    }
+    config += "\n";
+
+    config += QString("Director {\n");
+    config += QString("  Name = %1\n").arg(directorName);
+    config += QString("  Address = %1\n").arg(host);
+    config += QString("  DirPort = %1\n").arg(port);
+    // Comment on its own line: the line-based oconsole parser would read a
+    // trailing comment as part of the value
+    config += "  # " + tr("not used when the Console resource below matches") + "\n";
+    config += QString("  Password = \"%1\"\n").arg(password);
+    if (oconsoleGrpc) {
+        config += QString("  Grpc = yes\n");
+        config += QString("  Grpc Port = %1\n").arg(grpcPort);
+        if (!fingerprint.isEmpty()) {
+            config += QString("  Grpc Fingerprint = %1\n").arg(fingerprint);
+        } else {
+            config += "  # " + tr("Grpc Fingerprint = <SHA-256 of the Director's gRPC certificate>") + "\n";
+        }
+    } else if (!isGrpc() && authMethod == "x509") {
+        // Certificate mode: bconsole needs the TLS files (oconsole ignores them)
+        QString caCert = field("caCert").toString();
+        QString clientCert = field("clientCert").toString();
+        QString clientKey = field("clientKey").toString();
+        config += QString("  TLS Enable = yes\n");
+        config += QString("  TLS Require = yes\n");
+        if (!caCert.isEmpty())
+            config += QString("  TLS CA Certificate File = \"%1\"\n").arg(caCert);
+        if (!clientCert.isEmpty())
+            config += QString("  TLS Certificate = \"%1\"\n").arg(clientCert);
+        if (!clientKey.isEmpty())
+            config += QString("  TLS Key = \"%1\"\n").arg(clientKey);
+    }
+    config += QString("}\n\n");
+
+    config += QString("Console {\n");
+    config += QString("  Name = %1\n").arg(consoleName);
+    config += QString("  Password = \"%1\"\n").arg(password);
+    config += QString("  Director = %1\n").arg(directorName);
+    config += QString("}\n");
+    return config;
+}
+
+void ConfigPreviewPage::onCopyClientConfig()
+{
+    QTextEdit *edit = m_clientTabs->currentIndex() == m_oconsoleTab ? m_oconsoleEdit : m_bconsoleEdit;
+    QApplication::clipboard()->setText(edit->toPlainText());
+
+    m_copyClientButton->setText(tr("Copied!"));
+    QTimer::singleShot(2000, this, [this]() {
+        m_copyClientButton->setText(tr("Copy to Clipboard"));
+    });
+}
+
+void ConfigPreviewPage::onSaveClientConf()
+{
+    const bool oconsole = m_clientTabs->currentIndex() == m_oconsoleTab;
+    QTextEdit *edit = oconsole ? m_oconsoleEdit : m_bconsoleEdit;
+    QString defaultName = oconsole ? "oconsole.conf" : "bconsole.conf";
+
+    QString filePath = QFileDialog::getSaveFileName(
+        this, tr("Save Console Client Configuration"), defaultName,
+        tr("Configuration Files (*.conf);;All Files (*)"));
+    if (filePath.isEmpty()) return;
+
+    QFile file(filePath);
+    // Contains the console password: create/restrict to 0600 before writing
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text,
+                   QFileDevice::ReadOwner | QFileDevice::WriteOwner)) {
+        QMessageBox::warning(this, tr("Save Failed"),
+                             tr("Could not write to %1").arg(filePath));
+        return;
+    }
+    file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+
+    file.write(edit->toPlainText().toUtf8());
+    file.close();
+
+    m_saveClientButton->setText(tr("Saved!"));
+    QTimer::singleShot(2000, this, [this]() {
+        m_saveClientButton->setText(tr("Save .conf"));
+    });
 }
 
 void ConfigPreviewPage::onCopyConsoleConfig()
@@ -2365,11 +2568,21 @@ void ConfigPreviewPage::onSaveConsoleZip()
     QString confPath = QString("etc/bareos/bareos-dir.d/console/%1").arg(confName);
     zip.addFile(confPath, m_consoleConfigEdit->toPlainText().toUtf8());
 
+    // Client side (contains the console password: 0600)
+    zip.setCreationPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    zip.addFile("etc/bareos/bconsole.conf", m_bconsoleEdit->toPlainText().toUtf8());
+    zip.addFile("etc/bareos/oconsole.conf",
+                (isGrpc() ? m_oconsoleEdit : m_bconsoleEdit)->toPlainText().toUtf8());
+
     zip.close();
 
-    m_saveConsoleZipButton->setText(tr("Saved!"));
-    QTimer::singleShot(2000, this, [this]() {
-        m_saveConsoleZipButton->setText(tr("Save ZIP"));
+    // Feedback on the button that was clicked (Console Config or Console client tab)
+    QPushButton *button = qobject_cast<QPushButton*>(sender());
+    if (!button)
+        button = m_saveConsoleZipButton;
+    button->setText(tr("Saved!"));
+    QTimer::singleShot(2000, button, [button]() {
+        button->setText(tr("Save ZIP"));
     });
 }
 

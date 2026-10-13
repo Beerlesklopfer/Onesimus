@@ -683,6 +683,32 @@ struct BConnectionProfile
     }
 
     /**
+     * @brief Generate oconsole.conf for client-side gRPC configuration
+     * @return bconsole configuration plus the gRPC keys only oconsole understands
+     *
+     * C++ bconsole rejects unknown directives, so the gRPC keys live in a
+     * separate file. Without gRPC transport this equals toBconsoleConfig().
+     */
+    QString toOconsoleConfig() const
+    {
+        QString config = toBconsoleConfig();
+        if (transport != Transport::Grpc)
+            return config;
+
+        QString grpc;
+        grpc += QString("  Grpc = yes\n");
+        grpc += QString("  Grpc Port = %1\n").arg(grpcPort > 0 ? grpcPort : port + 1000);
+        if (!grpcCertFingerprint.isEmpty())
+            grpc += QString("  Grpc Fingerprint = %1\n").arg(grpcCertFingerprint.toLower());
+
+        // Insert before the closing brace of the Director resource (first block)
+        const int end = config.indexOf(QLatin1String("}\n"));
+        if (end >= 0)
+            config.insert(end, grpc);
+        return config;
+    }
+
+    /**
      * @brief Check if this profile has any ACLs defined
      * @return true if any ACL list is non-empty
      */

@@ -183,6 +183,14 @@ QList<BConfigExporter::FileEntry> BConfigExporter::generateFiles(const BConnecti
         files.append(entry);
     }
 
+    // oconsole.conf - client-side configuration incl. gRPC keys (oconsole only)
+    {
+        FileEntry entry;
+        entry.path = QString("etc/bareos/oconsole.conf");
+        entry.content = profile.toOconsoleConfig().toUtf8();
+        files.append(entry);
+    }
+
     return files;
 }
 
