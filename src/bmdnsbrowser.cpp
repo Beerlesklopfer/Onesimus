@@ -104,8 +104,23 @@ void writeName(QByteArray &out, const QString &name)
     out.append('\0');
 }
 
-// Address preference: local subnet > other, IPv4 > IPv6, loopback last.
-// Multi-homed hosts announce several A/AAAA records; keep the best one stable.
+// Virtual bridges/links of VMs and containers (libvirt, docker, ...): a
+// subnet shared with one of them is only reachable from this host.
+bool isVirtualInterface(const QString &name)
+{
+    static const QStringList prefixes = {"virbr", "docker", "br-", "veth", "vnet",
+                                         "lxc", "lxdbr", "podman", "cni", "flannel", "tap"};
+    for (const QString &p : prefixes) {
+        if (name.startsWith(p)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Address preference: LAN subnet > other > virtual bridge subnet, IPv4 > IPv6,
+// loopback last. Multi-homed hosts announce several A/AAAA records; keep the
+// best one stable.
 int addressScore(const QHostAddress &addr)
 {
     if (addr.isNull()) {
@@ -120,11 +135,14 @@ int addressScore(const QHostAddress &addr)
         for (const QNetworkAddressEntry &entry : iface.addressEntries()) {
             if (!entry.ip().isLoopback() && entry.prefixLength() > 0
                 && addr.isInSubnet(entry.ip(), entry.prefixLength())) {
-                return ipv4 ? 4 : 3;
+                if (isVirtualInterface(iface.name())) {
+                    return ipv4 ? 2 : 1;
+                }
+                return ipv4 ? 6 : 5;
             }
         }
     }
-    return ipv4 ? 2 : 1;
+    return ipv4 ? 4 : 3;
 }
 
 void appendU16(QByteArray &out, quint16 value)
