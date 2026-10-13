@@ -53,7 +53,8 @@ BConnectionWizard::BConnectionWizard(BConnectionWizardData *wizardData,
 {
     setWindowTitle(tr("Connection Setup"));
     setWizardStyle(QWizard::ModernStyle);
-    setMinimumSize(500, 400);
+    setMinimumSize(560, 460);
+    resize(640, 600);
     setWindowIcon(QIcon(":/icons/icons/onesimus.svg"));
 
     // Custom button layout: Connect/Finish on left, Cancel on right
@@ -311,6 +312,9 @@ QAPage::QAPage(const QString &question, QWidget *parent)
 {
     m_layout = new QVBoxLayout(this);
     m_layout->setSpacing(15);
+    // Never squeeze widgets below their minimum size (large fonts / HiDPI):
+    // the page grows instead and the wizard window follows.
+    m_layout->setSizeConstraint(QLayout::SetMinimumSize);
 
     m_questionLabel = new QLabel(question, this);
     m_questionLabel->setWordWrap(true);
@@ -1154,7 +1158,8 @@ ServerPage::ServerPage(QWidget *parent)
     m_layout->addLayout(discoveredHeader);
 
     m_discoveredList = new QListWidget(this);
-    m_discoveredList->setMaximumHeight(90);
+    m_discoveredList->setMinimumHeight(m_discoveredList->fontMetrics().lineSpacing() * 3 + 8);
+    m_discoveredList->setMaximumHeight(m_discoveredList->fontMetrics().lineSpacing() * 5 + 8);
     m_discoveredList->setToolTip(tr("Onesimus Directors announce themselves in the local network. "
                                     "Select one to fill in the connection data."));
     m_layout->addWidget(m_discoveredList);
