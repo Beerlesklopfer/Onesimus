@@ -7,4 +7,4 @@
 	url = git@github.com:Beerlesklopfer/Onesimus.wiki.git
 [submodule "proto"]
 	path = proto
-	url = git@github.com:Beerlesklopfer/baReos-proto.git
+	url = https://github.com/Beerlesklopfer/baReos-proto.git
