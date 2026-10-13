@@ -1206,6 +1206,19 @@ bool BareosAuth::hasCompleteMessage()
         reinterpret_cast<const uchar*>(m_readBuffer.constData())
         );
 
+    // BNET-Signale (negative Länge) bestehen nur aus dem 4-Byte-Header ohne
+    // Payload und tragen während der Authentifizierung keine Daten -> verwerfen
+    while (msgLen < 0) {
+        AUTH_DEBUG << "  hasCompleteMessage: skipping BNET signal" << msgLen;
+        m_readBuffer.remove(0, 4);
+        if (m_readBuffer.size() < 4) {
+            return false;
+        }
+        msgLen = qFromBigEndian<qint32>(
+            reinterpret_cast<const uchar*>(m_readBuffer.constData())
+            );
+    }
+
 #ifdef IS_DEVELOPER
     AUTH_DEBUG << "  hasCompleteMessage: msgLen=" << msgLen << ", buffer=" << m_readBuffer.size();
     AUTH_DEBUG << "  hasCompleteMessage: header bytes (hex):" << m_readBuffer.left(4).toHex();
@@ -1223,6 +1236,12 @@ QByteArray BareosAuth::extractMessage()
     qint32 msgLen = qFromBigEndian<qint32>(
         reinterpret_cast<const uchar*>(m_readBuffer.constData())
         );
+
+    // Signal (negative Länge): nur Header, kein Payload (siehe hasCompleteMessage())
+    if (msgLen < 0) {
+        m_readBuffer.remove(0, 4);
+        return QByteArray();
+    }
 
     if (m_readBuffer.size() < msgLen + 4) {
         return QByteArray();

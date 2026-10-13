@@ -92,6 +92,13 @@ void BareosDirector::initialize()
     // Connect socket signals
     connectSocketSignals();
 
+    // Timeout for the LoadingResources phase - lives in this worker thread
+    m_resourceLoadTimer = new QTimer(this);
+    m_resourceLoadTimer->setSingleShot(true);
+    m_resourceLoadTimer->setInterval(ResourceLoadTimeoutMs);
+    QObject::connect(m_resourceLoadTimer, &QTimer::timeout,
+                     this, &BareosDirector::onResourceLoadTimeout);
+
 #ifdef HAVE_GRPC
     // gRPC transport (Onesimus Director) - lives in this worker thread, too
     m_grpc = new BGrpcTransport(this);
@@ -356,14 +363,9 @@ void BareosDirector::markResourceLoaded(ResourceType resourceType)
     m_resourceStates[resourceType] = ResourceLoadState::Loaded;
     m_resourceErrors.remove(resourceType);
 
-    // Count loaded resources
-    int loaded = 0;
-    for (const ResourceType &type : m_requiredResources) {
-        if (m_resourceStates.value(type) == ResourceLoadState::Loaded) {
-            loaded++;
-        }
-    }
-    int total = m_requiredResources.size();
+    // Count loaded resources (only required ones, so loaded <= total)
+    const int loaded = loadedResourceCount();
+    const int total = m_requiredResources.size();
 
     DIR_DEBUG << "RESOURCE: " << s_resourceNames.value(resourceType, "?")
              << s_loadStateNames.value(oldState) << "->" << "Loaded"
@@ -371,14 +373,62 @@ void BareosDirector::markResourceLoaded(ResourceType resourceType)
 
     emit resourceStateChanged(resourceType, ResourceLoadState::Loaded);
     emit resourceLoaded(resourceType);
-    emit resourceLoadProgress(loaded, total);
+    if (m_requiredResources.contains(resourceType)) {
+        emit resourceLoadProgress(loaded, total);
+    }
 
     // Check if all resources are ready
     if (allResourcesReady()) {
-        DIR_DEBUG << "STATE MACHINE: All resources loaded - transitioning to Ready";
-        setState(Ready);
-        emit allResourcesLoaded();
+        if (m_resourceLoadTimer) {
+            m_resourceLoadTimer->stop();
+        }
+        // Only the end of the loading phase finishes initialization; a late reply
+        // after a load timeout (state already Ready) must not trigger it twice
+        if (m_connectionState != Ready) {
+            DIR_DEBUG << "STATE MACHINE: All resources loaded - transitioning to Ready";
+            setState(Ready);
+            emit allResourcesLoaded();
+        }
     }
+}
+
+int BareosDirector::loadedResourceCount() const
+{
+    int loaded = 0;
+    for (const ResourceType &type : m_requiredResources) {
+        if (m_resourceStates.value(type) == ResourceLoadState::Loaded) {
+            loaded++;
+        }
+    }
+    return loaded;
+}
+
+void BareosDirector::onResourceLoadTimeout()
+{
+    if (m_connectionState != LoadingResources) {
+        return;
+    }
+
+    QStringList missing;
+    for (const ResourceType &type : m_requiredResources) {
+        if (m_resourceStates.value(type) != ResourceLoadState::Loaded) {
+            missing << s_resourceNames.value(type, "?");
+            markResourceFailed(type, tr("No response from Director within %1 seconds")
+                                         .arg(ResourceLoadTimeoutMs / 1000));
+        }
+    }
+
+    BLOG_WARNING() << "RESOURCE: Loading timed out after" << ResourceLoadTimeoutMs / 1000
+                   << "s - missing:" << missing.join(", ")
+                   << "(" << loadedResourceCount() << "/" << m_requiredResources.size() << "loaded)"
+                   << "- continuing with incomplete resources";
+
+    emit statusMessage(tr("Timeout while loading resources: %1").arg(missing.join(", ")));
+
+    // Weiter nach Ready, damit die GUI nicht in LoadingResources hängen bleibt.
+    // Fehlgeschlagene Ressourcen sind über resourceState()/resourceLoadFailed erkennbar.
+    setState(Ready);
+    emit allResourcesLoaded();
 }
 
 bool BareosDirector::allResourcesReady() const
@@ -530,6 +580,13 @@ void BareosDirector::startResourceLoading()
     DIR_DEBUG << "  Required resources: " << m_requiredResources.size();
 
     setState(LoadingResources);
+
+    // Ohne Timeout bliebe die GUI für immer in LoadingResources hängen,
+    // falls eine Antwort ausbleibt (siehe onResourceLoadTimeout())
+    if (m_resourceLoadTimer) {
+        m_resourceLoadTimer->start();
+    }
+    emit resourceLoadProgress(0, m_requiredResources.size());
 
     // Set all required resources to Waiting state and send dot-commands
     for (const ResourceType &type : m_requiredResources) {
@@ -951,53 +1008,38 @@ void BareosDirector::onReadyRead()
         }
 #endif
 
-        // Negative Länge = Signal-Nachricht (z.B. Prompt)
-        bool isSignal = (messageLength < 0);
-        qint32 absLength = qAbs(messageLength);
+        // Negative Länge = BNET-Signal (EOD, CMD_OK, MAIN_PROMPT, ...).
+        // Ein Signal besteht NUR aus dem 4-Byte-Header, es folgt KEIN Payload
+        // (Bareos bsock: Signal = nur die negative Länge auf dem Draht).
+        if (messageLength < 0) {
+            m_receiveBuffer.remove(0, 4);
+            handleBnetSignal(messageLength);
+            continue;
+        }
 
         // Prüfe ob vollständiges Paket vorhanden (4 Bytes Header + Payload)
-        if (m_receiveBuffer.size() < 4 + absLength) {
+        if (m_receiveBuffer.size() < 4 + messageLength) {
 #if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
             BLOG_DEBUG() << "     Waiting for more data..."
                      << "Have:" << m_receiveBuffer.size()
-                     << "Need:" << (4 + absLength);
+                     << "Need:" << (4 + messageLength);
 #endif
             break;  // Warte auf mehr Daten
         }
 
         // Extrahiere Nachricht (ohne Header)
-        QByteArray message = m_receiveBuffer.mid(4, absLength);
-
-        // ✅ KRITISCH: Signal-Pakete können verschachtelte Header enthalten!
-        // Bareos sendet manchmal Signale, deren Payload weitere Paket-Header enthält.
-        // In diesem Fall überspringen wir nur den Signal-Header (4 Bytes), nicht das Payload!
-        if (isSignal && message.size() >= 4) {
-            // Prüfe ob die ersten 4 Bytes ein Header sein könnten
-            // - Data packets start with 0x00 (positive length in big-endian)
-            // - Signal packets start with 0xff (negative length in big-endian, two's complement)
-            unsigned char byte0 = (unsigned char)message[0];
-
-            if (byte0 == 0x00 || byte0 == 0xff) {
-                DIR_DEBUG << "Signal contains embedded header - removing only signal header (4 bytes)";
-                DIR_DEBUG << "  Embedded header: " << message.left(4).toHex(' ');
-                // Entferne NUR den Signal-Header, lasse das Payload für das nächste Paket
-                m_receiveBuffer.remove(0, 4);
-                continue;  // Lese das eingebettete Paket im nächsten Loop
-            }
-        }
-
+        QByteArray message = m_receiveBuffer.mid(4, messageLength);
         message.replace(0x01, ' ');
 
         // Entferne verarbeitetes Paket aus Buffer (Header + Payload)
-        m_receiveBuffer.remove(0, 4 + absLength);
+        m_receiveBuffer.remove(0, 4 + messageLength);
 
         // Konvertiere zu String
         QString messageStr = QString::fromUtf8(message).trimmed();
 
 #if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
         BLOG_DEBUG() << "✓ Complete message received:";
-        BLOG_DEBUG() << "  Signal:" << isSignal;
-        BLOG_DEBUG() << "  Length:" << absLength;
+        BLOG_DEBUG() << "  Length:" << messageLength;
         if (messageStr.size() > 200) {
             BLOG_DEBUG() << "  Content (first 200 chars):" << messageStr.left(200);
         } else {
@@ -1008,20 +1050,10 @@ void BareosDirector::onReadyRead()
         // ✅ Multi-telegram JSON accumulation for binary protocol
         // A single JSON response from the Director can span multiple binary telegrams.
         // We accumulate data telegrams and process the complete JSON when:
-        //   (a) a signal packet arrives (end-of-response delimiter), or
+        //   (a) a signal packet arrives (end-of-response delimiter, see handleBnetSignal), or
         //   (b) the accumulated data is already valid JSON (single-telegram response)
-        if (isSignal) {
-            // Signal marks end of current response
-            if (!m_binaryJsonAccumulator.isEmpty()) {
-                processDirectorMessage(unbashSpaces(m_binaryJsonAccumulator), false);
-                m_binaryJsonAccumulator.clear();
-            }
-            // Process signal itself if non-empty
-            if (!messageStr.isEmpty()) {
-                processDirectorMessage(unbashSpaces(messageStr), true);
-            }
-        } else if (messageStr.startsWith('{') || messageStr.startsWith('[')
-                   || !m_binaryJsonAccumulator.isEmpty()) {
+        if (messageStr.startsWith('{') || messageStr.startsWith('[')
+            || !m_binaryJsonAccumulator.isEmpty()) {
             // JSON data telegram — accumulate (may span multiple telegrams)
             m_binaryJsonAccumulator += messageStr;
 
@@ -1040,6 +1072,40 @@ void BareosDirector::onReadyRead()
                 processDirectorMessage(unbashSpaces(messageStr), false);
             }
         }
+    }
+}
+
+void BareosDirector::handleBnetSignal(qint32 signal)
+{
+    // Bareos BnetSignal-Werte (bsock.h)
+    static const QMap<qint32, const char*> s_signalNames = {
+        {-1, "EOD"}, {-2, "EOD_POLL"}, {-3, "STATUS"}, {-4, "TERMINATE"},
+        {-5, "POLL"}, {-6, "HEARTBEAT"}, {-7, "HB_RESPONSE"}, {-8, "PROMPT (obsolete)"},
+        {-9, "BTIME"}, {-10, "BREAK"}, {-11, "START_SELECT"}, {-12, "END_SELECT"},
+        {-13, "INVALID_CMD"}, {-14, "CMD_FAILED"}, {-15, "CMD_OK"}, {-16, "CMD_BEGIN"},
+        {-17, "MSGS_PENDING"}, {-18, "MAIN_PROMPT"}, {-19, "SELECT_INPUT"},
+        {-20, "WARNING_MSG"}, {-21, "ERROR_MSG"}, {-22, "INFO_MSG"},
+        {-23, "RUN_CMD"}, {-24, "YESNO"}, {-25, "START_RTREE"}, {-26, "END_RTREE"},
+        {-27, "SUB_PROMPT"}, {-28, "TEXT_INPUT"}
+    };
+
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
+    BLOG_DEBUG() << "✓ BNET signal received:" << signal << s_signalNames.value(signal, "?");
+#endif
+
+    // Ein Signal (außer CMD_BEGIN) schließt die laufende Antwort ab
+    // (EOD, CMD_OK, CMD_FAILED, MAIN_PROMPT, ...): bis dahin gesammelte
+    // JSON-Telegramme sofort verarbeiten, nicht erst beim nächsten Paket.
+    if (signal != -16 /* CMD_BEGIN */ && !m_binaryJsonAccumulator.isEmpty()) {
+        const QString accumulated = m_binaryJsonAccumulator;
+        m_binaryJsonAccumulator.clear();
+        processDirectorMessage(unbashSpaces(accumulated), false);
+    }
+
+    if (signal == -4 /* TERMINATE */) {
+        BLOG_WARNING() << "Director sent BNET signal TERMINATE";
+    } else if (!s_signalNames.contains(signal)) {
+        BLOG_WARNING() << "Unknown BNET signal:" << signal;
     }
 }
 
@@ -1153,6 +1219,11 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
         } else {
             // Not JSON, emit as text response
             emit textResult(m_lastCommandEnum, message);
+
+            // configure without API mode answers in plain text
+            if (hasQueuedCommand && currentEntry.cmd == Command::Configure) {
+                emitConfigureResult(message);
+            }
 
             // Track command completion
             if (hasQueuedCommand) {
@@ -1505,6 +1576,13 @@ void BareosDirector::onAuthStatusMessage(const QString &message)
 
 void BareosDirector::routeTypedResponse(const QString &jsonData)
 {
+    // Every configure reply (add console, add schedule, ...) is answered with
+    // configureResult - also unparsable ones, otherwise the waiting dialog times out
+    if (m_lastCommandEnum == Command::Configure) {
+        emitConfigureResult(jsonData);
+        return;
+    }
+
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
     if (!doc.isObject()) return;
 
@@ -1529,12 +1607,6 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
         }
         break;
     }
-    case Command::Configure:
-        if (m_lastCommand.contains("add console")) {
-            bool ok = jsonData.contains("created", Qt::CaseInsensitive);
-            emit configureResult(ok, jsonData);
-        }
-        break;
 
     // Typed resource signals — connect directly to model parse slots
     case Command::DotFilesets:  emit dotFilesetsResult(jsonData); break;
@@ -1553,6 +1625,50 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
     default:
         break;
     }
+}
+
+void BareosDirector::emitConfigureResult(const QString &reply)
+{
+    // Bareos "configure add" (API mode 2):
+    //   success: {"result":{"configure":{"add":{"resource":..,"name":..,"filename":..}}}}
+    //   failure: {"error":{"message":"failed","data":{"messages":{"error":["..."]}}}}
+    // Text replies (no API mode / Onesimus Director): "Created resource ..."
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(reply.toUtf8(), &parseError);
+
+    if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
+        const QJsonObject root = doc.object();
+
+        if (root.contains("error")) {
+            const QJsonObject error = root["error"].toObject();
+            QStringList messages;
+            const QJsonArray errors = error["data"].toObject()["messages"].toObject()["error"].toArray();
+            for (const QJsonValue &v : errors) {
+                const QString msg = v.toString().trimmed();
+                if (!msg.isEmpty()) {
+                    messages << msg;
+                }
+            }
+            if (messages.isEmpty()) {
+                messages << error["message"].toString(tr("Unknown error"));
+            }
+            emit configureResult(false, messages.join('\n'));
+            return;
+        }
+
+        const QJsonObject result = root["result"].toObject();
+        const QJsonObject add = result["configure"].toObject()["add"].toObject();
+        const bool ok = add.contains("name") || add.contains("filename")
+                        || reply.contains("created", Qt::CaseInsensitive)
+                        || reply.contains("success", Qt::CaseInsensitive);
+        emit configureResult(ok, reply);
+        return;
+    }
+
+    // Text reply
+    const bool ok = reply.contains("created", Qt::CaseInsensitive)
+                    || reply.contains("success", Qt::CaseInsensitive);
+    emit configureResult(ok && !detectCommandError(reply), reply.trimmed());
 }
 
 void BareosDirector::queryConsoles()

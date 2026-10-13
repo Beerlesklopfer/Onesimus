@@ -915,9 +915,25 @@ private:
      * @brief Starts loading all required resources (dot-commands)
      *
      * Called automatically after API mode is confirmed.
-     * Sends: .jobs, .clients, .filesets, .storages, .pools, .levels, .schedule
+     * Sends: .jobs, .clients, .filesets, .storages, .pools, .levels, .schedule, .catalogs
+     * and starts the resource load timeout (ResourceLoadTimeoutMs).
      */
     void startResourceLoading();
+
+    /**
+     * @brief Called when resource loading did not finish in time
+     *
+     * Marks every required resource that is still not loaded as Failed
+     * (resourceLoadFailed) and continues to Ready, so the GUI does not hang
+     * in LoadingResources. allResourcesLoaded() is emitted afterwards to
+     * finish the loading phase; check resourceState() for failed resources.
+     */
+    void onResourceLoadTimeout();
+
+    /**
+     * @brief Number of required resources currently in state Loaded
+     */
+    int loadedResourceCount() const;
 
     /**
      * @brief Resets all resource loading flags
@@ -935,6 +951,21 @@ private:
     void connectSocketSignals();
     void disconnectAllSignals();
     void processDirectorMessage(const QString &message, bool isSignal);
+
+    /**
+     * @brief Handles a BNET signal packet (negative length, no payload)
+     * @param signal The (negative) BNET signal value, e.g. -1 EOD, -15 CMD_OK
+     *
+     * A signal ends the current response: accumulated JSON telegrams are
+     * processed immediately.
+     */
+    void handleBnetSignal(qint32 signal);
+
+    /**
+     * @brief Evaluates the reply of a "configure" command and emits configureResult()
+     * @param reply JSON (API mode) or text reply of the Director
+     */
+    void emitConfigureResult(const QString &reply);
 
     /**
      * @brief Routes JSON response to typed signals based on current command
@@ -1063,10 +1094,16 @@ private:
     /**
      * @brief Set of required resources to load during initialization
      *
-     * Default resources: Job, Client, Fileset, Storage, Pool, Level, Schedule
-     * Optional resources: Catalog, Messages, Profile, Console, Director, JobDefs
+     * Default resources: Job, Client, Fileset, Storage, Pool, Level, Schedule, Catalog
+     * Optional resources: Messages, Profile, Console, Director, JobDefs
      */
     QSet<ResourceType> m_requiredResources;
+
+    /**
+     * @brief Timeout for the LoadingResources phase (see onResourceLoadTimeout())
+     */
+    QTimer *m_resourceLoadTimer = nullptr;
+    static constexpr int ResourceLoadTimeoutMs = 30000;
 
     /**
      * @brief Map of resource type to its current loading state

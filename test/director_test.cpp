@@ -112,6 +112,10 @@ public:
                 this, &DirectorTester::onCommandError);
         connect(m_director, &BareosDirector::resourceLoaded,
                 this, &DirectorTester::onResourceLoaded);
+        connect(m_director, &BareosDirector::resourceLoadProgress,
+                this, &DirectorTester::onResourceLoadProgress);
+        connect(m_director, &BareosDirector::resourceLoadFailed,
+                this, &DirectorTester::onResourceLoadFailed);
         connect(m_director, &BareosDirector::allResourcesLoaded,
                 this, &DirectorTester::onAllResourcesLoaded);
 
@@ -191,12 +195,27 @@ private slots:
 
     void onResourceLoaded(BareosDirector::ResourceType type)
     {
-        m_resourcesLoaded++;
-        if (m_config.verbose) {
-            qDebug().noquote() << QString("  [RESOURCE] %1 loaded (%2/7)")
-                .arg(resourceToString(type))
-                .arg(m_resourcesLoaded);
+        m_lastLoadedResource = type;
+    }
+
+    // Emitted right after resourceLoaded() with the Director's own count
+    void onResourceLoadProgress(int loaded, int total)
+    {
+        if (loaded == 0) {
+            return;  // start of the loading phase
         }
+        m_resourcesLoaded = loaded;
+        if (m_config.verbose) {
+            qDebug().noquote() << QString("  [RESOURCE] %1 loaded (%2/%3)")
+                .arg(resourceToString(m_lastLoadedResource))
+                .arg(loaded).arg(total);
+        }
+    }
+
+    void onResourceLoadFailed(BareosDirector::ResourceType type, const QString &error)
+    {
+        qDebug().noquote() << QString("  [RESOURCE] %1 FAILED: %2")
+            .arg(resourceToString(type), error);
     }
 
     void onAllResourcesLoaded()
@@ -725,6 +744,7 @@ private:
     QString m_pendingCommand;
     QString m_authMessage;
     int m_resourcesLoaded = 0;
+    BareosDirector::ResourceType m_lastLoadedResource = BareosDirector::ResourceType::Job;
     bool m_authSuccess = false;
     bool m_allResourcesLoaded = false;
     bool m_reachedReady = false;
