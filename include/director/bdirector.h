@@ -90,6 +90,7 @@ public:
     using ClientInfo = DIRECTOR_CLASS::ClientInfo;
     using ResourceType = DIRECTOR_CLASS::ResourceType;
     using ResourceLoadState = DIRECTOR_CLASS::ResourceLoadState;
+    using Transport = DIRECTOR_CLASS::Transport;
 
     /**
      * @brief Constructor
@@ -323,6 +324,20 @@ signals:
      */
     void rollbackCompleted(Command originalCmd);
 
+    // ========================================================================
+    // gRPC Transport Signals
+    // ========================================================================
+
+    /**
+     * @brief gRPC server certificate is not pinned yet or changed; connection aborted
+     * @see BareosDirector::grpcCertificateNotTrusted
+     */
+    void grpcCertificateNotTrusted(const QString &host, int grpcPort,
+                                   const QString &fingerprint, const QString &pinnedFingerprint);
+
+    /// Job status push event (gRPC only)
+    void jobStatusChanged(int jobId, BDirector::JobStatus status);
+
 public slots:
     // ========================================================================
     // Connection Management (thread-safe)
@@ -353,6 +368,17 @@ public slots:
      * @param config TLS configuration
      */
     void setTLSConfig(const TLSConfig &config);
+
+    /**
+     * @brief Select BNET or gRPC for the next connect()
+     * @param transport Transport::Bnet (default) or Transport::Grpc (Onesimus Director)
+     * @param grpcPort gRPC port
+     * @param grpcCertFingerprint Trusted SHA-256 fingerprint of the gRPC certificate
+     *
+     * Thread-safe: queued before a following connect()
+     */
+    void setTransport(Transport transport, int grpcPort = 0,
+                      const QString &grpcCertFingerprint = QString());
 
     /**
      * @brief Set API mode

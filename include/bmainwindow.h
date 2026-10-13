@@ -6,6 +6,8 @@
 #include "blogging.h"
 #include "director/bdirector.h"
 
+struct BConnectionProfile;
+
 // Debug logging prefixes for App/BMainWindow
 #define APP_DEBUG BLOG_DEBUG()
 #define APP_WARNING BLOG_WARNING()
@@ -83,6 +85,12 @@ private slots:
      */
     void onDirectorDisconnect();
 
+    /**
+     * @brief gRPC certificate not pinned yet or changed: ask the user, pin, reconnect
+     */
+    void onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
+                                     const QString &fingerprint, const QString &pinnedFingerprint);
+
     // Edit menu slots
     void onCopyTriggered();
     void onSelectAllTriggered();
@@ -108,12 +116,23 @@ private:
     void createToolBar();
     void showConnectionDialog();
     void loadAndConnectLastUsed();
+
+    /// Select BNET/gRPC for the next connect from a connection profile
+    void applyProfileTransport(const BConnectionProfile &profile);
     void applyTheme(const QString &themeName);
 
     Ui::BMainWindow *ui;
     BDirector *m_director;
     BDatabase *m_database;  ///< SQLite database for storing Directors, Consoles, etc.
     QMetaObject::Connection m_statusMessageConnection;  ///< Connection for statusMessage signal (only after auth)
+
+    // Last connect request (for reconnecting after the gRPC certificate was trusted)
+    QString m_activeProfileId;
+    QString m_lastConnectHost;
+    int m_lastConnectPort = 0;
+    QString m_lastConnectDirector;
+    QString m_lastConnectConsole;
+    QString m_lastConnectPassword;
 
     // Widgets
     QTabWidget *m_tabWidget;                ///< Main tab widget (Jobs, Clients, Storage, Schedules)

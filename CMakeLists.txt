@@ -368,6 +368,19 @@ endif()
 
 message(STATUS "✓ Found Qt6 ${Qt6_VERSION}")
 
+# gRPC transport (Onesimus Director) - optional, BNET works without it
+option(ENABLE_GRPC "Build gRPC transport for the Onesimus Director (needs QtGrpc/QtProtobuf)" ON)
+if(ENABLE_GRPC)
+    find_package(Qt6 COMPONENTS Protobuf Grpc QUIET)
+    if(Qt6Protobuf_FOUND AND Qt6Grpc_FOUND AND EXISTS ${CMAKE_SOURCE_DIR}/proto/director_service.proto)
+        set(HAVE_GRPC ON)
+        message(STATUS "✓ gRPC transport enabled (QtGrpc ${Qt6Grpc_VERSION})")
+    else()
+        set(HAVE_GRPC OFF)
+        message(WARNING "gRPC transport disabled: QtGrpc/QtProtobuf or proto/ submodule missing")
+    endif()
+endif()
+
 # ============================================================================
 # Qt Linguist Tools Configuration
 # ============================================================================
@@ -415,6 +428,7 @@ set(SOURCES
     src/db/bdirectormodel.cpp
     src/bcleanupdialog.cpp
     src/bconnectionwizard.cpp
+    src/bmdnsbrowser.cpp
     src/bcertificategenerator.cpp
     src/bpfxconverter.cpp
     src/storagewidget.cpp
@@ -484,6 +498,7 @@ set(HEADERS
     include/storagewidget.h
     include/bcleanupdialog.h
     include/bconnectionwizard.h
+    include/bmdnsbrowser.h
     include/bcertificategenerator.h
     include/bpfxconverter.h
     include/director/bdirector.h
@@ -689,6 +704,26 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Network
     Qt6::Sql
 )
+
+# gRPC client (generated from proto/director_service.proto)
+if(HAVE_GRPC)
+    qt_add_library(onesimus_grpc_proto STATIC)
+    qt_add_protobuf(onesimus_grpc_proto
+        PROTO_FILES ${CMAKE_SOURCE_DIR}/proto/director_service.proto
+        PROTO_INCLUDES ${CMAKE_SOURCE_DIR}/proto
+    )
+    qt_add_grpc(onesimus_grpc_proto CLIENT
+        PROTO_FILES ${CMAKE_SOURCE_DIR}/proto/director_service.proto
+        PROTO_INCLUDES ${CMAKE_SOURCE_DIR}/proto
+    )
+    target_link_libraries(onesimus_grpc_proto PUBLIC Qt6::Protobuf Qt6::Grpc Qt6::Network)
+    target_compile_definitions(onesimus_grpc_proto PUBLIC HAVE_GRPC)
+    target_sources(${PROJECT_NAME} PRIVATE
+        src/director/bgrpctransport.cpp
+        include/director/bgrpctransport.h
+    )
+    target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_grpc_proto)
+endif()
 
 # GuiPrivate for QZipWriter/QZipReader
 if(WIN32)
@@ -1017,6 +1052,14 @@ target_link_libraries(bareosdirector_lib PUBLIC
     OpenSSL::SSL
     OpenSSL::Crypto
 )
+
+if(HAVE_GRPC)
+    target_sources(bareosdirector_lib PRIVATE
+        src/director/bgrpctransport.cpp
+        include/director/bgrpctransport.h
+    )
+    target_link_libraries(bareosdirector_lib PUBLIC onesimus_grpc_proto)
+endif()
 
 if(USE_STATIC_OPENSSL)
     add_dependencies(bareosdirector_lib openssl_build)

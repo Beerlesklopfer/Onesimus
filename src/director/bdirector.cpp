@@ -121,6 +121,14 @@ BDirector::BDirector(QObject *parent)
                          emit rollbackCompleted(originalCmd);
                      });
 
+    // gRPC transport signals
+    QObject::connect(m_director, &DIRECTOR_CLASS::grpcCertificateNotTrusted,
+                     this, &BDirector::grpcCertificateNotTrusted);
+    QObject::connect(m_director, &DIRECTOR_CLASS::jobStatusChanged,
+                     this, [this](int jobId, DIRECTOR_CLASS::JobStatus status) {
+                         emit jobStatusChanged(jobId, status);
+                     });
+
     // Typed query result signals
     QObject::connect(m_director, &DIRECTOR_CLASS::consolesResult,
                      this, &BDirector::consolesResult);
@@ -336,6 +344,21 @@ void BDirector::setTLSConfig(const TLSConfig &config)
 
     // This is safe to call directly as it only sets member variables
     m_director->setTLSConfig(config);
+}
+
+void BDirector::setTransport(Transport transport, int grpcPort, const QString &grpcCertFingerprint)
+{
+    if (!m_director) {
+        BLOG_ERROR() << "BDirector::setTransport: No director instance!";
+        return;
+    }
+
+    // Queued, so it is applied before a following (queued) connect()
+    QMetaObject::invokeMethod(m_director, "setTransport",
+                              Qt::QueuedConnection,
+                              Q_ARG(DIRECTOR_CLASS::Transport, transport),
+                              Q_ARG(int, grpcPort),
+                              Q_ARG(QString, grpcCertFingerprint));
 }
 
 void BDirector::setApiMode(ApiMode mode)

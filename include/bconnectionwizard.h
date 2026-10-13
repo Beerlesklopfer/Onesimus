@@ -20,6 +20,7 @@
 #include <QButtonGroup>
 #include <QVBoxLayout>
 #include <QComboBox>
+#include <QListWidget>
 
 #include <QTemporaryDir>
 
@@ -27,6 +28,8 @@
 #include "director/bareosdirector.h"
 class BConfigParser;
 class BConfigResource;
+class BMdnsBrowser;
+struct BMdnsService;
 class QSqlDatabase;
 
 /**
@@ -42,6 +45,12 @@ struct BConnectionWizardData {
     QString host;
     int port = 9101;
     QString serverPlatform = "linux";  // "linux", "windows", "freebsd", "darwin"
+
+    // Transport (gRPC only with the Onesimus Director)
+    QString transport = "bnet";        // "bnet" or "grpc"
+    int grpcPort = 10101;
+    QString grpcCertFingerprint;       // trusted on the test page (TOFU)
+    QString mdnsFingerprint;           // announced via mDNS (hint only, not trusted)
 
     // Credentials page
     QString directorName;
@@ -134,6 +143,18 @@ public:
      * Returns the new Director ID which can be used to mark as default.
      */
     int saveToDatabase(QSqlDatabase &db);
+
+    /**
+     * @brief Ask the user whether to trust a gRPC server certificate
+     * @param fingerprint SHA-256 fingerprint presented by the server (hex)
+     * @param pinnedFingerprint Previously trusted fingerprint (empty on first contact)
+     * @param announcedFingerprint Fingerprint from the mDNS announcement (optional, untrusted)
+     * @return true if the user trusts the certificate
+     */
+    static bool confirmGrpcCertificate(QWidget *parent, const QString &host, int port,
+                                       const QString &fingerprint,
+                                       const QString &pinnedFingerprint,
+                                       const QString &announcedFingerprint = QString());
 
     ServerCapabilities capabilities() const { return m_capabilities; }
     void setCapabilities(const ServerCapabilities &caps) { m_capabilities = caps; }
@@ -234,12 +255,30 @@ class ServerPage : public QAPage
 public:
     explicit ServerPage(QWidget *parent = nullptr);
     void initializePage() override;
+    void cleanupPage() override;
     bool isComplete() const override;
     bool validatePage() override;
 private:
     QLineEdit *m_hostEdit;
     QSpinBox *m_portSpin;
     QComboBox *m_platformCombo;
+    QComboBox *m_transportCombo;
+    QSpinBox *m_grpcPortSpin;
+    QLabel *m_grpcPortLabel;
+
+    // mDNS discovery ("found in the network")
+    BMdnsBrowser *m_browser;
+    QListWidget *m_discoveredList;
+    QLabel *m_discoveryStatus;
+    QString m_selectedDirectorName;   ///< From the selected mDNS entry
+    QString m_selectedHost;
+    QString m_selectedFingerprint;
+
+    void updateTransportWidgets();
+private slots:
+    void onServiceFound(const BMdnsService &service);
+    void onServiceRemoved(const QString &fullName);
+    void onDiscoveredSelected(QListWidgetItem *item);
 };
 
 class CredentialsPage : public QAPage
@@ -250,6 +289,7 @@ public:
     void initializePage() override;
     bool isComplete() const override;
     bool validatePage() override;
+    int nextId() const override;
 private slots:
     void onGeneratePassword();
 private:
@@ -350,6 +390,7 @@ private:
     BareosDirector *m_testDirector;
     bool m_testSucceeded;
     bool m_testRunning;
+    bool m_certPromptHandled = false;  ///< Swallow the auth failure that follows a certificate prompt
     void startTest();
     void stopTest();
     void appendLog(const QString &msg, bool error = false);
@@ -360,6 +401,8 @@ private slots:
     void onProtocolError(const QString &error);
     void onResourcesLoaded();
     void onTimeout();
+    void onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
+                                     const QString &fingerprint, const QString &pinnedFingerprint);
 };
 
 class ConsoleSetupPage : public QAPage

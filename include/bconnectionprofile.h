@@ -80,6 +80,23 @@ struct BConnectionProfile
     // Profile (references a Director Profile resource)
     QString profile;            ///< Director Profile name (contains ACLs)
 
+    // Transport (Onesimus Director only: gRPC next to BNET)
+    enum class Transport { Bnet, Grpc };
+    Transport transport = Transport::Bnet; ///< BNET (C++ Bareos compatible) or gRPC
+    int grpcPort = 10101;                  ///< gRPC port (TLS)
+    QString grpcCertFingerprint;           ///< Pinned SHA-256 fingerprint of the gRPC server certificate (hex)
+
+    static QString transportToString(Transport t)
+    {
+        return t == Transport::Grpc ? QStringLiteral("grpc") : QStringLiteral("bnet");
+    }
+
+    static Transport transportFromString(const QString &s)
+    {
+        return s.compare(QLatin1String("grpc"), Qt::CaseInsensitive) == 0 ? Transport::Grpc
+                                                                         : Transport::Bnet;
+    }
+
     /**
      * @brief Create a new profile with a generated UUID
      */
@@ -217,6 +234,10 @@ struct BConnectionProfile
         obj["aclPluginOptions"] = QJsonArray::fromStringList(aclPluginOptions);
         obj["profile"] = profile;
 
+        obj["transport"] = transportToString(transport);
+        obj["grpcPort"] = grpcPort;
+        obj["grpcCertFingerprint"] = grpcCertFingerprint;
+
         return obj;
     }
 
@@ -305,6 +326,11 @@ struct BConnectionProfile
         profile.aclWhere = jsonArrayToStringList(obj["aclWhere"].toArray());
         profile.aclPluginOptions = jsonArrayToStringList(obj["aclPluginOptions"].toArray());
         profile.profile = obj["profile"].toString();
+
+        // Transport (fields missing in older profiles -> BNET)
+        profile.transport = transportFromString(obj["transport"].toString());
+        profile.grpcPort = obj["grpcPort"].toInt(10101);
+        profile.grpcCertFingerprint = obj["grpcCertFingerprint"].toString();
 
         return profile;
     }

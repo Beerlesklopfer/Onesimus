@@ -127,6 +127,9 @@ BMainWindow::BMainWindow(QWidget *parent)
 
     connect(m_director, &BDirector::protocolError, this, &BMainWindow::onConnectionError);
 
+    connect(m_director, &BDirector::grpcCertificateNotTrusted,
+            this, &BMainWindow::onGrpcCertificateNotTrusted);
+
     // ✅ Handle non-JSON command responses (for debugging)
     connect(m_director, &BDirector::textResult, this, [this](BDirector::Command cmd, const QString &response) {
         Q_UNUSED(cmd)
@@ -1341,6 +1344,7 @@ void BMainWindow::showConnectionDialog()
 #endif
 
         // Connect using profile data
+        applyProfileTransport(profile);
         onDirectorConnect(profile.host,
                           profile.port,
                           profile.directorName,
@@ -2217,6 +2221,12 @@ void BMainWindow::onDirectorConnect(const QString &host, int port, const QString
         return;
     }
 
+    m_lastConnectHost = host;
+    m_lastConnectPort = port;
+    m_lastConnectDirector = directorName;
+    m_lastConnectConsole = consoleName;
+    m_lastConnectPassword = password;
+
     // Thread-safe: Use queued connection to connect in Director thread
     QMetaObject::invokeMethod(m_director, "connect",
                               Qt::QueuedConnection,
@@ -2294,6 +2304,7 @@ void BMainWindow::loadAndConnectLastUsed()
 #endif
 
     m_director->setTLSConfig(*m_director->tlsConfig());
+    applyProfileTransport(profile);
     onDirectorConnect(profile.host, profile.port, profile.directorName,
                       profile.consoleName, profile.getPasswordHashHex());
     m_statusLabel->setText(tr("Auto-connecting to %1...").arg(profile.name));
@@ -2303,6 +2314,47 @@ void BMainWindow::loadAndConnectLastUsed()
 
     // Update "Reconnect" button status
     m_connectLastAction->setEnabled(true);
+}
+
+void BMainWindow::applyProfileTransport(const BConnectionProfile &profile)
+{
+    m_activeProfileId = profile.id;
+    m_director->setTransport(profile.transport == BConnectionProfile::Transport::Grpc
+                                 ? BDirector::Transport::Grpc : BDirector::Transport::Bnet,
+                             profile.grpcPort, profile.grpcCertFingerprint);
+}
+
+void BMainWindow::onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
+                                              const QString &fingerprint,
+                                              const QString &pinnedFingerprint)
+{
+    while (QApplication::overrideCursor()) {
+        QApplication::restoreOverrideCursor();
+    }
+
+    if (!BConnectionWizard::confirmGrpcCertificate(this, host, grpcPort, fingerprint,
+                                                   pinnedFingerprint)) {
+        m_statusLabel->setText(tr("Connection cancelled: server certificate not trusted"));
+        return;
+    }
+
+    // Pin the certificate in the profile
+    if (!m_activeProfileId.isEmpty()) {
+        BSettings &settings = BSettings::instance();
+        BConnectionProfile profile = settings.connectionProfile(m_activeProfileId);
+        if (profile.id == m_activeProfileId) {
+            profile.grpcCertFingerprint = fingerprint;
+            settings.updateConnectionProfile(profile);
+            settings.sync();
+        }
+    }
+
+    // Reconnect with the pinned certificate
+    m_director->setTransport(BDirector::Transport::Grpc, grpcPort, fingerprint);
+    onDirectorConnect(m_lastConnectHost, m_lastConnectPort, m_lastConnectDirector,
+                      m_lastConnectConsole, m_lastConnectPassword);
+    m_statusLabel->setText(tr("Connecting to %1...").arg(host));
+    QApplication::setOverrideCursor(Qt::WaitCursor);
 }
 
 BDirector *BMainWindow::director() const
@@ -2559,6 +2611,7 @@ void BMainWindow::onConnectionWizard()
             m_director->setTLSConfig(tlsConfig);
 
             // Connect
+            applyProfileTransport(profile);
             onDirectorConnect(profile.host, profile.port, profile.directorName,
                               profile.consoleName, profile.getPasswordHashHex());
         }
@@ -2644,6 +2697,7 @@ void BMainWindow::onImportConfig()
                         m_director->tlsConfig()->tlsEnable = profile.tlsEnabled;
                         m_director->tlsConfig()->tlsRequire = profile.tlsEnabled;
                         m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
+                        applyProfileTransport(profile);
                         onDirectorConnect(profile.host, profile.port,
                                           profile.directorName, profile.consoleName,
                                           profile.passwordHash);

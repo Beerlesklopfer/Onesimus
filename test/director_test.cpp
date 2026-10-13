@@ -79,6 +79,8 @@ public:
         bool psk = false;
         bool verbose = false;
         QString command = "connect";
+        int grpcPort = 0;          ///< > 0: use gRPC transport instead of BNET
+        QString fingerprint;       ///< pinned SHA-256 of the gRPC certificate
     };
 
     /**
@@ -120,6 +122,17 @@ public:
         tlsConfig.tlsVerifyPeer = false;
         tlsConfig.tlsPSKEnable = m_config.psk;
         m_director->setTLSConfig(tlsConfig);
+
+        if (m_config.grpcPort > 0) {
+            m_director->setTransport(BareosDirector::Transport::Grpc,
+                                     m_config.grpcPort, m_config.fingerprint);
+            connect(m_director, &BareosDirector::grpcCertificateNotTrusted, this,
+                    [](const QString &host, int port, const QString &fingerprint) {
+                qCritical().noquote() << "gRPC certificate of" << host << port
+                                      << "not trusted, SHA-256:" << fingerprint;
+                qApp->exit(3);
+            });
+        }
     }
 
     ~DirectorTester() override = default;
@@ -757,6 +770,8 @@ int main(int argc, char *argv[])
     parser.addOption({"legacy", "Legacy mode (no TLS)"});
     parser.addOption({"psk", "TLS-PSK mode"});
     parser.addOption({"verbose", "Verbose output"});
+    parser.addOption({"grpc-port", "Use gRPC (onesimus-dird) on this port", "port"});
+    parser.addOption({"fingerprint", "Pinned SHA-256 fingerprint of the gRPC certificate", "sha256"});
 
     parser.addPositionalArgument("command",
         "Test command: connect, status, jobs, clients, bvfs, interactive",
@@ -773,6 +788,8 @@ int main(int argc, char *argv[])
     config.legacy = parser.isSet("legacy") || !parser.isSet("psk");
     config.psk = parser.isSet("psk");
     config.verbose = parser.isSet("verbose");
+    config.grpcPort = parser.value("grpc-port").toInt();
+    config.fingerprint = parser.value("fingerprint");
 
     QStringList args = parser.positionalArguments();
     if (!args.isEmpty()) {

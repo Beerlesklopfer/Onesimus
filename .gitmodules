@@ -5,3 +5,6 @@
 [submodule "wiki"]
 	path = wiki
 	url = git@github.com:Beerlesklopfer/Onesimus.wiki.git
+[submodule "proto"]
+	path = proto
+	url = git@github.com:Beerlesklopfer/baReos-proto.git

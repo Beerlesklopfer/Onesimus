@@ -51,6 +51,8 @@
 #define DIR_WARNING BLOG_WARNING()
 #define DIR_CRITICAL BLOG_ERROR()
 
+class BGrpcTransport;
+
 /**
  * @file director.h
  * @brief Qt-based Bacula/Bareos Director Communication Interface
@@ -152,6 +154,24 @@ public:
         ConnectionError     ///< Connection error state
     };
     Q_ENUM(ConnectionState)
+
+    /**
+     * @enum Transport
+     * @brief Wire protocol to the Director
+     *
+     * BNET is the Bareos console protocol (C++ Bareos and Onesimus Director).
+     * gRPC is only offered by the Onesimus Director (onesimus-dird).
+     */
+    enum class Transport {
+        Bnet,   ///< Bareos console protocol (TLS-PSK / certificates / CRAM-MD5)
+        Grpc    ///< gRPC over TLS, challenge/response login (Onesimus only)
+    };
+    Q_ENUM(Transport)
+
+    /**
+     * @brief true if this build contains the gRPC transport (QtGrpc available)
+     */
+    static bool grpcAvailable();
 
     /**
      * @enum ResourceType
@@ -517,6 +537,12 @@ public:
     TLSConfig *tlsConfig() const;
 
     // ========================================================================
+    // Transport Selection
+    // ========================================================================
+
+    Transport transport() const { return m_transport; }
+
+    // ========================================================================
     // Command Sending
     // ========================================================================
 
@@ -689,6 +715,18 @@ signals:
     void rollbackCompleted(Command originalCmd);
 
     void jobStatusChanged(int jobId, BareosDirector::JobStatus status);
+
+    /**
+     * @brief gRPC server certificate is not pinned yet or does not match the pin
+     *
+     * The connection is aborted. If the user trusts the certificate, store the
+     * fingerprint (e.g. in the connection profile), call setTransport() with it
+     * and connect again.
+     * @param fingerprint SHA-256 fingerprint of the presented certificate (hex)
+     * @param pinnedFingerprint Previously trusted fingerprint (empty on first contact)
+     */
+    void grpcCertificateNotTrusted(const QString &host, int grpcPort,
+                                   const QString &fingerprint, const QString &pinnedFingerprint);
     void authenticationRequired();
     void statusMessage(const QString &message);
     void commandError(const QString &command, const QString &error);
@@ -712,6 +750,17 @@ public slots:
      * @since 1.0.0
      */
     void disconnect();
+
+    /**
+     * @brief Select the transport for the next connect()
+     * @param transport BNET (default) or gRPC
+     * @param grpcPort gRPC port (only used for Transport::Grpc)
+     * @param grpcCertFingerprint Trusted SHA-256 fingerprint of the gRPC certificate
+     *
+     * Thread-safe when invoked via QMetaObject::invokeMethod (queued).
+     */
+    void setTransport(BareosDirector::Transport transport, int grpcPort = 0,
+                      const QString &grpcCertFingerprint = QString());
 
     /**
      * @brief Sends a raw command string to the Director
@@ -813,6 +862,15 @@ private slots:
     void onAuthenticationSucceeded(const QString directorVersion);
     void onAuthenticationFailed(const QString &reason);
     void onAuthStatusMessage(const QString &message);
+
+    // gRPC transport
+    void onGrpcLoggedIn(const QString &directorName, const QString &version);
+    void onGrpcFailed(const QString &reason);
+    void onGrpcCertificateNotTrusted(const QString &fingerprint, const QString &pinnedFingerprint);
+    void onGrpcCommandFinished(const QString &commandLine, bool success,
+                               const QString &text, const QString &error);
+    void onGrpcJobStatus(int jobId, const QString &jobName, const QString &status);
+    void onGrpcConnectionLost(const QString &reason);
 
 private:
     // ========================================================================
@@ -939,6 +997,15 @@ private:
 
     ConnectionState m_connectionState;
     QSslSocket *m_socket;
+
+    // Transport selection (BNET default, gRPC for the Onesimus Director)
+    Transport m_transport = Transport::Bnet;
+    int m_grpcPort = 0;
+    QString m_grpcCertFingerprint;
+    BGrpcTransport *m_grpc = nullptr;   ///< Created in initialize() (worker thread)
+
+    void connectGrpc();
+    void sendCommandGrpc(const QString &command);
     QString m_directorName;
     QString m_consoleName;
     QString m_password;

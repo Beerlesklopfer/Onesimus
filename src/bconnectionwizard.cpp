@@ -14,6 +14,7 @@
 #include "db/bdatabase.h"
 #include "db/bdirectormodel.h"
 #include "config/bconfigparser.h"
+#include "bmdnsbrowser.h"
 
 #include <private/qzipreader_p.h>
 #include <private/qzipwriter_p.h>
@@ -37,6 +38,7 @@
 #include <QApplication>
 #include <QTabWidget>
 #include <QDirIterator>
+#include <QStandardItemModel>
 
 // ============================================================================
 // BConnectionWizard
@@ -91,6 +93,9 @@ BConnectionProfile BConnectionWizard::profile() const
         p.port = m_wizardData->port;
         p.directorName = m_wizardData->directorName;
         p.consoleName = m_wizardData->consoleName;
+        p.transport = BConnectionProfile::transportFromString(m_wizardData->transport);
+        p.grpcPort = m_wizardData->grpcPort;
+        p.grpcCertFingerprint = m_wizardData->grpcCertFingerprint;
 
         BLOG_DEBUG() << "[ConnectionWizard] Using wizardData - savePassword:" << m_wizardData->savePassword;
 
@@ -161,6 +166,79 @@ BConnectionProfile BConnectionWizard::profile() const
 void BConnectionWizard::setProfile(const BConnectionProfile &profile)
 {
     m_profile = profile;
+}
+
+// Format a hex SHA-256 fingerprint as "AB:CD:..." in two lines
+static QString formatFingerprint(const QString &fingerprint)
+{
+    QStringList bytes;
+    for (int i = 0; i + 1 < fingerprint.size(); i += 2) {
+        bytes << fingerprint.mid(i, 2).toUpper();
+    }
+    const int half = bytes.size() / 2;
+    return bytes.mid(0, half).join(':') + "<br>" + bytes.mid(half).join(':');
+}
+
+bool BConnectionWizard::confirmGrpcCertificate(QWidget *parent, const QString &host, int port,
+                                               const QString &fingerprint,
+                                               const QString &pinnedFingerprint,
+                                               const QString &announcedFingerprint)
+{
+    QMessageBox box(parent);
+    box.setTextFormat(Qt::RichText);
+
+    QString details = tr("SHA-256 fingerprint of the server certificate:")
+                      + QString("<br><tt>%1</tt>").arg(formatFingerprint(fingerprint));
+    bool suspicious = false;
+
+    if (!pinnedFingerprint.isEmpty()) {
+        // Certificate changed since the last connection
+        suspicious = true;
+        box.setWindowTitle(tr("Server certificate changed"));
+        box.setText(tr("The certificate of the Director at %1:%2 has changed since the last connection.")
+                        .arg(host.toHtmlEscaped()).arg(port));
+        details += "<br><br>" + tr("Previously trusted:")
+                   + QString("<br><tt>%1</tt>").arg(formatFingerprint(pinnedFingerprint));
+        details += "<br><br>" + tr("This is expected if the certificate was regenerated on the Director. "
+                                   "Otherwise someone may be intercepting the connection.");
+    } else {
+        box.setWindowTitle(tr("Trust server certificate?"));
+        box.setText(tr("The Director at %1:%2 uses a self-signed certificate that has not been trusted yet.")
+                        .arg(host.toHtmlEscaped()).arg(port));
+        if (!announcedFingerprint.isEmpty()) {
+            if (announcedFingerprint.compare(fingerprint, Qt::CaseInsensitive) == 0) {
+                details += "<br><br>" + tr("The fingerprint matches the one the Director announces in the network (mDNS).");
+            } else {
+                suspicious = true;
+                details += "<br><br><b>" + tr("The fingerprint does NOT match the one announced in the network (mDNS)!") + "</b>";
+            }
+        }
+        details += "<br><br>" + tr("Compare the fingerprint with the one of the Director's gRPC certificate "
+                                   "before trusting it.");
+    }
+
+    box.setIcon(suspicious ? QMessageBox::Warning : QMessageBox::Question);
+    box.setInformativeText(details);
+    QPushButton *trustButton = box.addButton(tr("Trust certificate"), QMessageBox::AcceptRole);
+    QPushButton *cancelButton = box.addButton(QMessageBox::Cancel);
+    box.setDefaultButton(suspicious ? cancelButton : trustButton);
+    box.exec();
+
+    return box.clickedButton() == trustButton;
+}
+
+// Select BNET/gRPC on a wizard-owned BareosDirector from the wizard data
+static void applyWizardTransport(BareosDirector *director, const BConnectionWizardData *data)
+{
+    if (!director || !data) {
+        return;
+    }
+    if (data->transport == "grpc") {
+        director->setTransport(BareosDirector::Transport::Grpc, data->grpcPort,
+                               data->grpcCertFingerprint);
+    } else {
+        director->setTransport(BareosDirector::Transport::Bnet);
+    }
 }
 
 int BConnectionWizard::saveToDatabase(QSqlDatabase &db)
@@ -1065,7 +1143,41 @@ void ImportConsoleSelectionPage::cleanupTempDir()
 
 ServerPage::ServerPage(QWidget *parent)
     : QAPage(tr("Where is your Bareos Director?"), parent)
+    , m_browser(new BMdnsBrowser(this))
 {
+    // Directors announced in the local network (Onesimus Director, mDNS)
+    auto *discoveredHeader = new QHBoxLayout();
+    discoveredHeader->addWidget(new QLabel(tr("Found in the network:"), this));
+    discoveredHeader->addStretch();
+    auto *searchButton = new QPushButton(tr("Search again"), this);
+    discoveredHeader->addWidget(searchButton);
+    m_layout->addLayout(discoveredHeader);
+
+    m_discoveredList = new QListWidget(this);
+    m_discoveredList->setMaximumHeight(90);
+    m_discoveredList->setToolTip(tr("Onesimus Directors announce themselves in the local network. "
+                                    "Select one to fill in the connection data."));
+    m_layout->addWidget(m_discoveredList);
+
+    m_discoveryStatus = new QLabel(this);
+    m_discoveryStatus->setProperty("state", "muted");
+    m_layout->addWidget(m_discoveryStatus);
+
+    connect(m_browser, &BMdnsBrowser::serviceFound, this, &ServerPage::onServiceFound);
+    connect(m_browser, &BMdnsBrowser::serviceRemoved, this, &ServerPage::onServiceRemoved);
+    connect(m_browser, &BMdnsBrowser::error, this, [this](const QString &msg) {
+        m_discoveryStatus->setText(msg);
+    });
+    connect(m_discoveredList, &QListWidget::itemClicked, this, &ServerPage::onDiscoveredSelected);
+    connect(searchButton, &QPushButton::clicked, this, [this]() {
+        m_discoveryStatus->setText(tr("Searching..."));
+        if (!m_browser->isRunning()) {
+            m_browser->start();
+        } else {
+            m_browser->refresh();
+        }
+    });
+
     auto *form = new QFormLayout();
 
     m_hostEdit = new QLineEdit(this);
@@ -1086,6 +1198,30 @@ ServerPage::ServerPage(QWidget *parent)
     m_platformCombo->setToolTip(tr("Select the operating system of the Bareos Director server.\n"
                                    "This affects certificate paths in exported configurations."));
     form->addRow(tr("Server OS:"), m_platformCombo);
+
+    // Transport: BNET (all Bareos Directors) or gRPC (Onesimus Director only)
+    m_transportCombo = new QComboBox(this);
+    m_transportCombo->addItem(tr("BNET (Bareos console protocol)"), "bnet");
+    m_transportCombo->addItem(tr("gRPC (Onesimus Director)"), "grpc");
+    if (!BareosDirector::grpcAvailable()) {
+        // Item 1 = gRPC: not available in this build
+        if (auto *model = qobject_cast<QStandardItemModel *>(m_transportCombo->model())) {
+            model->item(1)->setEnabled(false);
+        }
+        m_transportCombo->setToolTip(tr("This build of Onesimus has no gRPC support."));
+    }
+    form->addRow(tr("Protocol:"), m_transportCombo);
+
+    m_grpcPortSpin = new QSpinBox(this);
+    m_grpcPortSpin->setRange(1, 65535);
+    m_grpcPortSpin->setValue(10101);
+    m_grpcPortSpin->setMaximumWidth(100);
+    m_grpcPortLabel = new QLabel(tr("gRPC port:"), this);
+    form->addRow(m_grpcPortLabel, m_grpcPortSpin);
+
+    connect(m_transportCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ServerPage::updateTransportWidgets);
+    updateTransportWidgets();
 
     m_layout->addLayout(form);
 
@@ -1123,6 +1259,99 @@ void ServerPage::initializePage()
         if (platformIdx >= 0) {
             m_platformCombo->setCurrentIndex(platformIdx);
         }
+        const int transportIdx = m_transportCombo->findData(data->transport);
+        if (transportIdx >= 0) {
+            m_transportCombo->setCurrentIndex(transportIdx);
+        }
+        if (data->grpcPort > 0) {
+            m_grpcPortSpin->setValue(data->grpcPort);
+        }
+    }
+
+    // Start looking for Directors in the local network
+    m_discoveryStatus->setText(tr("Searching for Onesimus Directors in the network..."));
+    if (!m_browser->isRunning()) {
+        m_browser->start();
+    }
+    QTimer::singleShot(4000, this, [this]() {
+        if (m_discoveredList->count() == 0 && m_browser->isRunning()) {
+            m_discoveryStatus->setText(tr("No Onesimus Director found - enter the server manually."));
+        }
+    });
+}
+
+void ServerPage::cleanupPage()
+{
+    m_browser->stop();
+}
+
+void ServerPage::updateTransportWidgets()
+{
+    const bool grpc = m_transportCombo->currentData().toString() == "grpc";
+    m_grpcPortSpin->setVisible(grpc);
+    m_grpcPortLabel->setVisible(grpc);
+    setHint(grpc ? tr("gRPC is encrypted with TLS; the server certificate is confirmed on first use.")
+                 : tr("The default port is 9101."));
+}
+
+void ServerPage::onServiceFound(const BMdnsService &service)
+{
+    QListWidgetItem *item = nullptr;
+    for (int i = 0; i < m_discoveredList->count(); ++i) {
+        if (m_discoveredList->item(i)->data(Qt::UserRole).toString() == service.fullName) {
+            item = m_discoveredList->item(i);
+            break;
+        }
+    }
+    if (!item) {
+        item = new QListWidgetItem(m_discoveredList);
+    }
+
+    QString text = QString("%1  —  %2:%3").arg(service.instanceName, service.connectHost())
+                       .arg(service.port);
+    if (service.hasGrpc()) {
+        text += "  " + tr("(gRPC %1)").arg(service.grpcPort());
+    }
+    if (!service.version().isEmpty()) {
+        text += "  v" + service.version();
+    }
+    item->setText(text);
+    item->setData(Qt::UserRole, service.fullName);
+    item->setData(Qt::UserRole + 1, service.instanceName);
+    item->setData(Qt::UserRole + 2, service.connectHost());
+    item->setData(Qt::UserRole + 3, service.port);
+    item->setData(Qt::UserRole + 4, service.grpcPort());
+    item->setData(Qt::UserRole + 5, service.fingerprint());
+
+    m_discoveryStatus->setText(tr("%n Director(s) found. Select one to use it.", "", m_discoveredList->count()));
+}
+
+void ServerPage::onServiceRemoved(const QString &fullName)
+{
+    for (int i = 0; i < m_discoveredList->count(); ++i) {
+        if (m_discoveredList->item(i)->data(Qt::UserRole).toString() == fullName) {
+            delete m_discoveredList->takeItem(i);
+            break;
+        }
+    }
+}
+
+void ServerPage::onDiscoveredSelected(QListWidgetItem *item)
+{
+    if (!item) {
+        return;
+    }
+    m_selectedDirectorName = item->data(Qt::UserRole + 1).toString();
+    m_selectedHost = item->data(Qt::UserRole + 2).toString();
+    m_selectedFingerprint = item->data(Qt::UserRole + 5).toString();
+
+    m_hostEdit->setText(m_selectedHost);
+    m_portSpin->setValue(item->data(Qt::UserRole + 3).toInt());
+
+    const int grpcPort = item->data(Qt::UserRole + 4).toInt();
+    if (grpcPort > 0 && BareosDirector::grpcAvailable()) {
+        m_grpcPortSpin->setValue(grpcPort);
+        m_transportCombo->setCurrentIndex(m_transportCombo->findData("grpc"));
     }
 }
 
@@ -1136,11 +1365,34 @@ bool ServerPage::validatePage()
     // Save values to wizard data struct
     BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
     if (wiz && wiz->wizardData()) {
-        wiz->wizardData()->host = m_hostEdit->text().trimmed();
-        wiz->wizardData()->port = m_portSpin->value();
-        wiz->wizardData()->serverPlatform = m_platformCombo->currentData().toString();
+        BConnectionWizardData *data = wiz->wizardData();
+        const QString host = m_hostEdit->text().trimmed();
+        const QString transport = m_transportCombo->currentData().toString();
+
+        // A trusted certificate belongs to one endpoint
+        if (host != data->host || m_grpcPortSpin->value() != data->grpcPort
+            || transport != data->transport) {
+            data->grpcCertFingerprint.clear();
+        }
+
+        data->host = host;
+        data->port = m_portSpin->value();
+        data->serverPlatform = m_platformCombo->currentData().toString();
+        data->transport = transport;
+        data->grpcPort = m_grpcPortSpin->value();
+
+        // Values from the selected mDNS announcement (only while the host is unchanged)
+        if (!m_selectedHost.isEmpty() && host == m_selectedHost) {
+            data->mdnsFingerprint = m_selectedFingerprint;
+            if (!m_selectedDirectorName.isEmpty()) {
+                data->directorName = m_selectedDirectorName;
+            }
+        } else {
+            data->mdnsFingerprint.clear();
+        }
     }
 
+    m_browser->stop();
     return true;
 }
 
@@ -1283,6 +1535,16 @@ bool CredentialsPage::validatePage()
         BLOG_DEBUG() << "[CredentialsPage] Saving to wizardData - savePassword:" << m_saveCheck->isChecked();
     }
     return true;
+}
+
+int CredentialsPage::nextId() const
+{
+    // gRPC: TLS is fixed (server certificate + login), no PSK/X.509 choice
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    if (wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc") {
+        return BConnectionWizard::Page_ConfigPreview;
+    }
+    return BConnectionWizard::Page_AuthMethod;
 }
 
 void CredentialsPage::onGeneratePassword()
@@ -2178,6 +2440,13 @@ void TestPage::startTest()
     connect(m_testDirector, &BareosDirector::authentificationSucceeded, this, &TestPage::onAuthResult);
     connect(m_testDirector, &BareosDirector::protocolError, this, &TestPage::onProtocolError);
     connect(m_testDirector, &BareosDirector::allResourcesLoaded, this, &TestPage::onResourcesLoaded);
+    connect(m_testDirector, &BareosDirector::grpcCertificateNotTrusted,
+            this, &TestPage::onGrpcCertificateNotTrusted);
+    m_certPromptHandled = false;
+
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    applyWizardTransport(m_testDirector, wiz ? wiz->wizardData() : nullptr);
+    const bool grpc = wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc";
 
     BareosDirector::TLSConfig tls;
     QString auth = field("authMethod").toString();
@@ -2226,7 +2495,12 @@ void TestPage::startTest()
     QString con = field("consoleName").toString();
     QString pwd = field("password").toString();
 
-    appendLog(tr("Connecting to %1:%2...").arg(host).arg(port));
+    if (grpc) {
+        appendLog(tr("Mode: gRPC (TLS) on port %1").arg(wiz->wizardData()->grpcPort));
+        appendLog(tr("Connecting to %1:%2...").arg(host).arg(wiz->wizardData()->grpcPort));
+    } else {
+        appendLog(tr("Connecting to %1:%2...").arg(host).arg(port));
+    }
     m_testDirector->connect(host, port, dir, con, pwd);
     m_timeoutTimer->start(30000);
 }
@@ -2279,8 +2553,39 @@ void TestPage::onStateChanged(int, int newState)
     appendLog(s);
 }
 
+void TestPage::onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
+                                           const QString &fingerprint,
+                                           const QString &pinnedFingerprint)
+{
+    // The auth failure emitted right after this signal is part of the prompt
+    m_certPromptHandled = true;
+    m_timeoutTimer->stop();
+
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    BConnectionWizardData *data = wiz ? wiz->wizardData() : nullptr;
+
+    if (BConnectionWizard::confirmGrpcCertificate(this, host, grpcPort, fingerprint, pinnedFingerprint,
+                                                  data ? data->mdnsFingerprint : QString())) {
+        if (data) {
+            data->grpcCertFingerprint = fingerprint;
+        }
+        appendLog(tr("Server certificate trusted."));
+        // Restart outside of the director's signal emission
+        QTimer::singleShot(0, this, &TestPage::startTest);
+    } else {
+        appendLog(tr("Server certificate not trusted - connection cancelled."), true);
+        m_statusLabel->setText(tr("Failed"));
+        m_statusLabel->setStyleSheet("color:#c00000;font-weight:bold;");
+        stopTest();
+    }
+}
+
 void TestPage::onAuthResult(bool ok, const QString &msg)
 {
+    if (!ok && m_certPromptHandled) {
+        m_certPromptHandled = false;
+        return;
+    }
     if (ok) appendLog(tr("Auth OK"));
     else { appendLog(tr("Auth failed: %1").arg(msg), true); m_statusLabel->setText(tr("Failed")); m_statusLabel->setStyleSheet("color:#c00000;font-weight:bold;"); stopTest(); }
 }
@@ -2540,6 +2845,8 @@ BareosDirector *ConsoleSetupPage::createConnectedDirector()
     auto *dir = new BareosDirector(this);
     dir->initialize();
     dir->setTLSConfig(buildTLSConfig());
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    applyWizardTransport(dir, wiz ? wiz->wizardData() : nullptr);
 
     QObject::connect(dir, &BareosDirector::protocolError, this, [this](const QString &err) {
         m_statusLabel->setText(tr("Error: %1").arg(err));

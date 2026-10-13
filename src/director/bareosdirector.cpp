@@ -28,6 +28,10 @@
 #include <QSslCipher>
 #include <QSslError>
 
+#ifdef HAVE_GRPC
+#include "director/bgrpctransport.h"
+#endif
+
 // ============================================================================
 // Compile-time backend identification
 // ============================================================================
@@ -88,6 +92,21 @@ void BareosDirector::initialize()
     // Connect socket signals
     connectSocketSignals();
 
+#ifdef HAVE_GRPC
+    // gRPC transport (Onesimus Director) - lives in this worker thread, too
+    m_grpc = new BGrpcTransport(this);
+    QObject::connect(m_grpc, &BGrpcTransport::loggedIn, this, &BareosDirector::onGrpcLoggedIn);
+    QObject::connect(m_grpc, &BGrpcTransport::failed, this, &BareosDirector::onGrpcFailed);
+    QObject::connect(m_grpc, &BGrpcTransport::certificateNotTrusted,
+                     this, &BareosDirector::onGrpcCertificateNotTrusted);
+    QObject::connect(m_grpc, &BGrpcTransport::commandFinished,
+                     this, &BareosDirector::onGrpcCommandFinished);
+    QObject::connect(m_grpc, &BGrpcTransport::jobStatusEvent, this, &BareosDirector::onGrpcJobStatus);
+    QObject::connect(m_grpc, &BGrpcTransport::eventMessage, this, &BareosDirector::statusMessage);
+    QObject::connect(m_grpc, &BGrpcTransport::connectionLost,
+                     this, &BareosDirector::onGrpcConnectionLost);
+#endif
+
     m_initialized = true;
     DIR_DEBUG << "  ✓ Socket created with correct thread affinity";
     DIR_DEBUG << "  ✓ Socket thread:" << m_socket->thread();
@@ -130,6 +149,15 @@ QString BareosDirector::backupSystemName() const
     return QString(BACKUP_SYSTEM_NAME);
 }
 
+bool BareosDirector::grpcAvailable()
+{
+#ifdef HAVE_GRPC
+    return true;
+#else
+    return false;
+#endif
+}
+
 // ============================================================================
 // Connection Management
 // ============================================================================
@@ -160,6 +188,9 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     if (m_socket->state() != QAbstractSocket::UnconnectedState) {
         m_socket->abort();
     }
+#ifdef HAVE_GRPC
+    m_grpc->close();
+#endif
 
     {
         QMutexLocker stateLocker(&m_stateMutex);
@@ -173,6 +204,11 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     m_consoleName = consoleName;
     m_password = password;
 
+    if (m_transport == Transport::Grpc) {
+        connectGrpc();
+        return;
+    }
+
     DIR_DEBUG << "Connecting via plain TCP...";
     if (m_tlsConfig->tlsEnable) {
         DIR_DEBUG << "(TLS/PSK will be negotiated during authentication)";
@@ -184,6 +220,16 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
 
 void BareosDirector::disconnect()
 {
+    if (m_transport == Transport::Grpc) {
+#ifdef HAVE_GRPC
+        m_grpc->close();
+#endif
+        m_commandQueue.clear();
+        setState(Disconnected);
+        emit disconnected();
+        return;
+    }
+
     // Cleanup authentication
     if (m_auth) {
         // Disconnect auth signals
@@ -1529,6 +1575,11 @@ void BareosDirector::queryConfigureAddConsole(const QString &name, const QString
 
 void BareosDirector::sendCommand(const QString &command)
 {
+    if (m_transport == Transport::Grpc) {
+        sendCommandGrpc(command);
+        return;
+    }
+
     // Allow commands in Ready, SettingApiMode (for .api), and LoadingResources (for dot-commands)
     bool canSend = (m_connectionState == Ready ||
                     m_connectionState == SettingApiMode ||
@@ -1877,6 +1928,7 @@ BareosDirector::JobStatus BareosDirector::parseJobStatus(const QString &status)
     if (s == "T" || s == "TERMINATED") return Terminated;
     if (s == "W" || s == "WAITING") return Waiting;
     if (s == "S" || s == "SUCCESSFUL") return Successful;
+    if (s == "OK") return Successful;  // Onesimus Director push events
     if (s == "E" || s == "ERROR") return Error;
     if (s == "F" || s == "FATAL") return Fatal;
     if (s == "A" || s == "CANCELED") return Canceled;
@@ -1901,3 +1953,172 @@ QString BareosDirector::jobStatusToString(JobStatus status)
 }
 
 
+
+// ============================================================================
+// gRPC Transport (Onesimus Director)
+// ============================================================================
+//
+// The gRPC path reuses the BNET state machine and response processing:
+//   connect()  -> connectGrpc()            (Connecting)
+//   login OK   -> onGrpcLoggedIn()         (Authenticating -> LoadingResources)
+//   doSend()   -> flushQueue() -> sendCommand() -> sendCommandGrpc()
+//   reply      -> onGrpcCommandFinished() -> processDirectorMessage()
+// JSON output is requested per call (response_format), so there is no
+// SettingApiMode phase.
+
+void BareosDirector::setTransport(Transport transport, int grpcPort,
+                                  const QString &grpcCertFingerprint)
+{
+    m_transport = transport;
+    m_grpcPort = grpcPort;
+    m_grpcCertFingerprint = grpcCertFingerprint;
+}
+
+void BareosDirector::connectGrpc()
+{
+#ifdef HAVE_GRPC
+    const int grpcPort = m_grpcPort > 0 ? m_grpcPort : m_port + 1000;
+    DIR_DEBUG << "Connecting via gRPC to" << m_host << ":" << grpcPort;
+
+    m_commandQueue.clear();
+    m_binaryJsonAccumulator.clear();
+    m_receiveBuffer.clear();
+    m_jsonTextAccumulation = false;
+    m_consumeApiConfirmation = false;
+
+    setState(Authenticating);
+    m_grpc->open(m_host, grpcPort, m_consoleName, m_password, m_grpcCertFingerprint);
+#else
+    onGrpcFailed(tr("This build of Onesimus has no gRPC support"));
+#endif
+}
+
+void BareosDirector::sendCommandGrpc(const QString &command)
+{
+#ifdef HAVE_GRPC
+    const bool canSend = (m_connectionState == Ready ||
+                          m_connectionState == LoadingResources) && m_grpc->isLoggedIn();
+    if (!canSend) {
+        BLOG_WARNING() << "Cannot send command via gRPC - not ready (state:" << m_connectionState << ")";
+        emit statusMessage(tr("Not ready"));
+        return;
+    }
+#ifdef IS_DEVELOPER
+    BLOG_DEBUG() << ">>> Sending command (gRPC):" << command;
+#endif
+    m_lastCommand = command;
+    m_grpc->execute(command);
+#else
+    Q_UNUSED(command)
+#endif
+}
+
+void BareosDirector::onGrpcLoggedIn(const QString &directorName, const QString &version)
+{
+    DIR_DEBUG << "gRPC: authenticated, Director" << directorName << "version" << version;
+
+    if (!directorName.isEmpty() && directorName != m_directorName) {
+        DIR_DEBUG << "Director name updated: " << m_directorName << " -> " << directorName;
+        m_directorName = directorName;
+    }
+    m_directorVersion = version;
+    m_tlsCipherList.clear();
+
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connected = true;
+    }
+
+    resetResourceFlags();
+    startResourceLoading();
+
+    emit authentificationSucceeded(true, version);
+
+    {
+        QMutexLocker authLocker(&m_authMutex);
+        m_authCompleted = true;
+        m_authCondition.wakeAll();
+    }
+}
+
+void BareosDirector::onGrpcFailed(const QString &reason)
+{
+    const bool wasConnected = (m_connectionState == Ready || m_connectionState == LoadingResources);
+    m_commandQueue.clear();
+    setState(Disconnected);
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connected = false;
+    }
+
+    if (wasConnected) {
+        emit disconnected();
+    } else {
+        emit authentificationSucceeded(false, reason);
+    }
+    emit protocolError(reason);
+
+    QMutexLocker authLocker(&m_authMutex);
+    m_authCompleted = true;
+    m_authCondition.wakeAll();
+}
+
+void BareosDirector::onGrpcCertificateNotTrusted(const QString &fingerprint,
+                                                 const QString &pinnedFingerprint)
+{
+    const int grpcPort = m_grpcPort > 0 ? m_grpcPort : m_port + 1000;
+    setState(Disconnected);
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connected = false;
+    }
+
+    // No protocolError here: the receiver asks the user whether to trust it.
+    // Certificate signal first, so receivers can ignore the auth failure that follows.
+    emit grpcCertificateNotTrusted(m_host, grpcPort, fingerprint, pinnedFingerprint);
+    emit authentificationSucceeded(false, tr("Server certificate not trusted"));
+
+    QMutexLocker authLocker(&m_authMutex);
+    m_authCompleted = true;
+    m_authCondition.wakeAll();
+}
+
+void BareosDirector::onGrpcCommandFinished(const QString &commandLine, bool success,
+                                           const QString &text, const QString &error)
+{
+    QString message = text.trimmed();
+
+    if (!success) {
+        // Same shape as a JSON-RPC error of the BNET API mode, so that
+        // detectCommandError()/commandFailed() behave identically
+        BLOG_WARNING() << "gRPC command failed:" << commandLine << "-" << error;
+        QJsonObject err{{"code", 1}, {"message", error.isEmpty() ? tr("Command failed") : error}};
+        message = QString::fromUtf8(QJsonDocument(QJsonObject{
+            {"jsonrpc", "2.0"}, {"id", QJsonValue::Null}, {"error", err}}).toJson(QJsonDocument::Compact));
+        emit commandError(commandLine, error);
+    } else if (message.isEmpty()) {
+        // Every reply must dequeue its command
+        message = QStringLiteral(R"({"jsonrpc":"2.0","id":null,"result":{}})");
+    }
+
+    processDirectorMessage(message, false);
+}
+
+void BareosDirector::onGrpcJobStatus(int jobId, const QString &jobName, const QString &status)
+{
+    Q_UNUSED(jobName)
+    emit jobStatusChanged(jobId, parseJobStatus(status));
+}
+
+void BareosDirector::onGrpcConnectionLost(const QString &reason)
+{
+    BLOG_WARNING() << "gRPC connection lost:" << reason;
+    m_commandQueue.clear();
+    setState(Disconnected);
+    {
+        QMutexLocker stateLocker(&m_stateMutex);
+        m_connected = false;
+    }
+    emit disconnected();
+    emit protocolError(tr("Connection to Director lost: %1").arg(reason));
+}
