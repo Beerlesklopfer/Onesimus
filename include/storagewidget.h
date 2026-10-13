@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QGroupBox>
 #include <QJsonArray>
+#include <QStringList>
 #include "director/bdirector.h"
 
 namespace Ui {
@@ -41,6 +42,16 @@ public slots:
      * @since 2.7
      */
     void processJsonResponse(const QString &jsonData);
+
+    /**
+     * @brief Sets the configured pool names (from .pools)
+     *
+     * Used to map the lowercased pool keys of the grouped
+     * "list volumes" reply back to the configured pool names.
+     * @param pools Configured pool names
+     * @since 2.8
+     */
+    void setKnownPools(const QStringList &pools);
 
     /**
      * @brief Updates connection state
@@ -86,6 +97,7 @@ private:
     // Data storage
     QJsonArray m_allVolumes;  // All volumes from server
     QJsonArray m_filteredVolumes;  // Filtered volumes
+    QStringList m_knownPools;  // Configured pool names (from .pools)
 };
 
 #endif // STORAGEWIDGET_H

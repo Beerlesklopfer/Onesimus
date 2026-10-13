@@ -41,6 +41,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
@@ -50,6 +51,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QRegularExpression>
+#include <QSet>
 #include <QScrollArea>
 #include <QSettings>
 #include <QSpinBox>
@@ -196,7 +198,7 @@ BMainWindow::BMainWindow(QWidget *parent)
         onSendCommand(BDirector::Command::ShowClients, "");
         onSendCommand(BDirector::Command::ShowJobs, "");     // Populate job config model (for Gantt/schedule cross-ref)
         onSendCommand(BDirector::Command::ShowJobDefs, "");  // Populate jobdefs model
-        onSendCommand(BDirector::Command::ListBackups, "");
+        requestClientBackups();                    // ListBackupsClient (one per client)
         onSendCommand(BDirector::Command::Messages, "");
 
         statusBar()->showMessage(tr("Ready"));
@@ -251,18 +253,39 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_clientWidget->model()->enrichWithShowClientData(jsonData);
             break;
 
-        case BDirector::Command::ListBackups: {
+        case BDirector::Command::ListBackups:
+        case BDirector::Command::ListBackupsClient: {
+            // One reply per "list backups client=<name>": merge per client,
+            // then enrich the client model with the backups of all clients
             QJsonArray backupsArr = result["backups"].toArray();
-            if (!backupsArr.isEmpty())
-                m_clientWidget->model()->enrichWithJobData(backupsArr);
+            QHash<QString, QJsonArray> replyByClient;
+            for (const QJsonValue &backupVal : backupsArr) {
+                QString clientName = backupVal.toObject()["client"].toString();
+                if (!clientName.isEmpty())
+                    replyByClient[clientName].append(backupVal);
+            }
+            for (auto it = replyByClient.constBegin(); it != replyByClient.constEnd(); ++it)
+                m_clientBackups[it.key()] = it.value();
+
+            QJsonArray mergedBackups;
+            for (const QJsonArray &clientBackups : std::as_const(m_clientBackups)) {
+                for (const QJsonValue &backupVal : clientBackups)
+                    mergedBackups.append(backupVal);
+            }
+            if (!mergedBackups.isEmpty())
+                m_clientWidget->model()->enrichWithJobData(mergedBackups);
             break;
         }
 
         case BDirector::Command::ListVolumes:
+            // Configured pool names map the lowercased group keys back
+            m_storageWidget->setKnownPools(m_jobWidget->poolNames());
             m_storageWidget->processJsonResponse(jsonData);
             break;
 
+        case BDirector::Command::Messages:
         case BDirector::Command::DotMessages:
+            // Same reply shape; Bareos sends an empty result {} if there are no messages
             m_jobWidget->processMessagesResponse(jsonData);
             break;
 
@@ -2161,7 +2184,7 @@ void BMainWindow::onRefreshAll()
     // Use widget's own refresh for clients (sends ListClients via signal)
     m_clientWidget->triggerRefresh();
     onSendCommand(BDirector::Command::ShowClients, "");
-    onSendCommand(BDirector::Command::ListBackups, "");  // Unfiltered backup stats for clients
+    requestClientBackups();  // Backup stats for clients (one "list backups client=" per client)
 
     // ✅ Request filter data using dot-commands
     // These provide ALL configured jobs/clients/levels/schedules, not just executed ones
@@ -2197,6 +2220,32 @@ void BMainWindow::onConnectLastUsed()
 
     m_statusLabel->setText(tr("Connecting to %1...").arg(profile.name));
     loadAndConnectLastUsed();
+}
+
+void BMainWindow::requestClientBackups()
+{
+    // "list backups" without client= is rejected by Bareos ("missing parameter: client"),
+    // so request the backups per client. Each command gets exactly one reply (FIFO).
+    QSet<QString> names;
+    for (const QString &name : m_jobWidget->clientNames()) {
+        if (!name.trimmed().isEmpty())
+            names.insert(name.trimmed());
+    }
+    const QJsonArray allClients = m_clientWidget->model()->allClients();
+    for (const QJsonValue &clientVal : allClients) {
+        QString name = clientVal.toObject()["name"].toString().trimmed();
+        if (!name.isEmpty())
+            names.insert(name);
+    }
+
+    m_clientBackups.clear();
+
+    QStringList sortedNames = names.values();
+    sortedNames.sort(Qt::CaseInsensitive);
+    for (const QString &name : sortedNames) {
+        QString arg = name.contains(QLatin1Char(' ')) ? QString("\"%1\"").arg(name) : name;
+        onSendCommand(BDirector::Command::ListBackupsClient, arg);
+    }
 }
 
 void BMainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)

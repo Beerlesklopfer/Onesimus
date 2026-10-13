@@ -1,4 +1,5 @@
 #include "storagewidget.h"
+#include "models/bvolumejson.h"
 #include "ui_storagewidget.h"
 #include "blogging.h"
 #include <QHeaderView>
@@ -188,7 +189,9 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
 
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
-    QJsonArray volumesArray = result["volumes"].toArray();
+    // "list volumes" returns volumes grouped by pool ({"<pool>": [...]}),
+    // "list volumes pool=X|all" a flat array - accept both
+    QJsonArray volumesArray = BVolumeJson::normalizeVolumes(result["volumes"], m_knownPools);
 
     // Store all volumes
     m_allVolumes = volumesArray;
@@ -290,6 +293,11 @@ void StorageWidget::applyFilters()
 
     // Update statistics
     updateStatistics();
+}
+
+void StorageWidget::setKnownPools(const QStringList &pools)
+{
+    m_knownPools = pools;
 }
 
 void StorageWidget::setConnectionState(bool connected)
