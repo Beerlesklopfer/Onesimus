@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QTimer>
+#include <QHash>
+#include <QJsonArray>
 #include "blogging.h"
 #include "director/bdirector.h"
 
@@ -119,6 +121,10 @@ private:
 
     /// Select BNET/gRPC for the next connect from a connection profile
     void applyProfileTransport(const BConnectionProfile &profile);
+
+    /// Sends "list backups client=<name>" for every known client
+    /// (Bareos rejects "list backups" without client=)
+    void requestClientBackups();
     void applyTheme(const QString &themeName);
 
     Ui::BMainWindow *ui;
@@ -149,6 +155,9 @@ private:
     QLabel *m_statusLabel;
     QLabel *m_connectionLabel;
     QString m_directorVersion;  ///< Speichere Director-Version
+
+    /// Backups per client from the "list backups client=" replies (merged for enrichment)
+    QHash<QString, QJsonArray> m_clientBackups;
 
     // Actions
     QAction *m_connectAction;

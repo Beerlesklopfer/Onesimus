@@ -432,6 +432,7 @@ set(SOURCES
     src/bcertificategenerator.cpp
     src/bpfxconverter.cpp
     src/storagewidget.cpp
+    src/models/bvolumejson.cpp
 
     src/config/bcolumnconfiguration.cpp
     src/config/bsettings.cpp
@@ -496,6 +497,7 @@ set(HEADERS
     include/bcheckableheaderview.h
     include/clients/bclientwidget.h
     include/storagewidget.h
+    include/models/bvolumejson.h
     include/bcleanupdialog.h
     include/bconnectionwizard.h
     include/bmdnsbrowser.h
@@ -1078,10 +1080,26 @@ target_link_libraries(director_test PRIVATE
     OpenSSL::Crypto
 )
 
+# volumejson_test - "list volumes" reply parsing (grouped by pool and flat)
+add_executable(volumejson_test
+    test/volumejson_test.cpp
+    src/models/bvolumejson.cpp
+    include/models/bvolumejson.h
+)
+
+target_include_directories(volumejson_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(volumejson_test PRIVATE
+    Qt6::Core
+)
+
 message(STATUS "")
 message(STATUS "Test executables:")
 message(STATUS "  bareosauth_test  - BareosAuth class test")
 message(STATUS "  director_test    - BareosDirector state machine test")
+message(STATUS "  volumejson_test  - list volumes JSON parsing test")
 message(STATUS "")
 
 # ============================================================================
