@@ -361,10 +361,16 @@ private:
     QPushButton *m_saveConsoleZipButton;
     QPushButton *m_saveDirectorButton;
     QPushButton *m_saveDirectorZipButton;
+    QTabWidget *m_tabs;
+    int m_directorTlsTab = -1;          // BNET only
+    int m_grpcDirectorTab = -1;         // gRPC only
+    QTextEdit *m_grpcDirectorEdit;
+    QPushButton *m_copyGrpcDirectorButton;
     void updateConfigs();
 private slots:
     void onCopyConsoleConfig();
     void onCopyDirectorConfig();
+    void onCopyGrpcDirectorConfig();
     void onSaveConsoleConf();
     void onSaveConsoleZip();
     void onSaveDirectorConf();

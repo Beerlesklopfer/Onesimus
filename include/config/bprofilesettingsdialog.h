@@ -67,6 +67,20 @@ private slots:
      */
     void onResetDefaults();
 
+    /**
+     * @brief Updates the UI when the protocol (BNET/gRPC) changes
+     *
+     * gRPC: enables the gRPC port and disables the BNET-only TLS tab.
+     */
+    void onTransportChanged();
+
+    /**
+     * @brief Forgets the pinned gRPC server certificate
+     *
+     * The next connection asks again via the trust dialog.
+     */
+    void onForgetCertificate();
+
 private:
     /**
      * @brief Sets up the user interface
@@ -92,6 +106,11 @@ private:
     QWidget* createAclTab();
 
     /**
+     * @brief Shows the pinned certificate fingerprint (shortened, full value as tooltip)
+     */
+    void updateFingerprintDisplay();
+
+    /**
      * @brief Loads profile data into UI widgets
      */
     void loadProfile();
@@ -112,6 +131,14 @@ private:
     QLineEdit *m_descriptionEdit;
     QSpinBox *m_heartbeatSpin;
     QLineEdit *m_profileEdit;           ///< Director Profile reference
+
+    // Protocol (General tab)
+    QComboBox *m_transportCombo;        ///< BNET or gRPC (Onesimus Director)
+    QSpinBox *m_grpcPortSpin;           ///< gRPC port (only for gRPC)
+    QLabel *m_fingerprintLabel;         ///< Pinned certificate fingerprint (read-only)
+    QPushButton *m_forgetCertButton;    ///< Clears the pinned fingerprint
+    QString m_grpcCertFingerprint;      ///< Working copy of the pinned fingerprint
+    int m_tlsTabIndex = -1;             ///< Index of the BNET TLS tab
 
     // TLS tab widgets
     QCheckBox *m_tlsRequireCheck;

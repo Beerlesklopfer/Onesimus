@@ -4,6 +4,7 @@
  */
 
 #include "config/bprofilesettingsdialog.h"
+#include "director/bareosdirector.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -12,6 +13,7 @@
 #include <QScrollArea>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QStandardItemModel>
 
 BProfileSettingsDialog::BProfileSettingsDialog(const BConnectionProfile &profile, QWidget *parent)
     : QDialog(parent)
@@ -35,7 +37,7 @@ void BProfileSettingsDialog::setupUi()
     // Tab widget
     m_tabWidget = new QTabWidget(this);
     m_tabWidget->addTab(createGeneralTab(), tr("General"));
-    m_tabWidget->addTab(createTlsTab(), tr("TLS"));
+    m_tlsTabIndex = m_tabWidget->addTab(createTlsTab(), tr("TLS"));
     m_tabWidget->addTab(createAclTab(), tr("ACL"));
     mainLayout->addWidget(m_tabWidget);
 
@@ -69,6 +71,43 @@ QWidget* BProfileSettingsDialog::createGeneralTab()
     m_heartbeatSpin->setSpecialValueText(tr("Disabled"));
     m_heartbeatSpin->setToolTip(tr("Keepalive interval (0 = disabled)"));
     layout->addRow(tr("Heartbeat Interval:"), m_heartbeatSpin);
+
+    // Protocol (BNET or gRPC with the Onesimus Director)
+    m_transportCombo = new QComboBox(widget);
+    m_transportCombo->addItem(tr("BNET (Bareos console protocol)"), "bnet");
+    m_transportCombo->addItem(tr("gRPC (Onesimus Director)"), "grpc");
+    if (!BareosDirector::grpcAvailable()) {
+        // Build without gRPC: keep the entry visible but not selectable
+        if (auto *model = qobject_cast<QStandardItemModel *>(m_transportCombo->model())) {
+            model->item(1)->setEnabled(false);
+        }
+        m_transportCombo->setToolTip(tr("This build of Onesimus has no gRPC support."));
+    }
+    layout->addRow(tr("Protocol:"), m_transportCombo);
+
+    m_grpcPortSpin = new QSpinBox(widget);
+    m_grpcPortSpin->setRange(1, 65535);
+    m_grpcPortSpin->setValue(10101);
+    m_grpcPortSpin->setToolTip(tr("gRPC port of the Director (default: BNET port + 1000)"));
+    layout->addRow(tr("gRPC port:"), m_grpcPortSpin);
+
+    // Pinned server certificate (trusted on first use)
+    QWidget *certWidget = new QWidget(widget);
+    QHBoxLayout *certLayout = new QHBoxLayout(certWidget);
+    certLayout->setContentsMargins(0, 0, 0, 0);
+    m_fingerprintLabel = new QLabel(certWidget);
+    m_fingerprintLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    certLayout->addWidget(m_fingerprintLabel, 1);
+    m_forgetCertButton = new QPushButton(tr("Forget certificate"), certWidget);
+    m_forgetCertButton->setToolTip(tr("Remove the pinned certificate. The next connection "
+                                      "asks again whether the server certificate is trusted."));
+    certLayout->addWidget(m_forgetCertButton);
+    layout->addRow(tr("Server certificate:"), certWidget);
+
+    connect(m_transportCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &BProfileSettingsDialog::onTransportChanged);
+    connect(m_forgetCertButton, &QPushButton::clicked,
+            this, &BProfileSettingsDialog::onForgetCertificate);
 
     // Director Profile reference
     QWidget *profileWidget = new QWidget(widget);
@@ -284,6 +323,12 @@ void BProfileSettingsDialog::loadProfile()
     m_descriptionEdit->setText(m_profile.description);
     m_heartbeatSpin->setValue(m_profile.heartbeatInterval);
     m_profileEdit->setText(m_profile.profile);
+    m_transportCombo->setCurrentIndex(
+        m_transportCombo->findData(BConnectionProfile::transportToString(m_profile.transport)));
+    m_grpcPortSpin->setValue(m_profile.grpcPort > 0 ? m_profile.grpcPort : 10101);
+    m_grpcCertFingerprint = m_profile.grpcCertFingerprint;
+    updateFingerprintDisplay();
+    onTransportChanged();
 
     // TLS tab
     m_tlsRequireCheck->setChecked(m_profile.tlsRequire);
@@ -314,6 +359,10 @@ void BProfileSettingsDialog::saveProfile()
     m_profile.description = m_descriptionEdit->text().trimmed();
     m_profile.heartbeatInterval = m_heartbeatSpin->value();
     m_profile.profile = m_profileEdit->text().trimmed();
+    m_profile.transport = BConnectionProfile::transportFromString(
+        m_transportCombo->currentData().toString());
+    m_profile.grpcPort = m_grpcPortSpin->value();
+    m_profile.grpcCertFingerprint = m_grpcCertFingerprint;
 
     // TLS tab
     m_profile.tlsRequire = m_tlsRequireCheck->isChecked();
@@ -346,6 +395,41 @@ void BProfileSettingsDialog::saveProfile()
     m_profile.aclCommand = parseAcl(m_aclCommandEdit);
     m_profile.aclWhere = parseAcl(m_aclWhereEdit);
     m_profile.aclPluginOptions = parseAcl(m_aclPluginOptionsEdit);
+}
+
+void BProfileSettingsDialog::onTransportChanged()
+{
+    const bool grpc = m_transportCombo->currentData().toString() == "grpc";
+    m_grpcPortSpin->setEnabled(grpc);
+    m_forgetCertButton->setEnabled(grpc && !m_grpcCertFingerprint.isEmpty());
+
+    // gRPC: TLS is fixed (server certificate + console login), the BNET TLS/PSK
+    // options do not apply
+    m_tabWidget->setTabEnabled(m_tlsTabIndex, !grpc);
+    m_tabWidget->setTabToolTip(m_tlsTabIndex,
+        grpc ? tr("Not used with gRPC: the connection is always encrypted with TLS, "
+                  "the server certificate is confirmed on first use.")
+             : QString());
+}
+
+void BProfileSettingsDialog::onForgetCertificate()
+{
+    m_grpcCertFingerprint.clear();
+    updateFingerprintDisplay();
+    onTransportChanged();
+}
+
+void BProfileSettingsDialog::updateFingerprintDisplay()
+{
+    if (m_grpcCertFingerprint.isEmpty()) {
+        m_fingerprintLabel->setText(tr("(not pinned - confirmed on next connection)"));
+        m_fingerprintLabel->setToolTip(QString());
+    } else {
+        m_fingerprintLabel->setText(
+            QString("<tt>%1</tt>").arg(BConnectionProfile::formatFingerprint(m_grpcCertFingerprint, true)));
+        m_fingerprintLabel->setToolTip(
+            tr("SHA-256: %1").arg(BConnectionProfile::formatFingerprint(m_grpcCertFingerprint)));
+    }
 }
 
 void BProfileSettingsDialog::onAccept()

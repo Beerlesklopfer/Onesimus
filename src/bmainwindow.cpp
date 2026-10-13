@@ -1291,6 +1291,10 @@ void BMainWindow::showConnectionDialog()
         QString profileId = profileCombo->currentData().toString();
         for (const BConnectionProfile &p : profiles) {
             if (p.id == profileId) {
+                if (p.transport == BConnectionProfile::Transport::Grpc) {
+                    infoLabel->setText(QString("%1:%2 - gRPC (TLS)").arg(p.host).arg(p.grpcPort));
+                    break;
+                }
                 QString authMethod = p.legacyAuth ? "Legacy (unencrypted)" :
                                      (p.tlsUsePSK ? "TLS-PSK" : "TLS Certificate");
                 infoLabel->setText(QString("%1:%2 - %3")

@@ -2006,6 +2006,7 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     m_questionLabel->setText(tr("Copy this configuration to your Bareos Director"));
 
     auto *tabs = new QTabWidget(this);
+    m_tabs = tabs;
 
     // Console config tab
     auto *consoleWidget = new QWidget();
@@ -2085,7 +2086,37 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     directorButtonLayout->addStretch();
     directorLayout->addLayout(directorButtonLayout);
 
-    tabs->addTab(directorWidget, tr("Director TLS"));
+    m_directorTlsTab = tabs->addTab(directorWidget, tr("Director TLS"));
+
+    // Director hint tab for gRPC (Onesimus Director: Enable Grpc)
+    auto *grpcWidget = new QWidget();
+    auto *grpcLayout = new QVBoxLayout(grpcWidget);
+    grpcLayout->setContentsMargins(5, 5, 5, 5);
+
+    auto *grpcLabel = new QLabel(tr("Enable gRPC in the Director resource:"), grpcWidget);
+    grpcLabel->setStyleSheet("font-weight: bold;");
+    grpcLayout->addWidget(grpcLabel);
+
+    auto *grpcPath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"), grpcWidget);
+    grpcPath->setStyleSheet("color: #666; font-size: 10px;");
+    grpcLayout->addWidget(grpcPath);
+
+    m_grpcDirectorEdit = new QTextEdit(grpcWidget);
+    m_grpcDirectorEdit->setReadOnly(true);
+    m_grpcDirectorEdit->setFont(QFont("monospace", 9));
+    m_grpcDirectorEdit->setMinimumHeight(150);
+    grpcLayout->addWidget(m_grpcDirectorEdit);
+
+    auto *grpcButtonLayout = new QHBoxLayout();
+    m_copyGrpcDirectorButton = new QPushButton(tr("Copy to Clipboard"), grpcWidget);
+    m_copyGrpcDirectorButton->setIcon(QIcon::fromTheme("edit-copy"));
+    connect(m_copyGrpcDirectorButton, &QPushButton::clicked, this, &ConfigPreviewPage::onCopyGrpcDirectorConfig);
+    grpcButtonLayout->addWidget(m_copyGrpcDirectorButton);
+    grpcButtonLayout->addStretch();
+    grpcLayout->addLayout(grpcButtonLayout);
+
+    m_grpcDirectorTab = tabs->addTab(grpcWidget, tr("Director (gRPC)"));
+    tabs->setTabVisible(m_grpcDirectorTab, false);
 
     m_layout->addWidget(tabs);
 
@@ -2109,13 +2140,25 @@ void ConfigPreviewPage::updateConfigs()
     QString password = field("password").toString();
     QString authMethod = field("authMethod").toString();
 
+    // gRPC (Onesimus Director): login with console name + password only,
+    // the BNET TLS directives do not apply
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    const bool grpc = wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc";
+    m_tabs->setTabVisible(m_directorTlsTab, !grpc);
+    m_tabs->setTabVisible(m_grpcDirectorTab, grpc);
+    setHint(grpc ? tr("Add the Console resource and enable gRPC in the Director resource, "
+                      "then reload the Director.")
+                 : tr("After copying, paste this into your Bareos Director config and restart bareos-dir."));
+
     // Generate Console config
     QString consoleConfig;
     consoleConfig += QString("Console {\n");
     consoleConfig += QString("  Name = \"%1\"\n").arg(consoleName);
     consoleConfig += QString("  Password = \"%1\"\n").arg(password);
 
-    if (authMethod == "x509") {
+    if (grpc) {
+        // No TLS directives: gRPC TLS uses the Director's server certificate
+    } else if (authMethod == "x509") {
         // Certificate mode
         consoleConfig += QString("  TLS Enable = yes\n");
         consoleConfig += QString("  TLS Require = yes\n");
@@ -2173,6 +2216,31 @@ void ConfigPreviewPage::updateConfigs()
 
     m_consoleConfigEdit->setPlainText(consoleConfig);
 
+    if (grpc) {
+        // Director-side hint for gRPC
+        const int bnetPort = wiz->wizardData()->port > 0 ? wiz->wizardData()->port : 9101;
+        const int grpcPort = wiz->wizardData()->grpcPort;
+        QString grpcConfig;
+        grpcConfig += QString("Director {\n");
+        grpcConfig += QString("  # ... other settings ...\n");
+        grpcConfig += QString("  Enable Grpc = yes\n");
+        if (grpcPort > 0 && grpcPort != bnetPort + 1000) {
+            grpcConfig += QString("  Grpc Port = %1\n").arg(grpcPort);
+        } else {
+            grpcConfig += QString("  # Grpc Port = %1\n").arg(bnetPort + 1000);
+        }
+        grpcConfig += QString("}\n");
+        grpcConfig += "\n# " + tr("Default gRPC port: BNET port + 1000 (%1 + 1000 = %2).")
+                                    .arg(bnetPort).arg(bnetPort + 1000) + "\n";
+        grpcConfig += "# " + tr("The Console resource provides name and password for the login.") + "\n";
+        grpcConfig += "\n# " + tr("After adding the Console, reload the Director:") + "\n";
+        grpcConfig += QString("# echo reload | bconsole\n");
+        grpcConfig += "# " + tr("(enabling gRPC for the first time requires a Director restart)") + "\n";
+        m_grpcDirectorEdit->setPlainText(grpcConfig);
+        m_directorConfigEdit->clear();
+        return;
+    }
+
     // Generate Director TLS hints
     QString directorConfig;
     directorConfig += QString("# Add/modify these TLS settings in your Director resource:\n\n");
@@ -2226,6 +2294,17 @@ void ConfigPreviewPage::onCopyDirectorConfig()
     m_copyDirectorButton->setText(tr("Copied!"));
     QTimer::singleShot(2000, this, [this]() {
         m_copyDirectorButton->setText(tr("Copy to Clipboard"));
+    });
+}
+
+void ConfigPreviewPage::onCopyGrpcDirectorConfig()
+{
+    QClipboard *clipboard = QApplication::clipboard();
+    clipboard->setText(m_grpcDirectorEdit->toPlainText());
+
+    m_copyGrpcDirectorButton->setText(tr("Copied!"));
+    QTimer::singleShot(2000, this, [this]() {
+        m_copyGrpcDirectorButton->setText(tr("Copy to Clipboard"));
     });
 }
 
@@ -2735,6 +2814,13 @@ void ConsoleSetupPage::initializePage()
     bool modifyMode = m_modifyExistingRadio->isChecked();
     m_consoleDetails->setVisible(modifyMode);
 
+    // gRPC: the Director must have gRPC enabled; new consoles need a reload
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    const bool grpc = wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc";
+    setHint(grpc ? tr("gRPC requires 'Enable Grpc = yes' in the Director resource "
+                      "(default port: BNET port + 1000). After adding a console, reload the Director.")
+                 : tr("Modify an existing console or create a new one on the director."));
+
     // Auto-load consoles when page is shown
     loadConsoles();
 }
@@ -3005,11 +3091,14 @@ void ConsoleSetupPage::onShowConsoleResult(const QString &name, const QJsonObjec
         details += tr("Description: %1\n").arg(console["description"].toString());
     if (console.contains("profile"))
         details += tr("Profile: %1\n").arg(console["profile"].toString());
-    if (console.contains("tlsenable"))
+    // BNET TLS settings of the console do not apply to gRPC
+    BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
+    const bool grpc = wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc";
+    if (!grpc && console.contains("tlsenable"))
         details += tr("TLS Enabled: %1\n").arg(console["tlsenable"].toBool() ? "Yes" : "No");
-    if (console.contains("tlsrequire"))
+    if (!grpc && console.contains("tlsrequire"))
         details += tr("TLS Required: %1\n").arg(console["tlsrequire"].toBool() ? "Yes" : "No");
-    if (console.contains("tlsverifypeer"))
+    if (!grpc && console.contains("tlsverifypeer"))
         details += tr("TLS Verify Peer: %1\n").arg(console["tlsverifypeer"].toBool() ? "Yes" : "No");
     if (console.contains("jobacl"))
         details += tr("Job ACL: %1\n").arg(console["jobacl"].toVariant().toStringList().join(", "));
@@ -3186,7 +3275,15 @@ void ProfileNamePage::onAdvancedSettingsClicked()
 
     if (dialog.exec() == QDialog::Accepted) {
         // Update the wizard's profile with the advanced settings
-        wiz->setProfile(dialog.profile());
+        const BConnectionProfile updated = dialog.profile();
+        wiz->setProfile(updated);
+
+        // profile() takes the transport from wizardData - keep it in sync
+        if (BConnectionWizardData *data = wiz->wizardData()) {
+            data->transport = BConnectionProfile::transportToString(updated.transport);
+            data->grpcPort = updated.grpcPort;
+            data->grpcCertFingerprint = updated.grpcCertFingerprint;
+        }
     }
 }
 

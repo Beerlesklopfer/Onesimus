@@ -1684,9 +1684,11 @@ void BareosDirector::queryShowConsole(const QString &name)
 void BareosDirector::queryConfigureAddConsole(const QString &name, const QString &password,
                                                const QString &profile)
 {
+    // gRPC (Onesimus Director): login with name + password, no BNET TLS directive
+    const QString tls = m_transport == Transport::Grpc ? QString() : QStringLiteral(" tlsenable=false");
     doSend(Command::Configure,
-           QString("add console name=%1 password=\"%2\" profile=%3 tlsenable=false")
-               .arg(name, password, profile));
+           QString("add console name=%1 password=\"%2\" profile=%3%4")
+               .arg(name, password, profile, tls));
 }
 
 void BareosDirector::sendCommand(const QString &command)

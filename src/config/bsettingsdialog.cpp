@@ -5,6 +5,7 @@
 #include "bconnectionprofile.h"
 #include "bpfxconverter.h"
 #include "blogging.h"
+#include "director/bareosdirector.h"
 
 #include <QFormLayout>
 #include <QSet>
@@ -17,6 +18,7 @@
 #include <QJsonObject>
 #include <QFile>
 #include <QColorDialog>
+#include <QStandardItemModel>
 
 BSettingsDialog::BSettingsDialog(BDirector *director,
                                const QList<QPair<QString, QString>> &availableLevels,
@@ -257,6 +259,41 @@ void BSettingsDialog::createConnectionPage()
     m_portSpin->setValue(9101);
     bconsoleLayout->addRow(tr("Port:"), m_portSpin);
 
+    // Protocol (gRPC only with the Onesimus Director)
+    m_transportCombo = new QComboBox();
+    m_transportCombo->addItem(tr("BNET (Bareos console protocol)"), "bnet");
+    m_transportCombo->addItem(tr("gRPC (Onesimus Director)"), "grpc");
+    if (!BareosDirector::grpcAvailable()) {
+        // Build without gRPC: keep the entry visible but not selectable
+        if (auto *model = qobject_cast<QStandardItemModel *>(m_transportCombo->model())) {
+            model->item(1)->setEnabled(false);
+        }
+        m_transportCombo->setToolTip(tr("This build of Onesimus has no gRPC support."));
+    }
+    bconsoleLayout->addRow(tr("Protocol:"), m_transportCombo);
+
+    m_grpcPortSpin = new QSpinBox();
+    m_grpcPortSpin->setRange(1, 65535);
+    m_grpcPortSpin->setValue(10101);
+    m_grpcPortSpin->setToolTip(tr("gRPC port of the Director (default: BNET port + 1000)"));
+    bconsoleLayout->addRow(tr("gRPC port:"), m_grpcPortSpin);
+
+    // Pinned server certificate (trusted on first use)
+    QHBoxLayout *grpcCertLayout = new QHBoxLayout();
+    m_grpcFingerprintLabel = new QLabel();
+    m_grpcFingerprintLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    grpcCertLayout->addWidget(m_grpcFingerprintLabel, 1);
+    m_forgetGrpcCertButton = new QPushButton(tr("Forget certificate"));
+    m_forgetGrpcCertButton->setToolTip(tr("Remove the pinned certificate. The next connection "
+                                          "asks again whether the server certificate is trusted."));
+    grpcCertLayout->addWidget(m_forgetGrpcCertButton);
+    bconsoleLayout->addRow(tr("Server certificate:"), grpcCertLayout);
+
+    connect(m_transportCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &BSettingsDialog::onTransportChanged);
+    connect(m_forgetGrpcCertButton, &QPushButton::clicked,
+            this, &BSettingsDialog::onForgetGrpcCertificate);
+
     m_serverPlatformCombo = new QComboBox();
     m_serverPlatformCombo->addItem(tr("Linux/Unix"), "linux");
     m_serverPlatformCombo->addItem(tr("Windows"), "windows");
@@ -440,6 +477,18 @@ void BSettingsDialog::createConnectionPage()
     tlsLayout->addLayout(cipherLayout);
 
     detailsLayout->addWidget(m_tlsGroupBox);
+
+    // gRPC: shown instead of the BNET TLS options
+    m_grpcInfoLabel = new QLabel(
+        tr("gRPC is always encrypted with TLS. The server certificate is confirmed on "
+           "first use and pinned; the Director authenticates with console name and "
+           "password. TLS-PSK and certificate settings do not apply."));
+    m_grpcInfoLabel->setObjectName("infoLabel");
+    m_grpcInfoLabel->setWordWrap(true);
+    m_grpcInfoLabel->setVisible(false);
+    detailsLayout->addWidget(m_grpcInfoLabel);
+    updateGrpcFingerprintDisplay();
+    onTransportChanged();
 
     // Connection Options
     QGroupBox *optionsGroup = new QGroupBox(tr("Options"));
@@ -1549,6 +1598,7 @@ void BSettingsDialog::onProfileSelectionChanged()
                 QSignalBlocker blocker6(m_passwordEdit);
                 QSignalBlocker blocker7(m_useCertificatesCheck);
                 QSignalBlocker blocker10(m_serverPlatformCombo);
+                QSignalBlocker blocker11(m_transportCombo);
 
                 m_profileNameEdit->setText(profile.name);
                 m_hostEdit->setText(profile.host);
@@ -1590,6 +1640,14 @@ void BSettingsDialog::onProfileSelectionChanged()
 
                 // Manually enable/disable certWidget since signals were blocked
                 m_certWidget->setEnabled(m_useCertificatesCheck->isChecked());
+
+                // Protocol
+                m_transportCombo->setCurrentIndex(m_transportCombo->findData(
+                    BConnectionProfile::transportToString(profile.transport)));
+                m_grpcPortSpin->setValue(profile.grpcPort > 0 ? profile.grpcPort : 10101);
+                m_grpcCertFingerprint = profile.grpcCertFingerprint;
+                updateGrpcFingerprintDisplay();
+                onTransportChanged();
             }
         }
     } else {
@@ -1735,6 +1793,12 @@ void BSettingsDialog::saveCurrentProfileSilent()
     profile.tlsVerifyPeer = m_verifyPeerCheck->isChecked();
     profile.tlsCipherList = m_cipherListEdit->text().trimmed();
 
+    // Protocol
+    profile.transport = BConnectionProfile::transportFromString(
+        m_transportCombo->currentData().toString());
+    profile.grpcPort = m_grpcPortSpin->value();
+    profile.grpcCertFingerprint = m_grpcCertFingerprint;
+
     // Save to settings
     BSettings::instance().updateConnectionProfile(profile);
 
@@ -1742,6 +1806,37 @@ void BSettingsDialog::saveCurrentProfileSilent()
     QListWidgetItem *item = m_profileList->currentItem();
     if (item) {
         item->setText(profile.displayName());
+    }
+}
+
+void BSettingsDialog::onTransportChanged()
+{
+    const bool grpc = m_transportCombo->currentData().toString() == "grpc";
+    m_grpcPortSpin->setEnabled(grpc);
+    m_forgetGrpcCertButton->setEnabled(grpc && !m_grpcCertFingerprint.isEmpty());
+
+    // gRPC: BNET TLS/PSK options do not apply
+    m_tlsGroupBox->setVisible(!grpc);
+    m_grpcInfoLabel->setVisible(grpc);
+}
+
+void BSettingsDialog::onForgetGrpcCertificate()
+{
+    m_grpcCertFingerprint.clear();
+    updateGrpcFingerprintDisplay();
+    onTransportChanged();
+}
+
+void BSettingsDialog::updateGrpcFingerprintDisplay()
+{
+    if (m_grpcCertFingerprint.isEmpty()) {
+        m_grpcFingerprintLabel->setText(tr("(not pinned - confirmed on next connection)"));
+        m_grpcFingerprintLabel->setToolTip(QString());
+    } else {
+        m_grpcFingerprintLabel->setText(QString("<tt>%1</tt>").arg(
+            BConnectionProfile::formatFingerprint(m_grpcCertFingerprint, true)));
+        m_grpcFingerprintLabel->setToolTip(tr("SHA-256: %1").arg(
+            BConnectionProfile::formatFingerprint(m_grpcCertFingerprint)));
     }
 }
 

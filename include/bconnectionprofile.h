@@ -98,6 +98,25 @@ struct BConnectionProfile
     }
 
     /**
+     * @brief Formats a hex SHA-256 fingerprint for display
+     * @param hex Fingerprint as hex string (as stored in grpcCertFingerprint)
+     * @param shortForm true: only the first and last 4 bytes ("AB:CD:EF:01 ... 23:45:67:89")
+     * @return "AB:CD:..." notation, empty if hex is empty
+     */
+    static QString formatFingerprint(const QString &hex, bool shortForm = false)
+    {
+        QStringList bytes;
+        for (int i = 0; i + 1 < hex.size(); i += 2) {
+            bytes << hex.mid(i, 2).toUpper();
+        }
+        if (shortForm && bytes.size() > 8) {
+            return bytes.mid(0, 4).join(':') + QStringLiteral(" ... ")
+                   + bytes.mid(bytes.size() - 4).join(':');
+        }
+        return bytes.join(':');
+    }
+
+    /**
      * @brief Create a new profile with a generated UUID
      */
     static BConnectionProfile create(const QString &profileName = QString())

@@ -71,6 +71,8 @@ private slots:
     void onDeleteProfile();
     void onDuplicateProfile();
     void saveCurrentProfile();
+    void onTransportChanged();          ///< BNET/gRPC: enables gRPC port, hides BNET TLS options
+    void onForgetGrpcCertificate();     ///< Clears the pinned gRPC certificate fingerprint
     void onChooseColorFull();
     void onChooseColorIncremental();
     void onChooseColorDifferential();
@@ -93,6 +95,7 @@ private:
     void createAdvancedPage();
     void applyModernStyle();
     void saveCurrentProfileSilent();  ///< Auto-save current profile without user notification
+    void updateGrpcFingerprintDisplay(); ///< Shows the pinned fingerprint (short, full as tooltip)
 
     Ui::BSettingsDialog *ui;
     BDirector *m_director;
@@ -131,6 +134,14 @@ private:
     QCheckBox *m_savePasswordCheck;
     QCheckBox *m_autoConnectCheck;
     QSpinBox *m_connectionTimeoutSpin;
+
+    // Protocol (BNET or gRPC with the Onesimus Director)
+    QComboBox *m_transportCombo;
+    QSpinBox *m_grpcPortSpin;
+    QLabel *m_grpcFingerprintLabel;     ///< Pinned certificate fingerprint (read-only)
+    QPushButton *m_forgetGrpcCertButton;
+    QLabel *m_grpcInfoLabel;            ///< Hint shown instead of the BNET TLS options
+    QString m_grpcCertFingerprint;      ///< Working copy of the pinned fingerprint
 
     // TLS-Einstellungen
     QGroupBox *m_tlsGroupBox;
