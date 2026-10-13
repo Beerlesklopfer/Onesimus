@@ -1,19 +1,21 @@
-Source: onesimusd
+Source: onesimus
 Section: admin
 Priority: optional
 Maintainer: Joerg Bernau <joerg@bernau.family>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
-Homepage: https://github.com/Beerlesklopfer/baReos-dird
+Homepage: https://github.com/Beerlesklopfer/onesimus
 
-Package: onesimusd
+Package: onesimus-dird
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}, bareos-common
+Breaks: onesimusd (<< 0.25.0-3~)
+Replaces: onesimusd (<< 0.25.0-3~)
 Description: Onesimus Director - drop-in replacement for Bareos Director
  High-performance Director daemon written in Rust.
  Reads /etc/bareos/bareos-dir.d/ config tree (Bareos-compatible).
  .
- Binary: /usr/sbin/onesimusd
+ Binary: /usr/sbin/onesimus-dird
 
 Package: oconsole
 Architecture: amd64

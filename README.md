@@ -1,4 +1,4 @@
-# Onesimus Director (onesimusd)
+# Onesimus — Director (onesimus-dird) & Console (oconsole)
 
 Drop-in replacement for the Bareos Director daemon — independent project after Bareos rejected the Rust rewrite.
 
@@ -33,8 +33,8 @@ Drop-in replacement for the Bareos Director daemon — independent project after
 
 | Crate | Type | Description |
 |-------|------|-------------|
-| `onesimusd` | Product | Director daemon binary |
-| `onesimus-console` | Product | `oconsole` — interactive console client |
+| `onesimus-dird` | Product | Director daemon binary |
+| `oconsole` | Product | `oconsole` — interactive console client |
 | `bareos-bnet` | Protocol | BNET wire protocol, TLS-PSK, CRAM-MD5 |
 | `bareos-config` | Protocol | Bareos configuration parser |
 | `bareos-catalog` | Protocol | PostgreSQL catalog queries (sqlx) |
@@ -51,7 +51,7 @@ cargo build
 cargo test
 
 # Run with test config (requires PostgreSQL + bareos-fd + bareos-sd)
-target/debug/onesimusd -c tests/ -f --port 29101 --name bareos-dir
+target/debug/onesimus-dird -c tests/ -f --port 29101 --name bareos-dir
 
 # Connect with C++ bconsole
 echo "version" | bconsole -c tests/bconsole.conf
@@ -67,7 +67,7 @@ Both packages can be installed side-by-side, only one runs at a time:
 | | Binary | Package |
 |--|--------|---------|
 | C++ | `/usr/sbin/bareos-dir` | `bareos-director` |
-| Onesimus | `/usr/sbin/bareos-dird` | `bareos-director-rust` |
+| Onesimus | `/usr/sbin/onesimus-dird` | `onesimus-dird` |
 
 ## Build Debian packages
 

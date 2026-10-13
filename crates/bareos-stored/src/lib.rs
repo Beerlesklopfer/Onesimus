@@ -11,7 +11,7 @@
 //!
 //! ## Forward: onesimus-stored
 //!
-//! `connect` und `catrec` werden aktuell nicht von onesimusd genutzt
+//! `connect` und `catrec` werden aktuell nicht von onesimus-dird genutzt
 //! (der Director baut die SD-Verbindung im fork-Worker selbst auf und
 //! hat einen eigenen CatReq-Loop mit PipeMessage-Format).
 //!

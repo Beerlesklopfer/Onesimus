@@ -3,7 +3,7 @@
 **92 commands. 0 excuses. Test them ALL.**
 
 Generated: 2026-03-29
-Test environment: onesimusd :29101, bareos-fd :9102, bareos-sd :9103, PostgreSQL catalog
+Test environment: onesimus-dird :29101, bareos-fd :9102, bareos-sd :9103, PostgreSQL catalog
 
 ## Current State
 
@@ -1000,7 +1000,7 @@ These are needed to upgrade LITE commands to IMPL.
 
 ### Phase 1: Smoke Test (Config-only, no DB)
 
-Run onesimusd without catalog. Every command should either return
+Run onesimus-dird without catalog. Every command should either return
 real data from config or a graceful "no catalog" message.
 
 ```bash

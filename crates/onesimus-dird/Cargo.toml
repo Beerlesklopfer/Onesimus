@@ -1,5 +1,5 @@
 [package]
-name = "onesimusd"
+name = "onesimus-dird"
 description = "Onesimus Director — Drop-in replacement for the Bareos Director daemon"
 version.workspace = true
 edition.workspace = true
@@ -7,9 +7,9 @@ authors.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "onesimusd"
+name = "onesimus-dird"
 path = "src/main.rs"
-# Drop-in: /usr/sbin/bareos-dird via symlink or debian alternatives
+# Drop-in: /usr/sbin/onesimus-dird (C++ bareos-dir can stay installed side-by-side)
 
 [dependencies]
 bareos-bnet.workspace = true

@@ -3,21 +3,21 @@
 	dh $@
 
 override_dh_auto_build:
-	cargo build --release -p onesimusd -p oconsole
+	cargo build --release -p onesimus-dird -p oconsole
 
 override_dh_auto_install:
-	# === onesimusd package ===
-	install -D -m 755 target/release/onesimusd debian/onesimusd/usr/sbin/onesimusd
+	# === onesimus-dird package ===
+	install -D -m 755 target/release/onesimus-dird debian/onesimus-dird/usr/sbin/onesimus-dird
 	# Schema (all JSON files from ORM schema dir)
 	for f in crates/bareos-orm/schema/*.json; do \
-		install -D -m 644 $$f debian/onesimusd/usr/lib/bareos/scripts/ddl/$$(basename $$f); \
+		install -D -m 644 $$f debian/onesimus-dird/usr/lib/bareos/scripts/ddl/$$(basename $$f); \
 	done
 	# Default configs
 	for dir in catalog client console director fileset job jobdefs messages pool profile schedule storage user; do \
-		install -d debian/onesimusd/usr/share/bareos/defaultconfigs/bareos-dir.d/$$dir; \
+		install -d debian/onesimus-dird/usr/share/bareos/defaultconfigs/bareos-dir.d/$$dir; \
 	done
 	for f in config/bareos-dir.d/*/; do \
-		install -m 644 $$f*.conf debian/onesimusd/usr/share/bareos/defaultconfigs/bareos-dir.d/$$(basename $$f)/ 2>/dev/null || true; \
+		install -m 644 $$f*.conf debian/onesimus-dird/usr/share/bareos/defaultconfigs/bareos-dir.d/$$(basename $$f)/ 2>/dev/null || true; \
 	done
 	# === oconsole package ===
 	install -D -m 755 target/release/oconsole debian/oconsole/usr/bin/oconsole
@@ -27,7 +27,7 @@ override_dh_auto_test:
 	cargo test --release
 
 override_dh_strip:
-	strip debian/onesimusd/usr/sbin/onesimusd
+	strip debian/onesimus-dird/usr/sbin/onesimus-dird
 	strip debian/oconsole/usr/bin/oconsole
 
 override_dh_auto_clean:

@@ -18,7 +18,7 @@
 # ========================================================================
 set -euo pipefail
 
-BAREOS_DIRD=${BAREOS_DIRD:-./target/release/onesimusd}
+BAREOS_DIRD=${BAREOS_DIRD:-./target/release/onesimus-dird}
 BRCONSOLE=${BRCONSOLE:-./target/release/oconsole}
 PORT=29101
 PASSWORD="testpass-$(date +%s)"

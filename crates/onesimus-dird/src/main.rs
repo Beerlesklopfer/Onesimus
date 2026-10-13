@@ -46,7 +46,7 @@ static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 /// Onesimus Director — Drop-in replacement for the Bareos Director
 #[derive(Parser, Debug)]
 #[command(
-    name = "onesimusd",
+    name = "onesimus-dird",
     version,
     about = "The Onesimus Director Daemon.\n\nCopyright (C) 2026 Onesimus.io\nDrop-in compatible with Bareos FD/SD/bconsole"
 )]
@@ -155,7 +155,7 @@ fn main() {
         println!("  200     Trace (Memory, Locks, Funktionsaufrufe)");
         println!("  999     Diese Hilfe anzeigen");
         println!();
-        println!("Beispiel: onesimusd -d 100 -f");
+        println!("Beispiel: onesimus-dird -d 100 -f");
         std::process::exit(0);
     }
 

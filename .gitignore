@@ -12,9 +12,8 @@ Cargo.lock
 *.buildinfo
 *.changes
 debian/.debhelper/
-debian/bareos-director-rust/
-debian/bareos-bconsole-rust/
 debian/onesimusd/
+debian/onesimus-dird/
 debian/oconsole/
 debian/files
 debian/*.substvars

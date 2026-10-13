@@ -5,7 +5,7 @@ members = [
     "crates/bareos-config",
     "crates/bareos-catalog",
     "crates/bareos-proto-rs",
-    "crates/onesimusd",
+    "crates/onesimus-dird",
     "crates/oconsole",
     "crates/bareos-orm",
     "crates/bareos-stored",
@@ -21,7 +21,7 @@ version = "0.25.0"
 edition = "2024"
 authors = ["Joerg Bernau <joerg@bernau.family>"]
 license = "AGPL-3.0"
-repository = "https://github.com/Beerlesklopfer/baReos-dird"
+repository = "https://github.com/Beerlesklopfer/onesimus"
 
 [workspace.dependencies]
 # Async runtime (only for gRPC)
