@@ -1487,15 +1487,15 @@ void BMainWindow::onAboutTriggered()
 
     // License
     QLabel* licenseLabel = new QLabel(
-        "<p><b>License:</b> GNU General Public License v3.0</p>"
+        "<p><b>License:</b> GNU Affero General Public License v3.0</p>"
         "<p style='font-size:9pt; color:#666;'>"
         "This program is free software: you can redistribute it and/or modify it under the "
-        "terms of the GNU General Public License as published by the Free Software "
+        "terms of the GNU Affero General Public License as published by the Free Software "
         "Foundation, version 3 of the License.</p>"
         "<p style='font-size:9pt; color:#666;'>"
         "This program is distributed in the hope that it will be useful, but WITHOUT ANY "
         "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A "
-        "PARTICULAR PURPOSE. See the GNU General Public License for more details.</p>"
+        "PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.</p>"
     );
     licenseLabel->setWordWrap(true);
     mainLayout->addWidget(licenseLabel);

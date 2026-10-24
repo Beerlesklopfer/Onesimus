@@ -517,7 +517,7 @@ class BaculaQtUi < Formula
   homepage "https://github.com/your/repo"
   url "https://github.com/your/repo/archive/v1.0.0.tar.gz"
   sha256 "..."
-  license "GPL-3.0"
+  license "AGPL-3.0-only"
   
   depends_on "cmake" => :build
   depends_on "git" => :build
