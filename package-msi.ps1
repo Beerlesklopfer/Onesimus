@@ -381,7 +381,7 @@ if (Test-Path $licensePath) {
     Write-Host "OK Lizenz-RTF erstellt" -ForegroundColor Green
 } else {
     Write-Host "WARNUNG: LICENSE-Datei nicht gefunden, verwende Platzhalter" -ForegroundColor Yellow
-    $rtfContent = "{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}\f0\fs18 Onesimus - Bareos/Bacula Management Tool\par\par MIT License\par\par (C) Bernau Family\par\par Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction.\par\par See LICENSE file for full text.}"
+    $rtfContent = "{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}\f0\fs18 Onesimus - Bareos/Bacula Management Tool\par\par GNU General Public License v3.0\par\par (C) Bernau Family\par\par This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3 of the License.\par\par See LICENSE file for full text.}"
     $rtfPath = Join-Path $BuildDir "license.rtf"
     [System.IO.File]::WriteAllText($rtfPath, $rtfContent, [System.Text.Encoding]::ASCII)
 }

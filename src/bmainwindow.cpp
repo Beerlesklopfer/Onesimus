@@ -1487,14 +1487,15 @@ void BMainWindow::onAboutTriggered()
 
     // License
     QLabel* licenseLabel = new QLabel(
-        "<p><b>License:</b> MIT License</p>"
+        "<p><b>License:</b> GNU General Public License v3.0</p>"
         "<p style='font-size:9pt; color:#666;'>"
-        "Permission is hereby granted, free of charge, to any person obtaining a copy "
-        "of this software and associated documentation files, to deal in the Software "
-        "without restriction, including without limitation the rights to use, copy, modify, "
-        "merge, publish, distribute, sublicense, and/or sell copies of the Software.</p>"
+        "This program is free software: you can redistribute it and/or modify it under the "
+        "terms of the GNU General Public License as published by the Free Software "
+        "Foundation, version 3 of the License.</p>"
         "<p style='font-size:9pt; color:#666;'>"
-        "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.</p>"
+        "This program is distributed in the hope that it will be useful, but WITHOUT ANY "
+        "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A "
+        "PARTICULAR PURPOSE. See the GNU General Public License for more details.</p>"
     );
     licenseLabel->setWordWrap(true);
     mainLayout->addWidget(licenseLabel);
