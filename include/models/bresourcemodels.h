@@ -223,6 +223,14 @@ public:
     QList<BConfigResource> jobDefsResources() const;
     QStringList jobDefsNames() const;
 
+    /**
+     * @brief Names of the Messages resources the loaded Jobs and JobDefs refer to
+     *
+     * Sorted, without duplicates. The Director is not asked for its Messages
+     * resources, so one that no Job and no JobDefs uses is not in the list.
+     */
+    QStringList messagesNames() const;
+
     // Reusable JSON → BConfigResource conversion helpers
     static BConfigResource jsonToResource(const QString &resourceType,
                                           const QString &name, const QJsonObject &obj);

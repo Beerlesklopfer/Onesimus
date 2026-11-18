@@ -566,6 +566,31 @@ QStringList BJobConfigModel::jobDefsNames() const
     return m_jobDefsConfigs.keys();
 }
 
+QStringList BJobConfigModel::messagesNames() const
+{
+    QStringList names;
+
+    auto collect = [&names](const QMap<QString, QJsonObject> &configs) {
+        for (const QJsonObject &config : configs) {
+            for (auto it = config.constBegin(); it != config.constEnd(); ++it) {
+                if (it.key().compare(QLatin1String("messages"), Qt::CaseInsensitive) != 0)
+                    continue;
+                // A reference is either the name or an object with the name
+                const QString name = it.value().isObject()
+                    ? it.value().toObject().value("name").toString()
+                    : it.value().toString();
+                if (!name.isEmpty() && !names.contains(name))
+                    names.append(name);
+            }
+        }
+    };
+
+    collect(m_jobConfigs);
+    collect(m_jobDefsConfigs);
+    names.sort(Qt::CaseInsensitive);
+    return names;
+}
+
 
 // ============================================================================
 // BScheduleEntry Implementation

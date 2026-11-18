@@ -418,7 +418,7 @@ BMainWindow::BMainWindow(QWidget *parent)
             refData["Storage"]  = jobW->storageNames();
             refData["Pool"]     = jobW->poolNames();
             refData["Schedule"] = schedW->scheduleModel()->scheduleNames();
-            refData["Messages"] = QStringList();
+            refData["Messages"] = model->messagesNames();
             refData["Job"]      = model->jobNames();
             refData["JobDefs"]  = jobW->jobDefsNames();
             refData["Catalog"]  = jobW->catalogNames();
@@ -757,7 +757,7 @@ void BMainWindow::createActions()
         refData["Storage"] = m_jobWidget->storageNames();
         refData["Pool"] = m_jobWidget->poolNames();
         refData["Schedule"] = m_scheduleWidget->scheduleModel()->scheduleNames();
-        refData["Messages"] = QStringList();
+        refData["Messages"] = m_jobWidget->jobConfigModel()->messagesNames();
         refData["Catalog"] = m_jobWidget->catalogNames();
         refData["JobDefs"] = m_jobWidget->jobDefsNames();
         refData["Job"] = m_jobWidget->jobNames();
@@ -806,7 +806,7 @@ void BMainWindow::createActions()
             refData["Storage"] = jobW->storageNames();
             refData["Pool"] = jobW->poolNames();
             refData["Schedule"] = schedW->scheduleModel()->scheduleNames();
-            refData["Messages"] = QStringList();
+            refData["Messages"] = model->messagesNames();
             refData["Job"] = model->jobNames();
             refData["JobDefs"] = jobW->jobDefsNames();
 
@@ -850,7 +850,7 @@ void BMainWindow::createActions()
         refData["Storage"] = m_jobWidget->storageNames();
         refData["Pool"] = m_jobWidget->poolNames();
         refData["Schedule"] = m_scheduleWidget->scheduleModel()->scheduleNames();
-        refData["Messages"] = QStringList();
+        refData["Messages"] = m_jobWidget->jobConfigModel()->messagesNames();
         refData["Catalog"] = m_jobWidget->catalogNames();
         refData["JobDefs"] = m_jobWidget->jobDefsNames();
         refData["Job"] = m_jobWidget->jobNames();
@@ -893,7 +893,7 @@ void BMainWindow::createActions()
             refData["Storage"] = jobW->storageNames();
             refData["Pool"] = jobW->poolNames();
             refData["Schedule"] = schedW->scheduleModel()->scheduleNames();
-            refData["Messages"] = QStringList();
+            refData["Messages"] = model->messagesNames();
             refData["Job"] = jobW->jobNames();
             refData["JobDefs"] = jobW->jobDefsNames();
             refData["Catalog"] = jobW->catalogNames();

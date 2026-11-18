@@ -54,6 +54,7 @@ private slots:
     void undeterminableCasesAreRefused();
     void sameRun_data();
     void sameRun();
+    void messagesNamesFromJobsAndJobDefs();
 };
 
 void BScheduleDragPlanTest::plainScheduleChangesOnlyTheDraggedTime()
@@ -297,6 +298,26 @@ void BScheduleDragPlanTest::sameRun()
         moved.replace(QRegularExpression("at \\d+:\\d+"), "at 13:45");
         QVERIFY(BScheduleDragPlan::sameRun(original, moved, 13, 45));
     }
+}
+
+void BScheduleDragPlanTest::messagesNamesFromJobsAndJobDefs()
+{
+    BJobConfigModel model;
+    QVERIFY(model.messagesNames().isEmpty());
+
+    // "show jobs" names a referenced resource by a string or by an object
+    model.parseShowJobs(R"({"result":{"jobs":{
+        "backup-a":{"name":"backup-a","messages":"Standard","client":"a-fd"},
+        "backup-b":{"name":"backup-b","Messages":{"name":"Daemon"}},
+        "backup-c":{"name":"backup-c","messages":"Standard"},
+        "backup-d":{"name":"backup-d"}
+    }}})");
+    QCOMPARE(model.messagesNames(), QStringList({"Daemon", "Standard"}));
+
+    model.parseShowJobDefs(R"({"result":{"jobdefs":{
+        "DefaultJob":{"name":"DefaultJob","messages":"Quiet"}
+    }}})");
+    QCOMPARE(model.messagesNames(), QStringList({"Daemon", "Quiet", "Standard"}));
 }
 
 QTEST_APPLESS_MAIN(BScheduleDragPlanTest)
