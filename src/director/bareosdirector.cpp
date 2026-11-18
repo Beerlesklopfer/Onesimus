@@ -1478,6 +1478,15 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
     QObject::disconnect(m_connAuthFailed);
     QObject::disconnect(m_connAuthStatus);
 
+    // TLS was asked for (profile or --tls): never continue in clear text.
+    // With TLS enabled the handshake comes before the Hello, so this cannot
+    // happen today; the check keeps it that way.
+    if (m_tlsConfig->tlsEnable && !m_socket->isEncrypted()) {
+        onAuthenticationFailed(tr("TLS is enabled for this connection, but the session with the "
+                                  "Director is not encrypted. The connection was closed."));
+        return;
+    }
+
     m_directorVersion = directorVersion;
 
     // Update Director name from CRAM-MD5 challenge (real name from server)

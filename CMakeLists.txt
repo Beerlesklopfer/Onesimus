@@ -1329,6 +1329,29 @@ if(BUILD_TESTING)
 
     add_test(NAME bnetframe_test COMMAND bnetframe_test)
 
+    # bcommandlineconnection_test - --tls* options and password sources of the command line
+    add_executable(bcommandlineconnection_test
+        test/bcommandlineconnection_test.cpp
+        include/bcommandlineconnection.h
+    )
+
+    target_include_directories(bcommandlineconnection_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bcommandlineconnection_test PRIVATE
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::Crypto
+    )
+
+    if(USE_STATIC_OPENSSL)
+        add_dependencies(bcommandlineconnection_test openssl_build)
+    endif()
+
+    add_test(NAME bcommandlineconnection_test COMMAND bcommandlineconnection_test)
+
     # bdirectorqueue_test - command queue of BareosDirector without a connection
     add_executable(bdirectorqueue_test
         test/bdirectorqueue_test.cpp
@@ -1362,6 +1385,7 @@ if(BUILD_TESTING)
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
     message(STATUS "  blogredact_test  - log redaction and log file permission test (registered with CTest)")
     message(STATUS "  bnetframe_test   - BNET frame length limit test (registered with CTest)")
+    message(STATUS "  bcommandlineconnection_test - command line TLS/password option test (registered with CTest)")
     message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
 endif()
 message(STATUS "")

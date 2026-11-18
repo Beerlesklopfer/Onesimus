@@ -2,6 +2,7 @@
 #include "btranslations.h"
 #include "config/bsettings.h"
 #include "blogging.h"
+#include "bcommandlineconnection.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QIcon>
@@ -24,18 +25,16 @@ struct CommandLineOptions {
     QString configFile;
     QString command;
 
-    // TLS options
-    bool tlsEnabled = false;
-    QString tlsCaFile;
-
-#ifdef Q_OS_WINDOWS
-    QString tlsPfxFile;
-    QString tlsPfxPassword;
-#else
-    QString tlsCertFile;
-    QString tlsKeyFile;
-#endif
+    // TLS options (mapped to the Director configuration by bApplyCommandLineTls())
+    BCommandLineTlsOptions tls;
 };
+
+// Print a command line error and leave; nothing has been connected yet
+[[noreturn]] static void commandLineError(const QString &message)
+{
+    fprintf(stderr, "%s: %s\n", qPrintable(QCoreApplication::applicationName()), qPrintable(message));
+    ::exit(2);
+}
 CommandLineOptions parseCommandLine(QApplication &app)
 {
     QCommandLineParser parser;
@@ -115,10 +114,18 @@ CommandLineOptions parseCommandLine(QApplication &app)
 
     QCommandLineOption passwordOption(
         QStringList() << "P" << "password",
-        "Director password",
+        "Director password (visible in the process list; prefer --password-file "
+        "or the environment variable ONESIMUS_PASSWORD)",
         "password"
         );
     parser.addOption(passwordOption);
+
+    QCommandLineOption passwordFileOption(
+        "password-file",
+        "Read the Director password from the first line of this file",
+        "file"
+        );
+    parser.addOption(passwordFileOption);
 
     // ========================================
     // Config-Optionen
@@ -137,7 +144,8 @@ CommandLineOptions parseCommandLine(QApplication &app)
 
     QCommandLineOption tlsOption(
         "tls",
-        "Enable TLS/SSL"
+        "Connect with TLS and refuse an unencrypted session "
+        "(TLS-PSK with the password, or certificates with the --tls-* options)"
         );
     parser.addOption(tlsOption);
 
@@ -230,21 +238,30 @@ CommandLineOptions parseCommandLine(QApplication &app)
     options.port        = parser.value(portOption).toInt();
     options.director    = parser.value(directorOption);
     options.console     = parser.value(consoleOption);
-    options.password    = parser.value(passwordOption);
     options.configFile  = parser.value(configOption);
 
+    // Password: -P, --password-file or ONESIMUS_PASSWORD
+    QString passwordError;
+    options.password = bResolveCommandLinePassword(
+        parser.isSet(passwordOption), parser.value(passwordOption),
+        parser.value(passwordFileOption),
+        qEnvironmentVariable("ONESIMUS_PASSWORD"), &passwordError);
+    if (!passwordError.isEmpty()) {
+        commandLineError(passwordError);
+    }
+
     // TLS-Optionen (gemeinsam)
-    options.tlsEnabled  = parser.isSet(tlsOption);
-    options.tlsCaFile   = parser.value(tlsCaOption);
+    options.tls.tls    = parser.isSet(tlsOption);
+    options.tls.caFile = parser.value(tlsCaOption);
 
 #ifdef Q_OS_WINDOWS
     // Windows: PFX
-    options.tlsPfxFile     = parser.value(tlsPfxOption);
-    options.tlsPfxPassword = parser.value(tlsPfxPasswordOption);
+    options.tls.pfxFile     = parser.value(tlsPfxOption);
+    options.tls.pfxPassword = parser.value(tlsPfxPasswordOption);
 #else
     // Linux/Unix: PEM
-    options.tlsCertFile = parser.value(tlsCertOption);
-    options.tlsKeyFile  = parser.value(tlsKeyOption);
+    options.tls.certFile = parser.value(tlsCertOption);
+    options.tls.keyFile  = parser.value(tlsKeyOption);
 #endif
 
     // Befehl
@@ -279,13 +296,16 @@ void usage()
         "  -p, --port <port>           Director port (default: 9101)\n"
         "  -D, --director <name>       Director name (default: bareos-dir)\n"
         "  -C, --console <name>        Console name (default: onesimus)\n"
-        "  -P, --password <password>   Director password\n"
+        "  -P, --password <password>   Director password (visible in the process list)\n"
+        "      --password-file <file>  Read the password from the first line of <file>\n"
+        "                              (or set the environment variable ONESIMUS_PASSWORD)\n"
         "\n"
         "Configuration:\n"
         "  -c, --config <file>         Configuration file\n"
         "\n"
         "TLS/SSL Options:\n"
-        "  --tls                       Enable TLS/SSL\n"
+        "  --tls                       Connect with TLS (TLS-PSK, or certificates with the\n"
+        "                              options below); an unencrypted session is refused\n"
         "  --tls-ca <file>             TLS CA certificate file\n"
 #ifdef Q_OS_WINDOWS
         "  --tls-pfx <file>            TLS PFX/PKCS#12 file (certificate + key)\n"
@@ -360,6 +380,25 @@ int main(int argc, char *argv[])
     // Command-Line parsen
     CommandLineOptions options = parseCommandLine(app);
 
+    // TLS configuration of a connection made from the command line
+    // (--headless, or --auto-connect with --host)
+    BDirector::TLSConfig commandLineTls;
+    const QString tlsError = bApplyCommandLineTls(options.tls, commandLineTls);
+    if (!tlsError.isEmpty()) {
+        commandLineError(tlsError);
+    }
+    if (options.tls.tls && options.host.isEmpty()) {
+        commandLineError(QCoreApplication::translate(
+            "CommandLine", "--tls needs --host. Without --host the TLS settings of the "
+                           "saved connection profile are used."));
+    }
+    if (options.tls.tls && options.password.isEmpty()) {
+        // TLS-PSK uses the password as key; certificate TLS still logs in with it
+        commandLineError(QCoreApplication::translate(
+            "CommandLine", "--tls needs the console password: use --password-file, the "
+                           "environment variable ONESIMUS_PASSWORD or --password."));
+    }
+
     // Initialize file logging (if enabled via compile flag ONESIMUS_FILE_LOGGING)
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(logPath);
@@ -392,6 +431,13 @@ int main(int argc, char *argv[])
             if (options.verbose) {
                 BLOG_INFO() << "Connecting to" << options.host << ":" << options.port;
             }
+
+            // Without --tls this is the default configuration (no TLS)
+            director.setTLSConfig(commandLineTls);
+
+            QObject::connect(&director, &BDirector::protocolError, [](const QString &error) {
+                fprintf(stderr, "%s\n", qPrintable(error));
+            });
 
             director.connect(
                 options.host,
@@ -477,23 +523,10 @@ int main(int argc, char *argv[])
                 BLOG_INFO() << "Auto-connecting to" << options.host;
             }
 
-            // Verbindungs-Dialog überspringen und direkt verbinden
-            if (options.tlsEnabled){
-                if(!options.tlsCaFile.isEmpty())
-                    w.director()->tlsConfig()->tlsCaCertFile->setFileName(options.tlsCaFile);
-#ifdef Q_OS_WINDOWS
-                if(!options.tlsPfxFile.isEmpty())
-                    w.director()->tlsConfig()->tlsCaCertFile->setFileName(options.tlsPfxFile);
-                if(!options.tlsPfxPassword.isEmpty())
-                    w.director()->tlsConfig()->tlsCaCertFile->setFileName(options.tlsPfxPassword);
-#else
-                if(!options.tlsCertFile.isEmpty())
-                    w.director()->tlsConfig()->tlsCaCertFile->setFileName(options.tlsCertFile);
-                if(!options.tlsKeyFile.isEmpty())
-                    w.director()->tlsConfig()->tlsCaCertFile->setFileName(options.tlsKeyFile);
-#endif
-            }
-            // TLS konfigurieren...
+            // Verbindungs-Dialog überspringen und direkt verbinden.
+            // Without --tls this is the default configuration (no TLS); with
+            // --tls the connection fails rather than continue unencrypted.
+            w.director()->setTLSConfig(commandLineTls);
 
             QMetaObject::invokeMethod(&w, [&w, &options]() {
                 w.director()->connect(
