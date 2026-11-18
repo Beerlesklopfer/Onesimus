@@ -338,38 +338,47 @@ void BClientDetailsDialog::setupInfoTab()
     QGroupBox *connGroup = new QGroupBox(tr("Connection Information"));
     QFormLayout *connForm = new QFormLayout(connGroup);
 
-    // Status - use UTC comparison (same as BClientsModel::getClientStatus)
-    QString statusText;
-    QString lastConn = m_client["lastconnection"].toString();
-    if (lastConn.isEmpty() || lastConn == "0") {
-        statusText = tr("Offline (Never connected)");
-        m_lastConnLabel = new QLabel(tr("Never"));
-    } else {
-        QDateTime lastConnTime = QDateTime::fromString(lastConn, Qt::ISODate);
-        if (!lastConnTime.isValid())
-            lastConnTime = QDateTime::fromString(lastConn, "yyyy-MM-dd HH:mm:ss");
+    // Age of the last backup or contact, classified exactly as in the clients
+    // table (BClientsModel::clientActivity). Not a reachability status.
+    const int staleHours = BSettings::instance().behaviorClientStaleHours();
+    const BClientStatus::Info activity = BClientStatus::classify(
+        m_client["lastconnection"].toString(), QDateTime::currentDateTime(),
+        staleHours, QTimeZone::systemTimeZone());
 
-        if (lastConnTime.isValid()) {
-            lastConnTime.setTimeZone(QTimeZone::utc());
-            QDateTime nowUtc = QDateTime::currentDateTimeUtc();
-            qint64 secsSinceLastConn = lastConnTime.secsTo(nowUtc);
-            if (secsSinceLastConn >= 0 && secsSinceLastConn < 86400) {
-                statusText = tr("Online");
-            } else {
-                qint64 days = secsSinceLastConn / 86400;
-                statusText = tr("Offline (since %n day(s))", "", days);
-            }
-            m_lastConnLabel = new QLabel(QLocale().toString(lastConnTime.toLocalTime(), QLocale::ShortFormat));
-        } else {
-            statusText = tr("Unknown");
-            m_lastConnLabel = new QLabel(lastConn);
-        }
+    QString statusText;
+    const char *statusState = "muted";
+    switch (activity.activity) {
+    case BClientStatus::Activity::Recent:
+        statusText = tr("Recent (%1)").arg(BClientStatus::ageText(activity.ageSecs));
+        statusState = "success";
+        break;
+    case BClientStatus::Activity::Stale:
+        statusText = tr("Stale (%1)").arg(BClientStatus::ageText(activity.ageSecs));
+        statusState = "warning";
+        break;
+    case BClientStatus::Activity::Never:
+        statusText = tr("Never");
+        break;
+    case BClientStatus::Activity::Unknown:
+        statusText = tr("Unknown");
+        break;
     }
 
-    m_statusLabel = new QLabel(statusText);
-    m_statusLabel->setProperty("state", statusText.contains("Online") ? "success" : "muted");
+    if (activity.activity == BClientStatus::Activity::Never) {
+        m_lastConnLabel = new QLabel(tr("Never"));
+    } else if (activity.timestamp.isValid()) {
+        m_lastConnLabel = new QLabel(QLocale().toString(activity.timestamp, QLocale::ShortFormat));
+    } else {
+        m_lastConnLabel = new QLabel(activity.raw);
+    }
 
-    connForm->addRow(tr("Status:"), m_statusLabel);
+    const QString activityToolTip = BClientStatus::toolTip(activity, staleHours);
+    m_statusLabel = new QLabel(statusText);
+    m_statusLabel->setProperty("state", statusState);
+    m_statusLabel->setToolTip(activityToolTip);
+    m_lastConnLabel->setToolTip(activityToolTip);
+
+    connForm->addRow(tr("Last backup:"), m_statusLabel);
     connForm->addRow(tr("Last Connection:"), m_lastConnLabel);
 
     layout->addWidget(connGroup);

@@ -182,6 +182,14 @@ public:
     bool behaviorJobsNewestFirst() const;
     void setBehaviorJobsNewestFirst(bool newestFirst);
 
+    /**
+     * @brief Age in hours from which a client's last backup counts as stale
+     *
+     * Default 24. Used by the clients table and the client details dialog.
+     */
+    int behaviorClientStaleHours() const;
+    void setBehaviorClientStaleHours(int hours);
+
     // ========================================================================
     // Advanced Settings
     // ========================================================================

@@ -77,7 +77,7 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             return port > 0 ? port : QVariant();
         }
         case COL_STATUS:
-            return getStatusText(getClientStatus(client));
+            return BClientStatus::label(clientActivity(client));
         case COL_OS: {
             QString uname = client["uname"].toString().trimmed();
             bool isLinux = uname.contains("linux", Qt::CaseInsensitive);
@@ -128,18 +128,13 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             return (spaceIdx > 0) ? uname.mid(spaceIdx + 1).trimmed() : QString();
         }
         case COL_LAST_CONN: {
-            // Enrichment map first, then JSON fallback
-            QString lastConn = client["lastconnection"].toString();
-            if (lastConn.isEmpty() || lastConn == "0")
-                lastConn = m_lastJobTimes.value(name);
-            if (lastConn.isEmpty() || lastConn == "0")
+            // The same timestamp the status column judges, as the Director wrote it
+            const BClientStatus::Info activity = clientActivity(client);
+            if (activity.activity == BClientStatus::Activity::Never)
                 return tr("Never");
-            QDateTime dt = QDateTime::fromString(lastConn, Qt::ISODate);
-            if (!dt.isValid())
-                dt = QDateTime::fromString(lastConn, "yyyy-MM-dd HH:mm:ss");
-            if (dt.isValid())
-                return QLocale().toString(dt, QLocale::ShortFormat);
-            return lastConn;
+            if (activity.timestamp.isValid())
+                return QLocale().toString(activity.timestamp, QLocale::ShortFormat);
+            return activity.raw;
         }
         case COL_JOB_COUNT:
             return m_jobCounts.value(name, 0);
@@ -150,17 +145,18 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
 
     // Icon for status column
     if (role == Qt::DecorationRole && index.column() == COL_STATUS) {
-        return getStatusIcon(getClientStatus(client));
+        return getStatusIcon(clientActivity(client).activity);
     }
 
     // Background color for status column
     if (role == Qt::BackgroundRole && index.column() == COL_STATUS) {
-        return QBrush(getStatusColor(getClientStatus(client)));
+        return QBrush(getStatusColor(clientActivity(client).activity));
     }
 
     // Foreground: contrast text on the status background
+    // (whoever sets a background also sets a readable foreground)
     if (role == Qt::ForegroundRole && index.column() == COL_STATUS) {
-        return QBrush(BLevelColors::contrastColor(getStatusColor(getClientStatus(client))));
+        return QBrush(BLevelColors::contrastColor(getStatusColor(clientActivity(client).activity)));
     }
 
     // Text alignment
@@ -194,15 +190,9 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             return client["uname"].toString();  // Full uname as tooltip
         case COL_TOTAL_BYTES:
             return tr("%1 bytes").arg(m_totalBytes.value(name, 0));
-        case COL_STATUS: {
-            Status status = getClientStatus(client);
-            if (status == STATUS_ONLINE)
-                return tr("Client is online and available");
-            else if (status == STATUS_OFFLINE)
-                return tr("Client is offline or unavailable");
-            else
-                return tr("Client status unknown");
-        }
+        case COL_STATUS:
+        case COL_LAST_CONN:
+            return BClientStatus::toolTip(clientActivity(client), m_staleThresholdHours);
         default:
             return QVariant();
         }
@@ -224,7 +214,7 @@ QVariant BClientsModel::headerData(int section, Qt::Orientation orientation, int
     case COL_PORT:
         return tr("Port");
     case COL_STATUS:
-        return tr("Status");
+        return tr("Last Backup");
     case COL_OS:
         return tr("Operating System");
     case COL_VERSION:
@@ -687,38 +677,37 @@ QString BClientsModel::formatBytes(qint64 bytes) const
     }
 }
 
-BClientsModel::Status BClientsModel::getClientStatus(const QJsonObject &client) const
+QString BClientsModel::lastActivityTimestamp(const QJsonObject &client) const
 {
-    QString clientName = client["name"].toString();
+    const QString lastConn = client["lastconnection"].toString();
+    if (!BClientStatus::isMissingTimestamp(lastConn))
+        return lastConn;
+    return m_lastJobTimes.value(client["name"].toString());
+}
 
-    // Active probe result takes priority (from "status client=<name>")
-    if (m_clientOnlineStatus.contains(clientName))
-        return m_clientOnlineStatus.value(clientName);
+BClientStatus::Info BClientsModel::clientActivity(const QJsonObject &client) const
+{
+    // The Director sends its local wall-clock time without a zone, and the
+    // protocol does not tell its zone. It is read in this computer's zone:
+    // exact when both share a zone, off by the zone difference otherwise
+    // (never negative, see BClientStatus::classify()).
+    return BClientStatus::classify(lastActivityTimestamp(client),
+                                   QDateTime::currentDateTime(),
+                                   m_staleThresholdHours,
+                                   QTimeZone::systemTimeZone());
+}
 
-    // Fallback: timestamp-based heuristic (lastconnection or last job time)
-    QString lastConn = client["lastconnection"].toString();
+void BClientsModel::setStaleThresholdHours(int hours)
+{
+    if (hours < 1)
+        hours = BClientStatus::DefaultThresholdHours;
+    if (hours == m_staleThresholdHours)
+        return;
 
-    if (lastConn.isEmpty() || lastConn == "0")
-        lastConn = m_lastJobTimes.value(clientName);
-
-    if (lastConn.isEmpty() || lastConn == "0")
-        return STATUS_UNKNOWN;
-
-    QDateTime lastConnTime = QDateTime::fromString(lastConn, Qt::ISODate);
-    if (!lastConnTime.isValid())
-        lastConnTime = QDateTime::fromString(lastConn, "yyyy-MM-dd HH:mm:ss");
-
-    // Treat timestamps as UTC (Bareos/Bacula servers typically run in UTC)
-    if (lastConnTime.isValid()) {
-        lastConnTime.setTimeZone(QTimeZone::utc());
-        QDateTime nowUtc = QDateTime::currentDateTimeUtc();
-        qint64 secsSinceLastConn = lastConnTime.secsTo(nowUtc);
-        Status result = (secsSinceLastConn >= 0 && secsSinceLastConn < 86400)
-                        ? STATUS_ONLINE : STATUS_OFFLINE;
-        return result;
-    }
-
-    return STATUS_UNKNOWN;
+    beginResetModel();
+    m_staleThresholdHours = hours;
+    endResetModel();
+    emit allClientsChanged();
 }
 
 void BClientsModel::setClientOnlineStatus(const QString &clientName, Status status)
@@ -735,7 +724,7 @@ void BClientsModel::requestStatusChecks()
 {
     // DISABLED: Bareos status client command doesn't properly support JSON output
     // (see GitHub issue #2325). The response is unreliable for online/offline detection.
-    // Falling back to timestamp-based heuristic in getClientStatus() instead.
+    // The status column shows the age of the last backup instead (clientActivity()).
     //
     // if (!m_director || !m_director->isConnected())
     //     return;
@@ -747,36 +736,26 @@ void BClientsModel::requestStatusChecks()
     // }
 }
 
-QIcon BClientsModel::getStatusIcon(Status status) const
+QIcon BClientsModel::getStatusIcon(BClientStatus::Activity activity) const
 {
-    switch (status) {
-    case STATUS_ONLINE:
-        return QIcon::fromTheme("network-idle", QIcon::fromTheme("dialog-ok"));
-    case STATUS_OFFLINE:
-        return QIcon::fromTheme("network-offline", QIcon::fromTheme("dialog-error"));
+    switch (activity) {
+    case BClientStatus::Activity::Recent:
+        return QIcon::fromTheme("dialog-ok", QIcon::fromTheme("emblem-default"));
+    case BClientStatus::Activity::Stale:
+        return QIcon::fromTheme("dialog-warning");
     default:
         return QIcon::fromTheme("dialog-question");
     }
 }
 
-QString BClientsModel::getStatusText(Status status) const
+QColor BClientsModel::getStatusColor(BClientStatus::Activity activity) const
 {
-    switch (status) {
-    case STATUS_ONLINE:
-        return tr("Online");
-    case STATUS_OFFLINE:
-        return tr("Offline");
-    default:
-        return tr("Unknown");
-    }
-}
-
-QColor BClientsModel::getStatusColor(Status status) const
-{
-    switch (status) {
-    case STATUS_ONLINE:
+    switch (activity) {
+    case BClientStatus::Activity::Recent:
         return QColor(200, 255, 200);  // Light green
-    case STATUS_OFFLINE:
+    case BClientStatus::Activity::Stale:
+        return QColor(255, 224, 160);  // Light amber
+    case BClientStatus::Activity::Never:
         return QColor(220, 220, 220);  // Light gray
     default:
         return QColor(255, 255, 200);  // Light yellow

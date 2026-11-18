@@ -153,8 +153,10 @@ private:
 
     // Statistics labels
     QLabel *m_totalClientsLabel;
-    QLabel *m_onlineClientsLabel;
-    QLabel *m_offlineClientsLabel;
+    QLabel *m_recentClientsLabel;
+    QLabel *m_staleClientsLabel;
+    QLabel *m_neverClientsLabel;
+    QLabel *m_unknownClientsLabel;
 
     // Data
     BDirector *m_director;

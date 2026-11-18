@@ -479,6 +479,7 @@ set(SOURCES
 
     src/clients/bclientwidget.cpp
     src/clients/bclientsmodel.cpp
+    src/clients/bclientstatus.cpp
     src/clients/bclientswidget.cpp
     src/clients/bclientdetailsdialog.cpp
     src/clients/bnewclientdialog.cpp
@@ -557,6 +558,7 @@ set(HEADERS
     include/jobs/fileset/bincludeblockwidget.h
 
     include/clients/bclientsmodel.h
+    include/clients/bclientstatus.h
     include/bsortvalue.h
     include/bsorttableitem.h
     include/blabelstate.h
@@ -1236,6 +1238,24 @@ if(BUILD_TESTING)
 
     add_test(NAME bsortvalue_test COMMAND bsortvalue_test)
 
+    # bclientstatus_test - age and state of a client's last backup (issue #9)
+    add_executable(bclientstatus_test
+        test/bclientstatus_test.cpp
+        src/clients/bclientstatus.cpp
+        include/clients/bclientstatus.h
+    )
+
+    target_include_directories(bclientstatus_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bclientstatus_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bclientstatus_test COMMAND bclientstatus_test)
+
     # bjobpaging_test - page arithmetic of the job list pagination
     add_executable(bjobpaging_test
         test/bjobpaging_test.cpp
@@ -1282,6 +1302,7 @@ if(BUILD_TESTING)
     message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")
     message(STATUS "  bdatabase_test   - database migration test (registered with CTest)")
     message(STATUS "  bsortvalue_test  - table sort key test (registered with CTest)")
+    message(STATUS "  bclientstatus_test - client last-backup state test (registered with CTest)")
     message(STATUS "  bjobpaging_test  - job list page arithmetic test (registered with CTest)")
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
 endif()

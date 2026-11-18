@@ -779,6 +779,16 @@ void BSettingsDialog::createBehaviorPage()
            "When disabled, the oldest jobs are shown first."));
     displayLayout->addRow("", m_jobsNewestFirstCheck);
 
+    m_clientStaleHoursSpin = new QSpinBox();
+    m_clientStaleHoursSpin->setRange(1, 8760);
+    m_clientStaleHoursSpin->setValue(24);
+    m_clientStaleHoursSpin->setSuffix(tr(" hours"));
+    m_clientStaleHoursSpin->setToolTip(
+        tr("The clients table marks a client as stale when its last backup or contact\n"
+           "is at least this old. The value is taken from the job history; it is not\n"
+           "a live connection check."));
+    displayLayout->addRow(tr("Client backup is stale after:"), m_clientStaleHoursSpin);
+
     layout->addWidget(displayGroup);
 
     // Visible Backup Levels (dynamic from Director)
@@ -1237,6 +1247,7 @@ void BSettingsDialog::loadSettings()
     m_refreshIntervalSpin->setValue(settings.behaviorRefreshInterval());
     m_maxJobsDisplaySpin->setValue(settings.behaviorMaxJobsDisplay());
     m_jobsNewestFirstCheck->setChecked(settings.behaviorJobsNewestFirst());
+    m_clientStaleHoursSpin->setValue(settings.behaviorClientStaleHours());
 
     // Visible Backup Levels (dynamic)
     QStringList visibleLevels = settings.visibleLevels();
@@ -1301,6 +1312,7 @@ void BSettingsDialog::saveSettings()
     settings.setBehaviorRefreshInterval(m_refreshIntervalSpin->value());
     settings.setBehaviorMaxJobsDisplay(m_maxJobsDisplaySpin->value());
     settings.setBehaviorJobsNewestFirst(m_jobsNewestFirstCheck->isChecked());
+    settings.setBehaviorClientStaleHours(m_clientStaleHoursSpin->value());
 
     // Visible Backup Levels (dynamic)
     QStringList visibleLevels;

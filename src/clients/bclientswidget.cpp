@@ -32,8 +32,10 @@ BClientsWidget::BClientsWidget(BDirector *director, QWidget *parent)
     , m_autoRefreshCheck(new QCheckBox(tr("Auto"), this))
     , m_refreshButton(new QPushButton(tr("Refresh"), this))
     , m_totalClientsLabel(new QLabel("0", this))
-    , m_onlineClientsLabel(new QLabel("0", this))
-    , m_offlineClientsLabel(new QLabel("0", this))
+    , m_recentClientsLabel(new QLabel("0", this))
+    , m_staleClientsLabel(new QLabel("0", this))
+    , m_neverClientsLabel(new QLabel("0", this))
+    , m_unknownClientsLabel(new QLabel("0", this))
     , m_director(director)
     , m_filterDebounceTimer(new QTimer(this))
 {
@@ -58,11 +60,13 @@ void BClientsWidget::setupUI()
 
     topLayout->addSpacing(20);
 
-    // Status filter
-    topLayout->addWidget(new QLabel(tr("Status:")));
+    // Filter by the age of the last backup (not a reachability status)
+    topLayout->addWidget(new QLabel(tr("Last backup:")));
     m_statusFilter->addItem(tr("All"), "all");
-    m_statusFilter->addItem(tr("Online"), "online");
-    m_statusFilter->addItem(tr("Offline"), "offline");
+    m_statusFilter->addItem(tr("Recent"), "recent");
+    m_statusFilter->addItem(tr("Stale"), "stale");
+    m_statusFilter->addItem(tr("Never"), "never");
+    m_statusFilter->addItem(tr("Unknown"), "unknown");
     m_statusFilter->setMinimumWidth(120);
     topLayout->addWidget(m_statusFilter);
 
@@ -92,25 +96,38 @@ void BClientsWidget::setupUI()
 
     statsLayout->addSpacing(20);
 
-    QLabel *onlineLabel = new QLabel(tr("Online:"));
-    onlineLabel->setObjectName("clientOnlineLabel");
-    statsLayout->addWidget(onlineLabel);
-    m_onlineClientsLabel->setObjectName("clientOnlineValue");
-    statsLayout->addWidget(m_onlineClientsLabel);
+    // One counter per state of the last backup. "Never" and "Unknown" are
+    // counted on their own: no information is not the same as an old backup.
+    // Colours come from the themes' QLabel[state=...] selectors.
+    const auto addCounter = [statsLayout](const QString &caption, QLabel *valueLabel,
+                                          const char *state, const QString &toolTip) {
+        QLabel *captionLabel = new QLabel(caption);
+        captionLabel->setProperty("state", state);
+        captionLabel->setToolTip(toolTip);
+        valueLabel->setProperty("state", state);
+        valueLabel->setToolTip(toolTip);
+        statsLayout->addWidget(captionLabel);
+        statsLayout->addWidget(valueLabel);
+    };
 
+    addCounter(tr("Recent:"), m_recentClientsLabel, "success",
+               tr("Clients whose last backup or contact is younger than the limit in the settings"));
     statsLayout->addSpacing(20);
-
-    QLabel *offlineLabel = new QLabel(tr("Offline:"));
-    offlineLabel->setObjectName("clientOfflineLabel");
-    statsLayout->addWidget(offlineLabel);
-    m_offlineClientsLabel->setObjectName("clientOfflineValue");
-    statsLayout->addWidget(m_offlineClientsLabel);
+    addCounter(tr("Stale:"), m_staleClientsLabel, "warning",
+               tr("Clients whose last backup or contact is older than the limit in the settings"));
+    statsLayout->addSpacing(20);
+    addCounter(tr("Never:"), m_neverClientsLabel, "muted",
+               tr("Clients without any known backup or contact"));
+    statsLayout->addSpacing(20);
+    addCounter(tr("Unknown:"), m_unknownClientsLabel, "muted",
+               tr("Clients whose last backup time cannot be read"));
 
     statsLayout->addStretch();
 
     mainLayout->addWidget(statsGroup);
 
     // Table view with custom header
+    m_model->setStaleThresholdHours(BSettings::instance().behaviorClientStaleHours());
     m_tableView->setHorizontalHeader(m_headerView);
     m_tableView->setModel(m_model);
     m_tableView->setAlternatingRowColors(true);
@@ -142,7 +159,7 @@ void BClientsWidget::setupUI()
     // Set column widths (~20% for Name, Address stretches)
     m_tableView->setColumnWidth(BClientsModel::COL_NAME, 180);
     m_tableView->setColumnWidth(BClientsModel::COL_PORT, 50);
-    m_tableView->setColumnWidth(BClientsModel::COL_STATUS, 80);
+    m_tableView->setColumnWidth(BClientsModel::COL_STATUS, 110);
     m_tableView->setColumnWidth(BClientsModel::COL_OS, 120);
     m_tableView->setColumnWidth(BClientsModel::COL_VERSION, 80);
     m_tableView->setColumnWidth(BClientsModel::COL_LAST_CONN, 160);
@@ -193,6 +210,12 @@ void BClientsWidget::setupConnections()
             m_autoRefreshCheck->blockSignals(false);
             m_refreshButton->setEnabled(!enabled);
         }
+    });
+
+    // The limit for "stale" is a setting
+    connect(&BSettings::instance(), &BSettings::behaviorSettingsChanged,
+            this, [this]() {
+        m_model->setStaleThresholdHours(BSettings::instance().behaviorClientStaleHours());
     });
 
     // Refresh button
@@ -395,14 +418,20 @@ void BClientsWidget::applyFilters()
             }
         }
 
-        // Apply status filter
+        // Apply the filter on the age of the last backup
         if (statusFilter != "all") {
-            BClientsModel::Status status = m_model->getClientStatus(client);
+            const BClientStatus::Activity activity = m_model->clientActivity(client).activity;
 
-            if (statusFilter == "online" && status != BClientsModel::STATUS_ONLINE) {
+            if (statusFilter == "recent" && activity != BClientStatus::Activity::Recent) {
                 continue;
             }
-            if (statusFilter == "offline" && status != BClientsModel::STATUS_OFFLINE) {
+            if (statusFilter == "stale" && activity != BClientStatus::Activity::Stale) {
+                continue;
+            }
+            if (statusFilter == "never" && activity != BClientStatus::Activity::Never) {
+                continue;
+            }
+            if (statusFilter == "unknown" && activity != BClientStatus::Activity::Unknown) {
                 continue;
             }
         }
@@ -422,23 +451,33 @@ void BClientsWidget::applyFilters()
 void BClientsWidget::updateStatistics()
 {
     int totalClients = m_model->rowCount();
-    int onlineClients = 0;
-    int offlineClients = 0;
+    int recentClients = 0;
+    int staleClients = 0;
+    int neverClients = 0;
+    int unknownClients = 0;
 
     for (int row = 0; row < totalClients; ++row) {
-        QJsonObject client = m_model->clientAt(row);
-        BClientsModel::Status status = m_model->getClientStatus(client);
-
-        if (status == BClientsModel::STATUS_ONLINE) {
-            onlineClients++;
-        } else {
-            offlineClients++;
+        switch (m_model->clientActivity(m_model->clientAt(row)).activity) {
+        case BClientStatus::Activity::Recent:
+            recentClients++;
+            break;
+        case BClientStatus::Activity::Stale:
+            staleClients++;
+            break;
+        case BClientStatus::Activity::Never:
+            neverClients++;
+            break;
+        case BClientStatus::Activity::Unknown:
+            unknownClients++;
+            break;
         }
     }
 
     m_totalClientsLabel->setText(QString::number(totalClients));
-    m_onlineClientsLabel->setText(QString::number(onlineClients));
-    m_offlineClientsLabel->setText(QString::number(offlineClients));
+    m_recentClientsLabel->setText(QString::number(recentClients));
+    m_staleClientsLabel->setText(QString::number(staleClients));
+    m_neverClientsLabel->setText(QString::number(neverClients));
+    m_unknownClientsLabel->setText(QString::number(unknownClients));
 }
 
 void BClientsWidget::clearData()
@@ -456,8 +495,10 @@ void BClientsWidget::clearData()
 
     // Reset statistics
     m_totalClientsLabel->setText("0");
-    m_onlineClientsLabel->setText("0");
-    m_offlineClientsLabel->setText("0");
+    m_recentClientsLabel->setText("0");
+    m_staleClientsLabel->setText("0");
+    m_neverClientsLabel->setText("0");
+    m_unknownClientsLabel->setText("0");
 }
 
 void BClientsWidget::onContextMenu(const QPoint &pos)

@@ -8,6 +8,7 @@
 #include <QMap>
 #include <QPair>
 #include "blogging.h"
+#include "clients/bclientstatus.h"
 #include "config/bconfigparser.h"
 #include "director/bdirector.h"
 
@@ -44,7 +45,7 @@ public:
         COL_NAME = 0,       ///< Client name
         COL_ADDRESS,        ///< IP address or hostname
         COL_PORT,           ///< FD port number
-        COL_STATUS,         ///< Online/Offline status
+        COL_STATUS,         ///< Age of the last backup or contact (recent, stale, never)
         COL_OS,             ///< Operating system
         COL_VERSION,        ///< Client version
         COL_LAST_CONN,      ///< Last connection time
@@ -153,15 +154,29 @@ public:
     QList<BConfigResource> clientResources(int row, TlsMode tlsMode = TLS_AUTO) const;
 
     /**
-     * @brief Determines client status from data
+     * @brief Age and state of the client's last backup or contact
+     *
+     * Derived from "lastconnection" or, without it, from the start of the
+     * client's newest job in the loaded job list. This is not a reachability
+     * check; see BClientStatus.
      * @param client Client JSON object
-     * @return Status enum value
-     * @since 1.0
      */
-    Status getClientStatus(const QJsonObject &client) const;
+    BClientStatus::Info clientActivity(const QJsonObject &client) const;
 
     /**
-     * @brief Sets active online status for a client (from status client probe)
+     * @brief Sets the age in hours from which a last backup counts as stale
+     *
+     * Resets the model so that views show the new classification.
+     */
+    void setStaleThresholdHours(int hours);
+    int staleThresholdHours() const { return m_staleThresholdHours; }
+
+    /**
+     * @brief Stores the result of a "status client" probe
+     *
+     * The probe is switched off (see requestStatusChecks()), and the stored
+     * result is not shown anywhere: the status column shows the age of the
+     * last backup, not reachability. Kept for the on-demand probe of issue #9.
      * @param clientName Client name
      * @param status Online or Offline
      * @since 2.10
@@ -212,28 +227,17 @@ private:
     QString formatBytes(qint64 bytes) const;
 
     /**
-     * @brief Returns status icon for given status
-     * @param status Status enum value
-     * @return QIcon for status
-     * @since 1.0
+     * @brief Timestamp text of the last backup or contact, empty if none is known
+     *
+     * "lastconnection" of the client, else the newest job start time.
      */
-    QIcon getStatusIcon(Status status) const;
+    QString lastActivityTimestamp(const QJsonObject &client) const;
 
-    /**
-     * @brief Returns status text for given status
-     * @param status Status enum value
-     * @return Status string
-     * @since 1.0
-     */
-    QString getStatusText(Status status) const;
+    /** @brief Icon for the state of the last backup */
+    QIcon getStatusIcon(BClientStatus::Activity activity) const;
 
-    /**
-     * @brief Returns status color for given status
-     * @param status Status enum value
-     * @return QColor for status background
-     * @since 1.0
-     */
-    QColor getStatusColor(Status status) const;
+    /** @brief Background of the status cell; data() pairs it with a contrasting text colour */
+    QColor getStatusColor(BClientStatus::Activity activity) const;
 
     BDirector *m_director;              ///< Director connection
 
@@ -248,8 +252,10 @@ private:
     QMap<QString, QPair<QString, int>> m_addresses; ///< Client name → {address, port}
     QMap<QString, QJsonObject> m_showClientDetails; ///< Client name → full "show clients" data
 
-    // Active status probe results (from "status client=<name>")
+    // Results of the "status client=<name>" probe; stored, not displayed (see setClientOnlineStatus())
     QMap<QString, Status> m_clientOnlineStatus; ///< Client name → probed online/offline status
+
+    int m_staleThresholdHours = BClientStatus::DefaultThresholdHours;
 
     // Deferred enrichment caches
     QJsonArray m_cachedJobs;            ///< Cached job data for deferred enrichment

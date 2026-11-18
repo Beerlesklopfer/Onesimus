@@ -468,6 +468,18 @@ void BSettings::setBehaviorJobsNewestFirst(bool newestFirst)
     emit behaviorSettingsChanged();
 }
 
+int BSettings::behaviorClientStaleHours() const
+{
+    const int hours = value("Behavior/client_stale_hours", 24).toInt();
+    return hours >= 1 ? hours : 24;
+}
+
+void BSettings::setBehaviorClientStaleHours(int hours)
+{
+    setValue("Behavior/client_stale_hours", qMax(1, hours));
+    emit behaviorSettingsChanged();
+}
+
 // ========================================================================
 // Advanced Settings
 // ========================================================================
