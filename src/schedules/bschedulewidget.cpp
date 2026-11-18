@@ -1,6 +1,8 @@
 #include "schedules/bschedulewidget.h"
 #include "schedules/bscheduledragresultdialog.h"
 #include "bcapabilitynotice.h"
+#include "bsorttableitem.h"
+#include "bsortvalue.h"
 #include "config/bsettings.h"
 #include "blogging.h"
 #include <QVBoxLayout>
@@ -15,12 +17,12 @@
 #include <QSet>
 #include <QHeaderView>
 #include <QScrollBar>
+#include <QShowEvent>
 #include <QStyle>
 
 BScheduleWidget::BScheduleWidget(QWidget *parent)
     : QWidget(parent)
     , m_scheduleModel(new BScheduleModel(this))
-    , m_durationStats(new BJobDurationStats(this))
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_leftSplitter(new QSplitter(Qt::Vertical, this))
     , m_scheduleList(new QListWidget(this))
@@ -47,17 +49,29 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_director(nullptr)
     , m_currentDate(QDate::currentDate())
 {
+    // The job history is asked for a moment after the view is on screen,
+    // not in the burst of commands of a connect or a refresh
+    m_historyTimer = new QTimer(this);
+    m_historyTimer->setSingleShot(true);
+    m_historyTimer->setInterval(1500);
+    connect(m_historyTimer, &QTimer::timeout, this, &BScheduleWidget::requestHistoryIfDue);
+
     setupUI();
-    m_fdGanttWidget->setDurationStats(m_durationStats);
-    m_sdGanttWidget->setDurationStats(m_durationStats);
 
     // Lock group modes: FD always by client, SD always by storage
     m_fdGanttWidget->setGroupMode(BScheduleGanttWidget::GroupByClient);
     m_sdGanttWidget->setGroupMode(BScheduleGanttWidget::GroupByStorage);
+
+    updateHistoryViews();
 }
 
 BScheduleWidget::~BScheduleWidget()
 {
+    // The reader thread posts its result to this object
+    if (m_historyParser) {
+        m_historyParser->wait();
+    }
+
     BSettings &s = BSettings::instance();
     s.setSchedulesSplitterState(m_splitter->saveState());
     s.setSchedulesGanttSplitterState(m_ganttSplitter->saveState());
@@ -73,6 +87,7 @@ void BScheduleWidget::setupUI()
     // View mode: Gantt / Grid
     m_viewModeCombo->addItem(tr("Timeline"), 0);
     m_viewModeCombo->addItem(tr("Grid"), 1);
+    m_viewModeCombo->addItem(tr("Measured waits"), 2);
     toolbarLayout->addWidget(new QLabel(tr("View:"), this));
     toolbarLayout->addWidget(m_viewModeCombo);
 
@@ -173,7 +188,7 @@ void BScheduleWidget::setupUI()
     jobLayout->addWidget(m_jobListLabel);
 
     m_jobList->setColumnCount(6);
-    m_jobList->setHorizontalHeaderLabels({tr("Job"), tr("Type"), tr("Client"), tr("Storage"), tr("FileSet"), tr("Duration")});
+    m_jobList->setHorizontalHeaderLabels({tr("Job"), tr("Type"), tr("Client"), tr("Storage"), tr("FileSet"), tr("Median duration")});
     m_jobList->setAlternatingRowColors(true);
     m_jobList->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_jobList->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -246,6 +261,9 @@ void BScheduleWidget::setupUI()
     m_outsideWeekLabel->setVisible(false);
     gridLayout->addWidget(m_outsideWeekLabel);
     m_viewStack->addWidget(gridPane);            // index 1 = Grid
+
+    setupWaitsPage();
+    m_viewStack->addWidget(m_waitsPage);         // index 2 = Measured waits
 
     rightLayout->addWidget(m_viewStack, 1);
 
@@ -355,10 +373,15 @@ void BScheduleWidget::setupUI()
 
 void BScheduleWidget::setConnectionState(bool connected)
 {
+    m_connected = connected;
     m_refreshButton->setEnabled(connected);
 
     if (!connected) {
         clearData();
+    } else {
+        // Nothing is asked here: the history follows when the view is shown
+        updateHistoryInfo();
+        scheduleHistoryRequest();
     }
 }
 
@@ -369,7 +392,7 @@ void BScheduleWidget::clearData()
     m_fdGanttWidget->setEntries({});
     m_sdGanttWidget->setEntries({});
     m_scheduleModel->clear();
-    m_durationStats->clear();
+    resetHistory();     // the history belongs to the connection
     m_collisionLabel->setVisible(false);
     m_runProblemLabel->setVisible(false);
     m_outsideWeekLabel->setVisible(false);
@@ -533,15 +556,6 @@ void BScheduleWidget::processShowSchedulesResponse(const QString &jsonData)
     updateJobList();
 }
 
-void BScheduleWidget::processListJobsResponse(const QString &jsonData)
-{
-    m_durationStats->feedJobs(jsonData);
-
-    // Re-enrich Gantt entries with updated durations
-    updateGanttEntries();
-    updateJobList();  // Refresh duration column with updated stats
-}
-
 void BScheduleWidget::processShowJobsResponse(const QString &)
 {
     // Rebuild job→schedule index when job configs are updated
@@ -628,11 +642,16 @@ void BScheduleWidget::updateJobList()
         m_jobList->setItem(i, 3, new QTableWidgetItem(job.storage));
         m_jobList->setItem(i, 4, new QTableWidgetItem(job.fileset));
 
-        int avgSecs = m_durationStats->averageDuration(job.jobName);
-        QString durStr = (avgSecs > 0)
-            ? BJobDurationStats::formatDuration(avgSecs)
-            : tr("-");
-        m_jobList->setItem(i, 5, new QTableWidgetItem(durStr));
+        // Measured median over all levels of the job; "-" without history
+        const BJobHistoryStats::Estimate estimate = m_historyStats.estimate(job.jobName, QString());
+        QTableWidgetItem *durationItem = new QTableWidgetItem(
+            estimate.hasHistory() ? BJobHistoryStats::formatDuration(estimate.duration.median)
+                                  : tr("-"));
+        durationItem->setToolTip(estimate.hasHistory()
+            ? tr("Median of %1 measured runs at all levels in the last %2 days")
+                  .arg(estimate.runs).arg(m_historyStats.windowDays())
+            : tr("No history"));
+        m_jobList->setItem(i, 5, durationItem);
     }
 
     m_jobList->resizeColumnsToContents();
@@ -658,12 +677,26 @@ void BScheduleWidget::onViewModeChanged(int index)
     // Show/hide Gantt-specific controls
     // The date navigation stays: the grid shows a concrete week too
     bool isGantt = (index == 0);
+    const bool isWaits = (index == 2);
     m_dayViewCombo->setVisible(isGantt);
     m_snapCombo->setVisible(isGantt);
     updateDateLabel();
     bool isWeekGantt = isGantt && (m_dayViewCombo->currentIndex() == 1);
     m_zoomLabel->setVisible(isWeekGantt);
     m_zoomSlider->setVisible(isWeekGantt);
+
+    // The table of measured waits is not about a date
+    m_prevDayButton->setVisible(!isWaits);
+    m_dayLabel->setVisible(!isWaits);
+    m_nextDayButton->setVisible(!isWaits);
+    m_todayButton->setVisible(!isWaits);
+
+    if (isWaits) {
+        // Not stored: the setting keeps meaning "timeline or grid", and the
+        // table needs no schedules from the server
+        scheduleHistoryRequest();
+        return;
+    }
 
     BSettings::instance().setSchedulesViewMode(index);
 
@@ -755,19 +788,34 @@ void BScheduleWidget::updateDateLabel()
     }
 }
 
-void BScheduleWidget::onCollisionsDetected(int count)
+void BScheduleWidget::onCollisionsDetected(int certain, int uncertain)
 {
-    if (count > 0) {
-        m_collisionLabel->setText(tr("%1 collision(s)").arg(count));
-        m_collisionLabel->setVisible(true);
-    } else {
+    if (certain <= 0 && uncertain <= 0) {
         m_collisionLabel->setVisible(false);
+        return;
     }
+
+    QStringList parts;
+    if (certain > 0) {
+        parts << tr("%1 collision(s)").arg(certain);
+    }
+    if (uncertain > 0) {
+        parts << tr("%1 uncertain").arg(uncertain);
+    }
+    m_collisionLabel->setText(parts.join(", "));
+    m_collisionLabel->setToolTip(uncertain > 0
+        ? tr("Uncertain: whether the two runs overlap depends on a duration that was "
+             "not measured (no history, or an estimate from other levels).")
+        : QString());
+    // Red is for what was computed from measured durations
+    m_collisionLabel->setStyleSheet(certain > 0 ? "color: red; font-weight: bold;"
+                                                : "color: #b26a00; font-weight: bold;");
+    m_collisionLabel->setVisible(true);
 }
 
 void BScheduleWidget::setupStatsPanel()
 {
-    m_statsPanel = new QGroupBox(tr("Duration Statistics"), this);
+    m_statsPanel = new QGroupBox(tr("Measured history"), this);
     m_statsPanel->setVisible(false);
 
     QVBoxLayout *statsLayout = new QVBoxLayout(m_statsPanel);
@@ -827,7 +875,13 @@ void BScheduleWidget::setupStatsPanel()
     hSep->setFrameShadow(QFrame::Sunken);
     statsLayout->addWidget(hSep);
 
-    // Duration stats row: Min | Avg | Max | Samples | Trend
+    // Whether the figures below were measured at this level
+    m_statsBasis = new QLabel(this);
+    m_statsBasis->setWordWrap(true);
+    m_statsBasis->setStyleSheet("font-style: italic;");
+    statsLayout->addWidget(m_statsBasis);
+
+    // Row: duration (median | 25-75% | 90%) | runs | wait (median | 90%)
     QHBoxLayout *statsRow = new QHBoxLayout();
     statsRow->setSpacing(16);
 
@@ -846,24 +900,30 @@ void BScheduleWidget::setupStatsPanel()
         return valueLabel;
     };
 
-    m_statsMin = addStatBox(tr("Min"));
-    m_statsAvg = addStatBox(tr("Avg"));
-    m_statsMax = addStatBox(tr("Max"));
+    m_statsMedian = addStatBox(tr("Median duration"));
+    m_statsSpread = addStatBox(tr("25% - 75%"));
+    m_statsP90 = addStatBox(tr("90%"));
 
     // Separator
     QFrame *sep = new QFrame(this);
     sep->setFrameShape(QFrame::VLine);
     statsRow->addWidget(sep);
 
-    m_statsSamples = addStatBox(tr("Samples"));
-    m_statsTrend = addStatBox(tr("Trend"));
+    m_statsSamples = addStatBox(tr("Runs"));
+
+    QFrame *sep2 = new QFrame(this);
+    sep2->setFrameShape(QFrame::VLine);
+    statsRow->addWidget(sep2);
+
+    m_statsWaitMedian = addStatBox(tr("Median wait"));
+    m_statsWaitP90 = addStatBox(tr("90% wait"));
 
     statsRow->addStretch();
     statsLayout->addLayout(statsRow);
 
     // Last runs table
-    m_statsRunsTable = new QTableWidget(0, 3, this);
-    m_statsRunsTable->setHorizontalHeaderLabels({tr("Date"), tr("Level"), tr("Duration")});
+    m_statsRunsTable = new QTableWidget(0, 4, this);
+    m_statsRunsTable->setHorizontalHeaderLabels({tr("Start"), tr("Level"), tr("Duration"), tr("Wait")});
     m_statsRunsTable->horizontalHeader()->setStretchLastSection(true);
     m_statsRunsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_statsRunsTable->verticalHeader()->setVisible(false);
@@ -923,58 +983,78 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
         m_statsPriority->setText(QString::number(priority));
     }
 
-    // Look up job name for level-specific duration stats
-    QString lookupName = entry.jobName;
-    if (lookupName.isEmpty()) {
-        lookupName = entry.scheduleName;  // fallback
-    }
-    QString levelStr = entry.levelLabel();
+    // What was measured for this job at the level of this run
+    const QString levelStr = historyLevel(entry);
+    const BJobHistoryStats::Estimate estimate = m_historyStats.estimate(entry.jobName, levelStr);
+    const QString none = QStringLiteral("-");
 
-    int minDur = m_durationStats->minDuration(lookupName, levelStr);
-    int avgDur = m_durationStats->averageDuration(lookupName, levelStr);
-    int maxDur = m_durationStats->maxDuration(lookupName, levelStr);
-    int samples = m_durationStats->sampleCount(lookupName, levelStr);
-
-    m_statsMin->setText(BJobDurationStats::formatDuration(minDur));
-    m_statsAvg->setText(BJobDurationStats::formatDuration(avgDur));
-    m_statsMax->setText(BJobDurationStats::formatDuration(maxDur));
-    m_statsSamples->setText(QString::number(samples));
-
-    // Trend (level-specific)
-    double trendVal = m_durationStats->trend(lookupName, levelStr);
-    if (samples < 4 || qAbs(trendVal) < 1.0) {
-        m_statsTrend->setText("-");
-        m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold;");
-    } else if (trendVal > 0) {
-        m_statsTrend->setText(QString("+%1").arg(BJobDurationStats::formatDuration(static_cast<int>(trendVal))));
-        m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold; color: #e64a19;");  // orange-red = slower
+    if (!estimate.hasHistory()) {
+        QString why;
+        if (entry.jobName.isEmpty()) {
+            why = tr("no job uses this schedule");
+        } else if (!historyNote().isEmpty()) {
+            why = historyNote();
+        } else {
+            why = tr("no successful run of this job in the last %1 days")
+                      .arg(m_historyStats.windowDays());
+        }
+        m_statsBasis->setText(tr("No history: %1.").arg(why));
+        m_statsBasis->setVisible(true);
+        m_statsMedian->setText(none);
+        m_statsSpread->setText(none);
+        m_statsP90->setText(none);
+        m_statsSamples->setText(QStringLiteral("0"));
+        m_statsWaitMedian->setText(none);
+        m_statsWaitP90->setText(none);
     } else {
-        m_statsTrend->setText(QString("-%1").arg(BJobDurationStats::formatDuration(static_cast<int>(-trendVal))));
-        m_statsTrend->setStyleSheet("font-size: 12pt; font-weight: bold; color: #388e3c;");  // green = faster
+        if (estimate.isMeasured()) {
+            m_statsBasis->setVisible(false);
+        } else {
+            m_statsBasis->setText(tr("Estimate: no run at this level in the last %1 days. "
+                                     "The figures are from all levels of the job.")
+                                      .arg(m_historyStats.windowDays()));
+            m_statsBasis->setVisible(true);
+        }
+        m_statsMedian->setText(BJobHistoryStats::formatDuration(estimate.duration.median));
+        m_statsSpread->setText(QString("%1 - %2")
+            .arg(BJobHistoryStats::formatDuration(estimate.duration.p25),
+                 BJobHistoryStats::formatDuration(estimate.duration.p75)));
+        m_statsP90->setText(BJobHistoryStats::formatDuration(estimate.duration.p90));
+        m_statsSamples->setText(QString::number(estimate.runs));
+        if (estimate.wait.isValid()) {
+            m_statsWaitMedian->setText(BJobHistoryStats::formatDuration(estimate.wait.median));
+            m_statsWaitP90->setText(BJobHistoryStats::formatDuration(estimate.wait.p90));
+        } else {
+            // No scheduled time delivered: unknown, not zero
+            m_statsWaitMedian->setText(tr("unknown"));
+            m_statsWaitP90->setText(tr("unknown"));
+        }
     }
 
-    // Last runs table (level-specific)
-    QList<BJobDurationStats::JobRunRecord> runs = m_durationStats->lastRuns(lookupName, levelStr, 5);
+    // Last runs table: the runs the figures above are from
+    m_statsRunsTable->clearSpans();
+    const QList<BJobHistoryStats::MeasuredRun> runs = m_historyStats.lastRuns(
+        entry.jobName, estimate.isMeasured() ? levelStr : QString(), 5);
     m_statsRunsTable->setRowCount(runs.size());
 
     for (int i = 0; i < runs.size(); ++i) {
-        const auto &run = runs[i];
+        const BJobHistoryStats::MeasuredRun &run = runs[i];
 
-        QString dateStr = run.startTime.isValid()
-            ? run.startTime.toString("yyyy-MM-dd HH:mm")
-            : tr("(unknown)");
-        m_statsRunsTable->setItem(i, 0, new QTableWidgetItem(dateStr));
+        m_statsRunsTable->setItem(i, 0, new QTableWidgetItem(
+            run.started.toString("yyyy-MM-dd HH:mm")));
         m_statsRunsTable->setItem(i, 1, new QTableWidgetItem(run.level));
         m_statsRunsTable->setItem(i, 2, new QTableWidgetItem(
-            BJobDurationStats::formatDuration(run.durationSecs)));
+            BJobHistoryStats::formatDuration(run.durationSecs)));
+        m_statsRunsTable->setItem(i, 3, new QTableWidgetItem(
+            run.waitSecs ? BJobHistoryStats::formatDuration(*run.waitSecs) : tr("unknown")));
     }
 
     if (runs.isEmpty()) {
         m_statsRunsTable->setRowCount(1);
-        QTableWidgetItem *noData = new QTableWidgetItem(tr("No historical data available"));
+        QTableWidgetItem *noData = new QTableWidgetItem(tr("No history"));
         noData->setForeground(Qt::gray);
         m_statsRunsTable->setItem(0, 0, noData);
-        m_statsRunsTable->setSpan(0, 0, 1, 3);
+        m_statsRunsTable->setSpan(0, 0, 1, 4);
     }
 }
 
@@ -1048,20 +1128,17 @@ void BScheduleWidget::updateGanttEntries()
     const QDateTime from = first.startOfDay();
     const QDateTime to = first.addDays(m_fdGanttWidget->dayCount()).startOfDay();
 
-    // What really starts on these dates, once per job that runs it
-    QList<BScheduleEntry> entries = m_jobScheduleIndex->entriesFor(schedules, from, to);
-
-    // Enrich with level-specific duration estimates
-    for (BScheduleEntry &e : entries) {
-        if (e.estimatedDurationSecs <= 0 && !e.jobName.isEmpty()) {
-            QString levelStr = e.levelLabel();
-            e.estimatedDurationSecs = m_durationStats->averageDuration(e.jobName, levelStr);
-        }
-    }
+    // What really starts on these dates, once per job that runs it. How
+    // long a run lasts is not part of an entry: the timelines take it from
+    // the measured history (setHistoryStats()).
+    const QList<BScheduleEntry> entries = m_jobScheduleIndex->entriesFor(schedules, from, to);
 
     // Both widgets receive the identical list
     m_fdGanttWidget->setEntries(entries);
     m_sdGanttWidget->setEntries(entries);
+
+    // Something is on display that wants durations
+    scheduleHistoryRequest();
 }
 
 void BScheduleWidget::updateRunProblems()
@@ -1253,4 +1330,370 @@ void BScheduleWidget::onJobListDoubleClicked(int row, int /*column*/)
     const QString jobName = nameItem->text();
     if (!jobName.isEmpty())
         emit editJobRequested(jobName);
+}
+
+// ============================================================================
+// Job history: measured durations and waits
+// ============================================================================
+
+void BScheduleWidget::setupWaitsPage()
+{
+    m_waitsPage = new QWidget(this);
+    QVBoxLayout *layout = new QVBoxLayout(m_waitsPage);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(4);
+
+    // Above the table: the window, when the data was fetched, what was left
+    // out; and the only button that asks the Director for the history
+    QHBoxLayout *infoRow = new QHBoxLayout();
+    m_waitsInfoLabel = new QLabel(m_waitsPage);
+    m_waitsInfoLabel->setWordWrap(true);
+    m_waitsInfoLabel->setTextFormat(Qt::PlainText);
+    m_waitsInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    infoRow->addWidget(m_waitsInfoLabel, 1);
+
+    m_waitsRefreshButton = new QPushButton(tr("Refresh history"), m_waitsPage);
+    m_waitsRefreshButton->setIcon(QIcon::fromTheme("view-refresh"));
+    m_waitsRefreshButton->setToolTip(
+        tr("Ask the Director again for the jobs of the last days (llist jobs)"));
+    m_waitsRefreshButton->setEnabled(false);
+    infoRow->addWidget(m_waitsRefreshButton, 0, Qt::AlignTop);
+    layout->addLayout(infoRow);
+
+    m_waitsTable = new QTableWidget(0, 8, m_waitsPage);
+    m_waitsTable->setHorizontalHeaderLabels({
+        tr("Job"), tr("Level"), tr("Runs"),
+        tr("Median duration"), tr("90% duration"),
+        tr("Median wait"), tr("90% wait"), tr("Last run")});
+    m_waitsTable->horizontalHeaderItem(2)->setToolTip(
+        tr("Runs in the window that terminated normally or with warnings"));
+    m_waitsTable->horizontalHeaderItem(5)->setToolTip(
+        tr("Wait: start of the job minus its scheduled time"));
+    m_waitsTable->horizontalHeaderItem(6)->setToolTip(
+        tr("Nine of ten runs waited no longer than this"));
+    m_waitsTable->setAlternatingRowColors(true);
+    m_waitsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_waitsTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_waitsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_waitsTable->verticalHeader()->setVisible(false);
+    m_waitsTable->horizontalHeader()->setStretchLastSection(true);
+    m_waitsTable->setSortingEnabled(true);
+    // Longest waits first
+    m_waitsTable->sortByColumn(6, Qt::DescendingOrder);
+    layout->addWidget(m_waitsTable, 1);
+
+    connect(m_waitsRefreshButton, &QPushButton::clicked,
+            this, &BScheduleWidget::onHistoryRefreshClicked);
+}
+
+void BScheduleWidget::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    scheduleHistoryRequest();
+}
+
+void BScheduleWidget::scheduleHistoryRequest()
+{
+    if (!m_connected || !isVisible() || m_historyTimer->isActive()) return;
+
+    BSettings &s = BSettings::instance();
+    const bool windowChanged = m_historyState == HistoryLoaded
+        && (s.schedulesHistoryDays() != m_historyDays
+            || s.schedulesHistoryRowLimit() != m_historyLimit);
+
+    // Once per connection, and again only for another window. A request
+    // that was refused is not repeated by itself.
+    if (m_historyState == HistoryNotRequested || windowChanged) {
+        m_historyTimer->start();
+    }
+}
+
+void BScheduleWidget::requestHistoryIfDue()
+{
+    // The conditions may have gone while the timer ran
+    if (!m_connected || !isVisible()) return;
+
+    BSettings &s = BSettings::instance();
+    const bool windowChanged = m_historyState == HistoryLoaded
+        && (s.schedulesHistoryDays() != m_historyDays
+            || s.schedulesHistoryRowLimit() != m_historyLimit);
+
+    if (m_historyState == HistoryNotRequested || windowChanged) {
+        requestHistory();
+    }
+}
+
+void BScheduleWidget::onHistoryRefreshClicked()
+{
+    requestHistory();
+}
+
+void BScheduleWidget::requestHistory()
+{
+    if (!m_connected) return;
+    // One request at a time: replies carry no id of their own
+    if (m_historyState == HistoryLoading || m_historyState == HistoryParsing) return;
+
+    BSettings &s = BSettings::instance();
+    m_historyDays = s.schedulesHistoryDays();
+    m_historyLimit = s.schedulesHistoryRowLimit();
+    m_historyArgs = QString("%1,%2").arg(m_historyDays).arg(m_historyLimit);
+    m_historyState = HistoryLoading;
+
+    emit sendCommand(BDirector::Command::LlistJobs, m_historyArgs);
+    updateHistoryInfo();
+}
+
+void BScheduleWidget::processJobHistoryReply(const QString &args, const QString &reply)
+{
+    // Only the reply this widget waits for
+    if (m_historyState != HistoryLoading || args != m_historyArgs) return;
+
+    m_historyState = HistoryParsing;
+    updateHistoryInfo();
+
+    // The reply can be several megabytes: it is read off the GUI thread and
+    // the result comes back as a queued call
+    const quint64 generation = m_historyGeneration;
+    QThread *reader = QThread::create([this, reply, generation]() {
+        const BJobHistoryReply parsed = BJobHistoryReply::parse(reply);
+        QMetaObject::invokeMethod(this, [this, parsed, generation]() {
+            applyHistoryReply(parsed, generation);
+        }, Qt::QueuedConnection);
+    });
+    connect(reader, &QThread::finished, reader, &QObject::deleteLater);
+    m_historyParser = reader;
+    reader->start();
+}
+
+void BScheduleWidget::onCommandFailed(BDirector::Command cmd, const QString &args,
+                                      const QString &errorMsg)
+{
+    if (cmd != BDirector::Command::LlistJobs) return;
+    if (m_historyState != HistoryLoading || args != m_historyArgs) return;
+
+    // Not sent, or the connection ended before the reply
+    setHistoryUnavailable(tr("the request got no reply (%1)").arg(errorMsg.simplified()));
+    updateHistoryViews();
+}
+
+void BScheduleWidget::applyHistoryReply(const BJobHistoryReply &reply, quint64 generation)
+{
+    // The connection the reply belongs to is gone
+    if (generation != m_historyGeneration || m_historyState != HistoryParsing) return;
+
+    switch (reply.outcome) {
+    case BJobHistoryReply::Outcome::Runs: {
+        m_historyStats.setRuns(reply.runs, m_historyDays, BJobHistoryStats::wallClockNow());
+        m_historyRows = reply.rows;
+        m_historyRowsWithSchedTime = reply.rowsWithScheduledTime;
+        m_historyFetchedAt = QDateTime::currentDateTime();
+        m_historyError.clear();
+        m_historyState = HistoryLoaded;
+
+        // At the row limit the reply is cut. "reverse" puts the newest runs
+        // first; a Director that ignores the word kept the oldest instead.
+        m_historyOldestKept = false;
+        if (reply.rows >= m_historyLimit && reply.runs.size() >= 2) {
+            const QDateTime first = reply.runs.first().started;
+            const QDateTime last = reply.runs.last().started;
+            m_historyOldestKept = first.isValid() && last.isValid() && first < last;
+        }
+        break;
+    }
+    case BJobHistoryReply::Outcome::Refused:
+        setHistoryUnavailable(tr("the Director refused the request (%1)")
+            .arg(reply.error.isEmpty() ? tr("no reason given") : reply.error));
+        break;
+    case BJobHistoryReply::Outcome::Unreadable:
+        setHistoryUnavailable(tr("the Director's reply could not be read (%1)").arg(reply.error));
+        break;
+    }
+
+    updateHistoryViews();
+}
+
+void BScheduleWidget::setHistoryUnavailable(const QString &reason)
+{
+    m_historyStats.clear();
+    m_historyFetchedAt = QDateTime();
+    m_historyRows = 0;
+    m_historyRowsWithSchedTime = 0;
+    m_historyOldestKept = false;
+    m_historyError = reason;
+    m_historyState = HistoryUnavailable;
+
+    BLOG_WARNING() << "BScheduleWidget: no job history:" << reason;
+
+    // Said once per connection in the status line; the line above the table
+    // of measured waits and the tooltips keep saying it
+    if (!m_historyNoticeShown) {
+        m_historyNoticeShown = true;
+        emit statusMessageChanged(tr("Schedules: no job history, %1").arg(reason));
+    }
+}
+
+void BScheduleWidget::resetHistory()
+{
+    ++m_historyGeneration;      // a reply still being read is dropped
+    m_historyTimer->stop();
+    m_historyStats.clear();
+    m_historyState = HistoryNotRequested;
+    m_historyArgs.clear();
+    m_historyDays = 0;
+    m_historyLimit = 0;
+    m_historyRows = 0;
+    m_historyRowsWithSchedTime = 0;
+    m_historyOldestKept = false;
+    m_historyFetchedAt = QDateTime();
+    m_historyError.clear();
+    m_historyNoticeShown = false;
+    updateHistoryViews();
+}
+
+QString BScheduleWidget::historyNote() const
+{
+    switch (m_historyState) {
+    case HistoryLoaded:
+        return QString();
+    case HistoryUnavailable:
+        return m_historyError;
+    case HistoryLoading:
+    case HistoryParsing:
+        // A refresh keeps showing the figures of the fetch before it
+        return m_historyFetchedAt.isValid() ? QString()
+                                            : tr("the job history is being loaded");
+    case HistoryNotRequested:
+        break;
+    }
+    return tr("the job history has not been requested yet");
+}
+
+QString BScheduleWidget::historyLevel(const BScheduleEntry &entry) const
+{
+    QString level = entry.levelLabel();
+    if (level.isEmpty() && m_jobConfigModel && !entry.jobName.isEmpty()) {
+        level = m_jobConfigModel->jobConfigsRaw().value(entry.jobName)
+                    .value(QLatin1String("level")).toString();
+    }
+    return level;
+}
+
+void BScheduleWidget::updateHistoryViews()
+{
+    const QString note = historyNote();
+    m_fdGanttWidget->setHistoryStats(m_historyStats, note);
+    m_sdGanttWidget->setHistoryStats(m_historyStats, note);
+    updateJobList();
+    updateWaitsTable();
+    updateHistoryInfo();
+}
+
+void BScheduleWidget::updateHistoryInfo()
+{
+    const bool busy = m_historyState == HistoryLoading || m_historyState == HistoryParsing;
+    m_waitsRefreshButton->setEnabled(m_connected && !busy);
+
+    QStringList lines;
+    if (!m_connected) {
+        lines << tr("Not connected.");
+    } else if (m_historyState == HistoryNotRequested) {
+        lines << tr("The job history has not been requested yet.");
+    } else if (m_historyState == HistoryUnavailable) {
+        lines << tr("No job history: %1.").arg(m_historyError)
+              << tr("The schedule views work without it: runs have no duration and waits are unknown.");
+    }
+
+    if (busy) {
+        lines << tr("Requesting the jobs of the last %1 days from the Director...")
+                     .arg(m_historyDays);
+    }
+
+    if (m_historyFetchedAt.isValid()) {
+        const BJobHistoryStats::Summary sum = m_historyStats.summary();
+        lines << tr("Jobs scheduled in the last %1 days, fetched %2: %3 rows, of which %4 runs "
+                    "terminated normally or with warnings and were measured.")
+                     .arg(m_historyStats.windowDays())
+                     .arg(m_historyFetchedAt.toString("yyyy-MM-dd HH:mm"))
+                     .arg(m_historyRows)
+                     .arg(sum.counted);
+
+        if (m_historyRows >= m_historyLimit && m_historyLimit > 0) {
+            lines << (m_historyOldestKept
+                ? tr("The row limit (%1) was reached and this Director returned the oldest "
+                     "rows: the newest runs of the window are missing.").arg(m_historyLimit)
+                : tr("The row limit (%1) was reached: the oldest runs of the window are "
+                     "missing.").arg(m_historyLimit));
+        }
+        if (m_historyRows > 0 && m_historyRowsWithSchedTime == 0) {
+            lines << tr("This Director did not deliver the scheduled time: all waits are unknown.");
+        } else if (sum.waitUnknown > 0) {
+            lines << tr("%1 runs came without a scheduled time: their wait is unknown.")
+                         .arg(sum.waitUnknown);
+        }
+        if (sum.foreignTimes > 0) {
+            lines << tr("%1 rows were left out because they start before their scheduled time: "
+                        "copied, migrated and virtual full jobs carry the times of another job.")
+                         .arg(sum.foreignTimes);
+        }
+        if (sum.unusableTimes > 0) {
+            lines << tr("%1 rows were left out because their start or end time is missing or "
+                        "the end is before the start.").arg(sum.unusableTimes);
+        }
+    }
+
+    m_waitsInfoLabel->setText(lines.join('\n'));
+}
+
+void BScheduleWidget::updateWaitsTable()
+{
+    const QList<BJobHistoryStats::Group> groups = m_historyStats.groups();
+
+    // Filled unsorted, sorted once at the end by the column the user chose
+    m_waitsTable->setSortingEnabled(false);
+    m_waitsTable->clearContents();
+    m_waitsTable->setRowCount(groups.size());
+
+    auto duration = [](qint64 secs) {
+        return new BSortTableItem(BJobHistoryStats::formatDuration(secs), secs);
+    };
+
+    for (int row = 0; row < groups.size(); ++row) {
+        const BJobHistoryStats::Group &group = groups[row];
+
+        m_waitsTable->setItem(row, 0, new QTableWidgetItem(group.job));
+        m_waitsTable->setItem(row, 1, new QTableWidgetItem(
+            group.level.isEmpty() ? tr("(none)") : group.level));
+        m_waitsTable->setItem(row, 2, new BSortTableItem(QString::number(group.runs), group.runs));
+        m_waitsTable->setItem(row, 3, duration(group.duration.median));
+        m_waitsTable->setItem(row, 4, duration(group.duration.p90));
+
+        if (group.wait.isValid()) {
+            QTableWidgetItem *median = duration(group.wait.median);
+            QTableWidgetItem *p90 = duration(group.wait.p90);
+            if (group.waitUnknown > 0) {
+                const QString tip = tr("From %1 of %2 runs; the others came without a scheduled time.")
+                                        .arg(group.wait.count).arg(group.runs);
+                median->setToolTip(tip);
+                p90->setToolTip(tip);
+            }
+            m_waitsTable->setItem(row, 5, median);
+            m_waitsTable->setItem(row, 6, p90);
+        } else {
+            // Unknown is not zero: it sorts before every measured wait
+            const QString tip = tr("The Director delivered no scheduled time for these runs.");
+            for (int column = 5; column <= 6; ++column) {
+                QTableWidgetItem *unknown = new BSortTableItem(tr("unknown"), BSortValue::Missing);
+                unknown->setToolTip(tip);
+                m_waitsTable->setItem(row, column, unknown);
+            }
+        }
+
+        m_waitsTable->setItem(row, 7, new BSortTableItem(
+            group.lastRun.toString("yyyy-MM-dd HH:mm"),
+            group.lastRun.isValid() ? group.lastRun.toMSecsSinceEpoch() : BSortValue::Missing));
+    }
+
+    m_waitsTable->setSortingEnabled(true);
+    m_waitsTable->resizeColumnsToContents();
 }

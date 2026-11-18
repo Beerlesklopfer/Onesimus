@@ -13,22 +13,36 @@
 #include <QGroupBox>
 #include <QTableWidget>
 #include <QSlider>
+#include <QPointer>
+#include <QThread>
+#include <QTimer>
 #include "director/bdirector.h"
 #include "schedules/bweeklyplanner.h"
 #include "schedules/bscheduleganttwidget.h"
 #include "schedules/bjobscheduleindex.h"
 #include "models/bresourcemodels.h"
+#include "schedules/model/bjobhistorystats.h"
 
 /**
  * @brief Widget for displaying and managing backup schedules
  *
- * Provides two views:
+ * Provides three views:
  * - Gantt/Timeline view: dual stacked timelines (FD/Client + SD/Storage)
  * - Grid view: compact 7x24 weekly planner (legacy)
+ * - Measured waits: a table of what was measured per job and level
  *
- * Both show concrete dates: the day chosen in the toolbar or the week
- * (Monday to Sunday) it is in. What runs on them is worked out from the Run
- * lines of the schedules (BScheduleOccurrences).
+ * The first two show concrete dates: the day chosen in the toolbar or the
+ * week (Monday to Sunday) it is in. What runs on them is worked out from
+ * the Run lines of the schedules (BScheduleOccurrences).
+ *
+ * Job history. How long jobs run and wait is measured from the catalog
+ * (BJobHistoryStats). The request (BDirector::Command::LlistJobs, bounded
+ * by a window in days and a row limit) is not part of connecting or of
+ * triggerRefresh(). It is sent once per connection, shortly after this
+ * widget is on screen with a connection, again when the window setting
+ * has changed, and when the user asks for it. Until a reply is there, and
+ * if the Director refuses, the views work without history: runs have no
+ * duration and waits are unknown.
  *
  * Left panel: schedule list. Right panel: switchable visualization.
  */
@@ -45,7 +59,7 @@ public:
     void clearData();
 
     BScheduleModel *scheduleModel() { return m_scheduleModel; }
-    BJobDurationStats *durationStats() { return m_durationStats; }
+    const BJobHistoryStats &historyStats() const { return m_historyStats; }
     BJobScheduleIndex *jobScheduleIndex() { return m_jobScheduleIndex; }
 
     void setJobConfigModel(BJobConfigModel *model);
@@ -53,9 +67,21 @@ public:
 public slots:
     void processDotScheduleResponse(const QString &jsonData);
     void processShowSchedulesResponse(const QString &jsonData);
-    void processListJobsResponse(const QString &jsonData);
     void processShowJobsResponse(const QString &jsonData);
     void setConnectionState(bool connected);
+
+    /**
+     * @brief Reply to the job history request (BDirector::jobHistoryResult)
+     *
+     * Accepted only while this widget waits for a reply to a request with
+     * exactly these arguments; anything else is dropped. The reply is read
+     * off the GUI thread.
+     */
+    void processJobHistoryReply(const QString &args, const QString &reply);
+
+    /// A command got no reply (BDirector::commandFailed); only the job
+    /// history request of this widget is looked at
+    void onCommandFailed(BDirector::Command cmd, const QString &args, const QString &errorMsg);
 
 signals:
     void sendCommand(const BDirector::Command cmd, const QString &args);
@@ -71,7 +97,8 @@ private slots:
     void onDayNavigationPrev();
     void onDayNavigationNext();
     void onDayNavigationToday();
-    void onCollisionsDetected(int count);
+    void onCollisionsDetected(int certain, int uncertain);
+    void onHistoryRefreshClicked();
     void onEntryClicked(const BScheduleEntry &entry);
     void onFdDragCompleted(int entryIndex, int newHour, int newMinute,
                            const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
@@ -83,9 +110,37 @@ private slots:
     void onJobSelectionChanged();
     void onJobListDoubleClicked(int row, int column);
 
+protected:
+    void showEvent(QShowEvent *event) override;
+
 private:
     void setupUI();
+    void setupWaitsPage();
     void updateFilteredViews();
+
+    // --- Job history ---
+    enum HistoryState {
+        HistoryNotRequested,    ///< Nothing asked on this connection yet
+        HistoryLoading,         ///< Request sent, no reply yet
+        HistoryParsing,         ///< Reply is being read
+        HistoryLoaded,          ///< Statistics are from the Director
+        HistoryUnavailable,     ///< Refused, unreadable or not sent
+    };
+    /// Starts the timer for a request if one is due and the widget is on
+    /// screen with a connection; cheap, may be called often
+    void scheduleHistoryRequest();
+    void requestHistoryIfDue();
+    void requestHistory();
+    void applyHistoryReply(const BJobHistoryReply &reply, quint64 generation);
+    void setHistoryUnavailable(const QString &reason);
+    void resetHistory();
+    void updateHistoryViews();
+    void updateHistoryInfo();
+    void updateWaitsTable();
+    /// Why the views have no history at all; empty once it is loaded
+    QString historyNote() const;
+    /// The level a run of this entry has: the Run line's, else the job's own
+    QString historyLevel(const BScheduleEntry &entry) const;
     void setupStatsPanel();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
@@ -104,8 +159,24 @@ private:
 
     // --- Models ---
     BScheduleModel *m_scheduleModel;
-    BJobDurationStats *m_durationStats;
     BJobScheduleIndex *m_jobScheduleIndex;
+
+    // --- Job history (cached for the connection) ---
+    BJobHistoryStats m_historyStats;
+    HistoryState m_historyState = HistoryNotRequested;
+    QString m_historyArgs;              ///< Arguments of the request in flight or answered
+    int m_historyDays = 0;              ///< Window of that request
+    int m_historyLimit = 0;             ///< Row limit of that request
+    int m_historyRows = 0;              ///< Rows in the reply
+    int m_historyRowsWithSchedTime = 0; ///< Rows with a scheduled time
+    bool m_historyOldestKept = false;   ///< Limit reached and the Director kept the oldest rows
+    QDateTime m_historyFetchedAt;
+    QString m_historyError;             ///< HistoryUnavailable: why
+    bool m_historyNoticeShown = false;  ///< The status line said so on this connection
+    quint64 m_historyGeneration = 0;    ///< Bumped on reset: older replies are dropped
+    QPointer<QThread> m_historyParser;
+    QTimer *m_historyTimer = nullptr;
+    bool m_connected = false;
     BJobConfigModel *m_jobConfigModel = nullptr;  // not owned
 
     // --- UI ---
@@ -126,9 +197,15 @@ private:
     QScrollArea *m_gridScrollArea;
     QLabel *m_outsideWeekLabel;   ///< Run lines without a run in the week of the grid
 
+    // Measured waits (view stack index 2)
+    QWidget *m_waitsPage = nullptr;
+    QLabel *m_waitsInfoLabel = nullptr;   ///< Window, time of the request, what was left out
+    QPushButton *m_waitsRefreshButton = nullptr;
+    QTableWidget *m_waitsTable = nullptr;
+
     // Toolbar
     QPushButton *m_refreshButton;
-    QComboBox *m_viewModeCombo;       // Gantt / Grid
+    QComboBox *m_viewModeCombo;       // Gantt / Grid / Measured waits
     QComboBox *m_dayViewCombo;        // Day / Week
     QToolButton *m_prevDayButton;
     QToolButton *m_nextDayButton;
@@ -149,12 +226,14 @@ private:
     QLabel *m_statsFileSet;
     QLabel *m_statsStorage;
     QLabel *m_statsPriority;
-    // Duration stats
-    QLabel *m_statsMin;
-    QLabel *m_statsAvg;
-    QLabel *m_statsMax;
+    // Measured history of the job at the entry's level
+    QLabel *m_statsBasis = nullptr;   ///< Says so if the figures are an estimate or missing
+    QLabel *m_statsMedian;
+    QLabel *m_statsSpread;        ///< 25th to 75th percentile
+    QLabel *m_statsP90;
     QLabel *m_statsSamples;
-    QLabel *m_statsTrend;
+    QLabel *m_statsWaitMedian;
+    QLabel *m_statsWaitP90;
     QTableWidget *m_statsRunsTable;
 
     BDirector *m_director;

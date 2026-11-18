@@ -11,7 +11,9 @@
 #include <QMouseEvent>
 #include <QTimer>
 #include <QList>
+#include <QHash>
 #include "models/bresourcemodels.h"
+#include "schedules/model/bjobhistorystats.h"
 
 /**
  * @brief Gantt/Timeline widget for schedule visualization
@@ -28,9 +30,12 @@
  *
  * Features:
  * - Job bars colored by backup level (Full=Green, Diff=Orange, Inc=Blue)
- * - Bar width represents estimated duration from historical data
+ * - Bar width is the measured median duration of the job at that level
+ *   (BJobHistoryStats), with a mark at the 90th percentile. A run without
+ *   history is a dashed outline with a question mark: it has no length.
  * - Heatmap at bottom showing utilization per time slot
- * - Collision detection for overlapping jobs on same client/storage
+ * - Collision detection for overlapping jobs on same client/storage; a
+ *   collision that depends on a length nobody measured is "uncertain"
  * - Zoom control (15min to 1h blocks)
  * - Now-marker (red vertical line at current time)
  * - Tooltips with job details
@@ -63,9 +68,14 @@ public:
     void setEntries(const QList<BScheduleEntry> &entries);
 
     /**
-     * @brief Sets the duration statistics for bar width calculation
+     * @brief Sets the measured job history the bars, the collisions and the
+     *        heat map take their durations from
+     * @param stats The statistics; empty if there is no history
+     * @param note  Why there is no history at all (not loaded yet, refused
+     *              by the Director), for the tooltips; empty if it was
+     *              loaded
      */
-    void setDurationStats(BJobDurationStats *stats);
+    void setHistoryStats(const BJobHistoryStats &stats, const QString &note = QString());
 
     /**
      * @brief Sets the job config model for enriched tooltips (Type, FileSet)
@@ -114,9 +124,18 @@ public:
         BScheduleEntry entry2;
         int index1 = -1;            ///< Index of entry1 in entries()
         int index2 = -1;            ///< Index of entry2 in entries()
-        /// Every pair of starts that really runs at the same time, in the
-        /// dates on display; never empty
+        /// Every pair of starts that runs at the same time, in the dates
+        /// on display; never empty
         QList<BRunOverlap> overlaps;
+        /**
+         * Whether the two run at the same time depends on a length that
+         * was not measured at this level: one of them has no history and
+         * starts first on the same date, or one has only an estimate from
+         * other levels. A certain collision is computed from measured
+         * lengths only (a run without history that starts while a measured
+         * one is running collides for certain).
+         */
+        bool uncertain = false;
         QString description;
     };
     QList<Collision> collisions() const { return m_collisions; }
@@ -153,7 +172,9 @@ public:
 signals:
     void entryClicked(const BScheduleEntry &entry);
     void entryDoubleClicked(const BScheduleEntry &entry);
-    void collisionsDetected(int count);
+    /// @param certain   Collisions computed from measured durations
+    /// @param uncertain Possible collisions that depend on an unknown length
+    void collisionsDetected(int certain, int uncertain);
     void dragStarted(const BScheduleEntry &entry);
     void dragCompleted(int entryIndex, int newHour, int newMinute,
                        const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
@@ -179,6 +200,9 @@ private:
     static const int HEATMAP_HEIGHT = 24;
     static const int GROUP_HEADER_HEIGHT = 22;
     static const int HEATMAP_SLOT_MINUTES = 15;
+    /// Width in pixels of the marker of a run without history. It is a
+    /// marker, not a length: it does not change with the zoom.
+    static const int NO_HISTORY_MARKER_WIDTH = 22;
 
     // --- Drawing ---
     void drawTimeHeader(QPainter &painter);
@@ -216,15 +240,24 @@ private:
     /// The days on display on which the entry starts, 0 = firstDate()
     QVector<int> dayOffsets(const BScheduleEntry &entry) const;
 
-    enum DurationUse { ForDisplay, ForCollision };
     /**
-     * @brief How long a run of this entry is taken to last, in seconds
+     * @brief What was measured for the job of this entry at its level
      *
-     * The one place the views take a duration from: the estimate on the
-     * entry if there is one, otherwise a fixed figure (for display by
-     * level, for collisions one hour). Measured durations replace this.
+     * The level is the one the Run line names, otherwise the job's own
+     * from its configuration. See BJobHistoryStats::estimate() for the
+     * rule; an entry without a job has no history.
      */
-    int durationSecs(const BScheduleEntry &entry, DurationUse use) const;
+    BJobHistoryStats::Estimate estimateFor(const BScheduleEntry &entry) const;
+
+    /**
+     * @brief How long a run of this entry lasts, in seconds
+     *
+     * The one place the views take a duration from: the measured median.
+     * @return 0 if there is no history. Then the run has no known length
+     *         and the caller must not draw or compute one; there is no
+     *         default figure. A measured run is at least one second long.
+     */
+    int durationSecs(const BScheduleEntry &entry) const;
 
     // --- Colors ---
     QColor colorForLevel(BScheduleEntry::BackupLevel level, bool hovered = false) const;
@@ -243,7 +276,9 @@ private:
 
     // --- Data ---
     QList<BScheduleEntry> m_entries;
-    BJobDurationStats *m_durationStats = nullptr;
+    BJobHistoryStats m_history;
+    QString m_historyNote;      ///< Why there is no history at all; empty if loaded
+    mutable QHash<QString, BJobHistoryStats::Estimate> m_estimateCache;
     BJobConfigModel *m_jobConfigModel = nullptr;
 
     // --- View state ---
@@ -258,6 +293,7 @@ private:
 
     // --- Heatmap ---
     QVector<int> m_heatmapSlots;  // concurrent job count per slot
+    QVector<int> m_heatmapUnknown; // runs without history that start in the slot
 
     // --- Collisions ---
     QList<Collision> m_collisions;

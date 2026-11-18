@@ -480,6 +480,7 @@ set(SOURCES
     src/schedules/model/brunparser.cpp
     src/schedules/model/brunwriter.cpp
     src/schedules/model/bscheduleoccurrences.cpp
+    src/schedules/model/bjobhistorystats.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -587,6 +588,7 @@ set(HEADERS
     include/schedules/bscheduledragresultdialog.h
     include/schedules/model/brunspec.h
     include/schedules/model/bscheduleoccurrences.h
+    include/schedules/model/bjobhistorystats.h
 
     include/messages/bmessageswidget.h
 
@@ -1512,6 +1514,26 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bcapabilities_test COMMAND bcapabilities_test)
+
+    # bjobhistorystats_test - measured durations and waits of past job runs:
+    # reading the reply of "llist jobs" and the statistics per job and level
+    # (no widgets, no Director)
+    add_executable(bjobhistorystats_test
+        test/bjobhistorystats_test.cpp
+        src/schedules/model/bjobhistorystats.cpp
+        include/schedules/model/bjobhistorystats.h
+    )
+
+    target_include_directories(bjobhistorystats_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bjobhistorystats_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bjobhistorystats_test COMMAND bjobhistorystats_test)
 endif()
 
 message(STATUS "")
@@ -1537,6 +1559,7 @@ if(BUILD_TESTING)
     message(STATUS "  bscheduleoccurrences_test - schedule run dates and collision test (registered with CTest)")
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
+    message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
 endif()
 message(STATUS "")
 

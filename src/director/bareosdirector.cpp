@@ -919,6 +919,54 @@ void BareosDirector::failPendingCommands(const QString &reason)
     }
 }
 
+void BareosDirector::finishJobHistory(CommandEntry entry, const QString &reply)
+{
+    // As for every other reply: text in front of the JSON is dropped
+    QString payload = reply.trimmed();
+    if (!payload.isEmpty() && payload.at(0) == QChar(0xFEFF)) {
+        payload = payload.mid(1);
+    }
+    const qsizetype brace = payload.indexOf(QLatin1Char('{'));
+    const qsizetype bracket = payload.indexOf(QLatin1Char('['));
+    qsizetype jsonStart = brace;
+    if (bracket >= 0 && (jsonStart < 0 || bracket < jsonStart)) {
+        jsonStart = bracket;
+    }
+    if (jsonStart > 0) {
+        payload = payload.mid(jsonStart);
+    }
+
+#ifdef IS_DEVELOPER
+    BLOG_DEBUG() << "Job history reply:" << payload.size() << "characters";
+#endif
+
+    // The command history keeps the outcome, not megabytes of rows. Whether
+    // the Director refused the command is the consumer's to read.
+    entry.status = jsonStart >= 0 ? CommandEntry::Success : CommandEntry::Failed;
+    m_commandHistory.append(entry);
+    if (m_commandHistory.size() > MaxHistorySize)
+        m_commandHistory.removeFirst();
+
+    emit jobHistoryResult(entry.args, payload);
+}
+
+QString BareosDirector::jobHistoryCommandLine(const QString &args)
+{
+    const QStringList parts = args.split(QLatin1Char(','));
+
+    auto bounded = [](const QString &text, int fallback, int maximum) {
+        bool ok = false;
+        const int value = text.trimmed().toInt(&ok);
+        if (!ok || value <= 0) return fallback;
+        return qMin(value, maximum);
+    };
+
+    const int days = bounded(parts.value(0), DefaultJobHistoryDays, MaxJobHistoryDays);
+    const int limit = bounded(parts.value(1), DefaultJobHistoryLimit, MaxJobHistoryLimit);
+
+    return QStringLiteral("llist jobs days=%1 reverse limit=%2").arg(days).arg(limit);
+}
+
 void BareosDirector::abortConnection(const QString &reason)
 {
     BLOG_ERROR() << reason;
@@ -1196,6 +1244,14 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
             m_lastCommandEnum = currentEntry.cmd;
             m_lastCommand = commandToString(currentEntry.cmd, currentEntry.args);
         }
+    }
+
+    // The job history leaves here, through its own signal (see
+    // jobHistoryResult()). It is matched like every reply: by the command
+    // taken from the queue, never by what the reply looks like.
+    if (hasQueuedCommand && currentEntry.cmd == Command::LlistJobs) {
+        finishJobHistory(currentEntry, message);
+        return;
     }
 
     // API-Response (JSON)?
@@ -2123,6 +2179,9 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::BvfsLsFiles:      command = QString(".bvfs_lsfiles %1").arg(args); break;
     case Command::BvfsRestore:      command = QString(".bvfs_restore %1").arg(args); break;
     case Command::BvfsCleanup:      command = QString(".bvfs_cleanup %1").arg(args); break;
+
+    // Job history
+    case Command::LlistJobs:        command = jobHistoryCommandLine(args); break;
 
     // Custom
     case Command::Custom:           command = args; break;

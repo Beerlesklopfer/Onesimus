@@ -831,6 +831,26 @@ void BSettings::setSchedulesFilterCheckbox(const QString& key, bool value)
     setValue(QString("Widgets/Schedules/FilterCheckboxes/%1").arg(key), value);
 }
 
+int BSettings::schedulesHistoryDays() const
+{
+    return qBound(1, value("Widgets/Schedules/history_days", 60).toInt(), 365);
+}
+
+void BSettings::setSchedulesHistoryDays(int days)
+{
+    setValue("Widgets/Schedules/history_days", qBound(1, days, 365));
+}
+
+int BSettings::schedulesHistoryRowLimit() const
+{
+    return qBound(100, value("Widgets/Schedules/history_row_limit", 5000).toInt(), 100000);
+}
+
+void BSettings::setSchedulesHistoryRowLimit(int rows)
+{
+    setValue("Widgets/Schedules/history_row_limit", qBound(100, rows, 100000));
+}
+
 // Global Statistics Widget State
 bool BSettings::statisticsWidgetVisible() const
 {

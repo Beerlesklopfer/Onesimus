@@ -176,6 +176,7 @@ private:
     QSpinBox *m_refreshIntervalSpin;
     QSpinBox *m_maxJobsDisplaySpin;
     QSpinBox *m_clientStaleHoursSpin;
+    QSpinBox *m_scheduleHistoryDaysSpin;
     QCheckBox *m_jobsNewestFirstCheck;
 
     // Visible Backup Levels (dynamic from Director)

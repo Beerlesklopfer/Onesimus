@@ -791,6 +791,24 @@ void BSettingsDialog::createBehaviorPage()
 
     layout->addWidget(displayGroup);
 
+    // Schedules
+    QGroupBox *schedulesGroup = new QGroupBox(tr("Schedules"));
+    schedulesGroup->setObjectName("settingsGroup");
+    QFormLayout *schedulesLayout = new QFormLayout(schedulesGroup);
+
+    m_scheduleHistoryDaysSpin = new QSpinBox();
+    m_scheduleHistoryDaysSpin->setRange(1, 365);
+    m_scheduleHistoryDaysSpin->setValue(60);
+    m_scheduleHistoryDaysSpin->setSuffix(tr(" days"));
+    m_scheduleHistoryDaysSpin->setToolTip(
+        tr("The schedule view measures how long jobs run and how long they wait\n"
+           "from the jobs of the last days in the catalog. A longer time gives more\n"
+           "runs per job and a larger request to the Director. The history is only\n"
+           "requested while the schedule view is open."));
+    schedulesLayout->addRow(tr("Measure job history over the last:"), m_scheduleHistoryDaysSpin);
+
+    layout->addWidget(schedulesGroup);
+
     // Visible Backup Levels (dynamic from Director)
     QGroupBox *levelsGroup = new QGroupBox(tr("Visible Backup Levels"));
     levelsGroup->setObjectName("settingsGroup");
@@ -1248,6 +1266,7 @@ void BSettingsDialog::loadSettings()
     m_maxJobsDisplaySpin->setValue(settings.behaviorMaxJobsDisplay());
     m_jobsNewestFirstCheck->setChecked(settings.behaviorJobsNewestFirst());
     m_clientStaleHoursSpin->setValue(settings.behaviorClientStaleHours());
+    m_scheduleHistoryDaysSpin->setValue(settings.schedulesHistoryDays());
 
     // Visible Backup Levels (dynamic)
     QStringList visibleLevels = settings.visibleLevels();
@@ -1313,6 +1332,7 @@ void BSettingsDialog::saveSettings()
     settings.setBehaviorMaxJobsDisplay(m_maxJobsDisplaySpin->value());
     settings.setBehaviorJobsNewestFirst(m_jobsNewestFirstCheck->isChecked());
     settings.setBehaviorClientStaleHours(m_clientStaleHoursSpin->value());
+    settings.setSchedulesHistoryDays(m_scheduleHistoryDaysSpin->value());
 
     // Visible Backup Levels (dynamic)
     QStringList visibleLevels;

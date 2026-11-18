@@ -144,6 +144,8 @@ BDirector::BDirector(QObject *parent)
                      });
     QObject::connect(m_director, &DIRECTOR_CLASS::jobLogResult,
                      this, &BDirector::jobLogResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::jobHistoryResult,
+                     this, &BDirector::jobHistoryResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::jobMessage,
                      this, &BDirector::jobMessage);
     QObject::connect(m_director, &DIRECTOR_CLASS::jobStatusEvent,

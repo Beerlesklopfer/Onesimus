@@ -360,6 +360,9 @@ public:
         BvfsRestore,        ///< .bvfs_restore jobid=<ids> ...
         BvfsCleanup,        ///< .bvfs_cleanup path=<table>
 
+        // Job history (schedule view); see jobHistoryCommandLine()
+        LlistJobs,          ///< llist jobs days=<n> reverse limit=<m>, args "<days>,<limit>"
+
         // Custom
         Custom              ///< Custom command string
     };
@@ -511,6 +514,29 @@ public:
      * @note Not thread-safe: for tests and diagnostics in the Director's thread
      */
     int pendingCommandCount() const { return m_commandQueue.size(); }
+
+    /// Window and row limit of Command::LlistJobs if the arguments name none
+    static constexpr int DefaultJobHistoryDays = 60;
+    static constexpr int DefaultJobHistoryLimit = 5000;
+    static constexpr int MaxJobHistoryDays = 3650;
+    static constexpr int MaxJobHistoryLimit = 100000;
+
+    /**
+     * @brief The console line of Command::LlistJobs
+     * @param args "<days>" or "<days>,<limit>"
+     * @return "llist jobs days=<days> reverse limit=<limit>"
+     *
+     * The command is always bounded: a missing, unreadable or non-positive
+     * number is replaced by its default, a number above its maximum by the
+     * maximum. Bareos (core/src/dird/ua_output.cc, cats/sql_list.cc) and
+     * the Onesimus Director (commands/list.rs) read it the same way:
+     * "days=" keeps the jobs scheduled in the last n days (Job.SchedTime),
+     * "reverse" orders by start time, newest first, and "limit=" keeps the
+     * first m rows of that order, so a reply that hits the limit holds the
+     * newest runs. A Bareos that does not know "reverse" ignores the word
+     * and keeps the oldest m rows of the window instead.
+     */
+    static QString jobHistoryCommandLine(const QString &args);
 
     /**
      * @brief Get current host name
@@ -748,6 +774,21 @@ signals:
      * for different jobs apart.
      */
     void jobLogResult(quint64 jobId, const QString &jsonData);
+
+    /**
+     * @brief Reply to Command::LlistJobs, whatever it says
+     *
+     * The only signal for this reply: jsonResult(), textResult() and the
+     * typed resource signals are not emitted for it. The reply can be
+     * several megabytes and has one consumer, and its rows look like job
+     * resources to the generic routing. A request that gets no reply is
+     * reported with commandFailed() like every other command.
+     *
+     * @param args  The arguments of the queued command the reply belongs to
+     * @param reply The reply from its first JSON bracket on, or the text
+     *              reply if there is none; an error reply included
+     */
+    void jobHistoryResult(const QString &args, const QString &reply);
 
     /// Job message push event (gRPC only, lossy, no time and no message type)
     void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
@@ -1041,6 +1082,12 @@ private:
      * left behind would take the reply of a later command.
      */
     void failPendingCommands(const QString &reason);
+
+    /**
+     * @brief Hands the reply of Command::LlistJobs to jobHistoryResult()
+     * @param entry The command taken from the queue for this reply
+     */
+    void finishJobHistory(CommandEntry entry, const QString &reply);
 
     /**
      * @brief Close the connection at once after a protocol violation or timeout

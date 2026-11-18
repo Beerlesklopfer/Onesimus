@@ -36,14 +36,9 @@ void BScheduleGanttWidget::setEntries(const QList<BScheduleEntry> &entries)
 
     m_entries = entries;
 
-    // Enrich entries with duration estimates
-    if (m_durationStats) {
-        for (BScheduleEntry &e : m_entries) {
-            if (e.estimatedDurationSecs <= 0 && !e.jobName.isEmpty()) {
-                e.estimatedDurationSecs = m_durationStats->averageDuration(e.jobName);
-            }
-        }
-    }
+    // The job configuration may have changed with the entries, and with it
+    // the level a job runs at when its Run line names none
+    m_estimateCache.clear();
 
     rebuildRows();
     recalcHeatmap();
@@ -51,9 +46,20 @@ void BScheduleGanttWidget::setEntries(const QList<BScheduleEntry> &entries)
     update();
 }
 
-void BScheduleGanttWidget::setDurationStats(BJobDurationStats *stats)
+void BScheduleGanttWidget::setHistoryStats(const BJobHistoryStats &stats, const QString &note)
 {
-    m_durationStats = stats;
+    m_history = stats;
+    m_historyNote = note;
+    m_estimateCache.clear();
+
+    // Bar lengths changed under a drag: its overlap marks would be stale
+    if (m_dragState != NoDrag) {
+        cancelDrag();
+    }
+
+    recalcHeatmap();
+    detectCollisions();
+    update();
 }
 
 void BScheduleGanttWidget::setJobConfigModel(BJobConfigModel *model)
@@ -115,19 +121,34 @@ QVector<int> BScheduleGanttWidget::dayOffsets(const BScheduleEntry &entry) const
     return offsets;
 }
 
-int BScheduleGanttWidget::durationSecs(const BScheduleEntry &entry, DurationUse use) const
+BJobHistoryStats::Estimate BScheduleGanttWidget::estimateFor(const BScheduleEntry &entry) const
 {
-    if (entry.estimatedDurationSecs > 0) return entry.estimatedDurationSecs;
+    // A schedule no job uses has no runs to measure
+    if (entry.jobName.isEmpty()) return BJobHistoryStats::Estimate();
 
-    if (use == ForCollision) return 3600;
-
-    // For display: 1 hour for Full, 30 min for Diff, 15 min for Inc
-    switch (entry.level) {
-    case BScheduleEntry::Full:         return 3600;
-    case BScheduleEntry::Differential: return 1800;
-    case BScheduleEntry::VirtualFull:  return 3600;
-    default:                           return 900;
+    // The level of the Run line; without one, the job's own
+    QString level = entry.levelLabel();
+    if (level.isEmpty() && m_jobConfigModel) {
+        level = m_jobConfigModel->jobConfigsRaw().value(entry.jobName)
+                    .value(QLatin1String("level")).toString();
     }
+
+    const QString cacheKey = entry.jobName + QChar(0x1F) + level;
+    const auto cached = m_estimateCache.constFind(cacheKey);
+    if (cached != m_estimateCache.constEnd()) return cached.value();
+
+    const BJobHistoryStats::Estimate estimate = m_history.estimate(entry.jobName, level);
+    m_estimateCache.insert(cacheKey, estimate);
+    return estimate;
+}
+
+int BScheduleGanttWidget::durationSecs(const BScheduleEntry &entry) const
+{
+    const BJobHistoryStats::Estimate estimate = estimateFor(entry);
+    if (!estimate.hasHistory()) return 0;
+
+    // 0 is "no history": a run that was measured at under a second is one
+    return static_cast<int>(qBound<qint64>(1, estimate.duration.median, 366LL * 86400));
 }
 
 void BScheduleGanttWidget::setZoomLevel(int pixelsPerHour)
@@ -321,9 +342,13 @@ QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int da
     int x = timeToX(startHour, entry.minute);
     int y = HEADER_HEIGHT + row * ROW_HEIGHT + 2;
 
-    // Duration bar width
-    double durationHours = durationSecs(entry, ForDisplay) / 3600.0;
-    int barWidth = qMax(6, static_cast<int>(durationHours * m_pixelsPerHour));
+    // Bar width: the measured median. Without history there is no length,
+    // only a marker of fixed size at the start.
+    const int secs = durationSecs(entry);
+    int barWidth = NO_HISTORY_MARKER_WIDTH;
+    if (secs > 0) {
+        barWidth = qMax(6, static_cast<int>(secs / 3600.0 * m_pixelsPerHour));
+    }
 
     return QRect(x, y, barWidth, ROW_HEIGHT - 4);
 }
@@ -588,41 +613,56 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
     bool hovered = (row == rowAtY(m_hoverPos.y()) && rect.contains(m_hoverPos));
 
     QColor fillColor = colorForLevel(entry.level, hovered);
+    const BJobHistoryStats::Estimate estimate = estimateFor(entry);
 
-    // Main bar
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(fillColor);
-    painter.drawRoundedRect(rect, 3, 3);
+    if (!estimate.hasHistory()) {
+        // No history: nothing was measured, so there is no bar. A dashed
+        // outline of fixed size marks the start.
+        painter.setPen(QPen(fillColor, 1.5, Qt::DashLine));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(rect.adjusted(0, 0, -1, -1), 3, 3);
+    } else if (estimate.isMeasured()) {
+        // Main bar: the measured median
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(fillColor);
+        painter.drawRoundedRect(rect, 3, 3);
+    } else {
+        // Estimate from the job's runs at other levels: paler, dashed
+        QColor pale = fillColor;
+        pale.setAlpha(110);
+        painter.setPen(QPen(fillColor, 1.5, Qt::DashLine));
+        painter.setBrush(pale);
+        painter.drawRoundedRect(rect.adjusted(0, 0, -1, -1), 3, 3);
+    }
 
-    // Duration uncertainty: lighter shade for max duration
-    if (m_durationStats && !entry.jobName.isEmpty()) {
-        int maxDur = m_durationStats->maxDuration(entry.jobName);
-        int avgDur = m_durationStats->averageDuration(entry.jobName);
-
-        if (maxDur > avgDur && avgDur > 0) {
-            double maxHours = maxDur / 3600.0;
-            int maxWidth = qMax(rect.width(), static_cast<int>(maxHours * m_pixelsPerHour));
-            if (maxWidth > rect.width()) {
-                QRect shadowRect(rect.right(), rect.top(),
-                                 maxWidth - rect.width(), rect.height());
-                QColor shadowColor = fillColor;
-                shadowColor.setAlpha(60);
-                painter.setBrush(shadowColor);
-                painter.drawRoundedRect(shadowRect, 3, 3);
-            }
+    // 90th percentile: a lighter extension of the bar with a mark at its end
+    if (estimate.hasHistory() && estimate.duration.p90 > estimate.duration.median) {
+        const int p90Width = static_cast<int>(estimate.duration.p90 / 3600.0 * m_pixelsPerHour);
+        if (p90Width > rect.width()) {
+            QRect tailRect(rect.right(), rect.top(),
+                           p90Width - rect.width(), rect.height());
+            QColor tailColor = fillColor;
+            tailColor.setAlpha(60);
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(tailColor);
+            painter.drawRect(tailRect);
+            painter.setPen(QPen(fillColor, 2));
+            painter.drawLine(tailRect.right(), rect.top(), tailRect.right(), rect.bottom());
         }
     }
 
     // Collision border: this entry's start on this date runs at the same
-    // time as another one
+    // time as another one, for certain (red) or possibly (amber, dashed)
     const QDate barDate = firstDate().addDays(dayOffset);
     bool collides = false;
+    bool mayCollide = false;
     for (const Collision &c : m_collisions) {
         if (c.index1 != entryIndex && c.index2 != entryIndex) continue;
         for (const BRunOverlap &o : c.overlaps) {
             const QDateTime &mine = (c.index1 == entryIndex) ? o.a : o.b;
             if (mine.date() == barDate) {
-                collides = true;
+                if (c.uncertain) mayCollide = true;
+                else collides = true;
                 break;
             }
         }
@@ -632,20 +672,29 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
         painter.setPen(QPen(Qt::red, 2));
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 3, 3);
+    } else if (mayCollide) {
+        painter.setPen(QPen(QColor(230, 140, 0), 2, Qt::DotLine));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(rect.adjusted(-2, -2, 2, 2), 3, 3);
     }
 
-    // Level letter inside bar if wide enough
-    if (rect.width() > 20) {
-        painter.setPen(Qt::white);
-        QFont font = painter.font();
-        font.setPointSize(8);
-        font.setBold(true);
-        painter.setFont(font);
+    // Inside: a question mark without history, otherwise the level letter
+    // if the bar is wide enough ("~" in front for an estimate)
+    QFont font = painter.font();
+    font.setPointSize(8);
+    font.setBold(true);
+    painter.setFont(font);
+    if (!estimate.hasHistory()) {
+        painter.setPen(palette().text().color());
+        painter.drawText(rect, Qt::AlignCenter, QStringLiteral("?"));
+    } else if (rect.width() > 20) {
+        painter.setPen(estimate.isMeasured() ? QColor(Qt::white) : palette().text().color());
         QString levelChar = entry.levelLabel().left(1);
+        if (!estimate.isMeasured()) levelChar.prepend(QLatin1Char('~'));
         painter.drawText(rect, Qt::AlignCenter, levelChar);
-        font.setBold(false);
-        painter.setFont(font);
     }
+    font.setBold(false);
+    painter.setFont(font);
 }
 
 void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
@@ -685,6 +734,13 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
         int x = LABEL_WIDTH + static_cast<int>(i * slotWidth);
         int w = static_cast<int>((i + 1) * slotWidth) - static_cast<int>(i * slotWidth);
         painter.fillRect(x, y, w, HEATMAP_HEIGHT, color);
+
+        // A run without history starts here: it is not in the count of any
+        // slot, because nobody knows how many slots it covers
+        if (m_heatmapUnknown.value(i) > 0) {
+            painter.fillRect(x, y, qMax(2, w), 4,
+                             QBrush(palette().text().color(), Qt::BDiagPattern));
+        }
     }
 
     // Border
@@ -718,9 +774,15 @@ void BScheduleGanttWidget::drawCollisionMarkers(QPainter &painter)
 
             int x = timeToX(d * 24 + start.time().hour(), start.time().minute());
 
-            // Warning triangle
-            painter.setPen(QPen(Qt::red, 1));
-            painter.setBrush(QColor(255, 0, 0, 100));
+            // Warning triangle: red and filled for a certain collision,
+            // amber and hollow for an uncertain one
+            if (c.uncertain) {
+                painter.setPen(QPen(QColor(230, 140, 0), 1, Qt::DashLine));
+                painter.setBrush(Qt::NoBrush);
+            } else {
+                painter.setPen(QPen(Qt::red, 1));
+                painter.setBrush(QColor(255, 0, 0, 100));
+            }
             QPolygonF triangle;
             triangle << QPointF(x - 5, y + HEATMAP_HEIGHT - 2)
                      << QPointF(x + 5, y + HEATMAP_HEIGHT - 2)
@@ -745,12 +807,16 @@ void BScheduleGanttWidget::recalcHeatmap()
 {
     int slotCount = heatmapSlotCount();
     m_heatmapSlots.fill(0, slotCount);
+    m_heatmapUnknown.fill(0, slotCount);
 
     const QDate first = firstDate();
     const int days = dayCount();
 
     for (const BScheduleEntry &entry : m_entries) {
-        int durationSlots = qMax(1, durationSecs(entry, ForDisplay) / (HEATMAP_SLOT_MINUTES * 60));
+        // Measured median; 0 = no history, no length
+        const int secs = durationSecs(entry);
+        const int slotSecs = HEATMAP_SLOT_MINUTES * 60;
+        const int durationSlots = qMax(1, (secs + slotSecs - 1) / slotSecs);
 
         // Every start in the dates on display
         for (const QDateTime &when : entry.occurrences) {
@@ -759,6 +825,12 @@ void BScheduleGanttWidget::recalcHeatmap()
 
             int startSlot = (d * 24 * 60 + when.time().hour() * 60 + when.time().minute())
                             / HEATMAP_SLOT_MINUTES;
+
+            if (secs <= 0) {
+                // Marked at its start, counted nowhere
+                if (startSlot >= 0 && startSlot < slotCount) m_heatmapUnknown[startSlot]++;
+                continue;
+            }
 
             for (int s = startSlot; s < startSlot + durationSlots && s < slotCount; ++s) {
                 if (s >= 0) m_heatmapSlots[s]++;
@@ -788,37 +860,91 @@ void BScheduleGanttWidget::detectCollisions()
             // Two runs collide only if they really run at the same time on
             // a date: the concrete starts are compared, not the days of the
             // week. "1st sat" and "2nd-5th sat" never meet.
-            const QList<BRunOverlap> overlaps = BScheduleOccurrences::overlaps(
-                a.occurrences, durationSecs(a, ForCollision),
-                b.occurrences, durationSecs(b, ForCollision));
-            if (overlaps.isEmpty()) continue;
+            //
+            // The lengths are the measured medians. A run without history
+            // has no length: it is taken at the instant of its start (one
+            // second), which is certain, and nothing is assumed beyond it.
+            const BJobHistoryStats::Estimate estA = estimateFor(a);
+            const BJobHistoryStats::Estimate estB = estimateFor(b);
+            const int durA = durationSecs(a);
+            const int durB = durationSecs(b);
+            const QList<BRunOverlap> computed = BScheduleOccurrences::overlaps(
+                a.occurrences, qMax(1, durA),
+                b.occurrences, qMax(1, durB));
 
-            Collision c;
-            c.entry1 = a;
-            c.entry2 = b;
-            c.index1 = i;
-            c.index2 = j;
-            c.overlaps = overlaps;
+            // Certain only if every length involved was measured at its
+            // level; an estimate from other levels makes it uncertain
+            const bool estimated = (estA.hasHistory() && !estA.isMeasured())
+                                   || (estB.hasHistory() && !estB.isMeasured());
 
-            if (sameClient) {
-                c.type = Collision::ClientCollision;
-                c.description = tr("Client collision: %1 and %2 on %3")
-                    .arg(a.scheduleName, b.scheduleName, a.client);
-                m_collisions.append(c);
+            // What cannot be computed: a run without history that starts
+            // before the other one on the same date. Whether it is still
+            // running then is not known.
+            QList<BRunOverlap> possible;
+            if (durA <= 0 || durB <= 0) {
+                for (const QDateTime &startA : a.occurrences) {
+                    for (const QDateTime &startB : b.occurrences) {
+                        if (startA.date() != startB.date() || startA == startB) continue;
+                        const bool firstIsA = startA < startB;
+                        if ((firstIsA ? durA : durB) > 0) continue;  // computed above
+                        bool known = false;
+                        for (const BRunOverlap &o : computed) {
+                            if (o.a == startA && o.b == startB) { known = true; break; }
+                        }
+                        if (known) continue;
+                        BRunOverlap o;
+                        o.a = startA;
+                        o.b = startB;
+                        possible.append(o);
+                    }
+                }
             }
 
-            if (sameStorage) {
-                c.type = Collision::StorageCollision;
-                c.description = tr("Storage collision: %1 and %2 on %3")
-                    .arg(a.scheduleName, b.scheduleName, a.storage);
-                m_collisions.append(c);
-            }
+            auto append = [&](const QList<BRunOverlap> &overlaps, bool uncertain) {
+                if (overlaps.isEmpty()) return;
+
+                Collision c;
+                c.entry1 = a;
+                c.entry2 = b;
+                c.index1 = i;
+                c.index2 = j;
+                c.overlaps = overlaps;
+                c.uncertain = uncertain;
+
+                if (sameClient) {
+                    c.type = Collision::ClientCollision;
+                    c.description = (uncertain
+                            ? tr("Possible client collision: %1 and %2 on %3 (duration not measured)")
+                            : tr("Client collision: %1 and %2 on %3"))
+                        .arg(a.scheduleName, b.scheduleName, a.client);
+                    m_collisions.append(c);
+                }
+
+                if (sameStorage) {
+                    c.type = Collision::StorageCollision;
+                    c.description = (uncertain
+                            ? tr("Possible storage collision: %1 and %2 on %3 (duration not measured)")
+                            : tr("Storage collision: %1 and %2 on %3"))
+                        .arg(a.scheduleName, b.scheduleName, a.storage);
+                    m_collisions.append(c);
+                }
+            };
+
+            append(computed, estimated);
+            append(possible, true);
         }
+    }
+
+    int certain = 0;
+    int uncertain = 0;
+    for (const Collision &c : m_collisions) {
+        if (c.uncertain) ++uncertain;
+        else ++certain;
     }
 
     // Also when there is none: the count belongs to the dates on display
     // and has to go away with them
-    emit collisionsDetected(m_collisions.size());
+    emit collisionsDetected(certain, uncertain);
 }
 
 // ============================================================================
@@ -954,21 +1080,42 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         if (!e.client.isEmpty()) {
             tooltip += QString("<br>%1: %2").arg(tr("Client"), e.client);
         }
-        if (e.estimatedDurationSecs > 0) {
-            int h = e.estimatedDurationSecs / 3600;
-            int m = (e.estimatedDurationSecs % 3600) / 60;
-            tooltip += QString("<br>%1: %2h %3m").arg(tr("Duration")).arg(h).arg(m);
-        }
-        if (m_durationStats && !e.jobName.isEmpty()) {
-            QString levelStr = e.levelLabel();
-            int minD = m_durationStats->minDuration(e.jobName, levelStr);
-            int maxD = m_durationStats->maxDuration(e.jobName, levelStr);
-            int samples = m_durationStats->sampleCount(e.jobName, levelStr);
-            if (samples > 0) {
-                tooltip += QString("<br><i>%1: %2 | %3: %4 (%5 %6)</i>")
-                    .arg(tr("Min"), BJobDurationStats::formatDuration(minD),
-                         tr("Max"), BJobDurationStats::formatDuration(maxD))
-                    .arg(samples).arg(tr("runs"));
+        // What was measured, or that nothing was
+        const BJobHistoryStats::Estimate estimate = estimateFor(e);
+        if (!estimate.hasHistory()) {
+            QString why;
+            if (e.jobName.isEmpty()) {
+                why = tr("no job uses this schedule");
+            } else if (!m_historyNote.isEmpty()) {
+                why = m_historyNote;
+            } else {
+                why = tr("no successful run of this job in the last %1 days")
+                          .arg(m_history.windowDays());
+            }
+            tooltip += QString("<br><b>%1</b> (%2)<br><i>%3</i>")
+                .arg(tr("No history"), why.toHtmlEscaped(),
+                     tr("Duration unknown: the outline marks the start only."));
+        } else {
+            tooltip += QString("<br>%1: %2 (%3: %4, %5 %6)")
+                .arg(tr("Median duration"),
+                     BJobHistoryStats::formatDuration(estimate.duration.median),
+                     tr("90%"),
+                     BJobHistoryStats::formatDuration(estimate.duration.p90))
+                .arg(estimate.runs).arg(tr("runs"));
+            if (estimate.wait.isValid()) {
+                tooltip += QString("<br>%1: %2 (%3: %4)")
+                    .arg(tr("Median wait"),
+                         BJobHistoryStats::formatDuration(estimate.wait.median),
+                         tr("90%"),
+                         BJobHistoryStats::formatDuration(estimate.wait.p90));
+            } else {
+                tooltip += QString("<br>%1: %2").arg(tr("Wait"), tr("unknown"));
+            }
+            if (!estimate.isMeasured()) {
+                tooltip += QString("<br><i>%1</i>")
+                    .arg(tr("Estimate: no run at this level in the last %1 days, "
+                            "figures from all levels of the job.")
+                             .arg(m_history.windowDays()));
             }
         }
         if (!e.pool.isEmpty()) {
@@ -1021,6 +1168,12 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
                     .arg((slotMinutes + HEATMAP_SLOT_MINUTES) % 60, 2, 10, QChar('0'))
                     .arg(count)
                     .arg(tr("concurrent jobs"));
+
+                const int unknown = m_heatmapUnknown.value(slotIdx);
+                if (unknown > 0) {
+                    tooltip += QString("; ") + tr("%1 run(s) without history start here "
+                                                  "(not counted: duration unknown)").arg(unknown);
+                }
 
                 QToolTip::showText(event->globalPosition().toPoint(), tooltip, this);
             }
@@ -1308,8 +1461,8 @@ void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
 
     const BScheduleEntry &dragged = m_entries[m_dragEntryIndex];
 
-    // Drag entry duration for overlap check
-    int dragDur = durationSecs(dragged, ForDisplay);
+    // Drag entry duration for overlap check (0: no history, no length)
+    int dragDur = durationSecs(dragged);
     int dragStartMin = m_dragNewHour * 60 + m_dragNewMinute;
     int dragEndMin = dragStartMin + dragDur / 60;
 
@@ -1322,11 +1475,13 @@ void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
         if (targetRow < 0) continue;
 
         // Check actual time overlap with new position
-        int targetDur = durationSecs(target, ForDisplay);
+        int targetDur = durationSecs(target);
         int targetStartMin = target.hour * 60 + target.minute;
         int targetEndMin = targetStartMin + targetDur / 60;
 
-        bool overlaps = (dragStartMin < targetEndMin && targetStartMin < dragEndMin);
+        // An overlap is only stated where both lengths were measured
+        bool overlaps = dragDur > 0 && targetDur > 0
+                        && (dragStartMin < targetEndMin && targetStartMin < dragEndMin);
 
         // Choose color based on dependency type
         QColor depColor;

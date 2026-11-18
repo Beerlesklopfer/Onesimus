@@ -283,7 +283,6 @@ struct BScheduleEntry
     int minute = 0;
     QVector<int> daysOfWeek;      ///< 0=Mon..6=Sun
     QString weekSpec;              ///< "1st", "2nd-5th", etc.
-    int estimatedDurationSecs = 0; ///< from historical data
     QString pool;
     QString storage;
     QString messages;
@@ -461,108 +460,5 @@ private:
     QList<BRunProblem> m_runProblems;
 };
 
-
-// ============================================================================
-// BJobDurationStats - Historical job duration statistics
-// ============================================================================
-
-/**
- * @brief Collects and aggregates historical job durations per job name
- *
- * Parses "list jobs" responses and provides min/avg/max duration statistics
- * for use in Gantt bar width estimation.
- */
-class BJobDurationStats : public QObject
-{
-    Q_OBJECT
-
-public:
-    explicit BJobDurationStats(QObject *parent = nullptr);
-
-    /**
-     * @brief Feeds job data from "list jobs" JSON response
-     * @param jsonResponse JSON response from Director
-     */
-    void feedJobs(const QString &jsonResponse);
-
-    /**
-     * @brief Clears all collected statistics
-     */
-    void clear();
-
-    /**
-     * @brief Returns average duration in seconds for a job name
-     * @return Average duration, or 0 if no data
-     */
-    int averageDuration(const QString &jobName) const;
-    int averageDuration(const QString &jobName, const QString &level) const;
-
-    /**
-     * @brief Returns minimum duration in seconds
-     */
-    int minDuration(const QString &jobName) const;
-    int minDuration(const QString &jobName, const QString &level) const;
-
-    /**
-     * @brief Returns maximum duration in seconds
-     */
-    int maxDuration(const QString &jobName) const;
-    int maxDuration(const QString &jobName, const QString &level) const;
-
-    /**
-     * @brief Returns number of recorded durations for a job
-     */
-    int sampleCount(const QString &jobName) const;
-    int sampleCount(const QString &jobName, const QString &level) const;
-
-    /**
-     * @brief Returns all known job names
-     */
-    QStringList jobNames() const;
-
-    /**
-     * @brief Record of a single historical job run
-     */
-    struct JobRunRecord {
-        QDateTime startTime;
-        int durationSecs = 0;
-        QString level;
-    };
-
-    /**
-     * @brief Returns the most recent runs for a job, sorted newest first
-     */
-    QList<JobRunRecord> lastRuns(const QString &jobName, int count = 5) const;
-    QList<JobRunRecord> lastRuns(const QString &jobName, const QString &level, int count = 5) const;
-
-    /**
-     * @brief Returns duration trend (seconds change, positive = getting slower)
-     * @return Difference in seconds between recent avg and older avg, or 0 if insufficient data
-     */
-    double trend(const QString &jobName) const;
-    double trend(const QString &jobName, const QString &level) const;
-
-    /**
-     * @brief Parses a Bareos duration string (HH:MM:SS) to seconds
-     */
-    static int parseDuration(const QString &durationStr);
-
-    /**
-     * @brief Formats seconds as human-readable duration string
-     */
-    static QString formatDuration(int secs);
-
-private:
-    struct DurationData {
-        QVector<JobRunRecord> runs;  ///< individual runs with timestamps
-        int minSecs = 0;
-        int maxSecs = 0;
-        int avgSecs = 0;
-    };
-
-    void recalculate(DurationData &data);
-
-    QMap<QString, DurationData> m_stats;
-};
 
 #endif // BRESOURCEMODELS_H

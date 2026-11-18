@@ -354,6 +354,10 @@ signals:
     /// Reply to `list joblog jobid=<jobId>`; emitted in addition to jsonResult()
     void jobLogResult(quint64 jobId, const QString &jsonData);
 
+    /// Reply to Command::LlistJobs (job history of the schedule view); the
+    /// only signal for it, see BareosDirector::jobHistoryResult
+    void jobHistoryResult(const QString &args, const QString &reply);
+
     /// Job message push event (gRPC only, lossy, no time and no message type)
     void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
 

@@ -379,6 +379,12 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_scheduleWidget, &BScheduleWidget::processDotScheduleResponse);
     connect(m_director, &BDirector::showSchedulesResult,
             m_scheduleWidget, &BScheduleWidget::processShowSchedulesResponse);
+    // Job history of the schedule view: asked for by the widget itself when
+    // it is on screen, never from here (not on connect, not on refresh)
+    connect(m_director, &BDirector::jobHistoryResult,
+            m_scheduleWidget, &BScheduleWidget::processJobHistoryReply);
+    connect(m_director, &BDirector::commandFailed,
+            m_scheduleWidget, &BScheduleWidget::onCommandFailed);
     connect(m_director, &BDirector::listClientsResult,
             m_clientWidget, &BClientsWidget::processJsonResponse);
     connect(m_director, &BDirector::showJobsResult,

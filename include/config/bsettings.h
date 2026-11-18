@@ -291,6 +291,16 @@ public:
     bool schedulesFilterCheckbox(const QString& key, bool defaultValue = true) const;
     void setSchedulesFilterCheckbox(const QString& key, bool value);
 
+    /// Job history of the schedule view: how many days back the measured
+    /// durations and waits are taken from (default 60, 1 to 365)
+    int schedulesHistoryDays() const;
+    void setSchedulesHistoryDays(int days);
+
+    /// Job history of the schedule view: most rows asked for in one request
+    /// (default 5000, 100 to 100000). No field in the settings dialog.
+    int schedulesHistoryRowLimit() const;
+    void setSchedulesHistoryRowLimit(int rows);
+
     // Global Statistics Widget State
     bool statisticsWidgetVisible() const;
     void setStatisticsWidgetVisible(bool visible);
