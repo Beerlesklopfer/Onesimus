@@ -947,8 +947,11 @@ void BMainWindow::createActions()
     m_deleteFileSetAction->setIcon(QIcon(":/icons/icons/delete.svg"));
     m_deleteFileSetAction->setEnabled(false);
     connect(m_deleteFileSetAction, &QAction::triggered, this, [this]() {
-        BFilesetModel *model = m_jobWidget->filesetModel();
-        if (!model || model->rowCount() == 0) {
+        // Snapshot of the names: the model is refilled by every refresh, and a
+        // combo box on the live model would fall back to its first entry while
+        // this modal dialog is open
+        const QStringList names = m_jobWidget->filesetNames();
+        if (names.isEmpty()) {
             QMessageBox::information(this, tr("Delete FileSet"),
                                      tr("No FileSets available."));
             return;
@@ -964,7 +967,7 @@ void BMainWindow::createActions()
         layout->addWidget(label);
 
         QComboBox *combo = new QComboBox(&dialog);
-        combo->setModel(model);
+        combo->addItems(names);
         layout->addWidget(combo);
 
         layout->addSpacing(10);
@@ -988,14 +991,28 @@ void BMainWindow::createActions()
 
         if (dialog.exec() != QDialog::Accepted) return;
 
-        QString name = combo->currentText();
+        // The name the user selected, not a row of the model
+        const QString name = combo->currentText();
+        if (name.isEmpty()) return;
+
         int confirm = QMessageBox::warning(this, tr("Confirm Delete"),
             tr("Are you sure you want to delete FileSet \"%1\"?").arg(name),
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (confirm != QMessageBox::Yes) return;
 
-        if (confirm == QMessageBox::Yes) {
-            onSendCommand(BDirector::Command::DeleteFileSet, name);
+        // Both dialogs were modal; the list may have changed meanwhile
+        if (!m_director || !m_director->isConnected()) {
+            QMessageBox::warning(this, tr("Delete FileSet"),
+                tr("Not connected to a Director. FileSet \"%1\" was not deleted.").arg(name));
+            return;
         }
+        if (!m_jobWidget->filesetNames().contains(name)) {
+            QMessageBox::information(this, tr("Delete FileSet"),
+                tr("FileSet \"%1\" no longer exists on the Director. Nothing was deleted.").arg(name));
+            return;
+        }
+
+        onSendCommand(BDirector::Command::DeleteFileSet, name);
     });
 
     // Clients Actions
