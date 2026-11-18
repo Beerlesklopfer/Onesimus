@@ -142,6 +142,9 @@ public:
      */
     TLSConfig *tlsConfig() const;
 
+    /// Transport selected with setTransport() (main-thread copy)
+    Transport transport() const { return m_transport; }
+
     // ========================================================================
     // Resource State Machine
     // ========================================================================
@@ -338,6 +341,15 @@ signals:
     /// Job status push event (gRPC only)
     void jobStatusChanged(int jobId, BDirector::JobStatus status);
 
+    /// Reply to `list joblog jobid=<jobId>`; emitted in addition to jsonResult()
+    void jobLogResult(quint64 jobId, const QString &jsonData);
+
+    /// Job message push event (gRPC only, lossy, no time and no message type)
+    void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
+
+    /// Job status push event with the status text as sent (gRPC only)
+    void jobStatusEvent(quint64 jobId, const QString &jobName, const QString &status);
+
 public slots:
     // ========================================================================
     // Connection Management (thread-safe)
@@ -466,6 +478,7 @@ public slots:
 private:
     DIRECTOR_CLASS *m_director;  ///< Underlying director instance (runs in worker thread)
     QThread *m_workerThread;     ///< Worker thread for director and auth
+    Transport m_transport = Transport::Bnet;  ///< Last value passed to setTransport()
 };
 
 #endif // BDIRECTOR_H

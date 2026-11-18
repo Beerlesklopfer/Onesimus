@@ -171,84 +171,31 @@ void BJobDetailsDialog::setupLogTab()
     QWidget *logWidget = new QWidget();
     QVBoxLayout *logLayout = new QVBoxLayout(logWidget);
 
-    // Job Log List View - uses local model, loads log for this specific job
-    m_logListView = new QListView(logWidget);
-
-    // Create local log model for this dialog's job
+    // Shared job log view with a local model for this dialog's job:
+    // per-pixel scrolling, follow-tail, live source
+    m_logListView = new BJobLogView(logWidget);
     m_logModel = new BJobLogModel(this);
     m_logListView->setModel(m_logModel);
-
-    // Show loading message
-    m_logModel->setLogLines({tr("Loading job log...")});
-
-    m_logListView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_logListView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_logListView->setAlternatingRowColors(true);
-
-    // Set monospace font for better readability
-    QFont logFont("Courier", 9);
-    m_logListView->setFont(logFont);
+    m_logListView->attach(m_director, m_logModel);
+    m_logListView->setPlaceholderText(tr("Loading job log..."));
 
     logLayout->addWidget(m_logListView);
 
     m_tabWidget->addTab(logWidget, tr("Logs"));
 
-    // Connect log response handler
     if (m_director) {
-        connect(m_director, &BDirector::jsonResult,
-                this, &BJobDetailsDialog::onJobLogReceived);
-
-        // Wait for BVFS loading to finish before requesting log (avoids m_lastCommand race)
+        // Wait for BVFS loading to finish before requesting log (avoids m_lastCommand race).
+        // The view fetches once its tab is visible and keeps a running job's log up to date.
         connect(m_filesWidget, &BJobFilesWidget::filesLoaded, this, [this]() {
             if (m_director) {
                 BLOG_DEBUG() << "BJobDetailsDialog: BVFS done, requesting log for Job ID" << m_jobId;
-
-                QMetaObject::invokeMethod(m_director, "doSend",
-                                          Qt::QueuedConnection,
-                                          Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
-                                          Q_ARG(QString, QString::number(m_jobId)));
+                m_logListView->showJob(m_jobId,
+                                       BJobLog::isRunningJobStatus(m_job["jobstatus"].toString()));
             }
         });
+    } else {
+        m_logListView->setPlaceholderText(tr("No connection to the Director."));
     }
-}
-
-void BJobDetailsDialog::onJobLogReceived(BDirector::Command cmd, const QString &response)
-{
-    // Enum-based routing: only process ListJobId responses
-    if (cmd != BDirector::Command::ListJobId) return;
-
-    if (response.isEmpty()) {
-        return;
-    }
-
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &parseError);
-
-    if (parseError.error != QJsonParseError::NoError) {
-        return;  // Not valid JSON
-    }
-
-    if (!doc.isObject()) {
-        return;
-    }
-
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
-
-    // Verify "joblog" key in result as a safety check
-    if (!result.contains("joblog")) {
-        return;  // Not a job log response
-    }
-
-    BLOG_DEBUG() << "BJobDetailsDialog: Received job log response";
-
-    // Parse and display the log
-    m_logModel->parseJsonResponse(response);
-    m_logListView->scrollToTop();
-
-    // Disconnect after receiving response (we only need it once)
-    disconnect(m_director, &BDirector::jsonResult,
-               this, &BJobDetailsDialog::onJobLogReceived);
 }
 
 void BJobDetailsDialog::queryJobDetails()

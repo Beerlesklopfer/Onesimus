@@ -20,6 +20,7 @@
 #include "director/bjsonstreamreader.h"
 #include "bpaginationwidget.h"
 #include "jobs/bjobmodels.h"
+#include "jobs/bjoblogview.h"
 #include "models/bresourcemodels.h"
 #include "director/bdirector.h"
 
@@ -310,12 +311,21 @@ private slots:
     void do_toggleFilters(bool visible);
 
     /**
-     * @brief Processes job log response for the selected job
-     * @param command The command that was sent
-     * @param jsonData JSON response containing job log
-     * @since 2.8
+     * @brief The log model of the selected job changed (catalog load or pushed lines)
+     * @param jobId Job the update belongs to
+     *
+     * Updates the title and the history entry of that job.
      */
-    void onJobLogReceived(BDirector::Command cmd, const QString &jsonData);
+    void onJobLogUpdated(quint64 jobId);
+
+    /**
+     * @brief Shows the log of a job in the pane (live while the job runs)
+     * @param job Job record (jobid, name, jobstatus)
+     */
+    void showJobLog(const QJsonObject &job);
+
+    /// Stops the log source and empties the pane
+    void clearJobLog();
 
     /**
      * @brief Loads the job log for the currently selected job
@@ -389,12 +399,13 @@ private:
     BMessagesWidget *m_messagesWidget;      ///< Director messages widget
 
     // Job Log Display
-    QListView *m_logView;                   ///< Log view for selected job
+    BJobLogView *m_logView;                 ///< Log view for selected job (feeds m_logModel)
     BJobLogModel *m_logModel;               ///< Log model
+    QSortFilterProxyModel *m_logFilterModel; ///< Search filter between model and view
     QLabel *m_logTitleLabel;                ///< Title label for log section
     QWidget *m_logContainer;                ///< Container for log section
-    QString m_pendingLogJobId;              ///< Job ID of the pending log request
-    QString m_pendingLogJobName;            ///< Job name of the pending log request
+    QString m_logJobId;                     ///< Job ID of the log shown by the view's source
+    QString m_logJobName;                   ///< Job name of that job
 
     // Job Log History & Controls
     QComboBox *m_logHistoryCombo;           ///< Dropdown to select from job log history

@@ -128,6 +128,12 @@ BDirector::BDirector(QObject *parent)
                      this, [this](int jobId, DIRECTOR_CLASS::JobStatus status) {
                          emit jobStatusChanged(jobId, status);
                      });
+    QObject::connect(m_director, &DIRECTOR_CLASS::jobLogResult,
+                     this, &BDirector::jobLogResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::jobMessage,
+                     this, &BDirector::jobMessage);
+    QObject::connect(m_director, &DIRECTOR_CLASS::jobStatusEvent,
+                     this, &BDirector::jobStatusEvent);
 
     // Typed query result signals
     QObject::connect(m_director, &DIRECTOR_CLASS::consolesResult,
@@ -352,6 +358,8 @@ void BDirector::setTransport(Transport transport, int grpcPort, const QString &g
         BLOG_ERROR() << "BDirector::setTransport: No director instance!";
         return;
     }
+
+    m_transport = transport;
 
     // Queued, so it is applied before a following (queued) connect()
     QMetaObject::invokeMethod(m_director, "setTransport",

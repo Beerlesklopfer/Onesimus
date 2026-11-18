@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QQueue>
+#include <QHash>
 #include <QPointer>
 #include <QSslCertificate>
 #include <memory>
@@ -94,6 +95,9 @@ signals:
     /// Push events from the InteractiveSession stream
     void jobStatusEvent(int jobId, const QString &jobName, const QString &status);
     void eventMessage(const QString &message);
+    /// Job message, parsed from a ConsoleTextEvent "JobId=<id> <name>: <text>"
+    /// (also emitted as eventMessage). Push is lossy: no time, no message type.
+    void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
 
     /// Connection lost after a successful login
     void connectionLost(const QString &reason);
@@ -120,6 +124,7 @@ private:
     QQueue<QString> m_pending;
     bool m_inFlight = false;
     quint64 m_generation = 0;   ///< Invalidates replies of a previous connection
+    QHash<quint64, QString> m_jobNames;  ///< Job names announced by JobStatusEvent (exact message parsing)
 };
 
 #endif // BGRPCTRANSPORT_H

@@ -717,6 +717,21 @@ signals:
     void jobStatusChanged(int jobId, BareosDirector::JobStatus status);
 
     /**
+     * @brief Reply to `list joblog jobid=<jobId>` (Command::ListJobId)
+     *
+     * Emitted in addition to jsonResult(). The job ID is taken from the
+     * queued command the reply belongs to, so a consumer can tell replies
+     * for different jobs apart.
+     */
+    void jobLogResult(quint64 jobId, const QString &jsonData);
+
+    /// Job message push event (gRPC only, lossy, no time and no message type)
+    void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
+
+    /// Job status push event with the status text as sent (gRPC only)
+    void jobStatusEvent(quint64 jobId, const QString &jobName, const QString &status);
+
+    /**
      * @brief gRPC server certificate is not pinned yet or does not match the pin
      *
      * The connection is aborted. If the user trusts the certificate, store the

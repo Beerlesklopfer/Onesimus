@@ -7,6 +7,7 @@
  */
 
 #include "director/bgrpctransport.h"
+#include "director/bjobpushmessage.h"
 #include "blogging.h"
 
 #include "director_service.qpb.h"
@@ -38,6 +39,7 @@ constexpr auto LoginTimeout = 15s;
 constexpr auto CommandTimeout = 5min;  // restore/estimate can take a while
 
 const QByteArray SessionHeader = QByteArrayLiteral("x-onesimus-session");
+const int MaxKnownJobNames = 512;      // job names remembered for parsing job messages
 
 } // namespace
 
@@ -259,9 +261,23 @@ void BGrpcTransport::openPushStream()
         const PushEvent &ev = msg->pushEvent();
         if (ev.hasJobStatus()) {
             const JobStatusEvent &js = ev.jobStatus();
+            if (m_jobNames.size() >= MaxKnownJobNames) {
+                m_jobNames.clear();
+            }
+            m_jobNames.insert(js.jobId(), js.jobName());
             emit jobStatusEvent(int(js.jobId()), js.jobName(), js.status());
         } else if (ev.hasConsoleText()) {
-            emit eventMessage(ev.consoleText().text());
+            const QString text = ev.consoleText().text();
+            // Job messages arrive as console text "JobId=<id> <name>: <text>"
+            BJobPushMessage job = BJobPushMessage::parse(text);
+            if (job.valid) {
+                const QString knownName = m_jobNames.value(job.jobId);
+                if (!knownName.isEmpty()) {
+                    job = BJobPushMessage::parse(text, knownName);
+                }
+                emit jobMessage(job.jobId, job.jobName, job.text);
+            }
+            emit eventMessage(text);
         } else if (ev.hasFdConnected()) {
             emit eventMessage(tr("Client %1 connected").arg(ev.fdConnected().clientName()));
         } else if (ev.hasFdDisconnected()) {
@@ -300,6 +316,7 @@ void BGrpcTransport::close()
 {
     // Everything still in flight belongs to the old connection
     ++m_generation;
+    m_jobNames.clear();
 
     if (m_preflight) {
         m_preflight->abort();

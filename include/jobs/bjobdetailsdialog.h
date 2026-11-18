@@ -11,6 +11,7 @@
 #include <QListView>
 #include "director/bdirector.h"
 #include "jobs/bjobmodels.h"
+#include "jobs/bjoblogview.h"
 
 // Forward declarations
 class BJobWidget;
@@ -34,7 +35,6 @@ public:
     explicit BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidget, BDirector *director, QWidget *parent = nullptr);
 
 private slots:
-    void onJobLogReceived(BDirector::Command cmd, const QString &response);
     void onJobDetailReceived(BDirector::Command cmd, const QString &jsonData);
 
 private:
@@ -61,7 +61,7 @@ private:
     QLabel *m_scheduleLabel = nullptr;
 
     // Log Tab
-    QListView *m_logListView;
+    BJobLogView *m_logListView;
     BJobLogModel *m_logModel;
 
     // Data

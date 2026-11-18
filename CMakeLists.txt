@@ -445,6 +445,9 @@ set(SOURCES
     src/models/bresourcemodels.cpp
 
     src/jobs/bjobmodels.cpp
+    src/jobs/bjoblogmodel.cpp
+    src/jobs/bjoblogsource.cpp
+    src/jobs/bjoblogview.cpp
     src/jobs/bjobdetailsdialog.cpp
     src/jobs/bbvfsmodel.cpp
     src/jobs/bjobfileswidget.cpp
@@ -527,6 +530,10 @@ set(HEADERS
 
     include/jobs/bcheckboxdelegate.h
     include/jobs/bjobmodels.h
+    include/jobs/bjoblogmodel.h
+    include/jobs/bjoblogsource.h
+    include/jobs/bjoblogview.h
+    include/director/bjobpushmessage.h
     include/jobs/bjobdetailsdialog.h
     include/jobs/bbvfsmodel.h
     include/jobs/bjobfileswidget.h
@@ -1121,11 +1128,42 @@ target_link_libraries(volumejson_test PRIVATE
     Qt6::Core
 )
 
+# CTest: tests that run without a Director (cmake --build . && ctest)
+include(CTest)
+if(BUILD_TESTING)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+
+    # bjoblogmodel_test - job log model, its sources and the push message parser
+    add_executable(bjoblogmodel_test
+        test/bjoblogmodel_test.cpp
+        src/jobs/bjoblogmodel.cpp
+        src/jobs/bjoblogsource.cpp
+        include/jobs/bjoblogmodel.h
+        include/jobs/bjoblogsource.h
+        include/director/bjobpushmessage.h
+    )
+
+    target_include_directories(bjoblogmodel_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bjoblogmodel_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+    )
+
+    add_test(NAME bjoblogmodel_test COMMAND bjoblogmodel_test)
+endif()
+
 message(STATUS "")
 message(STATUS "Test executables:")
 message(STATUS "  bareosauth_test  - BareosAuth class test")
 message(STATUS "  director_test    - BareosDirector state machine test")
 message(STATUS "  volumejson_test  - list volumes JSON parsing test")
+if(BUILD_TESTING)
+    message(STATUS "  bjoblogmodel_test - job log model test (registered with CTest)")
+endif()
 message(STATUS "")
 
 # ============================================================================

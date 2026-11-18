@@ -28,8 +28,9 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     , m_paginationWidget(new BPaginationWidget(this))
     , m_lowerTabWidget(new QTabWidget(this))
     , m_messagesWidget(new BMessagesWidget(this))
-    , m_logView(new QListView(this))
+    , m_logView(new BJobLogView(this))
     , m_logModel(new BJobLogModel(this))
+    , m_logFilterModel(new QSortFilterProxyModel(this))
     , m_logTitleLabel(new QLabel(this))
     , m_logContainer(new QWidget(this))
     , m_logHistoryCombo(new QComboBox(this))
@@ -117,10 +118,39 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     m_poolCombo->setPlaceholderText(tr("(kein Job ausgewählt)"));
 
     // Setup log view
-    m_logView->setModel(m_logModel);
-    m_logView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_logView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_logView->setAlternatingRowColors(true);
+    // The search filter is a proxy, so that a live log keeps growing
+    // (append-only) while a search is active
+    m_logFilterModel->setSourceModel(m_logModel);
+    m_logFilterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    m_logView->setModel(m_logFilterModel);
+    m_logView->attach(m_director, m_logModel);
+    connect(m_logView, &BJobLogView::logUpdated, this, &BJobWidget::onJobLogUpdated);
+    connect(m_logView, &BJobLogView::logFinished, this, &BJobWidget::onJobLogUpdated);
+    connect(m_logView, &BJobLogView::logFailed, this, [this](quint64 jobId, const QString &) {
+        if (QString::number(jobId) == m_logJobId) {
+            m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Load error")
+                                     .arg(m_logJobName, m_logJobId));
+        }
+    });
+
+    // A refreshed job list tells when the job of a live log has ended
+    // (the only such signal on a BNET connection)
+    connect(m_tableView->jobsModel(), &QAbstractItemModel::modelReset, this, [this]() {
+        const quint64 jobId = m_logView->jobId();
+        if (jobId == 0 || !m_logView->isLive()) {
+            return;
+        }
+        const QJsonArray jobs = m_tableView->jobsModel()->allJobs();
+        for (const QJsonValue &value : jobs) {
+            const QJsonObject job = value.toObject();
+            if (job["jobid"].toString().toULongLong() == jobId) {
+                if (!BJobLog::isRunningJobStatus(job["jobstatus"].toString())) {
+                    m_logView->notifyJobEnded(jobId);
+                }
+                break;
+            }
+        }
+    });
 
     m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
     m_logTitleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
@@ -1358,8 +1388,7 @@ void BJobWidget::onJobSelectionChanged()
         m_poolCombo->setEnabled(false);
 
         // Clear log display
-        m_logModel->clear();
-        m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+        clearJobLog();
     }
 }
 
@@ -1379,8 +1408,7 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
         m_poolCombo->setEnabled(false);
 
         // Clear log display
-        m_logModel->clear();
-        m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+        clearJobLog();
         return;
     }
 
@@ -1469,30 +1497,9 @@ void BJobWidget::onCurrentRowChanged(const QModelIndex &current, const QModelInd
 
     // Load job log
     if (!jobId.isEmpty()) {
-        m_logTitleLabel->setText(QString("<b>Job Log</b> - Job %1: %2 - Lädt...").arg(jobId, jobName));
-
-        // Clear current log
-        m_logModel->clear();
-
-        // Store the job ID and name we're requesting (for use in response handler)
-        m_pendingLogJobId = jobId;
-        m_pendingLogJobName = jobName;
-
-        // Connect to Director signal if not already connected
-        if (m_director) {
-            connect(m_director, &BDirector::jsonResult,
-                    this, &BJobWidget::onJobLogReceived,
-                    Qt::UniqueConnection);
-
-            // Request job log
-            QMetaObject::invokeMethod(m_director, "doSend",
-                                      Qt::QueuedConnection,
-                                      Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
-                                      Q_ARG(QString, jobId));
-        }
+        showJobLog(job);
     } else {
-        m_pendingLogJobId.clear();
-        m_pendingLogJobName.clear();
+        clearJobLog();
     }
 
 }
@@ -1672,128 +1679,101 @@ void BJobWidget::do_toggleFilters(bool visible)
 
 void BJobWidget::loadSelectedJobLog()
 {
-
     QJsonObject selectedJob = m_tableView->getSelectedJob();
     if (selectedJob.isEmpty()) {
         return;
     }
 
-    QString jobId = selectedJob["jobid"].toString();
-    QString jobName = selectedJob["name"].toString();
+    showJobLog(selectedJob);
+}
 
+void BJobWidget::showJobLog(const QJsonObject &job)
+{
+    const QString jobId = job["jobid"].toString();
     if (jobId.isEmpty()) {
         return;
     }
-
-    // Update title label
-    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Lädt...").arg(jobName).arg(jobId));
-
-    // Clear current log
-    m_logModel->clear();
-
-    // Store the job ID and name we're requesting (for use in response handler)
-    m_pendingLogJobId = jobId;
-    m_pendingLogJobName = jobName;
-
-    // Connect to Director signal if not already connected
-    if (m_director) {
-        connect(m_director, &BDirector::jsonResult,
-                this, &BJobWidget::onJobLogReceived,
-                Qt::UniqueConnection);
-
-        // Request job log
-        QMetaObject::invokeMethod(m_director, "doSend",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(BDirector::Command, BDirector::Command::ListJobId),
-                                  Q_ARG(QString, jobId));
+    const quint64 id = jobId.toULongLong();
+    if (id == m_logView->jobId() && m_logModel->jobId() == id) {
+        return;   // already shown; a live log keeps running
     }
+
+    m_logJobId = jobId;
+    m_logJobName = job["name"].toString();
+
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Lädt...").arg(m_logJobName, m_logJobId));
+
+    // Clear search filter for new log
+    m_logSearchEdit->clear();
+
+    // The view resets the model for the new job, fetches the log and keeps
+    // it up to date while the job runs. Replies for the previously selected
+    // job are ignored by its source.
+    m_logView->showJob(id, BJobLog::isRunningJobStatus(job["jobstatus"].toString()));
 }
 
-void BJobWidget::onJobLogReceived(BDirector::Command cmd, const QString &jsonData)
+void BJobWidget::clearJobLog()
 {
-    // Enum-based routing: only process ListJobId responses
-    if (cmd != BDirector::Command::ListJobId) return;
+    m_logView->stopJob();
+    m_logView->setPlaceholderText(QString());
+    m_logJobId.clear();
+    m_logJobName.clear();
+    m_logModel->clear();
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+}
 
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
-
-    if (parseError.error != QJsonParseError::NoError) {
-        return;  // Not valid JSON
-    }
-
-    if (!doc.isObject()) {
+void BJobWidget::onJobLogUpdated(quint64 jobId)
+{
+    // Updates of a job that is no longer shown (or of a history snapshot) are not ours
+    if (jobId == 0 || QString::number(jobId) != m_logJobId || m_logModel->jobId() != jobId) {
         return;
     }
 
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
+    const QString jobIdText = m_logJobId;
+    const QString jobName = m_logJobName;
+    const QStringList lines = m_logModel->logLines();
 
-    // Verify "joblog" key in result as a safety check
-    if (!result.contains("joblog")) {
-        return;  // Not a job log response
-    }
-
-    // Verify we have a pending request (trust command queue FIFO ordering
-    // instead of re-verifying the current selection, which can change
-    // between request and response due to model resets)
-    if (m_pendingLogJobId.isEmpty()) {
-        return;  // No pending request
-    }
-
-    QString jobId = m_pendingLogJobId;
-    QString jobName = m_pendingLogJobName;
-
-    // Clear pending request
-    m_pendingLogJobId.clear();
-    m_pendingLogJobName.clear();
-
-    // Parse and display the log
-    if (m_logModel->parseJsonResponse(jsonData)) {
-        int lineCount = m_logModel->rowCount();
+    if (m_logView->isLive()) {
+        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 lines, job is running")
+                                 .arg(jobName)
+                                 .arg(jobIdText)
+                                 .arg(lines.size()));
+    } else {
         m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
                                  .arg(jobName)
-                                 .arg(jobId)
-                                 .arg(lineCount));
-
-        // Add to history (or update existing entry)
-        bool found = false;
-        for (int i = 0; i < m_logHistory.size(); ++i) {
-            if (m_logHistory[i].jobId == jobId) {
-                // Update existing entry
-                m_logHistory[i].logLines = m_logModel->logLines();
-                m_logHistoryCombo->setItemText(i, QString("%1 (ID: %2)").arg(jobName, jobId));
-                m_logHistoryCombo->setCurrentIndex(i);
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            // Add new entry
-            JobLogEntry entry;
-            entry.jobId = jobId;
-            entry.jobName = jobName;
-            entry.logLines = m_logModel->logLines();
-
-            // Remove oldest if at max capacity
-            while (m_logHistory.size() >= m_maxLogHistory) {
-                m_logHistory.removeFirst();
-                m_logHistoryCombo->removeItem(0);
-            }
-
-            m_logHistory.append(entry);
-            m_logHistoryCombo->addItem(QString("%1 (ID: %2)").arg(jobName, jobId));
-            m_logHistoryCombo->setCurrentIndex(m_logHistoryCombo->count() - 1);
-        }
-
-        // Clear search filter for new log
-        m_logSearchEdit->clear();
-
-    } else {
-        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Load error")
-                                 .arg(jobName)
-                                 .arg(jobId));
+                                 .arg(jobIdText)
+                                 .arg(lines.size()));
     }
+
+    // Add to history (or update existing entry). The combo must not react:
+    // selecting an entry replaces the live log by its snapshot.
+    const QSignalBlocker blocker(m_logHistoryCombo);
+
+    for (int i = 0; i < m_logHistory.size(); ++i) {
+        if (m_logHistory[i].jobId == jobIdText) {
+            // Update existing entry
+            m_logHistory[i].logLines = lines;
+            m_logHistoryCombo->setItemText(i, QString("%1 (ID: %2)").arg(jobName, jobIdText));
+            m_logHistoryCombo->setCurrentIndex(i);
+            return;
+        }
+    }
+
+    // Add new entry
+    JobLogEntry entry;
+    entry.jobId = jobIdText;
+    entry.jobName = jobName;
+    entry.logLines = lines;
+
+    // Remove oldest if at max capacity
+    while (m_logHistory.size() >= m_maxLogHistory) {
+        m_logHistory.removeFirst();
+        m_logHistoryCombo->removeItem(0);
+    }
+
+    m_logHistory.append(entry);
+    m_logHistoryCombo->addItem(QString("%1 (ID: %2)").arg(jobName, jobIdText));
+    m_logHistoryCombo->setCurrentIndex(m_logHistoryCombo->count() - 1);
 }
 
 void BJobWidget::setLogViewVisible(bool visible)
@@ -1835,11 +1815,10 @@ void BJobWidget::clearData()
     m_levelCheckboxes.clear();
 
     // Clear log and history
-    m_logModel->clear();
     m_logHistory.clear();
     m_logHistoryCombo->clear();
     m_logSearchEdit->clear();
-    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+    clearJobLog();
 
     // Clear messages
     m_messagesWidget->clearMessages();
@@ -1885,7 +1864,15 @@ void BJobWidget::onLogHistoryChanged(int index)
 
     const JobLogEntry &entry = m_logHistory.at(index);
 
-    // Update the log model with the selected history entry
+    // The entry of the job whose log is shown live: nothing to replace
+    if (entry.jobId == m_logJobId && m_logModel->jobId() != 0) {
+        return;
+    }
+
+    // Show the stored snapshot instead of a live log
+    m_logView->stopJob();
+    m_logJobId.clear();
+    m_logJobName.clear();
     m_logModel->setLogLines(entry.logLines);
 
     // Update title
@@ -1893,11 +1880,6 @@ void BJobWidget::onLogHistoryChanged(int index)
                              .arg(entry.jobName)
                              .arg(entry.jobId)
                              .arg(entry.logLines.size()));
-
-    // Apply search filter if active
-    if (!m_logSearchEdit->text().isEmpty()) {
-        onLogSearchChanged(m_logSearchEdit->text());
-    }
 
 #ifdef IS_DEVELOPER
     JOBWIDGET_DEBUG << "Loaded job log from history: " << entry.jobName
@@ -1910,8 +1892,12 @@ void BJobWidget::onLogCopyClicked()
     QModelIndexList selected = m_logView->selectionModel()->selectedIndexes();
 
     if (selected.isEmpty()) {
-        // Copy all lines if nothing selected
-        QStringList allLines = m_logModel->logLines();
+        // Copy all (visible, i.e. filtered) lines if nothing selected
+        QStringList allLines;
+        const QAbstractItemModel *shown = m_logView->model();
+        for (int row = 0; row < shown->rowCount(); ++row) {
+            allLines.append(shown->index(row, 0).data(Qt::DisplayRole).toString());
+        }
         if (!allLines.isEmpty()) {
             QApplication::clipboard()->setText(allLines.join("\n"));
             emit statusMessageChanged(tr("Copied %1 log lines to clipboard").arg(allLines.size()));
@@ -1940,9 +1926,8 @@ void BJobWidget::onLogClearHistoryClicked()
 {
     m_logHistory.clear();
     m_logHistoryCombo->clear();
-    m_logModel->clear();
     m_logSearchEdit->clear();
-    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+    clearJobLog();
 
     emit statusMessageChanged(tr("Job log history cleared"));
 
@@ -1953,32 +1938,11 @@ void BJobWidget::onLogClearHistoryClicked()
 
 void BJobWidget::onLogSearchChanged(const QString &text)
 {
-    if (text.isEmpty()) {
-        // Restore full log from current history selection
-        int index = m_logHistoryCombo->currentIndex();
-        if (index >= 0 && index < m_logHistory.size()) {
-            m_logModel->setLogLines(m_logHistory.at(index).logLines);
-        }
-        return;
-    }
-
-    // Filter log lines by search text
-    int index = m_logHistoryCombo->currentIndex();
-    if (index < 0 || index >= m_logHistory.size()) {
-        return;
-    }
-
-    QStringList filteredLines;
-    for (const QString &line : m_logHistory.at(index).logLines) {
-        if (line.contains(text, Qt::CaseInsensitive)) {
-            filteredLines.append(line);
-        }
-    }
-
-    m_logModel->setLogLines(filteredLines);
+    // Filter the shown log lines by search text (empty text shows all)
+    m_logFilterModel->setFilterFixedString(text);
 
 #ifdef IS_DEVELOPER
-    JOBWIDGET_DEBUG << "Search filter: " << filteredLines.size()
-                    << " of " << m_logHistory.at(index).logLines.size() << " lines match";
+    JOBWIDGET_DEBUG << "Search filter: " << m_logFilterModel->rowCount()
+                    << " of " << m_logModel->rowCount() << " lines match";
 #endif
 }

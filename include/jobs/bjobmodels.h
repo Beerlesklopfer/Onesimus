@@ -11,6 +11,7 @@
 #include <QFont>
 #include "blogging.h"
 #include "director/bdirector.h"
+#include "jobs/bjoblogmodel.h"   // BJobLogModel
 
 // Debug logging prefixes for Job Models
 #define JOBS_DEBUG BLOG_DEBUG()
@@ -197,40 +198,6 @@ private:
     qint64 m_byteSizeMin;
     qint64 m_byteSizeMax;
     bool m_zeroBytesFilter;
-};
-
-
-// ============================================================================
-// BJobLogModel - List model for displaying job log entries
-// ============================================================================
-
-/**
- * @brief Model for displaying job log entries
- * @version 1.0
- * @since 2026-01-28
- *
- * Parses JSON-RPC responses from Bareos Director and extracts log entries.
- * Supports multiple JSON response structures and falls back to plain text.
- */
-class BJobLogModel : public QAbstractListModel
-{
-    Q_OBJECT
-
-public:
-    explicit BJobLogModel(QObject *parent = nullptr);
-
-    // QAbstractListModel interface
-    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-
-    bool parseJsonResponse(const QString &jsonResponse);
-    void setLogLines(const QStringList &logLines);
-    void clear();
-    QStringList logLines() const { return m_logLines; }
-
-private:
-    QStringList m_logLines;
-    QFont m_logFont;
 };
 
 

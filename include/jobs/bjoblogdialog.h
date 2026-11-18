@@ -8,6 +8,7 @@
 #include <QPushButton>
 #include <QJsonObject>
 #include "jobs/bjobmodels.h"
+#include "jobs/bjoblogview.h"
 #include "director/bdirector.h"
 
 /**
@@ -32,13 +33,6 @@ public:
 
 private slots:
     /**
-     * @brief Empfängt Job-Log-Daten vom Director
-     * @param command Ausgeführter Befehl
-     * @param response Antwort vom Director
-     */
-    void onJobLogReceived(BDirector::Command cmd, const QString &response);
-
-    /**
      * @brief Kopiert ausgewählte Log-Zeilen in die Zwischenablage
      */
     void onCopySelected();
@@ -56,7 +50,7 @@ private:
     BDirector *m_director;
     quint64 m_jobId;
 
-    QListView *m_logListView;
+    BJobLogView *m_logListView;
     BJobLogModel *m_logModel;
     QPushButton *m_copyButton;
     QPushButton *m_selectAllButton;

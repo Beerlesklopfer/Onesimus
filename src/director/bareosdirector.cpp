@@ -110,6 +110,7 @@ void BareosDirector::initialize()
                      this, &BareosDirector::onGrpcCommandFinished);
     QObject::connect(m_grpc, &BGrpcTransport::jobStatusEvent, this, &BareosDirector::onGrpcJobStatus);
     QObject::connect(m_grpc, &BGrpcTransport::eventMessage, this, &BareosDirector::statusMessage);
+    QObject::connect(m_grpc, &BGrpcTransport::jobMessage, this, &BareosDirector::jobMessage);
     QObject::connect(m_grpc, &BGrpcTransport::connectionLost,
                      this, &BareosDirector::onGrpcConnectionLost);
 #endif
@@ -1151,6 +1152,10 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
         detectAndMarkResourceLoaded(message);
 
         emit jsonResult(m_lastCommandEnum, message);
+        if (hasQueuedCommand && currentEntry.cmd == Command::ListJobId) {
+            // The reply itself does not name its job; the queued command does
+            emit jobLogResult(currentEntry.args.trimmed().section(' ', 0, 0).toULongLong(), message);
+        }
         routeTypedResponse(message);
 
         // Track command completion
@@ -1197,6 +1202,9 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
             BLOG_DEBUG() << jsonPart;
 #endif
             emit jsonResult(m_lastCommandEnum, jsonPart);
+            if (hasQueuedCommand && currentEntry.cmd == Command::ListJobId) {
+                emit jobLogResult(currentEntry.args.trimmed().section(' ', 0, 0).toULongLong(), jsonPart);
+            }
             routeTypedResponse(jsonPart);
 
             // Track command completion
@@ -2224,8 +2232,8 @@ void BareosDirector::onGrpcCommandFinished(const QString &commandLine, bool succ
 
 void BareosDirector::onGrpcJobStatus(int jobId, const QString &jobName, const QString &status)
 {
-    Q_UNUSED(jobName)
     emit jobStatusChanged(jobId, parseJobStatus(status));
+    emit jobStatusEvent(quint64(jobId), jobName, status);
 }
 
 void BareosDirector::onGrpcConnectionLost(const QString &reason)
