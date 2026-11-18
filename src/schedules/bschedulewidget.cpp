@@ -12,6 +12,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDate>
+#include <QSet>
 #include <QHeaderView>
 #include <QScrollBar>
 #include <QStyle>
@@ -37,13 +38,14 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_dayViewCombo(new QComboBox(this))
     , m_prevDayButton(new QToolButton(this))
     , m_nextDayButton(new QToolButton(this))
+    , m_todayButton(new QToolButton(this))
     , m_dayLabel(new QLabel(this))
     , m_snapCombo(new QComboBox(this))
     , m_collisionLabel(new QLabel(this))
     , m_runProblemLabel(new QLabel(this))
     , m_jobScheduleIndex(new BJobScheduleIndex(this))
     , m_director(nullptr)
-    , m_currentDay(QDate::currentDate().dayOfWeek() - 1)  // Qt: 1=Mon → 0=Mon
+    , m_currentDate(QDate::currentDate())
 {
     setupUI();
     m_fdGanttWidget->setDurationStats(m_durationStats);
@@ -92,12 +94,21 @@ void BScheduleWidget::setupUI()
     m_nextDayButton->setText(QStringLiteral("\u25B6"));  // ▶
     m_nextDayButton->setStyleSheet(navBtnStyle);
 
-    m_dayLabel->setFixedWidth(80);
+    m_prevDayButton->setToolTip(tr("Previous day or week"));
+    m_nextDayButton->setToolTip(tr("Next day or week"));
+    m_todayButton->setText(tr("Today"));
+    m_todayButton->setStyleSheet(navBtnStyle);
+    m_todayButton->setToolTip(tr("Show today or the current week"));
+
+    // Wide enough for a week: "2026-11-16 - 2026-11-22"
+    m_dayLabel->setMinimumWidth(170);
     m_dayLabel->setAlignment(Qt::AlignCenter);
+    m_dayLabel->setToolTip(tr("The date or the week (Monday to Sunday) on display"));
 
     toolbarLayout->addWidget(m_prevDayButton);
     toolbarLayout->addWidget(m_dayLabel);
     toolbarLayout->addWidget(m_nextDayButton);
+    toolbarLayout->addWidget(m_todayButton);
 
     toolbarLayout->addSpacing(10);
 
@@ -221,7 +232,20 @@ void BScheduleWidget::setupUI()
     m_gridScrollArea->setWidgetResizable(true);
     m_gridScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_gridScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    m_viewStack->addWidget(m_gridScrollArea);    // index 1 = Grid
+
+    // Below the grid: the Run lines that have no run in the week on display,
+    // so that they do not go unnoticed
+    QWidget *gridPane = new QWidget(this);
+    QVBoxLayout *gridLayout = new QVBoxLayout(gridPane);
+    gridLayout->setContentsMargins(0, 0, 0, 0);
+    gridLayout->setSpacing(2);
+    gridLayout->addWidget(m_gridScrollArea, 1);
+    m_outsideWeekLabel = new QLabel(gridPane);
+    m_outsideWeekLabel->setWordWrap(true);
+    m_outsideWeekLabel->setTextFormat(Qt::PlainText);
+    m_outsideWeekLabel->setVisible(false);
+    gridLayout->addWidget(m_outsideWeekLabel);
+    m_viewStack->addWidget(gridPane);            // index 1 = Grid
 
     rightLayout->addWidget(m_viewStack, 1);
 
@@ -257,6 +281,8 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onDayNavigationPrev);
     connect(m_nextDayButton, &QToolButton::clicked,
             this, &BScheduleWidget::onDayNavigationNext);
+    connect(m_todayButton, &QToolButton::clicked,
+            this, &BScheduleWidget::onDayNavigationToday);
     connect(m_snapCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BScheduleWidget::onSnapChanged);
     connect(m_zoomSlider, &QSlider::valueChanged,
@@ -299,7 +325,7 @@ void BScheduleWidget::setupUI()
     int dayViewMode = s.schedulesDayViewMode();
     m_dayViewCombo->setCurrentIndex(dayViewMode);
 
-    m_currentDay = s.schedulesCurrentDay();
+    // The date on display is not restored: a session starts with today
 
     // Populate snap combo for the restored view mode, then restore index
     BScheduleGanttWidget::ViewMode ganttViewMode = (dayViewMode == 0)
@@ -322,14 +348,9 @@ void BScheduleWidget::setupUI()
         m_ganttSplitter->restoreState(ganttSplitterState);
     }
 
-    // Update day label
-    static const QStringList dayNames = {
-        tr("Monday"), tr("Tuesday"), tr("Wednesday"), tr("Thursday"),
-        tr("Friday"), tr("Saturday"), tr("Sunday")
-    };
-    m_dayLabel->setText(dayNames.value(m_currentDay));
-    m_fdGanttWidget->setCurrentDay(m_currentDay);
-    m_sdGanttWidget->setCurrentDay(m_currentDay);
+    m_fdGanttWidget->setCurrentDate(m_currentDate);
+    m_sdGanttWidget->setCurrentDate(m_currentDate);
+    updateDateLabel();
 }
 
 void BScheduleWidget::setConnectionState(bool connected)
@@ -351,6 +372,7 @@ void BScheduleWidget::clearData()
     m_durationStats->clear();
     m_collisionLabel->setVisible(false);
     m_runProblemLabel->setVisible(false);
+    m_outsideWeekLabel->setVisible(false);
 }
 
 void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
@@ -501,9 +523,9 @@ void BScheduleWidget::processShowSchedulesResponse(const QString &jsonData)
 
     m_refreshButton->setEnabled(m_director != nullptr);
 
-    int entryCount = m_scheduleModel->allEntries().size();
-    emit statusMessageChanged(tr("%1 schedules loaded (%2 run entries)")
-        .arg(m_scheduleList->count()).arg(entryCount));
+    int runLineCount = m_scheduleModel->runLineCount();
+    emit statusMessageChanged(tr("%1 schedules loaded (%2 Run lines)")
+        .arg(m_scheduleList->count()).arg(runLineCount));
 
     updateRunProblems();
     updateFilteredViews();
@@ -634,12 +656,11 @@ void BScheduleWidget::onViewModeChanged(int index)
     m_viewStack->setCurrentIndex(index);
 
     // Show/hide Gantt-specific controls
+    // The date navigation stays: the grid shows a concrete week too
     bool isGantt = (index == 0);
     m_dayViewCombo->setVisible(isGantt);
-    m_prevDayButton->setVisible(isGantt);
-    m_dayLabel->setVisible(isGantt);
-    m_nextDayButton->setVisible(isGantt);
     m_snapCombo->setVisible(isGantt);
+    updateDateLabel();
     bool isWeekGantt = isGantt && (m_dayViewCombo->currentIndex() == 1);
     m_zoomLabel->setVisible(isWeekGantt);
     m_zoomSlider->setVisible(isWeekGantt);
@@ -666,8 +687,9 @@ void BScheduleWidget::onDayViewModeChanged(int index)
         m_sdGanttWidget->setZoomLevel(m_zoomSlider->value());
     }
 
-    m_prevDayButton->setEnabled(index == 0);
-    m_nextDayButton->setEnabled(index == 0);
+    // Day and week show different dates: the label and the entries follow
+    updateDateLabel();
+    updateGanttEntries();
 
     // Show zoom slider only in week mode
     bool isWeek = (mode == BScheduleGanttWidget::WeekView);
@@ -680,30 +702,57 @@ void BScheduleWidget::onDayViewModeChanged(int index)
     BSettings::instance().setSchedulesDayViewMode(index);
 }
 
+bool BScheduleWidget::showsWeek() const
+{
+    return m_viewModeCombo->currentIndex() == 1 || m_dayViewCombo->currentIndex() == 1;
+}
+
 void BScheduleWidget::onDayNavigationPrev()
 {
-    m_currentDay = (m_currentDay + 6) % 7;  // wrap backwards
-    static const QStringList dayNames = {
-        tr("Monday"), tr("Tuesday"), tr("Wednesday"), tr("Thursday"),
-        tr("Friday"), tr("Saturday"), tr("Sunday")
-    };
-    m_dayLabel->setText(dayNames.value(m_currentDay));
-    m_fdGanttWidget->setCurrentDay(m_currentDay);
-    m_sdGanttWidget->setCurrentDay(m_currentDay);
-    BSettings::instance().setSchedulesCurrentDay(m_currentDay);
+    setCurrentDate(m_currentDate.addDays(showsWeek() ? -7 : -1));
 }
 
 void BScheduleWidget::onDayNavigationNext()
 {
-    m_currentDay = (m_currentDay + 1) % 7;
-    static const QStringList dayNames = {
-        tr("Monday"), tr("Tuesday"), tr("Wednesday"), tr("Thursday"),
-        tr("Friday"), tr("Saturday"), tr("Sunday")
+    setCurrentDate(m_currentDate.addDays(showsWeek() ? 7 : 1));
+}
+
+void BScheduleWidget::onDayNavigationToday()
+{
+    setCurrentDate(QDate::currentDate());
+}
+
+void BScheduleWidget::setCurrentDate(const QDate &date)
+{
+    if (!date.isValid() || date == m_currentDate) return;
+
+    m_currentDate = date;
+    m_fdGanttWidget->setCurrentDate(date);
+    m_sdGanttWidget->setCurrentDate(date);
+    updateDateLabel();
+
+    // Other dates, other runs
+    updateFilteredViews();
+    updateGanttEntries();
+}
+
+void BScheduleWidget::updateDateLabel()
+{
+    static const QStringList dayAbbrev = {
+        tr("Mon"), tr("Tue"), tr("Wed"), tr("Thu"),
+        tr("Fri"), tr("Sat"), tr("Sun")
     };
-    m_dayLabel->setText(dayNames.value(m_currentDay));
-    m_fdGanttWidget->setCurrentDay(m_currentDay);
-    m_sdGanttWidget->setCurrentDay(m_currentDay);
-    BSettings::instance().setSchedulesCurrentDay(m_currentDay);
+
+    if (showsWeek()) {
+        const QDate monday = BScheduleGanttWidget::firstDateFor(
+            BScheduleGanttWidget::WeekView, m_currentDate);
+        m_dayLabel->setText(QString("%1 \u2013 %2")
+            .arg(monday.toString(Qt::ISODate), monday.addDays(6).toString(Qt::ISODate)));
+    } else {
+        m_dayLabel->setText(QString("%1 %2")
+            .arg(dayAbbrev.value(m_currentDate.dayOfWeek() - 1),  // Qt: 1=Mon
+                 m_currentDate.toString(Qt::ISODate)));
+    }
 }
 
 void BScheduleWidget::onCollisionsDetected(int count)
@@ -974,32 +1023,33 @@ void BScheduleWidget::updateSnapComboForViewMode(BScheduleGanttWidget::ViewMode 
     m_sdGanttWidget->setSnapMinutes(minutes);
 }
 
-void BScheduleWidget::updateGanttEntries()
+QList<BSchedule> BScheduleWidget::checkedSchedules() const
 {
-    QList<BScheduleEntry> entries = m_scheduleModel->allEntries();
-
-    // Enrich entries with job data (jobName, client, storage) from job→schedule index
-    if (m_jobScheduleIndex->isValid()) {
-        entries = m_jobScheduleIndex->enrichEntries(entries);
-    }
-
-    // Filter by checked schedules
-    QSet<QString> checkedSchedules;
+    QList<BSchedule> schedules;
     for (int i = 0; i < m_scheduleList->count(); ++i) {
         QListWidgetItem *item = m_scheduleList->item(i);
         if (item->checkState() == Qt::Checked) {
-            checkedSchedules.insert(item->text());
+            schedules.append(m_scheduleModel->schedule(item->text()));
         }
     }
-    if (!checkedSchedules.isEmpty()) {
-        QList<BScheduleEntry> filtered;
-        for (const BScheduleEntry &e : entries) {
-            if (checkedSchedules.contains(e.scheduleName)) {
-                filtered.append(e);
-            }
-        }
-        entries = filtered;
+    return schedules;
+}
+
+void BScheduleWidget::updateGanttEntries()
+{
+    // Filter by checked schedules; none checked shows all of them
+    QList<BSchedule> schedules = checkedSchedules();
+    if (schedules.isEmpty()) {
+        schedules = m_scheduleModel->schedules();
     }
+
+    // The dates the timelines show: one day, or the week it is in
+    const QDate first = m_fdGanttWidget->firstDate();
+    const QDateTime from = first.startOfDay();
+    const QDateTime to = first.addDays(m_fdGanttWidget->dayCount()).startOfDay();
+
+    // What really starts on these dates, once per job that runs it
+    QList<BScheduleEntry> entries = m_jobScheduleIndex->entriesFor(schedules, from, to);
 
     // Enrich with level-specific duration estimates
     for (BScheduleEntry &e : entries) {
@@ -1009,7 +1059,7 @@ void BScheduleWidget::updateGanttEntries()
         }
     }
 
-    // Both widgets receive the identical enriched list
+    // Both widgets receive the identical list
     m_fdGanttWidget->setEntries(entries);
     m_sdGanttWidget->setEntries(entries);
 }
@@ -1074,25 +1124,53 @@ void BScheduleWidget::onScheduleCheckChanged(QListWidgetItem *item)
 
 void BScheduleWidget::updateFilteredViews()
 {
-    // Build set of checked schedule names
-    QSet<QString> checkedSchedules;
-    for (int i = 0; i < m_scheduleList->count(); ++i) {
-        QListWidgetItem *item = m_scheduleList->item(i);
-        if (item->checkState() == Qt::Checked) {
-            checkedSchedules.insert(item->text());
+    // The grid shows the week (Monday to Sunday) of the date on display
+    const QDate monday = BScheduleGanttWidget::firstDateFor(
+        BScheduleGanttWidget::WeekView, m_currentDate);
+    const QDateTime from = monday.startOfDay();
+    const QDateTime to = monday.addDays(7).startOfDay();
+
+    QList<BScheduleEntry> entries;
+    QStringList outside;    // Understood Run lines without a run in this week
+
+    for (const BSchedule &schedule : checkedSchedules()) {
+        const QList<BOccurrence> occurrences =
+            BScheduleOccurrences::occurrences(schedule, from, to);
+        entries.append(BScheduleEntry::fromOccurrences(schedule, occurrences));
+
+        QSet<int> ran;
+        for (const BOccurrence &occurrence : occurrences) {
+            ran.insert(occurrence.run);
+        }
+        for (int i = 0; i < schedule.runs.size(); ++i) {
+            const BRunLine &line = schedule.runs[i];
+            if (!line.spec || ran.contains(i)) continue;
+
+            const QDateTime next = BScheduleOccurrences::next(*line.spec, to);
+            outside.append(next.isValid()
+                ? tr("%1: %2 (next run after this week: %3)")
+                      .arg(schedule.name, line.original, next.date().toString(Qt::ISODate))
+                : tr("%1: %2 (no run in the ten years after this week)")
+                      .arg(schedule.name, line.original));
         }
     }
 
-    // Use the same pre-parsed entries that the Gantt uses
-    QList<BScheduleEntry> allEntries = m_scheduleModel->allEntries();
-    QList<BScheduleEntry> filtered;
-    for (const BScheduleEntry &e : allEntries) {
-        if (checkedSchedules.contains(e.scheduleName)) {
-            filtered.append(e);
-        }
-    }
+    m_weeklyPlanner->setWeek(monday, entries);
 
-    m_weeklyPlanner->setEntries(filtered);
+    // A run that is not in this week is not in the grid. Say so, or the
+    // schedule looks as if it had fewer runs than it has.
+    m_outsideWeekLabel->setVisible(!outside.isEmpty());
+    if (!outside.isEmpty()) {
+        const int shown = qMin(3, outside.size());
+        QString text = tr("%n Run line(s) of the shown schedules do not run in this week:",
+                          "", outside.size())
+                       + " " + outside.mid(0, shown).join("; ");
+        if (outside.size() > shown) {
+            text += " " + tr("... (all of them in the tooltip)");
+        }
+        m_outsideWeekLabel->setText(text);
+        m_outsideWeekLabel->setToolTip(outside.join("\n"));
+    }
 }
 
 void BScheduleWidget::onFdDragCompleted(

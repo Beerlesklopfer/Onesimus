@@ -110,39 +110,38 @@ int BJobScheduleIndex::sharedCount(const QString &scheduleName) const
     return m_scheduleToJobs.count(scheduleName);
 }
 
-QList<BScheduleEntry> BJobScheduleIndex::enrichEntries(const QList<BScheduleEntry> &entries) const
+QList<BScheduleEntry> BJobScheduleIndex::entriesFor(const QList<BSchedule> &schedules,
+                                                    const QDateTime &from,
+                                                    const QDateTime &to) const
 {
-    if (!m_valid) return entries;
-
     QList<BScheduleEntry> result;
-    result.reserve(entries.size());
 
-    for (const BScheduleEntry &entry : entries) {
-        QList<JobRef> jobs = m_scheduleToJobs.values(entry.scheduleName);
+    for (const BSchedule &schedule : schedules) {
+        // What runs when in these dates, once per schedule
+        const QList<BScheduleEntry> runs = BScheduleEntry::fromOccurrences(
+            schedule, BScheduleOccurrences::occurrences(schedule, from, to));
+        if (runs.isEmpty())
+            continue;
 
+        const QList<JobRef> jobs = m_valid ? m_scheduleToJobs.values(schedule.name)
+                                           : QList<JobRef>();
         if (jobs.isEmpty()) {
-            // No job references this schedule — keep as-is (orphan)
-            result.append(entry);
-        } else if (jobs.size() == 1) {
-            // Exactly one job — enrich in place
-            BScheduleEntry enriched = entry;
-            const JobRef &ref = jobs.first();
-            if (enriched.jobName.isEmpty()) enriched.jobName = ref.jobName;
-            if (enriched.client.isEmpty()) enriched.client = ref.client;
-            if (enriched.storage.isEmpty()) enriched.storage = ref.storage;
-            if (enriched.pool.isEmpty()) enriched.pool = ref.pool;
-            if (enriched.priority == 10 && ref.priority != 10) enriched.priority = ref.priority;
-            result.append(enriched);
-        } else {
-            // Multiple jobs share this schedule — clone entry for each job
-            for (const JobRef &ref : jobs) {
-                BScheduleEntry clone = entry;
-                clone.jobName = ref.jobName;
-                if (clone.client.isEmpty()) clone.client = ref.client;
-                if (clone.storage.isEmpty()) clone.storage = ref.storage;
-                if (clone.pool.isEmpty()) clone.pool = ref.pool;
-                if (clone.priority == 10 && ref.priority != 10) clone.priority = ref.priority;
-                result.append(clone);
+            // No job uses this schedule, or the jobs are not known yet
+            result.append(runs);
+            continue;
+        }
+
+        // Each job that uses the schedule runs each of its runs. What the
+        // Run line overrides (pool, storage, priority) wins over the job.
+        for (const JobRef &ref : jobs) {
+            for (const BScheduleEntry &run : runs) {
+                BScheduleEntry entry = run;
+                entry.jobName = ref.jobName;
+                entry.client = ref.client;
+                if (entry.storage.isEmpty()) entry.storage = ref.storage;
+                if (entry.pool.isEmpty()) entry.pool = ref.pool;
+                if (entry.priority == 10 && ref.priority != 10) entry.priority = ref.priority;
+                result.append(entry);
             }
         }
     }

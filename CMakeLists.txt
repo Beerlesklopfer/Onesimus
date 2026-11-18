@@ -479,6 +479,7 @@ set(SOURCES
     src/schedules/bscheduledragresultdialog.cpp
     src/schedules/model/brunparser.cpp
     src/schedules/model/brunwriter.cpp
+    src/schedules/model/bscheduleoccurrences.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -585,6 +586,7 @@ set(HEADERS
     include/schedules/bscheduledragplan.h
     include/schedules/bscheduledragresultdialog.h
     include/schedules/model/brunspec.h
+    include/schedules/model/bscheduleoccurrences.h
 
     include/messages/bmessageswidget.h
 
@@ -1414,11 +1416,13 @@ if(BUILD_TESTING)
         src/schedules/bscheduledragplan.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
+        src/schedules/model/bscheduleoccurrences.cpp
         src/models/bresourcemodels.cpp
         src/models/bbasemodels.cpp
         src/config/bconfigparser.cpp
         include/schedules/bscheduledragplan.h
         include/schedules/model/brunspec.h
+        include/schedules/model/bscheduleoccurrences.h
         include/models/bresourcemodels.h
         include/models/bbasemodels.h
         include/config/bconfigparser.h
@@ -1435,6 +1439,38 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bscheduledragplan_test COMMAND bscheduledragplan_test)
+
+    # bscheduleoccurrences_test - when the Run lines of a schedule trigger on
+    # concrete dates (weeks of the month and of the year, daylight saving),
+    # collisions on concrete dates, and the entries the schedule views get
+    add_executable(bscheduleoccurrences_test
+        test/bscheduleoccurrences_test.cpp
+        src/schedules/model/bscheduleoccurrences.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        src/schedules/bjobscheduleindex.cpp
+        src/models/bresourcemodels.cpp
+        src/models/bbasemodels.cpp
+        src/config/bconfigparser.cpp
+        include/schedules/model/bscheduleoccurrences.h
+        include/schedules/model/brunspec.h
+        include/schedules/bjobscheduleindex.h
+        include/models/bresourcemodels.h
+        include/models/bbasemodels.h
+        include/config/bconfigparser.h
+    )
+
+    target_include_directories(bscheduleoccurrences_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bscheduleoccurrences_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+    )
+
+    add_test(NAME bscheduleoccurrences_test COMMAND bscheduleoccurrences_test)
 
     # bmessagesmodel_test - row signals of the Director messages list at its history limit
     add_executable(bmessagesmodel_test
@@ -1498,6 +1534,7 @@ if(BUILD_TESTING)
     message(STATUS "  bcommandlineconnection_test - command line TLS/password option test (registered with CTest)")
     message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
     message(STATUS "  bscheduledragplan_test - schedule drag Run line comparison test (registered with CTest)")
+    message(STATUS "  bscheduleoccurrences_test - schedule run dates and collision test (registered with CTest)")
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
 endif()

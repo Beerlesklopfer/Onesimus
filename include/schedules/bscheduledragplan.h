@@ -33,7 +33,7 @@ enum class Reason {
     SeveralHours,           ///< The dragged line runs at several hours and has one minute for all
     BadTime,                ///< The new time is not a time of day
     DraggedLineNotFound,    ///< No original line matches the dragged entry
-    DraggedLineAmbiguous,   ///< Several original lines match the dragged entry
+    DraggedLineAmbiguous,   ///< Several original lines match the dragged entry and its position is not known
     WriteCheckFailed        ///< A generated line did not read back as intended
 };
 
@@ -67,7 +67,9 @@ bool sameRun(const QString &original, const QString &generated,
 /**
  * @brief The Run lines of a schedule after a drag
  * @param originalRuns Run lines of the schedule as the Director reported them
- * @param dragged      The dragged entry with its time before the drag
+ * @param dragged      The dragged entry with its time before the drag. Its
+ *                     runIndex, if set, names the line; otherwise the line
+ *                     is found by what it says.
  * @param newHour      Hour after the drag
  * @param newMinute    Minute after the drag
  *

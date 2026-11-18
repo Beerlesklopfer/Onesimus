@@ -20,6 +20,12 @@
  * Y-axis: Jobs grouped by Client/Schedule
  * X-axis: Time (24h day view or 7x24h week view)
  *
+ * The widget shows concrete dates: one day (currentDate()) or the week from
+ * Monday to Sunday that contains it. A bar is drawn for each start an entry
+ * has in these dates (BScheduleEntry::occurrences); the days of the week of
+ * an entry are not looked at. Whoever sets the entries works them out for
+ * firstDate() and dayCount() days (BJobScheduleIndex::entriesFor()).
+ *
  * Features:
  * - Job bars colored by backup level (Full=Green, Diff=Orange, Inc=Blue)
  * - Bar width represents estimated duration from historical data
@@ -50,6 +56,9 @@ public:
 
     /**
      * @brief Sets the schedule entries to display
+     *
+     * Each entry with its starts in the dates on display. An entry without
+     * a start in them has a row and no bar.
      */
     void setEntries(const QList<BScheduleEntry> &entries);
 
@@ -76,10 +85,18 @@ public:
     GroupMode groupMode() const { return m_groupMode; }
 
     /**
-     * @brief Sets the day to display (0=Monday for week view, specific day for day view)
+     * @brief Sets the date to display: that day, or in week view its week
+     *
+     * The entries have to be set again for the new dates.
      */
-    void setCurrentDay(int dayOfWeek);
-    int currentDay() const { return m_currentDay; }
+    void setCurrentDate(const QDate &date);
+    QDate currentDate() const { return m_currentDate; }
+
+    /// The first date on display and the number of days from it
+    QDate firstDate() const { return firstDateFor(m_viewMode, m_currentDate); }
+    int dayCount() const { return dayCountFor(m_viewMode); }
+    static QDate firstDateFor(ViewMode mode, const QDate &date);
+    static int dayCountFor(ViewMode mode) { return mode == WeekView ? 7 : 1; }
 
     /**
      * @brief Sets zoom level (pixels per hour)
@@ -95,8 +112,11 @@ public:
         Type type;
         BScheduleEntry entry1;
         BScheduleEntry entry2;
-        int startHour;
-        int startMinute;
+        int index1 = -1;            ///< Index of entry1 in entries()
+        int index2 = -1;            ///< Index of entry2 in entries()
+        /// Every pair of starts that really runs at the same time, in the
+        /// dates on display; never empty
+        QList<BRunOverlap> overlaps;
         QString description;
     };
     QList<Collision> collisions() const { return m_collisions; }
@@ -164,8 +184,7 @@ private:
     void drawTimeHeader(QPainter &painter);
     void drawNowMarker(QPainter &painter);
     void drawRows(QPainter &painter);
-    void drawJobBar(QPainter &painter, const BScheduleEntry &entry,
-                    int row, int dayOffset);
+    void drawJobBar(QPainter &painter, int entryIndex, int row, int dayOffset);
     void drawHeatmap(QPainter &painter);
     void drawCollisionMarkers(QPainter &painter);
 
@@ -193,6 +212,20 @@ private:
     // --- Collision detection ---
     void detectCollisions();
 
+    // --- Dates and durations ---
+    /// The days on display on which the entry starts, 0 = firstDate()
+    QVector<int> dayOffsets(const BScheduleEntry &entry) const;
+
+    enum DurationUse { ForDisplay, ForCollision };
+    /**
+     * @brief How long a run of this entry is taken to last, in seconds
+     *
+     * The one place the views take a duration from: the estimate on the
+     * entry if there is one, otherwise a fixed figure (for display by
+     * level, for collisions one hour). Measured durations replace this.
+     */
+    int durationSecs(const BScheduleEntry &entry, DurationUse use) const;
+
     // --- Colors ---
     QColor colorForLevel(BScheduleEntry::BackupLevel level, bool hovered = false) const;
 
@@ -216,7 +249,7 @@ private:
     // --- View state ---
     ViewMode m_viewMode = DayView;
     GroupMode m_groupMode = GroupBySchedule;
-    int m_currentDay = 0;  // 0=Monday
+    QDate m_currentDate = QDate::currentDate();
     int m_pixelsPerHour = 60;  // recalculated dynamically in resizeEvent
     int m_zoomMinPph = MIN_PIXELS_PER_HOUR;  // minimum px/h from zoom slider
 

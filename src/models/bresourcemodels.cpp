@@ -724,6 +724,57 @@ BScheduleEntry BScheduleEntry::fromRunLine(const BRunLine &line)
     return entry;
 }
 
+QList<BScheduleEntry> BScheduleEntry::fromOccurrences(const BSchedule &schedule,
+                                                      const QList<BOccurrence> &occurrences)
+{
+    // Key: Run line, hour of the day. A line with several hours has one
+    // minute for all of them and gives one entry per hour.
+    QMap<QPair<int, int>, BScheduleEntry> byLineAndHour;
+
+    for (const BOccurrence &occurrence : occurrences) {
+        if (occurrence.run < 0 || occurrence.run >= schedule.runs.size())
+            continue;
+        const BRunLine &line = schedule.runs[occurrence.run];
+        if (!line.spec)
+            continue;
+
+        const int hour = occurrence.when.time().hour();
+        const QPair<int, int> key(occurrence.run, hour);
+        auto it = byLineAndHour.find(key);
+        if (it == byLineAndHour.end()) {
+            BScheduleEntry entry = fromRunLine(line);
+            entry.scheduleName = schedule.name;
+            entry.runIndex = occurrence.run;
+            entry.hour = hour;
+            it = byLineAndHour.insert(key, entry);
+        }
+        it->occurrences.append(occurrence.when);
+    }
+
+    QList<BScheduleEntry> result = byLineAndHour.values();
+    for (BScheduleEntry &entry : result)
+        std::sort(entry.occurrences.begin(), entry.occurrences.end());
+    return result;
+}
+
+bool BScheduleEntry::occursOn(const QDate &date) const
+{
+    for (const QDateTime &when : occurrences) {
+        if (when.date() == date)
+            return true;
+    }
+    return false;
+}
+
+bool BScheduleEntry::sharesDateWith(const BScheduleEntry &other) const
+{
+    for (const QDateTime &when : occurrences) {
+        if (other.occursOn(when.date()))
+            return true;
+    }
+    return false;
+}
+
 QString BScheduleEntry::levelToString(BackupLevel level)
 {
     switch (level) {
@@ -791,10 +842,10 @@ void BScheduleModel::parseSchedules(const QString &jsonResponse)
     }
 
     setData(doc, "schedules");
-    rebuildEntries();
+    rebuildSchedules();
 
     BLOG_DEBUG() << "BScheduleModel: Loaded" << m_scheduleConfigs.size()
-                 << "schedules with" << m_entries.size() << "run entries";
+                 << "schedules with" << runLineCount() << "Run lines";
 }
 
 QStringList BScheduleModel::scheduleNames() const
@@ -815,21 +866,23 @@ QJsonObject BScheduleModel::scheduleByName(const QString &name) const
     return m_scheduleConfigs.value(name);
 }
 
-QList<BScheduleEntry> BScheduleModel::entriesForSchedule(const QString &scheduleName) const
+BSchedule BScheduleModel::schedule(const QString &name) const
 {
-    QList<BScheduleEntry> result;
-    for (const BScheduleEntry &entry : m_entries) {
-        if (entry.scheduleName == scheduleName) {
-            result.append(entry);
-        }
-    }
-    return result;
+    return m_schedules.value(name);
+}
+
+int BScheduleModel::runLineCount() const
+{
+    int count = 0;
+    for (const BSchedule &schedule : m_schedules)
+        count += schedule.runs.size();
+    return count;
 }
 
 QStringList BScheduleModel::runDirectives(const QString &scheduleName) const
 {
     const QJsonObject schedule = m_scheduleConfigs.value(scheduleName);
-    // Same keys and the same filter as rebuildEntries()
+    // Same keys and the same filter as rebuildSchedules()
     QJsonArray runs = schedule["run"].toArray();
     if (runs.isEmpty()) {
         runs = schedule["Run"].toArray();
@@ -849,63 +902,54 @@ QString BScheduleModel::getDisplayText(const QJsonObject &item) const
     return item["name"].toString();
 }
 
-void BScheduleModel::rebuildEntries()
+void BScheduleModel::rebuildSchedules()
 {
-    m_entries.clear();
+    m_schedules.clear();
     m_runProblems.clear();
 
     for (auto it = m_scheduleConfigs.constBegin(); it != m_scheduleConfigs.constEnd(); ++it) {
-        const QString &scheduleName = it.key();
-        // Bareos API may use "run" (compact) or "Run" (standard)
-        QJsonArray runs = it.value()["run"].toArray();
-        if (runs.isEmpty()) {
-            runs = it.value()["Run"].toArray();
+        BSchedule schedule;
+        schedule.name = it.key();
+        schedule.description = it.value()["description"].toString();
+        // Only an explicit "no" disables; the form the Director reports it
+        // in is not known for certain, so both are read
+        const QJsonValue enabled = it.value()["enabled"];
+        if (enabled.isBool()) {
+            schedule.enabled = enabled.toBool();
+        } else if (enabled.isString()) {
+            const QString text = enabled.toString().trimmed().toLower();
+            schedule.enabled = !(text == QLatin1String("no") || text == QLatin1String("false")
+                                 || text == QLatin1String("0"));
         }
 
-#ifdef DEBUG_JSON
-        BLOG_DEBUG() << "BScheduleModel::rebuildEntries: Schedule" << scheduleName
-                     << "has" << runs.size() << "run directives";
-#endif
-
-        int lineNumber = 0;
-        for (const QJsonValue &runVal : runs) {
-            if (!runVal.isString()) continue;
-            ++lineNumber;
+        // One BRunLine per Run directive, in the Director's order: the
+        // index of a line here is its index in runDirectives()
+        const QStringList runs = runDirectives(schedule.name);
+        for (int i = 0; i < runs.size(); ++i) {
+            const BRunLine line = BRunParser::parse(runs[i]);
+            schedule.runs.append(line);
 
 #ifdef DEBUG_JSON
-            BLOG_DEBUG() << "  Run directive:" << runVal.toString();
+            BLOG_DEBUG() << "BScheduleModel: Schedule" << schedule.name
+                         << "Run directive:" << runs[i];
 #endif
-
-            BScheduleEntry entry = BScheduleEntry::fromRunDirective(runVal.toString());
-            entry.scheduleName = scheduleName;
 
             // A line that is not understood has no time and no day to show.
             // It is reported, not dropped and not shown as something else.
-            if (entry.notUnderstood()) {
+            if (!line.understood()) {
                 BRunProblem problem;
-                problem.scheduleName = scheduleName;
-                problem.line = lineNumber;
-                problem.text = entry.source.original;
-                problem.error = entry.source.parseError;
+                problem.scheduleName = schedule.name;
+                problem.line = i + 1;
+                problem.text = line.original;
+                problem.error = line.parseError;
                 m_runProblems.append(problem);
-                BLOG_WARNING() << "BScheduleModel: Run line" << lineNumber << "of schedule"
-                               << scheduleName << "not understood:" << problem.text
+                BLOG_WARNING() << "BScheduleModel: Run line" << problem.line << "of schedule"
+                               << schedule.name << "not understood:" << problem.text
                                << "-" << problem.error;
-                continue;
             }
-
-            // One entry per hour the line names ("hourly": 24 of them)
-            for (int hour : entry.source.spec->hours()) {
-                entry.hour = hour;
-                m_entries.append(entry);
-            }
-
-#ifdef DEBUG_JSON
-            BLOG_DEBUG() << "    -> level:" << entry.levelLabel()
-                         << "hour:" << entry.hour << "min:" << entry.minute
-                         << "days:" << entry.daysOfWeek;
-#endif
         }
+
+        m_schedules.insert(schedule.name, schedule);
     }
 }
 

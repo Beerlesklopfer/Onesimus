@@ -53,11 +53,21 @@ Plan plan(const QStringList &originalRuns, const BScheduleEntry &dragged,
     // Which original line was dragged? The one that says what the entry's
     // own line says and runs at the entry's hour. Pool, storage and priority
     // of the entry may have been filled in from the job and do not count.
-    if (dragged.source.spec) {
+    //
+    // An entry of the views knows the position of its line in the schedule
+    // (BScheduleEntry::runIndex). It is taken if the line there still is
+    // the entry's line; that also tells two lines apart that say the same.
+    // If the Run lines have changed since, the line is looked for.
+    auto isDraggedLine = [&](int i) {
+        return *lines[i].spec == *dragged.source.spec
+            && lines[i].spec->hours().contains(dragged.hour);
+    };
+    if (dragged.source.spec && dragged.runIndex >= 0 && dragged.runIndex < lines.size()
+        && isDraggedLine(dragged.runIndex)) {
+        result.draggedLine = dragged.runIndex;
+    } else if (dragged.source.spec) {
         for (int i = 0; i < lines.size(); ++i) {
-            if (*lines[i].spec != *dragged.source.spec)
-                continue;
-            if (!lines[i].spec->hours().contains(dragged.hour))
+            if (!isDraggedLine(i))
                 continue;
             if (result.draggedLine >= 0)
                 return refuse(Reason::DraggedLineAmbiguous, i);

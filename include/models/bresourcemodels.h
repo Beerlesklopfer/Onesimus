@@ -4,6 +4,7 @@
 #include "models/bbasemodels.h"
 #include "config/bconfigparser.h"
 #include "schedules/model/brunspec.h"
+#include "schedules/model/bscheduleoccurrences.h"
 #include <QMap>
 #include <QJsonObject>
 #include <QVector>
@@ -257,6 +258,10 @@ private:
  * line can say (months, days of the month, weeks of the year, several
  * hours). An entry read from a line is therefore always written as that
  * line (toRunLine()); to change a run, make a new entry without a source.
+ *
+ * The views do not show an entry by its days of the week: they show its
+ * @ref occurrences, the concrete starts in the dates on display
+ * (fromOccurrences()).
  */
 struct BScheduleEntry
 {
@@ -291,6 +296,20 @@ struct BScheduleEntry
      * spec the line was not understood: the other fields then say nothing.
      */
     BRunLine source;
+
+    /// Position of @ref source among the Run lines of its schedule
+    /// (BScheduleModel::runDirectives()); -1 if not known
+    int runIndex = -1;
+
+    /// The starts of this run at @ref hour in the dates a view displays,
+    /// in ascending order. Filled by fromOccurrences() only.
+    QList<QDateTime> occurrences;
+
+    /// Does it start on this date?
+    bool occursOn(const QDate &date) const;
+
+    /// Do both have a start on the same date?
+    bool sharesDateWith(const BScheduleEntry &other) const;
 
     /// Read from a Run line that the parser does not understand (also an empty one)
     bool notUnderstood() const
@@ -335,6 +354,18 @@ struct BScheduleEntry
     static BScheduleEntry fromRunLine(const BRunLine &line);
 
     /**
+     * @brief The entries a view shows for concrete dates
+     * @param schedule    The schedule
+     * @param occurrences Its starts in the dates on display
+     *                    (BScheduleOccurrences::occurrences())
+     * @return one entry per Run line and hour of the day that has a start,
+     *         ordered by line and hour, each with its starts. A line that
+     *         does not run in these dates gives no entry.
+     */
+    static QList<BScheduleEntry> fromOccurrences(const BSchedule &schedule,
+                                                 const QList<BOccurrence> &occurrences);
+
+    /**
      * @brief Returns human-readable level string
      */
     static QString levelToString(BackupLevel level);
@@ -364,8 +395,9 @@ struct BRunProblem
 /**
  * @brief List model for displaying Bareos schedules with parsed run entries
  *
- * Stores schedule data from .schedule dot-command and provides parsed
- * BScheduleEntry objects for use by Gantt visualization.
+ * Stores schedule data from .schedule dot-command and provides each
+ * schedule as a BSchedule with its Run lines read by BRunParser. What runs
+ * when is worked out from that for concrete dates (BScheduleOccurrences).
  */
 class BScheduleModel : public BListModel
 {
@@ -391,17 +423,18 @@ public:
     QJsonObject scheduleByName(const QString &name) const;
 
     /**
-     * @brief Returns all parsed schedule entries across all schedules
+     * @brief A schedule with its Run lines, understood or not
      *
-     * Each understood Run directive becomes one BScheduleEntry per hour it
-     * names. Lines that are not understood are in runProblems() instead.
+     * The lines are in the Director's order: index i of BSchedule::runs is
+     * index i of runDirectives(). An unknown name gives an empty schedule.
      */
-    QList<BScheduleEntry> allEntries() const { return m_entries; }
+    BSchedule schedule(const QString &name) const;
 
-    /**
-     * @brief Returns parsed entries for a specific schedule
-     */
-    QList<BScheduleEntry> entriesForSchedule(const QString &scheduleName) const;
+    /// All schedules, ordered by name
+    QList<BSchedule> schedules() const { return m_schedules.values(); }
+
+    /// The number of Run lines over all schedules, understood or not
+    int runLineCount() const;
 
     /**
      * @brief Returns the Run directives of a schedule as the Director reported them
@@ -421,10 +454,10 @@ protected:
     QString getDisplayText(const QJsonObject &item) const override;
 
 private:
-    void rebuildEntries();
+    void rebuildSchedules();
 
     QMap<QString, QJsonObject> m_scheduleConfigs;
-    QList<BScheduleEntry> m_entries;
+    QMap<QString, BSchedule> m_schedules;
     QList<BRunProblem> m_runProblems;
 };
 

@@ -13,6 +13,8 @@
 #include <QtTest>
 
 #include "models/bresourcemodels.h"
+#include <QTimeZone>
+
 #include "schedules/bscheduledragplan.h"
 
 using BScheduleDragPlan::Plan;
@@ -315,6 +317,27 @@ void BScheduleDragPlanTest::undeterminableCasesAreRefused()
     QCOMPARE(plan.reason, Reason::DraggedLineAmbiguous);
     QCOMPARE(plan.reasonLine, 1);
 
+    // An entry of the views knows the position of its line: then it is that
+    // line and no other, also among lines that say the same
+    BScheduleEntry second = entryOf(twice[1]);
+    second.runIndex = 1;
+    plan = BScheduleDragPlan::plan(twice, second, 20, 0);
+    QCOMPARE(plan.verdict, Verdict::Exact);
+    QCOMPARE(plan.draggedLine, 1);
+    QCOMPARE(plan.generatedRuns, QStringList({"Full sat at 21:00", "Level=Full sat at 20:00"}));
+
+    // A position that no longer holds the entry's line is not trusted: the
+    // line is looked for by what it says
+    const QStringList moved = {"Incremental mon-fri at 23:05", "Full sat at 21:00"};
+    BScheduleEntry stale = entryOf(moved[1]);
+    stale.runIndex = 0;
+    plan = BScheduleDragPlan::plan(moved, stale, 20, 0);
+    QCOMPARE(plan.verdict, Verdict::Exact);
+    QCOMPARE(plan.draggedLine, 1);
+    stale.runIndex = 7;
+    plan = BScheduleDragPlan::plan(moved, stale, 20, 0);
+    QCOMPARE(plan.draggedLine, 1);
+
     // A line that runs at several hours has one minute for all of them
     const QStringList hourly = {"Full sat at 21:00", "Incremental hourly at 0:15"};
     BScheduleEntry bar = entryOf(hourly[1]);
@@ -593,20 +616,55 @@ void BScheduleDragPlanTest::modelKeepsLinesNotUnderstoodApart()
     QCOMPARE(model.runDirectives("Cycle").size(), 5);
     QCOMPARE(model.runDirectives("Cycle")[1], QString("Full 1st sat at 21:00 pool=Monthly"));
 
-    // One entry per understood line and hour
-    const QList<BScheduleEntry> entries = model.entriesForSchedule("Cycle");
+    // The schedule: every line at its position, understood or not
+    const BSchedule cycle = model.schedule("Cycle");
+    QCOMPARE(cycle.name, QString("Cycle"));
+    QCOMPARE(cycle.runs.size(), 5);
+    for (int i = 0; i < 5; ++i)
+        QCOMPARE(cycle.runs[i].original, model.runDirectives("Cycle")[i]);
+    QVERIFY(cycle.runs[0].understood());
+    QVERIFY(!cycle.runs[1].understood());
+    QVERIFY(cycle.runs[2].understood());
+    QVERIFY(cycle.runs[3].understood());
+    QVERIFY(!cycle.runs[4].understood());
+    QCOMPARE(model.runLineCount(), 5);
+    QVERIFY(model.schedule("Unknown").runs.isEmpty());
+
+    // The entries of the views come from the starts on concrete dates: one
+    // per understood line and hour that runs in them. The week from Monday
+    // 2 November 2026 contains the first Saturday of the month (the 7th).
+    const QTimeZone utc = QTimeZone::utc();
+    const QDateTime from(QDate(2026, 11, 2), QTime(0, 0), utc);
+    const QList<BScheduleEntry> entries = BScheduleEntry::fromOccurrences(
+        cycle, BScheduleOccurrences::occurrences(cycle, from, from.addDays(7)));
     QCOMPARE(entries.size(), 4);
     QCOMPARE(entries[0].level, BScheduleEntry::Full);
     QCOMPARE(entries[0].pool, QString("Monthly"));
     QCOMPARE(entries[0].daysOfWeek, QVector<int>({5}));
+    QCOMPARE(entries[0].runIndex, 0);
+    QCOMPARE(entries[0].occurrences,
+             QList<QDateTime>({QDateTime(QDate(2026, 11, 7), QTime(21, 0), utc)}));
     QCOMPARE(entries[1].hour, 1);
+    QCOMPARE(entries[1].runIndex, 2);
+    QCOMPARE(entries[1].occurrences.size(), 7);
     QCOMPARE(entries[2].hour, 13);
     QCOMPARE(entries[2].minute, 15);
+    QCOMPARE(entries[2].runIndex, 2);
     QCOMPARE(entries[2].source.original, entries[1].source.original);
     QCOMPARE(entries[3].level, BScheduleEntry::None);   // not Incremental
     QCOMPARE(entries[3].daysOfWeek, QVector<int>({0, 1, 2, 3, 4}));
-    for (const BScheduleEntry &e : entries)
+    QCOMPARE(entries[3].runIndex, 3);
+    QCOMPARE(entries[3].occurrences.size(), 5);
+    for (const BScheduleEntry &e : entries) {
         QVERIFY(!e.notUnderstood());
+        QCOMPARE(e.scheduleName, QString("Cycle"));
+    }
+
+    // In the week after, the first Saturday is not there: no entry for it
+    const QList<BScheduleEntry> weekAfter = BScheduleEntry::fromOccurrences(
+        cycle, BScheduleOccurrences::occurrences(cycle, from.addDays(7), from.addDays(14)));
+    QCOMPARE(weekAfter.size(), 3);
+    QCOMPARE(weekAfter[0].runIndex, 2);
 
     // The line that is not understood is reported, not dropped and not shown
     const QList<BRunProblem> problems = model.runProblems();
@@ -621,7 +679,8 @@ void BScheduleDragPlanTest::modelKeepsLinesNotUnderstoodApart()
     // Read again: no stale problems
     model.parseSchedules(R"({"result":{"schedules":[{"name":"Cycle","run":["Full sat at 21:00"]}]}})");
     QVERIFY(model.runProblems().isEmpty());
-    QCOMPARE(model.allEntries().size(), 1);
+    QCOMPARE(model.schedules().size(), 1);
+    QCOMPARE(model.runLineCount(), 1);
 }
 
 void BScheduleDragPlanTest::messagesNamesFromJobsAndJobDefs()

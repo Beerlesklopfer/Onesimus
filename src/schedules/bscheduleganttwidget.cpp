@@ -79,12 +79,55 @@ void BScheduleGanttWidget::setGroupMode(GroupMode mode)
     update();
 }
 
-void BScheduleGanttWidget::setCurrentDay(int dayOfWeek)
+void BScheduleGanttWidget::setCurrentDate(const QDate &date)
 {
-    m_currentDay = qBound(0, dayOfWeek, 6);
+    if (!date.isValid() || date == m_currentDate) return;
+
+    // The bars of the entries belong to the dates shown so far
+    if (m_dragState != NoDrag) {
+        cancelDrag();
+    }
+
+    m_currentDate = date;
     recalcHeatmap();
     detectCollisions();
     update();
+}
+
+QDate BScheduleGanttWidget::firstDateFor(ViewMode mode, const QDate &date)
+{
+    // Week view: Monday to Sunday (Qt: 1 = Monday)
+    return mode == WeekView ? date.addDays(1 - date.dayOfWeek()) : date;
+}
+
+QVector<int> BScheduleGanttWidget::dayOffsets(const BScheduleEntry &entry) const
+{
+    QVector<int> offsets;
+    const QDate first = firstDate();
+    const int days = dayCount();
+    for (const QDateTime &when : entry.occurrences) {
+        const int d = static_cast<int>(first.daysTo(when.date()));
+        // A start that exists twice on a day (end of daylight saving) is one bar
+        if (d >= 0 && d < days && !offsets.contains(d)) {
+            offsets.append(d);
+        }
+    }
+    return offsets;
+}
+
+int BScheduleGanttWidget::durationSecs(const BScheduleEntry &entry, DurationUse use) const
+{
+    if (entry.estimatedDurationSecs > 0) return entry.estimatedDurationSecs;
+
+    if (use == ForCollision) return 3600;
+
+    // For display: 1 hour for Full, 30 min for Diff, 15 min for Inc
+    switch (entry.level) {
+    case BScheduleEntry::Full:         return 3600;
+    case BScheduleEntry::Differential: return 1800;
+    case BScheduleEntry::VirtualFull:  return 3600;
+    default:                           return 900;
+    }
 }
 
 void BScheduleGanttWidget::setZoomLevel(int pixelsPerHour)
@@ -279,18 +322,7 @@ QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int da
     int y = HEADER_HEIGHT + row * ROW_HEIGHT + 2;
 
     // Duration bar width
-    int durationSecs = entry.estimatedDurationSecs;
-    if (durationSecs <= 0) {
-        // Default: 1 hour for Full, 30 min for Diff, 15 min for Inc
-        switch (entry.level) {
-        case BScheduleEntry::Full:         durationSecs = 3600; break;
-        case BScheduleEntry::Differential: durationSecs = 1800; break;
-        case BScheduleEntry::VirtualFull:  durationSecs = 3600; break;
-        default:                           durationSecs = 900;  break;
-        }
-    }
-
-    double durationHours = durationSecs / 3600.0;
+    double durationHours = durationSecs(entry, ForDisplay) / 3600.0;
     int barWidth = qMax(6, static_cast<int>(durationHours * m_pixelsPerHour));
 
     return QRect(x, y, barWidth, ROW_HEIGHT - 4);
@@ -317,6 +349,14 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
 
     // Row content
     drawRows(painter);
+
+    if (m_rows.isEmpty()) {
+        painter.setPen(palette().text().color());
+        painter.drawText(QRect(LABEL_WIDTH, HEADER_HEIGHT, contentWidth(), ROW_HEIGHT * 2),
+                         Qt::AlignCenter,
+                         m_viewMode == WeekView ? tr("No runs in this week")
+                                                : tr("No runs on this date"));
+    }
 
     // Heatmap
     drawHeatmap(painter);
@@ -366,6 +406,8 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
     QColor hlTintDay  = hlBase; hlTintDay.setAlpha(30);
     QColor hlSep      = hlBase; hlSep.setAlpha(100);
 
+    const QDate first = firstDate();
+
     if (m_viewMode == WeekView) {
         // Week: one label per day spanning 24 hours
         for (int d = 0; d < 7; ++d) {
@@ -377,8 +419,15 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
             painter.fillRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT,
                              (d % 2 == 0) ? hlTintEven : hlTintOdd);
 
-            // Day name — use abbreviation if too narrow
-            QString label = (dayWidth > 80) ? dayNames[d] : dayAbbrev[d];
+            // Day name and date — shorter forms if too narrow
+            const QDate date = first.addDays(d);
+            QString label;
+            if (dayWidth > 170)
+                label = QString("%1, %2").arg(dayNames[d], date.toString(Qt::ISODate));
+            else if (dayWidth > 80)
+                label = QString("%1 %2").arg(dayAbbrev[d], date.toString("MM-dd"));
+            else
+                label = dayAbbrev[d];
             painter.setPen(palette().text().color());
             QRect textRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT);
             painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, label);
@@ -388,12 +437,13 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
             painter.drawLine(x1, 0, x1, HEADER_ROW1_HEIGHT);
         }
     } else {
-        // Day mode: single day name centered
-        int dayIdx = qBound(0, m_currentDay, 6);
+        // Day mode: day name and date centered
+        int dayIdx = first.dayOfWeek() - 1;  // Qt: 1=Mon → 0=Mon
         painter.fillRect(LABEL_WIDTH, 0, width() - LABEL_WIDTH, HEADER_ROW1_HEIGHT, hlTintDay);
         painter.setPen(palette().text().color());
         QRect textRect(LABEL_WIDTH, 0, contentWidth(), HEADER_ROW1_HEIGHT);
-        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, dayNames[dayIdx]);
+        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter,
+                         QString("%1, %2").arg(dayNames[dayIdx], first.toString(Qt::ISODate)));
     }
 
     // Separator line between row 1 and row 2
@@ -441,15 +491,10 @@ void BScheduleGanttWidget::drawNowMarker(QPainter &painter)
     int currentHour = now.time().hour();
     int currentMinute = now.time().minute();
 
-    int hourOffset = 0;
-    if (m_viewMode == DayView) {
-        // Only show if current day matches
-        int todayDow = now.date().dayOfWeek() - 1;  // Qt: 1=Mon → 0=Mon
-        if (todayDow != m_currentDay) return;
-    } else {
-        int todayDow = now.date().dayOfWeek() - 1;
-        hourOffset = todayDow * 24;
-    }
+    // Only if today is one of the dates on display
+    const int todayOffset = static_cast<int>(firstDate().daysTo(now.date()));
+    if (todayOffset < 0 || todayOffset >= dayCount()) return;
+    int hourOffset = todayOffset * 24;
 
     int x = timeToX(hourOffset + currentHour, currentMinute);
 
@@ -501,20 +546,10 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
             painter.setPen(palette().text().color());
             painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, row.label);
 
-            // Draw job bars for this entry
+            // One bar for each date on display on which the entry starts
             if (row.entryIndex >= 0 && row.entryIndex < m_entries.size()) {
-                const BScheduleEntry &entry = m_entries[row.entryIndex];
-
-                if (m_viewMode == DayView) {
-                    // Only show if entry runs on current day
-                    if (entry.daysOfWeek.contains(m_currentDay)) {
-                        drawJobBar(painter, entry, r, 0);
-                    }
-                } else {
-                    // Week view: draw bar for each day the entry runs
-                    for (int d : entry.daysOfWeek) {
-                        drawJobBar(painter, entry, r, d);
-                    }
+                for (int d : dayOffsets(m_entries[row.entryIndex])) {
+                    drawJobBar(painter, row.entryIndex, r, d);
                 }
             }
         }
@@ -545,9 +580,10 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
     painter.restore();
 }
 
-void BScheduleGanttWidget::drawJobBar(QPainter &painter, const BScheduleEntry &entry,
+void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
                                        int row, int dayOffset)
 {
+    const BScheduleEntry &entry = m_entries[entryIndex];
     QRect rect = barRect(entry, row, dayOffset);
     bool hovered = (row == rowAtY(m_hoverPos.y()) && rect.contains(m_hoverPos));
 
@@ -577,25 +613,25 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, const BScheduleEntry &e
         }
     }
 
-    // Collision border
+    // Collision border: this entry's start on this date runs at the same
+    // time as another one
+    const QDate barDate = firstDate().addDays(dayOffset);
+    bool collides = false;
     for (const Collision &c : m_collisions) {
-        bool matches = false;
-        if (c.entry1.scheduleName == entry.scheduleName &&
-            c.entry1.level == entry.level &&
-            c.entry1.hour == entry.hour) {
-            matches = true;
+        if (c.index1 != entryIndex && c.index2 != entryIndex) continue;
+        for (const BRunOverlap &o : c.overlaps) {
+            const QDateTime &mine = (c.index1 == entryIndex) ? o.a : o.b;
+            if (mine.date() == barDate) {
+                collides = true;
+                break;
+            }
         }
-        if (c.entry2.scheduleName == entry.scheduleName &&
-            c.entry2.level == entry.level &&
-            c.entry2.hour == entry.hour) {
-            matches = true;
-        }
-        if (matches) {
-            painter.setPen(QPen(Qt::red, 2));
-            painter.setBrush(Qt::NoBrush);
-            painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 3, 3);
-            break;
-        }
+        if (collides) break;
+    }
+    if (collides) {
+        painter.setPen(QPen(Qt::red, 2));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 3, 3);
     }
 
     // Level letter inside bar if wide enough
@@ -669,29 +705,28 @@ void BScheduleGanttWidget::drawCollisionMarkers(QPainter &painter)
     font.setPointSize(7);
     painter.setFont(font);
 
+    const QDate first = firstDate();
+    const int days = dayCount();
+    const int y = HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT + 2;
+
     for (const Collision &c : m_collisions) {
-        int hourOffset = 0;
-        if (m_viewMode == WeekView) {
-            // Find which day has the collision
-            for (int d : c.entry1.daysOfWeek) {
-                if (c.entry2.daysOfWeek.contains(d)) {
-                    hourOffset = d * 24;
-                    break;
-                }
-            }
+        for (const BRunOverlap &o : c.overlaps) {
+            // Where the two start to run at the same time
+            const QDateTime start = o.start();
+            const int d = static_cast<int>(first.daysTo(start.date()));
+            if (d < 0 || d >= days) continue;
+
+            int x = timeToX(d * 24 + start.time().hour(), start.time().minute());
+
+            // Warning triangle
+            painter.setPen(QPen(Qt::red, 1));
+            painter.setBrush(QColor(255, 0, 0, 100));
+            QPolygonF triangle;
+            triangle << QPointF(x - 5, y + HEATMAP_HEIGHT - 2)
+                     << QPointF(x + 5, y + HEATMAP_HEIGHT - 2)
+                     << QPointF(x, y + 2);
+            painter.drawPolygon(triangle);
         }
-
-        int x = timeToX(hourOffset + c.startHour, c.startMinute);
-        int y = HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT + 2;
-
-        // Warning triangle
-        painter.setPen(QPen(Qt::red, 1));
-        painter.setBrush(QColor(255, 0, 0, 100));
-        QPolygonF triangle;
-        triangle << QPointF(x - 5, y + HEATMAP_HEIGHT - 2)
-                 << QPointF(x + 5, y + HEATMAP_HEIGHT - 2)
-                 << QPointF(x, y + 2);
-        painter.drawPolygon(triangle);
     }
 
     painter.restore();
@@ -711,32 +746,19 @@ void BScheduleGanttWidget::recalcHeatmap()
     int slotCount = heatmapSlotCount();
     m_heatmapSlots.fill(0, slotCount);
 
+    const QDate first = firstDate();
+    const int days = dayCount();
+
     for (const BScheduleEntry &entry : m_entries) {
-        int durationSecs = entry.estimatedDurationSecs;
-        if (durationSecs <= 0) {
-            switch (entry.level) {
-            case BScheduleEntry::Full:         durationSecs = 3600; break;
-            case BScheduleEntry::Differential: durationSecs = 1800; break;
-            case BScheduleEntry::VirtualFull:  durationSecs = 3600; break;
-            default:                           durationSecs = 900;  break;
-            }
-        }
-        int durationSlots = qMax(1, durationSecs / (HEATMAP_SLOT_MINUTES * 60));
+        int durationSlots = qMax(1, durationSecs(entry, ForDisplay) / (HEATMAP_SLOT_MINUTES * 60));
 
-        QVector<int> days;
-        if (m_viewMode == DayView) {
-            if (entry.daysOfWeek.contains(m_currentDay)) {
-                days.append(0);  // offset 0 for day view
-            }
-        } else {
-            days = entry.daysOfWeek;
-        }
+        // Every start in the dates on display
+        for (const QDateTime &when : entry.occurrences) {
+            const int d = static_cast<int>(first.daysTo(when.date()));
+            if (d < 0 || d >= days) continue;
 
-        for (int d : days) {
-            int startSlot = (d * 24 * 60 + entry.hour * 60 + entry.minute) / HEATMAP_SLOT_MINUTES;
-            if (m_viewMode == DayView) {
-                startSlot = (entry.hour * 60 + entry.minute) / HEATMAP_SLOT_MINUTES;
-            }
+            int startSlot = (d * 24 * 60 + when.time().hour() * 60 + when.time().minute())
+                            / HEATMAP_SLOT_MINUTES;
 
             for (int s = startSlot; s < startSlot + durationSlots && s < slotCount; ++s) {
                 if (s >= 0) m_heatmapSlots[s]++;
@@ -758,49 +780,35 @@ void BScheduleGanttWidget::detectCollisions()
             const BScheduleEntry &a = m_entries[i];
             const BScheduleEntry &b = m_entries[j];
 
-            // Check if they share any day
-            bool shareDay = false;
-            for (int d : a.daysOfWeek) {
-                if (b.daysOfWeek.contains(d)) {
-                    shareDay = true;
-                    break;
-                }
-            }
-            if (!shareDay) continue;
+            // Nothing to collide on
+            const bool sameClient = !a.client.isEmpty() && a.client == b.client;
+            const bool sameStorage = !a.storage.isEmpty() && a.storage == b.storage;
+            if (!sameClient && !sameStorage) continue;
 
-            // Check time overlap
-            int aDur = a.estimatedDurationSecs > 0 ? a.estimatedDurationSecs : 3600;
-            int bDur = b.estimatedDurationSecs > 0 ? b.estimatedDurationSecs : 3600;
+            // Two runs collide only if they really run at the same time on
+            // a date: the concrete starts are compared, not the days of the
+            // week. "1st sat" and "2nd-5th sat" never meet.
+            const QList<BRunOverlap> overlaps = BScheduleOccurrences::overlaps(
+                a.occurrences, durationSecs(a, ForCollision),
+                b.occurrences, durationSecs(b, ForCollision));
+            if (overlaps.isEmpty()) continue;
 
-            int aStartMin = a.hour * 60 + a.minute;
-            int aEndMin = aStartMin + aDur / 60;
-            int bStartMin = b.hour * 60 + b.minute;
-            int bEndMin = bStartMin + bDur / 60;
+            Collision c;
+            c.entry1 = a;
+            c.entry2 = b;
+            c.index1 = i;
+            c.index2 = j;
+            c.overlaps = overlaps;
 
-            bool overlaps = (aStartMin < bEndMin && bStartMin < aEndMin);
-            if (!overlaps) continue;
-
-            // Client collision
-            if (!a.client.isEmpty() && a.client == b.client) {
-                Collision c;
+            if (sameClient) {
                 c.type = Collision::ClientCollision;
-                c.entry1 = a;
-                c.entry2 = b;
-                c.startHour = qMax(a.hour, b.hour);
-                c.startMinute = (a.hour >= b.hour) ? a.minute : b.minute;
                 c.description = tr("Client collision: %1 and %2 on %3")
                     .arg(a.scheduleName, b.scheduleName, a.client);
                 m_collisions.append(c);
             }
 
-            // Storage collision
-            if (!a.storage.isEmpty() && a.storage == b.storage) {
-                Collision c;
+            if (sameStorage) {
                 c.type = Collision::StorageCollision;
-                c.entry1 = a;
-                c.entry2 = b;
-                c.startHour = qMax(a.hour, b.hour);
-                c.startMinute = (a.hour >= b.hour) ? a.minute : b.minute;
                 c.description = tr("Storage collision: %1 and %2 on %3")
                     .arg(a.scheduleName, b.scheduleName, a.storage);
                 m_collisions.append(c);
@@ -808,9 +816,9 @@ void BScheduleGanttWidget::detectCollisions()
         }
     }
 
-    if (!m_collisions.isEmpty()) {
-        emit collisionsDetected(m_collisions.size());
-    }
+    // Also when there is none: the count belongs to the dates on display
+    // and has to go away with them
+    emit collisionsDetected(m_collisions.size());
 }
 
 // ============================================================================
@@ -855,16 +863,9 @@ int BScheduleGanttWidget::entryAtPos(const QPoint &pos) const
 
     const BScheduleEntry &entry = m_entries[entryIdx];
 
-    if (m_viewMode == DayView) {
-        if (entry.daysOfWeek.contains(m_currentDay)) {
-            QRect br = barRect(entry, row, 0);
-            if (br.contains(pos)) return entryIdx;
-        }
-    } else {
-        for (int d : entry.daysOfWeek) {
-            QRect br = barRect(entry, row, d);
-            if (br.contains(pos)) return entryIdx;
-        }
+    for (int d : dayOffsets(entry)) {
+        QRect br = barRect(entry, row, d);
+        if (br.contains(pos)) return entryIdx;
     }
 
     return -1;
@@ -941,8 +942,8 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
                  QString::number(e.hour).rightJustified(2, '0'),
                  QString::number(e.minute).rightJustified(2, '0'));
 
-        // The Run line itself: this view shows the time and the days of the
-        // week only, the line may also name months, weeks or days of the month
+        // The Run line itself: the bars show when it runs in the dates on
+        // display, the line says when it runs at all
         if (!e.source.original.isEmpty()) {
             tooltip += QString("<br>%1: %2").arg(tr("Run"), e.source.original.toHtmlEscaped());
         }
@@ -1133,7 +1134,7 @@ int BScheduleGanttWidget::dayOffsetAtPos(const QPoint &pos, int entryIdx) const
     if (row < 0) return 0;
 
     const BScheduleEntry &entry = m_entries[entryIdx];
-    for (int d : entry.daysOfWeek) {
+    for (int d : dayOffsets(entry)) {
         QRect br = barRect(entry, row, d);
         if (br.contains(pos)) return d;
     }
@@ -1165,15 +1166,8 @@ void BScheduleGanttWidget::computeDependencies(int draggedIndex)
         if (i == draggedIndex) continue;
         const BScheduleEntry &other = m_entries[i];
 
-        // Check if they share any day
-        bool shareDay = false;
-        for (int d : dragged.daysOfWeek) {
-            if (other.daysOfWeek.contains(d)) {
-                shareDay = true;
-                break;
-            }
-        }
-        if (!shareDay) continue;
+        // Only runs that start on the same date, in the dates on display
+        if (!dragged.sharesDateWith(other)) continue;
 
         // 1. Level chain: same client, same schedule → Full/Inc/Diff relationship
         if (!dragged.client.isEmpty() && dragged.client == other.client
@@ -1315,15 +1309,7 @@ void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
     const BScheduleEntry &dragged = m_entries[m_dragEntryIndex];
 
     // Drag entry duration for overlap check
-    int dragDur = dragged.estimatedDurationSecs;
-    if (dragDur <= 0) {
-        switch (dragged.level) {
-        case BScheduleEntry::Full:         dragDur = 3600; break;
-        case BScheduleEntry::Differential: dragDur = 1800; break;
-        case BScheduleEntry::VirtualFull:  dragDur = 3600; break;
-        default:                           dragDur = 900;  break;
-        }
-    }
+    int dragDur = durationSecs(dragged, ForDisplay);
     int dragStartMin = m_dragNewHour * 60 + m_dragNewMinute;
     int dragEndMin = dragStartMin + dragDur / 60;
 
@@ -1336,15 +1322,7 @@ void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
         if (targetRow < 0) continue;
 
         // Check actual time overlap with new position
-        int targetDur = target.estimatedDurationSecs;
-        if (targetDur <= 0) {
-            switch (target.level) {
-            case BScheduleEntry::Full:         targetDur = 3600; break;
-            case BScheduleEntry::Differential: targetDur = 1800; break;
-            case BScheduleEntry::VirtualFull:  targetDur = 3600; break;
-            default:                           targetDur = 900;  break;
-            }
-        }
+        int targetDur = durationSecs(target, ForDisplay);
         int targetStartMin = target.hour * 60 + target.minute;
         int targetEndMin = targetStartMin + targetDur / 60;
 
@@ -1364,18 +1342,12 @@ void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
             break;
         }
 
-        // Find target bar rect (check all days the target runs on)
+        // The target's bars on the dates on which the dragged entry runs too
         QVector<int> targetDays;
-        if (m_viewMode == DayView) {
-            if (target.daysOfWeek.contains(m_currentDay)) {
-                targetDays.append(0);
-            }
-        } else {
-            // In week view, highlight the day that matches the drag day
-            for (int d : target.daysOfWeek) {
-                if (dragged.daysOfWeek.contains(d)) {
-                    targetDays.append(d);
-                }
+        const QDate first = firstDate();
+        for (int d : dayOffsets(target)) {
+            if (dragged.occursOn(first.addDays(d))) {
+                targetDays.append(d);
             }
         }
 

@@ -3,7 +3,7 @@
  * @brief Cross-reference index between Jobs and Schedules
  *
  * Builds the mapping: ScheduleName -> list of Jobs that reference it.
- * Used to enrich BScheduleEntry objects with job-level data (jobName, client, storage).
+ * Used to say which jobs run a schedule's Run lines on concrete dates.
  *
  * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
@@ -24,8 +24,8 @@ class BJobConfigModel;
  * @brief Cross-references Job configs with Schedule entries
  *
  * Jobs reference schedules via Job { Schedule = "ScheduleName" }.
- * This index builds the reverse mapping so we can enrich schedule
- * entries with job-specific data for Gantt visualization and drag & drop.
+ * This index builds the reverse mapping, so that the views can show each
+ * run once per job that runs it.
  */
 class BJobScheduleIndex : public QObject
 {
@@ -63,13 +63,21 @@ public:
     int sharedCount(const QString &scheduleName) const;
 
     /**
-     * @brief Enriches schedule entries with job data (jobName, client, storage)
+     * @brief What the Gantt view shows for the time from @p from to @p to
      *
-     * If a schedule is used by exactly one Job, the entry gets that job's data.
-     * If shared by N jobs, creates N entries (one per job) from each original entry.
-     * If no job references it, the entry is kept unchanged.
+     * The starts of each schedule are worked out once for these dates
+     * (BScheduleOccurrences). Each Run line and hour that has a start in
+     * them gives one entry per job that uses the schedule, with the job's
+     * name, client, storage, pool and priority where the Run line does not
+     * override them, or one entry without a job if no job uses the schedule
+     * or the jobs are not known yet. A line that does not run in these
+     * dates gives nothing.
+     *
+     * Every entry carries its Run line (BScheduleEntry::source) and the
+     * line's position in its schedule (BScheduleEntry::runIndex).
      */
-    QList<BScheduleEntry> enrichEntries(const QList<BScheduleEntry> &entries) const;
+    QList<BScheduleEntry> entriesFor(const QList<BSchedule> &schedules,
+                                     const QDateTime &from, const QDateTime &to) const;
 
     bool isValid() const { return m_valid; }
 

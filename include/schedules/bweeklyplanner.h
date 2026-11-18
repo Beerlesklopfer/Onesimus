@@ -2,6 +2,7 @@
 #define BWEEKLYPLANNER_H
 
 #include <QWidget>
+#include <QDate>
 #include <QVector>
 #include <QPainter>
 #include <QMouseEvent>
@@ -18,6 +19,11 @@
  * - 7 days (rows) x 24 hours (columns)
  * - Visual representation of scheduled backup times
  * - Hover effects and tooltips
+ *
+ * The grid shows one concrete week, Monday to Sunday: a cell is filled if a
+ * run starts in that hour of that date. A run restricted to a week of the
+ * month, a day of the month, a month or a week of the year is therefore
+ * shown only in a week in which it runs.
  */
 class BWeeklyPlanner : public QWidget
 {
@@ -28,13 +34,17 @@ public:
     ~BWeeklyPlanner();
 
     /**
-     * @brief Sets pre-parsed schedule entries (from BScheduleModel)
-     * @param entries List of parsed schedule entries
-     *
-     * This avoids duplicating the run directive parsing logic.
-     * Uses the same entries that the Gantt timeline uses.
+     * @brief Sets the week to display and what starts in it
+     * @param monday  First day of the week; any other day of the week
+     *                selects the week it is in
+     * @param entries Entries with their starts in that week
+     *                (BScheduleEntry::fromOccurrences()); starts outside
+     *                the week are not shown
      */
-    void setEntries(const QList<BScheduleEntry> &entries);
+    void setWeek(const QDate &monday, const QList<BScheduleEntry> &entries);
+
+    /// The Monday of the week on display
+    QDate weekStart() const { return m_weekStart; }
 
     /**
      * @brief Clears the schedule display
@@ -98,6 +108,9 @@ private:
     QVector<BackupLevel> m_schedule[DAYS][HOURS];
 
     QString m_scheduleName;
+
+    // Monday of the week on display
+    QDate m_weekStart;
 
     // Hover state
     int m_hoverDay;

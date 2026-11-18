@@ -26,6 +26,10 @@
  * - Gantt/Timeline view: dual stacked timelines (FD/Client + SD/Storage)
  * - Grid view: compact 7x24 weekly planner (legacy)
  *
+ * Both show concrete dates: the day chosen in the toolbar or the week
+ * (Monday to Sunday) it is in. What runs on them is worked out from the Run
+ * lines of the schedules (BScheduleOccurrences).
+ *
  * Left panel: schedule list. Right panel: switchable visualization.
  */
 class BScheduleWidget : public QWidget
@@ -66,6 +70,7 @@ private slots:
     void onDayViewModeChanged(int index);
     void onDayNavigationPrev();
     void onDayNavigationNext();
+    void onDayNavigationToday();
     void onCollisionsDetected(int count);
     void onEntryClicked(const BScheduleEntry &entry);
     void onFdDragCompleted(int entryIndex, int newHour, int newMinute,
@@ -84,6 +89,11 @@ private:
     void setupStatsPanel();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
+    void setCurrentDate(const QDate &date);
+    void updateDateLabel();
+    bool showsWeek() const;     ///< The grid, or the timeline in week view
+    /// The schedules checked in the list
+    QList<BSchedule> checkedSchedules() const;
     void updateRunProblems();
     void updateJobList();  // Aggregates jobs from all checked schedules
     void handleDragCompleted(BScheduleGanttWidget *source, int entryIndex,
@@ -114,6 +124,7 @@ private:
     QScrollArea *m_sdScrollArea;
     BWeeklyPlanner *m_weeklyPlanner;
     QScrollArea *m_gridScrollArea;
+    QLabel *m_outsideWeekLabel;   ///< Run lines without a run in the week of the grid
 
     // Toolbar
     QPushButton *m_refreshButton;
@@ -121,7 +132,8 @@ private:
     QComboBox *m_dayViewCombo;        // Day / Week
     QToolButton *m_prevDayButton;
     QToolButton *m_nextDayButton;
-    QLabel *m_dayLabel;
+    QToolButton *m_todayButton;
+    QLabel *m_dayLabel;               // The date or the week on display
     QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour
     QLabel *m_zoomLabel;
     QSlider *m_zoomSlider;             // Zoom in week mode (px/hour)
@@ -146,7 +158,7 @@ private:
     QTableWidget *m_statsRunsTable;
 
     BDirector *m_director;
-    int m_currentDay;                 // 0=Mon..6=Sun
+    QDate m_currentDate;              // The day on display; in week views its week
 };
 
 #endif // BSCHEDULEWIDGET_H

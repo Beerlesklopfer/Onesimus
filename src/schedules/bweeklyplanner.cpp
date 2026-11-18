@@ -6,6 +6,7 @@
 
 BWeeklyPlanner::BWeeklyPlanner(QWidget *parent)
     : QWidget(parent)
+    , m_weekStart(QDate::currentDate().addDays(1 - QDate::currentDate().dayOfWeek()))
     , m_hoverDay(-1)
     , m_hoverHour(-1)
 {
@@ -43,9 +44,12 @@ int BWeeklyPlanner::cellHeight() const
     return qMax(MIN_CELL_HEIGHT, available / DAYS);
 }
 
-void BWeeklyPlanner::setEntries(const QList<BScheduleEntry> &entries)
+void BWeeklyPlanner::setWeek(const QDate &monday, const QList<BScheduleEntry> &entries)
 {
     m_scheduleName = tr("All Schedules");
+    if (monday.isValid()) {
+        m_weekStart = monday.addDays(1 - monday.dayOfWeek());  // Qt: 1 = Monday
+    }
 
     // Clear existing
     for (int day = 0; day < DAYS; ++day) {
@@ -76,14 +80,18 @@ void BWeeklyPlanner::setEntries(const QList<BScheduleEntry> &entries)
             break;
         }
 
-        int hour = entry.hour;
-        if (hour < 0 || hour >= HOURS) continue;
+        // One mark per entry in each hour of the week in which it starts.
+        // A start that exists twice (end of daylight saving) is one mark.
+        bool marked[DAYS][HOURS] = {};
+        for (const QDateTime &when : entry.occurrences) {
+            const qint64 day = m_weekStart.daysTo(when.date());
+            const int hour = when.time().hour();
+            if (day < 0 || day >= DAYS || hour < 0 || hour >= HOURS) continue;
+            if (marked[day][hour]) continue;
+            marked[day][hour] = true;
 
-        for (int day : entry.daysOfWeek) {
-            if (day >= 0 && day < DAYS) {
-                // Append each level — side-by-side display
-                m_schedule[day][hour].append(level);
-            }
+            // Append each level — side-by-side display
+            m_schedule[day][hour].append(level);
         }
     }
 
@@ -145,10 +153,12 @@ void BWeeklyPlanner::drawGrid(QPainter &painter)
 
     painter.setPen(QPen(Qt::gray, 1));
 
-    // Draw day labels
+    // Draw day labels: day of the week and, below it, its date in this week
     for (int day = 0; day < DAYS; ++day) {
         QRect labelRect(10, HEADER_HEIGHT + day * ch, DAY_LABEL_WIDTH - 10, ch);
-        painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, m_dayNames[day]);
+        painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
+                         m_dayNames[day] + "\n"
+                         + m_weekStart.addDays(day).toString(Qt::ISODate));
     }
 
     // Draw hour labels
@@ -267,8 +277,8 @@ void BWeeklyPlanner::mouseMoveEvent(QMouseEvent *event)
                 }
             }
 
-            QString tooltip = QString("%1, %2:00 (%3)")
-                .arg(m_dayNames[day])
+            QString tooltip = QString("%1 %2, %3:00 (%4)")
+                .arg(m_dayNames[day], m_weekStart.addDays(day).toString(Qt::ISODate))
                 .arg(hour, 2, 10, QChar('0'))
                 .arg(levelNames.join(" + "));
             QToolTip::showText(event->globalPosition().toPoint(), tooltip, this);
