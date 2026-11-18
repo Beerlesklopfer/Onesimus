@@ -9,12 +9,25 @@
 #include <QPushButton>
 #include <QProgressBar>
 #include <QLabel>
-#include <QMap>
-#include <QJsonArray>
+#include <QGroupBox>
+#include <QStringList>
+
+#include "bcleanupplan.h"
 
 class BDirector;
 class BJobsModel;
+class BCleanupRunner;
+class QTimer;
+class QCloseEvent;
 
+/**
+ * @brief Catalog cleanup: analyze, confirm, delete
+ *
+ * What is deleted is decided by BCleanup::buildPlan(); the dialog shows,
+ * confirms and executes that one plan. Any change of an option or of the
+ * job list invalidates it. The commands are sent one at a time by
+ * BCleanupRunner and every answer of the Director is evaluated.
+ */
 class BCleanupDialog : public QDialog
 {
     Q_OBJECT
@@ -23,25 +36,41 @@ public:
     explicit BCleanupDialog(BDirector *director, BJobsModel *jobsModel, QWidget *parent = nullptr);
     ~BCleanupDialog();
 
+    void reject() override;
+
 signals:
     /**
-     * @brief Emitted after cleanup is completed with the list of deleted job IDs
-     * @param deletedJobIds List of job IDs that were deleted
+     * @brief Emitted after a cleanup run with the job IDs the Director confirmed as deleted
+     * @param deletedJobIds Job IDs whose deletion was confirmed
      */
     void cleanupCompleted(const QStringList &deletedJobIds);
+
+protected:
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void onAnalyzeClicked();
     void onCleanupClicked();
     void onCloseClicked();
+    void onOptionChanged();
+    void onJobDataChanged();
+    void onStepStarted(int index);
+    void onStepFinished(int index);
+    void onRunFinished();
+    void onReplyTimeout();
 
 private:
     void setupUI();
+    BCleanup::Options currentOptions() const;
     void analyzeJobs();
-    void analyzeOldFullBackups();
-    void analyzeEmptyJobs();
-    void analyzeFailedJobs();
+    void logOldFullBackups(const BCleanup::Plan &plan);
+    void logEmptyJobs(const BCleanup::Plan &plan);
+    void logFailedJobs(const BCleanup::Plan &plan);
+    void invalidateAnalysis(const QString &statusText);
+    void updateCleanupButton();
     void performCleanup();
+    void setRunning(bool running);
+    void setStatus(const QString &text, const QString &kind);
     void logMessage(const QString &message, const QString &type = "info");
     QString formatBytes(qint64 bytes);
 
@@ -49,6 +78,7 @@ private:
     BJobsModel *m_jobsModel;
 
     // Options widgets
+    QGroupBox *m_optionsGroup;
     QCheckBox *m_removeOldFullBackupsCheck;
     QSpinBox *m_keepFullBackupsSpin;
     QCheckBox *m_removeEmptyJobsCheck;
@@ -69,25 +99,11 @@ private:
     // Progress
     QProgressBar *m_progressBar;
 
-    // Analysis results
-    struct AnalysisResults {
-        int oldFullBackupsCount = 0;
-        qint64 oldFullBackupsSize = 0;
-        QStringList oldFullBackupsJobIds;
+    // The one analysis result that is shown, confirmed and executed
+    BCleanup::Analysis m_analysis;
 
-        int emptyJobsCount = 0;
-        qint64 emptyJobsSize = 0;
-        QStringList emptyJobIds;
-
-        int failedJobsCount = 0;
-        QStringList failedJobIds;
-
-        int purgableVolumesCount = 0;
-        qint64 reclaimableSpace = 0;
-    };
-
-    AnalysisResults m_results;
-    bool m_analyzed = false;
+    BCleanupRunner *m_runner;
+    QTimer *m_replyTimer;
 };
 
 #endif // BCLEANUPDIALOG_H

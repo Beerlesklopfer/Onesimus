@@ -349,8 +349,8 @@ public:
         ShowConsole,        ///< show console=<name> - Show single console details
 
         // Volume Maintenance (bulk)
-        PruneVolumeAll,     ///< prune volume allpools yes
-        PurgeVolumeAll,     ///< purge volume allpools yes
+        PruneVolumeAll,     ///< prune volume all yes
+        PurgeVolumeAll,     ///< purge volume allpools yes (not a documented Bareos form, do not send)
 
         // BVFS (Virtual File System for restore)
         BvfsGetJobIds,      ///< .bvfs_get_jobids jobid=<id>

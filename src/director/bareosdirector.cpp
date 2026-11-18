@@ -2016,7 +2016,12 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::ShowConsole:      command = QString("show console=%1").arg(args); break;
 
     // Volume Maintenance (bulk)
-    case Command::PruneVolumeAll:   command = "prune volume allpools yes"; break;
+    // Documented form: prune volume [=volume] [pool=<pool>] [all] [yes]
+    // ("allpools" is not a prune keyword; without "all" the Director asks for a volume)
+    case Command::PruneVolumeAll:   command = "prune volume all yes"; break;
+    // Not a documented Bareos command: purge works on named volumes only
+    // (volume=<volume>); "allpools" belongs to "purge volume action=...".
+    // No caller sends this; see BCleanupDialog.
     case Command::PurgeVolumeAll:   command = "purge volume allpools yes"; break;
 
     // BVFS (Virtual File System for restore)

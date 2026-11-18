@@ -428,6 +428,8 @@ set(SOURCES
     src/db/bresourcemodel.cpp
     src/db/bdirectormodel.cpp
     src/bcleanupdialog.cpp
+    src/bcleanupplan.cpp
+    src/bcleanuprunner.cpp
     src/bconnectionwizard.cpp
     src/bmdnsbrowser.cpp
     src/bcertificategenerator.cpp
@@ -504,6 +506,8 @@ set(HEADERS
     include/storagewidget.h
     include/models/bvolumejson.h
     include/bcleanupdialog.h
+    include/bcleanupplan.h
+    include/bcleanuprunner.h
     include/bconnectionwizard.h
     include/bmdnsbrowser.h
     include/bcertificategenerator.h
@@ -553,6 +557,7 @@ set(HEADERS
     include/jobs/fileset/bincludeblockwidget.h
 
     include/clients/bclientsmodel.h
+    include/blabelstate.h
     include/clients/bclientswidget.h
     include/clients/bclientdetailsdialog.h
     include/clients/bnewclientdialog.h
@@ -1164,6 +1169,26 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME brunjobcommand_test COMMAND brunjobcommand_test)
+
+    # bcleanup_test - cleanup selection, analysis invalidation and command sequencing
+    add_executable(bcleanup_test
+        test/bcleanup_test.cpp
+        src/bcleanupplan.cpp
+        src/bcleanuprunner.cpp
+        include/bcleanupplan.h
+        include/bcleanuprunner.h
+    )
+
+    target_include_directories(bcleanup_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bcleanup_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bcleanup_test COMMAND bcleanup_test)
 endif()
 
 message(STATUS "")
@@ -1174,6 +1199,7 @@ message(STATUS "  volumejson_test  - list volumes JSON parsing test")
 if(BUILD_TESTING)
     message(STATUS "  bjoblogmodel_test - job log model test (registered with CTest)")
     message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
+    message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")
 endif()
 message(STATUS "")
 
