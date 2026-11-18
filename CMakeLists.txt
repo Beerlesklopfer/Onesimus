@@ -68,8 +68,8 @@ endif()
 # ============================================================================
 # Backup System Auswahl
 # ============================================================================
-set(BACKUP_SYSTEM "BAREOS" CACHE STRING "Backup system to support: BACULA or BAREOS")
-set_property(CACHE BACKUP_SYSTEM PROPERTY STRINGS "BACULA" "BAREOS")
+set(BACKUP_SYSTEM "BAREOS" CACHE STRING "Backup system to support: BAREOS (BACULA is deprecated for now)")
+set_property(CACHE BACKUP_SYSTEM PROPERTY STRINGS "BAREOS")
 
 message(STATUS "")
 message(STATUS "========================================")
@@ -78,12 +78,14 @@ message(STATUS "========================================")
 
 # Setze Compiler-Definitionen basierend auf Auswahl
 if(BACKUP_SYSTEM STREQUAL "BACULA")
-    set(USE_BACULA_ONLY TRUE)
+    # The Bacula backend is deprecated for now: there is no BaculaDirector and
+    # the sources under src/director/baculaauth.* are kept but not built.
+    message(FATAL_ERROR "BACKUP_SYSTEM=BACULA is deprecated for now and cannot be built. Use -DBACKUP_SYSTEM=BAREOS.")
 elseif(BACKUP_SYSTEM STREQUAL "BAREOS")
     set(USE_BAREOS_ONLY TRUE)
     set(BAREOS_VERSION_STR "25.0.0")
 else()
-    message(FATAL_ERROR "Invalid BACKUP_SYSTEM: ${BACKUP_SYSTEM}. Must be BACULA or BAREOS")
+    message(FATAL_ERROR "Invalid BACKUP_SYSTEM: ${BACKUP_SYSTEM}. Must be BAREOS")
 endif()
 
 message(STATUS "========================================")
@@ -414,7 +416,6 @@ include_directories(
 set(SOURCES
     src/main.cpp
     src/bmainwindow.cpp
-    src/director/baculaauth.cpp
     src/director/bareosauth.cpp
 
     src/bcheckableheaderview.cpp
@@ -512,7 +513,6 @@ set(HEADERS
     include/db/bresourcemodel.h
     include/db/bdirectormodel.h
     include/version.h
-    include/director/baculaauth.h
     include/director/bareosauth.h
     include/director/bjsonstreamreader.h
     include/bpaginationwidget.h
@@ -577,16 +577,6 @@ set(HEADERS
     include/director/bresourcewidgets.h
     include/director/bresourcedialog.h
     include/director/bconfigimportdialog.h)
-
-# Bacula-spezifische Dateien
-if(USE_BACULA_ONLY)
-    message(STATUS "========================================")
-    message(STATUS "Building with BACULA backend")
-    message(STATUS "========================================")
-    list(APPEND SOURCES src/director/baculaauth.cpp)
-    list(APPEND HEADERS include/director/baculaauth.h)
-    add_compile_definitions(USE_BACULA)
-endif()
 
 # Bareos-spezifische Dateien
 if(USE_BAREOS_ONLY)

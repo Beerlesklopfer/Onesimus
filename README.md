@@ -109,7 +109,7 @@ Onesimus **never accesses the database directly**. No SQL queries, no direct cat
 - **Debug Logging:** Extensive logging options for troubleshooting
 
 ### 🔌 Backup System Support
-- ~~**Bacula:** Full support via bconsole (TCP/TLS)~~ *(not yet implemented)*
+- ~~**Bacula:** support via bconsole (TCP/TLS)~~ *(deprecated for now, not available)*
 - **Bareos:** Full support via bconsole (TCP/TLS) with JSON-RPC
 - **Flexible Configuration:** System selection at build-time or runtime
 - **Restore Functionality:** BVFS file browsing and restore wizard (5-page QWizard)
@@ -134,7 +134,7 @@ Onesimus **never accesses the database directly**. No SQL queries, no direct cat
 
 | System | bconsole | JSON-RPC | Status |
 |--------|----------|----------|--------|
-| **Bacula** | ❌ Not yet | ❌ Not yet | Not implemented |
+| **Bacula** | ❌ | ❌ | Deprecated for now |
 | **Bareos** | ✅ TCP/TLS | ✅ Native | Full |
 
 ### Choose Build Option
@@ -143,11 +143,8 @@ Onesimus **never accesses the database directly**. No SQL queries, no direct cat
 # Bareos (default and currently only supported)
 cmake .. -DBACKUP_SYSTEM=BAREOS
 
-# Bacula only (not yet implemented)
+# Bacula only (deprecated for now, not available)
 cmake .. -DBACKUP_SYSTEM=BACULA
-
-# Both systems (not yet fully implemented)
-cmake .. -DBACKUP_SYSTEM=BOTH
 ```
 
 
@@ -211,8 +208,7 @@ brew install cmake git qt@6 perl
 | Option | Description |
 |--------|-------------|
 | `BAREOS` | Bareos support only **(default, currently only supported)** |
-| `BACULA` | Bacula support only *(not yet implemented)* |
-| `BOTH` | Bacula AND Bareos *(not yet fully implemented)* |
+| `BACULA` | Bacula support only *(deprecated for now, not available)* |
 
 ### OpenSSL
 
