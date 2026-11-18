@@ -140,14 +140,20 @@ void BNewJobDialog::createBasicTab()
 
     m_filesetCombo = new QComboBox();
     m_filesetCombo->setPlaceholderText(tr("Select FileSet..."));
+    connect(m_filesetCombo, &QComboBox::currentTextChanged,
+            this, &BNewJobDialog::buildRunCommand);
     resourcesLayout->addRow(tr("FileSet:"), m_filesetCombo);
 
     m_poolCombo = new QComboBox();
     m_poolCombo->setPlaceholderText(tr("Select Pool..."));
+    connect(m_poolCombo, &QComboBox::currentTextChanged,
+            this, &BNewJobDialog::buildRunCommand);
     resourcesLayout->addRow(tr("Pool:"), m_poolCombo);
 
     m_storageCombo = new QComboBox();
     m_storageCombo->setPlaceholderText(tr("Select Storage..."));
+    connect(m_storageCombo, &QComboBox::currentTextChanged,
+            this, &BNewJobDialog::buildRunCommand);
     resourcesLayout->addRow(tr("Storage:"), m_storageCombo);
 
     layout->addWidget(resourcesGroup);
@@ -159,7 +165,13 @@ void BNewJobDialog::createBasicTab()
     m_prioritySpin = new QSpinBox();
     m_prioritySpin->setRange(1, 100);
     m_prioritySpin->setValue(10);
-    m_prioritySpin->setToolTip(tr("Lower values = higher priority"));
+    m_prioritySpin->setToolTip(tr("Lower values = higher priority. "
+                                  "Only sent if changed here; otherwise the job's own priority applies."));
+    connect(m_prioritySpin, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, [this](int) {
+                m_priorityEdited = true;
+                buildRunCommand();
+            });
     optionsLayout->addRow(tr("Priority:"), m_prioritySpin);
 
     layout->addWidget(optionsGroup);
@@ -181,6 +193,8 @@ void BNewJobDialog::createAdvancedTab()
 
     m_whenEdit = new QLineEdit();
     m_whenEdit->setPlaceholderText(tr("e.g. \"2024-01-15 14:30:00\" or empty for immediate"));
+    m_whenEdit->setToolTip(tr("Start time in the form YYYY-MM-DD HH:MM:SS"));
+    connect(m_whenEdit, &QLineEdit::textChanged, this, &BNewJobDialog::buildRunCommand);
     timingLayout->addRow(tr("When:"), m_whenEdit);
 
     layout->addWidget(timingGroup);
@@ -198,6 +212,8 @@ void BNewJobDialog::createAdvancedTab()
     bootstrapLayout->addWidget(m_bootstrapEdit);
 
     connect(m_bootstrapCheck, &QCheckBox::toggled, m_bootstrapEdit, &QLineEdit::setEnabled);
+    connect(m_bootstrapCheck, &QCheckBox::toggled, this, &BNewJobDialog::buildRunCommand);
+    connect(m_bootstrapEdit, &QLineEdit::textChanged, this, &BNewJobDialog::buildRunCommand);
 
     layout->addWidget(bootstrapGroup);
 
@@ -547,61 +563,79 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     buildRunCommand();
 }
 
+BRunJobCommand::Params BNewJobDialog::currentParams() const
+{
+    BRunJobCommand::Params params;
+    params.job = m_jobCombo->currentText();
+    params.client = m_clientCombo->currentText();
+    params.fileset = m_filesetCombo->currentText();
+    params.pool = m_poolCombo->currentText();
+    params.storage = m_storageCombo->currentText();
+    params.level = m_levelCombo->currentData().toString();
+    if (m_priorityEdited) {
+        params.priority = m_prioritySpin->value();
+    }
+    params.when = m_whenEdit->text();
+    if (m_bootstrapCheck->isChecked()) {
+        params.bootstrap = m_bootstrapEdit->text();
+    }
+    return params;
+}
+
+QString BNewJobDialog::commandErrorText(const BRunJobCommand::Result &result)
+{
+    switch (result.error) {
+    case BRunJobCommand::Error::None:
+        return QString();
+    case BRunJobCommand::Error::MissingJob:
+        return tr("No job selected.");
+    case BRunJobCommand::Error::ControlCharacter:
+        return tr("The value for '%1' contains a line break or control character.").arg(result.field);
+    case BRunJobCommand::Error::InvalidWhen:
+        return tr("'When' must be a valid time in the form YYYY-MM-DD HH:MM:SS.");
+    case BRunJobCommand::Error::InvalidPriority:
+        return tr("The priority must be a positive number.");
+    }
+    return tr("The command could not be built.");
+}
+
 void BNewJobDialog::buildRunCommand()
 {
-    QString command = "run";
-
-    if (!m_jobCombo->currentText().isEmpty()) {
-        command += " job=\"" + m_jobCombo->currentText() + "\"";
+    // The preview is read-only and always shows exactly what "Run Job" sends:
+    // both come from the current state of all inputs.
+    if (!m_commandPreview) {
+        return;  // Still constructing the dialog
     }
 
-    if (!m_clientCombo->currentText().isEmpty()) {
-        command += " client=\"" + m_clientCombo->currentText() + "\"";
+    const BRunJobCommand::Result result = BRunJobCommand::build(currentParams());
+    m_command = result.command;
+    m_commandError = commandErrorText(result);
+
+    if (result.ok()) {
+        m_commandPreview->setPlainText(m_command);
+    } else {
+        m_commandPreview->setPlainText(tr("Nothing will be sent: %1").arg(m_commandError));
     }
 
-    if (!m_filesetCombo->currentText().isEmpty()) {
-        command += " fileset=\"" + m_filesetCombo->currentText() + "\"";
-    }
-
-    if (!m_poolCombo->currentText().isEmpty()) {
-        command += " pool=\"" + m_poolCombo->currentText() + "\"";
-    }
-
-    if (!m_storageCombo->currentText().isEmpty()) {
-        command += " storage=\"" + m_storageCombo->currentText() + "\"";
-    }
-
-    command += " level=" + m_levelCombo->currentData().toString();
-
-    if (m_prioritySpin->value() != 10) {
-        command += " priority=" + QString::number(m_prioritySpin->value());
-    }
-
-    if (!m_whenEdit->text().isEmpty()) {
-        command += " when=\"" + m_whenEdit->text() + "\"";
-    }
-
-    if (m_bootstrapCheck->isChecked() && !m_bootstrapEdit->text().isEmpty()) {
-        command += " bootstrap=\"" + m_bootstrapEdit->text() + "\"";
-    }
-
-    command += " yes";  // Auto-confirm
-
-    m_commandPreview->setPlainText(command);
+    updateButtonState();
 }
 
 void BNewJobDialog::updateButtonState()
 {
+    if (!m_runButton) {
+        return;
+    }
+
     // Minimum requirement: a job must be selected
     bool canRun = !m_jobCombo->currentText().isEmpty() && m_dataLoaded;
 
-    m_runButton->setEnabled(canRun);
+    m_runButton->setEnabled(canRun && m_commandError.isEmpty());
     m_estimateButton->setEnabled(canRun);
 }
 
 QString BNewJobDialog::getJobCommand() const
 {
-    return m_commandPreview->toPlainText();
+    return m_command;
 }
 
 void BNewJobDialog::onRunClicked()
@@ -612,7 +646,15 @@ void BNewJobDialog::onRunClicked()
         return;
     }
 
-    QString command = getJobCommand();
+    // Build the command from the inputs as they are now; the confirmation
+    // below shows this very string and it is the one that is sent.
+    buildRunCommand();
+    if (!m_commandError.isEmpty() || m_command.isEmpty()) {
+        QMessageBox::warning(this, tr("Invalid Input"), m_commandError);
+        return;
+    }
+
+    const QString command = m_command;
 
     // Check if confirmation is required
     bool shouldConfirm = BSettings::instance().behaviorConfirmJobStart();

@@ -11,6 +11,7 @@
 #include <QGroupBox>
 #include <QTabWidget>
 #include "director/bdirector.h"
+#include "jobs/brunjobcommand.h"
 
 class BJobWidget;  // Forward declaration
 
@@ -34,8 +35,8 @@ public:
     ~BNewJobDialog();
 
     /**
-     * @brief Get the constructed job command
-     * @return Complete run command with all parameters
+     * @brief Get the job command built from the current input
+     * @return Complete run command, empty if the input is not valid
      */
     QString getJobCommand() const;
 
@@ -60,6 +61,8 @@ private:
     void updateJobDefaults();
     void buildRunCommand();
     void updateButtonState();
+    BRunJobCommand::Params currentParams() const;
+    static QString commandErrorText(const BRunJobCommand::Result &result);
 
     BJobWidget *m_jobWidget;
     BDirector *m_director;
@@ -80,11 +83,11 @@ private:
     QLineEdit *m_bootstrapEdit;
     QCheckBox *m_replaceCheck;
     QComboBox *m_replaceCombo;
-    QTextEdit *m_commandPreview;
+    QTextEdit *m_commandPreview = nullptr;
 
     // Status
     QLabel *m_statusLabel;
-    QPushButton *m_runButton;
+    QPushButton *m_runButton = nullptr;
     QPushButton *m_estimateButton;
 
     // Data storage
@@ -95,6 +98,11 @@ private:
     QStringList m_storageNames;
 
     bool m_dataLoaded;
+
+    // Command as shown in the preview; rebuilt on every input change and before sending
+    QString m_command;
+    QString m_commandError;         ///< Not empty: the input cannot be sent
+    bool m_priorityEdited = false;  ///< Priority is only sent once the user has set it
 };
 
 #endif // BNEWJOBDIALOG_H

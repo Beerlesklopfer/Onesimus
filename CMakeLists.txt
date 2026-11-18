@@ -458,6 +458,7 @@ set(SOURCES
     src/jobs/bjobwidget.cpp
     src/jobs/bjsonjobview.cpp
     src/jobs/bnewjobdialog.cpp
+    src/jobs/brunjobcommand.cpp
     src/jobs/bfilesetwizard.cpp
     src/jobs/bjobwizard.cpp
     src/jobs/fileset/bfilesetdocument.cpp
@@ -545,6 +546,7 @@ set(HEADERS
     include/jobs/bviewpresets.h
     include/jobs/blevelcolors.h
     include/jobs/bnewjobdialog.h
+    include/jobs/brunjobcommand.h
     include/jobs/bfilesetwizard.h
     include/jobs/bjobwizard.h
     include/jobs/fileset/bfilesetdocument.h
@@ -1144,6 +1146,24 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bjoblogmodel_test COMMAND bjoblogmodel_test)
+
+    # brunjobcommand_test - command line of the "Run Job" dialog
+    add_executable(brunjobcommand_test
+        test/brunjobcommand_test.cpp
+        src/jobs/brunjobcommand.cpp
+        include/jobs/brunjobcommand.h
+    )
+
+    target_include_directories(brunjobcommand_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(brunjobcommand_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME brunjobcommand_test COMMAND brunjobcommand_test)
 endif()
 
 message(STATUS "")
@@ -1153,6 +1173,7 @@ message(STATUS "  director_test    - BareosDirector state machine test")
 message(STATUS "  volumejson_test  - list volumes JSON parsing test")
 if(BUILD_TESTING)
     message(STATUS "  bjoblogmodel_test - job log model test (registered with CTest)")
+    message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
 endif()
 message(STATUS "")
 
