@@ -15,6 +15,7 @@ class QCheckBox;
 class QComboBox;
 class QLabel;
 class QPushButton;
+class QSortFilterProxyModel;
 class QTimer;
 
 /**
@@ -140,9 +141,19 @@ private:
     void setupConnections();
     void applyFilters();
 
+    /**
+     * @brief Row of m_model behind an index of the table view
+     *
+     * The view shows the sorted proxy model, so its row numbers are not the
+     * model's. Every row action goes through this.
+     * @return -1 for an invalid index
+     */
+    int sourceRow(const QModelIndex &viewIndex) const;
+
     // UI Components
     QTableView *m_tableView;
     BClientsModel *m_model;
+    QSortFilterProxyModel *m_sortModel;     ///< Sorts m_model by its sort role; the view's model
     BCheckableHeaderView *m_headerView;
     BColumnConfiguration *m_columnConfig;
     QTimer *m_autoSaveTimer;

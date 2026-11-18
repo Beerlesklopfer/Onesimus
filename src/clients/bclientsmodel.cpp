@@ -1,5 +1,6 @@
 #include "clients/bclientsmodel.h"
 #include "jobs/blevelcolors.h"
+#include "bsortvalue.h"
 #include <QBrush>
 #include <QColor>
 #include <QDateTime>
@@ -140,6 +141,27 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             return m_jobCounts.value(name, 0);
         case COL_TOTAL_BYTES:
             return formatBytes(m_totalBytes.value(name, 0));
+        }
+    }
+
+    // Raw values for sorting: numbers, ages and times must not sort as text
+    if (role == SortRole) {
+        switch (index.column()) {
+        case COL_PORT:
+            return qint64(data(index, Qt::DisplayRole).toInt());
+        case COL_STATUS:
+            return BClientStatus::sortKey(clientActivity(client));
+        case COL_LAST_CONN: {
+            const BClientStatus::Info activity = clientActivity(client);
+            return activity.timestamp.isValid() ? activity.timestamp.toMSecsSinceEpoch()
+                                                : BSortValue::Missing;
+        }
+        case COL_JOB_COUNT:
+            return qint64(m_jobCounts.value(name, 0));
+        case COL_TOTAL_BYTES:
+            return m_totalBytes.value(name, 0);
+        default:
+            return data(index, Qt::DisplayRole);
         }
     }
 

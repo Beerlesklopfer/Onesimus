@@ -15,6 +15,7 @@
 #include <QJsonParseError>
 #include <QLabel>
 #include <QPushButton>
+#include <QSortFilterProxyModel>
 #include <QTableView>
 #include <QMenu>
 #include <QTimer>
@@ -24,6 +25,7 @@ BClientsWidget::BClientsWidget(BDirector *director, QWidget *parent)
     : QWidget(parent)
     , m_tableView(new QTableView(this))
     , m_model(new BClientsModel(director, this))
+    , m_sortModel(new QSortFilterProxyModel(this))
     , m_headerView(new BCheckableHeaderView(Qt::Horizontal, this))
     , m_columnConfig(new BColumnConfiguration(this))
     , m_autoSaveTimer(new QTimer(this))
@@ -127,13 +129,19 @@ void BClientsWidget::setupUI()
     mainLayout->addWidget(statsGroup);
 
     // Table view with custom header
+    // The view shows a sorting proxy: numbers, ages and times sort by value
+    // (the model's sort role), names without regard to case
     m_model->setStaleThresholdHours(BSettings::instance().behaviorClientStaleHours());
+    m_sortModel->setSourceModel(m_model);
+    m_sortModel->setSortRole(BClientsModel::SortRole);
+    m_sortModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     m_tableView->setHorizontalHeader(m_headerView);
-    m_tableView->setModel(m_model);
+    m_tableView->setModel(m_sortModel);
     m_tableView->setAlternatingRowColors(true);
     m_tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tableView->setSelectionMode(QAbstractItemView::SingleSelection);
     m_tableView->setSortingEnabled(true);
+    m_tableView->sortByColumn(BClientsModel::COL_NAME, Qt::AscendingOrder);
     m_tableView->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tableView->setMouseTracking(true);
     m_tableView->verticalHeader()->setVisible(false);
@@ -306,14 +314,21 @@ void BClientsWidget::onStatusFilterChanged(int index)
     applyFilters();
 }
 
+int BClientsWidget::sourceRow(const QModelIndex &viewIndex) const
+{
+    const QModelIndex sourceIndex = m_sortModel->mapToSource(viewIndex);
+    return sourceIndex.isValid() ? sourceIndex.row() : -1;
+}
+
 void BClientsWidget::onClientDoubleClicked(const QModelIndex &index)
 {
-    if (!index.isValid())
+    const int row = sourceRow(index);
+    if (row < 0)
         return;
 
-    QJsonObject client = m_model->enrichedClient(index.row());
+    QJsonObject client = m_model->enrichedClient(row);
     if (!client.isEmpty()) {
-        BClientDetailsDialog dialog(m_director, m_model, index.row(), this);
+        BClientDetailsDialog dialog(m_director, m_model, row, this);
         dialog.exec();
 
         emit clientDoubleClicked(client);
@@ -332,13 +347,13 @@ bool BClientsWidget::showSelectedClientDetails()
         return false;
 
     // Show details for the first selected client
-    QModelIndex index = selected.first();
-    if (!index.isValid())
+    const int row = sourceRow(selected.first());
+    if (row < 0)
         return false;
 
-    QJsonObject client = m_model->enrichedClient(index.row());
+    QJsonObject client = m_model->enrichedClient(row);
     if (!client.isEmpty()) {
-        BClientDetailsDialog dialog(m_director, m_model, index.row(), this);
+        BClientDetailsDialog dialog(m_director, m_model, row, this);
         dialog.exec();
         return true;
     }
@@ -503,13 +518,13 @@ void BClientsWidget::clearData()
 
 void BClientsWidget::onContextMenu(const QPoint &pos)
 {
-    QModelIndex index = m_tableView->indexAt(pos);
-    if (!index.isValid()) return;
+    const int row = sourceRow(m_tableView->indexAt(pos));
+    if (row < 0) return;
 
     QMenu menu(this);
     QAction *detailsAction = menu.addAction(tr("Details / Export..."));
-    connect(detailsAction, &QAction::triggered, this, [this, index]() {
-        BClientDetailsDialog dialog(m_director, m_model, index.row(), this);
+    connect(detailsAction, &QAction::triggered, this, [this, row]() {
+        BClientDetailsDialog dialog(m_director, m_model, row, this);
         dialog.showSettingsTab();
         dialog.exec();
     });

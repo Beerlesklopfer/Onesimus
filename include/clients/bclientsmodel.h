@@ -73,6 +73,15 @@ public:
         TLS_X509    ///< TLS x509: Enable=yes, Require=yes, + cert file paths
     };
 
+    /**
+     * @brief Role with the raw value of a cell, for sorting
+     *
+     * Port, age, last connection, job count and size are numbers under this
+     * role; the other columns return their display text. The widget's proxy
+     * model sorts by this role.
+     */
+    static constexpr int SortRole = Qt::UserRole;
+
     explicit BClientsModel(BDirector *director, QObject *parent = nullptr);
 
     // QAbstractTableModel interface
