@@ -24,6 +24,7 @@
 #include "config/bsettings.h"
 #include "bconnectionprofile.h"
 #include "config/bresourceform.h"
+#include "director/bdirectorreply.h"
 
 #define CLIENT_DEBUG BLOG_DEBUG()
 
@@ -579,9 +580,8 @@ void BNewClientPreviewPage::initializePage()
         wiz->data().passwordHash = QString::fromLatin1(hash.toHex());
     }
 
+    endWaiting();
     m_executed = false;
-    m_waitingForReload = false;
-    m_timeoutTimer->stop();
     m_statusLabel->clear();
     setLabelState(m_statusLabel, "");
     m_progressBar->setVisible(false);
@@ -598,6 +598,9 @@ bool BNewClientPreviewPage::validatePage()
 {
     auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
     if (!wiz) return true;
+
+    // The answer to the running command decides
+    if (m_waitingForConfigure || m_waitingForReload) return false;
 
     // Execute configure command if requested and not yet done
     if (wiz->data().executeConfigureCmd && !m_executed) {
@@ -916,7 +919,7 @@ void BNewClientPreviewPage::onCopyAll()
 
     QApplication::clipboard()->setText(all);
     m_statusLabel->setText(tr("All configuration files copied to clipboard."));
-    m_statusLabel->setStyleSheet("color: green;");
+    setLabelState(m_statusLabel, "success");
 }
 
 void BNewClientPreviewPage::onExportZip()
@@ -1021,7 +1024,7 @@ void BNewClientPreviewPage::onExportZip()
     }
 
     m_statusLabel->setText(tr("Exported to: %1").arg(zipPath));
-    m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
+    setLabelState(m_statusLabel, "success");
     CLIENT_DEBUG << "Exported ZIP: " << zipPath;
 }
 
@@ -1034,17 +1037,19 @@ void BNewClientPreviewPage::executeConfigureCommand()
         return;
     }
 
-    if (m_executed) return;
-    m_executed = true;
+    if (m_executed || m_waitingForConfigure || m_waitingForReload) return;
 
+    m_waitingForConfigure = true;
     m_progressBar->setVisible(true);
     m_statusLabel->setText(tr("Sending configure command..."));
     setLabelState(m_statusLabel, "");
 
-    connect(wiz->director(), &BDirector::jsonResult,
-            this, &BNewClientPreviewPage::onJsonResponse);
-    connect(wiz->director(), &BDirector::textResult,
-            this, &BNewClientPreviewPage::onCommandResponse);
+    // configureResult() is the Director layer's verdict on the reply, in
+    // API mode (JSON) and in text mode alike
+    connect(wiz->director(), &BDirector::configureResult,
+            this, &BNewClientPreviewPage::onConfigureResult, Qt::UniqueConnection);
+    connect(wiz->director(), &BDirector::disconnected,
+            this, &BNewClientPreviewPage::onDirectorDisconnected, Qt::UniqueConnection);
 
     m_timeoutTimer->start();
 
@@ -1052,219 +1057,119 @@ void BNewClientPreviewPage::executeConfigureCommand()
     wiz->director()->doSend(BDirector::Command::Configure, wiz->data().configureCommand);
 }
 
-void BNewClientPreviewPage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
+void BNewClientPreviewPage::endWaiting()
 {
-    auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
-
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
-
-    // Handle reload response
-    if (m_waitingForReload && cmd == BDirector::Command::Reload) {
-        m_waitingForReload = false;
-        m_progressBar->setVisible(false);
-
-        // Disconnect signals — we're done
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult,
-                       this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::textResult,
-                       this, &BNewClientPreviewPage::onCommandResponse);
-        }
-
-        // Check if reload succeeded: error.data.result.reload.success
-        bool reloadOk = false;
-        if (root.contains("error")) {
-            QJsonObject data = root["error"].toObject()["data"].toObject();
-            QJsonObject reloadResult = data["result"].toObject()["reload"].toObject();
-            reloadOk = reloadResult["success"].toBool(false);
-        } else if (result.contains("reload")) {
-            reloadOk = result["reload"].toObject()["success"].toBool(false);
-        }
-
-        QString clientName = wiz ? wiz->data().clientName : "?";
-        if (reloadOk) {
-            CLIENT_DEBUG << "Director reload OK";
-            m_statusLabel->setText(
-                tr("Client '%1' added and Director reloaded successfully.\n"
-                   "Deploy the FD config files to the client machine and restart bareos-fd.")
-                    .arg(clientName));
-            setLabelState(m_statusLabel, "success");
-        } else {
-            CLIENT_DEBUG << "Director reload FAILED";
-            m_statusLabel->setText(
-                tr("Client '%1' added to Director, but reload failed.\n"
-                   "Run 'reload' manually on the Director or restart bareos-dir.\n"
-                   "Deploy the FD config files to the client machine and restart bareos-fd.")
-                    .arg(clientName));
-            setLabelState(m_statusLabel, "warning");
-        }
-        return;
-    }
-
-    // Handle configure response
-    if (cmd != BDirector::Command::Configure) return;
-
     m_timeoutTimer->stop();
+    m_progressBar->setVisible(false);
+    m_waitingForConfigure = false;
+    m_waitingForReload = false;
 
-    // Not a configure response — ignore
-    if (!result.contains("configure") && !jsonData.contains("created", Qt::CaseInsensitive)) {
-        return;
-    }
-
-    // Bareos JSON API: success is indicated by result.configure.add existing
-    QJsonObject configureObj = result["configure"].toObject();
-    bool success = configureObj.contains("add")
-                || jsonData.contains("created", Qt::CaseInsensitive)
-                || jsonData.contains("success", Qt::CaseInsensitive);
-
-    if (success) {
-        // Extract meaningful message from JSON response
-        QString message;
-        if (configureObj.contains("add")) {
-            QJsonObject addObj = configureObj["add"].toObject();
-            message = tr("Client '%1' created at: %2")
-                          .arg(addObj["name"].toString(), addObj["filename"].toString());
-        }
-
-        CLIENT_DEBUG << "Configure OK: " << message;
-
-        // Send reload to Director
-        if (wiz && wiz->director() && wiz->director()->isConnected()) {
-            m_waitingForReload = true;
-            wiz->director()->doSend(BDirector::Command::Reload);
-            CLIENT_DEBUG << "Sent reload to Director";
-            m_statusLabel->setText(
-                tr("Client '%1' added to Director. Reloading Director...")
-                    .arg(wiz->data().clientName));
-            setLabelState(m_statusLabel, "info");
-        } else {
-            m_progressBar->setVisible(false);
-            // Disconnect signals — no reload possible
-            if (wiz && wiz->director()) {
-                disconnect(wiz->director(), &BDirector::jsonResult,
-                           this, &BNewClientPreviewPage::onJsonResponse);
-                disconnect(wiz->director(), &BDirector::textResult,
-                           this, &BNewClientPreviewPage::onCommandResponse);
-            }
-            m_statusLabel->setText(
-                tr("Client '%1' added to Director.\n"
-                   "Deploy the FD config files to the client machine and restart bareos-fd.")
-                    .arg(wiz ? wiz->data().clientName : "?"));
-            setLabelState(m_statusLabel, "success");
-        }
-    } else {
-        m_progressBar->setVisible(false);
-        // Disconnect signals on failure
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult,
-                       this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::textResult,
-                       this, &BNewClientPreviewPage::onCommandResponse);
-        }
-
-        QString errorMsg;
-        if (root.contains("error")) {
-            QJsonObject errorObj = root["error"].toObject();
-            errorMsg = errorObj["message"].toString();
-        } else {
-            errorMsg = jsonData.left(200);
-        }
-
-        CLIENT_DEBUG << "Configure FAILED: " << errorMsg;
-        m_statusLabel->setText(
-            tr("Failed to add client to Director: %1\n"
-               "You can still export the FD config files manually.").arg(errorMsg));
-        setLabelState(m_statusLabel, "error");
+    auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
+    if (wiz && wiz->director()) {
+        disconnect(wiz->director(), nullptr, this, nullptr);
     }
 }
 
-void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QString &response)
+void BNewClientPreviewPage::onConfigureResult(bool success, const QString &message)
 {
+    if (!m_waitingForConfigure) return;
+
     auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
+    const QString clientName = wiz ? wiz->data().clientName : QStringLiteral("?");
+    endWaiting();
 
-    // Handle reload response (plain text)
-    if (m_waitingForReload && cmd == BDirector::Command::Reload) {
-        m_waitingForReload = false;
-        m_progressBar->setVisible(false);
-
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult,
-                       this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::textResult,
-                       this, &BNewClientPreviewPage::onCommandResponse);
-        }
-
-        QString clientName = wiz ? wiz->data().clientName : "?";
-        bool reloadOk = response.contains("success", Qt::CaseInsensitive);
-
-        if (reloadOk) {
-            CLIENT_DEBUG << "Director reload OK";
-            m_statusLabel->setText(
-                tr("Client '%1' added and Director reloaded successfully.\n"
-                   "Deploy the FD config files to the client machine and restart bareos-fd.")
-                    .arg(clientName));
-            setLabelState(m_statusLabel, "success");
-        } else {
-            CLIENT_DEBUG << "Director reload FAILED: " << response.left(200);
-            m_statusLabel->setText(
-                tr("Client '%1' added to Director, but reload failed.\n"
-                   "Run 'reload' manually on the Director or restart bareos-dir.\n"
-                   "Deploy the FD config files to the client machine and restart bareos-fd.")
-                    .arg(clientName));
-            setLabelState(m_statusLabel, "warning");
-        }
+    if (!success) {
+        // m_executed stays false: Finish sends the command again, Cancel closes
+        CLIENT_DEBUG << "Configure FAILED: " << message.left(200);
+        m_statusLabel->setText(
+            tr("Failed to add client to Director: %1\n"
+               "Go back to change the settings, or click Finish to send the command again.\n"
+               "You can still export the FD config files manually.").arg(message.left(300)));
+        setLabelState(m_statusLabel, "error");
         return;
     }
 
-    // Handle configure response
-    if (cmd != BDirector::Command::Configure) return;
+    // The client exists from here on: Finish must not send it again
+    CLIENT_DEBUG << "Configure OK: " << message.left(200);
+    m_executed = true;
 
-    m_timeoutTimer->stop();
-
-    bool success = response.contains("created", Qt::CaseInsensitive)
-                || response.contains("success", Qt::CaseInsensitive)
-                || response.contains("configure add", Qt::CaseInsensitive);
-
-    if (success) {
-        CLIENT_DEBUG << "Configure OK: " << response.left(200);
-
-        // Send reload to Director
-        if (wiz && wiz->director() && wiz->director()->isConnected()) {
-            m_waitingForReload = true;
-            wiz->director()->doSend(BDirector::Command::Reload);
-            CLIENT_DEBUG << "Sent reload to Director";
-            m_statusLabel->setText(
-                tr("Client '%1' added to Director. Reloading Director...")
-                    .arg(wiz->data().clientName));
-            setLabelState(m_statusLabel, "info");
-        } else {
-            m_progressBar->setVisible(false);
-            if (wiz && wiz->director()) {
-                disconnect(wiz->director(), &BDirector::jsonResult,
-                           this, &BNewClientPreviewPage::onJsonResponse);
-                disconnect(wiz->director(), &BDirector::textResult,
-                           this, &BNewClientPreviewPage::onCommandResponse);
-            }
-            m_statusLabel->setText(
-                tr("Client '%1' added to Director.\n"
-                   "Deploy the FD config files to the client machine and restart bareos-fd.")
-                    .arg(wiz ? wiz->data().clientName : "?"));
-            setLabelState(m_statusLabel, "success");
-        }
-    } else {
-        m_progressBar->setVisible(false);
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult,
-                       this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::textResult,
-                       this, &BNewClientPreviewPage::onCommandResponse);
-        }
-        CLIENT_DEBUG << "Configure FAILED: " << response.left(200);
+    if (!wiz || !wiz->director() || !wiz->director()->isConnected()) {
         m_statusLabel->setText(
-            tr("Failed to add client to Director: %1\n"
-               "You can still export the FD config files manually.").arg(response.left(200)));
+            tr("Client '%1' added to Director.\n"
+               "Deploy the FD config files to the client machine and restart bareos-fd.")
+                .arg(clientName));
+        setLabelState(m_statusLabel, "success");
+        return;
+    }
+
+    m_waitingForReload = true;
+    m_progressBar->setVisible(true);
+    m_statusLabel->setText(
+        tr("Client '%1' added to Director. Reloading Director...").arg(clientName));
+    setLabelState(m_statusLabel, "info");
+
+    // The reload reply is JSON in API mode and text otherwise
+    connect(wiz->director(), &BDirector::jsonResult,
+            this, &BNewClientPreviewPage::onReloadReply, Qt::UniqueConnection);
+    connect(wiz->director(), &BDirector::textResult,
+            this, &BNewClientPreviewPage::onReloadReply, Qt::UniqueConnection);
+    connect(wiz->director(), &BDirector::disconnected,
+            this, &BNewClientPreviewPage::onDirectorDisconnected, Qt::UniqueConnection);
+
+    m_timeoutTimer->start();
+    wiz->director()->doSend(BDirector::Command::Reload);
+    CLIENT_DEBUG << "Sent reload to Director";
+}
+
+void BNewClientPreviewPage::onReloadReply(BDirector::Command cmd, const QString &reply)
+{
+    if (!m_waitingForReload || cmd != BDirector::Command::Reload) return;
+
+    auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
+    const QString clientName = wiz ? wiz->data().clientName : QStringLiteral("?");
+    endWaiting();
+
+    if (BDirectorReply::reloadSucceeded(reply)) {
+        CLIENT_DEBUG << "Director reload OK";
+        m_statusLabel->setText(
+            tr("Client '%1' added and Director reloaded successfully.\n"
+               "Deploy the FD config files to the client machine and restart bareos-fd.")
+                .arg(clientName));
+        setLabelState(m_statusLabel, "success");
+    } else {
+        CLIENT_DEBUG << "Director reload FAILED: " << reply.left(200);
+        m_statusLabel->setText(
+            tr("Client '%1' added to Director, but reload failed.\n"
+               "Run 'reload' manually on the Director or restart bareos-dir.\n"
+               "Deploy the FD config files to the client machine and restart bareos-fd.")
+                .arg(clientName));
+        setLabelState(m_statusLabel, "warning");
+    }
+}
+
+void BNewClientPreviewPage::onDirectorDisconnected()
+{
+    if (!m_waitingForConfigure && !m_waitingForReload) return;
+
+    auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
+    const QString clientName = wiz ? wiz->data().clientName : QStringLiteral("?");
+    const bool created = m_waitingForReload;
+    endWaiting();
+
+    if (created) {
+        m_statusLabel->setText(
+            tr("Client '%1' added to Director, but the connection was lost before the reload "
+               "was confirmed.\n"
+               "Reconnect and run 'reload' on the Director if the client does not appear.")
+                .arg(clientName));
+        setLabelState(m_statusLabel, "warning");
+    } else {
+        // Nobody knows whether the Director executed the command. A second
+        // attempt after reconnecting answers "already exists" if it did.
+        m_statusLabel->setText(
+            tr("The connection to the Director was lost before it answered.\n"
+               "Reconnect and check whether client '%1' exists before sending the command again.")
+                .arg(clientName));
         setLabelState(m_statusLabel, "error");
     }
 }
@@ -1272,9 +1177,21 @@ void BNewClientPreviewPage::onCommandResponse(BDirector::Command cmd, const QStr
 void BNewClientPreviewPage::onConfigureTimeout()
 {
     auto *wiz = qobject_cast<BNewClientWizard*>(wizard());
+    const QString clientName = wiz ? wiz->data().clientName : QStringLiteral("?");
+    const bool created = m_waitingForReload;
+    endWaiting();
+    CLIENT_DEBUG << (created ? "Reload timed out" : "Configure command timed out");
 
-    m_progressBar->setVisible(false);
-    CLIENT_DEBUG << "Configure command timed out";
+    if (created) {
+        // The client exists; sending configure again would only answer "already exists"
+        m_statusLabel->setText(
+            tr("Client '%1' added to Director, but the Director did not confirm the reload "
+               "within 30 seconds.\n"
+               "Run 'reload' manually on the Director if the client does not appear.")
+                .arg(clientName));
+        setLabelState(m_statusLabel, "warning");
+        return;
+    }
 
     QMessageBox::StandardButton reply = QMessageBox::warning(
         this,
@@ -1286,31 +1203,12 @@ void BNewClientPreviewPage::onConfigureTimeout()
         QMessageBox::Retry);
 
     if (reply == QMessageBox::Retry) {
-        // Reset state for retry
-        m_executed = false;
-        m_waitingForReload = false;
-
-        // Disconnect previous signals
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult,
-                       this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::textResult,
-                       this, &BNewClientPreviewPage::onCommandResponse);
-        }
-
-        // Retry
         executeConfigureCommand();
     } else {
-        // User cancelled — disconnect and show status
-        if (wiz && wiz->director()) {
-            disconnect(wiz->director(), &BDirector::jsonResult,
-                       this, &BNewClientPreviewPage::onJsonResponse);
-            disconnect(wiz->director(), &BDirector::textResult,
-                       this, &BNewClientPreviewPage::onCommandResponse);
-        }
-
+        // The user gave up waiting: Finish closes the wizard without sending again
+        m_executed = true;
         m_statusLabel->setText(
-            tr("Configure command timed out.\n"
+            tr("Configure command timed out. The client may or may not have been created.\n"
                "You can export the FD config files and configure the Director manually."));
         setLabelState(m_statusLabel, "warning");
     }

@@ -186,14 +186,16 @@ private slots:
     void onCopyCurrentTab();
     void onCopyAll();
     void onExportZip();
-    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
-    void onCommandResponse(BDirector::Command cmd, const QString &response);
+    void onConfigureResult(bool success, const QString &message);
+    void onReloadReply(BDirector::Command cmd, const QString &reply);
+    void onDirectorDisconnected();
     void onConfigureTimeout();
 
 private:
     void generateConfigs();
     void validateConfigs();
     void executeConfigureCommand();
+    void endWaiting();
     void parseAndDisplayResources();
     void updateRawText();
 
@@ -211,8 +213,9 @@ private:
     QProgressBar *m_progressBar;
     QPushButton *m_exportButton;
     QTimer *m_timeoutTimer;
-    bool m_executed = false;
-    bool m_waitingForReload = false;
+    bool m_executed = false;            ///< the client exists on the Director (or the user gave up waiting)
+    bool m_waitingForConfigure = false; ///< configure was sent, no result yet
+    bool m_waitingForReload = false;    ///< client exists, reload was sent, no reply yet
 };
 
 #endif // BNEWCLIENTDIALOG_H

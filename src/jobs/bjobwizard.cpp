@@ -8,6 +8,7 @@
 
 #include "jobs/bjobwizard.h"
 #include "config/bresourceform.h"
+#include "director/bdirectorreply.h"
 #include "blogging.h"
 
 #include <QVBoxLayout>
@@ -762,8 +763,8 @@ BJobPreviewPage::BJobPreviewPage(QWidget *parent)
 
 void BJobPreviewPage::initializePage()
 {
+    endWaiting();
     m_executed = false;
-    m_waitingForReload = false;
     m_statusLabel->clear();
     m_progressBar->setVisible(false);
     generatePreview();
@@ -794,6 +795,8 @@ void BJobPreviewPage::generatePreview()
 
 bool BJobPreviewPage::validatePage()
 {
+    // The answer to the running command decides
+    if (m_waitingForConfigure || m_waitingForReload) return false;
     if (m_executed) return true;
 
     auto *wiz = qobject_cast<BJobWizard*>(wizard());
@@ -819,16 +822,22 @@ void BJobPreviewPage::executeConfigureCommand()
     auto *wiz = qobject_cast<BJobWizard*>(wizard());
     if (!wiz || !wiz->director()) return;
 
+    if (m_waitingForConfigure || m_waitingForReload) return;
+
+    disconnectDirectorSignals();
+    m_waitingForConfigure = true;
     m_progressBar->setVisible(true);
+    m_statusLabel->setStyleSheet(QString());
     m_statusLabel->setText(tr("Sending configure command..."));
 
-    // Connect to Director signals
+    // configureResult() is the Director layer's verdict on the reply, in
+    // API mode (JSON) and in text mode alike
     m_connections.append(
-        connect(wiz->director(), &BDirector::jsonResult,
-                this, &BJobPreviewPage::onJsonResponse));
+        connect(wiz->director(), &BDirector::configureResult,
+                this, &BJobPreviewPage::onConfigureResult));
     m_connections.append(
-        connect(wiz->director(), &BDirector::textResult,
-                this, &BJobPreviewPage::onCommandResponse));
+        connect(wiz->director(), &BDirector::disconnected,
+                this, &BJobPreviewPage::onDirectorDisconnected));
 
     m_timeoutTimer->start();
 
@@ -837,89 +846,101 @@ void BJobPreviewPage::executeConfigureCommand()
     wiz->director()->doSend(BDirector::Command::Configure, cmd);
 }
 
-void BJobPreviewPage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
+void BJobPreviewPage::endWaiting()
 {
-    if (cmd != BDirector::Command::Configure) return;
-
     m_timeoutTimer->stop();
     disconnectDirectorSignals();
-
-    bool success = jsonData.contains("created", Qt::CaseInsensitive)
-                || jsonData.contains("success", Qt::CaseInsensitive);
-
-    if (success) {
-        auto *wiz = qobject_cast<BJobWizard*>(wizard());
-        if (wiz && wiz->director() && wiz->director()->isConnected()) {
-            m_waitingForReload = true;
-            m_statusLabel->setText(tr("Resource created. Reloading Director..."));
-
-            m_connections.append(
-                connect(wiz->director(), &BDirector::textResult,
-                        this, &BJobPreviewPage::onCommandResponse));
-            wiz->director()->doSend(BDirector::Command::Reload);
-        } else {
-            m_progressBar->setVisible(false);
-            m_statusLabel->setText(tr("Resource created successfully."));
-            m_statusLabel->setStyleSheet("color: green;");
-            m_executed = true;
-        }
-    } else {
-        m_progressBar->setVisible(false);
-        m_statusLabel->setText(tr("Failed: %1").arg(jsonData.left(300)));
-        m_statusLabel->setStyleSheet("color: red;");
-    }
+    m_progressBar->setVisible(false);
+    m_waitingForConfigure = false;
+    m_waitingForReload = false;
 }
 
-void BJobPreviewPage::onCommandResponse(BDirector::Command cmd, const QString &response)
+void BJobPreviewPage::onConfigureResult(bool success, const QString &message)
 {
-    if (m_waitingForReload && cmd == BDirector::Command::Reload) {
-        m_waitingForReload = false;
-        disconnectDirectorSignals();
-        m_progressBar->setVisible(false);
-        m_statusLabel->setText(tr("Resource created and Director reloaded successfully."));
-        m_statusLabel->setStyleSheet("color: green;");
-        m_executed = true;
+    if (!m_waitingForConfigure) return;
+
+    auto *wiz = qobject_cast<BJobWizard*>(wizard());
+    endWaiting();
+
+    if (!success) {
+        m_statusLabel->setText(tr("Error: %1").arg(message.left(300)));
+        m_statusLabel->setStyleSheet("color: red;");
         return;
     }
 
-    if (cmd != BDirector::Command::Configure) return;
+    // The resource exists from here on: Finish must not send it again
+    m_executed = true;
 
-    m_timeoutTimer->stop();
-    disconnectDirectorSignals();
+    if (!wiz || !wiz->director() || !wiz->director()->isConnected()) {
+        m_statusLabel->setText(tr("Resource created successfully."));
+        m_statusLabel->setStyleSheet("color: green;");
+        return;
+    }
 
-    bool success = response.contains("created", Qt::CaseInsensitive)
-                || response.contains("success", Qt::CaseInsensitive)
-                || response.contains("configure add", Qt::CaseInsensitive);
+    m_waitingForReload = true;
+    m_progressBar->setVisible(true);
+    m_statusLabel->setStyleSheet(QString());
+    m_statusLabel->setText(tr("Resource created. Reloading Director..."));
 
-    if (success) {
-        auto *wiz = qobject_cast<BJobWizard*>(wizard());
-        if (wiz && wiz->director() && wiz->director()->isConnected()) {
-            m_waitingForReload = true;
-            m_statusLabel->setText(tr("Resource created. Reloading Director..."));
+    // The reload reply is JSON in API mode and text otherwise
+    m_connections.append(
+        connect(wiz->director(), &BDirector::jsonResult,
+                this, &BJobPreviewPage::onReloadReply));
+    m_connections.append(
+        connect(wiz->director(), &BDirector::textResult,
+                this, &BJobPreviewPage::onReloadReply));
+    m_connections.append(
+        connect(wiz->director(), &BDirector::disconnected,
+                this, &BJobPreviewPage::onDirectorDisconnected));
 
-            m_connections.append(
-                connect(wiz->director(), &BDirector::textResult,
-                        this, &BJobPreviewPage::onCommandResponse));
-            wiz->director()->doSend(BDirector::Command::Reload);
-        } else {
-            m_progressBar->setVisible(false);
-            m_statusLabel->setText(tr("Resource created successfully."));
-            m_statusLabel->setStyleSheet("color: green;");
-            m_executed = true;
-        }
+    m_timeoutTimer->start();
+    wiz->director()->doSend(BDirector::Command::Reload);
+}
+
+void BJobPreviewPage::onReloadReply(BDirector::Command cmd, const QString &reply)
+{
+    if (!m_waitingForReload || cmd != BDirector::Command::Reload) return;
+    endWaiting();
+
+    if (BDirectorReply::reloadSucceeded(reply)) {
+        m_statusLabel->setText(tr("Resource created and Director reloaded successfully."));
+        m_statusLabel->setStyleSheet("color: green;");
     } else {
-        m_progressBar->setVisible(false);
-        m_statusLabel->setText(tr("Error: %1").arg(response.left(300)));
+        m_statusLabel->setText(tr("Resource created, but reloading the Director failed. "
+                                  "Run 'reload' on the Director."));
+        m_statusLabel->setStyleSheet("color: orange;");
+    }
+}
+
+void BJobPreviewPage::onDirectorDisconnected()
+{
+    const bool created = m_waitingForReload;
+    if (!m_waitingForConfigure && !m_waitingForReload) return;
+    endWaiting();
+
+    if (created) {
+        m_statusLabel->setText(tr("Resource created, but the connection to the Director was lost "
+                                  "before the reload was confirmed."));
+        m_statusLabel->setStyleSheet("color: orange;");
+    } else {
+        m_statusLabel->setText(tr("The connection to the Director was lost before it answered. "
+                                  "Reconnect and check whether the resource exists."));
         m_statusLabel->setStyleSheet("color: red;");
     }
 }
 
 void BJobPreviewPage::onConfigureTimeout()
 {
-    disconnectDirectorSignals();
-    m_progressBar->setVisible(false);
-    m_statusLabel->setText(tr("Timeout waiting for Director response. "
-                              "The command may still be processing."));
+    const bool created = m_waitingForReload;
+    endWaiting();
+
+    if (created) {
+        m_statusLabel->setText(tr("Resource created, but the Director did not confirm the reload "
+                                  "in time. Run 'reload' on the Director if the job does not appear."));
+    } else {
+        m_statusLabel->setText(tr("Timeout waiting for Director response. "
+                                  "The command may still be processing."));
+    }
     m_statusLabel->setStyleSheet("color: orange;");
 }
 

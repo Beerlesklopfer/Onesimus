@@ -558,6 +558,7 @@ set(HEADERS
 
     include/clients/bclientsmodel.h
     include/blabelstate.h
+    include/director/bdirectorreply.h
     include/clients/bclientswidget.h
     include/clients/bclientdetailsdialog.h
     include/clients/bnewclientdialog.h
@@ -1210,6 +1211,23 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bdatabase_test COMMAND bdatabase_test)
+
+    # bdirectorreply_test - verdict on the reply of "reload" (job and client wizards)
+    add_executable(bdirectorreply_test
+        test/bdirectorreply_test.cpp
+        include/director/bdirectorreply.h
+    )
+
+    target_include_directories(bdirectorreply_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bdirectorreply_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bdirectorreply_test COMMAND bdirectorreply_test)
 endif()
 
 message(STATUS "")
@@ -1222,6 +1240,7 @@ if(BUILD_TESTING)
     message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
     message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")
     message(STATUS "  bdatabase_test   - database migration test (registered with CTest)")
+    message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
 endif()
 message(STATUS "")
 

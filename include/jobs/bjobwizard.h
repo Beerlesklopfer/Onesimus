@@ -240,14 +240,16 @@ public:
 private slots:
     void onCopyConfig();
     void onCopyCommand();
-    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
-    void onCommandResponse(BDirector::Command cmd, const QString &response);
+    void onConfigureResult(bool success, const QString &message);
+    void onReloadReply(BDirector::Command cmd, const QString &reply);
+    void onDirectorDisconnected();
     void onConfigureTimeout();
 
 private:
     void generatePreview();
     void executeConfigureCommand();
     void disconnectDirectorSignals();
+    void endWaiting();
 
     QTextEdit *m_configEdit = nullptr;
     QTextEdit *m_commandEdit = nullptr;
@@ -258,7 +260,8 @@ private:
     QPushButton *m_copyCommandButton = nullptr;
     QTimer *m_timeoutTimer = nullptr;
     bool m_executed = false;
-    bool m_waitingForReload = false;
+    bool m_waitingForConfigure = false; ///< configure was sent, no result yet
+    bool m_waitingForReload = false;    ///< resource exists, reload was sent, no reply yet
     QList<QMetaObject::Connection> m_connections;
 };
 

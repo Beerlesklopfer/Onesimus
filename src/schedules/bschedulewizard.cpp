@@ -660,6 +660,7 @@ BSchedulePreviewPage::BSchedulePreviewPage(QWidget *parent)
 
 void BSchedulePreviewPage::initializePage()
 {
+    endWaiting();
     m_executed = false;
     m_statusLabel->clear();
     m_progressBar->setVisible(false);
@@ -677,6 +678,7 @@ void BSchedulePreviewPage::generatePreview()
 
 bool BSchedulePreviewPage::validatePage()
 {
+    if (m_waiting) return false;    // the answer to the running command decides
     if (m_executed) return true;
 
     auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
@@ -701,15 +703,22 @@ void BSchedulePreviewPage::executeConfigureCommand()
     auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
     if (!wiz || !wiz->director()) return;
 
+    if (m_waiting) return;
+
+    disconnectDirectorSignals();
+    m_waiting = true;
     m_progressBar->setVisible(true);
+    m_statusLabel->setStyleSheet(QString());
     m_statusLabel->setText(tr("Sending configure command..."));
 
+    // configureResult() is the Director layer's verdict on the reply, in
+    // API mode (JSON) and in text mode alike
     m_connections.append(
-        connect(wiz->director(), &BDirector::jsonResult,
-                this, &BSchedulePreviewPage::onJsonResponse));
+        connect(wiz->director(), &BDirector::configureResult,
+                this, &BSchedulePreviewPage::onConfigureResult));
     m_connections.append(
-        connect(wiz->director(), &BDirector::textResult,
-                this, &BSchedulePreviewPage::onCommandResponse));
+        connect(wiz->director(), &BDirector::disconnected,
+                this, &BSchedulePreviewPage::onDirectorDisconnected));
 
     m_timeoutTimer->start();
 
@@ -718,17 +727,18 @@ void BSchedulePreviewPage::executeConfigureCommand()
     wiz->director()->doSend(BDirector::Command::Configure, cmd);
 }
 
-void BSchedulePreviewPage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
+void BSchedulePreviewPage::endWaiting()
 {
-    if (cmd != BDirector::Command::Configure) return;
-
     m_timeoutTimer->stop();
     disconnectDirectorSignals();
-
-    bool success = jsonData.contains("created", Qt::CaseInsensitive)
-                || jsonData.contains("success", Qt::CaseInsensitive);
-
     m_progressBar->setVisible(false);
+    m_waiting = false;
+}
+
+void BSchedulePreviewPage::onConfigureResult(bool success, const QString &message)
+{
+    if (!m_waiting) return;
+    endWaiting();
 
     if (success) {
         m_executed = true;
@@ -736,35 +746,23 @@ void BSchedulePreviewPage::onJsonResponse(BDirector::Command cmd, const QString 
         m_statusLabel->setText(tr("Schedule created successfully! Click Finish to close."));
     } else {
         m_statusLabel->setStyleSheet("color: red;");
-        m_statusLabel->setText(tr("Error: %1").arg(jsonData.left(500)));
+        m_statusLabel->setText(tr("Error: %1").arg(message.left(500)));
     }
 }
 
-void BSchedulePreviewPage::onCommandResponse(BDirector::Command cmd, const QString &response)
+void BSchedulePreviewPage::onDirectorDisconnected()
 {
-    if (cmd != BDirector::Command::Configure) return;
+    if (!m_waiting) return;
+    endWaiting();
 
-    m_timeoutTimer->stop();
-    disconnectDirectorSignals();
-    m_progressBar->setVisible(false);
-
-    bool success = response.contains("created", Qt::CaseInsensitive)
-                || response.contains("success", Qt::CaseInsensitive);
-
-    if (success) {
-        m_executed = true;
-        m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
-        m_statusLabel->setText(tr("Schedule created successfully! Click Finish to close."));
-    } else {
-        m_statusLabel->setStyleSheet("color: red;");
-        m_statusLabel->setText(tr("Response: %1").arg(response.left(500)));
-    }
+    m_statusLabel->setStyleSheet("color: red;");
+    m_statusLabel->setText(tr("The connection to the Director was lost before it answered. "
+                              "Reconnect and check with 'show schedules' whether the schedule exists."));
 }
 
 void BSchedulePreviewPage::onConfigureTimeout()
 {
-    disconnectDirectorSignals();
-    m_progressBar->setVisible(false);
+    endWaiting();
     m_statusLabel->setStyleSheet("color: orange;");
     m_statusLabel->setText(tr("Timeout waiting for Director response. "
                               "The schedule may have been created — check with 'show schedules'."));
