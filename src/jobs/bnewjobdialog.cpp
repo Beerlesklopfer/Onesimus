@@ -687,18 +687,13 @@ void BNewJobDialog::onEstimateClicked()
         return;
     }
 
-    QString command = "estimate";
-    command += " job=\"" + m_jobCombo->currentText() + "\"";
-
-    if (!m_clientCombo->currentText().isEmpty()) {
-        command += " client=\"" + m_clientCombo->currentText() + "\"";
+    // Same inputs and the same quoting as the run command
+    const BRunJobCommand::Result result = BRunJobCommand::buildEstimate(currentParams());
+    if (!result.ok()) {
+        QMessageBox::warning(this, tr("Invalid Input"), commandErrorText(result));
+        return;
     }
-
-    if (!m_filesetCombo->currentText().isEmpty()) {
-        command += " fileset=\"" + m_filesetCombo->currentText() + "\"";
-    }
-
-    command += " level=" + m_levelCombo->currentData().toString();
+    const QString command = result.command;
 
     if (m_director) {
         QMetaObject::invokeMethod(m_director, "doSend",

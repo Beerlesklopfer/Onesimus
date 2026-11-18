@@ -119,4 +119,48 @@ Result build(const Params &params)
     return result;
 }
 
+Result buildEstimate(const Params &params)
+{
+    Result result;
+
+    auto fail = [&result](Error error, const char *field) {
+        if (result.error == Error::None) {
+            result.error = error;
+            result.field = QString::fromLatin1(field);
+        }
+    };
+
+    const QString job = params.job.trimmed();
+    if (job.isEmpty())
+        fail(Error::MissingJob, "job");
+
+    QString command = QStringLiteral("estimate");
+
+    auto addQuoted = [&](const char *keyword, const QString &value) {
+        if (value.isEmpty())
+            return;
+        bool ok = true;
+        const QString quoted = quote(value, &ok);
+        if (!ok)
+            fail(Error::ControlCharacter, keyword);
+        command += ' ' + QString::fromLatin1(keyword) + '=' + quoted;
+    };
+
+    addQuoted("job", job);
+    addQuoted("client", params.client.trimmed());
+    addQuoted("fileset", params.fileset.trimmed());
+
+    const QString level = params.level.trimmed();
+    if (!level.isEmpty()) {
+        if (isPlainWord(level))
+            command += QStringLiteral(" level=") + level;
+        else
+            addQuoted("level", level);
+    }
+
+    if (result.ok())
+        result.command = command;
+    return result;
+}
+
 } // namespace BRunJobCommand

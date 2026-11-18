@@ -31,6 +31,8 @@ private slots:
     void whenAcceptsTypedQuotes();
     void missingJobIsAnError();
     void controlCharactersAreRejected();
+    void estimateUsesTheSameQuoting();
+    void estimateRejectsWhatRunRejects();
 };
 
 void BRunJobCommandTest::jobOnly()
@@ -220,6 +222,63 @@ void BRunJobCommandTest::controlCharactersAreRejected()
     const Result result = BRunJobCommand::build(params);
     QCOMPARE(result.error, Error::ControlCharacter);
     QCOMPARE(result.field, QString("pool"));
+    QVERIFY(result.command.isEmpty());
+}
+
+void BRunJobCommandTest::estimateUsesTheSameQuoting()
+{
+    Params params;
+    params.job = "backup-pdc";
+    Result result = BRunJobCommand::buildEstimate(params);
+    QVERIFY(result.ok());
+    QCOMPARE(result.command, QString("estimate job=\"backup-pdc\""));
+
+    // Names with spaces, quotes and keywords stay one argument each
+    params.job = "nightly backup";
+    params.client = "pdc-fd\" level=Full yes";
+    params.fileset = "C:\\Data";
+    params.level = "Incremental";
+    result = BRunJobCommand::buildEstimate(params);
+    QVERIFY(result.ok());
+    QCOMPARE(result.command,
+             QString("estimate job=\"nightly backup\" client=\"pdc-fd\\\" level=Full yes\""
+                     " fileset=\"C:\\\\Data\" level=Incremental"));
+    // Exactly the arguments build() writes for the same values
+    const QString run = BRunJobCommand::build(params).command;
+    QCOMPARE(QString(result.command).replace(0, 8, "run") + " yes", run);
+
+    // Values of the run command that estimate does not know are left out,
+    // valid or not; estimate never confirms with "yes"
+    params.pool = "Full";
+    params.storage = "File";
+    params.priority = 5;
+    params.when = "not a time";
+    params.bootstrap = "/tmp/x.bsr";
+    const Result again = BRunJobCommand::buildEstimate(params);
+    QVERIFY(again.ok());
+    QCOMPARE(again.command, result.command);
+    QVERIFY(!again.command.endsWith(" yes"));
+
+    // A level that is not a plain word is quoted, an empty one left out
+    params.level = "Full yes";
+    QVERIFY(BRunJobCommand::buildEstimate(params).command.endsWith(" level=\"Full yes\""));
+    params.level.clear();
+    QVERIFY(BRunJobCommand::buildEstimate(params).command.endsWith(" fileset=\"C:\\\\Data\""));
+}
+
+void BRunJobCommandTest::estimateRejectsWhatRunRejects()
+{
+    Params params;
+    params.client = "pdc-fd";
+    Result result = BRunJobCommand::buildEstimate(params);
+    QCOMPARE(result.error, Error::MissingJob);
+    QVERIFY(result.command.isEmpty());
+
+    params.job = "j";
+    params.fileset = "LinuxAll\nrun job=other yes";
+    result = BRunJobCommand::buildEstimate(params);
+    QCOMPARE(result.error, Error::ControlCharacter);
+    QCOMPARE(result.field, QString("fileset"));
     QVERIFY(result.command.isEmpty());
 }
 

@@ -61,6 +61,14 @@ QString quote(const QString &value, bool *ok = nullptr);
  */
 Result build(const Params &params);
 
+/**
+ * @brief Build `estimate job=...` from job, client, fileset and level
+ *
+ * Quoted like build(); the other values are not part of the command and
+ * are neither used nor checked. Nothing is sent to a Director here.
+ */
+Result buildEstimate(const Params &params);
+
 } // namespace BRunJobCommand
 
 #endif // BRUNJOBCOMMAND_H
