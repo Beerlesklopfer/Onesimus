@@ -4,6 +4,7 @@
  *
  * Works on files in a temporary directory with the SQL scripts from the
  * application's resources. Runs without a Director (registered with CTest).
+ * The built-in FileSet templates come from the same resource file.
  */
 
 #include <QtTest>
@@ -76,6 +77,7 @@ private slots:
     void repairsVersion5WithoutTable();
     void failedMigrationIsRolledBack();
     void secondStartChangesNothing();
+    void builtinTemplatesAreImported();
 
 private:
     /// Create a database at the latest version and close it again
@@ -258,6 +260,53 @@ void BDatabaseTest::secondStartChangesNothing()
     QVERIFY2(again.initialize(path), qPrintable(again.lastError()));
     QCOMPARE(rowCount(again.database(), "fileset_templates"), templates);
     QCOMPARE(recordedVersions(again.database()), QList<int>({1, 2, 3, 4, 5}));
+}
+
+void BDatabaseTest::builtinTemplatesAreImported()
+{
+    // The templates the import reads are in the resource file at all
+    QVERIFY2(QFile::exists(":/templates/filesets/templates/filesets/linux_home.json"),
+             "FileSet template resources not linked into the test");
+
+    const QString path = newPath();
+    int builtin = 0;
+    {
+        BDatabase db;
+        QVERIFY2(db.initialize(path), qPrintable(db.lastError()));
+
+        // initialize() imports them into a new database
+        QSqlQuery query(db.database());
+        QVERIFY(query.exec("SELECT COUNT(*) FROM fileset_templates WHERE is_builtin = 1"));
+        QVERIFY(query.next());
+        builtin = query.value(0).toInt();
+        QVERIFY2(builtin >= 1, "no built-in template was imported");
+        QVERIFY(!db.needsTemplateImport());
+
+        // Each row carries the template's JSON and a valid platform
+        QVERIFY(query.exec("SELECT name, platform, content FROM fileset_templates "
+                           "WHERE is_builtin = 1"));
+        while (query.next()) {
+            QVERIFY(!query.value(0).toString().isEmpty());
+            QVERIFY(QStringList({"linux", "windows", "macos", "all"})
+                        .contains(query.value(1).toString()));
+            QVERIFY(query.value(2).toString().trimmed().startsWith('{'));
+        }
+
+        // A second import updates the rows instead of adding to them
+        QVERIFY(db.importBuiltinTemplates() >= 1);
+        QVERIFY(query.exec("SELECT COUNT(*) FROM fileset_templates WHERE is_builtin = 1"));
+        QVERIFY(query.next());
+        QCOMPARE(query.value(0).toInt(), builtin);
+        db.close();
+    }
+
+    // Nor does the next start
+    BDatabase again;
+    QVERIFY2(again.initialize(path), qPrintable(again.lastError()));
+    QSqlQuery query(again.database());
+    QVERIFY(query.exec("SELECT COUNT(*) FROM fileset_templates WHERE is_builtin = 1"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), builtin);
 }
 
 QTEST_GUILESS_MAIN(BDatabaseTest)

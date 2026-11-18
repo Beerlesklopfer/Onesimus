@@ -485,8 +485,11 @@ int BDatabase::importBuiltinTemplates()
 
     BLOG_DEBUG() << "Importing built-in FileSet templates...";
 
-    // List all template files from Qt resources
-    QDir resourceDir(":/templates/filesets");
+    // List all template files from Qt resources. resources.qrc lists them as
+    // "templates/filesets/<file>" under the prefix "/templates/filesets", so
+    // the directory name appears twice in the resource path.
+    static const QString templateDir = QStringLiteral(":/templates/filesets/templates/filesets");
+    QDir resourceDir(templateDir);
     QStringList filters;
     filters << "*.json";
     QStringList templateFiles = resourceDir.entryList(filters, QDir::Files);
@@ -513,7 +516,7 @@ int BDatabase::importBuiltinTemplates()
     )");
 
     for (const QString &fileName : templateFiles) {
-        QString resourcePath = ":/templates/filesets/" + fileName;
+        QString resourcePath = templateDir + "/" + fileName;
         QFile file(resourcePath);
 
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
