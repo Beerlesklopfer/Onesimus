@@ -1213,7 +1213,7 @@ elseif(UNIX)
     set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
     # RPM package settings
-    set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+    set(CPACK_RPM_PACKAGE_LICENSE "AGPL-3.0-or-later")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
     set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= 6.2")
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)

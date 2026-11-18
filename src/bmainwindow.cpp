@@ -1476,7 +1476,7 @@ void BMainWindow::onAboutTriggered()
     // Copyright and Author
     QLabel* copyrightLabel = new QLabel(
         "<p><b>Author:</b> Jörg Bernau &lt;support@onesimus.io&gt;</p>"
-        "<p><b>Copyright:</b> © 2025-2026 Jörg Bernau. All rights reserved.</p>"
+        "<p><b>Copyright:</b> © 2025-2026 Jörg Bernau</p>"
         "<p><b>Website:</b> <a href='https://onesimus.io'>https://onesimus.io</a></p>"
         "<p><b>Support:</b> <a href='mailto:support@onesimus.io'>support@onesimus.io</a></p>"
         "<p><b>Source:</b> <a href='https://github.com/Beerlesklopfer/Onesimus'>github.com/Beerlesklopfer/Onesimus</a></p>"
@@ -1487,11 +1487,11 @@ void BMainWindow::onAboutTriggered()
 
     // License
     QLabel* licenseLabel = new QLabel(
-        "<p><b>License:</b> GNU Affero General Public License v3.0</p>"
+        "<p><b>License:</b> GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)</p>"
         "<p style='font-size:9pt; color:#666;'>"
         "This program is free software: you can redistribute it and/or modify it under the "
         "terms of the GNU Affero General Public License as published by the Free Software "
-        "Foundation, version 3 of the License.</p>"
+        "Foundation, either version 3 of the License, or (at your option) any later version.</p>"
         "<p style='font-size:9pt; color:#666;'>"
         "This program is distributed in the hope that it will be useful, but WITHOUT ANY "
         "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A "

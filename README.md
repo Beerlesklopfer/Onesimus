@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/OpenSSL-3.6-orange?logo=openssl" alt="OpenSSL 3.6">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Cross-Platform">
   <img src="https://img.shields.io/badge/Status-Alpha-red" alt="Alpha">
-  <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="AGPL-3.0">
+  <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue" alt="AGPL-3.0-or-later">
 </p>
 
 ---
@@ -444,7 +444,7 @@ Pull requests are welcome! Please:
 
 ## 📄 License
 
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see [LICENSE](LICENSE) for details.
+This project is licensed under the GNU Affero General Public License, version 3 or (at your option) any later version (AGPL-3.0-or-later) - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Credits
 
@@ -542,7 +542,7 @@ Every contribution helps keep development going — and shows that open source b
 
 ### Roadmap
 
-**Community (free, MIT)** — Modern management interface:
+**Community (free, AGPL-3.0-or-later)** — Modern management interface:
 - ✅ Job, Client & Schedule management
 - ✅ Gantt timeline & weekly planner
 - ✅ Restore wizard with BVFS file browser

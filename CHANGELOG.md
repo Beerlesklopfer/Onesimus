@@ -662,7 +662,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Development
 - **Author**: Joerg Bernau <support@onesimus.io>
 - **Project**: Onesimus
-- **License**: GPL-3.0
+- **License**: AGPL-3.0-or-later
 
 ### Technologies
 - [Qt Framework](https://www.qt.io/) - Cross-platform UI
