@@ -8,6 +8,7 @@
 
 #include "jobs/bfilesetwizard.h"
 #include "jobs/fileset/bfilesetdocument.h"
+#include "bcapabilitynotice.h"
 #include "blogging.h"
 #include "jobs/fileset/bincludeblockwidget.h"
 #include "config/beditablelistwidget.h"
@@ -1177,6 +1178,14 @@ void BFileSetPreviewPage::generateConfig()
 
 bool BFileSetPreviewPage::validatePage()
 {
+    // Finishing the wizard is where the user expects the FileSet to reach
+    // the Director. Say once per session why it does not; the question
+    // below and the copy path stay as they are.
+    if (auto *wiz = qobject_cast<BFileSetWizard *>(wizard())) {
+        BCapabilityNotice::check(this, wiz->director(), BCapabilities::Function::DeployFileSet,
+                                 BCapabilities::Request::Implicit);
+    }
+
     int ret = QMessageBox::question(this, tr("Close Wizard"),
         tr("The configuration has not been sent to the Director.\n"
            "Use 'Copy configuration' to save it before closing.\n\n"

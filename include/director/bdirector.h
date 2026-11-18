@@ -145,6 +145,16 @@ public:
     /// Transport selected with setTransport() (main-thread copy)
     Transport transport() const { return m_transport; }
 
+    /**
+     * @brief What the Director reported about itself at the last login
+     *
+     * BNET: the greeting ("1000 OK: <name> Version: <version> (<date>)") or
+     * the version taken from it; gRPC: the version of the login response.
+     * Empty while not connected. Main-thread copy; interpreted by
+     * BCapabilities::describeServer().
+     */
+    QString serverIdentity() const { return m_serverIdentity; }
+
     // ========================================================================
     // Resource State Machine
     // ========================================================================
@@ -479,6 +489,7 @@ private:
     DIRECTOR_CLASS *m_director;  ///< Underlying director instance (runs in worker thread)
     QThread *m_workerThread;     ///< Worker thread for director and auth
     Transport m_transport = Transport::Bnet;  ///< Last value passed to setTransport()
+    QString m_serverIdentity;    ///< Last serverIdentified() text, cleared on disconnect
 };
 
 #endif // BDIRECTOR_H

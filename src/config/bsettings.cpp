@@ -718,6 +718,17 @@ void BSettings::setClientsLastFilter(const QString& filter)
     setValue("Widgets/Clients/last_filter", filter);
 }
 
+// Capability notices: "Do not show again" per function
+bool BSettings::capabilityNoticeHidden(const QString& functionId) const
+{
+    return value(QStringLiteral("Notices/Capability/%1/hidden").arg(functionId), false).toBool();
+}
+
+void BSettings::setCapabilityNoticeHidden(const QString& functionId, bool hidden)
+{
+    setValue(QStringLiteral("Notices/Capability/%1/hidden").arg(functionId), hidden);
+}
+
 // Storage Widget State
 bool BSettings::storageShowAllVolumes() const
 {

@@ -411,6 +411,17 @@ public:
     QString remoteDirectorName() const { return m_remoteDirectorName; }
 
     /**
+     * @brief Gets the Director's greeting after a successful authentication
+     *
+     * The line "1000 OK: <name> Version: <version> (<date>)" as received,
+     * with the full version token. Used to tell which kind of Director
+     * answered (BCapabilities::describeServer()).
+     *
+     * @return QString Greeting, empty if not yet authenticated
+     */
+    QString directorBanner() const { return m_directorBanner; }
+
+    /**
      * @brief Gets the TLS cipher list used for the connection
      *
      * Returns a colon-separated list of cipher names configured for
@@ -565,6 +576,7 @@ private:
     QString m_errorMessage;          ///< Last error message
     int m_directorVersion;       ///< Director protocol version (numeric)
     QString m_directorVersionString; ///< Director version string
+    QString m_directorBanner;        ///< Director greeting as received
 
     /**
      * @brief Compatibility mode flag for base64 encoding

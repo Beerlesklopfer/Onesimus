@@ -1,4 +1,5 @@
 #include "bcleanupdialog.h"
+#include "bcapabilitynotice.h"
 #include "blabelstate.h"
 #include "bcleanuprunner.h"
 #include "director/bdirector.h"
@@ -11,7 +12,9 @@
 #include <QDateTime>
 #include <QJsonObject>
 #include <QStandardItemModel>
+#include <QAbstractItemView>
 #include <QCloseEvent>
+#include <QMouseEvent>
 #include <QTimer>
 
 namespace {
@@ -163,6 +166,9 @@ void BCleanupDialog::setupUI()
         }
     }
     m_volumeActionCombo->setCurrentIndex(0);
+    // A click on the disabled entry selects nothing; eventFilter() answers it
+    // with the reason why the entry is not available
+    m_volumeActionCombo->view()->viewport()->installEventFilter(this);
     volumesLayout->addWidget(m_volumeActionCombo);
     volumesLayout->addStretch();
 
@@ -242,6 +248,32 @@ void BCleanupDialog::setupUI()
     buttonLayout->addWidget(m_closeButton);
 
     mainLayout->addLayout(buttonLayout);
+}
+
+bool BCleanupDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    // A click on the disabled "Prune and purge" entry of the action list:
+    // the user asks for a function the Director does not have. The entry
+    // stays disabled and nothing is sent; the user only gets the reason.
+    // (The filter is installed on the list of m_volumeActionCombo only.)
+    if (event->type() == QEvent::MouseButtonRelease
+        && watched == m_volumeActionCombo->view()->viewport()) {
+        const auto *mouse = static_cast<QMouseEvent *>(event);
+        const QModelIndex index = m_volumeActionCombo->view()->indexAt(mouse->position().toPoint());
+        if (index.isValid() && !(index.flags() & Qt::ItemIsEnabled)
+            && index.data(Qt::UserRole).toString() == QLatin1String("purge")) {
+            m_volumeActionCombo->hidePopup();
+            // After the popup is gone, so that the box is not opened from
+            // inside the popup's own event handling
+            QTimer::singleShot(0, this, [this]() {
+                BCapabilityNotice::check(this, m_director,
+                                         BCapabilities::Function::PurgeAllVolumes,
+                                         BCapabilities::Request::Explicit);
+            });
+            return true;
+        }
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 BCleanup::Options BCleanupDialog::currentOptions() const

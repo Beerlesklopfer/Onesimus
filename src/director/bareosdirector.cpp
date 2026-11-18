@@ -1489,6 +1489,12 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
 
     m_directorVersion = directorVersion;
 
+    // What the Director said about itself in its greeting, for the capability
+    // table. Nothing is sent for it. Emitted before authentificationSucceeded()
+    // so that the description is there when the connection is announced.
+    const QString banner = m_auth->directorBanner();
+    emit serverIdentified(banner.isEmpty() ? directorVersion : banner);
+
     // Update Director name from CRAM-MD5 challenge (real name from server)
     QString remoteName = m_auth->remoteDirectorName();
     if (!remoteName.isEmpty() && remoteName != m_directorName) {
@@ -2251,6 +2257,8 @@ void BareosDirector::onGrpcLoggedIn(const QString &directorName, const QString &
     resetResourceFlags();
     startResourceLoading();
 
+    // The version field of the login response (see onAuthenticationSucceeded())
+    emit serverIdentified(version);
     emit authentificationSucceeded(true, version);
 
     {

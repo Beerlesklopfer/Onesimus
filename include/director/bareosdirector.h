@@ -647,6 +647,17 @@ signals:
     // ========================================================================
 
     void authentificationSucceeded(const bool result, const QString &msg);
+
+    /**
+     * @brief What the Director reported about itself at login
+     *
+     * Emitted once per successful login, before authentificationSucceeded().
+     * BNET: the greeting "1000 OK: <name> Version: <version> (<date>)" (or
+     * the version taken from it); gRPC: the version of the login response.
+     * No command is sent to obtain it.
+     */
+    void serverIdentified(const QString &identity);
+
     void protocolError(const QString &msg);
 
     void disconnected();

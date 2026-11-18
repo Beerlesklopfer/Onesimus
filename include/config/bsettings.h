@@ -254,6 +254,11 @@ public:
     QString clientsLastFilter() const;
     void setClientsLastFilter(const QString& filter);
 
+    // Capability notices ("not available on this Director"), one flag per
+    // function id of BCapabilities; default false = the notice is shown
+    bool capabilityNoticeHidden(const QString& functionId) const;
+    void setCapabilityNoticeHidden(const QString& functionId, bool hidden);
+
     // Storage Widget State
     bool storageShowAllVolumes() const;
     void setStorageShowAllVolumes(bool showAll);

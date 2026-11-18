@@ -430,6 +430,8 @@ set(SOURCES
     src/db/bresourcemodel.cpp
     src/db/bdirectormodel.cpp
     src/bcleanupdialog.cpp
+    src/bcapabilities.cpp
+    src/bcapabilitynotice.cpp
     src/bcleanupplan.cpp
     src/bcleanuprunner.cpp
     src/bconnectionwizard.cpp
@@ -512,6 +514,8 @@ set(HEADERS
     include/storagewidget.h
     include/models/bvolumejson.h
     include/bcleanupdialog.h
+    include/bcapabilities.h
+    include/bcapabilitynotice.h
     include/bcleanupplan.h
     include/bcleanuprunner.h
     include/bconnectionwizard.h
@@ -1453,6 +1457,25 @@ if(BUILD_TESTING)
     add_test(NAME bmessagesmodel_test COMMAND bmessagesmodel_test)
     # The widget's translation unit needs a QApplication; no display is used
     set_tests_properties(bmessagesmodel_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # bcapabilities_test - capability table, server detection from the login
+    # data, notice texts and the rules for showing a notice (no widgets)
+    add_executable(bcapabilities_test
+        test/bcapabilities_test.cpp
+        src/bcapabilities.cpp
+        include/bcapabilities.h
+    )
+
+    target_include_directories(bcapabilities_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bcapabilities_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bcapabilities_test COMMAND bcapabilities_test)
 endif()
 
 message(STATUS "")
@@ -1476,6 +1499,7 @@ if(BUILD_TESTING)
     message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
     message(STATUS "  bscheduledragplan_test - schedule drag Run line comparison test (registered with CTest)")
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
+    message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
 endif()
 message(STATUS "")
 

@@ -1,5 +1,6 @@
 #include "schedules/bschedulewidget.h"
 #include "schedules/bscheduledragresultdialog.h"
+#include "bcapabilitynotice.h"
 #include "config/bsettings.h"
 #include "blogging.h"
 #include <QVBoxLayout>
@@ -1131,6 +1132,17 @@ void BScheduleWidget::handleDragCompleted(
             this, &BScheduleWidget::sendCommand);
 
     dialog->show();
+
+    // The user moved an entry of an existing schedule and expects that
+    // schedule to change. Neither Director can do that through the console;
+    // the dialog offers a copy instead. Said once per session, after the
+    // drag has been handled, and only as additional information: the dialog
+    // works as before.
+    BDirector *director = m_director;
+    QTimer::singleShot(0, dialog, [dialog, director]() {
+        BCapabilityNotice::check(dialog, director, BCapabilities::Function::ModifySchedule,
+                                 BCapabilities::Request::Implicit);
+    });
 }
 
 void BScheduleWidget::onJobSelectionChanged()

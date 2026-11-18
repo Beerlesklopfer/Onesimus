@@ -1372,6 +1372,7 @@ void BareosAuth::onReadyRead()
             stopAuthTimeout();
             disconnectSignals();
             emit statusMessage("Connected");
+            m_directorBanner = msgStr;
             emit authenticationSucceeded(msgStr);
         } else if (msgStr.startsWith("1999")) {
             // Authentifizierung fehlgeschlagen
@@ -1412,6 +1413,7 @@ void BareosAuth::onReadyRead()
                 m_authSuccess = true;
                 m_authState = BAuthState::AUTH_SUCCESS;
                 stopAuthTimeout();
+                m_directorBanner = msgStr;
                 emit authenticationSucceeded(msgStr);
 #ifdef IS_DEVELOPER
                 AUTH_DEBUG << "  ✓ Authentication complete (unidirectional)";
@@ -1474,6 +1476,9 @@ void BareosAuth::onReadyRead()
 #endif
 
             parseDirectorVersion(message);
+            // The greeting as received: the version token may carry more
+            // than the three numbers kept in m_directorVersionString
+            m_directorBanner = QString::fromUtf8(message).trimmed();
 
             m_authState = BAuthState::AUTH_SUCCESS;
             m_authSuccess = true;

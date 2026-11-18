@@ -50,6 +50,20 @@ BDirector::BDirector(QObject *parent)
     // Forward all signals from director to BDirector wrapper
     // Qt automatically handles thread-safety for signal forwarding (signals are queued connections)
 
+    // Main-thread copy of what the Director reported about itself at login.
+    // Connected first, so that it is up to date in every slot of the signals
+    // forwarded below.
+    QObject::connect(m_director, &DIRECTOR_CLASS::serverIdentified,
+                     this, [this](const QString &identity) { m_serverIdentity = identity; });
+    QObject::connect(m_director, &DIRECTOR_CLASS::disconnected,
+                     this, [this]() { m_serverIdentity.clear(); });
+    QObject::connect(m_director, &DIRECTOR_CLASS::authentificationSucceeded,
+                     this, [this](bool success, const QString &) {
+                         if (!success) {
+                             m_serverIdentity.clear();
+                         }
+                     });
+
     QObject::connect(m_director, &DIRECTOR_CLASS::disconnected,
                      this, &BDirector::disconnected);
 
