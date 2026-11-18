@@ -833,20 +833,12 @@ void BareosDirector::onSslErrors(const QList<QSslError> &errors)
 
     BLOG_WARNING() << "========================================";
 
-    if (!m_password.isEmpty()) {
-        BLOG_WARNING() << "⚠ PSK-Mode: Ignoring SSL errors (this is normal for PSK)";
-        m_socket->ignoreSslErrors();
-    } else if (!m_tlsConfig->tlsVerifyPeer) {
-        BLOG_WARNING() << "⚠ Peer verification disabled - ignoring SSL errors";
-        m_socket->ignoreSslErrors();
-    } else {
-        BLOG_ERROR() << "✗ SSL errors with peer verification enabled - connection will fail";
-        m_connectionState = Disconnected;
-        QString errorSummary = QString("%1 SSL error(s): %2")
-                                   .arg(errors.size())
-                                   .arg(errors.first().errorString());
-        emit protocolError("SSL error: " + errorSummary);
-    }
+    // Logging only. Whether an error may be ignored is decided in one place:
+    // the handler the auth class installs before it starts the handshake
+    // (BareosAuth::onSslErrors for TLS-PSK, onSslErrorsCertificate for
+    // certificates). This slot is connected first and therefore runs first;
+    // calling ignoreSslErrors() here would switch certificate verification off
+    // before the auth class has looked at the errors.
 }
 
 void BareosDirector::onDisconnected()
