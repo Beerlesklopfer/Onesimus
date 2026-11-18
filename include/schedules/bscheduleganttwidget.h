@@ -121,7 +121,7 @@ public:
     /**
      * @brief Sets the snap granularity for drag operations
      */
-    void setSnapMinutes(int minutes) { m_dragSnapMinutes = minutes; update(); }
+    void setSnapMinutes(int minutes) { m_dragSnapMinutes = qBound(1, minutes, 24 * 60); update(); }
     int snapMinutes() const { return m_dragSnapMinutes; }
 
     // Minimum pixels per hour (prevents labels from overlapping)
@@ -240,6 +240,7 @@ private:
     enum DragState { NoDrag, DragPending, Dragging };
     DragState m_dragState = NoDrag;
     int m_dragEntryIndex = -1;
+    bool dragIndexValid() const { return m_dragEntryIndex >= 0 && m_dragEntryIndex < m_entries.size(); }
     int m_dragDayOffset = 0;
     QPoint m_dragStartPos;
     int m_dragOriginalHour = 0;

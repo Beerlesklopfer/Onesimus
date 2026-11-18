@@ -28,6 +28,12 @@ BScheduleGanttWidget::~BScheduleGanttWidget()
 
 void BScheduleGanttWidget::setEntries(const QList<BScheduleEntry> &entries)
 {
+    // A refresh during a drag invalidates the stored entry index: even if it
+    // is still in range it may now refer to a different entry.
+    if (m_dragState != NoDrag) {
+        cancelDrag();
+    }
+
     m_entries = entries;
 
     // Enrich entries with duration estimates
@@ -863,6 +869,12 @@ int BScheduleGanttWidget::entryAtPos(const QPoint &pos) const
 void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
 {
     // --- Drag state transitions ---
+    // The entry list can change between press and move; never index with a
+    // stale drag index.
+    if (m_dragState != NoDrag && !dragIndexValid()) {
+        cancelDrag();
+    }
+
     if (m_dragState == DragPending) {
         if ((event->pos() - m_dragStartPos).manhattanLength() > 5) {
             m_dragState = Dragging;
@@ -887,7 +899,8 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         rawMinutes = qBound(0, rawMinutes, 23 * 60 + 59);
 
         // Snap to grid
-        rawMinutes = (rawMinutes / m_dragSnapMinutes) * m_dragSnapMinutes;
+        const int snapMin = qMax(1, m_dragSnapMinutes);
+        rawMinutes = (rawMinutes / snapMin) * snapMin;
         m_dragNewHour = rawMinutes / 60;
         m_dragNewMinute = rawMinutes % 60;
 
@@ -1032,8 +1045,9 @@ void BScheduleGanttWidget::mouseReleaseEvent(QMouseEvent *event)
     if (m_dragState == Dragging && event->button() == Qt::LeftButton) {
         setCursor(Qt::ArrowCursor);
 
-        // Only emit if time actually changed
-        if (m_dragNewHour != m_dragOriginalHour || m_dragNewMinute != m_dragOriginalMinute) {
+        // Only emit if time actually changed and the entry still exists
+        if (dragIndexValid()
+            && (m_dragNewHour != m_dragOriginalHour || m_dragNewMinute != m_dragOriginalMinute)) {
             emit dragCompleted(m_dragEntryIndex, m_dragNewHour, m_dragNewMinute,
                                m_dragDependencies);
         }
@@ -1348,7 +1362,7 @@ void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
         } else {
             // In week view, highlight the day that matches the drag day
             for (int d : target.daysOfWeek) {
-                if (m_entries[m_dragEntryIndex].daysOfWeek.contains(d)) {
+                if (dragged.daysOfWeek.contains(d)) {
                     targetDays.append(d);
                 }
             }
