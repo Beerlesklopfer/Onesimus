@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QMessageBox>
 #include <QSet>
+#include <QSignalBlocker>
 
 // Role of the name item (column 0): index of the row's volume in m_filteredVolumes.
 // Sorting moves the rows, so a row number says nothing about the volume.
@@ -201,7 +202,11 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     // Store all volumes
     m_allVolumes = volumesArray;
 
-    // Update pool filter combo box
+    // Update pool filter combo box. The list is reloaded with every refresh:
+    // keep the selected pool, and do not rebuild the table once per combo
+    // box change while the box is refilled.
+    const QString selectedPool = m_poolFilter->currentData().toString();
+    const QSignalBlocker poolFilterBlocker(m_poolFilter);
     m_poolFilter->clear();
     m_poolFilter->addItem(tr("Alle"), "all");
 
@@ -219,6 +224,8 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     for (const QString &pool : poolList) {
         m_poolFilter->addItem(pool, pool);
     }
+    // A pool that no longer exists falls back to "all"
+    m_poolFilter->setCurrentIndex(qMax(0, m_poolFilter->findData(selectedPool)));
 
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "✓ Loaded" << volumesArray.size() << "volumes from" << pools.size() << "pools";
@@ -227,7 +234,12 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     // Apply filters and update display
     applyFilters();
 
-    emit statusMessageChanged(QString("%1 Volumes geladen").arg(volumesArray.size()));
+    // Only a refresh the user asked for on this tab reports to the status bar;
+    // the load on connect and the automatic refresh stay quiet
+    if (m_refreshRequested) {
+        m_refreshRequested = false;
+        emit statusMessageChanged(QString("%1 Volumes geladen").arg(volumesArray.size()));
+    }
 }
 
 void StorageWidget::applyFilters()
@@ -257,6 +269,13 @@ void StorageWidget::applyFilters()
         }
 
         m_filteredVolumes.append(volumeVal);
+    }
+
+    // The table is rebuilt from scratch (a reload never adds to old rows);
+    // the selected volume is found again by its name afterwards
+    QString selectedVolume;
+    if (const QTableWidgetItem *current = m_volumeTable->item(m_volumeTable->currentRow(), 0)) {
+        selectedVolume = current->text();
     }
 
     // Update table with filtered volumes
@@ -299,6 +318,17 @@ void StorageWidget::applyFilters()
 
     m_volumeTable->setSortingEnabled(true);
 
+    // Sorting has moved the rows: look the volume up by name
+    if (!selectedVolume.isEmpty()) {
+        for (int row = 0; row < m_volumeTable->rowCount(); ++row) {
+            const QTableWidgetItem *nameItem = m_volumeTable->item(row, 0);
+            if (nameItem && nameItem->text() == selectedVolume) {
+                m_volumeTable->setCurrentCell(row, 0);
+                break;
+            }
+        }
+    }
+
     // Update statistics
     updateStatistics();
 }
@@ -320,6 +350,7 @@ void StorageWidget::setConnectionState(bool connected)
 void StorageWidget::onRefreshClicked()
 {
     m_refreshButton->setEnabled(false);
+    m_refreshRequested = true;
     emit statusMessageChanged("Aktualisiere Volume-Liste...");
     emit sendCommand(BDirector::Command::ListVolumes, "");
 }
@@ -433,6 +464,8 @@ void StorageWidget::clearData()
     // Clear volume table
     m_volumeTable->clearContents();
     m_volumeTable->setRowCount(0);
+
+    m_refreshRequested = false;
 
     // Clear data arrays
     m_allVolumes = QJsonArray();

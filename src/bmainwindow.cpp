@@ -2221,7 +2221,9 @@ void BMainWindow::onRefreshAll()
     // Request Director messages
     onSendCommand(BDirector::Command::Messages, "");
 
-    // m_director->listVolumes();
+    // Volumes of the Storage tab, like the data of the other tabs. Sent after
+    // .pools: its reply maps the pool keys of the volume list back to pool names.
+    onSendCommand(BDirector::Command::ListVolumes, "");
 
     // Reset status after short delay
     QTimer::singleShot(1000, this, [this]() {

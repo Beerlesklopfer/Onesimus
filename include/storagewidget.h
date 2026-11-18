@@ -83,6 +83,7 @@ private:
     BDirector *m_director;
     QTableWidget *m_volumeTable;
     QPushButton *m_refreshButton;
+    bool m_refreshRequested = false;    ///< Refresh was started on this tab (button or menu)
 
     // Filters
     QComboBox *m_poolFilter;
