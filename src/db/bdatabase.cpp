@@ -94,6 +94,13 @@ bool BDatabase::initialize(const QString &dbPath)
         emit migrationCompleted();
     }
 
+    // A recorded version whose tables are missing is repaired, not trusted
+    if (!repairSchema()) {
+        QString detailedError = m_lastError;
+        setLastError(tr("Failed to repair database schema: %1").arg(detailedError));
+        return false;
+    }
+
     m_isReady = true;
 
     // Import built-in templates if needed (after schema is ready)
@@ -171,38 +178,52 @@ int BDatabase::readSchemaVersion() const
     return 0;
 }
 
+QString BDatabase::migrationResourcePath(int version)
+{
+    // Every version from 2 to LATEST_VERSION needs an entry here
+    switch (version) {
+    case 2:
+        return QStringLiteral(":/sql/migrations/v2_add_console_support.sql");
+    case 3:
+        return QStringLiteral(":/sql/migrations/v3_unified_settings_history.sql");
+    case 4:
+        return QStringLiteral(":/sql/migrations/v4_add_system_to_settings.sql");
+    case 5:
+        return QStringLiteral(":/sql/migrations/v5_add_fileset_templates.sql");
+    default:
+        return QString();
+    }
+}
+
 bool BDatabase::applyMigrations()
 {
     int currentVer = m_currentVersion;
 
-    // Apply migrations sequentially
+    // Check the whole path first: a version without a migration script is an
+    // error, and nothing is applied if the path has a gap.
     for (int ver = currentVer + 1; ver <= LATEST_VERSION; ++ver) {
-        QString migrationPath;
-
-        // Map version to migration file
-        switch (ver) {
-        case 2:
-            migrationPath = ":/sql/migrations/v2_add_console_support.sql";
-            break;
-        case 3:
-            migrationPath = ":/sql/migrations/v3_unified_settings_history.sql";
-            break;
-        case 4:
-            migrationPath = ":/sql/migrations/v4_add_system_to_settings.sql";
-            break;
-        // Future migrations:
-        // case 5:
-        //     migrationPath = ":/sql/migrations/v5_....sql";
-        //     break;
-        default:
-            BLOG_WARNING() << "No migration file found for version" << ver;
-            continue;
+        if (migrationResourcePath(ver).isEmpty()) {
+            setLastError(tr("No migration script for database version %1").arg(ver));
+            return false;
         }
+    }
+
+    // Apply migrations sequentially. Each script runs in its own transaction
+    // and records its version itself, so a failed script leaves the database
+    // at the last complete version.
+    for (int ver = currentVer + 1; ver <= LATEST_VERSION; ++ver) {
+        const QString migrationPath = migrationResourcePath(ver);
 
         BLOG_DEBUG() << "Applying migration to version" << ver << ":" << migrationPath;
 
         if (!executeSqlFromResource(migrationPath)) {
-            setLastError(tr("Failed to apply migration to version %1").arg(ver));
+            const QString detailedError = m_lastError;
+            setLastError(tr("Failed to apply migration to version %1: %2").arg(ver).arg(detailedError));
+            return false;
+        }
+
+        if (readSchemaVersion() != ver) {
+            setLastError(tr("Migration to version %1 did not record its version").arg(ver));
             return false;
         }
     }
@@ -210,7 +231,38 @@ bool BDatabase::applyMigrations()
     return true;
 }
 
-bool BDatabase::executeSqlFromResource(const QString &resourcePath)
+bool BDatabase::tableExists(const QString &tableName) const
+{
+    QSqlQuery query(m_db);
+    query.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?");
+    query.addBindValue(tableName);
+    if (!query.exec()) {
+        BLOG_WARNING() << "Failed to look up table" << tableName << ":" << query.lastError().text();
+        return false;
+    }
+    return query.next();
+}
+
+bool BDatabase::repairSchema()
+{
+    // Version 5 could be recorded without its table (the migration was not
+    // wired up before). Run the script again without the version entry.
+    if (m_currentVersion >= 5 && !tableExists(QStringLiteral("fileset_templates"))) {
+        BLOG_WARNING() << "Schema version" << m_currentVersion
+                       << "recorded but table fileset_templates is missing - repairing";
+        if (!executeSqlFromResource(migrationResourcePath(5), true)) {
+            return false;
+        }
+        if (!tableExists(QStringLiteral("fileset_templates"))) {
+            setLastError(tr("Table %1 is still missing after the repair").arg("fileset_templates"));
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool BDatabase::executeSqlFromResource(const QString &resourcePath, bool skipVersionEntry)
 {
     // Load SQL from Qt resource
     QFile file(resourcePath);
@@ -224,10 +276,10 @@ bool BDatabase::executeSqlFromResource(const QString &resourcePath)
     QString sql = in.readAll();
     file.close();
 
-    return executeSqlScript(sql);
+    return executeSqlScript(sql, skipVersionEntry);
 }
 
-bool BDatabase::executeSqlScript(const QString &sql)
+bool BDatabase::executeSqlScript(const QString &sql, bool skipVersionEntry)
 {
     // Start transaction for atomicity
     if (!m_db.transaction()) {
@@ -254,6 +306,11 @@ bool BDatabase::executeSqlScript(const QString &sql)
 
         if (cleaned.isEmpty()) {
             continue;  // Skip empty statements
+        }
+
+        if (skipVersionEntry
+            && cleaned.startsWith("INSERT INTO schema_version", Qt::CaseInsensitive)) {
+            continue;  // Repair run: the version is already recorded
         }
 
         if (!query.exec(cleaned)) {

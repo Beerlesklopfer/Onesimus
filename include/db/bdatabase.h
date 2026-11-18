@@ -89,6 +89,18 @@ public:
      */
     bool needsTemplateImport() const;
 
+    /**
+     * @brief Latest schema version this build knows
+     */
+    static int latestVersion() { return LATEST_VERSION; }
+
+    /**
+     * @brief Migration script that leads to a schema version
+     * @param version Target version (2 to latestVersion())
+     * @return Resource path, empty if the version has no script
+     */
+    static QString migrationResourcePath(int version);
+
 signals:
     /**
      * @brief Emitted when database initialization starts
@@ -149,18 +161,29 @@ private:
     bool applyMigrations();
 
     /**
+     * @brief Check whether a table exists
+     */
+    bool tableExists(const QString &tableName) const;
+
+    /**
+     * @brief Create tables that the recorded schema version promises but that are missing
+     * @return true if nothing was missing or the repair succeeded
+     */
+    bool repairSchema();
+
+    /**
      * @brief Execute SQL from Qt resource file
      * @param resourcePath Path to resource (e.g., ":/sql/schema/v1_initial.sql")
      * @return true if successful
      */
-    bool executeSqlFromResource(const QString &resourcePath);
+    bool executeSqlFromResource(const QString &resourcePath, bool skipVersionEntry = false);
 
     /**
      * @brief Execute SQL script (may contain multiple statements)
      * @param sql SQL script text
      * @return true if successful
      */
-    bool executeSqlScript(const QString &sql);
+    bool executeSqlScript(const QString &sql, bool skipVersionEntry = false);
 
     /**
      * @brief Split SQL into individual statements

@@ -1189,6 +1189,27 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bcleanup_test COMMAND bcleanup_test)
+
+    # bdatabase_test - schema creation, migrations and repair on a temporary SQLite file
+    # (uses the SQL scripts from the application's resource file)
+    add_executable(bdatabase_test
+        test/bdatabase_test.cpp
+        src/db/bdatabase.cpp
+        include/db/bdatabase.h
+        ${THEME_RESOURCES}
+    )
+
+    target_include_directories(bdatabase_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bdatabase_test PRIVATE
+        Qt6::Core
+        Qt6::Sql
+        Qt6::Test
+    )
+
+    add_test(NAME bdatabase_test COMMAND bdatabase_test)
 endif()
 
 message(STATUS "")
@@ -1200,6 +1221,7 @@ if(BUILD_TESTING)
     message(STATUS "  bjoblogmodel_test - job log model test (registered with CTest)")
     message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
     message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")
+    message(STATUS "  bdatabase_test   - database migration test (registered with CTest)")
 endif()
 message(STATUS "")
 
