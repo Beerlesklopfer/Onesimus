@@ -63,7 +63,8 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
         if (passwordToUse.startsWith("[md5]", Qt::CaseInsensitive)) {
             passwordToUse = passwordToUse.mid(5);  // Remove "[md5]" prefix
 #ifdef IS_DEVELOPER
-            AUTH_DEBUG << "Detected [md5] prefix, stripped to:" << passwordToUse;
+            // Never log the value: the MD5 hex is the credential itself
+            AUTH_DEBUG << "Detected [md5] prefix, hash length:" << passwordToUse.length();
 #endif
         }
 
@@ -592,7 +593,8 @@ void BareosAuth::handlePskAuthenticator(QSslPreSharedKeyAuthenticator *authentic
     AUTH_DEBUG << "  Identity hint from server:" << authenticator->identityHint();
     AUTH_DEBUG << "  Setting identity:" << identity;
     AUTH_DEBUG << "  Identity (hex):" << identity.toHex();
-    AUTH_DEBUG << "  PSK key (hex):" << m_password.toHex();
+    // The PSK key is not logged: it is the credential itself
+    AUTH_DEBUG << "  PSK key length:" << m_password.toHex().size();
 #endif
 
     // Bareos expects the PSK key as hex representation of MD5(password)
@@ -797,21 +799,20 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
     AUTH_DEBUG << "  Remote Director name:" << m_remoteDirectorName;
     AUTH_DEBUG << "  Compatible mode:" << m_isCompatible;
     AUTH_DEBUG << "  Remote TLS need:" << m_tlsRemoteNeed;
-    AUTH_DEBUG << "  Password (hex):" << m_password.toHex();
 #endif
 
     // Berechne HMAC
     const QByteArray hmac = hmac_md5(directorChallenge, m_password.toHex());
 
 #ifdef IS_DEVELOPER
-    AUTH_DEBUG << "  HMAC (raw hex):" << hmac.toHex();
+    AUTH_DEBUG << "  HMAC length:" << hmac.size();
 #endif
 
     // ✅ Verwende den gleichen Modus wie der Director (cram-md5 vs cram-md5c)
     m_writeBuffer = base64Encode(hmac, m_isCompatible);
 
 #ifdef IS_DEVELOPER
-    AUTH_DEBUG << "  HMAC (base64):" << m_writeBuffer;
+    AUTH_DEBUG << "  HMAC (base64) length:" << m_writeBuffer.size();
 #endif
 
     // ✅ Sende NUR die HMAC-Response
@@ -1152,8 +1153,8 @@ bool BareosAuth::verifyDirectorResponse(const QByteArray &response)
     QByteArray expectedHMAC = hmac_md5(m_clientChallenge, m_password.toHex());
 
 #ifdef IS_DEVELOPER
+    // The expected HMAC is never logged: whoever reads it can answer our challenge
     AUTH_DEBUG << "  Our challenge was:" << m_clientChallenge;
-    AUTH_DEBUG << "  Expected HMAC (hex):" << expectedHMAC.toHex();
 #endif
 
     // ✅ Bareos probiert BEIDE Base64-Varianten (siehe cram_md5.cc Zeile 131-142)
@@ -1161,7 +1162,6 @@ bool BareosAuth::verifyDirectorResponse(const QByteArray &response)
     QByteArray expectedBase64 = base64Encode(expectedHMAC, m_isCompatible);
 
 #ifdef IS_DEVELOPER
-    AUTH_DEBUG << "  Expected (compatible=" << m_isCompatible << "):" << expectedBase64;
     AUTH_DEBUG << "  Received:" << trimmedResponse;
 #endif
 
@@ -1175,10 +1175,6 @@ bool BareosAuth::verifyDirectorResponse(const QByteArray &response)
     // Zweite Variante: mit !m_isCompatible (Fallback wie Bareos)
     QByteArray expectedBase64Alt = base64Encode(expectedHMAC, !m_isCompatible);
 
-#ifdef IS_DEVELOPER
-    AUTH_DEBUG << "  Expected (compatible=" << !m_isCompatible << "):" << expectedBase64Alt;
-#endif
-
     if (trimmedResponse == expectedBase64Alt) {
 #ifdef IS_DEVELOPER
         AUTH_DEBUG << "  ✓ Director HMAC verified successfully (alternate mode)";
@@ -1188,8 +1184,6 @@ bool BareosAuth::verifyDirectorResponse(const QByteArray &response)
 
     AUTH_WARNING << "  ✗ Director HMAC verification failed";
     AUTH_WARNING << "    Received:" << trimmedResponse;
-    AUTH_WARNING << "    Expected (compat):" << expectedBase64;
-    AUTH_WARNING << "    Expected (non-compat):" << expectedBase64Alt;
     return false;
 }
 

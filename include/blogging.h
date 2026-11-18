@@ -24,6 +24,8 @@
 #include <QMutex>
 #include <QString>
 
+#include "bprivatefile.h"
+
 #ifdef ONESIMUS_FILE_LOGGING
 
 /**
@@ -53,8 +55,12 @@ public:
         // m_enabled stays false until setEnabled(true) is called
 
         if (!filePath.isEmpty()) {
+            // The log can contain host names, console names and Director
+            // replies: readable by the owner only, also the rotated file
+            // and a log left behind by an older version
+            QFile::setPermissions(filePath + ".1", QFileDevice::ReadOwner | QFileDevice::WriteOwner);
             m_file.setFileName(filePath);
-            if (m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            if (bOpenOwnerOnly(m_file, QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
                 m_stream.setDevice(&m_file);
                 writeRaw("INFO", "=== Onesimus Log Started ===");
             } else {
@@ -125,7 +131,7 @@ private:
 
         // Reopen main log file
         m_file.setFileName(m_filePath);
-        m_file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
+        bOpenOwnerOnly(m_file, QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text);
         m_stream.setDevice(&m_file);
         writeRaw("INFO", "=== Log rotated ===");
     }

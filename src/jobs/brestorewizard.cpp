@@ -1,5 +1,6 @@
 #include "jobs/brestorewizard.h"
 #include "blogging.h"
+#include "blogredact.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -1005,8 +1006,8 @@ void BRestorePreviewPage::initializePage()
     m_commandPreview->setPlainText(preview);
 
     RESTORE_DEBUG << "PreviewPage: table=" << data->restoreTableName;
-    RESTORE_DEBUG << "  bvfs_restore: " << data->bvfsRestoreCommand;
-    RESTORE_DEBUG << "  restore: " << data->restoreCommand;
+    RESTORE_DEBUG << "  bvfs_restore: " << bRedactCommand(data->bvfsRestoreCommand);
+    RESTORE_DEBUG << "  restore: " << bRedactCommand(data->restoreCommand);
 
     // Start permission checks using .help all (single command, reliable)
     m_authRestoreLabel->setText(tr("Checking..."));

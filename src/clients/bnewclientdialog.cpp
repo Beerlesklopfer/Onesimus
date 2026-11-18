@@ -1,5 +1,6 @@
 #include "clients/bnewclientdialog.h"
 #include "blogging.h"
+#include "blogredact.h"
 
 #include <QFormLayout>
 #include <QVBoxLayout>
@@ -1053,7 +1054,7 @@ void BNewClientPreviewPage::executeConfigureCommand()
 
     m_timeoutTimer->start();
 
-    CLIENT_DEBUG << "Sending: " << wiz->data().configureCommand;
+    CLIENT_DEBUG << "Sending: " << bRedactCommand(wiz->data().configureCommand);
     wiz->director()->doSend(BDirector::Command::Configure, wiz->data().configureCommand);
 }
 

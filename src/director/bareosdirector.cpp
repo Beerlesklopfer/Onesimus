@@ -16,6 +16,7 @@
 
 #include "director/bareosdirector.h"
 #include "blogging.h"
+#include "blogredact.h"
 #include "version.h"
 
 #include <QApplication>
@@ -1724,7 +1725,7 @@ void BareosDirector::sendCommand(const QString &command)
     }
 
 #ifdef IS_DEVELOPER
-    BLOG_DEBUG() << ">>> Sending command:" << command;
+    BLOG_DEBUG() << ">>> Sending command:" << bRedactCommand(command);
 #endif
 
     // ✅ KORREKT: Identisch zu BareosAuth::send()
@@ -1778,7 +1779,7 @@ void BareosDirector::doSend(Command cmd, quint64){ commandToString(cmd); }
 
 void BareosDirector::doSend(const Command cmd, const QString &args){
 #ifdef IS_DEVELOPER
-    BLOG_DEBUG() << ">>> doSend() cmd=" << static_cast<int>(cmd) << " args=" << args;
+    BLOG_DEBUG() << ">>> doSend() cmd=" << static_cast<int>(cmd) << " args=" << bRedactCommand(args);
 #endif
     CommandEntry entry;
     entry.cmd = cmd;
@@ -2135,7 +2136,7 @@ void BareosDirector::sendCommandGrpc(const QString &command)
         return;
     }
 #ifdef IS_DEVELOPER
-    BLOG_DEBUG() << ">>> Sending command (gRPC):" << command;
+    BLOG_DEBUG() << ">>> Sending command (gRPC):" << bRedactCommand(command);
 #endif
     m_lastCommand = command;
     m_grpc->execute(command);
@@ -2222,7 +2223,7 @@ void BareosDirector::onGrpcCommandFinished(const QString &commandLine, bool succ
     if (!success) {
         // Same shape as a JSON-RPC error of the BNET API mode, so that
         // detectCommandError()/commandFailed() behave identically
-        BLOG_WARNING() << "gRPC command failed:" << commandLine << "-" << error;
+        BLOG_WARNING() << "gRPC command failed:" << bRedactCommand(commandLine) << "-" << error;
         QJsonObject err{{"code", 1}, {"message", error.isEmpty() ? tr("Command failed") : error}};
         message = QString::fromUtf8(QJsonDocument(QJsonObject{
             {"jsonrpc", "2.0"}, {"id", QJsonValue::Null}, {"error", err}}).toJson(QJsonDocument::Compact));

@@ -1289,6 +1289,28 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bdirectorreply_test COMMAND bdirectorreply_test)
+
+    # blogredact_test - password redaction in logged command lines and the
+    # owner-only log file (built with file logging to exercise the real logger)
+    add_executable(blogredact_test
+        test/blogredact_test.cpp
+        include/blogging.h
+        include/blogredact.h
+        include/bprivatefile.h
+    )
+
+    target_include_directories(blogredact_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(blogredact_test PRIVATE ONESIMUS_FILE_LOGGING)
+
+    target_link_libraries(blogredact_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME blogredact_test COMMAND blogredact_test)
 endif()
 
 message(STATUS "")
@@ -1305,6 +1327,7 @@ if(BUILD_TESTING)
     message(STATUS "  bclientstatus_test - client last-backup state test (registered with CTest)")
     message(STATUS "  bjobpaging_test  - job list page arithmetic test (registered with CTest)")
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
+    message(STATUS "  blogredact_test  - log redaction and log file permission test (registered with CTest)")
 endif()
 message(STATUS "")
 

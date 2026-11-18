@@ -9,6 +9,7 @@
 #include "schedules/bschedulewizard.h"
 #include "config/bdirectiveschema.h"
 #include "blogging.h"
+#include "blogredact.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -723,7 +724,7 @@ void BSchedulePreviewPage::executeConfigureCommand()
     m_timeoutTimer->start();
 
     QString cmd = wiz->generateConfigureCommand();
-    BLOG_DEBUG() << "BScheduleWizard: Sending configure" << cmd.left(200);
+    BLOG_DEBUG() << "BScheduleWizard: Sending configure" << bRedactCommand(cmd).left(200);
     wiz->director()->doSend(BDirector::Command::Configure, cmd);
 }
 

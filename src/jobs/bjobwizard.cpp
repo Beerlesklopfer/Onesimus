@@ -10,6 +10,7 @@
 #include "config/bresourceform.h"
 #include "director/bdirectorreply.h"
 #include "blogging.h"
+#include "blogredact.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -842,7 +843,7 @@ void BJobPreviewPage::executeConfigureCommand()
     m_timeoutTimer->start();
 
     QString cmd = wiz->generateConfigureCommand();
-    BLOG_DEBUG() << "BJobWizard: Sending configure" << cmd.left(200);
+    BLOG_DEBUG() << "BJobWizard: Sending configure" << bRedactCommand(cmd).left(200);
     wiz->director()->doSend(BDirector::Command::Configure, cmd);
 }
 
