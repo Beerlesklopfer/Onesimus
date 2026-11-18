@@ -210,7 +210,7 @@ void BScheduleGanttWidget::rebuildRows()
                 RowInfo row;
                 const BScheduleEntry &e = m_entries[idx];
                 row.label = QString("  %1 %2")
-                    .arg(BScheduleEntry::levelToString(e.level),
+                    .arg(e.levelLabel(),
                          e.jobName.isEmpty() ? QString() : e.jobName);
                 row.isGroupHeader = false;
                 row.entryIndex = idx;
@@ -236,7 +236,7 @@ void BScheduleGanttWidget::rebuildRows()
                 RowInfo row;
                 const BScheduleEntry &e = m_entries[idx];
                 row.label = QString("  %1 %2")
-                    .arg(BScheduleEntry::levelToString(e.level), e.scheduleName);
+                    .arg(e.levelLabel(), e.scheduleName);
                 row.isGroupHeader = false;
                 row.entryIndex = idx;
                 m_rows.append(row);
@@ -261,7 +261,7 @@ void BScheduleGanttWidget::rebuildRows()
                 RowInfo row;
                 const BScheduleEntry &e = m_entries[idx];
                 row.label = QString("  %1 %2")
-                    .arg(BScheduleEntry::levelToString(e.level), e.scheduleName);
+                    .arg(e.levelLabel(), e.scheduleName);
                 row.isGroupHeader = false;
                 row.entryIndex = idx;
                 m_rows.append(row);
@@ -605,7 +605,7 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, const BScheduleEntry &e
         font.setPointSize(8);
         font.setBold(true);
         painter.setFont(font);
-        QString levelChar = BScheduleEntry::levelToString(entry.level).left(1);
+        QString levelChar = entry.levelLabel().left(1);
         painter.drawText(rect, Qt::AlignCenter, levelChar);
         font.setBold(false);
         painter.setFont(font);
@@ -826,8 +826,12 @@ QColor BScheduleGanttWidget::colorForLevel(BScheduleEntry::BackupLevel level, bo
     case BScheduleEntry::Incremental:  code = "I"; break;
     case BScheduleEntry::VirtualFull:  code = "V"; break;
     case BScheduleEntry::None:
-    default:
-        return Qt::transparent;
+    default: {
+        // The Run line names no level (the job's level applies) or one
+        // without a colour: neutral, so that the bar stays visible
+        const QColor neutral = palette().color(QPalette::Mid);
+        return hovered ? neutral.lighter(130) : neutral;
+    }
     }
 
     QColor base = BLevelColors::getLevelColor(code);
@@ -931,10 +935,17 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
                                   "%2: %3<br>"
                                   "%4: %5:%6")
             .arg(e.scheduleName,
-                 tr("Level"), BScheduleEntry::levelToString(e.level),
+                 tr("Level"),
+                 e.levelLabel().isEmpty() ? tr("(level of the job)") : e.levelLabel(),
                  tr("Time"),
                  QString::number(e.hour).rightJustified(2, '0'),
                  QString::number(e.minute).rightJustified(2, '0'));
+
+        // The Run line itself: this view shows the time and the days of the
+        // week only, the line may also name months, weeks or days of the month
+        if (!e.source.original.isEmpty()) {
+            tooltip += QString("<br>%1: %2").arg(tr("Run"), e.source.original.toHtmlEscaped());
+        }
 
         if (!e.jobName.isEmpty()) {
             tooltip += QString("<br>%1: %2").arg(tr("Job"), e.jobName);
@@ -948,7 +959,7 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
             tooltip += QString("<br>%1: %2h %3m").arg(tr("Duration")).arg(h).arg(m);
         }
         if (m_durationStats && !e.jobName.isEmpty()) {
-            QString levelStr = BScheduleEntry::levelToString(e.level);
+            QString levelStr = e.levelLabel();
             int minD = m_durationStats->minDuration(e.jobName, levelStr);
             int maxD = m_durationStats->maxDuration(e.jobName, levelStr);
             int samples = m_durationStats->sampleCount(e.jobName, levelStr);
@@ -1175,12 +1186,12 @@ void BScheduleGanttWidget::computeDependencies(int draggedIndex)
                 isChain = true;
                 desc = tr("Level chain: %1 (%2) depends on this Full")
                     .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
-                         BScheduleEntry::levelToString(other.level));
+                         other.levelLabel());
             } else if ((dragged.level == BScheduleEntry::Incremental || dragged.level == BScheduleEntry::Differential)
                        && other.level == BScheduleEntry::Full) {
                 isChain = true;
                 desc = tr("Level chain: this %1 depends on Full %2")
-                    .arg(BScheduleEntry::levelToString(dragged.level),
+                    .arg(dragged.levelLabel(),
                          other.jobName.isEmpty() ? other.scheduleName : other.jobName);
             }
 
@@ -1203,7 +1214,7 @@ void BScheduleGanttWidget::computeDependencies(int draggedIndex)
             edge.targetEntryIndex = i;
             edge.description = tr("Client exclusion: %1 (%2) on same client %3")
                 .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
-                     BScheduleEntry::levelToString(other.level),
+                     other.levelLabel(),
                      other.client);
             m_dragDependencies.append(edge);
             continue;  // don't duplicate as storage contention

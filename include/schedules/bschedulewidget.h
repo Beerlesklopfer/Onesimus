@@ -84,6 +84,7 @@ private:
     void setupStatsPanel();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
+    void updateRunProblems();
     void updateJobList();  // Aggregates jobs from all checked schedules
     void handleDragCompleted(BScheduleGanttWidget *source, int entryIndex,
                              int newHour, int newMinute,
@@ -125,6 +126,7 @@ private:
     QLabel *m_zoomLabel;
     QSlider *m_zoomSlider;             // Zoom in week mode (px/hour)
     QLabel *m_collisionLabel;
+    QLabel *m_runProblemLabel;     ///< Run lines that were not understood
 
     // Stats panel
     QGroupBox *m_statsPanel;

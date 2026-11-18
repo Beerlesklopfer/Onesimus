@@ -173,8 +173,12 @@ void BScheduleRunDialog::populateFromSchema()
     if (levels.isEmpty()) {
         levels = {"Full", "Differential", "Incremental", "VirtualFull"};
     }
-    m_levelCombo->addItems(levels);
-    m_levelCombo->setCurrentText("Incremental");
+    // A Run line may name no level; then the job's own level applies
+    m_levelCombo->addItem(tr("(level of the job)"), QString());
+    for (const QString &level : levels) {
+        m_levelCombo->addItem(level, level);
+    }
+    m_levelCombo->setCurrentIndex(qMax(0, m_levelCombo->findData(QStringLiteral("Incremental"))));
 
     // Week of month values from schema
     QStringList weeks = schema.weekOfMonthValues();
@@ -213,14 +217,23 @@ void BScheduleRunDialog::setReferenceData(const QMap<QString, QStringList> &refe
 
 void BScheduleRunDialog::populateFromEntry(const BScheduleEntry &entry)
 {
-    m_levelCombo->setCurrentText(BScheduleEntry::levelToString(entry.level));
+    // The entry's own level and week specification are offered even if the
+    // schema does not list them, so that opening the dialog changes nothing
+    const QString level = entry.levelLabel();
+    int levelIndex = m_levelCombo->findData(level);
+    if (levelIndex < 0) {
+        m_levelCombo->addItem(level, level);
+        levelIndex = m_levelCombo->count() - 1;
+    }
+    m_levelCombo->setCurrentIndex(levelIndex);
     m_timeEdit->setTime(QTime(entry.hour, entry.minute));
 
-    if (!entry.weekSpec.isEmpty()) {
-        m_weekCombo->setCurrentText(entry.weekSpec);
-    } else {
-        m_weekCombo->setCurrentIndex(0);  // (every week)
+    int weekIndex = m_weekCombo->findData(entry.weekSpec);
+    if (weekIndex < 0) {
+        m_weekCombo->addItem(entry.weekSpec, entry.weekSpec);
+        weekIndex = m_weekCombo->count() - 1;
     }
+    m_weekCombo->setCurrentIndex(weekIndex);
 
     // Days: BScheduleEntry uses 0=Mon..6=Sun, Bareos uses sun=0..sat=6
     // Convert: Mon=0 → bareos index 1, Sun=6 → bareos index 0
@@ -244,7 +257,9 @@ void BScheduleRunDialog::populateFromEntry(const BScheduleEntry &entry)
 BScheduleEntry BScheduleRunDialog::entry() const
 {
     BScheduleEntry e;
-    e.level = BScheduleEntry::levelFromString(m_levelCombo->currentText());
+    // No level stays no level; it is never turned into Incremental
+    e.levelName = m_levelCombo->currentData().toString();
+    e.level = BScheduleEntry::levelFromString(e.levelName);
     e.hour = m_timeEdit->time().hour();
     e.minute = m_timeEdit->time().minute();
 
@@ -271,8 +286,9 @@ BScheduleEntry BScheduleRunDialog::entry() const
 
 void BScheduleRunDialog::updatePreview()
 {
-    BScheduleEntry e = entry();
-    m_previewLabel->setText(QString("Run = %1").arg(e.toRunDirective()));
+    QString error;
+    const QString run = entry().toRunDirective(&error);
+    m_previewLabel->setText(run.isEmpty() ? error : QString("Run = %1").arg(run));
 }
 
 // ============================================================================
@@ -358,10 +374,37 @@ void BScheduleRunEditor::onEditRun()
     int row = m_table->currentRow();
     if (row < 0 || row >= m_entries.size()) return;
 
-    BScheduleRunDialog dlg(m_entries[row], this);
+    const BScheduleEntry current = m_entries[row];
+    if (current.notUnderstood()) {
+        QMessageBox::information(this, tr("Edit Run Directive"),
+            tr("This Run line is not understood and cannot be edited:\n%1\n\n%2\n\n"
+               "Remove it to continue.")
+                .arg(current.source.original, current.source.parseError));
+        return;
+    }
+
+    BScheduleRunDialog dlg(current, this);
     dlg.setReferenceData(m_referenceData);
+
+    // The dialog knows one level, one time, the days of the week, one week
+    // of the month, pool, storage and priority. A line that says more would
+    // lose it here, so it is not opened for editing.
+    const std::optional<BRunSpec> before = current.toRunLine().spec;   // understood: checked above
+    if (!before || dlg.entry().toSpec() != before) {
+        QMessageBox::information(this, tr("Edit Run Directive"),
+            tr("This Run line uses forms that this dialog cannot show, for example months, "
+               "days of the month, several times or other overrides:\n%1\n\n"
+               "It is kept exactly as it is. To replace it, remove it and add a new run.")
+                .arg(current.source.original));
+        return;
+    }
+
     if (dlg.exec() == QDialog::Accepted) {
-        m_entries[row] = dlg.entry();
+        const BScheduleEntry edited = dlg.entry();
+        // Nothing changed: the line stays as it was written
+        if (edited.toSpec() == before)
+            return;
+        m_entries[row] = edited;
         refreshTable();
         emit entriesChanged();
     }
@@ -403,8 +446,35 @@ void BScheduleRunEditor::refreshTable()
     for (int i = 0; i < m_entries.size(); ++i) {
         const BScheduleEntry &e = m_entries[i];
 
+        // A line that is not understood is shown as such, with its text
+        if (e.notUnderstood()) {
+            const QString tip = tr("Not understood: %1").arg(e.source.parseError);
+            auto *mark = new QTableWidgetItem(tr("Not understood"));
+            auto *text = new QTableWidgetItem(e.source.original);
+            mark->setToolTip(tip);
+            text->setToolTip(tip);
+            m_table->setItem(i, 0, mark);
+            m_table->setItem(i, 1, text);
+            m_table->setItem(i, 2, new QTableWidgetItem());
+            m_table->setItem(i, 3, new QTableWidgetItem());
+            continue;
+        }
+
+        // A line the columns cannot express is shown as its own text
+        if (!e.source.original.isEmpty() && !e.matchesSource()) {
+            auto *level = new QTableWidgetItem(e.levelLabel());
+            auto *text = new QTableWidgetItem(e.source.original);
+            text->setToolTip(tr("Kept exactly as written: %1").arg(e.source.original));
+            m_table->setItem(i, 0, level);
+            m_table->setItem(i, 1, text);
+            m_table->setItem(i, 2, new QTableWidgetItem());
+            m_table->setItem(i, 3, new QTableWidgetItem(e.pool));
+            continue;
+        }
+
         // Level
-        m_table->setItem(i, 0, new QTableWidgetItem(BScheduleEntry::levelToString(e.level)));
+        m_table->setItem(i, 0, new QTableWidgetItem(
+            e.levelLabel().isEmpty() ? tr("(level of the job)") : e.levelLabel()));
 
         // Days
         QStringList days;
@@ -674,7 +744,20 @@ void BSchedulePreviewPage::generatePreview()
     if (!wiz) return;
 
     m_configEdit->setPlainText(wiz->generateConfigText());
-    m_commandEdit->setPlainText("configure " + wiz->generateConfigureCommand());
+
+    // A Run line that is not understood or does not read back as intended
+    // blocks the whole schedule: nothing is offered for sending
+    QString error;
+    const bool writable = wiz->runTexts(nullptr, &error);
+    m_commandEdit->setPlainText(writable ? "configure " + wiz->generateConfigureCommand()
+                                         : QString());
+    m_copyCommandButton->setEnabled(writable);
+    if (writable) {
+        m_statusLabel->setStyleSheet(QString());
+    } else {
+        m_statusLabel->setStyleSheet("color: red;");
+        m_statusLabel->setText(tr("This schedule cannot be written. %1").arg(error));
+    }
 }
 
 bool BSchedulePreviewPage::validatePage()
@@ -683,6 +766,15 @@ bool BSchedulePreviewPage::validatePage()
     if (m_executed) return true;
 
     auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
+
+    QString runError;
+    if (wiz && !wiz->runTexts(nullptr, &runError)) {
+        QMessageBox::warning(this, tr("Schedule cannot be written"),
+            tr("%1\n\nGo back and remove or replace this run, or cancel the wizard.")
+                .arg(runError));
+        return false;
+    }
+
     if (!wiz || !wiz->director() || !wiz->director()->isConnected()) {
         return true;
     }
@@ -724,6 +816,7 @@ void BSchedulePreviewPage::executeConfigureCommand()
     m_timeoutTimer->start();
 
     QString cmd = wiz->generateConfigureCommand();
+    if (cmd.isEmpty()) return;      // a Run line cannot be written; validatePage() said why
     BLOG_DEBUG() << "BScheduleWizard: Sending configure" << bRedactCommand(cmd).left(200);
     wiz->director()->doSend(BDirector::Command::Configure, cmd);
 }
@@ -844,11 +937,34 @@ void BScheduleWizard::applyTemplate(const QStringList &runs)
     }
 }
 
+bool BScheduleWizard::runTexts(QStringList *texts, QString *error) const
+{
+    auto *runsPage = qobject_cast<BScheduleRunsPage*>(page(Page_Runs));
+    if (!runsPage) {
+        if (texts) texts->clear();
+        return false;
+    }
+
+    // Lines taken over from a template go out as they were written; only a
+    // run made or changed in the dialog is generated, and read back
+    QList<BRunLine> lines;
+    for (const BScheduleEntry &entry : runsPage->runEntries()) {
+        lines.append(entry.toRunLine());
+    }
+    return BRunWriter::runTexts(lines, texts, error);
+}
+
 QString BScheduleWizard::generateConfigText() const
 {
     auto *basicsPage = qobject_cast<BScheduleBasicsPage*>(page(Page_Basics));
     auto *runsPage = qobject_cast<BScheduleRunsPage*>(page(Page_Runs));
     if (!basicsPage || !runsPage) return QString();
+
+    QStringList runs;
+    QString error;
+    if (!runTexts(&runs, &error)) {
+        return tr("# This schedule cannot be written:") + "\n# " + error + "\n";
+    }
 
     QString config;
     config += "Schedule {\n";
@@ -862,8 +978,8 @@ QString BScheduleWizard::generateConfigText() const
         config += "  Enabled = no\n";
     }
 
-    for (const BScheduleEntry &entry : runsPage->runEntries()) {
-        config += QString("  Run = %1\n").arg(entry.toRunDirective());
+    for (const QString &run : runs) {
+        config += QString("  Run = %1\n").arg(run);
     }
 
     config += "}\n";
@@ -875,6 +991,10 @@ QString BScheduleWizard::generateConfigureCommand() const
     auto *basicsPage = qobject_cast<BScheduleBasicsPage*>(page(Page_Basics));
     auto *runsPage = qobject_cast<BScheduleRunsPage*>(page(Page_Runs));
     if (!basicsPage || !runsPage) return QString();
+
+    // No command at all if one Run line cannot be written
+    QStringList runs;
+    if (!runTexts(&runs)) return QString();
 
     QStringList parts;
     parts.append("add schedule");
@@ -888,8 +1008,9 @@ QString BScheduleWizard::generateConfigureCommand() const
         parts.append("enabled=no");
     }
 
-    for (const BScheduleEntry &entry : runsPage->runEntries()) {
-        parts.append(QString("run=\"%1\"").arg(entry.toRunDirective()));
+    // Run lines may contain quoted names (Pool="Full Pool")
+    for (const QString &run : runs) {
+        parts.append(QStringLiteral("run=") + BRunWriter::quotedForCommand(run));
     }
 
     return parts.join(" ");

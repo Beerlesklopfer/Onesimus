@@ -10,46 +10,43 @@
 /**
  * @brief Decides whether a dragged time change can be written as a schedule
  *
- * The Gantt view works on BScheduleEntry objects, and the Run lines of a new
- * schedule are regenerated from them. BScheduleEntry::fromRunDirective()
- * does not keep every form a Bareos Run line can have, so the regenerated
- * lines are compared here with the Director's original ones before anything
- * is offered for writing.
+ * The Run lines of the new schedule are the Director's own lines, passed
+ * through verbatim. Only the dragged line is generated: its parsed run
+ * (BRunSpec) with the new time, written by BRunWriter and checked by
+ * reading it back. Lines are compared as parsed runs, never as text.
  *
  * Plain functions without widgets and without a Director, so that the
- * comparison can be tested on its own. This is a check, not a second parser:
- * it only has to notice that two lines do not say the same.
+ * decision can be tested on its own.
  */
 namespace BScheduleDragPlan {
 
 enum class Verdict {
-    Exact,              ///< Only the dragged time differs from the original lines
-    NeedsConfirmation,  ///< Other differences exist; show both versions and ask
+    Exact,              ///< Every line is the original one; the dragged line differs in its time only
+    NeedsConfirmation,  ///< Some untouched lines had to be respelled; show both versions and ask
     Refused             ///< Nothing may be written; see Plan::reason
 };
 
 enum class Reason {
     None,
     NoRunLines,             ///< The original Run lines of the schedule are not known
-    Override,               ///< pool=, storage=, ... on a Run line
-    WeekOfMonth,            ///< 1st, 2nd-5th, last, ... not kept by the regeneration
-    DayRange,               ///< tue-thu, ... not kept by the regeneration
-    DayOfMonth,             ///< Day-of-month numbers
-    NoTime,                 ///< No readable "at HH:MM" on a Run line
+    NotUnderstood,          ///< A Run line that the parser does not understand
+    SeveralHours,           ///< The dragged line runs at several hours and has one minute for all
+    BadTime,                ///< The new time is not a time of day
     DraggedLineNotFound,    ///< No original line matches the dragged entry
-    DraggedLineAmbiguous    ///< Several original lines match the dragged entry
+    DraggedLineAmbiguous,   ///< Several original lines match the dragged entry
+    WriteCheckFailed        ///< A generated line did not read back as intended
 };
 
 struct Plan {
     Verdict verdict = Verdict::Refused;
     Reason reason = Reason::None;
     int reasonLine = -1;        ///< Index into originalRuns, -1 if not tied to a line
-    QString reasonToken;        ///< The token that caused the refusal, if any
+    QString reasonText;         ///< The parser's or writer's message, if any
 
     QStringList originalRuns;   ///< As passed in
     QStringList generatedRuns;  ///< One per original line; empty when refused
     int draggedLine = -1;       ///< Index of the line whose time changes
-    QList<int> differingLines;  ///< Lines that differ in more than the dragged time
+    QList<int> differingLines;  ///< Untouched lines whose text is not the original's
 
     bool refused() const { return verdict == Verdict::Refused; }
 };
@@ -57,29 +54,26 @@ struct Plan {
 /**
  * @brief Do two Run lines say the same?
  * @param original   Run line as the Director reported it
- * @param generated  Regenerated Run line
+ * @param generated  Another Run line
  * @param newHour    If >= 0: the time of @p original is replaced by
  *                   newHour:newMinute before comparing (the dragged line)
  * @param newMinute  See @p newHour
- * @return true if level, week-of-month, days, time and all other tokens agree
- *
- * Case, spacing, the order of days, `level=Full` against `Full`, a missing
- * day against `daily` and `2:05` against `02:05` are not differences. A
- * line without a readable time never equals anything.
+ * @return true if both lines are understood and their overrides, masks and
+ *         minutes agree. A line that is not understood equals nothing.
  */
 bool sameRun(const QString &original, const QString &generated,
              int newHour = -1, int newMinute = -1);
 
 /**
- * @brief Compare the regenerated Run lines of a schedule with the original ones
+ * @brief The Run lines of a schedule after a drag
  * @param originalRuns Run lines of the schedule as the Director reported them
  * @param dragged      The dragged entry with its time before the drag
  * @param newHour      Hour after the drag
  * @param newMinute    Minute after the drag
  *
- * The lines are regenerated from @p originalRuns (one per line, independent
- * of the number of jobs that use the schedule) through
- * BScheduleEntry::fromRunDirective() and toRunDirective().
+ * One line per original line, independent of the number of jobs that use
+ * the schedule. Refused if any line is not understood: such a schedule
+ * cannot be written by the application.
  */
 Plan plan(const QStringList &originalRuns, const BScheduleEntry &dragged,
           int newHour, int newMinute);

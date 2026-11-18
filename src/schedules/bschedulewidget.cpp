@@ -13,6 +13,7 @@
 #include <QDate>
 #include <QHeaderView>
 #include <QScrollBar>
+#include <QStyle>
 
 BScheduleWidget::BScheduleWidget(QWidget *parent)
     : QWidget(parent)
@@ -38,6 +39,7 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_dayLabel(new QLabel(this))
     , m_snapCombo(new QComboBox(this))
     , m_collisionLabel(new QLabel(this))
+    , m_runProblemLabel(new QLabel(this))
     , m_jobScheduleIndex(new BJobScheduleIndex(this))
     , m_director(nullptr)
     , m_currentDay(QDate::currentDate().dayOfWeek() - 1)  // Qt: 1=Mon → 0=Mon
@@ -122,6 +124,11 @@ void BScheduleWidget::setupUI()
     m_collisionLabel->setVisible(false);
     m_collisionLabel->setStyleSheet("color: red; font-weight: bold;");
     toolbarLayout->addWidget(m_collisionLabel);
+
+    // Run lines that were not understood: named here, shown nowhere else
+    m_runProblemLabel->setVisible(false);
+    m_runProblemLabel->setStyleSheet("color: red; font-weight: bold;");
+    toolbarLayout->addWidget(m_runProblemLabel);
 
     // Refresh
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
@@ -342,6 +349,7 @@ void BScheduleWidget::clearData()
     m_scheduleModel->clear();
     m_durationStats->clear();
     m_collisionLabel->setVisible(false);
+    m_runProblemLabel->setVisible(false);
 }
 
 void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
@@ -406,6 +414,7 @@ void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
     emit statusMessageChanged(tr("%1 schedules loaded").arg(schedulesArray.size()));
 
     // Update both views with all schedules (all checked initially)
+    updateRunProblems();
     updateFilteredViews();
     updateGanttEntries();
     updateJobList();
@@ -495,6 +504,7 @@ void BScheduleWidget::processShowSchedulesResponse(const QString &jsonData)
     emit statusMessageChanged(tr("%1 schedules loaded (%2 run entries)")
         .arg(m_scheduleList->count()).arg(entryCount));
 
+    updateRunProblems();
     updateFilteredViews();
     updateGanttEntries();
     updateJobList();
@@ -828,7 +838,7 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
         title += QString(" / %1").arg(entry.jobName);
     }
     title += QString(" (%1, %2:%3)")
-        .arg(BScheduleEntry::levelToString(entry.level))
+        .arg(entry.levelLabel())
         .arg(entry.hour, 2, 10, QChar('0'))
         .arg(entry.minute, 2, 10, QChar('0'));
     m_statsTitle->setText(title);
@@ -868,7 +878,7 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
     if (lookupName.isEmpty()) {
         lookupName = entry.scheduleName;  // fallback
     }
-    QString levelStr = BScheduleEntry::levelToString(entry.level);
+    QString levelStr = entry.levelLabel();
 
     int minDur = m_durationStats->minDuration(lookupName, levelStr);
     int avgDur = m_durationStats->averageDuration(lookupName, levelStr);
@@ -993,7 +1003,7 @@ void BScheduleWidget::updateGanttEntries()
     // Enrich with level-specific duration estimates
     for (BScheduleEntry &e : entries) {
         if (e.estimatedDurationSecs <= 0 && !e.jobName.isEmpty()) {
-            QString levelStr = BScheduleEntry::levelToString(e.level);
+            QString levelStr = e.levelLabel();
             e.estimatedDurationSecs = m_durationStats->averageDuration(e.jobName, levelStr);
         }
     }
@@ -1001,6 +1011,45 @@ void BScheduleWidget::updateGanttEntries()
     // Both widgets receive the identical enriched list
     m_fdGanttWidget->setEntries(entries);
     m_sdGanttWidget->setEntries(entries);
+}
+
+void BScheduleWidget::updateRunProblems()
+{
+    // A Run line that is not understood has no time and no day, so neither
+    // view can draw it. It is named here and on its schedule in the list.
+    const QList<BRunProblem> problems = m_scheduleModel->runProblems();
+
+    QMap<QString, QStringList> bySchedule;
+    QStringList all;
+    for (const BRunProblem &problem : problems) {
+        const QString text = tr("Run line %1 \"%2\": %3")
+            .arg(problem.line).arg(problem.text, problem.error);
+        bySchedule[problem.scheduleName].append(text);
+        all.append(QString("%1: %2").arg(problem.scheduleName, text));
+    }
+
+    for (int i = 0; i < m_scheduleList->count(); ++i) {
+        QListWidgetItem *item = m_scheduleList->item(i);
+        const QStringList lines = bySchedule.value(item->text());
+        if (lines.isEmpty()) {
+            item->setIcon(QIcon());
+            item->setToolTip(QString());
+        } else {
+            item->setIcon(QIcon::fromTheme("dialog-warning",
+                                           style()->standardIcon(QStyle::SP_MessageBoxWarning)));
+            item->setToolTip(tr("Not understood and not shown in the views:") + "\n"
+                             + lines.join("\n") + "\n"
+                             + tr("This schedule cannot be written by the application."));
+        }
+    }
+
+    m_runProblemLabel->setVisible(!all.isEmpty());
+    if (!all.isEmpty()) {
+        m_runProblemLabel->setText(tr("%n Run line(s) not understood", "", all.size()));
+        m_runProblemLabel->setToolTip(
+            tr("These Run lines are not shown in the views, and their schedules cannot "
+               "be written by the application:") + "\n" + all.join("\n"));
+    }
 }
 
 void BScheduleWidget::resizeBothGanttWidgets()

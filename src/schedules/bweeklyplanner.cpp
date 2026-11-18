@@ -3,8 +3,6 @@
 #include "blogging.h"
 #include <QPainter>
 #include <QToolTip>
-#include <QJsonArray>
-#include <QRegularExpression>
 
 BWeeklyPlanner::BWeeklyPlanner(QWidget *parent)
     : QWidget(parent)
@@ -45,66 +43,8 @@ int BWeeklyPlanner::cellHeight() const
     return qMax(MIN_CELL_HEIGHT, available / DAYS);
 }
 
-void BWeeklyPlanner::setSchedule(const QJsonObject &schedule)
-{
-    m_scheduleData = schedule;
-    m_scheduleName = schedule["name"].toString();
-
-    // Clear existing schedule
-    for (int day = 0; day < DAYS; ++day) {
-        for (int hour = 0; hour < HOURS; ++hour) {
-            m_schedule[day][hour].clear();
-        }
-    }
-
-    // Parse schedule runs (Bareos API may use "run" or "Run")
-    QJsonArray runs = schedule["run"].toArray();
-    if (runs.isEmpty()) {
-        runs = schedule["Run"].toArray();
-    }
-    for (const QJsonValue &runVal : runs) {
-        if (runVal.isString()) {
-            parseScheduleRun(runVal.toString());
-        }
-    }
-
-    update();
-}
-
-void BWeeklyPlanner::setAllSchedules(const QJsonArray &schedules)
-{
-    m_scheduleData = QJsonObject();
-    m_scheduleName = tr("All Schedules");
-
-    // Clear existing
-    for (int day = 0; day < DAYS; ++day) {
-        for (int hour = 0; hour < HOURS; ++hour) {
-            m_schedule[day][hour].clear();
-        }
-    }
-
-    // Parse all schedules
-    for (const QJsonValue &scheduleVal : schedules) {
-        if (!scheduleVal.isObject()) continue;
-        QJsonObject schedule = scheduleVal.toObject();
-
-        QJsonArray runs = schedule["run"].toArray();
-        if (runs.isEmpty()) {
-            runs = schedule["Run"].toArray();
-        }
-        for (const QJsonValue &runVal : runs) {
-            if (runVal.isString()) {
-                parseScheduleRun(runVal.toString());
-            }
-        }
-    }
-
-    update();
-}
-
 void BWeeklyPlanner::setEntries(const QList<BScheduleEntry> &entries)
 {
-    m_scheduleData = QJsonObject();
     m_scheduleName = tr("All Schedules");
 
     // Clear existing
@@ -126,8 +66,13 @@ void BWeeklyPlanner::setEntries(const QList<BScheduleEntry> &entries)
             level = LEVEL_DIFFERENTIAL;
             break;
         case BScheduleEntry::Incremental:
-        default:
             level = LEVEL_INCREMENTAL;
+            break;
+        case BScheduleEntry::None:
+        default:
+            // No level on the Run line (the job's level applies), or a level
+            // without a colour here. Never shown as Incremental.
+            level = entry.levelName.isEmpty() ? LEVEL_JOB : LEVEL_OTHER;
             break;
         }
 
@@ -147,7 +92,6 @@ void BWeeklyPlanner::setEntries(const QList<BScheduleEntry> &entries)
 
 void BWeeklyPlanner::clearSchedule()
 {
-    m_scheduleData = QJsonObject();
     m_scheduleName.clear();
 
     for (int day = 0; day < DAYS; ++day) {
@@ -159,123 +103,6 @@ void BWeeklyPlanner::clearSchedule()
     update();
 }
 
-void BWeeklyPlanner::parseScheduleRun(const QString &scheduleRun)
-{
-    // Bareos schedule syntax examples:
-    // "Full 1st sun at 23:05"
-    // "Level=Differential 2nd-5th sun at 23:05"
-    // "Level=Incremental mon-sat at 23:05"
-
-#ifdef IS_DEVELOPER
-    BLOG_DEBUG() << "Parsing schedule run:" << scheduleRun;
-#endif
-
-    // Extract backup level
-    BackupLevel level = extractLevel(scheduleRun);
-
-    // Extract time
-    int hour, minute;
-    if (!extractTime(scheduleRun, hour, minute)) {
-        return;
-    }
-
-    // Extract days
-    QVector<int> days = extractDays(scheduleRun);
-
-    // Mark schedule cells — append for side-by-side display
-    for (int day : days) {
-        if (day >= 0 && day < DAYS && hour >= 0 && hour < HOURS) {
-            m_schedule[day][hour].append(level);
-        }
-    }
-}
-
-BWeeklyPlanner::BackupLevel BWeeklyPlanner::extractLevel(const QString &scheduleRun) const
-{
-    QString lower = scheduleRun.toLower();
-
-    if (lower.contains("level=differential") || lower.contains("differential")) {
-        return LEVEL_DIFFERENTIAL;
-    } else if (lower.contains("level=incremental") || lower.contains("incremental")) {
-        return LEVEL_INCREMENTAL;
-    } else if (lower.contains("full")) {
-        return LEVEL_FULL;
-    }
-
-    // Default to incremental if no level specified
-    return LEVEL_INCREMENTAL;
-}
-
-bool BWeeklyPlanner::extractTime(const QString &scheduleRun, int &hour, int &minute) const
-{
-    // Extract time (format: "at HH:MM" or "at H:MM")
-    QRegularExpression timeRx("at\\s+(\\d{1,2}):(\\d{2})");
-    QRegularExpressionMatch match = timeRx.match(scheduleRun);
-
-    if (match.hasMatch()) {
-        hour = match.captured(1).toInt();
-        minute = match.captured(2).toInt();
-
-        if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-QVector<int> BWeeklyPlanner::extractDays(const QString &scheduleRun) const
-{
-    QString lower = scheduleRun.toLower();
-    QVector<int> days;
-
-    // Handle "daily" - all days
-    if (lower.contains("daily")) {
-        for (int i = 0; i < 7; ++i) {
-            days.append(i);
-        }
-        return days;
-    }
-
-    // Handle "hourly" - all days (hourly means every hour of every day)
-    if (lower.contains("hourly")) {
-        for (int i = 0; i < 7; ++i) {
-            days.append(i);
-        }
-        return days;
-    }
-
-    // Handle day ranges first (before individual days to avoid conflicts)
-    if (lower.contains("mon-sat")) {
-        for (int i = 0; i < 6; ++i) {
-            days.append(i);
-        }
-        return days;
-    }
-
-    if (lower.contains("mon-fri")) {
-        for (int i = 0; i < 5; ++i) {
-            days.append(i);
-        }
-        return days;
-    }
-
-    // Handle week specifications (1st, 2nd-5th, last, etc.) with specific day
-    // For now, we'll mark all occurrences of that day in the month
-    // A more sophisticated parser would need calendar logic
-
-    // Check for specific weekday names
-    if (lower.contains("mon")) days.append(0);
-    if (lower.contains("tue")) days.append(1);
-    if (lower.contains("wed")) days.append(2);
-    if (lower.contains("thu")) days.append(3);
-    if (lower.contains("fri")) days.append(4);
-    if (lower.contains("sat")) days.append(5);
-    if (lower.contains("sun")) days.append(6);
-
-    return days;
-}
-
 QColor BWeeklyPlanner::getColorForLevel(BackupLevel level, bool hovered) const
 {
     QString code;
@@ -283,6 +110,12 @@ QColor BWeeklyPlanner::getColorForLevel(BackupLevel level, bool hovered) const
         case LEVEL_FULL:         code = "F"; break;
         case LEVEL_DIFFERENTIAL: code = "D"; break;
         case LEVEL_INCREMENTAL:  code = "I"; break;
+        case LEVEL_JOB:
+        case LEVEL_OTHER: {
+            // Neutral: the level is not known here or has no colour
+            const QColor neutral = palette().color(QPalette::Mid);
+            return hovered ? neutral.lighter(130) : neutral;
+        }
         case LEVEL_NONE:
         default:
             return Qt::transparent;
@@ -428,6 +261,8 @@ void BWeeklyPlanner::mouseMoveEvent(QMouseEvent *event)
                     case LEVEL_FULL:         levelNames << "Full"; break;
                     case LEVEL_DIFFERENTIAL: levelNames << "Differential"; break;
                     case LEVEL_INCREMENTAL:  levelNames << "Incremental"; break;
+                    case LEVEL_JOB:          levelNames << tr("level of the job"); break;
+                    case LEVEL_OTHER:        levelNames << tr("other level"); break;
                     default:                 levelNames << "Unknown"; break;
                 }
             }

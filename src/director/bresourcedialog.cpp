@@ -8,6 +8,7 @@
 
 #include "director/bresourcedialog.h"
 #include "config/bresourceform.h"
+#include "schedules/model/brunspec.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -143,16 +144,35 @@ void BResourceDialog::onResourceSelected(int index)
 }
 
 // Helper: Convert resource to Bareos config format
-static QString resourceToConf(const BConfigResource &resource)
+// @return an empty string with @p error set if the resource cannot be written
+static QString resourceToConf(const BConfigResource &resource, QString *error)
 {
     QString conf;
     conf += QString("%1 {\n").arg(resource.type());
     conf += QString("  Name = \"%1\"\n").arg(resource.name());
 
+    const bool isSchedule = (resource.type().compare("Schedule", Qt::CaseInsensitive) == 0);
+
     for (const QString &key : resource.keys()) {
         if (key.toLower() == "name") continue;  // Already emitted above
 
         BConfigValue val = resource.value(key);
+
+        // Run lines of a schedule are not strings: Bareos does not read a
+        // quoted Run line. They are written as they are, and not at all if
+        // one of them is not understood.
+        if (isSchedule && key.compare("run", Qt::CaseInsensitive) == 0
+            && (val.type() == BConfigValue::Simple || val.type() == BConfigValue::List)) {
+            const QStringList reported = (val.type() == BConfigValue::Simple)
+                ? QStringList(val.simpleValue()) : val.listValue();
+            QStringList runs;
+            if (!BRunWriter::runTexts(reported, &runs, error))
+                return QString();
+            for (const QString &run : runs)
+                conf += QString("  %1 = %2\n").arg(key, run);
+            continue;
+        }
+
         switch (val.type()) {
         case BConfigValue::Simple: {
             QString v = val.simpleValue();
@@ -198,6 +218,15 @@ void BResourceDialog::onSaveConf()
         tr("Configuration Files (*.conf);;All Files (*)"));
     if (filePath.isEmpty()) return;
 
+    QString confError;
+    const QString conf = resourceToConf(res, &confError);
+    if (conf.isEmpty()) {
+        QMessageBox::warning(this, tr("Save Failed"),
+                             tr("%1 \"%2\" cannot be written. %3")
+                                 .arg(m_resourceType, name, confError));
+        return;
+    }
+
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::warning(this, tr("Save Failed"),
@@ -205,7 +234,7 @@ void BResourceDialog::onSaveConf()
         return;
     }
 
-    file.write(resourceToConf(res).toUtf8());
+    file.write(conf.toUtf8());
     file.close();
 
     m_saveConfButton->setText(tr("Saved!"));
@@ -231,6 +260,15 @@ void BResourceDialog::onSaveZip()
 
     if (!filePath.endsWith(".zip", Qt::CaseInsensitive))
         filePath += ".zip";
+
+    QString confError;
+    const QString conf = resourceToConf(res, &confError);
+    if (conf.isEmpty()) {
+        QMessageBox::warning(this, tr("Save Failed"),
+                             tr("%1 \"%2\" cannot be written. %3")
+                                 .arg(m_resourceType, name, confError));
+        return;
+    }
 
     QZipWriter zip(filePath);
     if (zip.status() != QZipWriter::NoError) {
@@ -272,7 +310,7 @@ void BResourceDialog::onSaveZip()
 
     // Add config file
     QString confPath = QString("%1/%2.conf").arg(confDir, name);
-    zip.addFile(confPath, resourceToConf(res).toUtf8());
+    zip.addFile(confPath, conf.toUtf8());
 
     zip.close();
 

@@ -290,22 +290,23 @@ void BScheduleDragResultDialog::showPlan()
                 .arg(newScheduleName(), m_entry.scheduleName));
     }
 
-    // --- Side by side, if more than the dragged time differs ---
+    // --- Side by side, if untouched lines are not copied as they are ---
     m_compareLabel->setVisible(differs);
     m_compareTable->setVisible(differs);
     m_confirmCheck->setVisible(differs);
     m_compareTable->setRowCount(0);
     if (differs) {
         m_compareLabel->setText(
-            tr("The Run lines of the new schedule are generated, not copied. %n line(s) "
-               "would differ from the original in more than the dragged time. Compare them "
-               "before you create the schedule:", "", m_plan.differingLines.size()));
+            tr("%n Run line(s) that you did not move cannot be copied as they are: Bareos "
+               "does not read back the spelling in which the Director reports them. They "
+               "are written in another spelling with the same meaning. Compare them before "
+               "you create the schedule:", "", m_plan.differingLines.size()));
 
         m_compareTable->setRowCount(m_plan.originalRuns.size());
         for (int i = 0; i < m_plan.originalRuns.size(); ++i) {
             QString remark;
             if (m_plan.differingLines.contains(i)) {
-                remark = tr("differs");
+                remark = tr("respelled");
             } else if (i == m_plan.draggedLine) {
                 remark = tr("time only");
             }
@@ -339,28 +340,25 @@ QString BScheduleDragResultDialog::refusalText() const
     const int line = m_plan.reasonLine;
     const QString number = QString::number(line + 1);
     const QString text = m_plan.originalRuns.value(line);
-    const QString token = m_plan.reasonToken;
+    const QString detail = m_plan.reasonText;
 
     switch (m_plan.reason) {
     case Reason::NoRunLines:
         return tr("The Run lines of schedule \"%1\" are not known, so the result "
                   "cannot be checked against them.").arg(m_entry.scheduleName);
-    case Reason::Override:
-        return tr("Run line %1 (\"%2\") contains the override \"%3\". Lines with overrides "
-                  "such as pool= or storage= cannot be generated without changing them.")
-            .arg(number, text, token);
-    case Reason::WeekOfMonth:
-        return tr("Run line %1 (\"%2\") contains the week-of-month form \"%3\", which the "
-                  "generated line would not keep.").arg(number, text, token);
-    case Reason::DayRange:
-        return tr("Run line %1 (\"%2\") contains the day range \"%3\", which the "
-                  "generated line would not keep.").arg(number, text, token);
-    case Reason::DayOfMonth:
-        return tr("Run line %1 (\"%2\") contains the day of month \"%3\", which the "
-                  "generated line would not keep.").arg(number, text, token);
-    case Reason::NoTime:
-        return tr("Run line %1 (\"%2\") has no time of the form \"at HH:MM\", so it cannot "
-                  "be compared with a generated line.").arg(number, text);
+    case Reason::NotUnderstood:
+        return tr("Run line %1 (\"%2\") is not understood: %3\n"
+                  "A schedule with a line that is not understood cannot be written by "
+                  "this application, so that the line is not changed by mistake.")
+            .arg(number, text, detail);
+    case Reason::SeveralHours:
+        return tr("Run line %1 (\"%2\") runs at several hours and has one minute for all "
+                  "of them, so a single run of it cannot be moved.").arg(number, text);
+    case Reason::BadTime:
+        return tr("The new time is not a time of day.");
+    case Reason::WriteCheckFailed:
+        return tr("Run line %1 (\"%2\") could not be written safely: %3")
+            .arg(number, text, detail);
     case Reason::DraggedLineNotFound:
         return tr("None of the Run lines of schedule \"%1\" matches the dragged entry.")
             .arg(m_entry.scheduleName);
@@ -431,8 +429,9 @@ QString BScheduleDragResultDialog::buildConfigureCommand() const
     QStringList parts;
     parts.append(QString("configure add schedule name=\"%1\"").arg(newScheduleName()));
 
+    // Run lines may contain quoted names (pool="Monthly")
     for (const QString &run : m_plan.generatedRuns) {
-        parts.append(QString("run=\"%1\"").arg(run));
+        parts.append(QStringLiteral("run=") + BRunWriter::quotedForCommand(run));
     }
 
     return parts.join(" ");

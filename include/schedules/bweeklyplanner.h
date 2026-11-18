@@ -5,8 +5,6 @@
 #include <QVector>
 #include <QPainter>
 #include <QMouseEvent>
-#include <QJsonObject>
-#include <QJsonArray>
 #include "models/bresourcemodels.h"
 
 /**
@@ -28,18 +26,6 @@ class BWeeklyPlanner : public QWidget
 public:
     explicit BWeeklyPlanner(QWidget *parent = nullptr);
     ~BWeeklyPlanner();
-
-    /**
-     * @brief Sets a single schedule to display
-     * @param schedule JSON object containing schedule information
-     */
-    void setSchedule(const QJsonObject &schedule);
-
-    /**
-     * @brief Sets all schedules to display (combined overview)
-     * @param schedules JSON array of schedule objects
-     */
-    void setAllSchedules(const QJsonArray &schedules);
 
     /**
      * @brief Sets pre-parsed schedule entries (from BScheduleModel)
@@ -67,29 +53,10 @@ private:
         LEVEL_NONE = 0,
         LEVEL_FULL = 1,
         LEVEL_DIFFERENTIAL = 2,
-        LEVEL_INCREMENTAL = 3
+        LEVEL_INCREMENTAL = 3,
+        LEVEL_JOB = 4,      ///< The Run line names no level: the job's level applies
+        LEVEL_OTHER = 5     ///< A level without a colour here (Base, Catalog, ...)
     };
-
-    /**
-     * @brief Parses Bareos schedule syntax and marks cells
-     * @param scheduleRun Schedule run specification string
-     */
-    void parseScheduleRun(const QString &scheduleRun);
-
-    /**
-     * @brief Extracts backup level from schedule string
-     */
-    BackupLevel extractLevel(const QString &scheduleRun) const;
-
-    /**
-     * @brief Extracts time (hour and minute) from schedule string
-     */
-    bool extractTime(const QString &scheduleRun, int &hour, int &minute) const;
-
-    /**
-     * @brief Extracts days from schedule string
-     */
-    QVector<int> extractDays(const QString &scheduleRun) const;
 
     /**
      * @brief Draws the grid with day labels and hour markers
@@ -130,7 +97,6 @@ private:
     // Schedule data: [day][hour] = list of levels (for side-by-side display)
     QVector<BackupLevel> m_schedule[DAYS][HOURS];
 
-    QJsonObject m_scheduleData;
     QString m_scheduleName;
 
     // Hover state

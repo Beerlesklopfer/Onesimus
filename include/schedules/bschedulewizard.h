@@ -254,6 +254,13 @@ public:
     QString generateConfigureCommand() const;
 
     /**
+     * @brief The Run lines of the schedule as they would be written
+     * @return false with @p error set if one of them is not understood or
+     *         does not read back as intended; then nothing is written
+     */
+    bool runTexts(QStringList *texts, QString *error = nullptr) const;
+
+    /**
      * @brief Apply a template's runs to the run editor
      */
     void applyTemplate(const QStringList &runs);

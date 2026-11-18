@@ -8,6 +8,7 @@
 
 #include "director/bresourcewidget.h"
 #include "director/bresourcedialog.h"
+#include "schedules/model/brunspec.h"
 #include "version.h"
 #include <QDateTime>
 #include <QFileDialog>
@@ -351,9 +352,40 @@ static QString capitalizeDirective(const QString &key)
     return words.join(' ');
 }
 
+/// Why a schedule cannot be written: one of its Run lines is not understood
+static QString scheduleRunProblem(const BConfigResource &resource)
+{
+    if (resource.type().compare("Schedule", Qt::CaseInsensitive) != 0)
+        return QString();
+    for (const QString &key : resource.keys()) {
+        if (key.compare("run", Qt::CaseInsensitive) != 0)
+            continue;
+        const BConfigValue val = resource.value(key);
+        QStringList reported;
+        if (val.type() == BConfigValue::Simple)
+            reported.append(val.simpleValue());
+        else if (val.type() == BConfigValue::List)
+            reported = val.listValue();
+        QString error;
+        if (!BRunWriter::runTexts(reported, nullptr, &error))
+            return error;
+    }
+    return QString();
+}
+
 QString BResourceWidget::resourceToConf(const BConfigResource &resource) const
 {
     QString conf;
+
+    // A schedule with a Run line that is not understood is not written; the
+    // file says so in its place
+    const QString runProblem = scheduleRunProblem(resource);
+    if (!runProblem.isEmpty()) {
+        conf += "# " + tr("Schedule \"%1\" is not written here.").arg(resource.name()) + "\n";
+        conf += "# " + runProblem + "\n";
+        return conf;
+    }
+    const bool isSchedule = (resource.type().compare("Schedule", Qt::CaseInsensitive) == 0);
 
     // Section banner: ################ CLIENT ################
     QString label = QString(" %1 ").arg(resource.type().toUpper());
@@ -377,6 +409,19 @@ QString BResourceWidget::resourceToConf(const BConfigResource &resource) const
     formatValue = [&](const QString &key, const BConfigValue &val, int indent) {
         QString pad = QString("  ").repeated(indent);
         QString directive = capitalizeDirective(key);
+
+        // Run lines of a schedule are not strings: Bareos does not read a
+        // quoted Run line. Understood (checked above), they go out as they are.
+        if (isSchedule && indent == 1 && key.compare("run", Qt::CaseInsensitive) == 0
+            && (val.type() == BConfigValue::Simple || val.type() == BConfigValue::List)) {
+            const QStringList reported = (val.type() == BConfigValue::Simple)
+                ? QStringList(val.simpleValue()) : val.listValue();
+            QStringList runs;
+            BRunWriter::runTexts(reported, &runs);
+            for (const QString &run : runs)
+                conf += QString("%1%2 = %3\n").arg(pad, directive, run);
+            return;
+        }
 
         switch (val.type()) {
         case BConfigValue::Simple: {

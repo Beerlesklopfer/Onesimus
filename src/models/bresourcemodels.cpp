@@ -596,143 +596,130 @@ QStringList BJobConfigModel::messagesNames() const
 // BScheduleEntry Implementation
 // ============================================================================
 
-QString BScheduleEntry::toRunDirective() const
+QString BScheduleEntry::levelLabel() const
 {
-    QStringList parts;
+    return levelName.isEmpty() ? levelToString(level) : levelName;
+}
 
-    // Level
-    if (level != None) {
-        parts.append(levelToString(level));
+std::optional<BRunSpec> BScheduleEntry::toSpec() const
+{
+    BRunSpec spec;
+
+    // Level: none at all, or one Bareos knows
+    const QString name = levelLabel();
+    if (!name.isEmpty()) {
+        const QString canonical = BRunParser::canonicalLevel(name);
+        if (canonical.isEmpty())
+            return std::nullopt;
+        spec.overrides.level = canonical;
     }
+    if (!pool.isEmpty()) spec.overrides.pool = pool;
+    if (!storage.isEmpty()) spec.overrides.storage = storage;
+    if (!messages.isEmpty()) spec.overrides.messages = messages;
+    if (priority != 10) spec.overrides.priority = priority;
 
-    // Week specification (1st, 2nd-5th, etc.)
-    if (!weekSpec.isEmpty()) {
-        parts.append(weekSpec);
-    }
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59)
+        return std::nullopt;
+    spec.mask.hour = (1u << hour);
+    spec.minute = minute;
+    spec.haveAt = spec.haveHour = true;
 
-    // Days
-    static const QStringList dayAbbrev = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"};
-
-    if (daysOfWeek.size() == 7) {
-        parts.append("daily");
-    } else if (daysOfWeek.size() == 6 && !daysOfWeek.contains(6)) {
-        parts.append("mon-sat");
-    } else if (daysOfWeek.size() == 5 && !daysOfWeek.contains(5) && !daysOfWeek.contains(6)) {
-        parts.append("mon-fri");
-    } else {
-        QStringList dayParts;
+    // Days: 0=Mon..6=Sun here, bit 0 = Sunday in Bareos. No day is every day.
+    if (!daysOfWeek.isEmpty()) {
+        quint8 wday = 0;
         for (int d : daysOfWeek) {
-            if (d >= 0 && d < 7) {
-                dayParts.append(dayAbbrev[d]);
-            }
+            if (d < 0 || d > 6)
+                return std::nullopt;
+            wday = quint8(wday | (1u << ((d + 1) % 7)));
         }
-        parts.append(dayParts.join(","));
+        spec.mask.wday = wday;
+        spec.haveWday = true;
     }
 
-    // Time
-    parts.append(QString("at %1:%2")
-                 .arg(hour, 2, 10, QChar('0'))
-                 .arg(minute, 2, 10, QChar('0')));
-
-    // Optional overrides
-    if (!pool.isEmpty()) {
-        parts.append(QString("pool=%1").arg(pool));
-    }
-    if (!storage.isEmpty()) {
-        parts.append(QString("storage=%1").arg(storage));
-    }
-    if (!messages.isEmpty()) {
-        parts.append(QString("messages=%1").arg(messages));
-    }
-    if (priority != 10) {
-        parts.append(QString("priority=%1").arg(priority));
+    // Week of month: read by the parser, and nothing else may come out of it
+    if (!weekSpec.isEmpty()) {
+        const BRunLine week = BRunParser::parse(weekSpec + QStringLiteral(" at 0:00"));
+        if (!week.spec || !week.spec->overrides.isEmpty())
+            return std::nullopt;
+        BDateTimeMask rest = week.spec->mask;
+        rest.wom = BDateTimeMask::AllWoms;
+        rest.last7DaysOfMonth = false;
+        rest.hour = BDateTimeMask::AllHours;
+        if (rest != BDateTimeMask::all())
+            return std::nullopt;
+        spec.mask.wom = week.spec->mask.wom;
+        spec.mask.last7DaysOfMonth = week.spec->mask.last7DaysOfMonth;
+        spec.haveWom = true;
     }
 
-    return parts.join(" ");
+    return spec;
+}
+
+bool BScheduleEntry::matchesSource() const
+{
+    if (!source.spec)
+        return false;
+    const std::optional<BRunSpec> mine = toSpec();
+    return mine && *mine == *source.spec;
+}
+
+BRunLine BScheduleEntry::toRunLine() const
+{
+    // An entry read from a Run line is written as that line, whatever its
+    // fields say: they cannot express everything a line can, and a line
+    // that is not understood is never rewritten. Only an entry made in the
+    // application is written from its fields.
+    if (notUnderstood() || source.spec)
+        return source;
+
+    BRunLine line;
+    line.spec = toSpec();
+    line.dirty = true;
+    if (!line.spec) {
+        line.parseError = QCoreApplication::translate(
+            "BScheduleEntry", "The entry does not describe a run.");
+    }
+    return line;
+}
+
+QString BScheduleEntry::toRunDirective(QString *error) const
+{
+    return BRunWriter::lineText(toRunLine(), error);
 }
 
 BScheduleEntry BScheduleEntry::fromRunDirective(const QString &run)
 {
+    return fromRunLine(BRunParser::parse(run));
+}
+
+BScheduleEntry BScheduleEntry::fromRunLine(const BRunLine &line)
+{
     BScheduleEntry entry;
-    QString lower = run.toLower().trimmed();
+    entry.source = line;
+    if (!line.spec)
+        return entry;   // not understood: no field is filled in
 
-    // Extract level
-    entry.level = levelFromString(run);
+    const BRunSpec &spec = *line.spec;
+    const BRunOverrides &o = spec.overrides;
 
-    // Extract time
-    QRegularExpression timeRx("at\\s+(\\d{1,2}):(\\d{2})");
-    QRegularExpressionMatch timeMatch = timeRx.match(lower);
-    if (timeMatch.hasMatch()) {
-        entry.hour = timeMatch.captured(1).toInt();
-        entry.minute = timeMatch.captured(2).toInt();
+    entry.levelName = o.level.value_or(QString());
+    entry.level = levelFromString(entry.levelName);
+
+    const QList<int> hours = spec.hours();
+    entry.hour = hours.isEmpty() ? 0 : hours.first();
+    entry.minute = spec.minute;
+
+    // Bit 0 = Sunday in Bareos; 0=Mon..6=Sun here
+    for (int d = 0; d < 7; ++d) {
+        if (spec.mask.wday & (1u << ((d + 1) % 7)))
+            entry.daysOfWeek.append(d);
     }
+    entry.weekSpec = BRunWriter::weekOfMonthText(spec.mask);
 
-    // Extract optional overrides: pool=, storage=, messages=, priority=
-    QRegularExpression poolRx("pool=(\\S+)", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch poolMatch = poolRx.match(run);
-    if (poolMatch.hasMatch()) {
-        entry.pool = poolMatch.captured(1);
-    }
-
-    QRegularExpression storageRx("storage=(\\S+)", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch storageMatch = storageRx.match(run);
-    if (storageMatch.hasMatch()) {
-        entry.storage = storageMatch.captured(1);
-    }
-
-    QRegularExpression messagesRx("messages=(\\S+)", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch messagesMatch = messagesRx.match(run);
-    if (messagesMatch.hasMatch()) {
-        entry.messages = messagesMatch.captured(1);
-    }
-
-    QRegularExpression prioRx("priority=(\\d+)", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch prioMatch = prioRx.match(run);
-    if (prioMatch.hasMatch()) {
-        entry.priority = prioMatch.captured(1).toInt();
-    }
-
-    // Extract week specification (1st, 2nd-5th, last, etc.)
-    QRegularExpression weekRx("\\b((?:1st|2nd|3rd|4th|5th|last)(?:-(?:1st|2nd|3rd|4th|5th|last))?)\\b",
-                              QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch weekMatch = weekRx.match(run);
-    if (weekMatch.hasMatch()) {
-        entry.weekSpec = weekMatch.captured(1).toLower();
-    }
-
-    // Extract days
-    if (lower.contains("daily")) {
-        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
-    } else if (lower.contains("hourly")) {
-        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
-    } else if (lower.contains("monthly")) {
-        // Monthly: runs once per month, show on all days in Gantt for visibility
-        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
-    } else if (lower.contains("mon-sat")) {
-        for (int i = 0; i < 6; ++i) entry.daysOfWeek.append(i);
-    } else if (lower.contains("mon-fri")) {
-        for (int i = 0; i < 5; ++i) entry.daysOfWeek.append(i);
-    } else if (lower.contains("sun-fri")) {
-        entry.daysOfWeek = {6, 0, 1, 2, 3, 4};
-    } else if (lower.contains("sun-sat")) {
-        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
-    } else {
-        // Check individual day names
-        // Order: mon=0, tue=1, wed=2, thu=3, fri=4, sat=5, sun=6
-        if (lower.contains("mon")) entry.daysOfWeek.append(0);
-        if (lower.contains("tue")) entry.daysOfWeek.append(1);
-        if (lower.contains("wed")) entry.daysOfWeek.append(2);
-        if (lower.contains("thu")) entry.daysOfWeek.append(3);
-        if (lower.contains("fri")) entry.daysOfWeek.append(4);
-        if (lower.contains("sat")) entry.daysOfWeek.append(5);
-        if (lower.contains("sun")) entry.daysOfWeek.append(6);
-    }
-
-    // Fallback: if no days detected (e.g. "weekly" without day, or weekSpec-only),
-    // show on all days so the entry is always visible in the Gantt
-    if (entry.daysOfWeek.isEmpty()) {
-        for (int i = 0; i < 7; ++i) entry.daysOfWeek.append(i);
-    }
+    entry.pool = o.pool.value_or(QString());
+    entry.storage = o.storage.value_or(QString());
+    entry.messages = o.messages.value_or(QString());
+    entry.priority = o.priority.value_or(10);
 
     return entry;
 }
@@ -751,23 +738,13 @@ QString BScheduleEntry::levelToString(BackupLevel level)
 
 BScheduleEntry::BackupLevel BScheduleEntry::levelFromString(const QString &str)
 {
-    QString lower = str.toLower();
-
-    if (lower.contains("virtualfull") || lower.contains("level=virtualfull")) {
-        return VirtualFull;
+    const QString name = str.trimmed();
+    for (BackupLevel level : {Full, Differential, Incremental, VirtualFull}) {
+        if (name.compare(levelToString(level), Qt::CaseInsensitive) == 0)
+            return level;
     }
-    if (lower.contains("differential") || lower.contains("level=differential")) {
-        return Differential;
-    }
-    if (lower.contains("incremental") || lower.contains("level=incremental")) {
-        return Incremental;
-    }
-    if (lower.contains("full") || lower.contains("level=full")) {
-        return Full;
-    }
-
-    // Default to Incremental if no level specified
-    return Incremental;
+    // No level, or one this enum has no value for: never a guess
+    return None;
 }
 
 
@@ -875,6 +852,7 @@ QString BScheduleModel::getDisplayText(const QJsonObject &item) const
 void BScheduleModel::rebuildEntries()
 {
     m_entries.clear();
+    m_runProblems.clear();
 
     for (auto it = m_scheduleConfigs.constBegin(); it != m_scheduleConfigs.constEnd(); ++it) {
         const QString &scheduleName = it.key();
@@ -889,8 +867,10 @@ void BScheduleModel::rebuildEntries()
                      << "has" << runs.size() << "run directives";
 #endif
 
+        int lineNumber = 0;
         for (const QJsonValue &runVal : runs) {
             if (!runVal.isString()) continue;
+            ++lineNumber;
 
 #ifdef DEBUG_JSON
             BLOG_DEBUG() << "  Run directive:" << runVal.toString();
@@ -898,10 +878,30 @@ void BScheduleModel::rebuildEntries()
 
             BScheduleEntry entry = BScheduleEntry::fromRunDirective(runVal.toString());
             entry.scheduleName = scheduleName;
-            m_entries.append(entry);
+
+            // A line that is not understood has no time and no day to show.
+            // It is reported, not dropped and not shown as something else.
+            if (entry.notUnderstood()) {
+                BRunProblem problem;
+                problem.scheduleName = scheduleName;
+                problem.line = lineNumber;
+                problem.text = entry.source.original;
+                problem.error = entry.source.parseError;
+                m_runProblems.append(problem);
+                BLOG_WARNING() << "BScheduleModel: Run line" << lineNumber << "of schedule"
+                               << scheduleName << "not understood:" << problem.text
+                               << "-" << problem.error;
+                continue;
+            }
+
+            // One entry per hour the line names ("hourly": 24 of them)
+            for (int hour : entry.source.spec->hours()) {
+                entry.hour = hour;
+                m_entries.append(entry);
+            }
 
 #ifdef DEBUG_JSON
-            BLOG_DEBUG() << "    -> level:" << BScheduleEntry::levelToString(entry.level)
+            BLOG_DEBUG() << "    -> level:" << entry.levelLabel()
                          << "hour:" << entry.hour << "min:" << entry.minute
                          << "days:" << entry.daysOfWeek;
 #endif

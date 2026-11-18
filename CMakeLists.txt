@@ -475,6 +475,8 @@ set(SOURCES
     src/schedules/bjobscheduleindex.cpp
     src/schedules/bscheduledragplan.cpp
     src/schedules/bscheduledragresultdialog.cpp
+    src/schedules/model/brunparser.cpp
+    src/schedules/model/brunwriter.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -578,6 +580,7 @@ set(HEADERS
     include/schedules/bjobscheduleindex.h
     include/schedules/bscheduledragplan.h
     include/schedules/bscheduledragresultdialog.h
+    include/schedules/model/brunspec.h
 
     include/messages/bmessageswidget.h
 
@@ -1380,15 +1383,38 @@ if(BUILD_TESTING)
 
     add_test(NAME bdirectorqueue_test COMMAND bdirectorqueue_test)
 
-    # bscheduledragplan_test - generated against original Run lines after a
-    # drag in the schedule view, and the Messages names for the job wizard
+    # brunparser_test - the Run line model: parser, writer and round trips
+    add_executable(brunparser_test
+        test/brunparser_test.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/schedules/model/brunspec.h
+    )
+
+    target_include_directories(brunparser_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(brunparser_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME brunparser_test COMMAND brunparser_test)
+
+    # bscheduledragplan_test - the Run lines written after a drag in the
+    # schedule view, the schedule entry adapter over the Run line model, and
+    # the Messages names for the job wizard
     add_executable(bscheduledragplan_test
         test/bscheduledragplan_test.cpp
         src/schedules/bscheduledragplan.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
         src/models/bresourcemodels.cpp
         src/models/bbasemodels.cpp
         src/config/bconfigparser.cpp
         include/schedules/bscheduledragplan.h
+        include/schedules/model/brunspec.h
         include/models/bresourcemodels.h
         include/models/bbasemodels.h
         include/config/bconfigparser.h
@@ -1443,6 +1469,7 @@ if(BUILD_TESTING)
     message(STATUS "  bclientstatus_test - client last-backup state test (registered with CTest)")
     message(STATUS "  bjobpaging_test  - job list page arithmetic test (registered with CTest)")
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
+    message(STATUS "  brunparser_test  - schedule Run line parser and writer test (registered with CTest)")
     message(STATUS "  blogredact_test  - log redaction and log file permission test (registered with CTest)")
     message(STATUS "  bnetframe_test   - BNET frame length limit test (registered with CTest)")
     message(STATUS "  bcommandlineconnection_test - command line TLS/password option test (registered with CTest)")

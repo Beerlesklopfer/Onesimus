@@ -3,6 +3,7 @@
 
 #include "models/bbasemodels.h"
 #include "config/bconfigparser.h"
+#include "schedules/model/brunspec.h"
 #include <QMap>
 #include <QJsonObject>
 #include <QVector>
@@ -247,10 +248,15 @@ private:
 // ============================================================================
 
 /**
- * @brief Parsed representation of a single Bareos schedule Run directive
+ * @brief Display adapter for a single Bareos schedule Run directive
  *
- * Represents one "Run" line from a Schedule resource, broken into its
- * components for use in Gantt visualization and collision detection.
+ * One "Run" line of a Schedule resource, reduced to what the Gantt view, the
+ * grid view and the schedule wizard show: one level, one time, the days of
+ * the week. The line itself is read by BRunParser and kept in @ref source;
+ * the fields here are derived from it and cannot express everything a Run
+ * line can say (months, days of the month, weeks of the year, several
+ * hours). An entry read from a line is therefore always written as that
+ * line (toRunLine()); to change a run, make a new entry without a source.
  */
 struct BScheduleEntry
 {
@@ -266,7 +272,8 @@ struct BScheduleEntry
         VirtualFull = 4
     };
 
-    BackupLevel level = Incremental;
+    BackupLevel level = None;      ///< None: no level, or one without a value here (see levelName)
+    QString levelName;             ///< Level as Bareos spells it; empty: the job's own level applies
     int hour = 0;
     int minute = 0;
     QVector<int> daysOfWeek;      ///< 0=Mon..6=Sun
@@ -278,14 +285,54 @@ struct BScheduleEntry
     int priority = 10;
 
     /**
-     * @brief Returns the original Run directive string
+     * @brief The Run line this entry was read from
+     *
+     * original is empty for an entry made in the application. Without a
+     * spec the line was not understood: the other fields then say nothing.
      */
-    QString toRunDirective() const;
+    BRunLine source;
+
+    /// Read from a Run line that the parser does not understand (also an empty one)
+    bool notUnderstood() const
+    {
+        return !source.spec && (!source.original.isEmpty() || !source.parseError.isEmpty());
+    }
+
+    /// The level for display: levelName, or the name of @ref level
+    QString levelLabel() const;
 
     /**
-     * @brief Parses a Bareos Run directive string into a BScheduleEntry
+     * @brief What the fields of this entry say, as a run
+     * @return nothing if they do not describe a run (a bad time, an unknown
+     *         level or week specification)
+     */
+    std::optional<BRunSpec> toSpec() const;
+
+    /// The fields still say exactly what the source line says
+    bool matchesSource() const;
+
+    /**
+     * @brief The Run line to write for this entry
+     *
+     * The source line, untouched, for an entry that was read from a Run
+     * line. A line made from the fields and marked dirty for an entry made
+     * in the application.
+     */
+    BRunLine toRunLine() const;
+
+    /**
+     * @brief The Run directive text to write (BRunWriter::lineText())
+     * @return an empty string with @p error set if the line cannot be written
+     */
+    QString toRunDirective(QString *error = nullptr) const;
+
+    /**
+     * @brief Reads a Bareos Run directive through BRunParser
+     *
+     * A line with several hours gives the first one in @ref hour.
      */
     static BScheduleEntry fromRunDirective(const QString &run);
+    static BScheduleEntry fromRunLine(const BRunLine &line);
 
     /**
      * @brief Returns human-readable level string
@@ -293,9 +340,20 @@ struct BScheduleEntry
     static QString levelToString(BackupLevel level);
 
     /**
-     * @brief Parses level string to enum value
+     * @brief The enum value of a level name
+     * @return None for an empty string and for every level without a value
+     *         here; never a guess
      */
     static BackupLevel levelFromString(const QString &str);
+};
+
+/// A Run line of a schedule that was not understood
+struct BRunProblem
+{
+    QString scheduleName;
+    int line = 0;       ///< 1-based position among the Run lines of the schedule
+    QString text;       ///< The line as the Director reported it
+    QString error;
 };
 
 
@@ -335,7 +393,8 @@ public:
     /**
      * @brief Returns all parsed schedule entries across all schedules
      *
-     * Each Run directive in each Schedule becomes one BScheduleEntry.
+     * Each understood Run directive becomes one BScheduleEntry per hour it
+     * names. Lines that are not understood are in runProblems() instead.
      */
     QList<BScheduleEntry> allEntries() const { return m_entries; }
 
@@ -351,6 +410,13 @@ public:
      */
     QStringList runDirectives(const QString &scheduleName) const;
 
+    /**
+     * @brief The Run lines that were not understood, over all schedules
+     *
+     * They are shown as not understood and block writing their schedule.
+     */
+    QList<BRunProblem> runProblems() const { return m_runProblems; }
+
 protected:
     QString getDisplayText(const QJsonObject &item) const override;
 
@@ -359,6 +425,7 @@ private:
 
     QMap<QString, QJsonObject> m_scheduleConfigs;
     QList<BScheduleEntry> m_entries;
+    QList<BRunProblem> m_runProblems;
 };
 
 

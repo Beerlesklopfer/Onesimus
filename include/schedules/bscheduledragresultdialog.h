@@ -23,10 +23,11 @@
  * "<name>-modified" with the dragged time. No job is repointed and the
  * original schedule stays as it is; the dialog says so before and after.
  *
- * The Run lines of the new schedule are regenerated from parsed entries.
- * They are compared with the Director's original lines
- * (BScheduleDragPlan): if they differ in more than the dragged time the
- * dialog shows both versions and asks for a confirmation, or refuses.
+ * The Run lines of the new schedule are the Director's original lines,
+ * copied verbatim; only the dragged line is generated (BScheduleDragPlan).
+ * If an untouched line has to be respelled the dialog shows both versions
+ * and asks for a confirmation. A schedule with a Run line that is not
+ * understood is refused.
  *
  * Shows:
  * - Old/new time and delta
