@@ -1,5 +1,6 @@
 #include "storagewidget.h"
 #include "models/bvolumejson.h"
+#include "bsorttableitem.h"
 #include "ui_storagewidget.h"
 #include "blogging.h"
 #include <QHeaderView>
@@ -10,6 +11,10 @@
 #include <QJsonArray>
 #include <QMessageBox>
 #include <QSet>
+
+// Role of the name item (column 0): index of the row's volume in m_filteredVolumes.
+// Sorting moves the rows, so a row number says nothing about the volume.
+static constexpr int VolumeIndexRole = Qt::UserRole;
 
 StorageWidget::StorageWidget(BDirector *director, QWidget *parent)
     : QWidget(parent)
@@ -269,7 +274,9 @@ void StorageWidget::applyFilters()
         qint64 volumeBytes = volume["volbytes"].toVariant().toLongLong();
         qint64 maxBytes = volume["maxvolbytes"].toVariant().toLongLong();
 
-        m_volumeTable->setItem(i, 0, new QTableWidgetItem(volumeName));
+        QTableWidgetItem *nameItem = new QTableWidgetItem(volumeName);
+        nameItem->setData(VolumeIndexRole, i);
+        m_volumeTable->setItem(i, 0, nameItem);
         m_volumeTable->setItem(i, 1, new QTableWidgetItem(poolName));
         m_volumeTable->setItem(i, 2, new QTableWidgetItem(mediaType));
 
@@ -285,8 +292,9 @@ void StorageWidget::applyFilters()
         }
         m_volumeTable->setItem(i, 3, statusItem);
 
-        m_volumeTable->setItem(i, 4, new QTableWidgetItem(formatBytes(volumeBytes)));
-        m_volumeTable->setItem(i, 5, new QTableWidgetItem(formatBytes(maxBytes)));
+        // Sizes sort by their byte count, not by the formatted text
+        m_volumeTable->setItem(i, 4, new BSortTableItem(formatBytes(volumeBytes), volumeBytes));
+        m_volumeTable->setItem(i, 5, new BSortTableItem(formatBytes(maxBytes), maxBytes));
     }
 
     m_volumeTable->setSortingEnabled(true);
@@ -325,11 +333,18 @@ void StorageWidget::onVolumeDoubleClicked(int row, int column)
 {
     Q_UNUSED(column);
 
-    if (row < 0 || row >= m_filteredVolumes.size()) {
+    // The row is a position in the sorted table; the name item knows its volume
+    const QTableWidgetItem *nameItem = m_volumeTable->item(row, 0);
+    if (!nameItem) {
+        return;
+    }
+    bool ok = false;
+    const int volumeIndex = nameItem->data(VolumeIndexRole).toInt(&ok);
+    if (!ok || volumeIndex < 0 || volumeIndex >= m_filteredVolumes.size()) {
         return;
     }
 
-    QJsonObject volume = m_filteredVolumes[row].toObject();
+    QJsonObject volume = m_filteredVolumes[volumeIndex].toObject();
     QString volumeName = volume["volumename"].toString();
     QString poolName = volume["pool"].toString();
     QString status = volume["volstatus"].toString();

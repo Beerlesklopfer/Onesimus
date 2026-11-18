@@ -557,6 +557,8 @@ set(HEADERS
     include/jobs/fileset/bincludeblockwidget.h
 
     include/clients/bclientsmodel.h
+    include/bsortvalue.h
+    include/bsorttableitem.h
     include/blabelstate.h
     include/jobs/bjobpaging.h
     include/director/bdirectorreply.h
@@ -1213,6 +1215,27 @@ if(BUILD_TESTING)
 
     add_test(NAME bdatabase_test COMMAND bdatabase_test)
 
+    # bsortvalue_test - sort keys of the jobs, clients and storage tables,
+    # ordered through a proxy model's sort role and through table items
+    add_executable(bsortvalue_test
+        test/bsortvalue_test.cpp
+        include/bsortvalue.h
+        include/bsorttableitem.h
+    )
+
+    target_include_directories(bsortvalue_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bsortvalue_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+
+    add_test(NAME bsortvalue_test COMMAND bsortvalue_test)
+
     # bjobpaging_test - page arithmetic of the job list pagination
     add_executable(bjobpaging_test
         test/bjobpaging_test.cpp
@@ -1258,6 +1281,7 @@ if(BUILD_TESTING)
     message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
     message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")
     message(STATUS "  bdatabase_test   - database migration test (registered with CTest)")
+    message(STATUS "  bsortvalue_test  - table sort key test (registered with CTest)")
     message(STATUS "  bjobpaging_test  - job list page arithmetic test (registered with CTest)")
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
 endif()

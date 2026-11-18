@@ -1,4 +1,5 @@
 #include "jobs/bjobmodels.h"
+#include "bsortvalue.h"
 #include "jobs/blevelcolors.h"
 #include "blogging.h"
 #include <QBrush>
@@ -121,6 +122,32 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
                 return formatBytes(job["jobbytes"].toString().toLongLong());
             case COL_STATUS:
                 return formatStatus(job["jobstatus"].toString());
+        }
+    }
+
+    // Raw values for sorting: numbers and times must not sort as text
+    if (role == SortRole) {
+        switch (index.column()) {
+            case COL_JOBID:
+                return BSortValue::integer(job["jobid"]);
+            case COL_STARTTIME:
+                return BSortValue::timestamp(job["starttime"].toString());
+            case COL_ENDTIME: {
+                const qint64 start = BSortValue::timestamp(job["starttime"].toString());
+                const qint64 duration = BSortValue::durationSeconds(job["duration"].toString());
+                if (start == BSortValue::Missing || duration == BSortValue::Missing) {
+                    return BSortValue::Missing;
+                }
+                return start + duration * 1000;
+            }
+            case COL_DURATION:
+                return BSortValue::durationSeconds(job["duration"].toString());
+            case COL_FILES:
+                return BSortValue::integer(job["jobfiles"]);
+            case COL_BYTES:
+                return BSortValue::integer(job["jobbytes"]);
+            default:
+                return data(index, Qt::DisplayRole);
         }
     }
 

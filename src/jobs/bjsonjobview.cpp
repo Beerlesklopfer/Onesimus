@@ -34,6 +34,8 @@ BJsonJobView::BJsonJobView(BDirector *director, QWidget *parent)
 {
     // Setup filter model
     m_filterModel->setSourceModel(m_model);
+    // Sort by the raw values, not by the formatted text (1, 10, 100, 2)
+    m_filterModel->setSortRole(BJobsModel::SortRole);
     setModel(m_filterModel);
     
     // Set custom header

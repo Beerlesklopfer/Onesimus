@@ -73,6 +73,15 @@ public:
     };
 
     /**
+     * @brief Role with the raw value of a cell, for sorting
+     *
+     * Job ID, files, size, times and duration are numbers under this role
+     * (see BSortValue); the other columns return their display text. The
+     * view's proxy model sorts by this role, not by the formatted text.
+     */
+    static constexpr int SortRole = Qt::UserRole;
+
+    /**
      * @brief Job statistics structure
      * @since 2.0
      */
