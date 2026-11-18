@@ -210,21 +210,27 @@ bool BConnectionWizard::confirmGrpcCertificate(QWidget *parent, const QString &h
                         .arg(host.toHtmlEscaped()).arg(port));
         if (!announcedFingerprint.isEmpty()) {
             if (announcedFingerprint.compare(fingerprint, Qt::CaseInsensitive) == 0) {
-                details += "<br><br>" + tr("The fingerprint matches the one the Director announces in the network (mDNS).");
+                // Neutral on purpose: anyone in the local network can announce a
+                // Director together with the fingerprint of his own certificate
+                details += "<br><br>" + tr("The same fingerprint is announced in the local network (mDNS). "
+                                           "This is not proof of the Director's identity: any device in "
+                                           "the network can send such an announcement.");
             } else {
                 suspicious = true;
                 details += "<br><br><b>" + tr("The fingerprint does NOT match the one announced in the network (mDNS)!") + "</b>";
             }
         }
-        details += "<br><br>" + tr("Compare the fingerprint with the one of the Director's gRPC certificate "
-                                   "before trusting it.");
+        details += "<br><br>" + tr("Before trusting it, compare the fingerprint with the one of the "
+                                   "Director's gRPC certificate, obtained from the Director's "
+                                   "administrator or read on the Director itself.");
     }
 
     box.setIcon(suspicious ? QMessageBox::Warning : QMessageBox::Question);
     box.setInformativeText(details);
     QPushButton *trustButton = box.addButton(tr("Trust certificate"), QMessageBox::AcceptRole);
     QPushButton *cancelButton = box.addButton(QMessageBox::Cancel);
-    box.setDefaultButton(suspicious ? cancelButton : trustButton);
+    // Trusting a certificate is always a deliberate click, never the Enter key
+    box.setDefaultButton(cancelButton);
     box.exec();
 
     return box.clickedButton() == trustButton;

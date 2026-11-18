@@ -102,6 +102,16 @@ private:
     void resolvePending();
     void emitIfChanged(const QString &key);
 
+    /// Announcements are unauthenticated: a flood of them must not grow
+    /// memory without bound. Entries beyond these limits are ignored.
+    static constexpr int MaxServices = 64;
+    static constexpr int MaxAddresses = 1024;
+    /// True if the service is known or there is still room for a new one
+    bool canTrackService(const QString &fullName) const
+    {
+        return m_services.contains(fullName) || m_services.size() < MaxServices;
+    }
+
     QUdpSocket *m_socket = nullptr;
     QTimer *m_queryTimer = nullptr;
     QString m_serviceType;      ///< lower case, without trailing dot

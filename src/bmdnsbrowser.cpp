@@ -394,6 +394,9 @@ void BMdnsBrowser::processPacket(const QByteArray &pkt)
                 }
                 break;
             }
+            if (!canTrackService(fullName)) {
+                break;
+            }
             BMdnsService &s = m_services[fullName];
             s.fullName = fullName;
             s.instanceName = target.first();
@@ -411,7 +414,7 @@ void BMdnsBrowser::processPacket(const QByteArray &pkt)
             }
             p += 2;
             QStringList target;
-            if (!readName(pkt, p, target)) {
+            if (!readName(pkt, p, target) || !canTrackService(name)) {
                 break;
             }
             BMdnsService &s = m_services[name];
@@ -428,7 +431,7 @@ void BMdnsBrowser::processPacket(const QByteArray &pkt)
             break;
         }
         case TypeTXT: {
-            if (!name.endsWith(m_serviceType) || ttl == 0) {
+            if (!name.endsWith(m_serviceType) || ttl == 0 || !canTrackService(name)) {
                 break;
             }
             BMdnsService &s = m_services[name];
@@ -472,6 +475,9 @@ void BMdnsBrowser::processPacket(const QByteArray &pkt)
             }
             if (ttl == 0 || addressScore(addr) <= addressScore(m_addresses.value(name))) {
                 break;  // goodbye, or keep the better address we already have
+            }
+            if (!m_addresses.contains(name) && m_addresses.size() >= MaxAddresses) {
+                break;  // table full: the service then shows its host name
             }
             m_addresses.insert(name, addr);
             for (auto it = m_services.begin(); it != m_services.end(); ++it) {
