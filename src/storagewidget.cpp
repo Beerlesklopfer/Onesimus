@@ -67,7 +67,7 @@ void StorageWidget::setupUI()
     topLayout->addStretch();
 
     // Refresh button
-    m_refreshButton = new QPushButton(tr("Rrefresh"), this);
+    m_refreshButton = new QPushButton(tr("Refresh"), this);
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshButton->setEnabled(false);
     topLayout->addWidget(m_refreshButton);
