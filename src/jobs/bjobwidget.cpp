@@ -3,6 +3,7 @@
 #include "jobs/bjobdetailsdialog.h"
 #include "jobs/bnewjobdialog.h"
 #include "jobs/blevelcolors.h"
+#include "jobs/bjobpaging.h"
 #include "messages/bmessageswidget.h"
 #include "config/bsettings.h"
 #include <QHeaderView>
@@ -1115,19 +1116,16 @@ void BJobWidget::processJobTotalsResponse(const QString &jsonData)
 
     // totalJobs parsed from jobtotals response
 
-    // Update pagination widget with total count
+    // Update pagination widget with total count. It keeps the current page
+    // and falls back to the last existing one if the list became shorter.
     m_paginationWidget->setTotalJobCount(totalJobs);
 
-    // Fetch first page of jobs
-    int pageSize = m_paginationWidget->pageSize();
-    if (BSettings::instance().behaviorJobsNewestFirst()) {
-        // Reverse offset: page 0 = newest jobs
-        int reverseOffset = qMax(0, totalJobs - pageSize);
-        emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(pageSize).arg(reverseOffset));
-    } else {
-        // Normal offset: page 0 = oldest jobs
-        emit sendCommand(BDirector::Command::ListJobs, QString("%1,0").arg(pageSize));
-    }
+    // Fetch the page the pagination widget shows
+    const BJobPaging::Range range = BJobPaging::pageRange(
+        m_paginationWidget->currentPage(), m_paginationWidget->pageSize(), totalJobs,
+        BSettings::instance().behaviorJobsNewestFirst());
+    emit sendCommand(BDirector::Command::ListJobs,
+                     QString("%1,%2").arg(range.limit).arg(range.offset));
 }
 
 void BJobWidget::processMessagesResponse(const QString &jsonData)
@@ -1147,18 +1145,12 @@ void BJobWidget::onPageRequested(int page, int pageSize)
     m_refreshButton->setEnabled(false);
     emit statusMessageChanged(tr("Lade Seite %1...").arg(page + 1));
 
-    if (BSettings::instance().behaviorJobsNewestFirst()) {
-        // Reverse offset: page 0 = newest jobs, page N = oldest jobs
-        int totalJobs = m_paginationWidget->totalJobCount();
-        int reverseOffset = qMax(0, totalJobs - (page + 1) * pageSize);
-        int actualLimit = qMin(pageSize, totalJobs - page * pageSize);
-        if (actualLimit <= 0) actualLimit = pageSize;
-        emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(actualLimit).arg(reverseOffset));
-    } else {
-        // Normal offset: page 0 = oldest jobs
-        int offset = page * pageSize;
-        emit sendCommand(BDirector::Command::ListJobs, QString("%1,%2").arg(pageSize).arg(offset));
-    }
+    // Newest first: page 0 = newest jobs, the last page = oldest jobs
+    const BJobPaging::Range range = BJobPaging::pageRange(
+        page, pageSize, m_paginationWidget->totalJobCount(),
+        BSettings::instance().behaviorJobsNewestFirst());
+    emit sendCommand(BDirector::Command::ListJobs,
+                     QString("%1,%2").arg(range.limit).arg(range.offset));
 }
 
 void BJobWidget::onRefreshClicked()

@@ -1,4 +1,5 @@
 #include "bpaginationwidget.h"
+#include "jobs/bjobpaging.h"
 #include "config/bsettings.h"
 #include <QHBoxLayout>
 #include <QCheckBox>
@@ -180,6 +181,11 @@ void BPaginationWidget::setTotalJobCount(int totalJobs)
 {
     m_totalJobs = totalJobs;
 
+    // A refresh keeps the page the user is on; if the list became shorter,
+    // the last existing page takes its place. Label and request both use
+    // currentPage(), so they cannot diverge.
+    m_currentPage = BJobPaging::clampPage(m_currentPage, m_totalJobs, pageSize());
+
     // When server-side pagination is active (totalJobs > 0), disable client-side
     // pagination in the model. The server already delivers one page of data,
     // so the model must show ALL rows it receives without further paging.
@@ -203,10 +209,7 @@ int BPaginationWidget::currentPage() const
 void BPaginationWidget::requestPage(int page)
 {
     int ps = pageSize();
-    int maxPage = (m_totalJobs > 0) ? ((m_totalJobs - 1) / ps) : 0;
-
-    if (page < 0) page = 0;
-    if (page > maxPage) page = maxPage;
+    page = BJobPaging::clampPage(page, m_totalJobs, ps);
 
     m_currentPage = page;
     emit pageRequested(page, ps);

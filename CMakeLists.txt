@@ -558,6 +558,7 @@ set(HEADERS
 
     include/clients/bclientsmodel.h
     include/blabelstate.h
+    include/jobs/bjobpaging.h
     include/director/bdirectorreply.h
     include/clients/bclientswidget.h
     include/clients/bclientdetailsdialog.h
@@ -1212,6 +1213,23 @@ if(BUILD_TESTING)
 
     add_test(NAME bdatabase_test COMMAND bdatabase_test)
 
+    # bjobpaging_test - page arithmetic of the job list pagination
+    add_executable(bjobpaging_test
+        test/bjobpaging_test.cpp
+        include/jobs/bjobpaging.h
+    )
+
+    target_include_directories(bjobpaging_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bjobpaging_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bjobpaging_test COMMAND bjobpaging_test)
+
     # bdirectorreply_test - verdict on the reply of "reload" (job and client wizards)
     add_executable(bdirectorreply_test
         test/bdirectorreply_test.cpp
@@ -1240,6 +1258,7 @@ if(BUILD_TESTING)
     message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
     message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")
     message(STATUS "  bdatabase_test   - database migration test (registered with CTest)")
+    message(STATUS "  bjobpaging_test  - job list page arithmetic test (registered with CTest)")
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
 endif()
 message(STATUS "")
