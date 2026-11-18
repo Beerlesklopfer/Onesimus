@@ -6,6 +6,7 @@
  */
 
 #include "director/bareosauth.h"
+#include "director/bnetframe.h"
 #include "blogging.h"
 
 #include <QtEndian>
@@ -1218,7 +1219,20 @@ bool BareosAuth::hasCompleteMessage()
     AUTH_DEBUG << "  hasCompleteMessage: header bytes (hex):" << m_readBuffer.left(4).toHex();
 #endif
 
-    return m_readBuffer.size() >= (msgLen + 4);
+    // Nothing sent during authentication is large: refuse to buffer for a
+    // length that only a broken or hostile peer would announce
+    if (BnetFrame::classifyHeader(msgLen, BnetFrame::MaxAuthPayload) == BnetFrame::HeaderKind::TooLarge) {
+        AUTH_WARNING << "Message of" << msgLen << "bytes announced during authentication - aborting";
+        m_readBuffer.clear();
+        m_authState = BAuthState::AUTH_FAILED;
+        m_errorMessage = tr("The Director announced a message of %1 bytes during authentication "
+                            "(limit: %2 bytes). Connection closed.")
+                             .arg(msgLen).arg(BnetFrame::MaxAuthPayload);
+        emit authenticationFailed(m_errorMessage);
+        return false;
+    }
+
+    return m_readBuffer.size() >= BnetFrame::telegramSize(msgLen);
 }
 
 QByteArray BareosAuth::extractMessage()
@@ -1237,7 +1251,7 @@ QByteArray BareosAuth::extractMessage()
         return QByteArray();
     }
 
-    if (m_readBuffer.size() < msgLen + 4) {
+    if (m_readBuffer.size() < BnetFrame::telegramSize(msgLen)) {
         return QByteArray();
     }
 

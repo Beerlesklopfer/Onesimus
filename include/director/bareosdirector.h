@@ -1000,6 +1000,13 @@ private:
      */
     void flushQueue();
 
+
+    /**
+     * @brief Close the connection at once after a protocol violation or timeout
+     * @param reason Shown to the user (protocolError)
+     */
+    void abortConnection(const QString &reason);
+
     /**
      * @brief Dequeue the first Sent command from the queue
      * @param[out] entry The dequeued command entry

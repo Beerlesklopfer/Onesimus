@@ -1311,6 +1311,23 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME blogredact_test COMMAND blogredact_test)
+
+    # bnetframe_test - limit on the length header of a BNET telegram
+    add_executable(bnetframe_test
+        test/bnetframe_test.cpp
+        include/director/bnetframe.h
+    )
+
+    target_include_directories(bnetframe_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bnetframe_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bnetframe_test COMMAND bnetframe_test)
 endif()
 
 message(STATUS "")
@@ -1328,6 +1345,7 @@ if(BUILD_TESTING)
     message(STATUS "  bjobpaging_test  - job list page arithmetic test (registered with CTest)")
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
     message(STATUS "  blogredact_test  - log redaction and log file permission test (registered with CTest)")
+    message(STATUS "  bnetframe_test   - BNET frame length limit test (registered with CTest)")
 endif()
 message(STATUS "")
 

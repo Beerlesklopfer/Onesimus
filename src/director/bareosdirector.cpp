@@ -15,6 +15,7 @@
  */
 
 #include "director/bareosdirector.h"
+#include "director/bnetframe.h"
 #include "blogging.h"
 #include "blogredact.h"
 #include "version.h"
@@ -872,6 +873,19 @@ void BareosDirector::onDisconnected()
     emit disconnected();
 }
 
+void BareosDirector::abortConnection(const QString &reason)
+{
+    BLOG_ERROR() << reason;
+    emit protocolError(reason);
+
+    // abort() closes at once and ends in onDisconnected(), which resets the
+    // state, the buffers and the command queue
+    m_socket->abort();
+    if (m_connectionState != Disconnected) {
+        onDisconnected();
+    }
+}
+
 void BareosDirector::onBytesWritten(qint64 bytes){
 
     // During authentication, the Auth class handles all data
@@ -974,45 +988,40 @@ void BareosDirector::onReadyRead()
     }
 
     // Verarbeite alle vollständigen Pakete im Buffer
-    while (m_receiveBuffer.size() >= 4) {
+    while (m_receiveBuffer.size() >= BnetFrame::HeaderSize) {
         // Lese 4-Byte Message-Length Header (signed 32-bit big-endian)
-        qint32 messageLength = 0;
-        memcpy(&messageLength, m_receiveBuffer.constData(), 4);
-        messageLength = qFromBigEndian(messageLength);
+        const qint32 messageLength = BnetFrame::announcedLength(m_receiveBuffer.constData());
+        const BnetFrame::HeaderKind headerKind =
+            BnetFrame::classifyHeader(messageLength, BnetFrame::MaxSessionPayload);
 
 #if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
         BLOG_DEBUG() << "     Message length from header:" << messageLength;
         BLOG_DEBUG() << "     First 20 bytes (hex):" << m_receiveBuffer.left(20).toHex(' ');
 #endif
 
-#ifdef IS_DEVELOPER
-        // Warn about suspicious message lengths
-        // (This should not happen now that JSON is handled properly above)
-        if (messageLength > 100000 || messageLength < -100) {
-            BLOG_ERROR() << "⚠ SUSPICIOUS MESSAGE LENGTH!" << messageLength;
-            BLOG_ERROR() << "   API Mode:" << (m_apiMode != ApiMode::Off ? "ENABLED" : "DISABLED");
-            BLOG_ERROR() << "   JSON accumulation:" << m_jsonTextAccumulation;
-            BLOG_ERROR() << "   Buffer content (first 100 bytes hex):" << m_receiveBuffer.left(100).toHex(' ');
-            BLOG_ERROR() << "   Buffer content (as string):" << QString::fromLatin1(m_receiveBuffer.left(100));
-            // Clear buffer and break to avoid infinite loop
-            m_receiveBuffer.clear();
-            m_jsonTextAccumulation = false;
-            m_binaryJsonAccumulator.clear();
-            break;
+        // The length comes from the network: the same limit in every build.
+        // Nothing is buffered for a telegram larger than the limit; the
+        // stream cannot be resynchronised after it, so the connection ends.
+        if (headerKind == BnetFrame::HeaderKind::TooLarge) {
+            abortConnection(tr("The Director announced a message of %1 bytes (limit: %2 MiB). "
+                               "The connection was closed.")
+                                .arg(messageLength)
+                                .arg(BnetFrame::MaxSessionPayload / (1024 * 1024)));
+            return;
         }
-#endif
 
         // Negative Länge = BNET-Signal (EOD, CMD_OK, MAIN_PROMPT, ...).
         // Ein Signal besteht NUR aus dem 4-Byte-Header, es folgt KEIN Payload
         // (Bareos bsock: Signal = nur die negative Länge auf dem Draht).
-        if (messageLength < 0) {
-            m_receiveBuffer.remove(0, 4);
+        if (headerKind == BnetFrame::HeaderKind::Signal) {
+            m_receiveBuffer.remove(0, BnetFrame::HeaderSize);
             handleBnetSignal(messageLength);
             continue;
         }
 
         // Prüfe ob vollständiges Paket vorhanden (4 Bytes Header + Payload)
-        if (m_receiveBuffer.size() < 4 + messageLength) {
+        // (computed in 64 bit; the length is already bounded here)
+        if (m_receiveBuffer.size() < BnetFrame::telegramSize(messageLength)) {
 #if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
             BLOG_DEBUG() << "     Waiting for more data..."
                      << "Have:" << m_receiveBuffer.size()
