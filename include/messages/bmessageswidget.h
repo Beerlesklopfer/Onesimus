@@ -99,10 +99,19 @@ public:
      */
     int messageCount() const { return m_messages.size(); }
 
+    /**
+     * @brief Number of messages the last parseJsonResponse() added
+     *
+     * messageCount() stops growing once the history is full, so it cannot
+     * tell whether new messages arrived.
+     */
+    int lastAddedCount() const { return m_lastAddedCount; }
+
 private:
     void trimHistory();
 
     QList<BDirectorMessage> m_messages;
+    int m_lastAddedCount = 0;
     QFont m_messageFont;
     int m_maxHistory = 1000;  // Default: keep 1000 messages
 };

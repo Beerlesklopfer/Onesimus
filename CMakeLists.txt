@@ -1395,6 +1395,28 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bscheduledragplan_test COMMAND bscheduledragplan_test)
+
+    # bmessagesmodel_test - row signals of the Director messages list at its history limit
+    add_executable(bmessagesmodel_test
+        test/bmessagesmodel_test.cpp
+        src/messages/bmessageswidget.cpp
+        include/messages/bmessageswidget.h
+    )
+
+    target_link_libraries(bmessagesmodel_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bmessagesmodel_test COMMAND bmessagesmodel_test)
+    # The widget's translation unit needs a QApplication; no display is used
+    set_tests_properties(bmessagesmodel_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 message(STATUS "")
@@ -1416,6 +1438,7 @@ if(BUILD_TESTING)
     message(STATUS "  bcommandlineconnection_test - command line TLS/password option test (registered with CTest)")
     message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
     message(STATUS "  bscheduledragplan_test - schedule drag Run line comparison test (registered with CTest)")
+    message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
 endif()
 message(STATUS "")
 

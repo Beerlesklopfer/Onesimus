@@ -69,6 +69,8 @@ QVariant BMessagesModel::data(const QModelIndex &index, int role) const
 
 bool BMessagesModel::parseJsonResponse(const QString &jsonResponse)
 {
+    m_lastAddedCount = 0;
+
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(jsonResponse.toUtf8(), &error);
 
@@ -91,9 +93,11 @@ bool BMessagesModel::parseJsonResponse(const QString &jsonResponse)
     }
 
     QJsonArray messagesArray = result["messages"].toArray();
-    int newCount = 0;
 
-    beginResetModel();
+    // Collect first, then change the model in one step. Rows are only ever
+    // inserted at the end and removed at the front (trimHistory()), each as
+    // a complete begin/end pair of its own.
+    QList<BDirectorMessage> newMessages;
 
     for (const QJsonValue &val : messagesArray) {
         QJsonObject msgObj = val.toObject();
@@ -113,13 +117,19 @@ bool BMessagesModel::parseJsonResponse(const QString &jsonResponse)
         }
 
         if (msg.isValid()) {
-            m_messages.append(msg);
-            newCount++;
+            newMessages.append(msg);
         }
     }
 
-    trimHistory();
-    endResetModel();
+    const int newCount = newMessages.size();
+    m_lastAddedCount = newCount;
+    if (newCount > 0) {
+        beginInsertRows(QModelIndex(), m_messages.size(), m_messages.size() + newCount - 1);
+        m_messages.append(newMessages);
+        endInsertRows();
+
+        trimHistory();
+    }
 
     MSGWIDGET_DEBUG << "Parsed" << newCount << "messages, total:" << m_messages.size();
     return newCount > 0;
@@ -169,10 +179,10 @@ void BMessagesModel::clear()
 void BMessagesModel::trimHistory()
 {
     if (m_maxHistory > 0 && m_messages.size() > m_maxHistory) {
-        beginRemoveRows(QModelIndex(), 0, m_messages.size() - m_maxHistory - 1);
-        while (m_messages.size() > m_maxHistory) {
-            m_messages.removeFirst();
-        }
+        // Never called between another begin/end pair of the model
+        const int surplus = m_messages.size() - m_maxHistory;
+        beginRemoveRows(QModelIndex(), 0, surplus - 1);
+        m_messages.remove(0, surplus);
         endRemoveRows();
     }
 }
@@ -316,10 +326,9 @@ void BMessagesWidget::requestMessages()
 
 void BMessagesWidget::processMessagesResponse(const QString &jsonData)
 {
-    int countBefore = m_model->messageCount();
-
     if (m_model->parseJsonResponse(jsonData)) {
-        int newMessages = m_model->messageCount() - countBefore;
+        // Not the growth of the list: it stays at its limit once it is full
+        int newMessages = m_model->lastAddedCount();
         if (newMessages > 0) {
             emit newMessagesReceived(newMessages);
 
