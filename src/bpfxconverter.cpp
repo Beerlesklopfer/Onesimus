@@ -34,7 +34,9 @@ BPFXConverter::BPFXConverter(QWidget *parent)
         tr("Convert separate PEM/DER certificate and key files into a single PFX file for Windows.\n"
            "PFX files are password-protected and contain both certificate and private key."));
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("QLabel { background-color: #e3f2fd; padding: 10px; border-radius: 5px; }");
+    // No background from code: the light blue box had no text colour of its
+    // own and was unreadable with the dark theme's light text
+    infoLabel->setStyleSheet("QLabel { padding: 10px; }");
     mainLayout->addWidget(infoLabel);
 
     // Input group

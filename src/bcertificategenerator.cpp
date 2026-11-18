@@ -7,6 +7,7 @@
  */
 
 #include "bcertificategenerator.h"
+#include "blabelstate.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -405,7 +406,7 @@ void BCertificateGenerator::onGenerate()
     m_progressBar->setValue(0);
     m_generateButton->setEnabled(false);
     m_statusLabel->setText(tr("Generating..."));
-    m_statusLabel->setStyleSheet("color: black; font-weight: bold;");
+    bSetLabelState(m_statusLabel, "");   // theme text colour; bold from the label's style sheet
 
     QString outputDir = m_outputDirEdit->text().trimmed();
     QString cn = m_commonNameEdit->text().trimmed();
@@ -416,7 +417,7 @@ void BCertificateGenerator::onGenerate()
         appendLog(tr("Please fill in all required fields"), true);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Error"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
@@ -430,7 +431,7 @@ void BCertificateGenerator::onGenerate()
             appendLog(tr("Failed to create output directory"), true);
             m_generateButton->setEnabled(true);
             m_statusLabel->setText(tr("Error"));
-            m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+            bSetLabelState(m_statusLabel, "error");
             return;
         }
     }
@@ -448,7 +449,7 @@ void BCertificateGenerator::onGenerate()
             appendLog(tr("Certificate files already exist. Enable 'Overwrite' to replace."), true);
             m_generateButton->setEnabled(true);
             m_statusLabel->setText(tr("Files exist"));
-            m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+            bSetLabelState(m_statusLabel, "error");
             return;
         }
     }
@@ -461,7 +462,7 @@ void BCertificateGenerator::onGenerate()
     if (!caKey) {
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
     m_progressBar->setValue(25);
@@ -472,7 +473,7 @@ void BCertificateGenerator::onGenerate()
         EVP_PKEY_free(caKey);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
@@ -483,7 +484,7 @@ void BCertificateGenerator::onGenerate()
         EVP_PKEY_free(caKey);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
@@ -492,7 +493,7 @@ void BCertificateGenerator::onGenerate()
         EVP_PKEY_free(caKey);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
     m_progressBar->setValue(45);
@@ -505,7 +506,7 @@ void BCertificateGenerator::onGenerate()
         EVP_PKEY_free(caKey);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
     m_progressBar->setValue(60);
@@ -518,7 +519,7 @@ void BCertificateGenerator::onGenerate()
         EVP_PKEY_free(caKey);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
@@ -531,7 +532,7 @@ void BCertificateGenerator::onGenerate()
         EVP_PKEY_free(caKey);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
@@ -542,7 +543,7 @@ void BCertificateGenerator::onGenerate()
         EVP_PKEY_free(caKey);
         m_generateButton->setEnabled(true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color: #c00000; font-weight: bold;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
     m_progressBar->setValue(80);
@@ -574,7 +575,7 @@ void BCertificateGenerator::onGenerate()
 #endif
 
     m_statusLabel->setText(tr("Success!"));
-    m_statusLabel->setStyleSheet("color: #008000; font-weight: bold;");
+    bSetLabelState(m_statusLabel, "success");
     m_generateButton->setEnabled(true);
     m_closeButton->setText(tr("Use Certificates"));
 

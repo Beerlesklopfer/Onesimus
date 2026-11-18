@@ -4,6 +4,7 @@
  */
 
 #include "bconnectionwizard.h"
+#include "blabelstate.h"
 #include "blogging.h"
 #include "director/bareosdirector.h"
 #include "bcertificategenerator.h"
@@ -1435,7 +1436,8 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     // MD5 Hash preview (read-only, updates in real-time)
     m_md5Label = new QLabel(this);
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+    m_md5Label->setStyleSheet("QLabel { font-family: monospace; font-size: 11px; }");
+    bSetLabelState(m_md5Label, "muted");
     m_md5Label->setText(tr("(password MD5 hash will appear here)"));
     form->addRow(tr("MD5 Hash:"), m_md5Label);
 
@@ -1443,12 +1445,12 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     connect(m_passwordEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
         if (text.isEmpty()) {
             m_md5Label->setText(tr("(password MD5 hash will appear here)"));
-            m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+            bSetLabelState(m_md5Label, "muted");
         } else if (text.startsWith("[md5]")) {
             // Already an MD5 hash with prefix - extract and display
             QString hash = text.mid(5);  // Remove [md5] prefix
             m_md5Label->setText(hash);
-            m_md5Label->setStyleSheet("QLabel { color: #080; font-family: monospace; font-size: 11px; font-weight: bold; }");
+            bSetLabelState(m_md5Label, "success");
         } else if (text.length() == 32) {
             // Check if it's a raw 32-char hex MD5 hash
             bool isValidHex = true;
@@ -1460,16 +1462,16 @@ CredentialsPage::CredentialsPage(QWidget *parent)
             }
             if (isValidHex) {
                 m_md5Label->setText(text.toLower());
-                m_md5Label->setStyleSheet("QLabel { color: #080; font-family: monospace; font-size: 11px; font-weight: bold; }");
+                bSetLabelState(m_md5Label, "success");
             } else {
                 QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
                 m_md5Label->setText(QString::fromLatin1(md5.toHex()));
-                m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+                bSetLabelState(m_md5Label, "");  // theme text colour
             }
         } else {
             QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
             m_md5Label->setText(QString::fromLatin1(md5.toHex()));
-            m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+            bSetLabelState(m_md5Label, "");  // theme text colour
         }
     });
 
@@ -2666,7 +2668,7 @@ TestPage::TestPage(QWidget *parent)
     layout->addWidget(label);
 
     m_statusLabel = new QLabel(tr("Click the button to test."), this);
-    m_statusLabel->setStyleSheet("color: gray;");
+    bSetLabelState(m_statusLabel, "muted");
     layout->addWidget(m_statusLabel);
 
     m_progressBar = new QProgressBar(this);
@@ -2702,7 +2704,7 @@ void TestPage::initializePage()
     m_logEdit->setVisible(false);
     m_progressBar->setVisible(false);
     m_statusLabel->setText(tr("Click the button to test."));
-    m_statusLabel->setStyleSheet("color: gray;");
+    bSetLabelState(m_statusLabel, "muted");
     m_testButton->setEnabled(true);
     m_testButton->setText(tr("Test Connection"));
 }
@@ -2725,7 +2727,7 @@ void TestPage::startTest()
     m_progressBar->setVisible(true);
     m_testButton->setEnabled(false);
     m_statusLabel->setText(tr("Connecting..."));
-    m_statusLabel->setStyleSheet("color: black;");
+    bSetLabelState(m_statusLabel, "");  // theme text colour
 
     appendLog(tr("Starting test..."));
 
@@ -2872,7 +2874,7 @@ void TestPage::onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
     } else {
         appendLog(tr("Server certificate not trusted - connection cancelled."), true);
         m_statusLabel->setText(tr("Failed"));
-        m_statusLabel->setStyleSheet("color:#c00000;font-weight:bold;");
+        bSetLabelState(m_statusLabel, "error");
         stopTest();
     }
 }
@@ -2884,14 +2886,14 @@ void TestPage::onAuthResult(bool ok, const QString &msg)
         return;
     }
     if (ok) appendLog(tr("Auth OK"));
-    else { appendLog(tr("Auth failed: %1").arg(msg), true); m_statusLabel->setText(tr("Failed")); m_statusLabel->setStyleSheet("color:#c00000;font-weight:bold;"); stopTest(); }
+    else { appendLog(tr("Auth failed: %1").arg(msg), true); m_statusLabel->setText(tr("Failed")); bSetLabelState(m_statusLabel, "error"); stopTest(); }
 }
 
 void TestPage::onProtocolError(const QString &e)
 {
     appendLog(tr("Error: %1").arg(e), true);
     m_statusLabel->setText(tr("Failed"));
-    m_statusLabel->setStyleSheet("color:#c00000;font-weight:bold;");
+    bSetLabelState(m_statusLabel, "error");
     stopTest();
 }
 
@@ -2902,7 +2904,7 @@ void TestPage::onResourcesLoaded()
     m_testRunning = false;
     appendLog(tr("Success!"));
     m_statusLabel->setText(tr("Connection successful!"));
-    m_statusLabel->setStyleSheet("color:#008000;font-weight:bold;");
+    bSetLabelState(m_statusLabel, "success");
     m_progressBar->setVisible(false);
     m_testButton->setText(tr("Test Again"));
     m_testButton->setEnabled(true);
@@ -2914,7 +2916,7 @@ void TestPage::onTimeout()
 {
     appendLog(tr("Timeout"), true);
     m_statusLabel->setText(tr("Timed out"));
-    m_statusLabel->setStyleSheet("color:#c00000;font-weight:bold;");
+    bSetLabelState(m_statusLabel, "error");
     stopTest();
 }
 

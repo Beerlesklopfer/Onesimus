@@ -1,4 +1,5 @@
 #include "config/bsettingsdialog.h"
+#include "blabelstate.h"
 #include "ui_bsettingsdialog.h"
 #include "config/bsettings.h"
 #include "btranslations.h"
@@ -319,7 +320,8 @@ void BSettingsDialog::createConnectionPage()
     // MD5 Hash preview (read-only, updates in real-time)
     m_md5Label = new QLabel();
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+    m_md5Label->setStyleSheet("QLabel { font-family: monospace; font-size: 11px; }");
+    bSetLabelState(m_md5Label, "muted");
     m_md5Label->setText(tr("(password MD5 hash will appear here)"));
     bconsoleLayout->addRow(tr("MD5 Hash:"), m_md5Label);
 
@@ -327,12 +329,12 @@ void BSettingsDialog::createConnectionPage()
     connect(m_passwordEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
         if (text.isEmpty()) {
             m_md5Label->setText(tr("(password MD5 hash will appear here)"));
-            m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+            bSetLabelState(m_md5Label, "muted");
         } else if (text.startsWith("[md5]")) {
             // Already an MD5 hash with prefix - extract and display
             QString hash = text.mid(5);
             m_md5Label->setText(hash);
-            m_md5Label->setStyleSheet("QLabel { color: #080; font-family: monospace; font-size: 11px; font-weight: bold; }");
+            bSetLabelState(m_md5Label, "success");
         } else if (text.length() == 32) {
             // Check if it's a raw 32-char hex MD5 hash
             bool isValidHex = true;
@@ -344,16 +346,16 @@ void BSettingsDialog::createConnectionPage()
             }
             if (isValidHex) {
                 m_md5Label->setText(text.toLower());
-                m_md5Label->setStyleSheet("QLabel { color: #080; font-family: monospace; font-size: 11px; font-weight: bold; }");
+                bSetLabelState(m_md5Label, "success");
             } else {
                 QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
                 m_md5Label->setText(QString::fromLatin1(md5.toHex()));
-                m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+                bSetLabelState(m_md5Label, "");  // theme text colour
             }
         } else {
             QByteArray md5 = QCryptographicHash::hash(text.toLatin1(), QCryptographicHash::Md5);
             m_md5Label->setText(QString::fromLatin1(md5.toHex()));
-            m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+            bSetLabelState(m_md5Label, "");  // theme text colour
         }
     });
 
@@ -1614,12 +1616,12 @@ void BSettingsDialog::onProfileSelectionChanged()
                     m_passwordEdit->clear();
                     // Show the stored MD5 hash
                     m_md5Label->setText(profile.passwordHash);
-                    m_md5Label->setStyleSheet("QLabel { color: #000; font-family: monospace; font-size: 11px; font-weight: bold; }");
+                    bSetLabelState(m_md5Label, "");  // theme text colour
                 } else {
                     m_passwordEdit->setPlaceholderText(tr("Enter password"));
                     m_passwordEdit->clear();
                     m_md5Label->setText(tr("(password MD5 hash will appear here)"));
-                    m_md5Label->setStyleSheet("QLabel { color: #666; font-family: monospace; font-size: 11px; }");
+                    bSetLabelState(m_md5Label, "muted");
                 }
 
                 // Auth method - checkbox checked = use certificates (not PSK)

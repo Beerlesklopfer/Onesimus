@@ -94,7 +94,10 @@ void BCleanupDialog::setupUI()
         tr("This tool helps maintain your Bareos database by removing old or unnecessary data.\n"
            "⚠️ Warning: Cleanup operations cannot be undone. Review options carefully before proceeding."));
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("QLabel { padding: 10px; background-color: #3a2d1a; border-left: 3px solid #8f6a2d; border-radius: 4px; }");
+    // Colour from the theme (QLabel[state="warning"]); a background set here
+    // would need a matching text colour for each theme
+    infoLabel->setStyleSheet("QLabel { padding: 10px; }");
+    bSetLabelState(infoLabel, "warning");
     mainLayout->addWidget(infoLabel);
 
     // Options Group
@@ -199,7 +202,7 @@ void BCleanupDialog::setupUI()
 
     // Status Label
     m_statusLabel = new QLabel(tr("Select cleanup options and click 'Analyze' to preview"));
-    m_statusLabel->setStyleSheet("QLabel { padding: 5px; background-color: #e8f4f8; border-radius: 3px; }");
+    m_statusLabel->setStyleSheet("QLabel { padding: 5px; }");
     mainLayout->addWidget(m_statusLabel);
 
     // Log/Preview Area

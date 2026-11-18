@@ -288,10 +288,6 @@ QTableView {
     selection-color: #ffffff;
 }
 
-QTableView::item:hover {
-    background-color: #2d2d30;
-}
-
 QHeaderView::section {
     background-color: #2d2d30;
     color: #d4d4d4;
@@ -356,10 +352,6 @@ QListView {
     color: #d4d4d4;
     border: 1px solid #3e3e42;
     selection-background-color: #094771;
-}
-
-QListView::item:hover {
-    background-color: #2d2d30;
 }
 
 /* Dock Widget */
