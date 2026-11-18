@@ -6,6 +6,7 @@
 #include "bconnectionwizard.h"
 #include "blabelstate.h"
 #include "blogging.h"
+#include "bprivatefile.h"
 #include "director/bareosdirector.h"
 #include "bcertificategenerator.h"
 #include "config/bprofilesettingsdialog.h"
@@ -1560,7 +1561,7 @@ void CredentialsPage::onGeneratePassword()
     const QString chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
     QString clearPassword;
     for (int i = 0; i < 24; ++i) {
-        int idx = QRandomGenerator::global()->bounded(chars.length());
+        int idx = QRandomGenerator::system()->bounded(chars.length());
         clearPassword.append(chars.at(idx));
     }
 
@@ -2463,13 +2464,11 @@ void ConfigPreviewPage::onSaveClientConf()
 
     QFile file(filePath);
     // Contains the console password: create/restrict to 0600 before writing
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text,
-                   QFileDevice::ReadOwner | QFileDevice::WriteOwner)) {
+    if (!bOpenOwnerOnly(file, QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::warning(this, tr("Save Failed"),
                              tr("Could not write to %1").arg(filePath));
         return;
     }
-    file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 
     file.write(edit->toPlainText().toUtf8());
     file.close();
@@ -2524,7 +2523,8 @@ void ConfigPreviewPage::onSaveConsoleConf()
     if (filePath.isEmpty()) return;
 
     QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    // Contains the console password: create/restrict to 0600 before writing
+    if (!bOpenOwnerOnly(file, QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::warning(this, tr("Save Failed"),
                              tr("Could not write to %1").arg(filePath));
         return;
@@ -2552,12 +2552,14 @@ void ConfigPreviewPage::onSaveConsoleZip()
     if (!filePath.endsWith(".zip", Qt::CaseInsensitive))
         filePath += ".zip";
 
-    QZipWriter zip(filePath);
-    if (zip.status() != QZipWriter::NoError) {
+    // The archive contains the console password: only the owner may read it
+    QFile zipFile(filePath);
+    if (!bOpenOwnerOnly(zipFile, QIODevice::WriteOnly)) {
         QMessageBox::warning(this, tr("Save Failed"),
                              tr("Could not create ZIP file: %1").arg(filePath));
         return;
     }
+    QZipWriter zip(&zipFile);
 
     // Create Bareos directory structure
     zip.addDirectory("etc");
@@ -2598,7 +2600,8 @@ void ConfigPreviewPage::onSaveDirectorConf()
     if (filePath.isEmpty()) return;
 
     QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    // Director configuration: created owner-only (0600) like the console files
+    if (!bOpenOwnerOnly(file, QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::warning(this, tr("Save Failed"),
                              tr("Could not write to %1").arg(filePath));
         return;
@@ -2625,12 +2628,14 @@ void ConfigPreviewPage::onSaveDirectorZip()
     if (!filePath.endsWith(".zip", Qt::CaseInsensitive))
         filePath += ".zip";
 
-    QZipWriter zip(filePath);
-    if (zip.status() != QZipWriter::NoError) {
+    // The archive contains Director configuration: only the owner may read it
+    QFile zipFile(filePath);
+    if (!bOpenOwnerOnly(zipFile, QIODevice::WriteOnly)) {
         QMessageBox::warning(this, tr("Save Failed"),
                              tr("Could not create ZIP file: %1").arg(filePath));
         return;
     }
+    QZipWriter zip(&zipFile);
 
     // Create Bareos directory structure
     zip.addDirectory("etc");
@@ -3352,7 +3357,7 @@ void ConsoleSetupPage::generatePassword()
     const QString chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
     QString password;
     for (int i = 0; i < 24; ++i) {
-        int idx = QRandomGenerator::global()->bounded(chars.length());
+        int idx = QRandomGenerator::system()->bounded(chars.length());
         password.append(chars.at(idx));
     }
     m_newPasswordEdit->setText(password);

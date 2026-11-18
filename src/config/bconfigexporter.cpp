@@ -4,6 +4,7 @@
  */
 
 #include "config/bconfigexporter.h"
+#include "bprivatefile.h"
 
 #include <QFile>
 #include <QDir>
@@ -196,11 +197,13 @@ QList<BConfigExporter::FileEntry> BConfigExporter::generateFiles(const BConnecti
 
 bool BConfigExporter::writeZip(const QString &path, const QList<FileEntry> &files)
 {
-    QZipWriter zip(path);
-    if (zip.status() != QZipWriter::NoError) {
+    // The archive contains console passwords: only the owner may read it
+    QFile zipFile(path);
+    if (!bOpenOwnerOnly(zipFile, QIODevice::WriteOnly)) {
         s_lastError = QObject::tr("Cannot create zip file: %1").arg(path);
         return false;
     }
+    QZipWriter zip(&zipFile);
 
     // Collect directories to create
     QSet<QString> directories;
