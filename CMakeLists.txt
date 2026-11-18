@@ -349,7 +349,9 @@ endif()
 # ============================================================================
 
 # Finde Qt6 Core zuerst
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core)
+# Minimum Qt version: also stated as the dependency of the DEB/RPM packages
+set(ONESIMUS_QT_MIN_VERSION 6.8)
+find_package(Qt6 ${ONESIMUS_QT_MIN_VERSION} REQUIRED COMPONENTS Core)
 
 # Qt6 Standard Project Setup (empfohlen ab Qt 6.3+)
 qt_standard_project_setup()
@@ -658,12 +660,20 @@ list(APPEND SOURCES ${THEME_RESOURCES})
 # Executable Target
 # ============================================================================
 
-# Windows application icon resource
+# Windows application icon and version resource. Version, copyright year
+# and file name come from the project; the .rc is generated into the build
+# directory (on every platform, so that its content can be checked anywhere)
+# and compiled on Windows only.
+string(TIMESTAMP ONESIMUS_RC_YEAR "%Y" UTC)
+set(ONESIMUS_RC_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/onesimus.ico")
+set(ONESIMUS_RC_FILENAME "${PROJECT_NAME}.exe")
+set(WIN_RC_FILE ${CMAKE_CURRENT_BINARY_DIR}/onesimus.rc)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/resources/onesimus.rc.in ${WIN_RC_FILE} @ONLY)
+if(NOT EXISTS "${ONESIMUS_RC_ICON}")
+    message(FATAL_ERROR "Application icon not found: ${ONESIMUS_RC_ICON}")
+endif()
 if(WIN32)
-    set(WIN_RC_FILE ${CMAKE_CURRENT_SOURCE_DIR}/resources/onesimus.rc)
-    if(EXISTS ${WIN_RC_FILE})
-        list(APPEND SOURCES ${WIN_RC_FILE})
-    endif()
+    list(APPEND SOURCES ${WIN_RC_FILE})
 endif()
 
 add_executable(${PROJECT_NAME}
@@ -1462,8 +1472,8 @@ if(WIN32)
     set(CPACK_NSIS_PACKAGE_NAME "${PROJECT_NAME}")
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
     set(CPACK_NSIS_MODIFY_PATH ON)
-    set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/resources/icon.ico")
-    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/resources/icon.ico")
+    set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.ico")
 
     # Install the deployed files
     install(DIRECTORY "${CMAKE_BINARY_DIR}/deploy/" DESTINATION bin)
@@ -1484,14 +1494,14 @@ elseif(UNIX)
     set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
         "Onesimus - Bareos/Bacula Backup Management Tool (Early Access)\n WARNING: This is a pre-release version under active development.\n Not suitable for production use. Features may change.\n A Qt6-based graphical management console for Bareos and Bacula\n backup systems. Provides client management, job monitoring,\n schedule visualization, and restore wizard.")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
-        "libqt6core6 (>= 6.2), libqt6gui6 (>= 6.2), libqt6widgets6 (>= 6.2), libqt6network6 (>= 6.2)")
+        "libqt6core6 (>= ${ONESIMUS_QT_MIN_VERSION}), libqt6gui6 (>= ${ONESIMUS_QT_MIN_VERSION}), libqt6widgets6 (>= ${ONESIMUS_QT_MIN_VERSION}), libqt6network6 (>= ${ONESIMUS_QT_MIN_VERSION})")
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
     # RPM package settings
     set(CPACK_RPM_PACKAGE_LICENSE "AGPL-3.0-or-later")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
-    set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= 6.2")
+    set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= ${ONESIMUS_QT_MIN_VERSION}")
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 endif()
 

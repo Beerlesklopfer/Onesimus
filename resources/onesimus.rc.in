@@ -1,0 +1,41 @@
+// Windows resource file for Onesimus: application icon and version information.
+//
+// Template: CMake writes onesimus.rc into the build directory (configure_file
+// in CMakeLists.txt) and fills in the fields between at-signs from the project,
+// so that the version is stated in one place only.
+#pragma code_page(65001)
+
+// The icon that appears on the .exe file in Windows Explorer
+IDI_ICON1 ICON "@ONESIMUS_RC_ICON@"
+
+// Version information
+#include <windows.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION  @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Onesimus Project"
+            VALUE "FileDescription",  "Onesimus - Bareos/Bacula Backup GUI"
+            VALUE "FileVersion",      "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@.0"
+            VALUE "InternalName",     "Onesimus"
+            VALUE "LegalCopyright",   "Copyright (C) 2024-@ONESIMUS_RC_YEAR@"
+            VALUE "OriginalFilename", "@ONESIMUS_RC_FILENAME@"
+            VALUE "ProductName",      "Onesimus"
+            VALUE "ProductVersion",   "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04B0
+    END
+END
