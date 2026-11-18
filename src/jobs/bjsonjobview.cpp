@@ -566,7 +566,7 @@ void BJsonJobView::deleteJob()
         layout->addSpacing(10);
 
         QLabel *dependentWarning = new QLabel(
-            tr("<div style='background-color: #fff3cd; padding: 10px; border: 1px solid #ffc107; border-radius: 4px;'>"
+            tr("<div style='background-color: #fff3cd; color: #664d03; padding: 10px; border: 1px solid #ffc107; border-radius: 4px;'>"
                "<b>⚠ Attention:</b> %1 dependent Incremental/Differential job(s) found!<br><br>"
                "Deleting Full backups may make dependent backups unusable for restore.</div>")
                 .arg(dependentCount));

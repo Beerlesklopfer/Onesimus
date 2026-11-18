@@ -309,6 +309,11 @@ void StorageWidget::applyFilters()
         } else if (status == "Purged") {
             statusItem->setBackground(QBrush(QColor(211, 211, 211))); // Light gray
         }
+        if (statusItem->background().style() != Qt::NoBrush) {
+            // All four backgrounds are light: the theme's text colour would
+            // be unreadable on them in the dark theme
+            statusItem->setForeground(QBrush(Qt::black));
+        }
         m_volumeTable->setItem(i, 3, statusItem);
 
         // Sizes sort by their byte count, not by the formatted text

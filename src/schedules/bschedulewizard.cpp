@@ -130,7 +130,7 @@ void BScheduleRunDialog::setupUi()
     // Preview
     m_previewLabel = new QLabel(this);
     m_previewLabel->setStyleSheet(
-        "background-color: #f5f5f5; padding: 6px; border: 1px solid #ccc; "
+        "background-color: #f5f5f5; color: #202020; padding: 6px; border: 1px solid #ccc; "
         "font-family: monospace; font-size: 10pt;");
     m_previewLabel->setWordWrap(true);
     mainLayout->addWidget(new QLabel(tr("Preview:"), this));
