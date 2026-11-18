@@ -1328,6 +1328,22 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bnetframe_test COMMAND bnetframe_test)
+
+    # bdirectorqueue_test - command queue of BareosDirector without a connection
+    add_executable(bdirectorqueue_test
+        test/bdirectorqueue_test.cpp
+    )
+
+    target_link_libraries(bdirectorqueue_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bdirectorqueue_test COMMAND bdirectorqueue_test)
 endif()
 
 message(STATUS "")
@@ -1346,6 +1362,7 @@ if(BUILD_TESTING)
     message(STATUS "  bdirectorreply_test - reload reply test (registered with CTest)")
     message(STATUS "  blogredact_test  - log redaction and log file permission test (registered with CTest)")
     message(STATUS "  bnetframe_test   - BNET frame length limit test (registered with CTest)")
+    message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
 endif()
 message(STATUS "")
 

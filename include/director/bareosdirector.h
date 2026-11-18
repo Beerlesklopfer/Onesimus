@@ -368,8 +368,10 @@ public:
     /**
      * @brief Tracks a command through the send → response → completion lifecycle
      *
-     * Commands are enqueued in doSend(), marked Sent when written to the socket,
-     * and completed (Success/Failed) when the response is processed.
+     * Commands are enqueued in doSend(), marked Sent once the transport has
+     * accepted them (a refused command is dropped and reported with
+     * commandFailed()), and completed (Success/Failed) when the response is
+     * processed. The queue is emptied whenever the connection ends.
      * Bareos processes commands sequentially (FIFO), so responses arrive in order.
      */
     struct CommandEntry {
@@ -503,6 +505,12 @@ public:
 
     bool isConnected() const;
     ConnectionState connectionState() const;
+
+    /**
+     * @brief Commands that are queued or wait for their reply
+     * @note Not thread-safe: for tests and diagnostics in the Director's thread
+     */
+    int pendingCommandCount() const { return m_commandQueue.size(); }
 
     /**
      * @brief Get current host name
@@ -701,10 +709,15 @@ signals:
     void showSchedulesResult(const QString &jsonData);
 
     /**
-     * @brief Emitted when a command fails (error detected in response)
+     * @brief Emitted when a command fails
+     *
+     * Either the Director answered with an error, or no answer can come any
+     * more: the command was not sent (no ready connection) or the connection
+     * ended while it was waiting for its reply.
+     *
      * @param cmd The command that failed
      * @param args The command arguments
-     * @param errorMsg The error response from the Director
+     * @param errorMsg The error response from the Director, or the reason
      */
     void commandFailed(Command cmd, const QString &args, const QString &errorMsg);
 
@@ -946,6 +959,14 @@ private:
     void onResourceLoadTimeout();
 
     /**
+     * @brief The Director did not confirm ".api 2" in time
+     *
+     * Closes the connection with a message (protocolError), so a reconnect
+     * cannot stay in SettingApiMode for ever.
+     */
+    void onApiModeTimeout();
+
+    /**
      * @brief Number of required resources currently in state Loaded
      */
     int loadedResourceCount() const;
@@ -995,11 +1016,20 @@ private:
     /**
      * @brief Send all pending commands in the queue to the Director
      *
-     * Iterates the queue and sends any Pending entries, marking them Sent.
+     * Iterates the queue and sends any Pending entries. An entry becomes
+     * Sent only when sendCommand() accepted it; a refused entry is removed
+     * and reported with commandFailed(), because no reply will come for it.
      * Bareos processes commands FIFO, so responses arrive in order.
      */
     void flushQueue();
 
+    /**
+     * @brief Empty the command queue and report every entry with commandFailed()
+     *
+     * Called whenever the connection ends or a new one is started: an entry
+     * left behind would take the reply of a later command.
+     */
+    void failPendingCommands(const QString &reason);
 
     /**
      * @brief Close the connection at once after a protocol violation or timeout
@@ -1031,8 +1061,9 @@ private:
      * @brief Wire-protocol: sends raw command string to the Director socket
      * @internal Only used by doSend(). Do not call directly.
      * @param command Command string (without newline)
+     * @return false if the command was refused (not connected, not ready)
      */
-    void sendCommand(const QString &command);
+    bool sendCommand(const QString &command);
 
     inline QString unbashSpaces(const QString &str)
     {
@@ -1058,7 +1089,7 @@ private:
     BGrpcTransport *m_grpc = nullptr;   ///< Created in initialize() (worker thread)
 
     void connectGrpc();
-    void sendCommandGrpc(const QString &command);
+    bool sendCommandGrpc(const QString &command);
     QString m_directorName;
     QString m_consoleName;
     QString m_password;
@@ -1126,6 +1157,12 @@ private:
      */
     QTimer *m_resourceLoadTimer = nullptr;
     static constexpr int ResourceLoadTimeoutMs = 30000;
+
+    /**
+     * @brief Timeout for the SettingApiMode phase (see onApiModeTimeout())
+     */
+    QTimer *m_apiModeTimer = nullptr;
+    static constexpr int ApiModeTimeoutMs = 15000;
 
     /**
      * @brief Map of resource type to its current loading state

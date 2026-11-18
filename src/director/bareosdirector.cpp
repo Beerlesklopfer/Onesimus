@@ -101,6 +101,13 @@ void BareosDirector::initialize()
     QObject::connect(m_resourceLoadTimer, &QTimer::timeout,
                      this, &BareosDirector::onResourceLoadTimeout);
 
+    // Timeout for the SettingApiMode phase - lives in this worker thread
+    m_apiModeTimer = new QTimer(this);
+    m_apiModeTimer->setSingleShot(true);
+    m_apiModeTimer->setInterval(ApiModeTimeoutMs);
+    QObject::connect(m_apiModeTimer, &QTimer::timeout,
+                     this, &BareosDirector::onApiModeTimeout);
+
 #ifdef HAVE_GRPC
     // gRPC transport (Onesimus Director) - lives in this worker thread, too
     m_grpc = new BGrpcTransport(this);
@@ -202,6 +209,17 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     m_grpc->close();
 #endif
 
+    // Nothing of an earlier session may survive: a stale queue entry would
+    // take the reply of the first command of the new session
+    if (m_apiModeTimer) {
+        m_apiModeTimer->stop();
+    }
+    failPendingCommands(tr("Connection to the Director was closed before the reply arrived"));
+    m_binaryJsonAccumulator.clear();
+    m_receiveBuffer.clear();
+    m_jsonTextAccumulation = false;
+    m_consumeApiConfirmation = false;
+
     {
         QMutexLocker stateLocker(&m_stateMutex);
         m_connectionState = Connecting;
@@ -250,6 +268,12 @@ void BareosDirector::disconnect()
         m_auth->deleteLater();
         m_auth = nullptr;
     }
+
+    // Commands still waiting for a reply will not get one
+    if (m_apiModeTimer) {
+        m_apiModeTimer->stop();
+    }
+    failPendingCommands(tr("Disconnected from the Director before the reply arrived"));
 
     // Disconnect socket
     if (m_socket->state() == QAbstractSocket::ConnectedState) {
@@ -582,6 +606,9 @@ void BareosDirector::startResourceLoading()
     DIR_DEBUG << "STATE MACHINE: Starting resource loading...";
     DIR_DEBUG << "  Required resources: " << m_requiredResources.size();
 
+    if (m_apiModeTimer) {
+        m_apiModeTimer->stop();
+    }
     setState(LoadingResources);
 
     // Ohne Timeout bliebe die GUI für immer in LoadingResources hängen,
@@ -859,6 +886,10 @@ void BareosDirector::onDisconnected()
     m_receiveBuffer.clear();
     m_jsonTextAccumulation = false;
     m_consumeApiConfirmation = false;
+    if (m_apiModeTimer) {
+        m_apiModeTimer->stop();
+    }
+    failPendingCommands(tr("Connection to the Director was lost before the reply arrived"));
 
     if (m_auth) {
         // Disconnect auth signals
@@ -873,6 +904,21 @@ void BareosDirector::onDisconnected()
     emit disconnected();
 }
 
+void BareosDirector::failPendingCommands(const QString &reason)
+{
+    // Take the entries out first, so that the queue is already empty when
+    // the failures are reported
+    const QQueue<CommandEntry> dropped = m_commandQueue;
+    m_commandQueue.clear();
+
+    for (const CommandEntry &entry : dropped) {
+        if (entry.cmd == Command::Quit) {
+            continue;  // our own farewell, nobody waits for its reply
+        }
+        emit commandFailed(entry.cmd, entry.args, reason);
+    }
+}
+
 void BareosDirector::abortConnection(const QString &reason)
 {
     BLOG_ERROR() << reason;
@@ -884,6 +930,15 @@ void BareosDirector::abortConnection(const QString &reason)
     if (m_connectionState != Disconnected) {
         onDisconnected();
     }
+}
+
+void BareosDirector::onApiModeTimeout()
+{
+    if (m_connectionState != SettingApiMode) {
+        return;
+    }
+    abortConnection(tr("The Director did not confirm the API mode within %1 seconds. "
+                       "The connection was closed.").arg(ApiModeTimeoutMs / 1000));
 }
 
 void BareosDirector::onBytesWritten(qint64 bytes){
@@ -1497,6 +1552,12 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
         // State Machine: Transition to SettingApiMode
         setState(SettingApiMode);
 
+        // Without a timeout a lost confirmation would leave the GUI in
+        // "Setting API mode..." for ever (see onApiModeTimeout())
+        if (m_apiModeTimer) {
+            m_apiModeTimer->start();
+        }
+
         // Sende .api 2 Befehl für JSON Pretty-Print Modus
         doSend(Command::ApiMode, "2");
     } else {
@@ -1701,11 +1762,10 @@ void BareosDirector::queryConfigureAddConsole(const QString &name, const QString
                .arg(name, password, profile, tls));
 }
 
-void BareosDirector::sendCommand(const QString &command)
+bool BareosDirector::sendCommand(const QString &command)
 {
     if (m_transport == Transport::Grpc) {
-        sendCommandGrpc(command);
-        return;
+        return sendCommandGrpc(command);
     }
 
     // Allow commands in Ready, SettingApiMode (for .api), and LoadingResources (for dot-commands)
@@ -1716,8 +1776,8 @@ void BareosDirector::sendCommand(const QString &command)
 
     if (!canSend) {
         BLOG_WARNING() << "Cannot send command - not ready (state:" << m_connectionState << ", socket:" << m_socket->state() << ")";
-        emit statusMessage("Nicht bereit");
-        return;
+        emit statusMessage(tr("Not ready"));
+        return false;
     }
 
     QString msg = command;
@@ -1753,6 +1813,7 @@ void BareosDirector::sendCommand(const QString &command)
     QMetaObject::invokeMethod(this, "writeToSocket",
                               Qt::QueuedConnection,
                               Q_ARG(QByteArray, packet));
+    return true;
 }
 
 void BareosDirector::writeToSocket(const QByteArray &packet)
@@ -1793,14 +1854,28 @@ void BareosDirector::doSend(const Command cmd, const QString &args){
 
 void BareosDirector::flushQueue()
 {
-    for (int i = 0; i < m_commandQueue.size(); ++i) {
-        CommandEntry &entry = m_commandQueue[i];
-        if (entry.status == CommandEntry::Pending) {
-            entry.status = CommandEntry::Sent;
+    int i = 0;
+    while (i < m_commandQueue.size()) {
+        if (m_commandQueue[i].status != CommandEntry::Pending) {
+            ++i;
+            continue;
+        }
+
+        const CommandEntry entry = m_commandQueue[i];
+        const QString cmdStr = commandToString(entry.cmd, entry.args);
+
+        if (sendCommand(cmdStr)) {
+            // Sent only now: an entry marked Sent takes the next reply
+            m_commandQueue[i].status = CommandEntry::Sent;
             m_lastCommandEnum = entry.cmd;
-            const QString cmdStr = commandToString(entry.cmd, entry.args);
             m_lastCommand = cmdStr;
-            sendCommand(cmdStr);
+            ++i;
+        } else {
+            // Refused (not connected, not ready): no reply will come, so the
+            // entry must not stay in the queue and shift every later reply
+            m_commandQueue.removeAt(i);
+            emit commandFailed(entry.cmd, entry.args,
+                               tr("The command was not sent: no ready connection to the Director"));
         }
     }
 }
@@ -2126,7 +2201,7 @@ void BareosDirector::connectGrpc()
 #endif
 }
 
-void BareosDirector::sendCommandGrpc(const QString &command)
+bool BareosDirector::sendCommandGrpc(const QString &command)
 {
 #ifdef HAVE_GRPC
     const bool canSend = (m_connectionState == Ready ||
@@ -2134,15 +2209,17 @@ void BareosDirector::sendCommandGrpc(const QString &command)
     if (!canSend) {
         BLOG_WARNING() << "Cannot send command via gRPC - not ready (state:" << m_connectionState << ")";
         emit statusMessage(tr("Not ready"));
-        return;
+        return false;
     }
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << ">>> Sending command (gRPC):" << bRedactCommand(command);
 #endif
     m_lastCommand = command;
     m_grpc->execute(command);
+    return true;
 #else
     Q_UNUSED(command)
+    return false;
 #endif
 }
 
