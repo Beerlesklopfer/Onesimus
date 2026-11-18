@@ -1072,7 +1072,10 @@ void BScheduleWidget::handleDragCompleted(
     auto *dialog = new BScheduleDragResultDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setDirector(m_director);
-    dialog->setDragResult(entry, newHour, newMinute, entries, dependencies, m_jobScheduleIndex);
+    // The dialog compares what it would write with the Director's own Run lines
+    dialog->setDragResult(entry, newHour, newMinute,
+                          m_scheduleModel->runDirectives(entry.scheduleName),
+                          dependencies, m_jobScheduleIndex);
 
     // Forward the sendCommand signal to the main window
     connect(dialog, &BScheduleDragResultDialog::sendCommand,

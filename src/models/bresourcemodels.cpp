@@ -824,6 +824,24 @@ QList<BScheduleEntry> BScheduleModel::entriesForSchedule(const QString &schedule
     return result;
 }
 
+QStringList BScheduleModel::runDirectives(const QString &scheduleName) const
+{
+    const QJsonObject schedule = m_scheduleConfigs.value(scheduleName);
+    // Same keys and the same filter as rebuildEntries()
+    QJsonArray runs = schedule["run"].toArray();
+    if (runs.isEmpty()) {
+        runs = schedule["Run"].toArray();
+    }
+
+    QStringList lines;
+    for (const QJsonValue &runVal : runs) {
+        if (runVal.isString()) {
+            lines.append(runVal.toString());
+        }
+    }
+    return lines;
+}
+
 QString BScheduleModel::getDisplayText(const QJsonObject &item) const
 {
     return item["name"].toString();

@@ -336,6 +336,13 @@ public:
      */
     QList<BScheduleEntry> entriesForSchedule(const QString &scheduleName) const;
 
+    /**
+     * @brief Returns the Run directives of a schedule as the Director reported them
+     *
+     * One string per Run line, unparsed and in the Director's order.
+     */
+    QStringList runDirectives(const QString &scheduleName) const;
+
 protected:
     QString getDisplayText(const QJsonObject &item) const override;
 

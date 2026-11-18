@@ -2,6 +2,9 @@
 #define BSCHEDULEDRAGRESULTDIALOG_H
 
 #include <QDialog>
+#include <QCheckBox>
+#include <QStringList>
+#include <QTableWidget>
 #include <QTextEdit>
 #include <QLabel>
 #include <QPushButton>
@@ -10,15 +13,27 @@
 #include "models/bresourcemodels.h"
 #include "schedules/bscheduleganttwidget.h"
 #include "schedules/bjobscheduleindex.h"
+#include "schedules/bscheduledragplan.h"
 #include "director/bdirector.h"
 
 /**
- * @brief Confirmation dialog after a drag & drop time change in the Gantt view
+ * @brief Dialog after a drag & drop time change in the Gantt view
+ *
+ * Apply does not reschedule anything: it creates a new schedule named
+ * "<name>-modified" with the dragged time. No job is repointed and the
+ * original schedule stays as it is; the dialog says so before and after.
+ *
+ * The Run lines of the new schedule are regenerated from parsed entries.
+ * They are compared with the Director's original lines
+ * (BScheduleDragPlan): if they differ in more than the dragged time the
+ * dialog shows both versions and asks for a confirmation, or refuses.
  *
  * Shows:
  * - Old/new time and delta
- * - Shared-schedule warning (if schedule is used by multiple jobs)
+ * - What Apply does and does not do
+ * - The jobs that use the schedule
  * - Dependency list (level chain, client exclusion, storage contention)
+ * - Original and generated Run lines, if they differ
  * - Generated schedule configuration text
  * - Director "configure add" command
  * - Copy/Apply buttons
@@ -35,13 +50,14 @@ public:
      * @param entry      The dragged entry (with original time)
      * @param newHour    New hour after drag
      * @param newMinute  New minute after drag
-     * @param allEntries All schedule entries (for rebuilding the config)
+     * @param originalRuns Run lines of the entry's schedule as the Director
+     *                   reported them (BScheduleModel::runDirectives())
      * @param deps       Calculated dependencies
      * @param index      Job→Schedule cross-reference for shared-schedule warnings
      */
     void setDragResult(const BScheduleEntry &entry,
                        int newHour, int newMinute,
-                       const QList<BScheduleEntry> &allEntries,
+                       const QStringList &originalRuns,
                        const QList<BScheduleGanttWidget::DependencyEdge> &deps,
                        const BJobScheduleIndex *index);
 
@@ -60,6 +76,11 @@ private slots:
 private:
     void buildUI();
     void generatePreview();
+    void showPlan();
+    void updateApplyEnabled();
+    QString newScheduleName() const;
+    QString refusalText() const;
+    void setStatus(const char *state, const QString &text);
     QString buildConfigText() const;
     QString buildConfigureCommand() const;
 
@@ -67,13 +88,19 @@ private:
     BScheduleEntry m_entry;
     int m_newHour = 0;
     int m_newMinute = 0;
-    QList<BScheduleEntry> m_allEntries;
+    BScheduleDragPlan::Plan m_plan;
+    bool m_applied = false;     ///< The Director confirmed the new schedule
+    bool m_busy = false;        ///< Waiting for the Director's answer
     QList<BScheduleGanttWidget::DependencyEdge> m_dependencies;
     const BJobScheduleIndex *m_index = nullptr;
     BDirector *m_director = nullptr;
 
     // UI
     QLabel *m_summaryLabel;
+    QLabel *m_effectLabel;
+    QLabel *m_compareLabel;
+    QTableWidget *m_compareTable;
+    QCheckBox *m_confirmCheck;
     QLabel *m_warningLabel;
     QLabel *m_dependencyLabel;
     QTextEdit *m_configEdit;

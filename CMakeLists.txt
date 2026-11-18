@@ -471,6 +471,7 @@ set(SOURCES
     src/schedules/bscheduleganttwidget.cpp
     src/schedules/bschedulewizard.cpp
     src/schedules/bjobscheduleindex.cpp
+    src/schedules/bscheduledragplan.cpp
     src/schedules/bscheduledragresultdialog.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
@@ -573,6 +574,7 @@ set(HEADERS
     include/schedules/bscheduleganttwidget.h
     include/schedules/bschedulewizard.h
     include/schedules/bjobscheduleindex.h
+    include/schedules/bscheduledragplan.h
     include/schedules/bscheduledragresultdialog.h
 
     include/messages/bmessageswidget.h
@@ -1367,6 +1369,32 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bdirectorqueue_test COMMAND bdirectorqueue_test)
+
+    # bscheduledragplan_test - generated against original Run lines after a
+    # drag in the schedule view, and the Messages names for the job wizard
+    add_executable(bscheduledragplan_test
+        test/bscheduledragplan_test.cpp
+        src/schedules/bscheduledragplan.cpp
+        src/models/bresourcemodels.cpp
+        src/models/bbasemodels.cpp
+        src/config/bconfigparser.cpp
+        include/schedules/bscheduledragplan.h
+        include/models/bresourcemodels.h
+        include/models/bbasemodels.h
+        include/config/bconfigparser.h
+    )
+
+    target_include_directories(bscheduledragplan_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bscheduledragplan_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+    )
+
+    add_test(NAME bscheduledragplan_test COMMAND bscheduledragplan_test)
 endif()
 
 message(STATUS "")
@@ -1387,6 +1415,7 @@ if(BUILD_TESTING)
     message(STATUS "  bnetframe_test   - BNET frame length limit test (registered with CTest)")
     message(STATUS "  bcommandlineconnection_test - command line TLS/password option test (registered with CTest)")
     message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
+    message(STATUS "  bscheduledragplan_test - schedule drag Run line comparison test (registered with CTest)")
 endif()
 message(STATUS "")
 
