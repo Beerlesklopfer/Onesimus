@@ -15,7 +15,7 @@ class QGrpcBidiStream;
 class QGrpcStatus;
 class BGrpcAddressProbe;
 
-namespace bareos::director::Director {
+namespace onesimus::director::Director {
 class Client;
 }
 
@@ -124,7 +124,7 @@ private:
     QString m_pinnedFingerprint;
 
     QPointer<BGrpcAddressProbe> m_probe;
-    std::unique_ptr<bareos::director::Director::Client> m_client;
+    std::unique_ptr<onesimus::director::Director::Client> m_client;
     std::unique_ptr<QGrpcBidiStream> m_pushStream;
 
     QString m_sessionToken;

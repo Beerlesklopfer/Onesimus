@@ -30,7 +30,7 @@
 
 #include <chrono>
 
-using namespace bareos::director;
+using namespace onesimus::director;
 using namespace std::chrono_literals;
 
 namespace {
@@ -39,7 +39,7 @@ constexpr auto LoginTimeout = 15s;
 constexpr auto CommandTimeout = 5min;  // restore/estimate can take a while
 
 // The gRPC package of the generated Director client (proto/director_service.proto)
-const QString ServicePackage = QStringLiteral("bareos.director");
+const QString ServicePackage = QStringLiteral("onesimus.director");
 
 const QByteArray SessionHeader = QByteArrayLiteral("x-onesimus-session");
 const int MaxKnownJobNames = 512;      // job names remembered for parsing job messages
