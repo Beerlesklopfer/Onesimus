@@ -725,6 +725,10 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
     // The whole text: the shown one is cut when the toolbar has no room
     QTRY_VERIFY2_WITH_TIMEOUT(counter->accessibleName().contains("2 run(s) wait, longest 1:16 min"),
                               qPrintable(counter->accessibleName()), 15000);
+    if (qEnvironmentVariableIsSet("ONESIMUS_WAITS_PNG")) {
+        QCoreApplication::processEvents();
+        tab.widget.grab().save(qEnvironmentVariable("ONESIMUS_WAITS_PNG"));
+    }
 
     // Columns: job, level, scheduled, predicted start, wait, measured,
     // certain, reason. Longest wait first: by its length, not by its text

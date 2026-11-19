@@ -1125,8 +1125,8 @@ void BScheduleWidget::fitLowerPanels()
             sizes[i] = qMax(sizes[i], panel->sizeHint().height());
             lower += sizes[i];
         }
-        // The views keep at least a few rows
-        const int viewMin = BUiScale::px(160);
+        // The views keep at least half (the panels scroll what does not fit)
+        const int viewMin = qMax(BUiScale::px(160), total / 2);
         if (total - lower < viewMin && lower > 0) {
             // Not room for all: the panels share what is left
             const int room = qMax(0, total - viewMin);
@@ -2107,16 +2107,41 @@ void BScheduleWidget::setupWaitPanel()
     m_waitPanel = new QGroupBox(tr("Predicted waits"), this);
     m_waitPanel->setVisible(false);
 
+    // The table on the left, with the device writers below it; on the
+    // right, scrolling on its own, the reason of the selected row, the
+    // notes several rows refer to ([1], [2] ...), what the prediction is
+    // based on and the back-test. A handle between them.
     QVBoxLayout *layout = new QVBoxLayout(m_waitPanel);
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(4);
+    auto *waitSplitter = new QSplitter(Qt::Horizontal, m_waitPanel);
+    waitSplitter->setChildrenCollapsible(false);
+    layout->addWidget(waitSplitter);
+
+    QWidget *tableSide = new QWidget(waitSplitter);
+    auto *tableLayout = new QVBoxLayout(tableSide);
+    tableLayout->setContentsMargins(0, 0, 0, 0);
+    tableLayout->setSpacing(4);
+
+    QWidget *notes = new QWidget;
+    auto *notesLayout = new QVBoxLayout(notes);
+    notesLayout->setContentsMargins(0, 0, 4, 0);
+    BUiScale::track(notes, [notesLayout]() { notesLayout->setSpacing(BUiScale::px(8)); });
+    auto *notesArea = new QScrollArea(waitSplitter);
+    notesArea->setFrameShape(QFrame::NoFrame);
+    notesArea->setWidgetResizable(true);
+    notesArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    notesArea->setWidget(notes);
+    waitSplitter->setStretchFactor(0, 3);
+    waitSplitter->setStretchFactor(1, 2);
+    waitSplitter->setSizes({3000, 2000});     // scaled to the width: 60 : 40
+    BUiScale::track(notesArea, [notesArea]() { notesArea->setMinimumWidth(BUiScale::px(240)); });
 
     // What the prediction is based on, and what it does not know
     m_waitInfoLabel = new QLabel(m_waitPanel);
     m_waitInfoLabel->setWordWrap(true);
     m_waitInfoLabel->setTextFormat(Qt::PlainText);
     m_waitInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    layout->addWidget(m_waitInfoLabel);
 
     // What several rows depend on is said once, here, and the rows name it
     // by its number
@@ -2127,7 +2152,6 @@ void BScheduleWidget::setupWaitPanel()
                                                | Qt::TextSelectableByKeyboard);
     m_waitSharedLabel->setAccessibleName(tr("Reasons shared by several rows"));
     m_waitSharedLabel->setVisible(false);
-    layout->addWidget(m_waitSharedLabel);
 
     m_waitTable = new QTableWidget(0, WaitColumnCount, m_waitPanel);
     m_waitTable->setHorizontalHeaderLabels({
@@ -2156,9 +2180,9 @@ void BScheduleWidget::setupWaitPanel()
     m_waitTable->horizontalHeader()->setStretchLastSection(true);
     m_waitTable->setSortingEnabled(true);
     m_waitTable->sortByColumn(WaitDuration, Qt::DescendingOrder);   // longest waits first
+    // As high as the panel allows; it scrolls its rows
     BUiScale::track(m_waitTable, [this]() { m_waitTable->setMinimumHeight(BUiScale::px(90)); });
-    BUiScale::track(m_waitTable, [this]() { m_waitTable->setMaximumHeight(BUiScale::px(190)); });
-    layout->addWidget(m_waitTable);
+    tableLayout->addWidget(m_waitTable, 1);
 
     // The reason of the current row in full: the limit with its value or
     // the priority rule, and the runs it waits for
@@ -2168,18 +2192,10 @@ void BScheduleWidget::setupWaitPanel()
     m_waitDetails->setTextInteractionFlags(Qt::TextSelectableByMouse
                                            | Qt::TextSelectableByKeyboard);
     m_waitDetails->setAccessibleName(tr("Reason of the selected wait"));
-    // The reason, the timing and the measured wait are many lines: they
-    // scroll instead of pushing the table to nothing
-    QScrollArea *detailsArea = new QScrollArea(m_waitPanel);
-    detailsArea->setFrameShape(QFrame::NoFrame);
-    detailsArea->setWidgetResizable(true);
-    detailsArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    detailsArea->setWidget(m_waitDetails);
-    BUiScale::track(detailsArea, [detailsArea]() {
-        detailsArea->setMinimumHeight(BUiScale::px(60));
-        detailsArea->setMaximumHeight(BUiScale::px(150));
-    });
-    layout->addWidget(detailsArea);
+    // First on the right: what the reader picked
+    notesLayout->addWidget(m_waitDetails);
+    notesLayout->addWidget(m_waitSharedLabel);
+    notesLayout->addWidget(m_waitInfoLabel);
 
     // What the Director cannot report: how many jobs the devices of a
     // storage write at a time. One row per storage, filled in
@@ -2192,7 +2208,7 @@ void BScheduleWidget::setupWaitPanel()
         devices->setVerticalSpacing(BUiScale::px(2));
     });
     m_devicePanel->setVisible(false);
-    layout->addWidget(m_devicePanel);
+    tableLayout->addWidget(m_devicePanel);
 
     // The prediction replayed over the last nights of the history
     m_backtestLabel = new QLabel(m_waitPanel);
@@ -2201,7 +2217,8 @@ void BScheduleWidget::setupWaitPanel()
     m_backtestLabel->setTextInteractionFlags(Qt::TextSelectableByMouse
                                              | Qt::TextSelectableByKeyboard);
     m_backtestLabel->setAccessibleName(tr("Back-test of the prediction"));
-    layout->addWidget(m_backtestLabel);
+    notesLayout->addWidget(m_backtestLabel);
+    notesLayout->addStretch(1);
 
     connect(m_waitTable, &QTableWidget::itemSelectionChanged,
             this, &BScheduleWidget::onWaitRowChanged);
@@ -2515,6 +2532,8 @@ void BScheduleWidget::updateWaitViews()
     m_waitTable->clearContents();
     m_waitTable->setRowCount(rows.size());
 
+    // The weekday in the language of the interface (QDateTime::toString()
+    // would always write it in English)
     const QString dayFormat = QStringLiteral("ddd yyyy-MM-dd ");
     const QString scheduledDay = showsWeek() ? dayFormat : QString();
     for (int row = 0; row < rows.size(); ++row) {
@@ -2532,7 +2551,7 @@ void BScheduleWidget::updateWaitViews()
         m_waitTable->setItem(row, WaitLevel, new QTableWidgetItem(
             run.level.isEmpty() ? tr("(none)") : run.level));
         m_waitTable->setItem(row, WaitScheduled, new BSortTableItem(
-            run.scheduled.toString(scheduledDay + QStringLiteral("HH:mm")),
+            QLocale().toString(run.scheduled, scheduledDay + QStringLiteral("HH:mm")),
             run.scheduled.toSecsSinceEpoch()));
         // A start on another day than the scheduled one says so. After a
         // wait of seconds the start has seconds: it would read like the
@@ -2542,7 +2561,7 @@ void BScheduleWidget::updateWaitViews()
         const QString startTime = BScheduleWaitModel::startShowsSeconds(result.waitSecs)
             ? QStringLiteral("HH:mm:ss") : QStringLiteral("HH:mm");
         m_waitTable->setItem(row, WaitStart, new BSortTableItem(
-            result.start.toString(startDay + startTime), result.start.toSecsSinceEpoch()));
+            QLocale().toString(result.start, startDay + startTime), result.start.toSecsSinceEpoch()));
         m_waitTable->setItem(row, WaitDuration, new BSortTableItem(
             result.waits() ? BScheduleWaitModel::formatWait(result.waitSecs) : tr("none"),
             result.waitSecs));
@@ -2590,6 +2609,12 @@ void BScheduleWidget::updateWaitViews()
 
     m_waitTable->setSortingEnabled(true);
     m_waitTable->resizeColumnsToContents();
+    // The longest wait is explained at once on the right, unless the
+    // reader has picked a row already
+    if (!rows.isEmpty() && m_waitTable->currentRow() < 0) {
+        const QSignalBlocker blocker(m_waitTable);
+        m_waitTable->selectRow(0);
+    }
     onWaitRowChanged();
 
     // --- Parallel writers of the storages, and the back-test ---
