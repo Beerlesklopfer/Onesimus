@@ -302,6 +302,9 @@ private:
     void updateDateLabel();
     /// Day view: the calendar; week view: previous, the week, next
     void updateDateControls();
+    /// Gives an open panel below the views (wait list, history) at least
+    /// the height it needs; the views keep the rest
+    void fitLowerPanels();
     bool showsWeek() const;     ///< The timeline is in week view
     /// The schedules checked in the list
     QList<BSchedule> checkedSchedules() const;
@@ -370,6 +373,7 @@ private:
     // --- UI ---
     QSplitter *m_splitter;
     QSplitter *m_leftSplitter;            // Vertical: schedules top, jobs bottom
+    QSplitter *m_rightSplitter = nullptr; // Vertical: views top, wait list and history below
     QListWidget *m_scheduleList;
     QLabel *m_jobListLabel;
     QTableWidget *m_jobList;

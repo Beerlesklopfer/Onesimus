@@ -202,6 +202,8 @@ void BScheduleWidget::setupUI()
     m_waitButton->setProperty("disclosure", true);
     connect(m_waitButton, &QPushButton::toggled, this, [this](bool on) {
         m_waitPanel->setVisible(on && m_viewStack->currentIndex() == 0);
+        if (on)
+            fitLowerPanels();
         updateWaitButtonText();
         BSettings::instance().setSchedulesWaitListShown(on);
         if (on && m_waitButton->hasFocus())
@@ -321,15 +323,24 @@ void BScheduleWidget::setupUI()
     setupWaitsPage();
     m_viewStack->addWidget(m_waitsPage);         // index 2 = Measured waits
 
-    rightLayout->addWidget(m_viewStack, 1);
+    // The views above, the predicted waits and the measured history below,
+    // with a handle between them: an opened panel is shown whole, and the
+    // handle gives the timeline back its room
+    m_rightSplitter = new QSplitter(Qt::Vertical, rightWidget);
+    m_rightSplitter->setChildrenCollapsible(false);
+    m_rightSplitter->addWidget(m_viewStack);
 
     // Predicted waits (below the timeline, opened by the counter)
     setupWaitPanel();
-    rightLayout->addWidget(m_waitPanel);
+    m_rightSplitter->addWidget(m_waitPanel);
 
     // Stats panel (below Gantt)
     setupStatsPanel();
-    rightLayout->addWidget(m_statsPanel);
+    m_rightSplitter->addWidget(m_statsPanel);
+    m_rightSplitter->setStretchFactor(0, 1);
+    m_rightSplitter->setStretchFactor(1, 0);
+    m_rightSplitter->setStretchFactor(2, 0);
+    rightLayout->addWidget(m_rightSplitter, 1);
 
     m_splitter->addWidget(m_leftSplitter);
     m_splitter->addWidget(rightWidget);
@@ -1040,6 +1051,43 @@ void BScheduleWidget::onEntryClicked(const BScheduleEntry &entry)
 {
     updateStatsPanel(entry);
     m_statsPanel->setVisible(true);
+    fitLowerPanels();
+}
+
+void BScheduleWidget::fitLowerPanels()
+{
+    // After the show has reached the splitter: its sizes count the panel
+    QTimer::singleShot(0, this, [this]() {
+        if (!m_rightSplitter)
+            return;
+        QList<int> sizes = m_rightSplitter->sizes();
+        int total = 0;
+        for (int s : sizes)
+            total += s;
+        if (total <= 0)
+            return;
+        int lower = 0;
+        for (int i = 1; i < sizes.size(); ++i) {
+            QWidget *panel = m_rightSplitter->widget(i);
+            if (panel->isHidden()) {
+                sizes[i] = 0;
+                continue;
+            }
+            sizes[i] = qMax(sizes[i], panel->sizeHint().height());
+            lower += sizes[i];
+        }
+        // The views keep at least a few rows
+        const int viewMin = BUiScale::px(160);
+        if (total - lower < viewMin && lower > 0) {
+            // Not room for all: the panels share what is left
+            const int room = qMax(0, total - viewMin);
+            for (int i = 1; i < sizes.size(); ++i)
+                sizes[i] = sizes[i] * room / lower;
+            lower = room;
+        }
+        sizes[0] = total - lower;
+        m_rightSplitter->setSizes(sizes);
+    });
 }
 
 void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
