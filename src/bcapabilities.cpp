@@ -249,6 +249,25 @@ Notice notice(const Entry &entry, const Server &server)
                              "\"configure\" and the ACL of the resource type, or the Director is "
                              "older than its configuration methods."))
                              .arg(serverLabel(server)));
+        // What the query really returned, so the cause can be told apart
+        if (!server.config.error.isEmpty()) {
+            sentences.append(translated(QT_TRANSLATE_NOOP("BCapabilities",
+                                 "The capabilities query failed: %1."))
+                                 .arg(server.config.error));
+        } else if (!server.config.known) {
+            sentences.append(translated(QT_TRANSLATE_NOOP("BCapabilities",
+                                 "The capabilities were not received for this session.")));
+        } else {
+            QStringList types;
+            for (auto it = server.config.operations.constBegin();
+                 it != server.config.operations.constEnd(); ++it) {
+                types.append(BConfig::typeName(BConfig::ResourceType(it.key())));
+            }
+            types.sort();
+            sentences.append(translated(QT_TRANSLATE_NOOP("BCapabilities",
+                                 "The Director lists for this session: %1."))
+                                 .arg(types.isEmpty() ? QStringLiteral("-") : types.join(QStringLiteral(", "))));
+        }
     } else {
         sentences.append(translated(entry.reason).arg(serverLabel(server)));
     }

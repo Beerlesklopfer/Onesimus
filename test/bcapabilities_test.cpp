@@ -387,7 +387,8 @@ void BCapabilitiesTest::noticeTextOfTheTable()
              QStringLiteral("This Director (Onesimus Director 0.2.0) does not offer this to this "
                             "session: its configuration capabilities do not list it. The console "
                             "needs the command ACL \"configure\" and the ACL of the resource type, "
-                            "or the Director is older than its configuration methods.")
+                            "or the Director is older than its configuration methods. "
+                            "The capabilities were not received for this session.")
                  + nothingChanged);
     // Over the console protocol: gRPC is the way
     const Server onesimusBnet = BCapabilities::describeServer(

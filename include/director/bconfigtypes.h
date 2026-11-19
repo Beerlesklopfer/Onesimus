@@ -212,6 +212,7 @@ struct Capabilities
     bool known = false;
     int interfaceVersion = 0;
     QHash<int, QSet<int>> operations;   ///< ResourceType -> Operations
+    QString error;                      ///< Why the query failed, empty if it answered
 
     bool supports(ResourceType type, Operation operation) const
     {

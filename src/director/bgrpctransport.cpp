@@ -464,6 +464,7 @@ void BGrpcTransport::fetchConfigCapabilities()
             // UNIMPLEMENTED: a Director without configuration CRUD. Any
             // other error: nothing is offered either; the reason is logged.
             BLOG_DEBUG() << "gRPC: GetConfigCapabilities:" << statusText(status, std::chrono::seconds(0));
+            capabilities.error = statusText(status, std::chrono::seconds(0));
         }
         BLOG_DEBUG() << "gRPC: configuration capabilities, interface" << capabilities.interfaceVersion
                      << "types" << capabilities.operations.keys();
