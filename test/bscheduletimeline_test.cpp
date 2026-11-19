@@ -612,8 +612,21 @@ void BScheduleTimelineTest::counterSaysWhetherTheListIsOpen()
     QVERIFY2(counter->accessibleName().endsWith("The list is open."),
              qPrintable(counter->accessibleName()));
     QVERIFY(tab.waitPanel()->isVisible());
-    // The text is never cut
-    QVERIFY(counter->minimumWidth() >= counter->fontMetrics().horizontalAdvance(counter->text()));
+    // With room, the whole text; without, it is cut with "…" (the buttons
+    // beside it are not) and the accessible name still has all of it
+    QVERIFY(!counter->text().contains(QChar(0x2026)));
+    QWidget *legend = nullptr;
+    for (QPushButton *b : tab.widget.findChildren<QPushButton *>())
+        if (b->text() == QLatin1String("Legend")) legend = b;
+    QVERIFY(legend);
+    tab.widget.resize(500, 900);
+    QApplication::processEvents();
+    QVERIFY2(counter->text().endsWith(QChar(0x2026)), qPrintable(counter->text()));
+    QVERIFY(legend->width() >= legend->sizeHint().width());
+    QVERIFY(counter->accessibleName().contains(QLatin1String("No waiting predicted")));
+    tab.widget.resize(1400, 900);
+    QApplication::processEvents();
+    QVERIFY(!counter->text().contains(QChar(0x2026)));
 
     QTest::keyClick(counter, Qt::Key_Space);
     QVERIFY(!counter->isChecked());

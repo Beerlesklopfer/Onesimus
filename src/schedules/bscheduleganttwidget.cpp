@@ -1048,6 +1048,11 @@ void BScheduleGanttWidget::drawLinks(QPainter &painter)
                 QRect box = fm.boundingRect(text).adjusted(-px(3), -px(1), px(3), px(1));
                 box.moveCenter(QPoint(int(p0.x()) + box.width() / 2 + px(4),
                                       int((p0.y() + p1.y()) / 2)));
+                // Near the end of the day the label turns to the left of
+                // the arrow: the timeline ends there and would cut it
+                const int right = m_labelWidth + contentWidth();
+                if (box.right() > right)
+                    box.moveRight(qMax(m_labelWidth + box.width(), int(p0.x()) - px(4)));
                 QColor back = palette().base().color();
                 back.setAlpha(225);
                 painter.setPen(Qt::NoPen);
@@ -1474,7 +1479,7 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
 
                 const int waiting = m_heatmapWaiting.value(slotIdx);
                 if (waiting > 0) {
-                    tooltip += QString("; ") + tr("%1 run(s) predicted to wait").arg(waiting);
+                    tooltip += QString("; ") + tr("%n run(s) predicted to wait", nullptr, int(waiting));
                 }
 
                 const int unknown = m_heatmapUnknown.value(slotIdx);

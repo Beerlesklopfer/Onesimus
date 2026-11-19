@@ -1,6 +1,8 @@
 #include "buiscale.h"
 
 #include <QApplication>
+#include <QComboBox>
+#include <QStyledItemDelegate>
 #include <QDialog>
 #include <QEvent>
 #include <QFontDatabase>
@@ -452,6 +454,25 @@ bool BUiScale::eventFilter(QObject *watched, QEvent *event)
     if (event->type() == QEvent::Polish || event->type() == QEvent::FontChange) {
         if (auto *table = qobject_cast<QTableView *>(watched))
             fitRowHeight(table);
+    }
+
+    // Every combo box: its open list measured its rows with the menu font
+    // of the style (Qt's combo menu delegate) and drew them in the zoomed
+    // font, so the texts lay on top of each other; a styled delegate
+    // measures with the font it draws. Its width follows its widest entry
+    // whenever the entries or the font change, not only at the first show.
+    if (event->type() == QEvent::Polish) {
+        if (auto *combo = qobject_cast<QComboBox *>(watched)) {
+            if (!combo->property("buiscaleDelegate").toBool()) {
+                combo->setProperty("buiscaleDelegate", true);
+                // Only Qt's own delegates: a delegate of the code stays
+                QAbstractItemDelegate *own = combo->itemDelegate();
+                if (!own || own->inherits("QComboMenuDelegate") || own->inherits("QComboBoxDelegate"))
+                    combo->setItemDelegate(new QStyledItemDelegate(combo));
+                if (combo->sizeAdjustPolicy() == QComboBox::AdjustToContentsOnFirstShow)
+                    combo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            }
+        }
     }
 
     // A window about to be shown: if something set a style or a style

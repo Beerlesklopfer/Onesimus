@@ -27,6 +27,84 @@
 #include <QStyle>
 #include <QSpinBox>
 #include <QSignalBlocker>
+#include <QResizeEvent>
+#include <QStyleOptionButton>
+
+namespace {
+
+/// A button whose text is cut with "…" when the toolbar has no room for
+/// it; it asks for the room of the whole text. The counter of predicted
+/// waits: long in some languages, its whole text is its accessible name.
+class BElidingButton : public QPushButton
+{
+public:
+    explicit BElidingButton(QWidget *parent) : QPushButton(parent)
+    {
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    }
+
+    void setFullText(const QString &text)
+    {
+        m_full = text;
+        updateGeometry();
+        elide();
+    }
+
+    QSize sizeHint() const override
+    {
+        // The room of the whole text, whatever is shown now
+        const QFontMetrics fm(font());
+        return {frameWidth() + fm.horizontalAdvance(m_full), QPushButton::sizeHint().height()};
+    }
+
+    QSize minimumSizeHint() const override
+    {
+        const QFontMetrics fm(font());
+        return {qMin(sizeHint().width(), frameWidth() + fm.horizontalAdvance(QLatin1Char('x')) * 12),
+                QPushButton::minimumSizeHint().height()};
+    }
+
+protected:
+    void resizeEvent(QResizeEvent *event) override
+    {
+        QPushButton::resizeEvent(event);
+        elide();
+    }
+
+    void showEvent(QShowEvent *event) override
+    {
+        QPushButton::showEvent(event);
+        elide();
+    }
+
+private:
+    void elide()
+    {
+        // Laid out only once shown: until then the whole text
+        const QFontMetrics fm(font());
+        const QString shown = isVisible() && width() < sizeHint().width()
+            ? fm.elidedText(m_full, Qt::ElideRight, qMax(0, width() - frameWidth()))
+            : m_full;
+        if (shown != text())
+            setText(shown);
+    }
+
+    /// What the style puts around the text (padding, frame)
+    int frameWidth() const
+    {
+        QStyleOptionButton option;
+        initStyleOption(&option);
+        const QFontMetrics fm(font());
+        const QSize text(fm.horizontalAdvance(m_full), fm.height());
+        option.text = m_full;
+        return style()->sizeFromContents(QStyle::CT_PushButton, &option, text, this).width()
+             - text.width();
+    }
+
+    QString m_full;
+};
+
+} // namespace
 
 BScheduleWidget::BScheduleWidget(QWidget *parent)
     : QWidget(parent)
@@ -51,7 +129,7 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_todayButton(new QToolButton(this))
     , m_dayLabel(new QLabel(this))
     , m_snapCombo(new QComboBox(this))
-    , m_waitButton(new QPushButton(this))
+    , m_waitButton(new BElidingButton(this))
     , m_runProblemLabel(new QLabel(this))
     , m_jobScheduleIndex(new BJobScheduleIndex(this))
     , m_director(nullptr)
@@ -236,11 +314,18 @@ void BScheduleWidget::setupUI()
         (new BScheduleLegend(legendButton))->popupBelow(legendButton);
     });
     toolbarLayout->addWidget(legendButton);
+    // Never cut: the theme lets a button shrink below its text
+    BUiScale::track(legendButton, [legendButton]() {
+        legendButton->setMinimumWidth(legendButton->sizeHint().width());
+    });
 
     // Refresh
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshButton->setEnabled(false);
     toolbarLayout->addWidget(m_refreshButton);
+    BUiScale::track(m_refreshButton, [this]() {
+        m_refreshButton->setMinimumWidth(m_refreshButton->sizeHint().width());
+    });
 
     mainLayout->addLayout(toolbarLayout);
 
@@ -2572,16 +2657,14 @@ void BScheduleWidget::updateWaitButtonText()
     // An arrow as on a tree: to the right while the list is closed, down
     // while it is open
     const bool open = m_waitButton->isChecked();
-    m_waitButton->setText((open ? QStringLiteral("\u25BC  ") : QStringLiteral("\u25B6  "))
-                          + m_waitSummary);
+    static_cast<BElidingButton *>(m_waitButton)->setFullText(
+        (open ? QStringLiteral("\u25BC  ") : QStringLiteral("\u25B6  ")) + m_waitSummary);
     // A screen reader gets words, not the arrow
     m_waitButton->setAccessibleName(
         open ? tr("Predicted waits: %1. The list is open.").arg(m_waitSummary)
              : tr("Predicted waits: %1. The list is closed.").arg(m_waitSummary));
     m_waitButton->setAccessibleDescription(
         tr("Opens or closes the list of predicted waits below the timeline."));
-    // Never cut: the theme lets a button shrink below its text
-    m_waitButton->setMinimumWidth(m_waitButton->sizeHint().width());
 }
 
 void BScheduleWidget::onWaitRowChanged()
