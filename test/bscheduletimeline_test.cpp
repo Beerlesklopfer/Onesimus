@@ -26,6 +26,7 @@
 
 #include <QComboBox>
 #include <QDateEdit>
+#include <QToolButton>
 #include <QGroupBox>
 #include <QLabel>
 #include <QPlainTextEdit>
@@ -737,18 +738,39 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
     emit tab.timeline()->entryClicked(clicked);
     QCoreApplication::processEvents();
     QCOMPARE(lower->count(), 2);
-    QVERIFY(lower->isTabVisible(0) && lower->isTabVisible(1));
     QCOMPARE(lower->currentIndex(), 1);
     QVERIFY(!tab.waitPanel()->isVisible());     // behind the history's tab
+    QVERIFY(!tab.counter()->isChecked());       // the list of waits is not on display
     if (qEnvironmentVariableIsSet("ONESIMUS_WAITS_PNG")) {
         tab.widget.grab().save(qEnvironmentVariable("ONESIMUS_WAITS_PNG")
                                    .replace(QLatin1String(".png"), QLatin1String("-history.png")));
     }
-    // Closing the waits' tab closes the list: the counter says so
-    emit lower->tabCloseRequested(0);
+    // The counter brings the waits to the front
+    tab.counter()->click();
+    QCoreApplication::processEvents();
+    QCOMPARE(lower->currentIndex(), 0);
+    QVERIFY(tab.counter()->isChecked());
+    QVERIFY(tab.waitPanel()->isVisible());
+
+    // The ✕ beside the tabs closes the area; both open again
+    auto *close = qobject_cast<QToolButton *>(lower->cornerWidget(Qt::TopRightCorner));
+    QVERIFY(close);
+    close->click();
+    QCoreApplication::processEvents();
+    QVERIFY(!lower->isVisible());
     QVERIFY(!tab.counter()->isChecked());
-    QVERIFY(!lower->isTabVisible(0));
-    QVERIFY(lower->isVisible());               // the history is still open
+    emit tab.timeline()->entryClicked(clicked);
+    QTest::qWait(50);
+    QVERIFY(lower->isVisible());
+    QCOMPARE(lower->currentIndex(), 1);
+    QVERIFY2(lower->height() > 100, qPrintable(QString::number(lower->height())));
+    close->click();
+    tab.counter()->click();
+    QTest::qWait(50);
+    QVERIFY(lower->isVisible());
+    QCOMPARE(lower->currentIndex(), 0);
+    QVERIFY(tab.waitPanel()->isVisible());
+    QVERIFY2(tab.waitPanel()->height() > 100, qPrintable(QString::number(tab.waitPanel()->height())));
 
     // Columns: job, level, scheduled, predicted start, wait, measured,
     // certain, reason. Longest wait first: by its length, not by its text

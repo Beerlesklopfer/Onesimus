@@ -307,6 +307,9 @@ private:
     /// history); the tabs go when none is open. @p bringToFront: make it
     /// the current tab.
     void showLowerPage(QWidget *page, bool on, bool bringToFront = true);
+    /// The counter checked while the waits' tab is on display, unchecked
+    /// otherwise; without opening or closing anything
+    void syncWaitButton();
     bool showsWeek() const;     ///< The timeline is in week view
     /// The schedules checked in the list
     QList<BSchedule> checkedSchedules() const;
@@ -378,6 +381,7 @@ private:
     QSplitter *m_rightSplitter = nullptr; // Vertical: views top, the tabs below
     QTabWidget *m_lowerTabs = nullptr;    // Predicted waits, measured history
     QWidget *m_statsPage = nullptr;       // The history's tab: m_statsPanel, scrolling
+    bool m_syncingWaitButton = false;     // syncWaitButton() sets the counter
     QListWidget *m_scheduleList;
     QLabel *m_jobListLabel;
     QTableWidget *m_jobList;
