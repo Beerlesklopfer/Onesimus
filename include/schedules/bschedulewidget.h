@@ -310,6 +310,8 @@ private:
     /// The counter checked while the waits' tab is on display, unchecked
     /// otherwise; without opening or closing anything
     void syncWaitButton();
+    /// A section of the waits' right column with its heading
+    void setSectionVisible(QWidget *section, const QString &name, bool on);
     bool showsWeek() const;     ///< The timeline is in week view
     /// The schedules checked in the list
     QList<BSchedule> checkedSchedules() const;

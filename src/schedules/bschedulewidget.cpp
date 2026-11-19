@@ -1159,6 +1159,13 @@ void BScheduleWidget::showLowerPage(QWidget *page, bool on, bool bringToFront)
     syncWaitButton();
 }
 
+void BScheduleWidget::setSectionVisible(QWidget *section, const QString &name, bool on)
+{
+    section->setVisible(on);
+    if (QLabel *head = findChild<QLabel *>(QStringLiteral("heading:") + name))
+        head->setVisible(on);
+}
+
 void BScheduleWidget::syncWaitButton()
 {
     if (!m_lowerTabs)
@@ -2224,7 +2231,6 @@ void BScheduleWidget::setupWaitPanel()
     m_waitSharedLabel->setTextInteractionFlags(Qt::TextSelectableByMouse
                                                | Qt::TextSelectableByKeyboard);
     m_waitSharedLabel->setAccessibleName(tr("Reasons shared by several rows"));
-    m_waitSharedLabel->setVisible(false);
 
     m_waitTable = new QTableWidget(0, WaitColumnCount, m_waitPanel);
     m_waitTable->setHorizontalHeaderLabels({
@@ -2265,10 +2271,16 @@ void BScheduleWidget::setupWaitPanel()
     m_waitDetails->setTextInteractionFlags(Qt::TextSelectableByMouse
                                            | Qt::TextSelectableByKeyboard);
     m_waitDetails->setAccessibleName(tr("Reason of the selected wait"));
-    // First on the right: what the reader picked
+    // The right column, in sections with a heading each; a heading goes
+    // with its section (setSectionVisible())
+    auto heading = [this, notes](const QString &name, const QString &text) {
+        QLabel *label = new QLabel(text, notes);
+        label->setObjectName(QStringLiteral("heading:") + name);
+        BUiScale::bind(label, BUiScale::Normal, BUiScale::Bold);
+        return label;
+    };
+    // First what the reader picked
     notesLayout->addWidget(m_waitDetails);
-    notesLayout->addWidget(m_waitSharedLabel);
-    notesLayout->addWidget(m_waitInfoLabel);
 
     // What the Director cannot report: how many jobs the devices of a
     // storage write at a time. One row per storage, filled in
@@ -2281,7 +2293,15 @@ void BScheduleWidget::setupWaitPanel()
         devices->setVerticalSpacing(BUiScale::px(2));
     });
     m_devicePanel->setVisible(false);
-    tableLayout->addWidget(m_devicePanel);
+    notesLayout->addWidget(heading(QStringLiteral("devices"), tr("Parallel writers of the devices")));
+    notesLayout->addWidget(m_devicePanel);
+    notesLayout->addWidget(heading(QStringLiteral("notes"), tr("Notes")));
+    notesLayout->addWidget(m_waitSharedLabel);
+    notesLayout->addWidget(heading(QStringLiteral("basis"), tr("Basis of the prediction")));
+    notesLayout->addWidget(m_waitInfoLabel);
+    notesLayout->addWidget(heading(QStringLiteral("backtest"), tr("Back-test")));
+    setSectionVisible(m_devicePanel, QStringLiteral("devices"), false);
+    setSectionVisible(m_waitSharedLabel, QStringLiteral("notes"), false);
 
     // The prediction replayed over the last nights of the history
     m_backtestLabel = new QLabel(m_waitPanel);
@@ -2599,7 +2619,7 @@ void BScheduleWidget::updateWaitViews()
             .arg(BScheduleWaitModel::unknownText(shared[n], QDate(), false));
     }
     m_waitSharedLabel->setText(sharedLines.join(QLatin1Char('\n')));
-    m_waitSharedLabel->setVisible(!sharedLines.isEmpty());
+    setSectionVisible(m_waitSharedLabel, QStringLiteral("notes"), !sharedLines.isEmpty());
 
     m_waitTable->setSortingEnabled(false);
     m_waitTable->clearSpans();
@@ -2703,7 +2723,7 @@ void BScheduleWidget::updateWaitViews()
     }
     updateDevicePanel(storages);
     m_backtestLabel->setText(backtestText());
-    m_backtestLabel->setVisible(predicted);
+    setSectionVisible(m_backtestLabel, QStringLiteral("backtest"), predicted);
 }
 
 void BScheduleWidget::updateWaitButtonText()
@@ -2736,7 +2756,7 @@ void BScheduleWidget::onWaitRowChanged()
     const int i = index.toInt();
     const BWaitRun &run = m_waitRuns[i];
     QStringList lines;
-    lines << tr("%1, scheduled %2:").arg(run.job, run.scheduled.toString("ddd yyyy-MM-dd HH:mm"));
+    lines << tr("%1, scheduled %2:").arg(run.job, QLocale().toString(run.scheduled, QStringLiteral("ddd yyyy-MM-dd HH:mm")));
     lines << BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults);
     lines << BScheduleWaitModel::describeTiming(i, m_waitRuns, m_waitResults, m_limits);
     m_waitDetails->setText(lines.join(QLatin1Char('\n')));
@@ -2838,10 +2858,13 @@ void BScheduleWidget::updateDevicePanel(const QStringList &storages)
             QPushButton *use = new QPushButton(m_devicePanel);
             use->setObjectName(QStringLiteral("deviceUse:") + storage);
             use->setProperty("storage", storage);
-            grid->addWidget(name, row, 0);
-            grid->addWidget(spin, row, 1);
-            grid->addWidget(use, row, 2);
-            grid->addWidget(suggestion, row, 3);
+            // Name, then value and button, then the suggestion in the
+            // column's whole width
+            name->setWordWrap(true);
+            grid->addWidget(name, 3 * row, 0, 1, 3);
+            grid->addWidget(spin, 3 * row + 1, 0);
+            grid->addWidget(use, 3 * row + 1, 1);
+            grid->addWidget(suggestion, 3 * row + 2, 0, 1, 3);
             connect(spin, qOverload<int>(&QSpinBox::valueChanged),
                     this, &BScheduleWidget::onDeviceWritersChanged);
             connect(use, &QPushButton::clicked, this, [this, spin, use]() {
@@ -2849,7 +2872,7 @@ void BScheduleWidget::updateDevicePanel(const QStringList &storages)
                 if (suggested > 0) spin->setValue(suggested);   // the user's own click
             });
         }
-        grid->setColumnStretch(3, 1);
+        grid->setColumnStretch(2, 1);
     }
 
     const BSettings &settings = BSettings::instance();
@@ -2880,7 +2903,7 @@ void BScheduleWidget::updateDevicePanel(const QStringList &storages)
         use->setEnabled(found.suggested > 0 && spin->value() != found.suggested);
         use->setToolTip(found.evidence.join(QLatin1Char('\n')));
     }
-    m_devicePanel->setVisible(!storages.isEmpty());
+    setSectionVisible(m_devicePanel, QStringLiteral("devices"), !storages.isEmpty());
 }
 
 void BScheduleWidget::onDeviceWritersChanged()
