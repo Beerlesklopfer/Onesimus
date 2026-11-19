@@ -2523,6 +2523,21 @@ Continuare?</translation>
         <source>Refresh</source>
         <translation>Aggiorna</translation>
     </message>
+    <message>
+        <location filename="../src/clients/bclientwidget.cpp" line="46"/>
+        <source>Name</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientwidget.cpp" line="46"/>
+        <source>Address</source>
+        <translation>Indirizzo</translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientwidget.cpp" line="46"/>
+        <source>Port</source>
+        <translation>Porta</translation>
+    </message>
 </context>
 <context>
     <name>BClientsModel</name>
@@ -2719,10 +2734,13 @@ Continuare?</translation>
         <source>Error parsing client data</source>
         <translation>Errore nell&apos;analisi dei dati dei client</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/clients/bclientswidget.cpp" line="428"/>
-        <source>%1 client(s) loaded</source>
-        <translation>%1 client caricati</translation>
+        <source>%n client(s) loaded</source>
+        <translation>
+            <numerusform>%n client caricato</numerusform>
+            <numerusform>%n client caricati</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../src/clients/bclientswidget.cpp" line="538"/>
@@ -3807,6 +3825,11 @@ Riprovare?</translation>
         <translation>-- Seleziona FileSet --</translation>
     </message>
     <message>
+        <location filename="../src/jobs/bfilesetwizard.cpp" line="835"/>
+        <source>(%1 FileSets)</source>
+        <translation>(%1 FileSet)</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="877"/>
         <source>Loaded</source>
         <translation>Caricato</translation>
@@ -3893,6 +3916,13 @@ Riprovare?</translation>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="417"/>
         <source>Select templates to combine:</source>
         <translation>Selezionare i modelli da combinare:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bfilesetwizard.cpp" line="435"/>
+        <source>%1
+Platform: %2</source>
+        <translation>%1
+Piattaforma: %2</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="442"/>
@@ -4959,6 +4989,11 @@ Non è stato inviato nulla.</translation>
 <context>
     <name>BJobDetailsDialog</name>
     <message>
+        <location filename="../src/jobs/bjobdetailsdialog.cpp" line="31"/>
+        <source>Job Details: %1 (ID: %2) - Client: %3</source>
+        <translation>Dettagli del job: %1 (ID: %2) - Client: %3</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/bjobdetailsdialog.cpp" line="70"/>
         <source>Files</source>
         <translation>File</translation>
@@ -5089,6 +5124,11 @@ Non è stato inviato nulla.</translation>
 <context>
     <name>BJobLogDialog</name>
     <message>
+        <location filename="../src/jobs/bjoblogdialog.cpp" line="27"/>
+        <source>Job Log: %1 (ID: %2) - %3</source>
+        <translation>Log del job: %1 (ID: %2) - %3</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/bjoblogdialog.cpp" line="42"/>
         <source>OK</source>
         <translation>OK</translation>
@@ -5107,6 +5147,11 @@ Non è stato inviato nulla.</translation>
         <location filename="../src/jobs/bjoblogdialog.cpp" line="45"/>
         <source>Error</source>
         <translation>Errore</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjoblogdialog.cpp" line="48"/>
+        <source>&lt;b&gt;Status:&lt;/b&gt; %1 | &lt;b&gt;Start:&lt;/b&gt; %2</source>
+        <translation>&lt;b&gt;Stato:&lt;/b&gt; %1 | &lt;b&gt;Avvio:&lt;/b&gt; %2</translation>
     </message>
     <message>
         <location filename="../src/jobs/bjoblogdialog.cpp" line="65"/>
@@ -5623,6 +5668,31 @@ produrre una tabella vuota o limitata se l&apos;intervallo è troppo stretto.</t
         <translation>Filtra le righe del log in base al testo di ricerca</translation>
     </message>
     <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="206"/>
+        <source>Cancelling job...</source>
+        <translation>Annullamento del job...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="209"/>
+        <source>Deleting job...</source>
+        <translation>Eliminazione del job...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="212"/>
+        <source>Running job again...</source>
+        <translation>Riesecuzione del job...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="215"/>
+        <source>Loading job log...</source>
+        <translation>Caricamento del log del job...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="219"/>
+        <source>Pruning expired jobs...</source>
+        <translation>Prune dei job scaduti...</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="260"/>
         <source>⚠ Zero Bytes filter active — only jobs with 0 bytes are shown. This filter persists across restarts!</source>
         <translation>⚠ Filtro Zero byte attivo — vengono mostrati solo i job con 0 byte. Questo filtro rimane attivo dopo il riavvio!</translation>
@@ -5656,6 +5726,36 @@ produrre una tabella vuota o limitata se l&apos;intervallo è troppo stretto.</t
         <location filename="../src/jobs/bjobwidget.cpp" line="409"/>
         <source>Refresh</source>
         <translation>Aggiorna</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="413"/>
+        <source>Auto-Refresh</source>
+        <translation>Aggiornamento automatico</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="415"/>
+        <source>5 s</source>
+        <translation>5 s</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="416"/>
+        <source>10 s</source>
+        <translation>10 s</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="417"/>
+        <source>30 s</source>
+        <translation>30 s</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="418"/>
+        <source>1 min</source>
+        <translation>1 min</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="419"/>
+        <source>5 min</source>
+        <translation>5 min</translation>
     </message>
     <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="464"/>
@@ -5693,6 +5793,41 @@ produrre una tabella vuota o limitata se l&apos;intervallo è troppo stretto.</t
         <translation>Reimposta filtri</translation>
     </message>
     <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="678"/>
+        <source>Updated: %1 - %2 jobs loaded</source>
+        <translation>Aggiornato: %1 - %2 job caricati</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="723"/>
+        <source>No selection</source>
+        <translation>Nessuna selezione</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="724"/>
+        <source>Please select a job to cancel.</source>
+        <translation>Selezionare un job da annullare.</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="735"/>
+        <source>Cancel Job</source>
+        <translation>Annulla job</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="736"/>
+        <source>Do you really want to cancel job ID %1?</source>
+        <translation>Annullare davvero il job con ID %1?</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="744"/>
+        <source>Job Cancelled</source>
+        <translation>Job annullato</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="745"/>
+        <source>Job %1 was cancelled.</source>
+        <translation>Il job %1 è stato annullato.</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="1142"/>
         <source>Loading page %1...</source>
         <translation>Caricamento pagina %1...</translation>
@@ -5701,6 +5836,11 @@ produrre una tabella vuota o limitata se l&apos;intervallo è troppo stretto.</t
         <location filename="../src/jobs/bjobwidget.cpp" line="1155"/>
         <source>Refreshing job list...</source>
         <translation>Aggiornamento dell&apos;elenco dei job...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1280"/>
+        <source>%1 jobs loaded</source>
+        <translation>%1 job caricati</translation>
     </message>
     <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="1515"/>
@@ -5916,6 +6056,75 @@ produrre una tabella vuota o limitata se l&apos;intervallo è troppo stretto.</t
     </message>
 </context>
 <context>
+    <name>BJobsStatisticsWidget</name>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="19"/>
+        <source>Job Summary</source>
+        <translation>Riepilogo dei job</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="25"/>
+        <source>Total Jobs:</source>
+        <translation>Job totali:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="28"/>
+        <source>Selected:</source>
+        <translation>Selezionati:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="33"/>
+        <source>Status Breakdown</source>
+        <translation>Ripartizione per stato</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="40"/>
+        <source>Successful:</source>
+        <translation>Riusciti:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="55"/>
+        <source>Warnings:</source>
+        <translation>Avvisi:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="70"/>
+        <source>Failed:</source>
+        <translation>Non riusciti:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="84"/>
+        <source>Data Summary</source>
+        <translation>Riepilogo dei dati</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="88"/>
+        <source>Total Files:</source>
+        <translation>File totali:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="91"/>
+        <source>Total Size:</source>
+        <translation>Dimensione totale:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="93"/>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="181"/>
+        <source>N/A</source>
+        <translation>N/D</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="94"/>
+        <source>Date Range:</source>
+        <translation>Intervallo di date:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobsstatisticswidget.cpp" line="176"/>
+        <source>%1 to %2</source>
+        <translation>da %1 a %2</translation>
+    </message>
+</context>
+<context>
     <name>BJsonJobView</name>
     <message>
         <location filename="../src/jobs/bjsonjobview.cpp" line="526"/>
@@ -5924,9 +6133,197 @@ produrre una tabella vuota o limitata se l&apos;intervallo è troppo stretto.</t
         <translation>Elimina %1 job</translation>
     </message>
     <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="157"/>
         <location filename="../src/jobs/bjsonjobview.cpp" line="526"/>
         <source>Delete Job</source>
         <translation>Elimina job</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="146"/>
+        <source>Show Details...</source>
+        <translation>Mostra dettagli...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="151"/>
+        <source>Retry Job</source>
+        <translation>Riprova job</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="154"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="720"/>
+        <source>Cancel Job</source>
+        <translation>Annulla job</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="162"/>
+        <source>View Log...</source>
+        <translation>Visualizza log...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="165"/>
+        <source>Restore Files...</source>
+        <translation>Ripristina file...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="172"/>
+        <source>Export to JSON...</source>
+        <translation>Esporta in JSON...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="176"/>
+        <source>Export to CSV...</source>
+        <translation>Esporta in CSV...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="183"/>
+        <source>Select All</source>
+        <translation>Seleziona tutto</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="187"/>
+        <source>Invert Selection</source>
+        <translation>Inverti selezione</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="191"/>
+        <source>Clear Selection</source>
+        <translation>Annulla selezione</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="272"/>
+        <source>Export Selected Jobs to JSON</source>
+        <translation>Esporta i job selezionati in JSON</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="272"/>
+        <source>Export All Jobs to JSON</source>
+        <translation>Esporta tutti i job in JSON</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="285"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="318"/>
+        <source>Export Error</source>
+        <translation>Errore di esportazione</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="286"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="319"/>
+        <source>Could not write to file: %1</source>
+        <translation>Impossibile scrivere nel file: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="293"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="326"/>
+        <source>Export Successful</source>
+        <translation>Esportazione riuscita</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjsonjobview.cpp" line="294"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="327"/>
+        <source>Exported %n job(s) to %1</source>
+        <translation>
+            <numerusform>%n job esportato in %1</numerusform>
+            <numerusform>%n job esportati in %1</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="305"/>
+        <source>Export Selected Jobs to CSV</source>
+        <translation>Esporta i job selezionati in CSV</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="305"/>
+        <source>Export All Jobs to CSV</source>
+        <translation>Esporta tutti i job in CSV</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="339"/>
+        <source>Total Jobs: %1
+</source>
+        <translation>Job totali: %1
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="340"/>
+        <source>Successful: %1
+</source>
+        <translation>Riusciti: %1
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="341"/>
+        <source>Warnings: %1
+</source>
+        <translation>Avvisi: %1
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="342"/>
+        <source>Failed: %1
+
+</source>
+        <translation>Non riusciti: %1
+
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="344"/>
+        <source>Total Files: %1
+</source>
+        <translation>File totali: %1
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="345"/>
+        <source>Total Size: %1 bytes
+
+</source>
+        <translation>Dimensione totale: %1 byte
+
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="348"/>
+        <source>Date Range:
+</source>
+        <translation>Intervallo di date:
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="349"/>
+        <source>  From: %1
+</source>
+        <translation>  Da: %1
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="350"/>
+        <source>  To: %1
+
+</source>
+        <translation>  A: %1
+
+</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="353"/>
+        <source>Selected: %1</source>
+        <translation>Selezionati: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="355"/>
+        <source>Job Statistics</source>
+        <translation>Statistiche dei job</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="420"/>
+        <source>Export All to JSON...</source>
+        <translation>Esporta tutto in JSON...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="421"/>
+        <source>Export All to CSV...</source>
+        <translation>Esporta tutto in CSV...</translation>
     </message>
     <message>
         <location filename="../src/jobs/bjsonjobview.cpp" line="536"/>
@@ -6026,6 +6423,21 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
 %3 backup Incremental/Differential dipendenti potrebbero diventare inutilizzabili per il ripristino.</translation>
     </message>
     <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="688"/>
+        <source>Rerun Job</source>
+        <translation>Riesegui job</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="689"/>
+        <source>Do you want to run job %1 (%2) again?</source>
+        <translation>Eseguire di nuovo il job %1 (%2)?</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="721"/>
+        <source>Do you really want to cancel the running job %1 (%2)?</source>
+        <translation>Annullare davvero il job in esecuzione %1 (%2)?</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/bjsonjobview.cpp" line="750"/>
         <source>Not connected</source>
         <translation>Nessuna connessione</translation>
@@ -6090,6 +6502,7 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="218"/>
+        <location filename="../src/bmainwindow.cpp" line="1687"/>
         <source>Disconnected</source>
         <translation>Disconnesso</translation>
     </message>
@@ -6101,19 +6514,19 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="247"/>
         <location filename="../src/bmainwindow.cpp" line="684"/>
-        <location filename="../src/bmainwindow.cpp" line="2501"/>
+        <location filename="../src/bmainwindow.cpp" line="2518"/>
         <source>Ready</source>
         <translation>Pronto</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="398"/>
-        <location filename="../src/bmainwindow.cpp" line="2813"/>
+        <location filename="../src/bmainwindow.cpp" line="2830"/>
         <source>Auto-refresh enabled (%1s)</source>
         <translation>Aggiornamento automatico attivato (%1s)</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="402"/>
-        <location filename="../src/bmainwindow.cpp" line="2818"/>
+        <location filename="../src/bmainwindow.cpp" line="2835"/>
         <source>Auto-refresh disabled</source>
         <translation>Aggiornamento automatico disattivato</translation>
     </message>
@@ -6125,9 +6538,14 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="531"/>
         <location filename="../src/bmainwindow.cpp" line="688"/>
-        <location filename="../src/bmainwindow.cpp" line="2417"/>
+        <location filename="../src/bmainwindow.cpp" line="2434"/>
         <source>Not connected</source>
         <translation>Non connesso</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="607"/>
+        <source>Storage/Volumes</source>
+        <translation>Storage/Volume</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="665"/>
@@ -6137,15 +6555,15 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="698"/>
         <location filename="../src/bmainwindow.cpp" line="715"/>
-        <location filename="../src/bmainwindow.cpp" line="1607"/>
-        <location filename="../src/bmainwindow.cpp" line="1864"/>
+        <location filename="../src/bmainwindow.cpp" line="1622"/>
+        <location filename="../src/bmainwindow.cpp" line="1879"/>
         <source>Connect</source>
         <translation>Connetti</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="703"/>
         <location filename="../src/bmainwindow.cpp" line="721"/>
-        <location filename="../src/bmainwindow.cpp" line="1865"/>
+        <location filename="../src/bmainwindow.cpp" line="1880"/>
         <source>Reconnect</source>
         <translation>Riconnetti</translation>
     </message>
@@ -6156,8 +6574,8 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="717"/>
-        <location filename="../src/bmainwindow.cpp" line="1529"/>
-        <location filename="../src/bmainwindow.cpp" line="2316"/>
+        <location filename="../src/bmainwindow.cpp" line="1544"/>
+        <location filename="../src/bmainwindow.cpp" line="2333"/>
         <source>Connect to Director</source>
         <translation>Connetti al Director</translation>
     </message>
@@ -6168,25 +6586,25 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="727"/>
-        <location filename="../src/bmainwindow.cpp" line="1866"/>
+        <location filename="../src/bmainwindow.cpp" line="1881"/>
         <source>Refresh</source>
         <translation>Aggiorna</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="733"/>
-        <location filename="../src/bmainwindow.cpp" line="1867"/>
+        <location filename="../src/bmainwindow.cpp" line="1882"/>
         <source>Settings</source>
         <translation>Impostazioni</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="738"/>
-        <location filename="../src/bmainwindow.cpp" line="1868"/>
+        <location filename="../src/bmainwindow.cpp" line="1883"/>
         <source>Exit</source>
         <translation>Esci</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="743"/>
-        <location filename="../src/bmainwindow.cpp" line="1697"/>
+        <location filename="../src/bmainwindow.cpp" line="1712"/>
         <source>About Onesimus</source>
         <translation>Informazioni su Onesimus</translation>
     </message>
@@ -6207,27 +6625,27 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="760"/>
-        <location filename="../src/bmainwindow.cpp" line="1844"/>
-        <location filename="../src/bmainwindow.cpp" line="1850"/>
-        <location filename="../src/bmainwindow.cpp" line="1931"/>
+        <location filename="../src/bmainwindow.cpp" line="1859"/>
+        <location filename="../src/bmainwindow.cpp" line="1865"/>
+        <location filename="../src/bmainwindow.cpp" line="1946"/>
         <source>Keyboard Shortcuts</source>
         <translation>Scorciatoie da tastiera</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="765"/>
-        <location filename="../src/bmainwindow.cpp" line="2265"/>
+        <location filename="../src/bmainwindow.cpp" line="2280"/>
         <source>My Permissions</source>
         <translation>Le mie autorizzazioni</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="771"/>
-        <location filename="../src/bmainwindow.cpp" line="1881"/>
+        <location filename="../src/bmainwindow.cpp" line="1896"/>
         <source>Copy</source>
         <translation>Copia</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="777"/>
-        <location filename="../src/bmainwindow.cpp" line="1882"/>
+        <location filename="../src/bmainwindow.cpp" line="1897"/>
         <source>Select All</source>
         <translation>Seleziona tutto</translation>
     </message>
@@ -6243,25 +6661,25 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="795"/>
-        <location filename="../src/bmainwindow.cpp" line="1896"/>
+        <location filename="../src/bmainwindow.cpp" line="1911"/>
         <source>Show Statistics</source>
         <translation>Mostra statistiche</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="809"/>
-        <location filename="../src/bmainwindow.cpp" line="1897"/>
+        <location filename="../src/bmainwindow.cpp" line="1912"/>
         <source>Show Job Log</source>
         <translation>Mostra log del job</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="824"/>
-        <location filename="../src/bmainwindow.cpp" line="1899"/>
+        <location filename="../src/bmainwindow.cpp" line="1914"/>
         <source>Interface Zoom In</source>
         <translation>Ingrandisci interfaccia</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="830"/>
-        <location filename="../src/bmainwindow.cpp" line="1900"/>
+        <location filename="../src/bmainwindow.cpp" line="1915"/>
         <source>Interface Zoom Out</source>
         <translation>Riduci interfaccia</translation>
     </message>
@@ -6287,7 +6705,7 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="871"/>
-        <location filename="../src/bmainwindow.cpp" line="1914"/>
+        <location filename="../src/bmainwindow.cpp" line="1929"/>
         <source>Refresh Jobs</source>
         <translation>Aggiorna job</translation>
     </message>
@@ -6447,7 +6865,7 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1203"/>
-        <location filename="../src/bmainwindow.cpp" line="1915"/>
+        <location filename="../src/bmainwindow.cpp" line="1930"/>
         <source>Refresh Clients</source>
         <translation>Aggiorna client</translation>
     </message>
@@ -6458,7 +6876,7 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1219"/>
-        <location filename="../src/bmainwindow.cpp" line="1916"/>
+        <location filename="../src/bmainwindow.cpp" line="1931"/>
         <source>Refresh Storage</source>
         <translation>Aggiorna Storage</translation>
     </message>
@@ -6469,7 +6887,7 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1248"/>
-        <location filename="../src/bmainwindow.cpp" line="1917"/>
+        <location filename="../src/bmainwindow.cpp" line="1932"/>
         <source>Refresh Schedules</source>
         <translation>Aggiorna Schedule</translation>
     </message>
@@ -6504,137 +6922,163 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
         <translation>Importa la configurazione del Director da file o archivio ZIP</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1276"/>
-        <location filename="../src/bmainwindow.cpp" line="1301"/>
-        <location filename="../src/bmainwindow.cpp" line="1318"/>
+        <location filename="../src/bmainwindow.cpp" line="1277"/>
+        <location filename="../src/bmainwindow.cpp" line="1317"/>
+        <location filename="../src/bmainwindow.cpp" line="1333"/>
         <source>Language</source>
         <translation>Lingua</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1302"/>
+        <location filename="../src/bmainwindow.cpp" line="1283"/>
+        <source>System (%1)</source>
+        <translation>Sistema (%1)</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1318"/>
         <source>Onesimus will speak %1 after a restart.</source>
         <translation>Onesimus parlerà %1 dopo un riavvio.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1305"/>
+        <location filename="../src/bmainwindow.cpp" line="1321"/>
         <source>Restart now? The connection to the Director is closed and opened again if automatic connection is on.</source>
         <translation>Riavviare ora? La connessione al Director viene chiusa e riaperta se la connessione automatica è attiva.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1307"/>
+        <location filename="../src/bmainwindow.cpp" line="1323"/>
         <source>Restart now?</source>
         <translation>Riavviare ora?</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1308"/>
+        <location filename="../src/bmainwindow.cpp" line="1324"/>
         <source>Restart now</source>
         <translation>Riavvia ora</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1309"/>
+        <location filename="../src/bmainwindow.cpp" line="1325"/>
         <source>Later</source>
         <translation>Più tardi</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1319"/>
+        <location filename="../src/bmainwindow.cpp" line="1334"/>
         <source>Onesimus could not be started again. The new language takes effect at the next start.</source>
         <translation>Impossibile riavviare Onesimus. La nuova lingua avrà effetto al prossimo avvio.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1329"/>
-        <location filename="../src/bmainwindow.cpp" line="1872"/>
+        <location filename="../src/bmainwindow.cpp" line="1344"/>
+        <location filename="../src/bmainwindow.cpp" line="1887"/>
         <source>File</source>
         <translation>File</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1343"/>
-        <location filename="../src/bmainwindow.cpp" line="1887"/>
+        <location filename="../src/bmainwindow.cpp" line="1358"/>
+        <location filename="../src/bmainwindow.cpp" line="1902"/>
         <source>Edit</source>
         <translation>Modifica</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1352"/>
-        <location filename="../src/bmainwindow.cpp" line="1905"/>
+        <location filename="../src/bmainwindow.cpp" line="1367"/>
+        <location filename="../src/bmainwindow.cpp" line="1920"/>
         <source>View</source>
         <translation>Visualizza</translation>
     </message>
+    <message numerus="yes">
+        <location filename="../src/bmainwindow.cpp" line="2754"/>
+        <source>%n row(s) copied</source>
+        <translation>
+            <numerusform>%n riga copiata</numerusform>
+            <numerusform>%n righe copiate</numerusform>
+        </translation>
+    </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1363"/>
+        <location filename="../src/bmainwindow.cpp" line="599"/>
+        <location filename="../src/bmainwindow.cpp" line="1378"/>
         <source>Jobs</source>
         <translation>Job</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1371"/>
+        <location filename="../src/bmainwindow.cpp" line="1386"/>
         <source>Modify Jobs</source>
         <translation>Modifica Job</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1377"/>
+        <location filename="../src/bmainwindow.cpp" line="1392"/>
         <source>Modify JobDefs</source>
         <translation>Modifica JobDefs</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1383"/>
+        <location filename="../src/bmainwindow.cpp" line="1398"/>
         <source>Filesets</source>
         <translation>FileSet</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1393"/>
+        <location filename="../src/bmainwindow.cpp" line="603"/>
+        <location filename="../src/bmainwindow.cpp" line="1408"/>
         <source>Clients</source>
         <translation>Client</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1400"/>
+        <location filename="../src/bmainwindow.cpp" line="1415"/>
         <source>Storage</source>
         <translation>Storage</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1404"/>
+        <location filename="../src/bmainwindow.cpp" line="636"/>
+        <location filename="../src/bmainwindow.cpp" line="1419"/>
         <source>Schedules</source>
         <translation>Schedule</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1410"/>
+        <location filename="../src/bmainwindow.cpp" line="95"/>
+        <source>Onesimus - Bacula Backup Management</source>
+        <translation>Onesimus - Gestione dei backup Bacula</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="97"/>
+        <source>Onesimus - Bareos Backup Management</source>
+        <translation>Onesimus - Gestione dei backup Bareos</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1425"/>
         <source>Tools</source>
         <translation>Strumenti</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1421"/>
-        <location filename="../src/bmainwindow.cpp" line="1935"/>
+        <location filename="../src/bmainwindow.cpp" line="1436"/>
+        <location filename="../src/bmainwindow.cpp" line="1950"/>
         <source>Help</source>
         <translation>Aiuto</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1450"/>
+        <location filename="../src/bmainwindow.cpp" line="1465"/>
         <source>Main Toolbar</source>
         <translation>Barra degli strumenti principale</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1479"/>
-        <location filename="../src/bmainwindow.cpp" line="1493"/>
-        <location filename="../src/bmainwindow.cpp" line="2390"/>
+        <location filename="../src/bmainwindow.cpp" line="1494"/>
+        <location filename="../src/bmainwindow.cpp" line="1508"/>
+        <location filename="../src/bmainwindow.cpp" line="2407"/>
         <source>Statistics ▼</source>
         <translation>Statistiche ▼</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1482"/>
+        <location filename="../src/bmainwindow.cpp" line="1497"/>
         <source>Show/Hide Statistics</source>
         <translation>Mostra/nascondi statistiche</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1493"/>
-        <location filename="../src/bmainwindow.cpp" line="2390"/>
-        <location filename="../src/bmainwindow.cpp" line="2426"/>
+        <location filename="../src/bmainwindow.cpp" line="1508"/>
+        <location filename="../src/bmainwindow.cpp" line="2407"/>
+        <location filename="../src/bmainwindow.cpp" line="2443"/>
         <source>Statistics ▶</source>
         <translation>Statistiche ▶</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1521"/>
+        <location filename="../src/bmainwindow.cpp" line="1536"/>
         <source>No Connection Profiles</source>
         <translation>Nessun profilo di connessione</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1522"/>
+        <location filename="../src/bmainwindow.cpp" line="1537"/>
         <source>No connection profiles found.
 
 Please create a connection profile in Settings first.</source>
@@ -6643,183 +7087,198 @@ Please create a connection profile in Settings first.</source>
 Creare prima un profilo di connessione nelle Impostazioni.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1536"/>
+        <location filename="../src/bmainwindow.cpp" line="1551"/>
         <source>Select Connection Profile</source>
         <translation>Seleziona profilo di connessione</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1542"/>
+        <location filename="../src/bmainwindow.cpp" line="1557"/>
         <source>Connection Profile</source>
         <translation>Profilo di connessione</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1591"/>
+        <location filename="../src/bmainwindow.cpp" line="1606"/>
         <source>Manage Profiles...</source>
         <translation>Gestisci profili...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1619"/>
+        <location filename="../src/bmainwindow.cpp" line="1634"/>
         <source>Error</source>
         <translation>Errore</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1620"/>
+        <location filename="../src/bmainwindow.cpp" line="1635"/>
         <source>Selected profile is invalid.</source>
         <translation>Il profilo selezionato non è valido.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1658"/>
-        <location filename="../src/bmainwindow.cpp" line="2515"/>
-        <location filename="../src/bmainwindow.cpp" line="2699"/>
+        <location filename="../src/bmainwindow.cpp" line="1673"/>
+        <location filename="../src/bmainwindow.cpp" line="2532"/>
+        <location filename="../src/bmainwindow.cpp" line="2716"/>
         <source>Connecting to %1...</source>
         <translation>Connessione a %1...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1809"/>
+        <location filename="../src/bmainwindow.cpp" line="1732"/>
+        <source>&lt;p style=&apos;color:#666; margin:0;&apos;&gt;Version %1 (Build %2)&lt;/p&gt;</source>
+        <translation>&lt;p style=&apos;color:#666; margin:0;&apos;&gt;Versione %1 (Build %2)&lt;/p&gt;</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1738"/>
+        <source>&lt;p style=&apos;margin:0;&apos;&gt;Modern Qt6 GUI for Bacula Backup&lt;/p&gt;</source>
+        <translation>&lt;p style=&apos;margin:0;&apos;&gt;GUI Qt6 moderna per i backup Bacula&lt;/p&gt;</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1740"/>
+        <source>&lt;p style=&apos;margin:0;&apos;&gt;Modern Qt6 GUI for Bareos Backup&lt;/p&gt;</source>
+        <translation>&lt;p style=&apos;margin:0;&apos;&gt;GUI Qt6 moderna per i backup Bareos&lt;/p&gt;</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1824"/>
         <source>Close</source>
         <translation>Chiudi</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1825"/>
+        <location filename="../src/bmainwindow.cpp" line="1840"/>
         <source>Documentation</source>
         <translation>Documentazione</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1826"/>
-        <location filename="../src/bmainwindow.cpp" line="1836"/>
+        <location filename="../src/bmainwindow.cpp" line="1841"/>
+        <location filename="../src/bmainwindow.cpp" line="1851"/>
         <source>Could not open browser. Please visit:
 %1</source>
         <translation>Impossibile aprire il browser. Visitare:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1835"/>
+        <location filename="../src/bmainwindow.cpp" line="1850"/>
         <source>Report Bug</source>
         <translation>Segnala bug</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1883"/>
+        <location filename="../src/bmainwindow.cpp" line="1898"/>
         <source>Find</source>
         <translation>Trova</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1898"/>
+        <location filename="../src/bmainwindow.cpp" line="1913"/>
         <source>Toggle Theme</source>
         <translation>Alterna tema</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1901"/>
+        <location filename="../src/bmainwindow.cpp" line="1916"/>
         <source>Reset Interface Zoom</source>
         <translation>Ripristina zoom dell&apos;interfaccia</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1921"/>
+        <location filename="../src/bmainwindow.cpp" line="1936"/>
         <source>Data</source>
         <translation>Dati</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1930"/>
+        <location filename="../src/bmainwindow.cpp" line="1945"/>
         <source>Help Contents</source>
         <translation>Sommario della guida</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2266"/>
+        <location filename="../src/bmainwindow.cpp" line="2281"/>
         <source>Not connected to a Director.</source>
         <translation>Non connesso a un Director.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2288"/>
+        <location filename="../src/bmainwindow.cpp" line="2303"/>
         <source>Settings saved</source>
         <translation>Impostazioni salvate</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2313"/>
+        <location filename="../src/bmainwindow.cpp" line="2330"/>
         <source>Disconnect from Director</source>
         <translation>Disconnetti dal Director</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2376"/>
+        <location filename="../src/bmainwindow.cpp" line="2393"/>
         <source>Connected to %1 version %2</source>
         <translation>Connesso a %1 versione %2</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2378"/>
+        <location filename="../src/bmainwindow.cpp" line="2395"/>
         <source>Connected: version %1</source>
         <translation>Connesso: versione %1</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2384"/>
+        <location filename="../src/bmainwindow.cpp" line="2401"/>
         <source>Connected - Loading data...</source>
         <translation>Connesso - Caricamento dei dati...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2449"/>
+        <location filename="../src/bmainwindow.cpp" line="2466"/>
         <source>Error: </source>
         <translation>Errore: </translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2456"/>
+        <location filename="../src/bmainwindow.cpp" line="2473"/>
         <source>Connection Error</source>
         <translation>Errore di connessione</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2510"/>
+        <location filename="../src/bmainwindow.cpp" line="2488"/>
+        <source>Refreshing data...</source>
+        <translation>Aggiornamento dei dati...</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="2527"/>
         <source>No Saved Connection</source>
         <translation>Nessuna connessione salvata</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2511"/>
+        <location filename="../src/bmainwindow.cpp" line="2528"/>
         <source>No previous connection found. Please use &apos;Connect&apos; to establish a new connection.</source>
         <translation>Nessuna connessione precedente trovata. Usare &apos;Connetti&apos; per stabilire una nuova connessione.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2653"/>
+        <location filename="../src/bmainwindow.cpp" line="2670"/>
         <source>Auto-connecting to %1...</source>
         <translation>Connessione automatica a %1...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2680"/>
+        <location filename="../src/bmainwindow.cpp" line="2697"/>
         <source>Connection cancelled: server certificate not trusted</source>
         <translation>Connessione annullata: certificato del server non attendibile</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2737"/>
-        <source>%1 row(s) copied</source>
-        <translation>%1 righe copiate</translation>
-    </message>
-    <message>
-        <location filename="../src/bmainwindow.cpp" line="2743"/>
+        <location filename="../src/bmainwindow.cpp" line="2760"/>
         <source>Copying client data is not implemented yet</source>
         <translation>Copia dei dati dei client non ancora implementata</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2756"/>
+        <location filename="../src/bmainwindow.cpp" line="2773"/>
         <source>All jobs selected</source>
         <translation>Tutti i job selezionati</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2759"/>
+        <location filename="../src/bmainwindow.cpp" line="2776"/>
         <source>Selecting all clients is not implemented yet</source>
         <translation>Selezione di tutti i client non ancora implementata</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2771"/>
+        <location filename="../src/bmainwindow.cpp" line="2788"/>
         <source>Selection cleared</source>
         <translation>Selezione annullata</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2774"/>
+        <location filename="../src/bmainwindow.cpp" line="2791"/>
         <source>Clearing the client selection is not implemented yet</source>
         <translation>Annullamento della selezione per i client non ancora implementato</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2785"/>
-        <location filename="../src/bmainwindow.cpp" line="2795"/>
+        <location filename="../src/bmainwindow.cpp" line="2802"/>
+        <location filename="../src/bmainwindow.cpp" line="2812"/>
         <source>Search</source>
         <translation>Cerca</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2786"/>
+        <location filename="../src/bmainwindow.cpp" line="2803"/>
         <source>Use the filter options in the Job view
 to search for specific jobs.
 
@@ -6840,62 +7299,72 @@ Filtri disponibili:
 • Intervallo di date</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2796"/>
+        <location filename="../src/bmainwindow.cpp" line="2813"/>
         <source>Use the filter combo box in the Client view
 to search for specific clients.</source>
         <translation>Usare la casella combinata di filtro nella vista Client
 per cercare client specifici.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2828"/>
+        <location filename="../src/bmainwindow.cpp" line="2845"/>
         <source>Reset Interface Zoom (now %1 %)</source>
         <translation>Ripristina zoom dell&apos;interfaccia (ora %1 %)</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2842"/>
+        <location filename="../src/bmainwindow.cpp" line="2859"/>
         <source>Switched to Light Theme</source>
         <translation>Passato al tema chiaro</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2846"/>
+        <location filename="../src/bmainwindow.cpp" line="2863"/>
         <source>Switched to Dark Theme</source>
         <translation>Passato al tema scuro</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2859"/>
-        <location filename="../src/bmainwindow.cpp" line="2871"/>
-        <location filename="../src/bmainwindow.cpp" line="2883"/>
+        <location filename="../src/bmainwindow.cpp" line="2876"/>
+        <location filename="../src/bmainwindow.cpp" line="2888"/>
+        <location filename="../src/bmainwindow.cpp" line="2900"/>
         <source>Not Connected</source>
         <translation>Non connesso</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2859"/>
-        <location filename="../src/bmainwindow.cpp" line="2871"/>
+        <location filename="../src/bmainwindow.cpp" line="2876"/>
+        <location filename="../src/bmainwindow.cpp" line="2888"/>
         <source>Please connect to the Director first.</source>
         <translation>Connettersi prima al Director.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2884"/>
+        <location filename="../src/bmainwindow.cpp" line="2882"/>
+        <source>Jobs exported as JSON</source>
+        <translation>Job esportati come JSON</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="2894"/>
+        <source>Jobs exported as CSV</source>
+        <translation>Job esportati come CSV</translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="2901"/>
         <source>Please connect to Bareos Director first.</source>
         <translation>Connettersi prima al Director di Bareos.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2893"/>
+        <location filename="../src/bmainwindow.cpp" line="2910"/>
         <source>Loading job data...</source>
         <translation>Caricamento dei dati dei job...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2928"/>
+        <location filename="../src/bmainwindow.cpp" line="2945"/>
         <source>Connection profile &apos;%1&apos; saved</source>
         <translation>Profilo di connessione &apos;%1&apos; salvato</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3013"/>
+        <location filename="../src/bmainwindow.cpp" line="3030"/>
         <source>Password Missing</source>
         <translation>Password mancante</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3014"/>
+        <location filename="../src/bmainwindow.cpp" line="3031"/>
         <source>The imported Console &apos;%1&apos; does not contain a password.
 
 You will need to enter the password manually in the connection settings.</source>
@@ -6904,17 +7373,17 @@ You will need to enter the password manually in the connection settings.</source
 Sarà necessario inserire la password manualmente nelle impostazioni di connessione.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3035"/>
+        <location filename="../src/bmainwindow.cpp" line="3052"/>
         <source>Created connection profile &apos;%1&apos; for Director &apos;%2&apos;</source>
         <translation>Creato il profilo di connessione &apos;%1&apos; per il Director &apos;%2&apos;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3040"/>
+        <location filename="../src/bmainwindow.cpp" line="3057"/>
         <source>Connect Now?</source>
         <translation>Connettere ora?</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3041"/>
+        <location filename="../src/bmainwindow.cpp" line="3058"/>
         <source>Connection profile &apos;%1&apos; has been created.
 
 Do you want to connect now?</source>
@@ -6923,7 +7392,7 @@ Do you want to connect now?</source>
 Connettersi ora?</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3057"/>
+        <location filename="../src/bmainwindow.cpp" line="3074"/>
         <source>Imported Director &apos;%1&apos; with Console &apos;%2&apos;</source>
         <translation>Importato il Director &apos;%1&apos; con la Console &apos;%2&apos;</translation>
     </message>
@@ -6986,10 +7455,13 @@ Connettersi ora?</translation>
         <source>Refreshing messages...</source>
         <translation>Aggiornamento dei messaggi...</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/messages/bmessageswidget.cpp" line="369"/>
-        <source>%1 message(s)</source>
-        <translation>%1 messaggi</translation>
+        <source>%n message(s)</source>
+        <translation>
+            <numerusform>%n messaggio</numerusform>
+            <numerusform>%n messaggi</numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -7607,6 +8079,26 @@ nella pagina di anteprima per aggiungere automaticamente questo client.</transla
         <translation>Modalità di ripristino: sostituisci i file esistenti</translation>
     </message>
     <message>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="229"/>
+        <source>Always</source>
+        <translation>Sempre</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="230"/>
+        <source>Never</source>
+        <translation>Mai</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="231"/>
+        <source>If Newer</source>
+        <translation>Se più recente</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="232"/>
+        <source>If Older</source>
+        <translation>Se più vecchio</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/bnewjobdialog.cpp" line="242"/>
         <source>Advanced</source>
         <translation>Avanzate</translation>
@@ -8066,10 +8558,51 @@ Ora è possibile usare questo file nelle impostazioni dei certificati.</translat
 <context>
     <name>BPaginationWidget</name>
     <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="26"/>
+        <source>Enable Pagination</source>
+        <translation>Attiva paginazione</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="32"/>
+        <source>Items per page:</source>
+        <translation>Elementi per pagina:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="46"/>
+        <source>First Page</source>
+        <translation>Prima pagina</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="52"/>
+        <source>Previous Page</source>
+        <translation>Pagina precedente</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="58"/>
         <location filename="../src/jobs/bpaginationwidget.cpp" line="311"/>
         <location filename="../src/jobs/bpaginationwidget.cpp" line="334"/>
         <source>Page 0 of 0</source>
         <translation>Pagina 0 di 0</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="64"/>
+        <source>Next Page</source>
+        <translation>Pagina successiva</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="70"/>
+        <source>Last Page</source>
+        <translation>Ultima pagina</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="78"/>
+        <source>Go to page:</source>
+        <translation>Vai alla pagina:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bpaginationwidget.cpp" line="85"/>
+        <source>Go</source>
+        <translation>Vai</translation>
     </message>
     <message>
         <location filename="../src/jobs/bpaginationwidget.cpp" line="345"/>
@@ -8080,143 +8613,143 @@ Ora è possibile usare questo file nelle impostazioni dei certificati.</translat
 <context>
     <name>BPermissionsDialog</name>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1963"/>
+        <location filename="../src/bmainwindow.cpp" line="1978"/>
         <source>My Permissions</source>
         <translation>Le mie autorizzazioni</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1976"/>
+        <location filename="../src/bmainwindow.cpp" line="1991"/>
         <source>Connection</source>
         <translation>Connessione</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1978"/>
+        <location filename="../src/bmainwindow.cpp" line="1993"/>
         <source>Director:</source>
         <translation>Director:</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1979"/>
+        <location filename="../src/bmainwindow.cpp" line="1994"/>
         <source>Host:</source>
         <translation>Host:</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1986"/>
+        <location filename="../src/bmainwindow.cpp" line="2001"/>
         <source>TLS-PSK</source>
         <translation>TLS-PSK</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1988"/>
+        <location filename="../src/bmainwindow.cpp" line="2003"/>
         <source>TLS Certificate</source>
         <translation>Certificato TLS</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1990"/>
+        <location filename="../src/bmainwindow.cpp" line="2005"/>
         <source>None</source>
         <translation>Nessuna</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1992"/>
+        <location filename="../src/bmainwindow.cpp" line="2007"/>
         <source>Encryption:</source>
         <translation>Cifratura:</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1998"/>
+        <location filename="../src/bmainwindow.cpp" line="2013"/>
         <source>Backup &amp; Restore</source>
         <translation>Backup e ripristino</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1999"/>
+        <location filename="../src/bmainwindow.cpp" line="2014"/>
         <source>Job Control</source>
         <translation>Controllo dei job</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2000"/>
+        <location filename="../src/bmainwindow.cpp" line="2015"/>
         <source>Administration</source>
         <translation>Amministrazione</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2002"/>
+        <location filename="../src/bmainwindow.cpp" line="2017"/>
         <source>Media</source>
         <translation>Supporti</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2013"/>
+        <location filename="../src/bmainwindow.cpp" line="2028"/>
         <source>Command Permissions</source>
         <translation>Autorizzazioni dei comandi</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2020"/>
+        <location filename="../src/bmainwindow.cpp" line="2035"/>
         <source>Checking...</source>
         <translation>Verifica in corso...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2029"/>
+        <location filename="../src/bmainwindow.cpp" line="2044"/>
         <source>Restore Details</source>
         <translation>Dettagli del ripristino</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2031"/>
-        <location filename="../src/bmainwindow.cpp" line="2040"/>
+        <location filename="../src/bmainwindow.cpp" line="2046"/>
+        <location filename="../src/bmainwindow.cpp" line="2055"/>
         <source>Loading...</source>
         <translation>Caricamento...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2038"/>
+        <location filename="../src/bmainwindow.cpp" line="2053"/>
         <source>Other Available Commands</source>
         <translation>Altri comandi disponibili</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2047"/>
+        <location filename="../src/bmainwindow.cpp" line="2062"/>
         <source>Raw Director Response</source>
         <translation>Risposta grezza del Director</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2065"/>
+        <location filename="../src/bmainwindow.cpp" line="2080"/>
         <source>Querying Director...</source>
         <translation>Interrogazione del Director...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2154"/>
+        <location filename="../src/bmainwindow.cpp" line="2169"/>
         <source>N/A</source>
         <translation>N/D</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2157"/>
+        <location filename="../src/bmainwindow.cpp" line="2172"/>
         <source>Authorized</source>
         <translation>Autorizzato</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2160"/>
+        <location filename="../src/bmainwindow.cpp" line="2175"/>
         <source>Not authorized</source>
         <translation>Non autorizzato</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2185"/>
+        <location filename="../src/bmainwindow.cpp" line="2200"/>
         <source>&lt;b&gt;Permission:&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;Autorizzazione:&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2189"/>
+        <location filename="../src/bmainwindow.cpp" line="2204"/>
         <source>&lt;b&gt;where= (restore path):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;where= (percorso di ripristino):&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2193"/>
+        <location filename="../src/bmainwindow.cpp" line="2208"/>
         <source>&lt;b&gt;client= (target client):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;client= (client di destinazione):&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2197"/>
+        <location filename="../src/bmainwindow.cpp" line="2212"/>
         <source>&lt;b&gt;replace= (replace policy):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;replace= (criterio di sostituzione):&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2203"/>
+        <location filename="../src/bmainwindow.cpp" line="2218"/>
         <source>&lt;br&gt;&lt;b&gt;Available parameters:&lt;/b&gt; %1</source>
         <translation>&lt;br&gt;&lt;b&gt;Parametri disponibili:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2224"/>
+        <location filename="../src/bmainwindow.cpp" line="2239"/>
         <source>Total: %1 commands (%2 authorized, %3 denied)</source>
         <translation>Totale: %1 comandi (%2 autorizzati, %3 negati)</translation>
     </message>
@@ -9601,10 +10134,13 @@ Lasciare vuoto per consentire tutti i certificati validi.</translation>
         <source>Selected: %1</source>
         <translation>Selezionati: %1</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/jobs/brestorewizard.cpp" line="713"/>
-        <source>%1 item(s) selected</source>
-        <translation>%1 elemento/i selezionato/i</translation>
+        <source>%n item(s) selected</source>
+        <translation>
+            <numerusform>%n elemento selezionato</numerusform>
+            <numerusform>%n elementi selezionati</numerusform>
+        </translation>
     </message>
 </context>
 <context>
@@ -10932,157 +11468,160 @@ Consultare il log qui sopra per i dettagli.</translation>
         <translation>%1, se si rivela contrario</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1111"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1116"/>
         <source>Utilization</source>
         <translation>Utilizzo</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1338"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1343"/>
         <source>Not used by any enabled job: nothing starts at this time.</source>
         <translation>Non usato da alcun job abilitato: a quest&apos;ora non parte nulla.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1339"/>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1356"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1344"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1361"/>
         <source>Time</source>
         <translation>Ora</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1342"/>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1354"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1347"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1359"/>
         <source>Level</source>
         <translation>Livello</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1344"/>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1363"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1349"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1368"/>
         <source>Run</source>
         <translation>Esecuzione</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1355"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1360"/>
         <source>(level of the job)</source>
         <translation>(livello del job)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1367"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1372"/>
         <source>Schedule</source>
         <translation>Schedule</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1370"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1375"/>
         <source>Client</source>
         <translation>Client</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1376"/>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1379"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1381"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1384"/>
         <source>Predicted wait</source>
         <translation>Attesa prevista</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1376"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1381"/>
         <source>none</source>
         <translation>nessuna</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1379"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1384"/>
         <source>Predicted wait: none</source>
         <translation>Attesa prevista: nessuna</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1390"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1395"/>
         <source>the jobs of the Director are not loaded: it is not known which job runs this schedule</source>
         <translation>i job del Director non sono caricati: non si sa quale job esegue questo Schedule</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1395"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1400"/>
         <source>no successful run of this job in the last %1 days</source>
         <translation>nessuna esecuzione riuscita di questo job negli ultimi %1 giorni</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1399"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1404"/>
         <source>No history</source>
         <translation>Nessuno storico</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1400"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1405"/>
         <source>Duration unknown: the outline marks the start only.</source>
         <translation>Durata sconosciuta: il contorno indica solo l&apos;inizio.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1403"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1408"/>
         <source>Median duration</source>
         <translation>Durata mediana</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1405"/>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1412"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1410"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1417"/>
         <source>90%</source>
         <translation>90%</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1407"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1412"/>
         <source>runs</source>
         <translation>esecuzioni</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1410"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1415"/>
         <source>Median wait</source>
         <translation>Attesa mediana</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1415"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1420"/>
         <source>Wait</source>
         <translation>Attesa</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1415"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1420"/>
         <source>unknown</source>
         <translation>sconosciuta</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1419"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1424"/>
         <source>Estimate: no run at this level in the last %1 days, figures from all levels of the job.</source>
         <translation>Stima: nessuna esecuzione a questo livello negli ultimi %1 giorni, valori da tutti i livelli del job.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1425"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1430"/>
         <source>Pool</source>
         <translation>Pool</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1428"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1433"/>
         <source>Storage</source>
         <translation>Storage</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1437"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1442"/>
         <source>Type</source>
         <translation>Tipo</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1439"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1444"/>
         <source>FileSet</source>
         <translation>FileSet</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1443"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1448"/>
         <source>Priority</source>
         <translation>Priorità</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1473"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1478"/>
         <source>job(s) running</source>
         <translation>job in esecuzione</translation>
     </message>
-    <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1477"/>
-        <source>%1 run(s) predicted to wait</source>
-        <translation>%1 esecuzione/i con attesa prevista</translation>
+    <message numerus="yes">
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1482"/>
+        <source>%n run(s) predicted to wait</source>
+        <translation>
+            <numerusform>%n esecuzione dovrebbe attendere</numerusform>
+            <numerusform>%n esecuzioni dovrebbero attendere</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1482"/>
+        <location filename="../src/schedules/bscheduleganttwidget.cpp" line="1487"/>
         <source>%1 run(s) without history start here (not counted: duration unknown)</source>
         <translation>%1 esecuzione/i senza storico iniziano qui (non conteggiate: durata sconosciuta)</translation>
     </message>
@@ -13446,10 +13985,13 @@ Viene mantenuta esattamente com&apos;è. Per sostituirla, rimuoverla e aggiunger
         <source>no Max Run Time set, %1 assumed</source>
         <translation>nessun Max Run Time impostato, si assume %1</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1119"/>
-        <source>%1 run(s) wait, longest %2</source>
-        <translation>%1 esecuzione/i in attesa, la più lunga %2</translation>
+        <source>%n run(s) wait, longest %1</source>
+        <translation>
+            <numerusform>%n esecuzione in attesa, la più lunga %1</numerusform>
+            <numerusform>%n esecuzioni in attesa, la più lunga %1</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1120"/>
@@ -13730,370 +14272,370 @@ Viene mantenuta esattamente com&apos;è. Per sostituirla, rimuoverla e aggiunger
 <context>
     <name>BScheduleWidget</name>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="37"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="718"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="115"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="803"/>
         <source>Jobs:</source>
         <translation>Job:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="46"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="124"/>
         <source>Refresh</source>
         <translation>Aggiorna</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="123"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="201"/>
         <source>Timeline</source>
         <translation>Sequenza temporale</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="124"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="202"/>
         <source>Grid</source>
         <translation>Griglia</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="125"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="203"/>
         <source>Measured waits</source>
         <translation>Attese misurate</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="126"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="204"/>
         <source>View:</source>
         <translation>Vista:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="132"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="210"/>
         <source>Day</source>
         <translation>Giorno</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="133"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="211"/>
         <source>Week</source>
         <translation>Settimana</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="147"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="225"/>
         <source>Previous day or week</source>
         <translation>Giorno o settimana precedente</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="148"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="226"/>
         <source>Next day or week</source>
         <translation>Giorno o settimana successiva</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="149"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="227"/>
         <source>Today</source>
         <translation>Oggi</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="151"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="229"/>
         <source>Show today or the current week</source>
         <translation>Mostra oggi o la settimana corrente</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="156"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="234"/>
         <source>The date or the week (Monday to Sunday) on display</source>
         <translation>La data o la settimana (da lunedì a domenica) visualizzata</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="165"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="243"/>
         <source>The date on display; the calendar opens from the arrow</source>
         <translation>La data visualizzata; il calendario si apre dalla freccia</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="181"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="259"/>
         <source>Snap:</source>
         <translation>Aggancio:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="188"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="266"/>
         <source>Zoom:</source>
         <translation>Zoom:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="193"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="271"/>
         <source>Zoom level (pixels per hour)</source>
         <translation>Livello di zoom (pixel per ora)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="232"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="310"/>
         <source>Legend</source>
         <translation>Legenda</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="234"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="312"/>
         <source>What the bars, hourglasses, question marks and diamonds of the timeline mean</source>
         <translation>Significato di barre, clessidre, punti interrogativi e rombi della sequenza temporale</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="255"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="340"/>
         <source>Schedules:</source>
         <translation>Schedule:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="272"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1696"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2094"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="357"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1781"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2179"/>
         <source>Job</source>
         <translation>Job</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="272"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="984"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="357"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1069"/>
         <source>Type</source>
         <translation>Tipo</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="272"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="985"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="357"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1070"/>
         <source>Client</source>
         <translation>Client</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="272"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="987"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="357"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1072"/>
         <source>Storage</source>
         <translation>Storage</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="272"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="986"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="357"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1071"/>
         <source>FileSet</source>
         <translation>FileSet</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="272"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1025"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1697"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="357"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1110"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1782"/>
         <source>Median duration</source>
         <translation>Durata mediana</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="301"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="386"/>
         <source>Clients (FD)</source>
         <translation>Client (FD)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="302"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="387"/>
         <source>Storage (SD)</source>
         <translation>Storage (SD)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="542"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="627"/>
         <source>%1 schedules loaded</source>
         <translation>%1 Schedule caricati</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="632"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="717"/>
         <source>%1 schedules loaded (%2 Run lines)</source>
         <translation>%1 Schedule caricati (%2 righe Run)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="665"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="750"/>
         <source>Refreshing schedule list...</source>
         <translation>Aggiornamento dell&apos;elenco degli Schedule...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="723"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="808"/>
         <source>Jobs (%1):</source>
         <translation>Job (%1):</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="725"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="810"/>
         <source>Jobs (%1 Schedules):</source>
         <translation>Job (%1 Schedule):</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="746"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="750"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="762"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="831"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="835"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="847"/>
         <source>-</source>
         <translation>-</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="764"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="849"/>
         <source>Median of %1 measured runs at all levels in the last %2 days</source>
         <translation>Mediana di %1 esecuzioni misurate a tutti i livelli negli ultimi %2 giorni</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="766"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1213"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="851"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1298"/>
         <source>No history</source>
         <translation>Nessuno storico</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="915"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1000"/>
         <source>Mon</source>
         <translation>Lun</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="915"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1000"/>
         <source>Tue</source>
         <translation>Mar</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="915"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1000"/>
         <source>Wed</source>
         <translation>Mer</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="915"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1000"/>
         <source>Thu</source>
         <translation>Gio</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="916"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1001"/>
         <source>Fri</source>
         <translation>Ven</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="916"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1001"/>
         <source>Sat</source>
         <translation>Sab</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="916"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1001"/>
         <source>Sun</source>
         <translation>Dom</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="936"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1021"/>
         <source>Measured history</source>
         <translation>Storico misurato</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="952"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1037"/>
         <source>Close</source>
         <translation>Chiudi</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="988"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1073"/>
         <source>Priority</source>
         <translation>Priorità</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1026"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1111"/>
         <source>25% - 75%</source>
         <translation>25% - 75%</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1027"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1112"/>
         <source>90%</source>
         <translation>90%</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1034"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1696"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1119"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1781"/>
         <source>Runs</source>
         <translation>Esecuzioni</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1040"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1698"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1125"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1783"/>
         <source>Median wait</source>
         <translation>Attesa mediana</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1041"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1698"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1126"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1783"/>
         <source>90% wait</source>
         <translation>Attesa 90%</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1048"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1133"/>
         <source>Start</source>
         <translation>Inizio</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1048"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1696"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2094"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1133"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1781"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2179"/>
         <source>Level</source>
         <translation>Livello</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1048"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1133"/>
         <source>Duration</source>
         <translation>Durata</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1048"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2095"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1133"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2180"/>
         <source>Wait</source>
         <translation>Attesa</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1153"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1238"/>
         <source>no job uses this schedule</source>
         <translation>nessun job usa questo Schedule</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1157"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1242"/>
         <source>no successful run of this job in the last %1 days</source>
         <translation>nessuna esecuzione riuscita di questo job negli ultimi %1 giorni</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1160"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1245"/>
         <source>No history: %1.</source>
         <translation>Nessuno storico: %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1172"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1257"/>
         <source>Estimate: no run at this level in the last %1 days. The figures are from all levels of the job.</source>
         <translation>Stima: nessuna esecuzione a questo livello negli ultimi %1 giorni. I valori provengono da tutti i livelli del job.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1188"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1189"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1208"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2034"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2688"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1273"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1274"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1293"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2119"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2771"/>
         <source>unknown</source>
         <translation>sconosciuto</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1242"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1248"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1327"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1333"/>
         <source>1 hour</source>
         <translation>1 ora</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1243"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1328"/>
         <source>2 hours</source>
         <translation>2 ore</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1244"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1329"/>
         <source>4 hours</source>
         <translation>4 ore</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1246"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1331"/>
         <source>15 min</source>
         <translation>15 min</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1247"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1332"/>
         <source>30 min</source>
         <translation>30 min</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1315"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1400"/>
         <source>Run line %1 &quot;%2&quot;: %3</source>
         <translation>Riga Run %1 &quot;%2&quot;: %3</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1330"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1415"/>
         <source>Not understood and not shown in the views:</source>
         <translation>Non comprese e non mostrate nelle viste:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1332"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1417"/>
         <source>This schedule cannot be written by the application.</source>
         <translation>Questo Schedule non può essere scritto dall&apos;applicazione.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1338"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1423"/>
         <source>%n Run line(s) not understood</source>
         <translation>
             <numerusform>%n riga Run non compresa</numerusform>
@@ -14101,570 +14643,570 @@ Viene mantenuta esattamente com&apos;è. Per sostituirla, rimuoverla e aggiunger
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1340"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1425"/>
         <source>These Run lines are not shown in the views, and their schedules cannot be written by the application:</source>
         <translation>Queste righe Run non sono mostrate nelle viste e i loro Schedule non possono essere scritti dall&apos;applicazione:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1450"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1535"/>
         <source>Schedule %1 was not changed: changing a schedule needs the configuration methods of the gRPC interface of the Onesimus Director (onesimus-dird), which are not available on this connection. %2 stays at %3 (dropped at %4).</source>
         <translation>Lo Schedule %1 non è stato modificato: la modifica di uno Schedule richiede i metodi di configurazione dell&apos;interfaccia gRPC dell&apos;Onesimus Director (onesimus-dird), che non sono disponibili su questa connessione. %2 resta alle %3 (rilasciato alle %4).</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1477"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1562"/>
         <source>Schedule %1 was not changed: another change is being written.</source>
         <translation>Lo Schedule %1 non è stato modificato: un&apos;altra modifica è in fase di scrittura.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1491"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1576"/>
         <source>Run line %1 is not understood, so the schedule is locked.</source>
         <translation>La riga Run %1 non è compresa, quindi lo Schedule è bloccato.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1494"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1579"/>
         <source>the dragged Run line runs at several hours of the day; change it in the grid.</source>
         <translation>la riga Run trascinata viene eseguita a più ore del giorno; modificarla nella griglia.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1498"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1583"/>
         <source>the dragged run could not be matched to exactly one Run line; refresh and try again, or change it in the grid.</source>
         <translation>non è stato possibile associare l&apos;esecuzione trascinata a una sola riga Run; aggiornare e riprovare, oppure modificarla nella griglia.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1502"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1587"/>
         <source>its Run lines are not loaded yet.</source>
         <translation>le sue righe Run non sono ancora caricate.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1505"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1590"/>
         <source>%1 is not a time of day.</source>
         <translation>%1 non è un&apos;ora del giorno.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1509"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1594"/>
         <source>the new Run line did not read back as intended (%1).</source>
         <translation>la nuova riga Run non si è riletta come previsto (%1).</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1512"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1597"/>
         <source>Schedule %1 was not changed: %2</source>
         <translation>Lo Schedule %1 non è stato modificato: %2</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1517"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1602"/>
         <source>Run line %1 of schedule %2 moves from %3 to %4 (dragged in the timeline: %5). Only this line is written anew; the other lines stay as they are in the file.</source>
         <translation>La riga Run %1 dello Schedule %2 si sposta da %3 a %4 (trascinata nella sequenza temporale: %5). Viene riscritta solo questa riga; le altre righe restano come sono nel file.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1522"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1607"/>
         <source>The Director checks the change of schedule %1...</source>
         <translation>Il Director sta verificando la modifica dello Schedule %1...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1567"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1652"/>
         <source>Schedule %1 is locked: it contains a Run line that is not understood.</source>
         <translation>Lo Schedule %1 è bloccato: contiene una riga Run non compresa.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1573"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1658"/>
         <source>Schedule %1 was not written: changing a schedule needs the configuration methods of the gRPC interface of the Onesimus Director. Your changes are kept in the grid.</source>
         <translation>Lo Schedule %1 non è stato scritto: la modifica di uno Schedule richiede i metodi di configurazione dell&apos;interfaccia gRPC dell&apos;Onesimus Director. Le modifiche restano nella griglia.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1579"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1607"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1664"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1692"/>
         <source>Another change is being written.</source>
         <translation>Un&apos;altra modifica è in fase di scrittura.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1585"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1670"/>
         <source>Schedule %1 cannot be written: %2</source>
         <translation>Lo Schedule %1 non può essere scritto: %2</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1588"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1673"/>
         <source>The Director checks the changes of schedule %1...</source>
         <translation>Il Director sta verificando le modifiche dello Schedule %1...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1591"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1676"/>
         <source>The changes made in the grid. Lines that were not touched stay as they are in the file.</source>
         <translation>Le modifiche fatte nella griglia. Le righe non toccate restano come sono nel file.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1601"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1686"/>
         <source>Schedule %1 was not deleted: deleting a schedule needs the configuration methods of the gRPC interface of the Onesimus Director.</source>
         <translation>Lo Schedule %1 non è stato eliminato: l&apos;eliminazione di uno Schedule richiede i metodi di configurazione dell&apos;interfaccia gRPC dell&apos;Onesimus Director.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1610"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1695"/>
         <source>The Director checks whether schedule %1 can be deleted...</source>
         <translation>Il Director sta verificando se lo Schedule %1 può essere eliminato...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1625"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1710"/>
         <source>The Director reloaded its configuration.</source>
         <translation>Il Director ha ricaricato la configurazione.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1627"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1712"/>
         <source>Follow-up commands: %1</source>
         <translation>Comandi successivi: %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1686"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1771"/>
         <source>Refresh history</source>
         <translation>Aggiorna storico</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1689"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1774"/>
         <source>Ask the Director again for the jobs of the last days (llist jobs)</source>
         <translation>Richiedi di nuovo al Director i job degli ultimi giorni (llist jobs)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1697"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1782"/>
         <source>90% duration</source>
         <translation>Durata 90%</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1698"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1783"/>
         <source>Last run</source>
         <translation>Ultima esecuzione</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1700"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1785"/>
         <source>Runs in the window that terminated normally or with warnings</source>
         <translation>Esecuzioni nell&apos;intervallo terminate normalmente o con avvisi</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1702"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1787"/>
         <source>Wait: start of the job minus its scheduled time</source>
         <translation>Attesa: inizio del job meno il suo orario pianificato</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1704"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1789"/>
         <source>Nine of ten runs waited no longer than this</source>
         <translation>Nove esecuzioni su dieci non hanno atteso più di questo</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1820"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1905"/>
         <source>the request got no reply (%1)</source>
         <translation>la richiesta non ha ricevuto risposta (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1850"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1935"/>
         <source>the Director refused the request (%1)</source>
         <translation>il Director ha rifiutato la richiesta (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1851"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1936"/>
         <source>no reason given</source>
         <translation>nessun motivo indicato</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1854"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1939"/>
         <source>the Director&apos;s reply could not be read (%1)</source>
         <translation>impossibile leggere la risposta del Director (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1878"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1963"/>
         <source>Schedules: no job history, %1</source>
         <translation>Schedule: nessuno storico dei job, %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1912"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1997"/>
         <source>the job history is being loaded</source>
         <translation>lo storico dei job è in caricamento</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1916"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2001"/>
         <source>the job history has not been requested yet</source>
         <translation>lo storico dei job non è ancora stato richiesto</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1947"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2032"/>
         <source>Not connected.</source>
         <translation>Non connesso.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1949"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2034"/>
         <source>The job history has not been requested yet.</source>
         <translation>Lo storico dei job non è ancora stato richiesto.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1951"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2036"/>
         <source>No job history: %1.</source>
         <translation>Nessuno storico dei job: %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1952"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2037"/>
         <source>The schedule views work without it: runs have no duration and waits are unknown.</source>
         <translation>Le viste degli Schedule funzionano anche senza: le esecuzioni non hanno durata e le attese sono sconosciute.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1956"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2041"/>
         <source>Requesting the jobs of the last %1 days from the Director...</source>
         <translation>Richiesta al Director dei job degli ultimi %1 giorni...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1962"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2047"/>
         <source>Jobs scheduled in the last %1 days, fetched %2: %3 rows, of which %4 runs terminated normally or with warnings and were measured.</source>
         <translation>Job pianificati negli ultimi %1 giorni, recuperati %2: %3 righe, di cui %4 esecuzioni terminate normalmente o con avvisi e misurate.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1971"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2056"/>
         <source>The row limit (%1) was reached and this Director returned the oldest rows: the newest runs of the window are missing.</source>
         <translation>È stato raggiunto il limite di righe (%1) e questo Director ha restituito le righe più vecchie: mancano le esecuzioni più recenti dell&apos;intervallo.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1973"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2058"/>
         <source>The row limit (%1) was reached: the oldest runs of the window are missing.</source>
         <translation>È stato raggiunto il limite di righe (%1): mancano le esecuzioni più vecchie dell&apos;intervallo.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1977"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2062"/>
         <source>This Director did not deliver the scheduled time: all waits are unknown.</source>
         <translation>Questo Director non ha fornito l&apos;orario pianificato: tutte le attese sono sconosciute.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1979"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2064"/>
         <source>%1 runs came without a scheduled time: their wait is unknown.</source>
         <translation>%1 esecuzioni sono arrivate senza orario pianificato: la loro attesa è sconosciuta.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1983"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2068"/>
         <source>%1 rows were left out because they start before their scheduled time: copied, migrated and virtual full jobs carry the times of another job.</source>
         <translation>%1 righe sono state escluse perché iniziano prima del loro orario pianificato: i job copiati, migrati e VirtualFull riportano gli orari di un altro job.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1988"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2073"/>
         <source>%1 rows were left out because their start or end time is missing or the end is before the start.</source>
         <translation>%1 righe sono state escluse perché manca l&apos;ora di inizio o di fine oppure la fine è precedente all&apos;inizio.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2014"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2493"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2099"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2578"/>
         <source>(none)</source>
         <translation>(nessuno)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2023"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2108"/>
         <source>From %1 of %2 runs; the others came without a scheduled time.</source>
         <translation>Da %1 di %2 esecuzioni; le altre sono arrivate senza orario pianificato.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2032"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2117"/>
         <source>The Director delivered no scheduled time for these runs.</source>
         <translation>Il Director non ha fornito alcun orario pianificato per queste esecuzioni.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2067"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2152"/>
         <source>Predicted waits</source>
         <translation>Attese previste</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2088"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2173"/>
         <source>Reasons shared by several rows</source>
         <translation>Motivi comuni a più righe</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2094"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2179"/>
         <source>Scheduled</source>
         <translation>Pianificato</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2094"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2179"/>
         <source>Predicted start</source>
         <translation>Inizio previsto</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2095"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2180"/>
         <source>Measured</source>
         <translation>Misurata</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2095"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2180"/>
         <source>Certain</source>
         <translation>Certa</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2095"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2180"/>
         <source>Reason</source>
         <translation>Motivo</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2097"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2182"/>
         <source>What this job waited at this level in the job history (StartTime minus SchedTime): median / maximum. The catalog&apos;s start is set after the connections and Client Run Before Job, so that time is part of it.</source>
         <translation>Quanto ha atteso questo job a questo livello nello storico dei job (StartTime meno SchedTime): mediana / massimo. L&apos;inizio nel catalog viene impostato dopo le connessioni e il Client Run Before Job, quindi quel tempo ne fa parte.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2101"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2186"/>
         <source>Predicted start minus scheduled time: seconds (&quot;27 s&quot;), minutes:seconds (&quot;1:35 min&quot;) or, from ten minutes on, hours:minutes (&quot;0:53 h&quot;)</source>
         <translation>Inizio previsto meno orario pianificato: secondi (&quot;27 s&quot;), minuti:secondi (&quot;1:35 min&quot;) oppure, da dieci minuti in su, ore:minuti (&quot;0:53 h&quot;)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2104"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2189"/>
         <source>No: the prediction depends on a limit the Director did not report or on a duration that was not measured</source>
         <translation>No: la previsione dipende da un limite che il Director non ha segnalato o da una durata non misurata</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2106"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2191"/>
         <source>Predicted waits of the dates on display</source>
         <translation>Attese previste delle date visualizzate</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2108"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2193"/>
         <source>One row per run that is predicted to wait or whose prediction is uncertain. The reason of the current row is below the table.</source>
         <translation>Una riga per ogni esecuzione con attesa prevista o con previsione incerta. Il motivo della riga corrente è sotto la tabella.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2130"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2215"/>
         <source>Reason of the selected wait</source>
         <translation>Motivo dell&apos;attesa selezionata</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2163"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2248"/>
         <source>Back-test of the prediction</source>
         <translation>Verifica a posteriori della previsione</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2178"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2263"/>
         <source>Director (%1)</source>
         <translation>Director (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2180"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2265"/>
         <source>Storage %1 (%2)</source>
         <translation>Storage %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2182"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2267"/>
         <source>Client %1 (%2)</source>
         <translation>Client %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2184"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2269"/>
         <source>Job %1 (%2)</source>
         <translation>Job %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2186"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2271"/>
         <source>Priority %1</source>
         <translation>Priorità %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2188"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2273"/>
         <source>Queue: priority %1 first</source>
         <translation>Coda: prima la priorità %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2365"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2450"/>
         <source>Waiting not predicted</source>
         <translation>Attesa non prevista</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2369"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2454"/>
         <source>The jobs of the Director are not loaded: it is not known which job runs which schedule.</source>
         <translation>I job del Director non sono caricati: non si sa quale job esegue quale Schedule.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2372"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2457"/>
         <source>Predicted for the dates on display from the limits of the Director (Maximum Concurrent Jobs, priorities) and the measured durations.</source>
         <translation>Previsto per le date visualizzate in base ai limiti del Director (Maximum Concurrent Jobs, priorità) e alle durate misurate.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2375"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2460"/>
         <source>Uncertain: the prediction depends on a limit the Director did not report or on a duration that was not measured.</source>
         <translation>Incerto: la previsione dipende da un limite che il Director non ha segnalato o da una durata non misurata.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2379"/>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2582"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2464"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2667"/>
         <source>Opens or closes the list of predicted waits below the timeline.</source>
         <translation>Apre o chiude l&apos;elenco delle attese previste sotto la sequenza temporale.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2394"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2479"/>
         <source>Not predicted: the jobs of the Director are not loaded.</source>
         <translation>Non previsto: i job del Director non sono caricati.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2396"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2481"/>
         <source>%1 run(s) on display, replayed with the %2 run(s) of all enabled schedules from the day before on.</source>
         <translation>%1 esecuzione/i visualizzate, simulate con le %2 esecuzioni di tutti gli Schedule abilitati a partire dal giorno precedente.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2405"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2490"/>
         <source>the storage of job %1 (the job names none)</source>
         <translation>lo storage del job %1 (il job non ne indica alcuno)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2412"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2497"/>
         <source>storage %1</source>
         <translation>storage %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2419"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2504"/>
         <source>client %1</source>
         <translation>client %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2424"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2509"/>
         <source>job %1</source>
         <translation>job %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2431"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2516"/>
         <source>Director = %1</source>
         <translation>Director = %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2433"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2518"/>
         <source>the Director</source>
         <translation>il Director</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2435"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2520"/>
         <source>storages: %1</source>
         <translation>storage: %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2437"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2522"/>
         <source>clients: %1</source>
         <translation>client: %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2439"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2524"/>
         <source>Maximum Concurrent Jobs as reported: %1.</source>
         <translation>Maximum Concurrent Jobs come segnalato: %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2441"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2526"/>
         <source>Maximum Concurrent Jobs not reported by this Director for: %1. Runs it matters for are uncertain.</source>
         <translation>Maximum Concurrent Jobs non segnalato da questo Director per: %1. Le esecuzioni per cui è rilevante sono incerte.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2465"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2550"/>
         <source>[%1] %2 rows: %3.</source>
         <translation>[%1] %2 righe: %3.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2507"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2592"/>
         <source>none</source>
         <translation>nessuna</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2514"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2599"/>
         <source>not measured</source>
         <translation>non misurata</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2516"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2601"/>
         <source>yes</source>
         <translation>sì</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2516"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2601"/>
         <source>no</source>
         <translation>no</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2521"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2606"/>
         <source>Prediction too low</source>
         <translation>Previsione troppo bassa</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2522"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2607"/>
         <source>Prediction too low; %1</source>
         <translation>Previsione troppo bassa; %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2525"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2610"/>
         <source>Prediction too high</source>
         <translation>Previsione troppo alta</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2526"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2611"/>
         <source>Prediction too high; %1</source>
         <translation>Previsione troppo alta; %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2530"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2615"/>
         <source>Waits %1 for the device inside the run</source>
         <translation>Attende %1 il dispositivo all&apos;interno dell&apos;esecuzione</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2544"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2629"/>
         <source>No run on display is predicted to wait.</source>
         <translation>Nessuna esecuzione visualizzata ha un&apos;attesa prevista.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2545"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2630"/>
         <source>Not predicted.</source>
         <translation>Non previsto.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2579"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2664"/>
         <source>Predicted waits: %1. The list is open.</source>
         <translation>Attese previste: %1. L&apos;elenco è aperto.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2580"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2665"/>
         <source>Predicted waits: %1. The list is closed.</source>
         <translation>Attese previste: %1. L&apos;elenco è chiuso.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2594"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2677"/>
         <source>Select a row to read its reason in full.</source>
         <translation>Selezionare una riga per leggerne il motivo per intero.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2602"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2685"/>
         <source>%1, scheduled %2:</source>
         <translation>%1, pianificato alle %2:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2683"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2766"/>
         <source>Storage %1, parallel writers of its device:</source>
         <translation>Storage %1, scrittori paralleli del suo dispositivo:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2690"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2773"/>
         <source>Parallel writers of the device of storage %1</source>
         <translation>Scrittori paralleli del dispositivo dello storage %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2691"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2774"/>
         <source>How many jobs the device(s) of %1 write at a time: Maximum Concurrent Jobs of the Device resource in the storage daemon (several devices: their sum). The Director cannot read it. &quot;unknown&quot;: runs that depend on it are uncertain.</source>
         <translation>Quanti job scrivono contemporaneamente i dispositivi di %1: Maximum Concurrent Jobs della risorsa Device nello storage daemon (più dispositivi: la loro somma). Il Director non può leggerlo. &quot;sconosciuto&quot;: le esecuzioni che ne dipendono sono incerte.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2731"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2814"/>
         <source>No job history: no suggestion.</source>
         <translation>Nessuno storico dei job: nessun suggerimento.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2733"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2816"/>
         <source>History suggests %1.</source>
         <translation>Lo storico suggerisce %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2735"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2818"/>
         <source>History gives no suggestion.</source>
         <translation>Lo storico non fornisce alcun suggerimento.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2741"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2824"/>
         <source>Use %1</source>
         <translation>Usa %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2741"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2824"/>
         <source>Use</source>
         <translation>Usa</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2762"/>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2845"/>
         <source>Back-test: no job history to replay.</source>
         <translation>Verifica a posteriori: nessuno storico dei job da simulare.</translation>
     </message>
@@ -14695,14 +15237,14 @@ Viene mantenuta esattamente com&apos;è. Per sostituirla, rimuoverla e aggiunger
     <message>
         <location filename="../ui/bsettingsdialog.ui" line="14"/>
         <location filename="../src/config/bsettingsdialog.cpp" line="64"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1384"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1387"/>
         <source>Settings</source>
         <translation>Impostazioni</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="103"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1397"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1405"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1400"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1408"/>
         <source>Reset</source>
         <translation>Ripristina</translation>
     </message>
@@ -14904,7 +15446,7 @@ Viene mantenuta esattamente com&apos;è. Per sostituirla, rimuoverla e aggiunger
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="327"/>
         <location filename="../src/config/bsettingsdialog.cpp" line="333"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1665"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1668"/>
         <source>(password MD5 hash will appear here)</source>
         <translation>(qui comparirà l&apos;hash MD5 della password)</translation>
     </message>
@@ -15063,7 +15605,7 @@ Esempio: PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="515"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="764"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="769"/>
         <source> seconds</source>
         <translation> secondi</translation>
     </message>
@@ -15128,109 +15670,114 @@ Esempio: PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256</translation>
         <translation>Lingua</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="631"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="624"/>
+        <source>System (%1)</source>
+        <translation>Sistema (%1)</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="636"/>
         <source>Application Language:</source>
         <translation>Lingua dell&apos;applicazione:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="634"/>
-        <source>Language changes require an application restart.</source>
-        <translation>Il cambio di lingua richiede il riavvio dell&apos;applicazione.</translation>
+        <location filename="../src/config/bsettingsdialog.cpp" line="639"/>
+        <source>Language changes require an application restart. &quot;System&quot; follows the language of the operating system.</source>
+        <translation>Il cambio di lingua richiede il riavvio dell&apos;applicazione. &quot;Sistema&quot; segue la lingua del sistema operativo.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="643"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="648"/>
         <source>Status Bar Colors</source>
         <translation>Colori della barra di stato</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="652"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="657"/>
         <source>Color shown when connected to Director</source>
         <translation>Colore mostrato quando si è connessi al Director</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="654"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="659"/>
         <source>Connected:</source>
         <translation>Connesso:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="660"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="665"/>
         <source>Color shown when not connected</source>
         <translation>Colore mostrato quando non si è connessi</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="662"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="667"/>
         <source>Disconnected:</source>
         <translation>Disconnesso:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="667"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="672"/>
         <source>Backup Level Colors</source>
         <translation>Colori dei livelli di backup</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="731"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="736"/>
         <source>Behavior</source>
         <translation>Comportamento</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="737"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="742"/>
         <source>Confirmations</source>
         <translation>Conferme</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="741"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="746"/>
         <source>Confirm job cancellation</source>
         <translation>Conferma l&apos;annullamento dei job</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="745"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="750"/>
         <source>Confirm job start</source>
         <translation>Conferma l&apos;avvio dei job</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="752"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="757"/>
         <source>Auto-Refresh</source>
         <translation>Aggiornamento automatico</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="756"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="761"/>
         <source>Auto-refresh</source>
         <translation>Aggiornamento automatico</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="760"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="765"/>
         <source>Interval:</source>
         <translation>Intervallo:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="773"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="778"/>
         <source>Display</source>
         <translation>Visualizzazione</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="781"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="786"/>
         <source>Maximum Jobs:</source>
         <translation>Numero massimo di job:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="783"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="788"/>
         <source>Show newest jobs first</source>
         <translation>Mostra prima i job più recenti</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="786"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="791"/>
         <source>When enabled, the job list shows the most recent jobs first.
 When disabled, the oldest jobs are shown first.</source>
         <translation>Se abilitato, l&apos;elenco dei job mostra prima i job più recenti.
 Se disabilitato, vengono mostrati prima i job più vecchi.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="793"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="798"/>
         <source> hours</source>
         <translation> ore</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="795"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="800"/>
         <source>The clients table marks a client as stale when its last backup or contact
 is at least this old. The value is taken from the job history; it is not
 a live connection check.</source>
@@ -15239,22 +15786,22 @@ risale almeno a questo tempo. Il valore è ricavato dallo storico dei job; non �
 un controllo della connessione in tempo reale.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="798"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="803"/>
         <source>Client backup is stale after:</source>
         <translation>Il backup del client è obsoleto dopo:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="803"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="808"/>
         <source>Schedules</source>
         <translation>Schedule</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="810"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="815"/>
         <source> days</source>
         <translation> giorni</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="812"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="817"/>
         <source>The schedule view measures how long jobs run and how long they wait
 from the jobs of the last days in the catalog. A longer time gives more
 runs per job and a larger request to the Director. The history is only
@@ -15265,189 +15812,189 @@ esecuzioni per job e una richiesta più grande al Director. Lo storico viene
 richiesto solo mentre la vista degli Schedule è aperta.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="816"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="821"/>
         <source>Measure job history over the last:</source>
         <translation>Misura lo storico dei job negli ultimi:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="821"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="826"/>
         <source>Visible Backup Levels</source>
         <translation>Livelli di backup visibili</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="826"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="831"/>
         <source>Select which backup levels appear in the Run Backup dialog:</source>
         <translation>Selezionare quali livelli di backup compaiono nella finestra Esegui backup:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="832"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="837"/>
         <source>Complete backup of all files</source>
         <translation>Backup completo di tutti i file</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="833"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="838"/>
         <source>Backup files changed since last backup</source>
         <translation>Salva i file modificati dall&apos;ultimo backup</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="834"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="839"/>
         <source>Backup files changed since last Full backup</source>
         <translation>Salva i file modificati dall&apos;ultimo backup Full</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="835"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="840"/>
         <source>Consolidate incremental backups into a synthetic full</source>
         <translation>Consolida i backup Incremental in un Full sintetico</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="836"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="841"/>
         <source>Data-level backup (rarely used)</source>
         <translation>Backup a livello di dati (usato raramente)</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="884"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="889"/>
         <source>Advanced Settings</source>
         <translation>Impostazioni avanzate</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="891"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="896"/>
         <source>File Logging</source>
         <translation>Log su file</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="895"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="900"/>
         <source>Enable file logging</source>
         <translation>Abilita il log su file</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="896"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="901"/>
         <source>Write debug information to a log file</source>
         <translation>Scrive le informazioni di debug in un file di log</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="900"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="905"/>
         <source>Log File:</source>
         <translation>File di log:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="910"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="915"/>
         <source>Max. Log Size:</source>
         <translation>Dimensione max. log:</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="934"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="939"/>
         <source>Miscellaneous</source>
         <translation>Varie</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="938"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="943"/>
         <source>Show tooltips</source>
         <translation>Mostra suggerimenti</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="946"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="951"/>
         <source>⚠️ These settings are for advanced users.
 Changes may affect application stability.</source>
         <translation>⚠️ Queste impostazioni sono destinate agli utenti esperti.
 Le modifiche possono influire sulla stabilità dell&apos;applicazione.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1385"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1388"/>
         <source>Settings have been saved.
 Some changes require an application restart.</source>
         <translation>Le impostazioni sono state salvate.
 Alcune modifiche richiedono il riavvio dell&apos;applicazione.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1398"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1401"/>
         <source>Do you really want to reset all settings to default values?
 This action cannot be undone.</source>
         <translation>Ripristinare davvero tutte le impostazioni ai valori predefiniti?
 Questa azione non può essere annullata.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1406"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1409"/>
         <source>All settings have been reset to default values.</source>
         <translation>Tutte le impostazioni sono state ripristinate ai valori predefiniti.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1412"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1415"/>
         <source>Select CA Certificate</source>
         <translation>Seleziona certificato CA</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1413"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1425"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1416"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1428"/>
         <source>Certificates (*.pem *.crt *.cert);;All Files (*)</source>
         <translation>Certificati (*.pem *.crt *.cert);;Tutti i file (*)</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1421"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1424"/>
         <source>Select Client Certificate</source>
         <translation>Seleziona certificato client</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1423"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1426"/>
         <source>Certificates (*.pfx *.pem *.crt *.cert *.der);;PFX Files (*.pfx);;PEM Files (*.pem);;DER Files (*.der);;All Files (*)</source>
         <translation>Certificati (*.pfx *.pem *.crt *.cert *.der);;File PFX (*.pfx);;File PEM (*.pem);;File DER (*.der);;Tutti i file (*)</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1434"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1437"/>
         <source>Select Private Key</source>
         <translation>Seleziona chiave privata</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1435"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1438"/>
         <source>Keys (*.pem *.key);;All Files (*)</source>
         <translation>Chiavi (*.pem *.key);;Tutti i file (*)</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1443"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1446"/>
         <source>Export Settings</source>
         <translation>Esporta impostazioni</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1459"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1462"/>
         <source>Export</source>
         <translation>Esporta</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1459"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1462"/>
         <source>Settings exported successfully.</source>
         <translation>Impostazioni esportate correttamente.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1466"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1469"/>
         <source>Import Settings</source>
         <translation>Importa impostazioni</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1481"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1484"/>
         <source>Import</source>
         <translation>Importa</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1481"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1484"/>
         <source>Settings imported successfully.</source>
         <translation>Impostazioni importate correttamente.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1490"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1493"/>
         <source>No Profiles</source>
         <translation>Nessun profilo</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1491"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1494"/>
         <source>There are no connection profiles to delete.</source>
         <translation>Non ci sono profili di connessione da eliminare.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1495"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1498"/>
         <source>Clear All Profiles</source>
         <translation>Cancella tutti i profili</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1496"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1499"/>
         <source>Do you really want to delete all %1 connection profile(s)?
 
 This includes all passwords and certificate paths.
@@ -15458,67 +16005,67 @@ Sono incluse tutte le password e i percorsi dei certificati.
 Questa azione non può essere annullata.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1515"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1518"/>
         <source>Deleted</source>
         <translation>Eliminati</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1516"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1519"/>
         <source>All connection profiles have been deleted.</source>
         <translation>Tutti i profili di connessione sono stati eliminati.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1523"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1526"/>
         <source>Choose Color for Full Backup</source>
         <translation>Scegli il colore per il backup Full</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1537"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1540"/>
         <source>Choose Color for Incremental Backup</source>
         <translation>Scegli il colore per il backup Incremental</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1551"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1554"/>
         <source>Choose Color for Differential Backup</source>
         <translation>Scegli il colore per il backup Differential</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1565"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1568"/>
         <source>Choose Color for Virtual Full Backup</source>
         <translation>Scegli il colore per il backup VirtualFull</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1579"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1582"/>
         <source>Choose Color for Connected Status</source>
         <translation>Scegli il colore per lo stato Connesso</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1593"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1596"/>
         <source>Choose Color for Disconnected Status</source>
         <translation>Scegli il colore per lo stato Disconnesso</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1657"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1660"/>
         <source>••••••••  (password saved)</source>
         <translation>••••••••  (password salvata)</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1663"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1666"/>
         <source>Enter password</source>
         <translation>Inserire la password</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1705"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1708"/>
         <source>New Connection</source>
         <translation>Nuova connessione</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1743"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1746"/>
         <source>Delete Profile</source>
         <translation>Elimina profilo</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1744"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1747"/>
         <source>Do you really want to delete the connection profile &quot;%1&quot;?
 
 This action cannot be undone.</source>
@@ -15527,43 +16074,43 @@ This action cannot be undone.</source>
 Questa azione non può essere annullata.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1779"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1782"/>
         <source>%1 (Copy)</source>
         <translation>%1 (copia)</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1803"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1893"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1806"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1896"/>
         <source>Unnamed Connection</source>
         <translation>Connessione senza nome</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1877"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1880"/>
         <source>(not pinned - confirmed on next connection)</source>
         <translation>(non fissato - verrà confermato alla prossima connessione)</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1882"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1885"/>
         <source>SHA-256: %1</source>
         <translation>SHA-256: %1</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1894"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1897"/>
         <source>Profile Saved</source>
         <translation>Profilo salvato</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1895"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1898"/>
         <source>Connection profile &quot;%1&quot; has been saved.</source>
         <translation>Il profilo di connessione &quot;%1&quot; è stato salvato.</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1909"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1912"/>
         <source>PFX File Created</source>
         <translation>File PFX creato</translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1910"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1913"/>
         <source>PFX file has been created successfully.
 
 The certificate path has been updated in the current profile.</source>
@@ -15864,16 +16411,6 @@ Il percorso del certificato è stato aggiornato nel profilo corrente.</translati
 <context>
     <name>BWaitCalibration</name>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="186"/>
-        <source>median of %1 measured run(s) at this level</source>
-        <translation>mediana di %1 esecuzione/i misurate a questo livello</translation>
-    </message>
-    <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="188"/>
-        <source>median of %1 measured run(s) of this job at other levels</source>
-        <translation>mediana di %1 esecuzione/i misurate di questo job ad altri livelli</translation>
-    </message>
-    <message>
         <location filename="../src/schedules/model/bwaitcalibration.cpp" line="190"/>
         <source>this job was not measured: median of all %1 runs on this Director</source>
         <translation>questo job non è stato misurato: mediana di tutte le %1 esecuzioni su questo Director</translation>
@@ -15893,84 +16430,143 @@ Il percorso del certificato è stato aggiornato nel profilo corrente.</translati
         <source>its storage</source>
         <translation>il suo storage</translation>
     </message>
-    <message>
+    <message numerus="yes">
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="186"/>
+        <source>median of %n measured run(s) at this level</source>
+        <translation>
+            <numerusform>mediana di %n esecuzione misurata a questo livello</numerusform>
+            <numerusform>mediana di %n esecuzioni misurate a questo livello</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="188"/>
+        <source>median of %n measured run(s) of this job at other levels</source>
+        <translation>
+            <numerusform>mediana di %n esecuzione misurata di questo job ad altri livelli</numerusform>
+            <numerusform>mediana di %n esecuzioni misurate di questo job ad altri livelli</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
         <location filename="../src/schedules/model/bwaitcalibration.cpp" line="210"/>
-        <source>Duration %1: median of %2 measured run(s); they did not wait for the device.</source>
-        <translation>Durata %1: mediana di %2 esecuzione/i misurate; non hanno atteso il dispositivo.</translation>
+        <source>Duration %1: median of %n measured run(s); they did not wait for the device.</source>
+        <translation>
+            <numerusform>Durata %1: mediana di %n esecuzione misurata; non ha atteso il dispositivo.</numerusform>
+            <numerusform>Durata %1: mediana di %n esecuzioni misurate; non hanno atteso il dispositivo.</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="213"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="214"/>
         <source>Duration %1 without the wait for the device (measured %2, median of %3 run(s)): counted from the end of the run that held the device before it (%4 parallel writer(s)). It may still hold up to 30 s of the storage daemon&apos;s tries.</source>
         <translation>Durata %1 senza l&apos;attesa del dispositivo (misurata %2, mediana di %3 esecuzione/i): contata dalla fine dell&apos;esecuzione che occupava il dispositivo prima di essa (%4 scrittore/i paralleli). Può ancora contenere fino a 30 s di tentativi dello storage daemon.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="309"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="310"/>
         <source>%1 ended %2 after %3 on %4; alone it takes at least %5</source>
         <translation>%1 è terminato %2 dopo %3 il %4; da solo richiede almeno %5</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="326"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="327"/>
         <source>%1 night(s) with runs on storage %2; on %3 more than one of them was queued or running at the same time; on %4 the runs&apos; recorded start to end overlapped.</source>
         <translation>%1 notte/i con esecuzioni sullo storage %2; in %3 più di una di esse era in coda o in esecuzione contemporaneamente; in %4 l&apos;inizio e la fine registrati delle esecuzioni si sovrapponevano.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="333"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="334"/>
         <source>No two runs ever overlapped although several were queued: the storage wrote one job at a time.</source>
         <translation>Nessuna coppia di esecuzioni si è mai sovrapposta, sebbene più esecuzioni fossero in coda: lo storage ha scritto un job alla volta.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="339"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="340"/>
         <source>Overlapping runs do not prove parallel writing: with Just In Time Reservation a job waits for the device inside its run.</source>
         <translation>Le esecuzioni sovrapposte non dimostrano una scrittura parallela: con Just In Time Reservation un job attende il dispositivo all&apos;interno della sua esecuzione.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="343"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="344"/>
         <source>%1 of %2 telling pair(s) ended sooner after each other than one writer allows (e.g. %3): it writes more than one job at a time.</source>
         <translation>%1 coppia/e significative su %2 sono terminate a distanza più ravvicinata di quanto consenta un solo scrittore (ad es. %3): scrive più di un job alla volta.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="350"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="351"/>
         <source>In all %1 telling pair(s) on %2 night(s) the later run went on after the other ended for at least as long as it takes alone (e.g. %3): consistent with one writer at a time.</source>
         <translation>In tutte le %1 coppie significative in %2 notte/i l&apos;esecuzione successiva è proseguita dopo la fine dell&apos;altra per almeno il tempo che richiede da sola (ad es. %3): coerente con un solo scrittore alla volta.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="357"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="358"/>
         <source>Not enough telling pairs (%1; a pair tells when the later run started well before the other ended and was also seen running alone): no suggestion.</source>
         <translation>Coppie significative insufficienti (%1; una coppia è significativa quando l&apos;esecuzione successiva è partita ben prima della fine dell&apos;altra ed è stata vista anche in esecuzione da sola): nessun suggerimento.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="445"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="446"/>
         <source>Back-test: no measured night to replay.</source>
         <translation>Verifica a posteriori: nessuna notte misurata da simulare.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="446"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="447"/>
         <source>Back-test, last %1 night(s) (%2 runs): median error %3, worst %4 (%5, %6; %7).</source>
         <translation>Verifica a posteriori, ultime %1 notti (%2 esecuzioni): errore mediano %3, peggiore %4 (%5, %6; %7).</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="452"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="453"/>
         <source>predicted too late</source>
         <translation>previsto troppo tardi</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="452"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="453"/>
         <source>predicted too early</source>
         <translation>previsto troppo presto</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="454"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="455"/>
         <source>Replayed without a device limit for %1 (not set).</source>
         <translation>Simulato senza limite di dispositivo per %1 (non impostato).</translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="457"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="458"/>
         <source>Durations and overheads come from the same history.</source>
         <translation>Durate e overhead provengono dallo stesso storico.</translation>
     </message>
 </context>
 <context>
     <name>BareosAuth</name>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="142"/>
+        <source>Starting Bareos authentication...</source>
+        <translation>Avvio dell&apos;autenticazione Bareos...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="149"/>
+        <source>Setting up TLS-PSK...</source>
+        <translation>Configurazione di TLS-PSK...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="168"/>
+        <source>Starting TLS-PSK handshake...</source>
+        <translation>Avvio dell&apos;handshake TLS-PSK...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="175"/>
+        <source>Setting up certificate-based TLS...</source>
+        <translation>Configurazione di TLS basato su certificati...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="191"/>
+        <source>Starting TLS handshake...</source>
+        <translation>Avvio dell&apos;handshake TLS...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="199"/>
+        <source>Starting legacy authentication (no TLS)...</source>
+        <translation>Avvio dell&apos;autenticazione legacy (senza TLS)...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="628"/>
+        <source>TLS established, sending Hello packet...</source>
+        <translation>TLS stabilito, invio del pacchetto Hello...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="652"/>
+        <source>Waiting for Director challenge...</source>
+        <translation>In attesa della challenge del Director...</translation>
+    </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="749"/>
         <source>Director rejected connection: %1</source>
@@ -16004,9 +16600,20 @@ Provare l&apos;autenticazione PSK o con certificato.</translation>
 %1</translation>
     </message>
     <message>
+        <location filename="../src/director/bareosauth.cpp" line="832"/>
+        <source>CRAM-MD5 response sent successfully</source>
+        <translation>Risposta CRAM-MD5 inviata correttamente</translation>
+    </message>
+    <message>
         <location filename="../src/director/bareosauth.cpp" line="1228"/>
         <source>The Director announced a message of %1 bytes during authentication (limit: %2 bytes). Connection closed.</source>
         <translation>Durante l&apos;autenticazione il Director ha annunciato un messaggio di %1 byte (limite: %2 byte). Connessione chiusa.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="1374"/>
+        <location filename="../src/director/bareosauth.cpp" line="1488"/>
+        <source>Connected</source>
+        <translation>Connesso</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="1669"/>
@@ -16501,10 +17108,13 @@ Cause possibili:
         <source>No named consoles found. Ask your backup administrator to create a personalized Console resource on the Director.</source>
         <translation>Nessuna console con nome trovata. Chiedere all&apos;amministratore dei backup di creare una risorsa Console personalizzata sul Director.</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/bconnectionwizard.cpp" line="3303"/>
-        <source>Found %1 console(s)</source>
-        <translation>Trovate %1 console</translation>
+        <source>Found %n console(s)</source>
+        <translation>
+            <numerusform>Trovata %n Console</numerusform>
+            <numerusform>Trovate %n Console</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="3320"/>
@@ -17025,25 +17635,37 @@ Estrarla nella directory radice del server Bareos e riavviare il Director.</tran
         <source>Not set</source>
         <translation>Non impostato</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="299"/>
-        <source>%1 year(s)</source>
-        <translation>%1 anno/i</translation>
+        <source>%n year(s)</source>
+        <translation>
+            <numerusform>%n anno</numerusform>
+            <numerusform>%n anni</numerusform>
+        </translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="301"/>
-        <source>%1 day(s)</source>
-        <translation>%1 giorno/i</translation>
+        <source>%n day(s)</source>
+        <translation>
+            <numerusform>%n giorno</numerusform>
+            <numerusform>%n giorni</numerusform>
+        </translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="305"/>
-        <source>%1 hour(s)</source>
-        <translation>%1 ora/e</translation>
+        <source>%n hour(s)</source>
+        <translation>
+            <numerusform>%n ora</numerusform>
+            <numerusform>%n ore</numerusform>
+        </translation>
     </message>
-    <message>
+    <message numerus="yes">
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="307"/>
-        <source>%1 second(s)</source>
-        <translation>%1 secondo/i</translation>
+        <source>%n second(s)</source>
+        <translation>
+            <numerusform>%n secondo</numerusform>
+            <numerusform>%n secondi</numerusform>
+        </translation>
     </message>
     <message>
         <location filename="../src/config/bundocommands.cpp" line="27"/>
