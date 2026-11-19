@@ -1,5 +1,6 @@
 #include "storagewidget.h"
 #include "buiscale.h"
+#include "bbyteformat.h"
 #include "models/bvolumejson.h"
 #include "bsorttableitem.h"
 #include "ui_storagewidget.h"
@@ -25,9 +26,7 @@ StorageWidget::StorageWidget(BDirector *director, QWidget *parent)
     , m_poolFilter(new QComboBox(this))
     , m_statusFilter(new QComboBox(this))
     , m_totalVolumesLabel(new QLabel("0", this))
-    , m_totalSizeLabel(new QLabel("0 B", this))
     , m_usedSizeLabel(new QLabel("0 B", this))
-    , m_availableSizeLabel(new QLabel("0 B", this))
 {
     ui->setupUi(this);
     setupUI();
@@ -49,7 +48,7 @@ void StorageWidget::setupUI()
 
     // Pool filter
     topLayout->addWidget(new QLabel(tr("Pool:")));
-    m_poolFilter->addItem(tr("Alle"), "all");
+    m_poolFilter->addItem(tr("All"), "all");
     BUiScale::track(m_poolFilter, [this]() { m_poolFilter->setMinimumWidth(BUiScale::px(150)); });
     topLayout->addWidget(m_poolFilter);
 
@@ -57,7 +56,7 @@ void StorageWidget::setupUI()
 
     // Status filter
     topLayout->addWidget(new QLabel(tr("Status:")));
-    m_statusFilter->addItem(tr("Alle"), "all");
+    m_statusFilter->addItem(tr("All"), "all");
     m_statusFilter->addItem(tr("Append"), "Append");
     m_statusFilter->addItem(tr("Full"), "Full");
     m_statusFilter->addItem(tr("Error"), "Error");
@@ -76,7 +75,11 @@ void StorageWidget::setupUI()
     layout->addLayout(topLayout);
 
     // Statistics bar
-    QGroupBox *statsGroup = new QGroupBox(tr("Statistiken"));
+    // Only what the volume list really says: the number of volumes and the
+    // bytes written to them. A total or free capacity cannot be derived from
+    // it (the limit of a File storage is its disk, which the list does not
+    // know), so none is shown.
+    QGroupBox *statsGroup = new QGroupBox(tr("Statistics"));
     QHBoxLayout *statsLayout = new QHBoxLayout(statsGroup);
 
     QLabel *totalLabel = new QLabel(tr("Volumes:"));
@@ -86,26 +89,11 @@ void StorageWidget::setupUI()
 
     statsLayout->addSpacing(20);
 
-    QLabel *totalSizeLabel = new QLabel(tr("Gesamtgröße:"));
-    totalSizeLabel->setStyleSheet("font-weight: bold;");
-    statsLayout->addWidget(totalSizeLabel);
-    statsLayout->addWidget(m_totalSizeLabel);
-
-    statsLayout->addSpacing(20);
-
-    QLabel *usedLabel = new QLabel(tr("Belegt:"));
+    QLabel *usedLabel = new QLabel(tr("Used:"));
     usedLabel->setStyleSheet("font-weight: bold; color: orange;");
     statsLayout->addWidget(usedLabel);
     m_usedSizeLabel->setStyleSheet("color: orange;");
     statsLayout->addWidget(m_usedSizeLabel);
-
-    statsLayout->addSpacing(20);
-
-    QLabel *availLabel = new QLabel(tr("Verfügbar:"));
-    availLabel->setStyleSheet("font-weight: bold; color: green;");
-    statsLayout->addWidget(availLabel);
-    m_availableSizeLabel->setStyleSheet("color: green;");
-    statsLayout->addWidget(m_availableSizeLabel);
 
     statsLayout->addStretch();
 
@@ -113,9 +101,9 @@ void StorageWidget::setupUI()
 
     // Volume table
     m_volumeTable = new QTableWidget(this);
-    m_volumeTable->setColumnCount(6);
+    m_volumeTable->setColumnCount(5);
     m_volumeTable->setHorizontalHeaderLabels({
-        "Volume Name", "Pool", "Media Typ", "Status", "Bytes", "Max Bytes"
+        tr("Volume Name"), tr("Pool"), tr("Media Type"), tr("Status"), tr("Bytes")
     });
 
     m_volumeTable->horizontalHeader()->setStretchLastSection(true);
@@ -164,8 +152,7 @@ void StorageWidget::updateVolumeTable(const QList<BDirector::VolumeInfo> &volume
         }
         m_volumeTable->setItem(i, 3, statusItem);
         
-        m_volumeTable->setItem(i, 4, new QTableWidgetItem(formatBytes(volume.volumeBytes)));
-        m_volumeTable->setItem(i, 5, new QTableWidgetItem(formatBytes(volume.maxVolumeBytes)));
+        m_volumeTable->setItem(i, 4, new QTableWidgetItem(BByteFormat::format(volume.volumeBytes)));
     }
     
     m_volumeTable->setSortingEnabled(true);
@@ -215,7 +202,7 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     const QString selectedPool = m_poolFilter->currentData().toString();
     const QSignalBlocker poolFilterBlocker(m_poolFilter);
     m_poolFilter->clear();
-    m_poolFilter->addItem(tr("Alle"), "all");
+    m_poolFilter->addItem(tr("All"), "all");
 
     QSet<QString> pools;
     for (const QJsonValue &volumeVal : volumesArray) {
@@ -245,7 +232,7 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     // the load on connect and the automatic refresh stay quiet
     if (m_refreshRequested) {
         m_refreshRequested = false;
-        emit statusMessageChanged(QString("%1 Volumes geladen").arg(volumesArray.size()));
+        emit statusMessageChanged(tr("%n volume(s) loaded", nullptr, int(volumesArray.size())));
     }
 }
 
@@ -298,7 +285,6 @@ void StorageWidget::applyFilters()
         QString mediaType = volume["mediatype"].toString();
         QString status = volume["volstatus"].toString();
         qint64 volumeBytes = volume["volbytes"].toVariant().toLongLong();
-        qint64 maxBytes = volume["maxvolbytes"].toVariant().toLongLong();
 
         QTableWidgetItem *nameItem = new QTableWidgetItem(volumeName);
         nameItem->setData(VolumeIndexRole, i);
@@ -324,8 +310,7 @@ void StorageWidget::applyFilters()
         m_volumeTable->setItem(i, 3, statusItem);
 
         // Sizes sort by their byte count, not by the formatted text
-        m_volumeTable->setItem(i, 4, new BSortTableItem(formatBytes(volumeBytes), volumeBytes));
-        m_volumeTable->setItem(i, 5, new BSortTableItem(formatBytes(maxBytes), maxBytes));
+        m_volumeTable->setItem(i, 4, new BSortTableItem(BByteFormat::format(volumeBytes), volumeBytes));
     }
 
     m_volumeTable->setSortingEnabled(true);
@@ -363,7 +348,7 @@ void StorageWidget::onRefreshClicked()
 {
     m_refreshButton->setEnabled(false);
     m_refreshRequested = true;
-    emit statusMessageChanged("Aktualisiere Volume-Liste...");
+    emit statusMessageChanged(tr("Refreshing the volume list..."));
     emit sendCommand(BDirector::Command::ListVolumes, "");
 }
 
@@ -393,20 +378,13 @@ void StorageWidget::onVolumeDoubleClicked(int row, int column)
     QString status = volume["volstatus"].toString();
     QString mediaType = volume["mediatype"].toString();
     qint64 volumeBytes = volume["volbytes"].toVariant().toLongLong();
-    qint64 maxBytes = volume["maxvolbytes"].toVariant().toLongLong();
 
     // Show volume details dialog
     QString details = tr("<h3>Volume Details: %1</h3>").arg(volumeName);
     details += tr("<p><b>Pool:</b> %1</p>").arg(poolName);
     details += tr("<p><b>Status:</b> %1</p>").arg(status);
     details += tr("<p><b>Media Type:</b> %1</p>").arg(mediaType);
-    details += tr("<p><b>Current Size:</b> %1</p>").arg(formatBytes(volumeBytes));
-    details += tr("<p><b>Maximum Size:</b> %1</p>").arg(formatBytes(maxBytes));
-
-    if (maxBytes > 0) {
-        double percentage = (volumeBytes * 100.0) / maxBytes;
-        details += tr("<p><b>Usage:</b> %1%</p>").arg(QString::number(percentage, 'f', 1));
-    }
+    details += tr("<p><b>Current Size:</b> %1</p>").arg(BByteFormat::format(volumeBytes));
 
     QMessageBox::information(this, tr("Volume Details"), details);
 }
@@ -425,46 +403,13 @@ void StorageWidget::onStatusFilterChanged(int index)
 
 void StorageWidget::updateStatistics()
 {
-    qint64 totalSize = 0;
     qint64 usedSize = 0;
-    qint64 maxSize = 0;
-
     for (const QJsonValue &volumeVal : m_filteredVolumes) {
-        QJsonObject volume = volumeVal.toObject();
-        qint64 volumeBytes = volume["volbytes"].toVariant().toLongLong();
-        qint64 maxBytes = volume["maxvolbytes"].toVariant().toLongLong();
-
-        usedSize += volumeBytes;
-        maxSize += maxBytes;
+        usedSize += volumeVal.toObject()["volbytes"].toVariant().toLongLong();
     }
-
-    totalSize = maxSize;
-    qint64 availableSize = maxSize - usedSize;
 
     m_totalVolumesLabel->setText(QString::number(m_filteredVolumes.size()));
-    m_totalSizeLabel->setText(formatBytes(totalSize));
-    m_usedSizeLabel->setText(formatBytes(usedSize));
-    m_availableSizeLabel->setText(formatBytes(availableSize));
-}
-
-QString StorageWidget::formatBytes(qint64 bytes)
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-
-    if (bytes >= TB) {
-        return QString::number(bytes / (double)TB, 'f', 2) + " TB";
-    } else if (bytes >= GB) {
-        return QString::number(bytes / (double)GB, 'f', 2) + " GB";
-    } else if (bytes >= MB) {
-        return QString::number(bytes / (double)MB, 'f', 2) + " MB";
-    } else if (bytes >= KB) {
-        return QString::number(bytes / (double)KB, 'f', 2) + " KB";
-    } else {
-        return QString::number(bytes) + " B";
-    }
+    m_usedSizeLabel->setText(BByteFormat::format(usedSize));
 }
 
 void StorageWidget::clearData()
@@ -489,7 +434,5 @@ void StorageWidget::clearData()
 
     // Reset statistics
     m_totalVolumesLabel->setText("0");
-    m_totalSizeLabel->setText("0 B");
     m_usedSizeLabel->setText("0 B");
-    m_availableSizeLabel->setText("0 B");
 }

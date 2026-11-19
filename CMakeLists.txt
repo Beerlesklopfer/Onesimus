@@ -443,6 +443,7 @@ set(SOURCES
     src/bcertificategenerator.cpp
     src/bpfxconverter.cpp
     src/storagewidget.cpp
+    src/bbyteformat.cpp
     src/models/bvolumejson.cpp
 
     src/config/bcolumnconfiguration.cpp
@@ -531,6 +532,7 @@ set(HEADERS
     include/bcheckableheaderview.h
     include/clients/bclientwidget.h
     include/storagewidget.h
+    include/bbyteformat.h
     include/models/bvolumejson.h
     include/bcleanupdialog.h
     include/bcapabilities.h
@@ -1225,6 +1227,25 @@ if(BUILD_TESTING)
 
     # volumejson_test is built above; register it so ctest runs it
     add_test(NAME volumejson_test COMMAND volumejson_test)
+
+    # bbyteformat_test - byte counts in binary units with IEC names and the
+    # size suffixes of Bareos directives ("50G" is 50 GiB)
+    add_executable(bbyteformat_test
+        test/bbyteformat_test.cpp
+        src/bbyteformat.cpp
+        include/bbyteformat.h
+    )
+
+    target_include_directories(bbyteformat_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bbyteformat_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bbyteformat_test COMMAND bbyteformat_test)
 
     # bjoblogmodel_test - job log model, its sources and the push message parser
     add_executable(bjoblogmodel_test
@@ -2000,6 +2021,7 @@ message(STATUS "  bareosauth_test  - BareosAuth class test")
 message(STATUS "  director_test    - BareosDirector state machine test")
 message(STATUS "  volumejson_test  - list volumes JSON parsing test")
 if(BUILD_TESTING)
+    message(STATUS "  bbyteformat_test - byte formatting (IEC units) and Bareos size parsing test (registered with CTest)")
     message(STATUS "  bjoblogmodel_test - job log model test (registered with CTest)")
     message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
     message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")

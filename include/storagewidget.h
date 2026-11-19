@@ -77,7 +77,6 @@ private slots:
 private:
     void setupUI();
     void updateVolumeTable(const QList<BDirector::VolumeInfo> &volumes);
-    QString formatBytes(qint64 bytes);
 
     Ui::StorageWidget *ui;
     BDirector *m_director;
@@ -91,9 +90,7 @@ private:
 
     // Statistics
     QLabel *m_totalVolumesLabel;
-    QLabel *m_totalSizeLabel;
     QLabel *m_usedSizeLabel;
-    QLabel *m_availableSizeLabel;
 
     // Data storage
     QJsonArray m_allVolumes;  // All volumes from server
