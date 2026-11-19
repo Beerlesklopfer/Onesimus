@@ -92,7 +92,13 @@ ChipLayout layoutChip(const QStyleOptionViewItem &option, const QString &code, c
                         option.rect.top() + (option.rect.height() - height) / 2,
                         qMax(0, width), qMax(0, height));
     layout.code = QRect(layout.chip.left() + padding, layout.chip.top(), codeWidth, layout.chip.height());
-    layout.text = QRect(layout.code.right() + 1 + gap, layout.chip.top(), textWidth, layout.chip.height());
+    // Justified: the code sits at the left edge of the chip, the word at the
+    // right edge, so the chips of a column read like a table (maintainer's wish)
+    layout.text = QRect(layout.chip.right() - padding - textWidth + 1, layout.chip.top(),
+                        textWidth, layout.chip.height());
+    if (layout.text.left() <= layout.code.right() + gap) {
+        layout.text.moveLeft(layout.code.right() + 1 + gap);
+    }
     return layout;
 }
 
