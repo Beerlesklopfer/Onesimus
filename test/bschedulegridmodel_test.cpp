@@ -2,7 +2,7 @@
  * @file bschedulegridmodel_test.cpp
  * @brief The model behind the schedule grid
  *
- * Three groups:
+ * Four groups:
  *  - from Run lines to cells, scopes and the lists beside the grid, for the
  *    schedules of the Bareos documentation (Schedule resource: WeeklyCycle,
  *    MonthlyCycle, TenMinutes, First, the modulo examples) and for the
@@ -11,6 +11,7 @@
  *  - the edits, each with the Run lines before and after written out, and
  *    fixed sequences of edits after which the cells read from the written
  *    Run lines must be the cells that were intended.
+ *  - the edits of calendar rules, which are changed as a whole.
  *
  * Rows are those of a view that starts the week on Monday unless a test
  * says otherwise. Runs without a Director (registered with CTest).
@@ -274,6 +275,10 @@ private slots:
     void restoreUndoesAndRedoes();
     void runLinesWithStates();
     void signalsOfAnEdit();
+    void calendarRuleAdded();
+    void calendarRuleChangedAndBack();
+    void calendarRuleRemoved();
+    void calendarRuleEditsRefuseWhatIsNotOne();
     void sequencesKeepTheIntendedCells_data();
     void sequencesKeepTheIntendedCells();
 };
@@ -1932,6 +1937,170 @@ void BScheduleGridModelTest::signalsOfAnEdit()
     QVERIFY(!model.isModified());
     QCOMPARE(modified.count(), 2);
     QCOMPARE(model.activeScopeIndex(), 0);
+}
+
+// --- Calendar rules: edited as a whole --------------------------------------------
+
+void BScheduleGridModelTest::calendarRuleAdded()
+{
+    BScheduleGridModel model;
+    model.setSchedule(scheduleOf({QStringLiteral("incremental mon-fri at 9:05pm"),
+                                  QStringLiteral("Level=Full on 1 at 21:00")}));
+    QCOMPARE(model.calendarRules().size(), 1);
+
+    // The 15th of January and July, in the evening and at night
+    BRunSpec spec;
+    spec.overrides.level = QStringLiteral("Differential");
+    spec.overrides.pool = QStringLiteral("Half Year");
+    spec.mask.mday = 1u << 14;
+    spec.mask.month = (1u << 0) | (1u << 6);
+    spec.mask.hour = (1u << 3) | (1u << 21);
+    spec.minute = 30;
+    QVERIFY(BScheduleGridModel::isCalendarRule(spec));
+
+    QSignalSpy rulesChanged(&model, &BScheduleGridModel::calendarRulesChanged);
+    QSignalSpy cellsChanged(&model, &BScheduleGridModel::cellsChanged);
+    const BGridChange change = model.addCalendarRule(spec);
+    QVERIFY2(change.ok, qPrintable(change.error));
+    QCOMPARE(change.addedRuns, QList<int>({2}));
+    QVERIFY(change.changedRuns.isEmpty() && change.removedRuns.isEmpty());
+    QCOMPARE(rulesChanged.count(), 1);
+    QCOMPARE(cellsChanged.count(), 0);      // not a line of the grid
+
+    // At the end, the other lines byte for byte as they were reported
+    QCOMPARE(texts(model), QStringList({
+        QStringLiteral("incremental mon-fri at 9:05pm"),
+        QStringLiteral("Level=Full on 1 at 21:00"),
+        QStringLiteral("Level=Differential Pool=\"Half Year\" jan,jul on 15 at 03:30 at 21:30")}));
+    QCOMPARE(states(model), QStringLiteral("uun"));
+    QCOMPARE(model.calendarRules().size(), 2);
+    QCOMPARE(model.calendarRules()[1].runIndex, 2);
+    QVERIFY(model.calendarRules()[1].spec == spec);
+    QVERIFY(model.isModified());
+
+    // What is written reads back as the same run
+    const BRunLine check = BRunParser::parse(texts(model).last());
+    QVERIFY(check.spec.has_value());
+    QVERIFY(*check.spec == spec);
+
+    // Undo and redo
+    QVERIFY(model.restore(change.before));
+    QCOMPARE(states(model), QStringLiteral("uu"));
+    QVERIFY(!model.isModified());
+    QVERIFY(model.restore(change.after));
+    QCOMPARE(states(model), QStringLiteral("uun"));
+}
+
+void BScheduleGridModelTest::calendarRuleChangedAndBack()
+{
+    BScheduleGridModel model;
+    const QStringList loaded{QStringLiteral("Level=Full Pool=Monthly on 1 at 9:00pm"),
+                             QStringLiteral("incremental mon-fri at 9:05pm"),
+                             QStringLiteral("Level=Full w01/w02 sun at 23:10")};
+    model.setSchedule(scheduleOf(loaded));
+    QCOMPARE(model.calendarRules().size(), 2);
+    const BRunSpec first = model.calendarRules()[0].spec;
+
+    // Also on the 15th
+    BRunSpec changed = first;
+    changed.mask.mday |= 1u << 14;
+    BGridChange change = model.changeCalendarRule(0, changed);
+    QVERIFY2(change.ok, qPrintable(change.error));
+    QCOMPARE(change.changedRuns, QList<int>({0}));
+    QVERIFY(change.addedRuns.isEmpty() && change.removedRuns.isEmpty());
+    QCOMPARE(texts(model), QStringList({
+        QStringLiteral("Level=Full Pool=Monthly on 1,15 at 21:00"),
+        loaded[1], loaded[2]}));
+    QCOMPARE(states(model), QStringLiteral("cuu"));
+    QCOMPARE(model.runLines()[0].originalText, loaded[0]);
+
+    // The same spec again changes nothing
+    change = model.changeCalendarRule(0, changed);
+    QVERIFY(change.ok);
+    QVERIFY(change.isNoop());
+
+    // Back to what the loaded line said: the reported text again
+    change = model.changeCalendarRule(0, first);
+    QVERIFY2(change.ok, qPrintable(change.error));
+    QCOMPARE(texts(model), loaded);
+    QCOMPARE(states(model), QStringLiteral("uuu"));
+    QVERIFY(!model.isModified());
+
+    // A rule by week of the year, changed to another level and minute
+    BRunSpec weeks = model.calendarRules()[1].spec;
+    weeks.overrides.level = QStringLiteral("Differential");
+    weeks.minute = 40;
+    change = model.changeCalendarRule(2, weeks);
+    QVERIFY2(change.ok, qPrintable(change.error));
+    QCOMPARE(texts(model), QStringList({loaded[0], loaded[1],
+        QStringLiteral("Level=Differential w01/w02 sun at 23:40")}));
+    QCOMPARE(states(model), QStringLiteral("uuc"));
+}
+
+void BScheduleGridModelTest::calendarRuleRemoved()
+{
+    BScheduleGridModel model;
+    const QStringList loaded{QStringLiteral("Level=Full Pool=Monthly on 1 at 9:00pm"),
+                             QStringLiteral("incremental mon-fri at 9:05pm"),
+                             QStringLiteral("sat every other week")};
+    model.setSchedule(scheduleOf(loaded));
+    QCOMPARE(model.notUnderstood().size(), 1);
+
+    const BGridChange change = model.removeCalendarRule(0);
+    QVERIFY2(change.ok, qPrintable(change.error));
+    QCOMPARE(change.removedRuns, QList<int>({0}));
+    QCOMPARE(texts(model), QStringList({loaded[1], loaded[2]}));
+    QCOMPARE(states(model), QStringLiteral("ruu"));
+    QVERIFY(model.calendarRules().isEmpty());
+    // The line that is not understood is where it was, as it was
+    QCOMPARE(model.notUnderstood().size(), 1);
+    QCOMPARE(model.notUnderstood().first().text, loaded[2]);
+    QCOMPARE(model.notUnderstood().first().runIndex, 1);
+
+    QVERIFY(model.restore(change.before));
+    QCOMPARE(texts(model), loaded);
+    QCOMPARE(states(model), QStringLiteral("uuu"));
+    QVERIFY(!model.isModified());
+}
+
+void BScheduleGridModelTest::calendarRuleEditsRefuseWhatIsNotOne()
+{
+    BScheduleGridModel model;
+    const QStringList loaded{QStringLiteral("Level=Full on 1 at 21:00"),
+                             QStringLiteral("Level=Incremental mon-fri at 21:05"),
+                             QStringLiteral("sat every other week")};
+    model.setSchedule(scheduleOf(loaded));
+    const BRunSpec rule = model.calendarRules().first().spec;
+
+    // A run without days of the month and weeks of the year is painted
+    BRunSpec gridLine;
+    gridLine.mask.wday = 1u << 1;
+    gridLine.mask.hour = 1u << 3;
+    QVERIFY(!BScheduleGridModel::isCalendarRule(gridLine));
+    BGridChange change = model.addCalendarRule(gridLine);
+    QVERIFY(!change.ok);
+    QVERIFY(!change.error.isEmpty());
+    change = model.changeCalendarRule(0, gridLine);
+    QVERIFY(!change.ok);
+
+    // Only calendar rules are changed and removed here: not a line of the
+    // grid, not a line that is not understood, not a line that is not there
+    for (int index : {1, 2, 3, -1}) {
+        QVERIFY(!model.changeCalendarRule(index, rule).ok);
+        QVERIFY(!model.removeCalendarRule(index).ok);
+    }
+
+    // A rule that cannot be written: no hour at all
+    BRunSpec noHour = rule;
+    noHour.mask.hour = 0;
+    change = model.changeCalendarRule(0, noHour);
+    QVERIFY(!change.ok);
+    QVERIFY(!change.error.isEmpty());
+
+    // Nothing of all that changed anything
+    QCOMPARE(texts(model), loaded);
+    QCOMPARE(states(model), QStringLiteral("uuu"));
+    QVERIFY(!model.isModified());
 }
 
 void BScheduleGridModelTest::sequencesKeepTheIntendedCells_data()

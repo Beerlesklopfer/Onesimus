@@ -19,8 +19,14 @@ class BScheduleGridWidget;
  * Full at 21:00, pool Monthly, first week only"), says whether it is
  * selected and focused, knows its row and column header, and offers two
  * actions: press (select it, as a click does) and show menu (the list of
- * its runs). Headers are named after the day or the hour and select it
- * when pressed; the corner selects all.
+ * its runs). In a grid with an editor a cell is not read-only and has two
+ * more actions: apply the tool in hand to it, and erase it. Headers are
+ * named after the day or the hour and select it when pressed; the corner
+ * selects all.
+ *
+ * After an edit the grid reports the changed part of the table and the new
+ * name of every changed cell; the tool in hand is part of the description
+ * of the table.
  *
  * The calendar rules are not cells; they are read as the description of
  * the table.

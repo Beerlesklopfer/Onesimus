@@ -1,11 +1,12 @@
 /**
  * @file bschedulegridwidget.cpp
- * @brief The schedule grid: painting, selection, tooltips, list of runs
+ * @brief The schedule grid: painting, selection, editing, tooltips, list of runs
  */
 
 #include "schedules/bschedulegridwidget.h"
 
 #include "schedules/bschedulegridaccessible.h"
+#include "schedules/bschedulegrideditor.h"
 #include "schedules/model/bschedulegridtext.h"
 
 #include <QAccessible>
@@ -80,7 +81,7 @@ void BScheduleGridWidget::setModel(BScheduleGridModel *model)
             m_highlightedRule = -1;
             onModelReset();
         });
-        connect(m_model, &BScheduleGridModel::cellsChanged, this, &BScheduleGridWidget::onCellsChanged);
+        connect(m_model, &BScheduleGridModel::cellsChanged, this, &BScheduleGridWidget::onCellsEdited);
         connect(m_model, &BScheduleGridModel::scopesChanged, this, &BScheduleGridWidget::onCellsChanged);
         connect(m_model, &BScheduleGridModel::runLinesChanged, this, &BScheduleGridWidget::onCellsChanged);
         connect(m_model, &BScheduleGridModel::activeScopeChanged, this, &BScheduleGridWidget::onModelReset);
@@ -91,6 +92,27 @@ void BScheduleGridWidget::setModel(BScheduleGridModel *model)
     }
     m_current = BGridPos();
     onModelReset();
+}
+
+void BScheduleGridWidget::setEditor(BScheduleGridEditor *editor)
+{
+    if (editor == m_editor)
+        return;
+    if (m_editor)
+        disconnect(m_editor, nullptr, this, nullptr);
+    m_editor = editor;
+    m_drag = NoDrag;
+    m_stroke = BGridCellSet();
+    if (m_editor) {
+        connect(m_editor, &BScheduleGridEditor::brushesChanged,
+                this, &BScheduleGridWidget::onCellsChanged);
+        connect(m_editor, &BScheduleGridEditor::toolChanged, this, &BScheduleGridWidget::onToolChanged);
+        connect(m_editor, &BScheduleGridEditor::paintModeChanged,
+                this, &BScheduleGridWidget::updateCursor);
+    }
+    rebuildCaches();
+    updateCursor();
+    viewport()->update();
 }
 
 void BScheduleGridWidget::setLevelColorSource(const LevelColorSource &source)
@@ -146,7 +168,14 @@ void BScheduleGridWidget::rebuildCaches()
         rules.clear();
     if (!m_model)
         return;
-    m_brushes = m_model->brushes();
+    // With an editor the brushes it offers come first and keep their place,
+    // so a tag does not change while the schedule is edited
+    if (m_editor && m_editor->model() == m_model)
+        m_brushes = m_editor->brushes();
+    for (const BGridBrush &brush : m_model->brushes()) {
+        if (!m_brushes.contains(brush))
+            m_brushes.append(brush);
+    }
     m_brushTags = BScheduleGridText::brushTags(m_brushes);
     const QList<BGridCalendarRule> &rules = m_model->calendarRules();
     for (int i = 0; i < rules.size(); ++i) {
@@ -161,6 +190,8 @@ void BScheduleGridWidget::onModelReset()
 {
     if (m_details)
         m_details->close();
+    m_drag = NoDrag;
+    m_stroke = BGridCellSet();
     rebuildCaches();
     updateLayout();
     viewport()->update();
@@ -169,9 +200,31 @@ void BScheduleGridWidget::onModelReset()
 
 void BScheduleGridWidget::onCellsChanged()
 {
+    // Scopes, Run lines or brushes changed: what cells say did not, or
+    // cellsChanged() tells which
     rebuildCaches();
     viewport()->update();
-    notifyAccessibleReset();
+}
+
+void BScheduleGridWidget::onCellsEdited(const QList<BGridPos> &cells)
+{
+    rebuildCaches();
+    viewport()->update();
+    notifyAccessibleCells(cells);
+}
+
+void BScheduleGridWidget::onToolChanged()
+{
+    viewport()->update();
+    notifyAccessibleTool();
+}
+
+void BScheduleGridWidget::updateCursor()
+{
+    if (m_editor && m_editor->paintMode())
+        viewport()->setCursor(Qt::CrossCursor);
+    else
+        viewport()->unsetCursor();
 }
 
 void BScheduleGridWidget::onSelectionChanged()
@@ -699,6 +752,40 @@ void BScheduleGridWidget::paintSelection(QPainter &painter) const
     paintOutline(painter, selected, pen);
 }
 
+void BScheduleGridWidget::paintStroke(QPainter &painter) const
+{
+    if (m_stroke.isEmpty() || !m_editor)
+        return;
+    const QColor base = palette().color(QPalette::Base);
+    const QColor text = palette().color(QPalette::Text);
+    const std::optional<BGridBrush> brush = m_editor->activeBrush();
+    for (const BGridPos &pos : m_stroke.cells()) {
+        const QRect inner = m_geometry.cellRect(pos.row, pos.column).adjusted(0, 0, -1, -1);
+        painter.save();
+        painter.setOpacity(0.85);
+        if (brush) {
+            // What the cell will show
+            BGridRun run;
+            run.overrides = brush->overrides;
+            run.minute = brush->minute;
+            paintRun(painter, inner, run, true);
+        } else {
+            // The eraser: the cell goes empty, marked with a cross
+            painter.fillRect(inner, base);
+            painter.setPen(QPen(mix(base, text, 0.6), 1));
+            painter.drawLine(inner.topLeft(), inner.bottomRight());
+            painter.drawLine(inner.topRight(), inner.bottomLeft());
+        }
+        painter.restore();
+    }
+    QPen under(base, 2);
+    paintOutline(painter, m_stroke, under);
+    QPen over(selectionOutlineColor(), 2, Qt::CustomDashLine);
+    over.setDashPattern({2, 2});
+    over.setCapStyle(Qt::FlatCap);
+    paintOutline(painter, m_stroke, over);
+}
+
 void BScheduleGridWidget::paintEvent(QPaintEvent *)
 {
     QPainter painter(viewport());
@@ -740,6 +827,7 @@ void BScheduleGridWidget::paintEvent(QPaintEvent *)
         }
 
         paintSelection(painter);
+        paintStroke(painter);
 
         if (m_highlightedRun >= 0) {
             int scope = -1;
@@ -801,6 +889,17 @@ void BScheduleGridWidget::mousePressEvent(QMouseEvent *event)
 
     switch (hit.part) {
     case BScheduleGridGeometry::Cell:
+        if (m_editor && m_editor->paintMode() && m_pressPlain) {
+            // Paint mode: the tool goes on every cell passed until the release
+            m_drag = DragPaint;
+            m_stroke = BGridCellSet();
+            m_stroke.insert(hit.row, hit.column);
+            m_pressCell = BGridPos{hit.row, hit.column};
+            m_dragCell = m_pressCell;
+            setCurrentCell(m_pressCell);
+            viewport()->update();
+            break;
+        }
         changeSelection([&](BGridSelection &s) {
             if (shift)
                 s.extendTo(hit.row, hit.column, ctrl);
@@ -816,10 +915,14 @@ void BScheduleGridWidget::mousePressEvent(QMouseEvent *event)
         break;
     case BScheduleGridGeometry::RowHeader:
         changeSelection([&](BGridSelection &s) {
-            if (shift && hasAnchor)
+            if (shift && hasAnchor) {
+                // Whole days, also if the anchor was set by a cell: from
+                // the day of the anchor to this one
+                s.selectRow(s.anchor()->row, ctrl ? BGridSelection::Add : BGridSelection::Replace);
                 s.extendTo(hit.row, BGridCellSet::Columns - 1, ctrl);
-            else
+            } else {
                 s.selectRow(hit.row, ctrl ? BGridSelection::Toggle : BGridSelection::Replace);
+            }
         });
         m_drag = DragRows;
         m_dragCell = BGridPos{hit.row, 0};
@@ -827,10 +930,13 @@ void BScheduleGridWidget::mousePressEvent(QMouseEvent *event)
         break;
     case BScheduleGridGeometry::ColumnHeader:
         changeSelection([&](BGridSelection &s) {
-            if (shift && hasAnchor)
+            if (shift && hasAnchor) {
+                // Whole hours, from the hour of the anchor to this one
+                s.selectColumn(s.anchor()->column, ctrl ? BGridSelection::Add : BGridSelection::Replace);
                 s.extendTo(BGridCellSet::Rows - 1, hit.column, ctrl);
-            else
+            } else {
                 s.selectColumn(hit.column, ctrl ? BGridSelection::Toggle : BGridSelection::Replace);
+            }
         });
         m_drag = DragColumns;
         m_dragCell = BGridPos{0, hit.column};
@@ -840,9 +946,12 @@ void BScheduleGridWidget::mousePressEvent(QMouseEvent *event)
         changeSelection([](BGridSelection &s) { s.selectAll(); });
         break;
     case BScheduleGridGeometry::RuleCell: {
+        // The first rule of the hour; a click on a chosen one the next
         const QList<int> rules = rulesAtHour(hit.column);
-        if (!rules.isEmpty())
-            emit calendarRuleActivated(rules.first());
+        if (!rules.isEmpty()) {
+            const int chosen = int(rules.indexOf(m_highlightedRule));
+            emit calendarRuleActivated(rules[(chosen + 1) % rules.size()]);
+        }
         break;
     }
     case BScheduleGridGeometry::RuleHeader:
@@ -850,6 +959,16 @@ void BScheduleGridWidget::mousePressEvent(QMouseEvent *event)
         break;
     }
     event->accept();
+}
+
+void BScheduleGridWidget::extendStroke(const BGridPos &from, const BGridPos &to)
+{
+    // Every cell on the way, also if the mouse was faster than its events
+    const int steps = qMax(qAbs(to.row - from.row), qAbs(to.column - from.column));
+    for (int i = 1; i <= steps; ++i) {
+        m_stroke.insert(from.row + qRound(double(to.row - from.row) * i / steps),
+                        from.column + qRound(double(to.column - from.column) * i / steps));
+    }
 }
 
 void BScheduleGridWidget::mouseMoveEvent(QMouseEvent *event)
@@ -860,6 +979,15 @@ void BScheduleGridWidget::mouseMoveEvent(QMouseEvent *event)
     }
     const BGridPos cell = m_geometry.nearestCell(event->position().toPoint());
     switch (m_drag) {
+    case DragPaint:
+        if (cell != m_dragCell) {
+            extendStroke(m_dragCell, cell);
+            m_dragCell = cell;
+            m_dragMoved = true;
+            setCurrentCell(cell);
+            viewport()->update();
+        }
+        break;
     case DragCells:
         if (cell != m_dragCell) {
             m_dragCell = cell;
@@ -902,14 +1030,13 @@ void BScheduleGridWidget::mouseReleaseEvent(QMouseEvent *event)
     }
     const Drag drag = m_drag;
     m_drag = NoDrag;
-    if (drag == DragCells && !m_dragMoved && m_pressPlain && m_model) {
-        // A plain click on a cell with several runs lists them
-        const BScheduleGridGeometry::Hit hit = m_geometry.hitTest(event->position().toPoint());
-        if (hit.part == BScheduleGridGeometry::Cell && BGridPos{hit.row, hit.column} == m_pressCell) {
-            const BGridCell cell = m_model->cell(hit.row, hit.column);
-            if (cell.inScope.size() + cell.outOfScope.size() > 1)
-                showCellDetails(hit.row, hit.column);
-        }
+    if (drag == DragPaint) {
+        // The whole stroke is one edit
+        const BGridCellSet stroke = m_stroke;
+        m_stroke = BGridCellSet();
+        viewport()->update();
+        if (m_editor && !stroke.isEmpty())
+            m_editor->applyTool(stroke);
     }
     event->accept();
 }
@@ -919,7 +1046,22 @@ void BScheduleGridWidget::mouseDoubleClickEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton && m_model) {
         const BScheduleGridGeometry::Hit hit = m_geometry.hitTest(event->position().toPoint());
         if (hit.part == BScheduleGridGeometry::Cell) {
+            // Not in paint mode: there the second press of a double click
+            // is another dab of paint
+            if (m_editor && m_editor->paintMode()) {
+                mousePressEvent(event);
+                return;
+            }
             showCellDetails(hit.row, hit.column);
+            event->accept();
+            return;
+        }
+        if (hit.part == BScheduleGridGeometry::RuleCell) {
+            const QList<int> rules = rulesAtHour(hit.column);
+            if (!rules.isEmpty()) {
+                emit calendarRuleEditRequested(rules.contains(m_highlightedRule) ? m_highlightedRule
+                                                                                 : rules.first());
+            }
             event->accept();
             return;
         }
@@ -993,6 +1135,13 @@ void BScheduleGridWidget::keyPressEvent(QKeyEvent *event)
         showCellDetails(m_current.row, m_current.column);
         break;
     case Qt::Key_Escape:
+        if (m_drag == DragPaint) {
+            // The stroke is given up
+            m_drag = NoDrag;
+            m_stroke = BGridCellSet();
+            viewport()->update();
+            break;
+        }
         if (m_highlightedRun < 0 && m_highlightedRule < 0) {
             event->ignore();
             return;
@@ -1000,10 +1149,41 @@ void BScheduleGridWidget::keyPressEvent(QKeyEvent *event)
         setHighlightedRun(-1);
         setHighlightedRule(-1);
         break;
-    default:
+    case Qt::Key_Space:
+        if (!m_editor) {
+            event->ignore();
+            return;
+        }
+        if ((modifiers & Qt::ShiftModifier) && m_editor->activeBrush())
+            m_editor->paintBeside(m_model->selection().cells(), *m_editor->activeBrush());
+        else
+            m_editor->applyToolToSelection();
+        break;
+    case Qt::Key_Delete:
+    case Qt::Key_Backspace:
+        if (!m_editor) {
+            event->ignore();
+            return;
+        }
+        m_editor->eraseSelection();
+        break;
+    default: {
+        // The level keys and paint mode; not with Ctrl or Alt, which belong
+        // to shortcuts
+        const bool plain = !(modifiers & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier));
+        const QString level = BScheduleGridEditor::levelOfKey(event->key());
+        if (m_editor && plain && !level.isEmpty()) {
+            m_editor->paintLevel(level);
+            break;
+        }
+        if (m_editor && plain && event->key() == Qt::Key_P) {
+            m_editor->setPaintMode(!m_editor->paintMode());
+            break;
+        }
         // Not QAbstractScrollArea: it would scroll on keys this grid does not use
         event->ignore();
         return;
+    }
     }
     event->accept();
 }
@@ -1067,6 +1247,12 @@ QString BScheduleGridWidget::cellToolTip(int row, int column) const
             text += QStringLiteral("<br>") + line(run)
                     + QStringLiteral("<br>&nbsp;&nbsp;&nbsp;") + relation.toHtmlEscaped();
         }
+        if (m_editor) {
+            text += QStringLiteral("<br>")
+                    + tr("Painting or erasing here changes only the scope \"%1\"; the runs of "
+                         "other scopes stay.")
+                          .arg(BScheduleGridText::scopeLabel(m_model->activeScope())).toHtmlEscaped();
+        }
     }
     if (cell.expectedConcurrentRuns) {
         text += QStringLiteral("<br>")
@@ -1098,7 +1284,8 @@ QString BScheduleGridWidget::toolTipAt(const QPoint &viewportPos) const
     case BScheduleGridGeometry::RuleHeader:
         return tr("Run lines by day of the month or week of the year do not belong to a weekday. "
                   "They are marked here at their hours and listed under \"Calendar rules\"; "
-                  "this band cannot be selected or painted.").toHtmlEscaped();
+                  "this band cannot be selected or painted. A double click on a mark opens "
+                  "the form of its rule.").toHtmlEscaped();
     case BScheduleGridGeometry::RuleCell: {
         const QList<int> here = rulesAtHour(hit.column);
         if (here.isEmpty())
@@ -1285,5 +1472,53 @@ void BScheduleGridWidget::notifyAccessibleReset()
 #if QT_CONFIG(accessibility)
     QAccessibleTableModelChangeEvent event(this, QAccessibleTableModelChangeEvent::ModelReset);
     QAccessible::updateAccessibility(&event);
+#endif
+}
+
+void BScheduleGridWidget::notifyAccessibleCells(const QList<BGridPos> &cells)
+{
+#if QT_CONFIG(accessibility)
+    if (cells.isEmpty())
+        return;
+    // The part of the table that changed, then every cell that says
+    // something else now
+    int top = BGridCellSet::Rows;
+    int bottom = -1;
+    int left = BGridCellSet::Columns;
+    int right = -1;
+    for (const BGridPos &pos : cells) {
+        top = qMin(top, pos.row);
+        bottom = qMax(bottom, pos.row);
+        left = qMin(left, pos.column);
+        right = qMax(right, pos.column);
+    }
+    QAccessibleTableModelChangeEvent changed(this, QAccessibleTableModelChangeEvent::DataChanged);
+    changed.setFirstRow(top);
+    changed.setLastRow(bottom);
+    changed.setFirstColumn(left);
+    changed.setLastColumn(right);
+    QAccessible::updateAccessibility(&changed);
+    for (const BGridPos &pos : cells) {
+        QAccessibleEvent name(this, QAccessible::NameChanged);
+        name.setChild(BScheduleGridAccessible::childIndex(pos.row, pos.column));
+        QAccessible::updateAccessibility(&name);
+    }
+#else
+    Q_UNUSED(cells);
+#endif
+}
+
+void BScheduleGridWidget::notifyAccessibleTool()
+{
+#if QT_CONFIG(accessibility)
+    // The tool in hand is part of the description of the table
+    QAccessibleEvent event(this, QAccessible::DescriptionChanged);
+    QAccessible::updateAccessibility(&event);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    if (m_editor) {
+        QAccessibleAnnouncementEvent announcement(this, tr("Tool: %1").arg(m_editor->toolText()));
+        QAccessible::updateAccessibility(&announcement);
+    }
+#endif
 #endif
 }

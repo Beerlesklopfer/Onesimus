@@ -5,6 +5,7 @@
 
 #include "schedules/bschedulegridaccessible.h"
 
+#include "schedules/bschedulegrideditor.h"
 #include "schedules/bschedulegridwidget.h"
 #include "schedules/model/bschedulegridtext.h"
 
@@ -115,7 +116,8 @@ public:
             return state;
         }
         const BGridSelection &selection = m_grid->model()->selection();
-        state.readOnly = true;
+        // A cell of an editable grid can be painted and erased
+        state.readOnly = !(isCell() && m_grid->isEditable());
         if (isCell()) {
             state.selectable = true;
             state.multiSelectable = true;
@@ -164,12 +166,28 @@ public:
 
     // --- QAccessibleActionInterface ---
 
+    /// The names of the two actions of a cell of an editable grid
+    static QString applyToolAction() { return QStringLiteral("ApplyTool"); }
+    static QString eraseAction() { return QStringLiteral("Erase"); }
+
     QStringList actionNames() const override
     {
         QStringList names{pressAction()};
-        if (isCell())
+        if (isCell()) {
             names << showMenuAction() << setFocusAction();
+            if (m_grid && m_grid->isEditable())
+                names << applyToolAction() << eraseAction();
+        }
         return names;
+    }
+
+    QString localizedActionName(const QString &actionName) const override
+    {
+        if (actionName == applyToolAction())
+            return BScheduleGridWidget::tr("Apply the tool");
+        if (actionName == eraseAction())
+            return BScheduleGridWidget::tr("Erase");
+        return QAccessibleActionInterface::localizedActionName(actionName);
     }
 
     QString localizedActionDescription(const QString &actionName) const override
@@ -185,6 +203,12 @@ public:
         }
         if (actionName == showMenuAction())
             return BScheduleGridWidget::tr("Lists the runs of this cell");
+        if (actionName == applyToolAction()) {
+            return BScheduleGridWidget::tr("Applies the tool in hand (%1) to this cell")
+                .arg(m_grid && m_grid->editor() ? m_grid->editor()->toolText() : QString());
+        }
+        if (actionName == eraseAction())
+            return BScheduleGridWidget::tr("Removes the runs of the scope on display from this cell");
         return QAccessibleActionInterface::localizedActionDescription(actionName);
     }
 
@@ -212,6 +236,15 @@ public:
         } else if (isCell() && actionName == setFocusAction()) {
             m_grid->setFocus();
             m_grid->setCurrentCell(BGridPos{m_row, m_column});
+        } else if (isCell() && m_grid->isEditable()
+                   && (actionName == applyToolAction() || actionName == eraseAction())) {
+            // This cell only, whatever is selected
+            BGridCellSet cell;
+            cell.insert(m_row, m_column);
+            if (actionName == applyToolAction())
+                m_grid->editor()->applyTool(cell);
+            else
+                m_grid->editor()->erase(cell);
         }
     }
 
@@ -280,6 +313,13 @@ QString BScheduleGridAccessible::text(QAccessible::Text type) const
     if (type == QAccessible::Description) {
         QStringList parts{BScheduleGridWidget::tr("Weekdays by hours. Arrow keys move, Shift extends "
                                                   "the selection, Enter lists the runs of a cell.")};
+        if (const BScheduleGridEditor *editor = widget->editor()) {
+            parts.append(BScheduleGridWidget::tr("Space applies the tool to the selected cells, "
+                                                 "Delete erases them, F, D, I and V paint a level."));
+            parts.append(BScheduleGridWidget::tr("Tool: %1.").arg(editor->toolText()));
+            if (editor->paintMode())
+                parts.append(BScheduleGridWidget::tr("Paint mode is on."));
+        }
         const QList<BGridCalendarRule> &rules = model->calendarRules();
         for (int i = 0; i < rules.size(); ++i) {
             parts.append(BScheduleGridWidget::tr("Calendar rule %1: %2, %3")

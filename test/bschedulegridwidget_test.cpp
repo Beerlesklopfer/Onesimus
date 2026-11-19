@@ -7,6 +7,7 @@
  * scope bar, the lists beside the grid, the keyboard round with F6, the
  * table for screen readers, and a rendering smoke test that paints a few
  * schedules in both themes and checks that cells differ where they should.
+ * Editing is tested in bschedulegridedit_test.cpp.
  *
  * Needs a QApplication but no display: CTest runs it on the offscreen
  * platform. With ONESIMUS_GRID_SCREENSHOT_DIR set to a directory the
@@ -26,6 +27,7 @@
 #include "schedules/bschedulegridview.h"
 #include "schedules/bschedulegridwidget.h"
 #include "schedules/bscheduleminicalendar.h"
+#include "schedules/bschedulepalette.h"
 #include "schedules/model/bschedulegridtext.h"
 
 namespace {
@@ -100,6 +102,11 @@ struct Shown
     void click(const QPoint &pos, Qt::KeyboardModifiers modifiers = Qt::NoModifier)
     {
         QTest::mouseClick(viewport(), Qt::LeftButton, modifiers, pos);
+    }
+
+    void doubleClick(const QPoint &pos)
+    {
+        QTest::mouseDClick(viewport(), Qt::LeftButton, Qt::NoModifier, pos);
     }
 
     /// Press, move with the button down, release
@@ -399,10 +406,8 @@ void BScheduleGridWidgetTest::keyboardMovesAndSelects()
     QTest::keyClick(grid, Qt::Key_A, Qt::ControlModifier);
     QCOMPARE(selection.count(), 7 * 24);
 
-    // No key edits: the schedule is as it was
-    QTest::keyClick(grid, Qt::Key_Delete);
-    QTest::keyClick(grid, Qt::Key_Space);
-    QTest::keyClick(grid, Qt::Key_F);
+    // None of these keys edits: the schedule is as it was. Space, Del and
+    // the level keys do (bschedulegridedit_test.cpp).
     QVERIFY(!s.model()->isModified());
     QCOMPARE(selection.count(), 7 * 24);
 }
@@ -438,8 +443,12 @@ void BScheduleGridWidgetTest::listOfRunsOfACell()
     QTest::keyClick(grid, Qt::Key_Return);
     QVERIFY(!grid->cellDetails());
 
-    // A click on a cell with several runs lists them; here two of other scopes
+    // A plain click on a cell with several runs only selects it ...
     s.click(s.cell(Sat, 21));
+    QVERIFY(!grid->cellDetails());
+    QVERIFY(s.model()->selection().contains(Sat, 21));
+    // ... a double click lists them; here two of other scopes
+    s.doubleClick(s.cell(Sat, 21));
     QVERIFY(grid->cellDetails());
     tree = grid->cellDetails()->findChild<QTreeWidget *>(QStringLiteral("scheduleGridCellRuns"));
     QVERIFY(tree);
@@ -463,7 +472,7 @@ void BScheduleGridWidgetTest::listOfRunsOfACell()
              QStringLiteral("Level=Full Pool=Monthly 1st sat at 21:00"));
 
     // In "1st" the Differential never coincides, the Incremental may
-    s.click(s.cell(Sat, 21));
+    s.doubleClick(s.cell(Sat, 21));
     QVERIFY(grid->cellDetails());
     tree = grid->cellDetails()->findChild<QTreeWidget *>(QStringLiteral("scheduleGridCellRuns"));
     QCOMPARE(tree->topLevelItemCount(), 2);
@@ -670,7 +679,8 @@ void BScheduleGridWidgetTest::selectionLine()
     QCOMPARE(s.view.selectionText(),
              QStringLiteral("7 cell(s) selected: Incremental at :05 in 5 cell(s). Other scopes: "
                             "Full at :00, pool Monthly (1st) in 1 cell(s); "
-                            "Differential at :00 (2nd-5th) in 1 cell(s)."));
+                            "Differential at :00 (2nd-5th) in 1 cell(s). "
+                            "They stay when this scope is painted or erased."));
     s.click(s.cell(Mon, 3));
     QCOMPARE(s.view.selectionText(), QStringLiteral("1 cell(s) selected: no run in this scope."));
 
@@ -679,7 +689,8 @@ void BScheduleGridWidgetTest::selectionLine()
     s.model()->setActiveScope(1);
     QCOMPARE(s.view.selectionText(),
              QStringLiteral("2 cell(s) selected: Full at :00, pool Monthly in 1 cell(s). Other scopes: "
-                            "Differential at :00 (2nd-5th) in 1 cell(s)."));
+                            "Differential at :00 (2nd-5th) in 1 cell(s). "
+                            "They stay when this scope is painted or erased."));
 }
 
 void BScheduleGridWidgetTest::miniCalendar()
@@ -735,7 +746,9 @@ void BScheduleGridWidgetTest::f6GoesRound()
     s.grid()->setFocus();
     QTRY_VERIFY(s.grid()->hasFocus());
 
-    // Grid, Run lines, calendar rules, calendar, scope bar, grid
+    // Grid, palette, Run lines, calendar rules, calendar, scope bar, grid
+    s.view.focusNextPart();
+    QVERIFY(s.view.palette()->activeButton()->hasFocus());
     s.view.focusNextPart();
     QVERIFY(s.view.runLineList()->hasFocus());
     s.view.focusNextPart();
@@ -856,7 +869,8 @@ void BScheduleGridWidgetTest::accessibleTable()
     s.click(s.cell(Sat, 21), Qt::ControlModifier);   // with Ctrl: no list of runs
     QVERIFY(cell->state().selected);
     QVERIFY(tableCell->isSelected());
-    QVERIFY(cell->state().selectable && cell->state().focusable && cell->state().readOnly);
+    // The view edits: a cell can be painted, a header cannot
+    QVERIFY(cell->state().selectable && cell->state().focusable && !cell->state().readOnly);
     QCOMPARE(table->selectedCellCount(), 1);
     QCOMPARE(table->selectedCells(), QList<QAccessibleInterface *>({cell}));
     QTRY_VERIFY(grid->hasFocus());

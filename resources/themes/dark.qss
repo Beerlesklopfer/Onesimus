@@ -490,7 +490,8 @@ BScheduleGanttWidget {
    palette roles of the global QWidget rule and the level colours.
    Rules are needed only for the scope bar, whose buttons act as tabs
    (the checked one is the scope on display, one without Run lines is
-   dimmed), and for the notice about lines that are not understood.
+   dimmed), for the notice about lines that are not understood, and
+   for what editing adds (at the end of this block).
    ============================================================ */
 BScheduleGridWidget {
     border: none;
@@ -527,4 +528,86 @@ QToolButton[scopeEmpty="true"] {
 QLabel#scheduleGridNotice {
     color: #e0a030;
     font-weight: bold;
+}
+
+/* Editing in the grid. The palette: the checked button is the tool in
+   hand. "+" adds a scope. The buttons of the calendar rule form stand for
+   single days, weeks and hours; a checked one is filled. */
+QToolButton[paletteButton="true"] {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 3px;
+    padding: 3px 8px;
+}
+
+QToolButton[paletteButton="true"]:hover {
+    background-color: #37373d;
+}
+
+QToolButton[paletteButton="true"]:checked {
+    background-color: #094771;
+    border: 2px solid #3794ff;
+    padding: 2px 7px;
+    color: #ffffff;
+}
+
+QToolButton[paletteButton="true"]:focus {
+    border: 2px solid #d4d4d4;
+    padding: 2px 7px;
+}
+
+QToolButton#scheduleGridAddScope {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-weight: bold;
+}
+
+QToolButton#scheduleGridAddScope:hover {
+    background-color: #37373d;
+}
+
+QToolButton#scheduleGridAddScope:focus {
+    border: 2px solid #d4d4d4;
+    padding: 3px 9px;
+}
+
+QToolButton[maskButton="true"] {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 2px;
+    padding: 3px 2px;
+}
+
+QToolButton[maskButton="true"]:hover {
+    background-color: #37373d;
+}
+
+QToolButton[maskButton="true"]:checked {
+    background-color: #0e639c;
+    border: 1px solid #3794ff;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+QToolButton[maskButton="true"]:focus {
+    border: 2px solid #d4d4d4;
+    padding: 2px 1px;
+}
+
+QToolButton[maskButton="true"]:disabled {
+    color: #6a6a6a;
+    background-color: #1e1e1e;
+}
+
+QLabel#scheduleGridModified {
+    color: #e0a030;
+    font-weight: bold;
+}
+
+QFrame#scheduleGridPending {
+    background-color: #3b2f0b;
+    border: 1px solid #e0a030;
+    border-radius: 3px;
 }

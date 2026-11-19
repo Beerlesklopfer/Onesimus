@@ -9,6 +9,7 @@
 #include <functional>
 #include <optional>
 
+#include "schedules/bschedulegrideditor.h"
 #include "schedules/bschedulegridgeometry.h"
 #include "schedules/model/bschedulegridmodel.h"
 
@@ -16,10 +17,12 @@ class QFrame;
 
 /**
  * @brief The schedule grid: weekdays by hours, as the "Logon Hours" dialog
- *        of Active Directory shows them
+ *        of Active Directory shows and edits them
  *
- * Draws one BScheduleGridModel and changes nothing but its selection. The
- * model is not owned.
+ * Draws one BScheduleGridModel. Without an editor it changes nothing but
+ * the selection of the model; with one (setEditor()) it also paints and
+ * erases, always through the editor, so that every change is a step of its
+ * undo stack. Neither the model nor the editor is owned.
  *
  * What a cell shows
  *  - A run of the active scope is a stripe filled with the colour of its
@@ -37,14 +40,17 @@ class QFrame;
  *    framed with a solid line; one that never coincides has no tint, is
  *    hatched falling to the right and framed with a dashed line.
  *  - Up to three stripes per cell, runs of the active scope first; the rest
- *    is counted in a "+n" badge. Enter or a click opens the list of them.
+ *    is counted in a "+n" badge. Enter or a double click opens the list of
+ *    them; a plain click only selects.
  *  - A run whose line names no time has a warning triangle.
  *  - BGridCell::expectedConcurrentRuns, where set, is a thin bar at the
  *    bottom of the cell, as long as the figure is of the largest in the grid.
  *
  * Calendar rules (lines by day of the month or week of the year) are not
  * cells. They are marked in a band below the grid, at their hours, drawn
- * without cell borders and not selectable.
+ * without cell borders; the band cannot be selected or painted. A click on
+ * a mark chooses its rule (another click the next one, where several run
+ * in the hour), a double click asks for the form of the rule.
  *
  * Selection (the model owns it) with mouse and keyboard as in the Logon
  * Hours dialog: click a cell, drag a rectangle, click a row header for a
@@ -52,7 +58,22 @@ class QFrame;
  * toggles, Shift extends from the anchor. Arrow keys move, Shift+arrows
  * extend, Home/End go to the first and last hour (with Ctrl to the first
  * and last cell), Page Up/Down to the first and last day, Ctrl+A selects
- * all, Enter opens the list of runs of the current cell. Nothing here edits.
+ * all, Enter opens the list of runs of the current cell. Clicking or
+ * Shift-clicking a header always selects whole days or hours.
+ *
+ * Editing (with an editor)
+ *  - Space applies the tool in hand (a brush or the eraser) to the selected
+ *    cells; Shift+Space adds the brush to the runs the cells have instead
+ *    of replacing them. Del and Backspace erase the selected cells.
+ *  - F, D, I and V take the brush of that level (Full, Differential,
+ *    Incremental, VirtualFull) in hand and paint the selection with it.
+ *  - P switches paint mode. In paint mode a press on a cell and dragging
+ *    over cells applies the tool to every cell the mouse passes, as one
+ *    step, when the button is released; Esc gives the stroke up. With Ctrl
+ *    or Shift the mouse selects as it does outside paint mode, and the
+ *    headers always select.
+ *  - Only runs of the active scope are painted and erased. Runs of other
+ *    scopes in a cell stay as they are; the tooltip says so.
  *
  * A screen reader gets a table (bschedulegridaccessible.h).
  */
@@ -70,6 +91,14 @@ public:
 
     void setModel(BScheduleGridModel *model);
     BScheduleGridModel *model() const { return m_model; }
+
+    /// The editor that makes the grid editable; nullptr: only selection
+    void setEditor(BScheduleGridEditor *editor);
+    BScheduleGridEditor *editor() const { return m_editor; }
+    bool isEditable() const { return !m_editor.isNull(); }
+
+    /// The cells of a stroke of paint mode that is not finished yet
+    const BGridCellSet &pendingStroke() const { return m_stroke; }
 
     void setLevelColorSource(const LevelColorSource &source);
 
@@ -143,6 +172,8 @@ signals:
     void currentCellChanged(int row, int column);
     /// A mark in the band of calendar rules was clicked
     void calendarRuleActivated(int ruleIndex);
+    /// A mark in the band was double clicked: the form of the rule is wanted
+    void calendarRuleEditRequested(int ruleIndex);
     /// A run was chosen in the list of runs of a cell
     void runActivated(int runIndex);
 
@@ -161,10 +192,15 @@ protected:
     void changeEvent(QEvent *event) override;
 
 private:
-    enum Drag { NoDrag, DragCells, DragRows, DragColumns };
+    enum Drag { NoDrag, DragCells, DragRows, DragColumns, DragPaint };
 
     void onModelReset();
     void onCellsChanged();
+    void onCellsEdited(const QList<BGridPos> &cells);
+    void onToolChanged();
+    void updateCursor();
+    void extendStroke(const BGridPos &from, const BGridPos &to);
+    void paintStroke(QPainter &painter) const;
     void onSelectionChanged();
     void rebuildCaches();
     void updateLayout();
@@ -186,8 +222,11 @@ private:
     void notifyAccessibleFocus();
     void notifyAccessibleSelection();
     void notifyAccessibleReset();
+    void notifyAccessibleCells(const QList<BGridPos> &cells);
+    void notifyAccessibleTool();
 
     QPointer<BScheduleGridModel> m_model;
+    QPointer<BScheduleGridEditor> m_editor;
     LevelColorSource m_levelColors;
     BScheduleGridGeometry m_geometry;
 
@@ -207,6 +246,7 @@ private:
     bool m_pressPlain = false;  ///< A press without modifiers
     BGridPos m_pressCell;
     BGridPos m_dragCell;
+    BGridCellSet m_stroke;      ///< Paint mode: the cells passed since the press
 
     QPointer<QFrame> m_details;
 };

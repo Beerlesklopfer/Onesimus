@@ -586,6 +586,29 @@ public:
      */
     BGridChange moveRun(int runIndex, int minute);
 
+    // --- Edits of calendar rules -------------------------------------------
+    //
+    // A calendar rule is edited as a whole, by a form. The three operations
+    // follow the edit rules above: every other line keeps its text, the
+    // line that is created or changed is written, read back and compared,
+    // and a changed rule that says again what the loaded line said goes
+    // back to its reported text.
+
+    /// Is the run restricted by day of the month or by week of the year,
+    /// which makes it a calendar rule and not a line of the grid?
+    static bool isCalendarRule(const BRunSpec &spec);
+
+    /// Adds a calendar rule at the end of the schedule. Fails for a spec
+    /// that is not a calendar rule: such a run is painted in the grid.
+    BGridChange addCalendarRule(const BRunSpec &spec);
+
+    /// Replaces the calendar rule at @p runIndex (an index of a Run line,
+    /// BGridCalendarRule::runIndex). The new spec has to be a calendar rule.
+    BGridChange changeCalendarRule(int runIndex, const BRunSpec &spec);
+
+    /// Removes the calendar rule at @p runIndex
+    BGridChange removeCalendarRule(int runIndex);
+
     BGridSnapshot snapshot() const;
 
     /// Puts back the Run lines of BGridChange::before or ::after

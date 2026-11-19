@@ -39,8 +39,14 @@
  * shows the schedule of the current row of the list, one at a time,
  * because that is the resource a later step writes. Without a current row
  * it takes the first schedule. The controls of the toolbar that belong to
- * the timeline (day or week, date navigation, snap, zoom) are hidden while
- * the grid is shown; its calendar of five weeks has its own navigation.
+ * the timeline (day or week, date navigation, snap, zoom, the collision
+ * counter) are hidden while the grid is shown; its calendar of five weeks
+ * has its own navigation.
+ *
+ * The grid can be edited. Its changes are kept in the view and not written
+ * to the Director yet. A refresh or a choice in the list never replaces
+ * them: the schedule is offered to the view (BScheduleGridView::
+ * offerSchedule()), which asks whether to keep or to discard the changes.
  *
  * Job history. How long jobs run and wait is measured from the catalog
  * (BJobHistoryStats). The request (BDirector::Command::LlistJobs, bounded
@@ -228,6 +234,7 @@ private:
     QLabel *m_zoomLabel;
     QSlider *m_zoomSlider;             // Zoom in week mode (px/hour)
     QLabel *m_collisionLabel;
+    bool m_haveCollisions = false;    ///< The timeline reported some; shown only beside it
     QLabel *m_runProblemLabel;     ///< Run lines that were not understood
 
     // Stats panel

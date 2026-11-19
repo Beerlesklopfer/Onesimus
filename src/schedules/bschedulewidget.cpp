@@ -249,6 +249,19 @@ void BScheduleWidget::setupUI()
         m_gridView->setLevelColorSource(&BLevelColors::getLevelColor);
     });
     m_viewStack->addWidget(m_gridView);          // index 1 = Grid
+    // "Discard": the schedule that waited is on display now, with its jobs
+    connect(m_gridView, &BScheduleGridView::pendingScheduleShown, this,
+            [this]() { updateGridView(true); });
+    // "Keep my changes" after another schedule was chosen in the list: the
+    // list goes back to the schedule that stays on display
+    connect(m_gridView, &BScheduleGridView::changesKept, this, [this](const QString &name) {
+        m_gridScheduleName = name;
+        const QList<QListWidgetItem *> named = m_scheduleList->findItems(name, Qt::MatchExactly);
+        if (!named.isEmpty() && m_scheduleList->currentItem() != named.first()) {
+            const QSignalBlocker blocker(m_scheduleList);
+            m_scheduleList->setCurrentItem(named.first());
+        }
+    });
 
     setupWaitsPage();
     m_viewStack->addWidget(m_waitsPage);         // index 2 = Measured waits
@@ -379,11 +392,18 @@ void BScheduleWidget::clearData()
 {
     m_scheduleList->clear();
     m_gridScheduleName.clear();
-    m_gridView->clear();
+    // Changes that were made in the grid are not thrown away with the
+    // connection: the schedule stays on display, and the next one that
+    // arrives is offered, not shown
+    if (!m_gridView->isModified())
+        m_gridView->clear();
+    else
+        m_gridView->setUsage({}, false);
     m_fdGanttWidget->setEntries({});
     m_sdGanttWidget->setEntries({});
     m_scheduleModel->clear();
     resetHistory();     // the history belongs to the connection
+    m_haveCollisions = false;
     m_collisionLabel->setVisible(false);
     m_runProblemLabel->setVisible(false);
 }
@@ -682,6 +702,8 @@ void BScheduleWidget::onViewModeChanged(int index)
     m_dayLabel->setVisible(isGantt);
     m_nextDayButton->setVisible(isGantt);
     m_todayButton->setVisible(isGantt);
+    // The collisions are those of the timeline
+    m_collisionLabel->setVisible(isGantt && m_haveCollisions);
 
     // The figures of a run clicked in the timeline would take the room of
     // the grid
@@ -786,7 +808,8 @@ void BScheduleWidget::updateDateLabel()
 
 void BScheduleWidget::onCollisionsDetected(int certain, int uncertain)
 {
-    if (certain <= 0 && uncertain <= 0) {
+    m_haveCollisions = certain > 0 || uncertain > 0;
+    if (!m_haveCollisions) {
         m_collisionLabel->setVisible(false);
         return;
     }
@@ -806,7 +829,8 @@ void BScheduleWidget::onCollisionsDetected(int certain, int uncertain)
     // Red is for what was computed from measured durations
     m_collisionLabel->setStyleSheet(certain > 0 ? "color: red; font-weight: bold;"
                                                 : "color: #b26a00; font-weight: bold;");
-    m_collisionLabel->setVisible(true);
+    // Only beside the timeline: the other views do not show these runs
+    m_collisionLabel->setVisible(m_viewStack->currentIndex() == 0);
 }
 
 void BScheduleWidget::setupStatsPanel()
@@ -1201,6 +1225,10 @@ void BScheduleWidget::updateGridView(bool namesOnly)
     // without one the first schedule is taken.
     QListWidgetItem *current = m_scheduleList->currentItem();
     if (!current && m_scheduleList->count() > 0) {
+        // After a new connection: a schedule with changes that stayed on
+        // display is the choice again, if the Director has one of its name
+        if (m_gridScheduleName.isEmpty() && m_gridView->isModified())
+            m_gridScheduleName = m_gridView->model()->loadedSchedule().name;
         const QList<QListWidgetItem *> named =
             m_scheduleList->findItems(m_gridScheduleName, Qt::MatchExactly);
         current = (!m_gridScheduleName.isEmpty() && !named.isEmpty()) ? named.first()
@@ -1209,7 +1237,9 @@ void BScheduleWidget::updateGridView(bool namesOnly)
         m_scheduleList->setCurrentItem(current);
     }
     if (!current) {
-        m_gridView->clear();
+        // Changes that were made stay on display
+        if (!m_gridView->isModified())
+            m_gridView->clear();
         return;
     }
     m_gridScheduleName = current->text();
@@ -1228,12 +1258,18 @@ void BScheduleWidget::updateGridView(bool namesOnly)
             same = schedule.runs[i].original == shown.runs[i].original;
         }
     }
-    if (!same) {
-        m_gridView->setSchedule(schedule);
+    // Offered, not set: a schedule with changes that are not written stays
+    // on display, and the view asks whether to keep or to discard them. A
+    // reply that reports again what the changes started from takes an open
+    // question back.
+    if (!same || (!namesOnly && m_gridView->hasPendingSchedule())) {
+        m_gridView->offerSchedule(schedule);
     }
 
+    // The jobs of the schedule on display, which may be the one with changes
+    const QString shownName = m_gridView->model()->loadedSchedule().name;
     QStringList jobs;
-    for (const BJobScheduleIndex::JobRef &job : m_jobScheduleIndex->jobsForSchedule(m_gridScheduleName)) {
+    for (const BJobScheduleIndex::JobRef &job : m_jobScheduleIndex->jobsForSchedule(shownName)) {
         jobs.append(job.jobName);
     }
     m_gridView->setUsage(jobs, m_jobScheduleIndex->isValid());

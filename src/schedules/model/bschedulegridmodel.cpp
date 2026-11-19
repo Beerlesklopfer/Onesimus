@@ -1195,6 +1195,71 @@ BGridChange BScheduleGridModel::moveRun(int runIndex, int minute)
     return commit(items);
 }
 
+bool BScheduleGridModel::isCalendarRule(const BRunSpec &spec)
+{
+    return (spec.mask.mday & BDateTimeMask::AllMdays) != BDateTimeMask::AllMdays
+        || (spec.mask.woy & BDateTimeMask::AllWoys) != BDateTimeMask::AllWoys;
+}
+
+BGridChange BScheduleGridModel::addCalendarRule(const BRunSpec &spec)
+{
+    if (!isCalendarRule(spec)) {
+        return failed(tr("A run without days of the month and without weeks of the year "
+                         "is not a calendar rule; it is painted in the grid."));
+    }
+    QList<Item> items = m_items;
+    for (int i = 0; i < items.size(); ++i) {
+        items[i].before = i;
+        items[i].touched = false;
+    }
+    Item item;
+    item.line.spec = spec;
+    item.line.dirty = true;
+    item.touched = true;
+    items.append(item);
+    return commit(items);
+}
+
+BGridChange BScheduleGridModel::changeCalendarRule(int runIndex, const BRunSpec &spec)
+{
+    if (runIndex < 0 || runIndex >= m_items.size())
+        return failed(tr("There is no Run line %1.").arg(runIndex + 1));
+    if (!m_items[runIndex].line.spec || isGridLine(m_items[runIndex].line))
+        return failed(tr("Run line %1 is not a calendar rule.").arg(runIndex + 1));
+    if (!isCalendarRule(spec)) {
+        return failed(tr("A run without days of the month and without weeks of the year "
+                         "is not a calendar rule; it is painted in the grid."));
+    }
+    QList<Item> items = m_items;
+    for (int i = 0; i < items.size(); ++i) {
+        items[i].before = i;
+        items[i].touched = false;
+    }
+    Item &item = items[runIndex];
+    if (*item.line.spec != spec) {
+        item.line.spec = spec;
+        item.line.dirty = true;
+        item.touched = true;
+        item.text.clear();
+    }
+    return commit(items);
+}
+
+BGridChange BScheduleGridModel::removeCalendarRule(int runIndex)
+{
+    if (runIndex < 0 || runIndex >= m_items.size())
+        return failed(tr("There is no Run line %1.").arg(runIndex + 1));
+    if (!m_items[runIndex].line.spec || isGridLine(m_items[runIndex].line))
+        return failed(tr("Run line %1 is not a calendar rule.").arg(runIndex + 1));
+    QList<Item> items = m_items;
+    for (int i = 0; i < items.size(); ++i) {
+        items[i].before = i;
+        items[i].touched = false;
+    }
+    items.removeAt(runIndex);
+    return commit(items);
+}
+
 BGridChange BScheduleGridModel::commit(QList<Item> items)
 {
     // Every line the edit created or changed: back to the reported text if

@@ -472,10 +472,14 @@ set(SOURCES
 
     src/schedules/bschedulewidget.cpp
     src/schedules/bschedulegridaccessible.cpp
+    src/schedules/bschedulegriddialogs.cpp
+    src/schedules/bschedulegrideditor.cpp
     src/schedules/bschedulegridgeometry.cpp
     src/schedules/bschedulegridview.cpp
     src/schedules/bschedulegridwidget.cpp
     src/schedules/bscheduleminicalendar.cpp
+    src/schedules/bschedulepalette.cpp
+    src/schedules/brunruledialog.cpp
     src/schedules/bscheduleganttwidget.cpp
     src/schedules/bschedulewizard.cpp
     src/schedules/bjobscheduleindex.cpp
@@ -587,10 +591,14 @@ set(HEADERS
 
     include/schedules/bschedulewidget.h
     include/schedules/bschedulegridaccessible.h
+    include/schedules/bschedulegriddialogs.h
+    include/schedules/bschedulegrideditor.h
     include/schedules/bschedulegridgeometry.h
     include/schedules/bschedulegridview.h
     include/schedules/bschedulegridwidget.h
     include/schedules/bscheduleminicalendar.h
+    include/schedules/bschedulepalette.h
+    include/schedules/brunruledialog.h
     include/schedules/bscheduleganttwidget.h
     include/schedules/bschedulewizard.h
     include/schedules/bjobscheduleindex.h
@@ -1605,20 +1613,28 @@ if(BUILD_TESTING)
     add_executable(bschedulegridwidget_test
         test/bschedulegridwidget_test.cpp
         src/schedules/bschedulegridaccessible.cpp
+        src/schedules/bschedulegriddialogs.cpp
+        src/schedules/bschedulegrideditor.cpp
         src/schedules/bschedulegridgeometry.cpp
         src/schedules/bschedulegridview.cpp
         src/schedules/bschedulegridwidget.cpp
         src/schedules/bscheduleminicalendar.cpp
+        src/schedules/bschedulepalette.cpp
+        src/schedules/brunruledialog.cpp
         src/schedules/model/bschedulegridtext.cpp
         src/schedules/model/bschedulegridmodel.cpp
         src/schedules/model/bscheduleoccurrences.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
         include/schedules/bschedulegridaccessible.h
+        include/schedules/bschedulegriddialogs.h
+        include/schedules/bschedulegrideditor.h
         include/schedules/bschedulegridgeometry.h
         include/schedules/bschedulegridview.h
         include/schedules/bschedulegridwidget.h
         include/schedules/bscheduleminicalendar.h
+        include/schedules/bschedulepalette.h
+        include/schedules/brunruledialog.h
         include/schedules/model/bschedulegridtext.h
         include/schedules/model/bschedulegridmodel.h
         include/schedules/model/bscheduleoccurrences.h
@@ -1646,6 +1662,61 @@ if(BUILD_TESTING)
     # what the test renders, run it with ONESIMUS_GRID_SCREENSHOT_DIR set to
     # a directory.
     set_tests_properties(bschedulegridwidget_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # bschedulegridedit_test - editing in the schedule grid: brushes and the
+    # palette, painting and erasing with mouse and keyboard, undo and redo
+    # back to the reported Run lines, scopes, the calendar rule form, lines
+    # that are not understood, a refresh while there are changes (widgets,
+    # no Director)
+    add_executable(bschedulegridedit_test
+        test/bschedulegridedit_test.cpp
+        src/schedules/bschedulegridaccessible.cpp
+        src/schedules/bschedulegriddialogs.cpp
+        src/schedules/bschedulegrideditor.cpp
+        src/schedules/bschedulegridgeometry.cpp
+        src/schedules/bschedulegridview.cpp
+        src/schedules/bschedulegridwidget.cpp
+        src/schedules/bscheduleminicalendar.cpp
+        src/schedules/bschedulepalette.cpp
+        src/schedules/brunruledialog.cpp
+        src/schedules/model/bschedulegridtext.cpp
+        src/schedules/model/bschedulegridmodel.cpp
+        src/schedules/model/bscheduleoccurrences.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/schedules/bschedulegridaccessible.h
+        include/schedules/bschedulegriddialogs.h
+        include/schedules/bschedulegrideditor.h
+        include/schedules/bschedulegridgeometry.h
+        include/schedules/bschedulegridview.h
+        include/schedules/bschedulegridwidget.h
+        include/schedules/bscheduleminicalendar.h
+        include/schedules/bschedulepalette.h
+        include/schedules/brunruledialog.h
+        include/schedules/model/bschedulegridtext.h
+        include/schedules/model/bschedulegridmodel.h
+        include/schedules/model/bscheduleoccurrences.h
+        include/schedules/model/brunspec.h
+    )
+
+    target_include_directories(bschedulegridedit_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(bschedulegridedit_test PRIVATE
+        ONESIMUS_THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
+    )
+
+    target_link_libraries(bschedulegridedit_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+
+    add_test(NAME bschedulegridedit_test COMMAND bschedulegridedit_test)
+    # As above; pictures with ONESIMUS_GRID_SCREENSHOT_DIR
+    set_tests_properties(bschedulegridedit_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 message(STATUS "")
@@ -1675,6 +1746,7 @@ if(BUILD_TESTING)
     message(STATUS "  bschedulegridmodel_test - schedule grid model test (registered with CTest)")
     message(STATUS "  bschedulegridtext_test - schedule grid texts, calendar and geometry test (registered with CTest)")
     message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")
+    message(STATUS "  bschedulegridedit_test - schedule grid editing test, offscreen (registered with CTest)")
 endif()
 message(STATUS "")
 
