@@ -403,6 +403,7 @@ private:
     QToolButton *m_todayButton;
     QLabel *m_dayLabel;               // The date or the week on display
     QDateEdit *m_dayPicker = nullptr;   ///< Day view: the date, with a calendar
+    QLabel *m_dayName = nullptr;        ///< Day view: its weekday, in the language of the texts
     QLabel *m_snapLabel = nullptr;
     QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour
     QLabel *m_zoomLabel;

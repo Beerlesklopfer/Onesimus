@@ -158,14 +158,19 @@ void BScheduleWidget::setupUI()
     // Day view: a date with a calendar to pick it from
     m_dayPicker = new QDateEdit(QDate::currentDate(), this);
     m_dayPicker->setCalendarPopup(true);
-    m_dayPicker->setDisplayFormat(QStringLiteral("ddd yyyy-MM-dd"));
+    // "ddd" would name the weekday in the locale of the language setting,
+    // which can differ from the texts (an untranslated language): the
+    // weekday stands beside the field, from the same texts as the rest
+    m_dayPicker->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
     m_dayPicker->setToolTip(tr("The date on display; the calendar opens from the arrow"));
     connect(m_dayPicker, &QDateEdit::dateChanged, this, [this](const QDate &date) {
         setCurrentDate(date);
     });
+    m_dayName = new QLabel(this);
 
     toolbarLayout->addWidget(m_prevDayButton);
     toolbarLayout->addWidget(m_dayLabel);
+    toolbarLayout->addWidget(m_dayName);
     toolbarLayout->addWidget(m_dayPicker);
     toolbarLayout->addWidget(m_nextDayButton);
     toolbarLayout->addWidget(m_todayButton);
@@ -898,6 +903,7 @@ void BScheduleWidget::updateDateControls()
     m_nextDayButton->setVisible(gantt && week);
     if (m_dayPicker) {
         m_dayPicker->setVisible(gantt && !week);
+        m_dayName->setVisible(gantt && !week);
         const QSignalBlocker blocker(m_dayPicker);
         m_dayPicker->setDate(m_currentDate);
     }
@@ -909,6 +915,9 @@ void BScheduleWidget::updateDateLabel()
         tr("Mon"), tr("Tue"), tr("Wed"), tr("Thu"),
         tr("Fri"), tr("Sat"), tr("Sun")
     };
+
+    if (m_dayName)
+        m_dayName->setText(dayAbbrev.value(m_currentDate.dayOfWeek() - 1));
 
     if (showsWeek()) {
         const QDate monday = BScheduleGanttWidget::firstDateFor(
