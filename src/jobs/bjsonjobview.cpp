@@ -623,16 +623,16 @@ void BJsonJobView::deleteJob()
                                "The backup data on the storage media remains intact."));
     deleteRadio->setChecked(true);
 
-    QRadioButton *purgeRadio = new QRadioButton(tr("Purge job (delete record and volume data)"), modeGroup);
-    purgeRadio->setToolTip(tr("Removes the job entry AND marks the associated volume data as purgeable.\n"
-                              "This frees up space on the storage media."));
+    // There is no "purge" mode: Bareos 25 does not accept "purge jobs jobid=",
+    // it falls back to its interactive "Choose item to purge" prompt, and on a
+    // console connection the next queued command would answer it (it can purge
+    // all jobs of a client). Purge belongs in the volume view with a preview.
 
     QRadioButton *pruneRadio = new QRadioButton(tr("Prune (remove expired jobs by retention policy)"), modeGroup);
     pruneRadio->setToolTip(tr("Removes job records that have exceeded their configured retention period.\n"
                               "Only expired jobs for the affected client(s) will be removed."));
 
     modeLayout->addWidget(deleteRadio);
-    modeLayout->addWidget(purgeRadio);
     modeLayout->addWidget(pruneRadio);
     layout->addWidget(modeGroup);
 
@@ -694,12 +694,7 @@ void BJsonJobView::deleteJob()
     } else {
         for (const QJsonObject &job : jobsToDelete) {
             QString jobId = job["jobid"].toString();
-            if (purgeRadio->isChecked()) {
-                emit jobActionRequested("delete", jobId);
-                emit jobActionRequested("purge", QString("jobs jobid=%1 yes").arg(jobId));
-            } else {
-                emit jobActionRequested("delete", jobId);
-            }
+            emit jobActionRequested("delete", jobId);
         }
     }
 

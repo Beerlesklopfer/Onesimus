@@ -213,12 +213,6 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
                 } else if (command == "list") {
                     cmd = BDirector::Command::ListJobId;
                     emit statusMessageChanged(QString("Lade Job-Log..."));
-                } else if (command == "purge") {
-                    // Purge jobs - args contains "jobs jobid=XX yes"
-                    cmd = BDirector::Command::Custom;
-                    emit statusMessageChanged(QString("Lösche Job-Daten..."));
-                    emit sendCommand(cmd, "purge " + args);
-                    return;
                 } else if (command == "prune") {
                     // Prune jobs - args contains "jobs client=XX yes"
                     cmd = BDirector::Command::Custom;
