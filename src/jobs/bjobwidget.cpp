@@ -102,22 +102,22 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
 
     // Setup editable combo boxes
     m_nameFilter->setEditable(true);
-    m_nameFilter->setPlaceholderText(tr("Nach Job-Name filtern..."));
+    m_nameFilter->setPlaceholderText(tr("Filter by job name..."));
     m_nameFilter->setInsertPolicy(QComboBox::NoInsert);  // Don't add typed text as item
 
     m_clientFilter->setEditable(true);
-    m_clientFilter->setPlaceholderText(tr("Nach Client filtern..."));
+    m_clientFilter->setPlaceholderText(tr("Filter by client..."));
     m_clientFilter->setInsertPolicy(QComboBox::NoInsert);  // Don't add typed text as item
 
     // Setup info combo boxes (read-only, show current job selection)
     m_filesetCombo->setEnabled(false);
-    m_filesetCombo->setPlaceholderText(tr("(kein Job ausgewählt)"));
+    m_filesetCombo->setPlaceholderText(tr("(no job selected)"));
 
     m_storageCombo->setEnabled(false);
-    m_storageCombo->setPlaceholderText(tr("(kein Job ausgewählt)"));
+    m_storageCombo->setPlaceholderText(tr("(no job selected)"));
 
     m_poolCombo->setEnabled(false);
-    m_poolCombo->setPlaceholderText(tr("(kein Job ausgewählt)"));
+    m_poolCombo->setPlaceholderText(tr("(no job selected)"));
 
     // Setup log view
     // The search filter is a proxy, so that a live log keeps growing
@@ -154,7 +154,7 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
         }
     });
 
-    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - No job selected"));
     m_logTitleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
     // Setup log history controls
@@ -400,7 +400,7 @@ void BJobWidget::setupUI()
     m_toggleFiltersButton->setText(tr("Filter"));
     m_toggleFiltersButton->setCheckable(true);
     m_toggleFiltersButton->setChecked(true);
-    m_toggleFiltersButton->setToolTip(tr("Filter ein-/ausblenden"));
+    m_toggleFiltersButton->setToolTip(tr("Show/hide filter"));
     toolbarLayout->addWidget(m_toggleFiltersButton);
 
     toolbarLayout->addSpacing(10);
@@ -499,7 +499,7 @@ void BJobWidget::setupUI()
     levelLayout->setSpacing(4);
 
     // Add placeholder label (will be replaced with checkboxes from .levels command)
-    QLabel *levelPlaceholder = new QLabel(tr("Wird geladen..."), this);
+    QLabel *levelPlaceholder = new QLabel(tr("Loading..."), this);
     levelPlaceholder->setObjectName("levelPlaceholder");
     levelLayout->addWidget(levelPlaceholder);
 
@@ -554,7 +554,7 @@ void BJobWidget::setupUI()
     filterLayout->addWidget(m_filterToolBox, 1);  // Stretch factor 1
 
     // Reset Filters Button
-    m_resetFiltersButton = new QPushButton(tr("Filter zurücksetzen"), this);
+    m_resetFiltersButton = new QPushButton(tr("Reset filter"), this);
     m_resetFiltersButton->setIcon(QIcon::fromTheme("edit-clear"));
     filterLayout->addWidget(m_resetFiltersButton);
 
@@ -1139,7 +1139,7 @@ void BJobWidget::onPageRequested(int page, int pageSize)
 #endif
 
     m_refreshButton->setEnabled(false);
-    emit statusMessageChanged(tr("Lade Seite %1...").arg(page + 1));
+    emit statusMessageChanged(tr("Loading page %1...").arg(page + 1));
 
     // Newest first: page 0 = newest jobs, the last page = oldest jobs
     const BJobPaging::Range range = BJobPaging::pageRange(
@@ -1152,7 +1152,7 @@ void BJobWidget::onPageRequested(int page, int pageSize)
 void BJobWidget::onRefreshClicked()
 {
     m_refreshButton->setEnabled(false);
-    emit statusMessageChanged(tr("Aktualisiere Job-Liste..."));
+    emit statusMessageChanged(tr("Refreshing job list..."));
 
     if (m_paginationWidget->isPaginationEnabled()) {
         // Server-side pagination: First fetch job totals to know total count
@@ -1512,12 +1512,12 @@ void BJobWidget::toggleAutoRefresh(bool enabled)
     if (enabled) {
         int interval = m_refreshIntervalCombo->currentData().toInt();
         m_autoRefreshTimer->start(interval);
-        emit statusMessageChanged(tr("Auto-Refresh aktiviert (%1)")
+        emit statusMessageChanged(tr("Auto-refresh on (%1)")
             .arg(m_refreshIntervalCombo->currentText()));
     } else {
         m_autoRefreshTimer->stop();
         m_refreshButton->setVisible(true);  // Show refresh button again
-        emit statusMessageChanged(tr("Auto-Refresh deaktiviert"));
+        emit statusMessageChanged(tr("Auto-refresh off"));
     }
 }
 
@@ -1612,7 +1612,7 @@ void BJobWidget::applyFilters()
         }
         emit statusMessageChanged(hint);
     } else if (visibleRows < totalRows) {
-        emit statusMessageChanged(tr("Gefiltert: %1 von %2 Jobs")
+        emit statusMessageChanged(tr("Filtered: %1 of %2 jobs")
             .arg(visibleRows)
             .arg(totalRows));
     } else {
@@ -1658,10 +1658,10 @@ void BJobWidget::do_toggleFilters(bool visible)
 
     if (visible) {
         m_toggleFiltersButton->setText(tr("Filter"));
-        m_toggleFiltersButton->setToolTip(tr("Filter ausblenden"));
+        m_toggleFiltersButton->setToolTip(tr("Hide filter"));
     } else {
         m_toggleFiltersButton->setText(tr("Filter"));
-        m_toggleFiltersButton->setToolTip(tr("Filter einblenden"));
+        m_toggleFiltersButton->setToolTip(tr("Show filter"));
     }
 }
 
@@ -1689,7 +1689,7 @@ void BJobWidget::showJobLog(const QJsonObject &job)
     m_logJobId = jobId;
     m_logJobName = job["name"].toString();
 
-    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Lädt...").arg(m_logJobName, m_logJobId));
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - Loading...").arg(m_logJobName, m_logJobId));
 
     // Clear search filter for new log
     m_logSearchEdit->clear();
@@ -1707,7 +1707,7 @@ void BJobWidget::clearJobLog()
     m_logJobId.clear();
     m_logJobName.clear();
     m_logModel->clear();
-    m_logTitleLabel->setText(tr("<b>Job Log</b> - Kein Job ausgewählt"));
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - No job selected"));
 }
 
 void BJobWidget::onJobLogUpdated(quint64 jobId)
@@ -1727,7 +1727,7 @@ void BJobWidget::onJobLogUpdated(quint64 jobId)
                                  .arg(jobIdText)
                                  .arg(lines.size()));
     } else {
-        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
+        m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 lines")
                                  .arg(jobName)
                                  .arg(jobIdText)
                                  .arg(lines.size()));
@@ -1864,7 +1864,7 @@ void BJobWidget::onLogHistoryChanged(int index)
     m_logModel->setLogLines(entry.logLines);
 
     // Update title
-    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 Zeilen")
+    m_logTitleLabel->setText(tr("<b>Job Log</b> - Job: %1 (ID: %2) - %3 lines")
                              .arg(entry.jobName)
                              .arg(entry.jobId)
                              .arg(entry.logLines.size()));

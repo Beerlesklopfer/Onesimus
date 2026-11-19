@@ -747,8 +747,8 @@ void BJsonJobView::viewJobLog()
     QJsonObject job = m_model->jobAt(sourceIndex.row());
 
     if (!m_director) {
-        QMessageBox::warning(this, tr("Keine Verbindung"),
-                           tr("Keine Verbindung zum Director verfügbar."));
+        QMessageBox::warning(this, tr("Not connected"),
+                           tr("No connection to the Director."));
         return;
     }
 

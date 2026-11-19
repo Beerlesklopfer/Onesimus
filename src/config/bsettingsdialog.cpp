@@ -1331,9 +1331,8 @@ void BSettingsDialog::saveSettings()
     QString selectedLangCode = m_languageCombo->currentData().toString();
     settings.setAppearanceLanguage(selectedLangCode);
 
-    // Update language immediately (though full effect requires restart)
-    BTranslations::Language lang = BTranslations::languageFromCode(selectedLangCode);
-    BTranslations::instance()->setLanguage(lang);
+    // Takes effect at the next start: switching the translator and the
+    // locale now would mix two languages in the open windows
 
     // Behavior
     settings.setBehaviorConfirmJobCancel(m_confirmJobCancelCheck->isChecked());

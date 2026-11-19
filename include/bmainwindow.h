@@ -115,6 +115,9 @@ private:
     void setupUI();
     void createActions();
     void createMenus();
+    /// View > Language: the languages under their own names; a choice is
+    /// stored and takes effect with a restart, which is offered at once
+    void addLanguageMenu(QMenu *menu);
     void createToolBar();
     void showConnectionDialog();
     void loadAndConnectLastUsed();

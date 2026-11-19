@@ -62,13 +62,13 @@ void BJobLogDialog::setupUI()
     // Button-Leiste
     QHBoxLayout *buttonLayout = new QHBoxLayout();
 
-    m_copyButton = new QPushButton(tr("Auswahl kopieren"), this);
+    m_copyButton = new QPushButton(tr("Copy Selection"), this);
     m_copyButton->setIcon(QIcon::fromTheme("edit-copy"));
     m_copyButton->setEnabled(false);
     connect(m_copyButton, &QPushButton::clicked, this, &BJobLogDialog::onCopySelected);
     buttonLayout->addWidget(m_copyButton);
 
-    m_selectAllButton = new QPushButton(tr("Alles auswählen"), this);
+    m_selectAllButton = new QPushButton(tr("Select All"), this);
     m_selectAllButton->setIcon(QIcon::fromTheme("edit-select-all"));
     connect(m_selectAllButton, &QPushButton::clicked, this, &BJobLogDialog::onSelectAll);
     buttonLayout->addWidget(m_selectAllButton);

@@ -1,5 +1,9 @@
 #include "bmainwindow.h"
 #include "buiscale.h"
+#include "btranslations.h"
+#include <QActionGroup>
+#include <QProcess>
+#include <QPushButton>
 #include "ui_bmainwindow.h"
 #include "blogging.h"
 #include "jobs/bjobwidget.h"
@@ -524,7 +528,7 @@ BMainWindow::BMainWindow(QWidget *parent)
     BSettings& settings = BSettings::instance();
     onAutoRefreshSettingsChanged(settings.behaviorAutoRefresh(), settings.behaviorRefreshInterval());
 
-    onAuthentificationSucceeded(false, tr("Nicht verbunden"));
+    onAuthentificationSucceeded(false, tr("Not connected"));
     loadAndConnectLastUsed();
 
     // Apply saved theme from settings
@@ -658,7 +662,7 @@ void BMainWindow::setupUI()
     m_statisticsWidget = new BJobsStatisticsWidget(this);
     m_statisticsWidget->setModel(m_jobWidget->tableView()->jobsModel());
 
-    m_statisticsDock = new QDockWidget(tr("Statistiken"), this);
+    m_statisticsDock = new QDockWidget(tr("Statistics"), this);
     m_statisticsDock->setWidget(m_statisticsWidget);
     m_statisticsDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
 
@@ -1265,6 +1269,61 @@ void BMainWindow::createActions()
     connect(m_importConfigAction, &QAction::triggered, this, &BMainWindow::onImportConfig);
 }
 
+void BMainWindow::addLanguageMenu(QMenu *menu)
+{
+    // The languages carry their own names ("Deutsch", "Русский"): whoever
+    // landed in a language they cannot read still finds their own
+    QMenu *languageMenu = menu->addMenu(tr("Language"));
+    auto *group = new QActionGroup(languageMenu);
+    group->setExclusive(true);
+    const BTranslations::Language current = BTranslations::instance()->currentLanguage();
+    for (BTranslations::Language lang : BTranslations::availableLanguages()) {
+        QAction *action = languageMenu->addAction(BTranslations::languageName(lang));
+        action->setCheckable(true);
+        action->setChecked(lang == current);
+        action->setData(BTranslations::languageCode(lang));
+        group->addAction(action);
+    }
+
+    connect(group, &QActionGroup::triggered, this, [this](QAction *action) {
+        const QString code = action->data().toString();
+        const BTranslations::Language chosen = BTranslations::languageFromCode(code);
+        const BTranslations::Language running = BTranslations::instance()->currentLanguage();
+        BSettings::instance().setAppearanceLanguage(code);
+        BSettings::instance().sync();
+        if (chosen == running)
+            return;
+
+        // The windows build their texts once: the language changes with a
+        // restart, not in the middle of a session (that would mix two)
+        QMessageBox box(this);
+        box.setIcon(QMessageBox::Question);
+        box.setWindowTitle(tr("Language"));
+        box.setText(tr("Onesimus will speak %1 after a restart.")
+                        .arg(BTranslations::languageName(chosen)));
+        box.setInformativeText(m_director && m_director->isConnected()
+            ? tr("Restart now? The connection to the Director is closed and opened again "
+                 "if automatic connection is on.")
+            : tr("Restart now?"));
+        QPushButton *now = box.addButton(tr("Restart now"), QMessageBox::AcceptRole);
+        box.addButton(tr("Later"), QMessageBox::RejectRole);
+        box.setDefaultButton(now);
+        box.exec();
+        if (box.clickedButton() != now) {
+            // The menu shows what the next start uses
+            return;
+        }
+        if (!QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                     QCoreApplication::arguments().mid(1))) {
+            QMessageBox::warning(this, tr("Language"),
+                                 tr("Onesimus could not be started again. "
+                                    "The new language takes effect at the next start."));
+            return;
+        }
+        qApp->quit();
+    });
+}
+
 void BMainWindow::createMenus()
 {
     m_fileMenu = menuBar()->addMenu(tr("File"));
@@ -1297,6 +1356,8 @@ void BMainWindow::createMenus()
     m_viewMenu->addAction(m_zoomInAction);
     m_viewMenu->addAction(m_zoomOutAction);
     m_viewMenu->addAction(m_zoomResetAction);
+    m_viewMenu->addSeparator();
+    addLanguageMenu(m_viewMenu);
 
     // Jobs Menu
     m_jobsMenu = menuBar()->addMenu(tr("Jobs"));
@@ -2223,8 +2284,8 @@ void BMainWindow::onSettingsTriggered()
 
     BSettingsDialog dialog(m_director, availableLevels, this);
     if (dialog.exec() == QDialog::Accepted) {
-        // Einstellungen wurden geändert
-        m_statusLabel->setText("Einstellungen gespeichert");
+        // The settings were changed
+        m_statusLabel->setText(tr("Settings saved"));
 
         // Settings are automatically applied via BSettings signals
         // Auto-refresh is handled by onAutoRefreshSettingsChanged slot
@@ -2673,13 +2734,13 @@ void BMainWindow::onCopyTriggered()
             }
 
             QApplication::clipboard()->setText(copyText);
-            m_statusLabel->setText(tr("%1 Zeile(n) kopiert").arg(selectedIndexes.count()));
+            m_statusLabel->setText(tr("%1 row(s) copied").arg(selectedIndexes.count()));
         }
     } else if (currentWidget == m_clientWidget) {
         // Copy selected client data
         if (m_clientWidget->model()) {
             // TODO: Implement client data copy
-            m_statusLabel->setText(tr("Client-Daten kopieren noch nicht implementiert"));
+            m_statusLabel->setText(tr("Copying client data is not implemented yet"));
         }
     }
 }
@@ -2692,10 +2753,10 @@ void BMainWindow::onSelectAllTriggered()
     if (currentWidget == m_jobWidget) {
         // Select all jobs
         m_jobWidget->tableView()->jobsModel()->selectAll();
-        m_statusLabel->setText(tr("Alle Jobs ausgewählt"));
+        m_statusLabel->setText(tr("All jobs selected"));
     } else if (currentWidget == m_clientWidget) {
         // TODO: Implement select all for clients
-        m_statusLabel->setText(tr("Alle Clients auswählen noch nicht implementiert"));
+        m_statusLabel->setText(tr("Selecting all clients is not implemented yet"));
     }
 }
 
@@ -2707,10 +2768,10 @@ void BMainWindow::onClearSelectionTriggered()
     if (currentWidget == m_jobWidget) {
         // Clear job selection
         m_jobWidget->tableView()->jobsModel()->clearSelection();
-        m_statusLabel->setText(tr("Auswahl aufgehoben"));
+        m_statusLabel->setText(tr("Selection cleared"));
     } else if (currentWidget == m_clientWidget) {
         // TODO: Implement clear selection for clients
-        m_statusLabel->setText(tr("Auswahl für Clients aufheben noch nicht implementiert"));
+        m_statusLabel->setText(tr("Clearing the client selection is not implemented yet"));
     }
 }
 
