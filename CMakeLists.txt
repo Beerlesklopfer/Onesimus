@@ -445,6 +445,8 @@ set(SOURCES
     src/storagewidget.cpp
     src/bbyteformat.cpp
     src/models/bvolumejson.cpp
+    src/storage/model/bvolumelist.cpp
+    src/storage/model/brecycleforecast.cpp
 
     src/config/bcolumnconfiguration.cpp
     src/config/bsettings.cpp
@@ -534,6 +536,8 @@ set(HEADERS
     include/storagewidget.h
     include/bbyteformat.h
     include/models/bvolumejson.h
+    include/storage/model/bvolumelist.h
+    include/storage/model/brecycleforecast.h
     include/bcleanupdialog.h
     include/bcapabilities.h
     include/bcapabilitynotice.h
@@ -1246,6 +1250,113 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bbyteformat_test COMMAND bbyteformat_test)
+
+    # bvolumelist_test - the volumes of "list volumes" / "llist volumes":
+    # grouped, flat and typed replies, missing fields, the real reply of the
+    # production Director (test/fixtures)
+    add_executable(bvolumelist_test
+        test/bvolumelist_test.cpp
+        src/storage/model/bvolumelist.cpp
+        src/models/bvolumejson.cpp
+        include/storage/model/bvolumelist.h
+        include/models/bvolumejson.h
+    )
+
+    target_include_directories(bvolumelist_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(bvolumelist_test PRIVATE
+        STORAGE_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/test/fixtures"
+    )
+
+    target_link_libraries(bvolumelist_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bvolumelist_test COMMAND bvolumelist_test)
+    # Catalog times are local times: fix the zone
+    set_tests_properties(bvolumelist_test PROPERTIES ENVIRONMENT "TZ=UTC")
+
+    # brecycleforecast_test - "reusable from" of a volume: volume and job
+    # retention paths, the min() rule, the cases that never become reusable
+    add_executable(brecycleforecast_test
+        test/brecycleforecast_test.cpp
+        src/storage/model/brecycleforecast.cpp
+        src/storage/model/bvolumelist.cpp
+        src/models/bvolumejson.cpp
+        src/bbyteformat.cpp
+        include/storage/model/brecycleforecast.h
+        include/storage/model/bvolumelist.h
+        include/models/bvolumejson.h
+        include/bbyteformat.h
+    )
+
+    target_include_directories(brecycleforecast_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(brecycleforecast_test PRIVATE
+        STORAGE_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/test/fixtures"
+    )
+
+    target_link_libraries(brecycleforecast_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME brecycleforecast_test COMMAND brecycleforecast_test)
+    set_tests_properties(brecycleforecast_test PROPERTIES ENVIRONMENT "TZ=UTC")
+
+    # storagewidget_test - the Storage/Volumes tab on the real volume list of
+    # the production Director: columns, filters, keyboard, and that it asks
+    # for "llist volumes" only (widgets, no Director)
+    add_executable(storagewidget_test
+        test/storagewidget_test.cpp
+        src/storagewidget.cpp
+        src/storage/model/bvolumelist.cpp
+        src/storage/model/brecycleforecast.cpp
+        src/models/bvolumejson.cpp
+        src/bbyteformat.cpp
+        src/buiscale.cpp
+        src/config/bsettings.cpp
+        ui/storagewidget.ui
+        include/storagewidget.h
+        include/storage/model/bvolumelist.h
+        include/storage/model/brecycleforecast.h
+        include/models/bvolumejson.h
+        include/bbyteformat.h
+        include/buiscale.h
+        include/config/bsettings.h
+    )
+
+    target_include_directories(storagewidget_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(storagewidget_test PRIVATE
+        STORAGE_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/test/fixtures"
+    )
+
+    # bareosdirector_lib: the tab names commands by BDirector::Command, an
+    # enum of the BareosDirector class. Nothing of a Director is created.
+    target_link_libraries(storagewidget_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME storagewidget_test COMMAND storagewidget_test)
+    # Widgets need a QApplication; no display is used. Settings go to the
+    # build directory, never to those of the user.
+    set_tests_properties(storagewidget_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;TZ=UTC;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/storagewidget_test_config")
 
     # bjoblogmodel_test - job log model, its sources and the push message parser
     add_executable(bjoblogmodel_test
@@ -2022,6 +2133,9 @@ message(STATUS "  director_test    - BareosDirector state machine test")
 message(STATUS "  volumejson_test  - list volumes JSON parsing test")
 if(BUILD_TESTING)
     message(STATUS "  bbyteformat_test - byte formatting (IEC units) and Bareos size parsing test (registered with CTest)")
+    message(STATUS "  bvolumelist_test - list/llist volumes reply model test (registered with CTest)")
+    message(STATUS "  brecycleforecast_test - volume \"reusable from\" forecast test (registered with CTest)")
+    message(STATUS "  storagewidget_test - Storage/Volumes tab test, offscreen (registered with CTest)")
     message(STATUS "  bjoblogmodel_test - job log model test (registered with CTest)")
     message(STATUS "  brunjobcommand_test - run command test (registered with CTest)")
     message(STATUS "  bcleanup_test    - cleanup selection and sequencing test (registered with CTest)")

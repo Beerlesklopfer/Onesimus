@@ -263,13 +263,6 @@ public:
     bool capabilityNoticeHidden(const QString& functionId) const;
     void setCapabilityNoticeHidden(const QString& functionId, bool hidden);
 
-    // Storage Widget State
-    bool storageShowAllVolumes() const;
-    void setStorageShowAllVolumes(bool showAll);
-
-    QString storageLastPool() const;
-    void setStorageLastPool(const QString& pool);
-
     // Schedules Widget State
     QString schedulesLastSelected() const;
     void setSchedulesLastSelected(const QString& scheduleName);

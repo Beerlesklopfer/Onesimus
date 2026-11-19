@@ -742,27 +742,6 @@ void BSettings::setCapabilityNoticeHidden(const QString& functionId, bool hidden
     setValue(QStringLiteral("Notices/Capability/%1/hidden").arg(functionId), hidden);
 }
 
-// Storage Widget State
-bool BSettings::storageShowAllVolumes() const
-{
-    return value("Widgets/Storage/show_all_volumes", true).toBool();
-}
-
-void BSettings::setStorageShowAllVolumes(bool showAll)
-{
-    setValue("Widgets/Storage/show_all_volumes", showAll);
-}
-
-QString BSettings::storageLastPool() const
-{
-    return value("Widgets/Storage/last_pool", "").toString();
-}
-
-void BSettings::setStorageLastPool(const QString& pool)
-{
-    setValue("Widgets/Storage/last_pool", pool);
-}
-
 // Schedules Widget State
 QString BSettings::schedulesLastSelected() const
 {

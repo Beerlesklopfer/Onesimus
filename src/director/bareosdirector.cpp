@@ -2090,7 +2090,6 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::ListMedia:        command = "list media"; break;
     case Command::ListFileSets:     command = "list filesets"; break;
     case Command::ListFiles:        command = QString("list files jobid=%1").arg(args); break;
-    case Command::ListNextVolume:   command = QString("list nextvol job=%1").arg(args); break;
     case Command::ListBackups:      command = "list backups"; break;
     case Command::ListBackupsClient: command = QString("list backups client=%1").arg(args); break;
     case Command::ListJobTotals:    command = "list jobtotals"; break;
@@ -2200,6 +2199,11 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
 
     // Job history
     case Command::LlistJobs:        command = jobHistoryCommandLine(args); break;
+
+    // Volumes with all catalog fields. Never "list nextvol": on Bareos it
+    // runs the volume search with pruning (dird/ua_output.cc), which can
+    // delete jobs and change volume states.
+    case Command::LlistVolumes:     command = "llist volumes"; break;
 
     // Custom
     case Command::Custom:           command = args; break;

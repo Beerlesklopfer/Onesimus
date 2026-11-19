@@ -258,7 +258,6 @@ public:
         ListMedia,          ///< list media
         ListFileSets,       ///< list filesets
         ListFiles,          ///< list files jobid=<id>
-        ListNextVolume,     ///< list nextvol job=<name>
         ListBackups,        ///< list backups
         ListBackupsClient,  ///< list backups client=<name>
         ListJobTotals,      ///< list jobtotals - Get total job count for pagination
@@ -363,6 +362,9 @@ public:
 
         // Job history (schedule view); see jobHistoryCommandLine()
         LlistJobs,          ///< llist jobs days=<n> reverse limit=<m>, args "<days>,<limit>"
+
+        // Volume table of the Storage tab (all catalog fields per volume)
+        LlistVolumes,       ///< llist volumes
 
         // Custom
         Custom              ///< Custom command string
@@ -478,20 +480,6 @@ public:
             tlsCertFile(new QFile("")),
             tlsKeyFile(new QFile("")){}
 #endif
-    };
-
-    /**
-     * @struct VolumeInfo
-     * @brief Information about a storage volume
-     */
-    struct VolumeInfo {
-        QString volumeName;
-        QString poolName;
-        QString mediaType;
-        QString status;
-        qint64 volumeBytes;
-        qint64 maxVolumeBytes;
-        int volRetention;
     };
 
     explicit BareosDirector(QObject *parent = nullptr);

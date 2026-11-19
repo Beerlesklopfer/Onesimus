@@ -323,6 +323,7 @@ BMainWindow::BMainWindow(QWidget *parent)
             break;
         }
 
+        case BDirector::Command::LlistVolumes:
         case BDirector::Command::ListVolumes:
             // Configured pool names map the lowercased group keys back
             m_storageWidget->setKnownPools(m_jobWidget->poolNames());
@@ -2373,7 +2374,7 @@ void BMainWindow::onRefreshAll()
 
     // Volumes of the Storage tab, like the data of the other tabs. Sent after
     // .pools: its reply maps the pool keys of the volume list back to pool names.
-    onSendCommand(BDirector::Command::ListVolumes, "");
+    onSendCommand(BDirector::Command::LlistVolumes, "");
 
     // Reset status after short delay
     QTimer::singleShot(1000, this, [this]() {

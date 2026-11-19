@@ -7,19 +7,44 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QGroupBox>
-#include <QJsonArray>
+#include <QDateTime>
 #include <QStringList>
 #include "director/bdirector.h"
+#include "storage/model/bvolumelist.h"
 
 namespace Ui {
 class StorageWidget;
 }
 
+/**
+ * @brief The Storage/Volumes tab: the volume table ("view B" of the storage plan)
+ *
+ * Fed by "llist volumes" (BDirector::Command::LlistVolumes), read into a
+ * BVolumeList; a short "list volumes" reply is read as well, with the fields
+ * it lacks shown as unknown. Each row says when the volume may be reused and
+ * why (BRecycleForecast). Read only: the tab sends no command that changes
+ * anything.
+ */
 class StorageWidget : public QWidget
 {
     Q_OBJECT
 
 public:
+    /// Columns of the volume table
+    enum Column {
+        VolumeColumn = 0,
+        PoolColumn,
+        StatusColumn,
+        UsedColumn,
+        LimitColumn,
+        JobsColumn,
+        LastWrittenColumn,
+        RetentionColumn,
+        ReusableColumn,
+        ReasonColumn,
+        ColumnCount
+    };
+
     explicit StorageWidget(BDirector *director, QWidget *parent = nullptr);
     ~StorageWidget();
 
@@ -35,9 +60,19 @@ public:
      */
     void clearData();
 
+    /**
+     * @brief Fixes the present for the forecast (tests and pictures)
+     *
+     * An invalid value (the default) means the current time at each reply.
+     */
+    void setReferenceTime(const QDateTime &now) { m_referenceTime = now; }
+
+    /// The volume table (for tests and pictures)
+    QTableWidget *volumeTable() const { return m_volumeTable; }
+
 public slots:
     /**
-     * @brief Processes JSON response from list volumes command
+     * @brief Processes the JSON reply of "llist volumes" (or "list volumes")
      * @param jsonData JSON response containing volume information
      * @since 2.7
      */
@@ -46,8 +81,9 @@ public slots:
     /**
      * @brief Sets the configured pool names (from .pools)
      *
-     * Used to map the lowercased pool keys of the grouped
-     * "list volumes" reply back to the configured pool names.
+     * Used to map the lowercased pool keys of the grouped reply back to the
+     * configured pool names, and to offer pools without volumes in the pool
+     * filter.
      * @param pools Configured pool names
      * @since 2.8
      */
@@ -64,24 +100,26 @@ signals:
     void sendCommand(BDirector::Command, const QString &args);
     void statusMessageChanged(const QString &message);
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private slots:
-    void onVolumesReceived(const QList<BDirector::VolumeInfo> &volumes);
     void onRefreshClicked();
-    void onVolumeSelectionChanged();
-    void onVolumeDoubleClicked(int row, int column);
-    void onPoolFilterChanged(int index);
-    void onStatusFilterChanged(int index);
+    void onVolumeActivated(int row);
     void applyFilters();
-    void updateStatistics();
 
 private:
     void setupUI();
-    void updateVolumeTable(const QList<BDirector::VolumeInfo> &volumes);
+    void fillFilters();
+    void updateStatistics();
+    QDateTime referenceTime() const;
+    const BVolume *volumeAtRow(int row) const;
 
     Ui::StorageWidget *ui;
     BDirector *m_director;
-    QTableWidget *m_volumeTable;
-    QPushButton *m_refreshButton;
+    QTableWidget *m_volumeTable = nullptr;
+    QPushButton *m_refreshButton = nullptr;
+    QLabel *m_noticeLabel = nullptr;     ///< Says which fields the short list lacks
     bool m_refreshRequested = false;    ///< Refresh was started on this tab (button or menu)
 
     // Filters
@@ -92,10 +130,11 @@ private:
     QLabel *m_totalVolumesLabel;
     QLabel *m_usedSizeLabel;
 
-    // Data storage
-    QJsonArray m_allVolumes;  // All volumes from server
-    QJsonArray m_filteredVolumes;  // Filtered volumes
-    QStringList m_knownPools;  // Configured pool names (from .pools)
+    // Data
+    BVolumeList m_volumes;          ///< All volumes of the last reply
+    QList<int> m_filtered;          ///< Indices into m_volumes shown in the table
+    QStringList m_knownPools;       ///< Configured pool names (from .pools)
+    QDateTime m_referenceTime;      ///< Fixed present, or invalid for "now"
 };
 
 #endif // STORAGEWIDGET_H

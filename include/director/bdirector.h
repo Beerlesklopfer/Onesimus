@@ -85,7 +85,6 @@ public:
     using Command = DIRECTOR_CLASS::Command;
     using JobStatus = DIRECTOR_CLASS::JobStatus;
     using TLSConfig = DIRECTOR_CLASS::TLSConfig;
-    using VolumeInfo = DIRECTOR_CLASS::VolumeInfo;
     using JobInfo = DIRECTOR_CLASS::JobInfo;
     using ClientInfo = DIRECTOR_CLASS::ClientInfo;
     using ResourceType = DIRECTOR_CLASS::ResourceType;
