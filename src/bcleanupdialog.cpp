@@ -218,7 +218,7 @@ void BCleanupDialog::setupUI()
 
     m_logTextEdit = new QTextEdit();
     m_logTextEdit->setReadOnly(true);
-    BUiScale::bind(m_logTextEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_logTextEdit, BUiScale::Normal, BUiScale::Monospace);
     logLayout->addWidget(m_logTextEdit);
 
     mainLayout->addWidget(logGroup);

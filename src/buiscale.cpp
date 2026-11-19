@@ -1,16 +1,23 @@
 #include "buiscale.h"
 
 #include <QApplication>
+#include <QDialog>
 #include <QEvent>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QHeaderView>
+#include <QLabel>
+#include <QLayout>
+#include <QMessageBox>
 #include <QPointer>
+#include <QRegularExpression>
 #include <QScreen>
 #include <QStyle>
 #include <QTableView>
 #include <QVariant>
 #include <QWidget>
+#include <QWizard>
+#include <QWizardPage>
 
 #include <algorithm>
 #include <utility>
@@ -141,6 +148,67 @@ QString BUiScale::resolveCss(const QString &styleSheet)
     return resolved;
 }
 
+QString BUiScale::themeCss(const QString &styleSheet)
+{
+    // "font-size: 10pt;", "font-family: ...;" and the shorthand "font: ...;"
+    // with an absolute value. Not "font-weight" or "font-style", and not a
+    // role token ("font-size: @small"), which resolveCss() fills in.
+    static const QRegularExpression absoluteFont(
+        QStringLiteral("(?<![-\\w])font(?:-size|-family)?\\s*:(?!\\s*@)[^;}]*;?"),
+        QRegularExpression::CaseInsensitiveOption);
+    QString filtered = styleSheet;
+    filtered.remove(absoluteFont);
+    return resolveCss(filtered);
+}
+
+void BUiScale::setApplicationStyleSheet(const QString &styleSheet)
+{
+    auto *app = qobject_cast<QApplication *>(QCoreApplication::instance());
+    if (!app) return;
+    if (!m_filterInstalled) {
+        app->installEventFilter(this);
+        m_filterInstalled = true;
+    }
+    const bool wasApplying = std::exchange(m_applying, true);
+    app->setStyleSheet(themeCss(styleSheet));
+    // QApplication::setStyleSheet() sets a new style, and with it Qt takes
+    // the per-class fonts of the platform theme again
+    dropClassFonts();
+    m_applying = wasApplying;
+}
+
+bool BUiScale::hasClassFonts() const
+{
+    // The classes Qt asks the platform theme for (QApplicationPrivate::
+    // initializeWidgetFontHash()); without an entry the application font
+    // is returned
+    static const char *const classes[] = {
+        "QMenu", "QMenuBar", "QMenuItem", "QMessageBox", "QLabel", "QTipLabel",
+        "QStatusBar", "QMdiSubWindowTitleBar", "QDockWidgetTitle", "QPushButton",
+        "QCheckBox", "QRadioButton", "QToolButton", "QAbstractItemView",
+        "QListView", "QHeaderView", "QListBox", "QComboMenuItem",
+        "QComboLineEdit", "QSmallFont", "QMiniFont",
+    };
+    const QFont app = QApplication::font();
+    for (const char *name : classes) {
+        if (QApplication::font(name) != app) return true;
+    }
+    return false;
+}
+
+void BUiScale::dropClassFonts()
+{
+    if (!qobject_cast<QApplication *>(QCoreApplication::instance()) || !hasClassFonts())
+        return;
+    const bool wasApplying = std::exchange(m_applying, true);
+    // Setting the general font empties the per-class fonts
+    QApplication::setFont(applicationFont());
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::ApplicationFontChange);
+    rebindWidgets();
+    propagateToWidgets();
+    m_applying = wasApplying;
+}
+
 QString BUiScale::themeRules()
 {
     // The values of the themes: 18 px indicators, 10 px above a group box
@@ -219,8 +287,10 @@ void BUiScale::apply()
 
         // Column widths were given in pixels for the font so far
         const qreal scale = scaleOf(applicationFont());
-        if (m_appliedScale > 0 && !qFuzzyCompare(scale, m_appliedScale))
+        if (m_appliedScale > 0 && !qFuzzyCompare(scale, m_appliedScale)) {
             scaleColumnWidths(scale / m_appliedScale);
+            scaleDialogs(scale / m_appliedScale);
+        }
         m_appliedScale = scale;
         m_applying = false;
     }
@@ -284,6 +354,58 @@ void BUiScale::scaleColumnWidths(qreal ratio)
     }
 }
 
+void BUiScale::scaleDialogs(qreal ratio)
+{
+    // A dialog was given its size in pixels for the font so far (resize()
+    // with px() when it was made, or by the user). It keeps its share of
+    // the text, as the columns do; never beyond the screen. Message boxes
+    // and dialogs of a fixed size measure themselves.
+    const QWidgetList windows = QApplication::topLevelWidgets();
+    for (QWidget *window : windows) {
+        auto *dialog = qobject_cast<QDialog *>(window);
+        if (!dialog || qobject_cast<QMessageBox *>(dialog)) continue;
+        const QLayout *layout = dialog->layout();
+        if ((layout && layout->sizeConstraint() == QLayout::SetFixedSize)
+            || dialog->minimumSize() == dialog->maximumSize())
+            continue;
+
+        QRect available;
+        if (const QScreen *screen = dialog->screen())
+            available = screen->availableGeometry();
+
+        // A minimum size in pixels is the dialog's own business: set in
+        // track(), it follows by itself; the one of a layout is measured
+        // again with the new font
+        QSize wanted(qRound(dialog->width() * ratio), qRound(dialog->height() * ratio));
+        if (available.isValid()) wanted = wanted.boundedTo(available.size());
+        dialog->resize(wanted);
+
+        // An open dialog that grew stays on its screen
+        if (dialog->isVisible() && available.isValid()) {
+            QRect frame = dialog->frameGeometry();
+            if (!available.contains(frame)) {
+                frame.moveRight(qMin(frame.right(), available.right()));
+                frame.moveBottom(qMin(frame.bottom(), available.bottom()));
+                frame.moveLeft(qMax(frame.left(), available.left()));
+                frame.moveTop(qMax(frame.top(), available.top()));
+                dialog->move(frame.topLeft());
+            }
+        }
+    }
+}
+
+bool BUiScale::isWizardTitle(const QLabel *label)
+{
+    // Inside a QWizard, outside its pages, bold: the logo, the watermark
+    // and the subtitle are not
+    if (!qobject_cast<const QWizard *>(label->window()) || !label->font().bold())
+        return false;
+    for (const QWidget *w = label->parentWidget(); w && !w->isWindow(); w = w->parentWidget()) {
+        if (qobject_cast<const QWizardPage *>(w)) return false;
+    }
+    return true;
+}
+
 void BUiScale::fitRowHeight(QTableView *table)
 {
     // The height of the rows of a table is asked from the style once, when
@@ -332,15 +454,52 @@ bool BUiScale::eventFilter(QObject *watched, QEvent *event)
             fitRowHeight(table);
     }
 
+    // A window about to be shown: if something set a style or a style
+    // sheet without setApplicationStyleSheet(), Qt has taken the per-class
+    // fonts of the platform theme again, and this window's buttons, labels
+    // and lists would be made at the desktop's size, not the zoomed one
+    if (event->type() == QEvent::Polish && !m_applying && watched->isWidgetType()
+        && static_cast<QWidget *>(watched)->isWindow()) {
+        dropClassFonts();
+    }
+
+    // The title of a wizard page as Qt shows it: a label of QWizard's own,
+    // bold, and without a subtitle 4 pt larger than the wizard's font, set
+    // whenever a page is laid out and not following the zoom. A heading:
+    // Title, as the headings of the other dialogs
+    if (event->type() == QEvent::Polish) {
+        if (auto *label = qobject_cast<QLabel *>(watched)) {
+            if (!label->property(kRoleProperty).isValid() && isWizardTitle(label))
+                bind(label, Title, Bold);
+        }
+    }
+
     // A style sheet that is applied again (another theme) gives a widget
     // the font back that it had when the sheet was first applied: a bound
-    // widget would fall back to an old size
-    if (event->type() == QEvent::StyleChange && watched->isWidgetType()) {
+    // widget would fall back to an old size. Other code that gives a bound
+    // widget another size or family (QWizard does for its titles) is
+    // overruled as well; weight and slant set afterwards stay.
+    if ((event->type() == QEvent::StyleChange || event->type() == QEvent::FontChange)
+        && watched->isWidgetType()) {
         const QVariant role = watched->property(kRoleProperty);
         if (role.isValid()) {
             auto *widget = static_cast<QWidget *>(watched);
-            const QFont wanted = font(static_cast<Role>(role.toInt()),
-                                      Styles(widget->property(kStylesProperty).toInt()));
+            QFont wanted = font(static_cast<Role>(role.toInt()),
+                                Styles(widget->property(kStylesProperty).toInt()));
+            if (event->type() == QEvent::FontChange) {
+                const QFont current = widget->font();
+                if (qFuzzyCompare(current.pointSizeF(), wanted.pointSizeF())
+                    && current.pixelSize() == wanted.pixelSize()
+                    && current.families() == wanted.families()) {
+                    wanted = current;
+                } else {
+                    QFont kept = current;
+                    kept.setFamilies(wanted.families());
+                    if (wanted.pointSizeF() > 0) kept.setPointSizeF(wanted.pointSizeF());
+                    else kept.setPixelSize(wanted.pixelSize());
+                    wanted = kept;
+                }
+            }
             if (widget->font() != wanted)
                 widget->setFont(wanted);
         }

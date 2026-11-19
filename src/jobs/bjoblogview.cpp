@@ -15,7 +15,7 @@ BJobLogView::BJobLogView(QWidget *parent)
     // Per pixel: a row can never be scrolled out of reach. Do not enable
     // uniform item sizes, that clips the row width (no horizontal scrolling).
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    BUiScale::bind(this, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(this, BUiScale::Normal, BUiScale::Monospace);
 
     // Prevent the global QSS hover rule from overriding the model's
     // BackgroundRole colours (error/warning lines)

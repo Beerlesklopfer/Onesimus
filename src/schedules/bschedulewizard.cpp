@@ -683,7 +683,7 @@ BSchedulePreviewPage::BSchedulePreviewPage(QWidget *parent)
 
     m_configEdit = new QTextEdit(this);
     m_configEdit->setReadOnly(true);
-    BUiScale::bind(m_configEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_configEdit, BUiScale::Normal, BUiScale::Monospace);
     BUiScale::track(m_configEdit, [this]() { m_configEdit->setMaximumHeight(BUiScale::px(200)); });
     mainLayout->addWidget(m_configEdit);
 
@@ -701,7 +701,7 @@ BSchedulePreviewPage::BSchedulePreviewPage(QWidget *parent)
 
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    BUiScale::bind(m_commandEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_commandEdit, BUiScale::Normal, BUiScale::Monospace);
     BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMaximumHeight(BUiScale::px(80)); });
     mainLayout->addWidget(m_commandEdit);
 

@@ -275,7 +275,6 @@ bool BJobLog::isTerminalStatusEvent(const QString &status)
 
 BJobLogModel::BJobLogModel(QObject *parent)
     : QAbstractListModel(parent)
-    , m_logFont("Courier", 9)
 {
 }
 
@@ -296,9 +295,6 @@ QVariant BJobLogModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case Qt::DisplayRole:
         return row.text;
-
-    case Qt::FontRole:
-        return m_logFont;
 
     case Qt::BackgroundRole: {
         const QColor background = kindColor(row.kind, BStatus::Part::Background);

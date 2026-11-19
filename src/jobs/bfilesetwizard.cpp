@@ -410,7 +410,7 @@ void BFileSetTemplatePage::onMixTemplates()
     // Create a dialog with checkable list
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Mix Templates"));
-    dialog.setMinimumSize(BUiScale::px(500), BUiScale::px(600));
+    BUiScale::track(&dialog, [&dialog]() { dialog.setMinimumSize(BUiScale::px(500), BUiScale::px(600)); });
 
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
@@ -1089,7 +1089,7 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
     BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMinimumHeight(BUiScale::px(160)); });
-    BUiScale::bind(m_commandEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_commandEdit, BUiScale::Normal, BUiScale::Monospace);
     m_commandEdit->setLineWrapMode(QTextEdit::WidgetWidth);
     m_commandEdit->setStyleSheet("QTextEdit { background: palette(base); border: 1px solid palette(mid); padding: 2px; }");
     mainLayout->addWidget(m_commandEdit);

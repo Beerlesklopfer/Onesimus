@@ -461,7 +461,7 @@ BMainWindow::BMainWindow(QWidget *parent)
             this, [this](const QString &jobName) {
         QDialog dlg(this);
         dlg.setWindowTitle(tr("Job: %1").arg(jobName));
-        dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600));
+        BUiScale::track(&dlg, [&dlg]() { dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600)); });
         dlg.resize(BUiScale::px(1000), BUiScale::px(700));
 
         QVBoxLayout *layout = new QVBoxLayout(&dlg);
@@ -554,7 +554,12 @@ void BMainWindow::applyTheme(const QString &themeName)
         // What the theme gives in pixels and has to follow the font
         m_themeScaleRules = BUiScale::themeRules();
         stylesheet += "\n" + m_themeScaleRules;
-        qApp->setStyleSheet(stylesheet);
+        // Without font sizes or families of its own (the interface font
+        // and zoom stay in charge), and the per-class fonts Qt takes from
+        // the platform theme with a new style sheet are dropped again: else
+        // dialogs made later get the desktop's unzoomed size for buttons,
+        // labels and lists
+        BUiScale::instance().setApplicationStyleSheet(stylesheet);
         themeFile.close();
         // Status colours (chips, log marks) are tokens of the theme
         BStatusPalette::refresh();
@@ -906,7 +911,7 @@ void BMainWindow::createActions()
         // Create dialog with BJobResourceWidget
         QDialog dlg(this);
         dlg.setWindowTitle(tr("Job Resources"));
-        dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600));
+        BUiScale::track(&dlg, [&dlg]() { dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600)); });
         dlg.resize(BUiScale::px(1000), BUiScale::px(700));
 
         QVBoxLayout *layout = new QVBoxLayout(&dlg);
@@ -992,7 +997,7 @@ void BMainWindow::createActions()
         // Create dialog with BJobResourceWidget for JobDefs
         QDialog dlg(this);
         dlg.setWindowTitle(tr("JobDefs Resources"));
-        dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600));
+        BUiScale::track(&dlg, [&dlg]() { dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600)); });
         dlg.resize(BUiScale::px(1000), BUiScale::px(700));
 
         QVBoxLayout *layout = new QVBoxLayout(&dlg);
@@ -1086,7 +1091,7 @@ void BMainWindow::createActions()
 
         QDialog dialog(this);
         dialog.setWindowTitle(tr("Delete FileSet"));
-        dialog.setMinimumWidth(BUiScale::px(400));
+        BUiScale::track(&dialog, [&dialog]() { dialog.setMinimumWidth(BUiScale::px(400)); });
 
         QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
@@ -1583,7 +1588,7 @@ void BMainWindow::onAboutTriggered()
     // Dialog erstellen
     QDialog aboutDialog(this);
     aboutDialog.setWindowTitle(tr("About Onesimus"));
-    aboutDialog.setMinimumSize(BUiScale::px(500), BUiScale::px(450));
+    BUiScale::track(&aboutDialog, [&aboutDialog]() { aboutDialog.setMinimumSize(BUiScale::px(500), BUiScale::px(450)); });
 
     // Hauptlayout
     QVBoxLayout* mainLayout = new QVBoxLayout(&aboutDialog);
@@ -1730,7 +1735,7 @@ void BMainWindow::onKeyboardShortcutsTriggered()
     // Create dialog showing keyboard shortcuts
     QDialog shortcutsDialog(this);
     shortcutsDialog.setWindowTitle(tr("Keyboard Shortcuts"));
-    shortcutsDialog.setMinimumSize(BUiScale::px(600), BUiScale::px(500));
+    BUiScale::track(&shortcutsDialog, [&shortcutsDialog]() { shortcutsDialog.setMinimumSize(BUiScale::px(600), BUiScale::px(500)); });
 
     QVBoxLayout *mainLayout = new QVBoxLayout(&shortcutsDialog);
 

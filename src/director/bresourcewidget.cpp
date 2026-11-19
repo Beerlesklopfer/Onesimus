@@ -85,7 +85,7 @@ BResourceWidget::BResourceWidget(const QString &resourceType, BDirector *directo
     // Details text edit
     m_detailsEdit = new QTextEdit(this);
     m_detailsEdit->setReadOnly(true);
-    BUiScale::bind(m_detailsEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_detailsEdit, BUiScale::Normal, BUiScale::Monospace);
     m_splitter->addWidget(m_detailsEdit);
 
     m_splitter->setSizes({300, 400});

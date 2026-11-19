@@ -39,31 +39,42 @@ QColor stateColor(BScheduleReview::Row::State state, const QPalette &palette)
     return palette.color(QPalette::Text);
 }
 
-QListWidget *rowList(const QList<BScheduleReview::Row> &rows, const QFont &mono, QWidget *parent)
+QListWidget *rowList(const QList<BScheduleReview::Row> &rows, QWidget *parent)
 {
     auto *list = new QListWidget(parent);
     list->setSelectionMode(QAbstractItemView::NoSelection);
     list->setFocusPolicy(Qt::StrongFocus);
+    BUiScale::bind(list, BUiScale::Normal, BUiScale::Monospace);
     for (const BScheduleReview::Row &row : rows) {
         auto *item = new QListWidgetItem(BScheduleReviewDialog::stateWord(row.state) + row.text, list);
-        QFont font = mono;
-        font.setStrikeOut(row.state == BScheduleReview::Row::Removed);
-        font.setBold(row.state == BScheduleReview::Row::Changed || row.state == BScheduleReview::Row::New);
-        item->setFont(font);
         item->setData(Qt::UserRole, int(row.state));   // coloured when shown, after the theme
         item->setToolTip(row.text);
     }
     if (rows.isEmpty())
         new QListWidgetItem(BScheduleReviewDialog::tr("(no Run line)"), list);
+    // An item's font is its own: given again after a change of the zoom
+    BUiScale::track(list, [list]() {
+        const QFont mono = BUiScale::instance().font(BUiScale::Normal, BUiScale::Monospace);
+        for (int i = 0; i < list->count(); ++i) {
+            QListWidgetItem *item = list->item(i);
+            const QVariant state = item->data(Qt::UserRole);
+            if (!state.isValid()) continue;
+            QFont font = mono;
+            font.setStrikeOut(state.toInt() == BScheduleReview::Row::Removed);
+            font.setBold(state.toInt() == BScheduleReview::Row::Changed
+                         || state.toInt() == BScheduleReview::Row::New);
+            item->setFont(font);
+        }
+    });
     return list;
 }
 
-QPlainTextEdit *textView(const QString &text, const QFont &mono, QWidget *parent)
+QPlainTextEdit *textView(const QString &text, QWidget *parent)
 {
     auto *view = new QPlainTextEdit(parent);
     view->setReadOnly(true);
     view->setLineWrapMode(QPlainTextEdit::NoWrap);
-    view->setFont(mono);
+    BUiScale::bind(view, BUiScale::Normal, BUiScale::Monospace);
     // Line ends are shown as they are; a CRLF text stays one
     QString shown = text;
     shown.replace(QLatin1String("\r\n"), QLatin1String("\n"));
@@ -100,7 +111,6 @@ QString BScheduleReviewDialog::stateWord(BScheduleReview::Row::State state)
 BScheduleReviewDialog::BScheduleReviewDialog(const BScheduleReview &review, QWidget *parent)
     : QDialog(parent)
 {
-    const QFont mono = BUiScale::scaled(font(), BUiScale::Normal, BUiScale::Monospace);
     auto *layout = new QVBoxLayout(this);
 
     QString heading;
@@ -141,7 +151,7 @@ BScheduleReviewDialog::BScheduleReviewDialog(const BScheduleReview &review, QWid
         if (review.operation != BScheduleReview::Create) {
             auto *oldBox = new QGroupBox(tr("Run lines now (in the file)"), runs);
             auto *oldLayout = new QVBoxLayout(oldBox);
-            m_old = rowList(review.oldRows, mono, oldBox);
+            m_old = rowList(review.oldRows, oldBox);
             m_old->setAccessibleName(tr("Run lines now"));
             oldLayout->addWidget(m_old);
             runsLayout->addWidget(oldBox);
@@ -149,7 +159,7 @@ BScheduleReviewDialog::BScheduleReviewDialog(const BScheduleReview &review, QWid
         if (review.operation != BScheduleReview::Delete) {
             auto *newBox = new QGroupBox(tr("Run lines after writing"), runs);
             auto *newLayout = new QVBoxLayout(newBox);
-            m_new = rowList(review.newRows, mono, newBox);
+            m_new = rowList(review.newRows, newBox);
             m_new->setAccessibleName(tr("Run lines after writing"));
             newLayout->addWidget(m_new);
             runsLayout->addWidget(newBox);
@@ -185,9 +195,9 @@ BScheduleReviewDialog::BScheduleReviewDialog(const BScheduleReview &review, QWid
     // --- Resource text ---
     m_texts = new QTabWidget(this);
     if (!review.newText.isEmpty())
-        m_texts->addTab(textView(review.newText, mono, m_texts), tr("Text after writing"));
+        m_texts->addTab(textView(review.newText, m_texts), tr("Text after writing"));
     if (!review.oldText.isEmpty())
-        m_texts->addTab(textView(review.oldText, mono, m_texts), tr("Text now"));
+        m_texts->addTab(textView(review.oldText, m_texts), tr("Text now"));
     m_texts->setMinimumHeight(BUiScale::px(120));
     layout->addWidget(m_texts, 2);
 
@@ -266,7 +276,6 @@ BScheduleReportDialog::BScheduleReportDialog(const BScheduleReport &report, QWid
     : QDialog(parent)
     , m_report(report)
 {
-    const QFont mono = BUiScale::scaled(font(), BUiScale::Normal, BUiScale::Monospace);
     setWindowTitle(report.title);
     auto *layout = new QVBoxLayout(this);
 
@@ -300,7 +309,7 @@ BScheduleReportDialog::BScheduleReportDialog(const BScheduleReport &report, QWid
         auto *box = new QGroupBox(tr("Where the configuration is invalid"), this);
         auto *boxLayout = new QVBoxLayout(box);
         m_problem = wrapped(problemLine(report.problem), box);
-        m_problem->setFont(mono);
+        BUiScale::bind(m_problem, BUiScale::Normal, BUiScale::Monospace);
         boxLayout->addWidget(m_problem);
         layout->addWidget(box);
     }
@@ -320,7 +329,7 @@ BScheduleReportDialog::BScheduleReportDialog(const BScheduleReport &report, QWid
         auto *box = new QGroupBox(tr("Follow-up commands the Director names"), this);
         auto *boxLayout = new QVBoxLayout(box);
         auto *list = new QListWidget(box);
-        list->setFont(mono);
+        BUiScale::bind(list, BUiScale::Normal, BUiScale::Monospace);
         for (const QString &command : report.followups)
             new QListWidgetItem(command, list);
         boxLayout->addWidget(list);
@@ -336,7 +345,7 @@ BScheduleReportDialog::BScheduleReportDialog(const BScheduleReport &report, QWid
         auto addText = [&](const QString &label, const QString &text) {
             auto *box = new QGroupBox(label, splitter);
             auto *boxLayout = new QVBoxLayout(box);
-            boxLayout->addWidget(textView(text, mono, box));
+            boxLayout->addWidget(textView(text, box));
             splitter->addWidget(box);
         };
         addText(tr("On the Director now"), report.currentText);

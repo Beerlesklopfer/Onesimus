@@ -6,6 +6,7 @@
 #include <QString>
 #include <functional>
 
+class QLabel;
 class QTableView;
 class QWidget;
 
@@ -31,6 +32,17 @@ class QWidget;
  * that has to follow is set in track(). Tables are looked after here: the
  * height of their rows follows their font (the style gives a fixed one),
  * and the widths of their columns are scaled with a change of the zoom.
+ *
+ * Windows of their own (dialogs, wizards, message boxes) take the same
+ * font. Qt keeps a second set of fonts per widget class (QPushButton,
+ * QLabel, QMessageBox, item views, menus, ...) that the platform theme
+ * fills in: unzoomed desktop fonts. Qt fills it in again whenever the style
+ * changes, that is on every QApplication::setStyleSheet(). A dialog made
+ * afterwards would show its buttons and labels at the desktop's size and
+ * its tabs and group boxes at the zoomed one. This class empties that set
+ * after its own style sheet (setApplicationStyleSheet()) and, as a net for
+ * any other path, when a window is polished. The size of an open dialog is
+ * scaled with a change of the zoom.
  */
 class BUiScale : public QObject
 {
@@ -97,6 +109,26 @@ public:
      * after changed(), for instance in track().
      */
     static QString resolveCss(const QString &styleSheet);
+
+    /**
+     * @brief A theme (built in or the user's own) without sizes of its own
+     *
+     * Removes every "font-size", "font-family" and "font" declaration that
+     * names an absolute value (pt, px, a family), so that a theme cannot
+     * override the desktop's font and the interface zoom; then fills in the
+     * role tokens with resolveCss(). Weight and slant ("font-weight",
+     * "font-style") stay.
+     */
+    static QString themeCss(const QString &styleSheet);
+
+    /**
+     * @brief Sets the style sheet of the application, filtered by themeCss()
+     *
+     * Afterwards the per-class fonts Qt took from the platform theme are
+     * dropped and every widget is given the interface font again. Does not
+     * emit changed().
+     */
+    void setApplicationStyleSheet(const QString &styleSheet);
 
     /**
      * @brief Style sheet rules for what a theme gives in pixels
@@ -167,8 +199,12 @@ private:
     void apply();
     void rebindWidgets();
     void propagateToWidgets();
+    bool hasClassFonts() const;
+    void dropClassFonts();
     void scaleColumnWidths(qreal ratio);
+    static void scaleDialogs(qreal ratio);
     static void fitRowHeight(QTableView *table);
+    static bool isWizardTitle(const QLabel *label);
 
     mutable QFont m_baseFont;
     mutable QFont m_desktopFont;    ///< What the desktop reported when the base was taken

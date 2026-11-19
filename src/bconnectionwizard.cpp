@@ -754,7 +754,7 @@ ImportConsoleSelectionPage::ImportConsoleSelectionPage(QWidget *parent)
     m_detailsEdit = new QTextEdit(this);
     m_detailsEdit->setReadOnly(true);
     BUiScale::track(m_detailsEdit, [this]() { m_detailsEdit->setMaximumHeight(BUiScale::px(200)); });
-    BUiScale::bind(m_detailsEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_detailsEdit, BUiScale::Normal, BUiScale::Monospace);
     m_detailsEdit->setPlaceholderText(tr("Select a console to view its details..."));
     m_layout->addWidget(m_detailsEdit);
 
@@ -1444,7 +1444,7 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     // MD5 Hash preview (read-only, updates in real-time)
     m_md5Label = new QLabel(this);
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    BUiScale::bind(m_md5Label, BUiScale::Tiny, BUiScale::Monospace);
+    BUiScale::bind(m_md5Label, BUiScale::Small, BUiScale::Monospace);
     bSetLabelState(m_md5Label, "muted");
     m_md5Label->setText(tr("(password MD5 hash will appear here)"));
     form->addRow(tr("MD5 Hash:"), m_md5Label);
@@ -2040,7 +2040,7 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
 
     m_consoleConfigEdit = new QTextEdit(consoleWidget);
     m_consoleConfigEdit->setReadOnly(true);
-    BUiScale::bind(m_consoleConfigEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_consoleConfigEdit, BUiScale::Normal, BUiScale::Monospace);
     BUiScale::track(m_consoleConfigEdit, [this]() { m_consoleConfigEdit->setMinimumHeight(BUiScale::px(150)); });
     consoleLayout->addWidget(m_consoleConfigEdit);
 
@@ -2081,7 +2081,7 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
 
     m_directorConfigEdit = new QTextEdit(directorWidget);
     m_directorConfigEdit->setReadOnly(true);
-    BUiScale::bind(m_directorConfigEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_directorConfigEdit, BUiScale::Normal, BUiScale::Monospace);
     BUiScale::track(m_directorConfigEdit, [this]() { m_directorConfigEdit->setMinimumHeight(BUiScale::px(150)); });
     directorLayout->addWidget(m_directorConfigEdit);
 
@@ -2122,7 +2122,7 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
 
     m_grpcDirectorEdit = new QTextEdit(grpcWidget);
     m_grpcDirectorEdit->setReadOnly(true);
-    BUiScale::bind(m_grpcDirectorEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_grpcDirectorEdit, BUiScale::Normal, BUiScale::Monospace);
     BUiScale::track(m_grpcDirectorEdit, [this]() { m_grpcDirectorEdit->setMinimumHeight(BUiScale::px(150)); });
     grpcLayout->addWidget(m_grpcDirectorEdit);
 
@@ -2165,12 +2165,12 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     m_clientTabs->setDocumentMode(true);
     m_bconsoleEdit = new QTextEdit(m_clientTabs);
     m_bconsoleEdit->setReadOnly(true);
-    BUiScale::bind(m_bconsoleEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_bconsoleEdit, BUiScale::Normal, BUiScale::Monospace);
     BUiScale::track(m_bconsoleEdit, [this]() { m_bconsoleEdit->setMinimumHeight(BUiScale::px(150)); });
     m_clientTabs->addTab(m_bconsoleEdit, "bconsole.conf");
     m_oconsoleEdit = new QTextEdit(m_clientTabs);
     m_oconsoleEdit->setReadOnly(true);
-    BUiScale::bind(m_oconsoleEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_oconsoleEdit, BUiScale::Normal, BUiScale::Monospace);
     BUiScale::track(m_oconsoleEdit, [this]() { m_oconsoleEdit->setMinimumHeight(BUiScale::px(150)); });
     m_oconsoleTab = m_clientTabs->addTab(m_oconsoleEdit, "oconsole.conf");
     clientLayout->addWidget(m_clientTabs);
@@ -2977,7 +2977,7 @@ ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
     BUiScale::track(m_consoleDetails, [this]() { m_consoleDetails->setMinimumHeight(BUiScale::px(80)); });
     BUiScale::track(m_consoleDetails, [this]() { m_consoleDetails->setMaximumHeight(BUiScale::px(120)); });
     m_consoleDetails->setPlaceholderText(tr("Select a console to view its configuration..."));
-    BUiScale::bind(m_consoleDetails, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::bind(m_consoleDetails, BUiScale::Normal, BUiScale::Monospace);
     auto *detailsLayout = new QHBoxLayout();
     detailsLayout->setContentsMargins(25, 0, 0, 10);
     detailsLayout->addWidget(m_consoleDetails);

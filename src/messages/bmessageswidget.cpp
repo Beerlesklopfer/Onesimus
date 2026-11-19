@@ -21,11 +21,11 @@
 BMessagesModel::BMessagesModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    // The desktop's fixed-pitch font, a little smaller than the text around
-    // it; follows the interface zoom
-    m_messageFont = BUiScale::instance().font(BUiScale::Small, BUiScale::Monospace);
+    // The desktop's fixed-pitch font at the size of the text around it,
+    // as every log and configuration text; follows the interface zoom
+    m_messageFont = BUiScale::instance().font(BUiScale::Normal, BUiScale::Monospace);
     connect(&BUiScale::instance(), &BUiScale::changed, this, [this]() {
-        m_messageFont = BUiScale::instance().font(BUiScale::Small, BUiScale::Monospace);
+        m_messageFont = BUiScale::instance().font(BUiScale::Normal, BUiScale::Monospace);
         if (!m_messages.isEmpty()) {
             emit dataChanged(index(0), index(m_messages.size() - 1), {Qt::FontRole});
         }

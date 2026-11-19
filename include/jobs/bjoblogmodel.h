@@ -172,7 +172,6 @@ private:
     QList<PushEntry> m_pushEntries;     ///< Pushed messages currently shown
     int m_pushSeq = 0;                  ///< Sequence number of the next pushed message
     bool m_hasTermination = false;
-    QFont m_logFont;
 };
 
 #endif // BJOBLOGMODEL_H

@@ -2122,6 +2122,51 @@ if(BUILD_TESTING)
 
     add_test(NAME buiscale_test COMMAND buiscale_test)
 
+    # bdialogfonts_test - dialogs and other windows of their own take the
+    # interface font and zoom: a plain dialog, a message box and the real
+    # job details, settings, connection and restore dialogs at 100 % and
+    # 200 %, a zoom change while they are open, per-class fonts of the
+    # platform theme, and a theme style sheet with sizes of its own (widgets,
+    # no Director, no network). Built from the sources of the application.
+    set(BDIALOGFONTS_SOURCES ${SOURCES})
+    list(REMOVE_ITEM BDIALOGFONTS_SOURCES src/main.cpp)
+    add_executable(bdialogfonts_test
+        test/bdialogfonts_test.cpp
+        ${BDIALOGFONTS_SOURCES}
+        ${HEADERS}
+        ${UI_FILES}
+    )
+    if(HAVE_GRPC)
+        target_sources(bdialogfonts_test PRIVATE
+            src/director/bgrpctransport.cpp
+            include/director/bgrpctransport.h
+            src/director/bgrpcconnect.cpp
+            include/director/bgrpcconnect.h
+            src/director/bconfigproto.cpp
+            include/director/bconfigproto.h
+        )
+    endif()
+    target_include_directories(bdialogfonts_test PRIVATE
+        $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
+    )
+    target_compile_definitions(bdialogfonts_test PRIVATE
+        ONESIMUS_THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
+    )
+    # The sources of the application are compiled a second time here; their
+    # known warnings (OpenSSL's MD5 in bareosauth.cpp) are counted once, for
+    # the application
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(bdialogfonts_test PRIVATE -Wno-deprecated-declarations)
+    endif()
+    target_link_libraries(bdialogfonts_test PRIVATE
+        $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
+        Qt6::Test
+    )
+    add_test(NAME bdialogfonts_test COMMAND bdialogfonts_test)
+    # To keep pictures of the dialogs, run it with
+    # ONESIMUS_DIALOG_SCREENSHOT_DIR set to a directory.
+    set_tests_properties(bdialogfonts_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # bscheduletimeline_test - the schedule tab's timeline as a whole: a bar
     # that is dragged and dropped sends no command, asks the capability gate
     # and says so in the status line; schedules no job uses are left out of

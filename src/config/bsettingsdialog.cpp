@@ -180,6 +180,7 @@ void BSettingsDialog::createConnectionPage()
     // Title
     QLabel *titleLabel = new QLabel(tr("Connection Manager"));
     titleLabel->setObjectName("pageTitle");
+    BUiScale::bind(titleLabel, BUiScale::Title, BUiScale::Bold);
     layout->addWidget(titleLabel);
 
     // ========================================================================
@@ -321,7 +322,7 @@ void BSettingsDialog::createConnectionPage()
     // MD5 Hash preview (read-only, updates in real-time)
     m_md5Label = new QLabel();
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    BUiScale::bind(m_md5Label, BUiScale::Tiny, BUiScale::Monospace);
+    BUiScale::bind(m_md5Label, BUiScale::Small, BUiScale::Monospace);
     bSetLabelState(m_md5Label, "muted");
     m_md5Label->setText(tr("(password MD5 hash will appear here)"));
     bconsoleLayout->addRow(tr("MD5 Hash:"), m_md5Label);
@@ -578,6 +579,7 @@ void BSettingsDialog::createAppearancePage()
     // Title
     QLabel *titleLabel = new QLabel(tr("Appearance"));
     titleLabel->setObjectName("pageTitle");
+    BUiScale::bind(titleLabel, BUiScale::Title, BUiScale::Bold);
     layout->addWidget(titleLabel);
 
     // Interface zoom: the text size is the desktop's font times this factor
@@ -728,6 +730,7 @@ void BSettingsDialog::createBehaviorPage()
     // Title
     QLabel *titleLabel = new QLabel(tr("Behavior"));
     titleLabel->setObjectName("pageTitle");
+    BUiScale::bind(titleLabel, BUiScale::Title, BUiScale::Bold);
     layout->addWidget(titleLabel);
 
     // Confirmations
@@ -880,6 +883,7 @@ void BSettingsDialog::createAdvancedPage()
     // Title
     QLabel *titleLabel = new QLabel(tr("Advanced Settings"));
     titleLabel->setObjectName("pageTitle");
+    BUiScale::bind(titleLabel, BUiScale::Title, BUiScale::Bold);
     layout->addWidget(titleLabel);
 
     // Logging (only visible when file logging is compiled in)
@@ -960,7 +964,7 @@ void BSettingsDialog::createAdvancedPage()
 
 void BSettingsDialog::applyModernStyle()
 {
-    // Sizes are named by role (@small, @headline) and filled in from the
+    // Sizes are named by role (@normal, @title) and filled in from the
     // interface font, again after every change of the zoom
     static const char sheet[] = R"(
         /* Main Dialog */
@@ -998,7 +1002,7 @@ void BSettingsDialog::applyModernStyle()
 
         /* Page Titles */
         QLabel#pageTitle {
-            font-size: @headline;
+            font-size: @title;
             font-weight: 600;
             color: #ffffff;
             padding-bottom: 10px;
@@ -1033,7 +1037,6 @@ void BSettingsDialog::applyModernStyle()
             border-radius: 6px;
             padding: 10px 12px;
             color: #e4e6eb;
-            font-size: @small;
         }
 
         QLineEdit:focus, QSpinBox:focus {
@@ -1075,7 +1078,6 @@ void BSettingsDialog::applyModernStyle()
         QCheckBox {
             color: #e4e6eb;
             spacing: 8px;
-            font-size: @small;
         }
 
         QCheckBox#prominentCheckbox {
@@ -1109,7 +1111,6 @@ void BSettingsDialog::applyModernStyle()
             border: 1px solid #2d3139;
             border-radius: 6px;
             padding: 10px 20px;
-            font-size: @small;
             font-weight: 500;
         }
 

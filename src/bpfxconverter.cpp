@@ -125,7 +125,7 @@ BPFXConverter::BPFXConverter(QWidget *parent)
     m_logText = new QTextEdit();
     m_logText->setReadOnly(true);
     BUiScale::track(m_logText, [this]() { m_logText->setMaximumHeight(BUiScale::px(150)); });
-    BUiScale::bind(m_logText, BUiScale::Tiny, BUiScale::Monospace);
+    BUiScale::bind(m_logText, BUiScale::Normal, BUiScale::Monospace);
     mainLayout->addWidget(m_logText);
 
     // Buttons
