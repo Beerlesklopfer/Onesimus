@@ -481,6 +481,7 @@ set(SOURCES
     src/schedules/model/brunwriter.cpp
     src/schedules/model/bscheduleoccurrences.cpp
     src/schedules/model/bjobhistorystats.cpp
+    src/schedules/model/bschedulegridmodel.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -589,6 +590,7 @@ set(HEADERS
     include/schedules/model/brunspec.h
     include/schedules/model/bscheduleoccurrences.h
     include/schedules/model/bjobhistorystats.h
+    include/schedules/model/bschedulegridmodel.h
 
     include/messages/bmessageswidget.h
 
@@ -1534,6 +1536,29 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bjobhistorystats_test COMMAND bjobhistorystats_test)
+
+    # bschedulegridmodel_test - the model behind the schedule grid: cells and
+    # scopes from Run lines, selection, and the edits back to Run lines
+    # (no widgets, no Director)
+    add_executable(bschedulegridmodel_test
+        test/bschedulegridmodel_test.cpp
+        src/schedules/model/bschedulegridmodel.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/schedules/model/bschedulegridmodel.h
+        include/schedules/model/brunspec.h
+    )
+
+    target_include_directories(bschedulegridmodel_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bschedulegridmodel_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bschedulegridmodel_test COMMAND bschedulegridmodel_test)
 endif()
 
 message(STATUS "")
@@ -1560,6 +1585,7 @@ if(BUILD_TESTING)
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
+    message(STATUS "  bschedulegridmodel_test - schedule grid model test (registered with CTest)")
 endif()
 message(STATUS "")
 
