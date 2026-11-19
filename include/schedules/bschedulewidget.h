@@ -24,6 +24,7 @@
 #include "models/bresourcemodels.h"
 #include "schedules/model/bjobhistorystats.h"
 #include "schedules/model/bschedulewaitmodel.h"
+#include "schedules/model/bwaitcalibration.h"
 #include "schedules/bschedulepersistence.h"
 
 class BScheduleSaveDialogs;
@@ -63,6 +64,20 @@ class BScheduleSaveDialogs;
  * from "show directors" (the last two are asked for with every refresh of
  * the schedules; nothing is written). A limit the Director did not report
  * is not replaced by a default: the runs it matters for are "uncertain".
+ *
+ * Measured against predicted. The job history is the ground truth
+ * (BWaitCalibration): the list shows next to each predicted wait the
+ * median and maximum wait the history measured for the job at that level,
+ * lists runs the history shows waiting even where nothing is predicted, and
+ * flags a prediction far from the measurement. The history also gives the
+ * start overhead of every job (connections, Client Run Before Job) and,
+ * once the parallel writers of a storage are known, the durations without
+ * the wait for the device. The parallel writers of a storage's devices are
+ * not reported by the Director: the panel has a field per storage (unknown
+ * by default, kept in BSettings per Director profile and storage), with
+ * what the history suggests and why; nothing is set without the user. A
+ * last line replays the last nights of the history with the model
+ * (BWaitCalibration::backtest()) and says how far it was off.
  *
  * Writing (step 7 of the schedule plan). A schedule is changed, deleted and
  * created through the configuration methods of the Onesimus Director over
@@ -161,6 +176,23 @@ public:
 
     void setJobConfigModel(BJobConfigModel *model);
 
+    /**
+     * @brief The Director profile of the connection
+     *
+     * Settings that belong to one Director, such as the parallel writers of
+     * a storage's devices for the wait prediction, are kept under it. Empty:
+     * "default".
+     */
+    void setDirectorProfileId(const QString &profileId);
+
+    /// The calibration of the wait prediction from the job history (tests)
+    const BWaitCalibration &waitCalibration() const { return m_calibration; }
+    /// The back-test line of the wait panel (tests)
+    QString backtestText() const;
+
+    /// Nights the back-test of the wait prediction replays
+    static constexpr int BacktestNights = 7;
+
 public slots:
     void processDotScheduleResponse(const QString &jsonData);
     void processShowSchedulesResponse(const QString &jsonData);
@@ -199,6 +231,7 @@ private slots:
     void onDayNavigationNext();
     void onDayNavigationToday();
     void onWaitRowChanged();
+    void onDeviceWritersChanged();
     void onHistoryRefreshClicked();
     void onEntryClicked(const BScheduleEntry &entry);
     /// A bar of one of the timelines was dropped at another time
@@ -287,6 +320,12 @@ private:
     QStringList jobsUsing(const QString &scheduleName) const;
     /// The text of the counter with the arrow that says whether its list is open
     void updateWaitButtonText();
+    /// The parallel writers of the storages of the runs, as the user set them
+    QHash<QString, int> deviceWriters() const;
+    /// Client, storage and priority of every configured job
+    QHash<QString, BWaitJobInfo> waitJobInfo() const;
+    /// The rows of storage devices in the wait panel: one per storage
+    void updateDevicePanel(const QStringList &storages);
     void resizeBothGanttWidgets();
     void updateSnapComboForViewMode(BScheduleGanttWidget::ViewMode mode);
 
@@ -318,6 +357,10 @@ private:
     QList<BWaitRun> m_waitRuns;         ///< What was replayed, with the day before
     QList<BWaitResult> m_waitResults;   ///< One per run
     QList<int> m_waitShown;             ///< Runs of the entries and dates on display
+    QList<BJobRun> m_historyRuns;       ///< The runs of the history reply, for the calibration
+    BWaitCalibration m_calibration;     ///< From m_historyRuns, the jobs and the device writers
+    BWaitCalibration::Backtest m_backtest;
+    QString m_profileId;                ///< Director profile of the connection
     QString m_waitSummary;              ///< The counter's text without its arrow
 
     // --- UI ---
@@ -364,6 +407,9 @@ private:
     QLabel *m_waitSharedLabel = nullptr;  ///< Reasons several rows share, stated once: "[1] ..."
     QTableWidget *m_waitTable = nullptr;
     QLabel *m_waitDetails = nullptr;      ///< The reason of the current row in full
+    QWidget *m_devicePanel = nullptr;     ///< Parallel writers per storage, with suggestions
+    QStringList m_deviceStorages;         ///< The storages that have a row there
+    QLabel *m_backtestLabel = nullptr;    ///< The prediction replayed over past nights
 
     // Stats panel
     QGroupBox *m_statsPanel;

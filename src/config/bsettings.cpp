@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QUrl>
 
 // ============================================================================
 // Singleton Implementation
@@ -881,6 +882,32 @@ int BSettings::schedulesHistoryDays() const
 void BSettings::setSchedulesHistoryDays(int days)
 {
     setValue("Widgets/Schedules/history_days", qBound(1, days, 365));
+}
+
+namespace {
+/// A settings key for a profile and a storage: names may hold characters
+/// that QSettings treats specially ('/', '\\'), so both are percent-encoded
+QString deviceWritersKey(const QString& profileId, const QString& storage)
+{
+    const QString profile = profileId.isEmpty() ? QStringLiteral("default") : profileId;
+    return QStringLiteral("Widgets/Schedules/device_writers/%1/%2")
+        .arg(QString::fromLatin1(QUrl::toPercentEncoding(profile)),
+             QString::fromLatin1(QUrl::toPercentEncoding(storage)));
+}
+} // namespace
+
+int BSettings::schedulesDeviceWriters(const QString& profileId, const QString& storage) const
+{
+    return qBound(0, value(deviceWritersKey(profileId, storage), 0).toInt(), 1000);
+}
+
+void BSettings::setSchedulesDeviceWriters(const QString& profileId, const QString& storage,
+                                          int writers)
+{
+    if (writers <= 0)
+        m_settings.remove(deviceWritersKey(profileId, storage));
+    else
+        setValue(deviceWritersKey(profileId, storage), qBound(1, writers, 1000));
 }
 
 int BSettings::schedulesHistoryRowLimit() const

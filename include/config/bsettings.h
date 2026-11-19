@@ -317,6 +317,13 @@ public:
     int schedulesHistoryRowLimit() const;
     void setSchedulesHistoryRowLimit(int rows);
 
+    /// Wait prediction: how many jobs the devices of a storage write at a
+    /// time (Maximum Concurrent Jobs of the storage daemon's Device, which
+    /// the Director cannot read), per Director profile and storage. 0: not
+    /// known (the default); 1 to 1000 otherwise.
+    int schedulesDeviceWriters(const QString& profileId, const QString& storage) const;
+    void setSchedulesDeviceWriters(const QString& profileId, const QString& storage, int writers);
+
     // Global Statistics Widget State
     bool statisticsWidgetVisible() const;
     void setStatisticsWidgetVisible(bool visible);

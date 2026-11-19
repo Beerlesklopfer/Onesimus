@@ -29,12 +29,14 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QSettings>
+#include <QSpinBox>
 #include <QSignalSpy>
 #include <QTableWidget>
 #include <QTemporaryDir>
 #include <QUndoStack>
 
 #include "buiscale.h"
+#include "config/bsettings.h"
 #include "models/bresourcemodels.h"
 #include "schedules/bscheduleganttwidget.h"
 #include "schedules/bschedulegrideditor.h"
@@ -613,7 +615,11 @@ void BScheduleTimelineTest::counterSaysWhetherTheListIsOpen()
 void BScheduleTimelineTest::waitsOfSecondsInTheList()
 {
     // Three jobs on one client that takes one job at a time, each measured
-    // at 35 seconds: the second waits 35 s, the third 1:10 min
+    // at 35 seconds and starting 2 s after its scheduled time. The 2 s are
+    // the start overhead (connections, Client Run Before Job): the run holds
+    // its client meanwhile. The first starts at 08:00:02 and is not held;
+    // the second gets the client at 08:00:37 and starts 08:00:39; the third
+    // gets it at 08:01:14 and starts 08:01:16.
     Tab tab;
     const QStringList names = {"JobA", "JobB", "JobC"};
 
@@ -656,27 +662,51 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
 
     QPushButton *counter = tab.counter();
     counter->setChecked(true);
-    QTRY_VERIFY2_WITH_TIMEOUT(counter->text().endsWith("2 run(s) wait, longest 1:10 min"),
+    QTRY_VERIFY2_WITH_TIMEOUT(counter->text().endsWith("2 run(s) wait, longest 1:16 min"),
                               qPrintable(counter->text()), 15000);
 
-    // Columns: job, level, scheduled, predicted start, wait, certain, reason.
-    // Longest wait first: by its length, not by its text ("35 s" > "1:10 min")
-    QCOMPARE(tab.column(4), QStringList({"1:10 min", "35 s"}));
+    // Columns: job, level, scheduled, predicted start, wait, measured,
+    // certain, reason. Longest wait first: by its length, not by its text
+    // ("39 s" > "1:16 min")
+    QCOMPARE(tab.column(4), QStringList({"1:16 min", "39 s"}));
     QCOMPARE(tab.column(2), QStringList({"08:00", "08:00"}));
-    QCOMPARE(tab.column(3), QStringList({"08:01:10", "08:00:35"}));
-    QCOMPARE(tab.column(5), QStringList({"yes", "yes"}));
+    QCOMPARE(tab.column(3), QStringList({"08:01:16", "08:00:39"}));
+    // The history says 2 s: the runs it was measured on ran side by side,
+    // which a client limit of 1 does not allow. The third is flagged.
+    QCOMPARE(tab.column(5), QStringList({"2 s / 2 s", "2 s / 2 s"}));
+    QCOMPARE(tab.column(6), QStringList({"yes", "yes"}));
+    QVERIFY(tab.column(7).first().startsWith("Prediction too high"));
 
     // Ascending as well
     tab.waitTable()->sortByColumn(4, Qt::AscendingOrder);
-    QCOMPARE(tab.column(4), QStringList({"35 s", "1:10 min"}));
+    QCOMPARE(tab.column(4), QStringList({"39 s", "1:16 min"}));
     tab.waitTable()->sortByColumn(3, Qt::DescendingOrder);
-    QCOMPARE(tab.column(3), QStringList({"08:01:10", "08:00:35"}));
+    QCOMPARE(tab.column(3), QStringList({"08:01:16", "08:00:39"}));
 
     // The details of a row say the same, with seconds
     tab.waitTable()->sortByColumn(4, Qt::AscendingOrder);
     const QString tip = tab.waitTable()->item(0, 0)->toolTip();
-    QVERIFY2(tip.contains("Predicted start: 08:00:35, 35 s after the scheduled time (08:00)"),
+    QVERIFY2(tip.contains("Predicted start: 08:00:39, 39 s after the scheduled time (08:00)"),
              qPrintable(tip));
+    QVERIFY2(tip.contains("Start overhead 2 s"), qPrintable(tip));
+    QVERIFY2(tip.contains("Measured wait at this level: median 2 s, max 2 s (4 run(s))"),
+             qPrintable(tip));
+
+    // The device of storage File: unknown until the user sets it, and the
+    // history (runs side by side every day) gives no suggestion of 1
+    QSpinBox *writers = tab.waitPanel()->findChild<QSpinBox *>("deviceWriters:File");
+    QVERIFY(writers);
+    QCOMPARE(writers->value(), 0);
+    QCOMPARE(writers->text(), QString("unknown"));
+    QPushButton *use = tab.waitPanel()->findChild<QPushButton *>("deviceUse:File");
+    QVERIFY(use);
+    QVERIFY(!use->isEnabled());
+    QVERIFY(tab.widget.backtestText().startsWith("Back-test, last 4 night(s) (12 runs)"));
+
+    // Set by the user: kept per Director profile and storage
+    writers->setValue(1);
+    QCOMPARE(BSettings::instance().schedulesDeviceWriters(QString(), "File"), 1);
+    QTRY_VERIFY(!tab.widget.backtestText().contains("without a device limit"));
 }
 
 QTEST_MAIN(BScheduleTimelineTest)

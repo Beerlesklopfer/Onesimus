@@ -21,6 +21,8 @@
 #include <QScrollBar>
 #include <QShowEvent>
 #include <QStyle>
+#include <QSpinBox>
+#include <QSignalBlocker>
 
 BScheduleWidget::BScheduleWidget(QWidget *parent)
     : QWidget(parent)
@@ -1747,6 +1749,7 @@ void BScheduleWidget::applyHistoryReply(const BJobHistoryReply &reply, quint64 g
     switch (reply.outcome) {
     case BJobHistoryReply::Outcome::Runs: {
         m_historyStats.setRuns(reply.runs, m_historyDays, BJobHistoryStats::wallClockNow());
+        m_historyRuns = reply.runs;
         m_historyRows = reply.rows;
         m_historyRowsWithSchedTime = reply.rowsWithScheduledTime;
         m_historyFetchedAt = QDateTime::currentDateTime();
@@ -1778,6 +1781,7 @@ void BScheduleWidget::applyHistoryReply(const BJobHistoryReply &reply, quint64 g
 void BScheduleWidget::setHistoryUnavailable(const QString &reason)
 {
     m_historyStats.clear();
+    m_historyRuns.clear();
     m_historyFetchedAt = QDateTime();
     m_historyRows = 0;
     m_historyRowsWithSchedTime = 0;
@@ -1800,6 +1804,7 @@ void BScheduleWidget::resetHistory()
     ++m_historyGeneration;      // a reply still being read is dropped
     m_historyTimer->stop();
     m_historyStats.clear();
+    m_historyRuns.clear();
     m_historyState = HistoryNotRequested;
     m_historyArgs.clear();
     m_historyDays = 0;
@@ -1968,9 +1973,12 @@ void BScheduleWidget::updateWaitsTable()
 namespace {
 
 enum WaitColumn {
-    WaitJob = 0, WaitLevel, WaitScheduled, WaitStart, WaitDuration, WaitCertain,
+    WaitJob = 0, WaitLevel, WaitScheduled, WaitStart, WaitDuration, WaitMeasured, WaitCertain,
     WaitReason, WaitColumnCount
 };
+
+/// A measured wait at or above this is listed even if none is predicted
+constexpr qint64 kMeasuredListedFromSecs = 30;
 
 } // namespace
 
@@ -2004,7 +2012,11 @@ void BScheduleWidget::setupWaitPanel()
     m_waitTable = new QTableWidget(0, WaitColumnCount, m_waitPanel);
     m_waitTable->setHorizontalHeaderLabels({
         tr("Job"), tr("Level"), tr("Scheduled"), tr("Predicted start"),
-        tr("Wait"), tr("Certain"), tr("Reason")});
+        tr("Wait"), tr("Measured"), tr("Certain"), tr("Reason")});
+    m_waitTable->horizontalHeaderItem(WaitMeasured)->setToolTip(
+        tr("What this job waited at this level in the job history (StartTime minus SchedTime): "
+           "median / maximum. The catalog's start is set after the connections and Client Run "
+           "Before Job, so that time is part of it."));
     m_waitTable->horizontalHeaderItem(WaitDuration)->setToolTip(
         tr("Predicted start minus scheduled time: seconds (\"27 s\"), minutes:seconds "
            "(\"1:35 min\") or, from ten minutes on, hours:minutes (\"0:53 h\")"));
@@ -2036,7 +2048,40 @@ void BScheduleWidget::setupWaitPanel()
     m_waitDetails->setTextInteractionFlags(Qt::TextSelectableByMouse
                                            | Qt::TextSelectableByKeyboard);
     m_waitDetails->setAccessibleName(tr("Reason of the selected wait"));
-    layout->addWidget(m_waitDetails);
+    // The reason, the timing and the measured wait are many lines: they
+    // scroll instead of pushing the table to nothing
+    QScrollArea *detailsArea = new QScrollArea(m_waitPanel);
+    detailsArea->setFrameShape(QFrame::NoFrame);
+    detailsArea->setWidgetResizable(true);
+    detailsArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    detailsArea->setWidget(m_waitDetails);
+    BUiScale::track(detailsArea, [detailsArea]() {
+        detailsArea->setMinimumHeight(BUiScale::px(60));
+        detailsArea->setMaximumHeight(BUiScale::px(150));
+    });
+    layout->addWidget(detailsArea);
+
+    // What the Director cannot report: how many jobs the devices of a
+    // storage write at a time. One row per storage, filled in
+    // updateDevicePanel(); never set without the user.
+    m_devicePanel = new QWidget(m_waitPanel);
+    QGridLayout *devices = new QGridLayout(m_devicePanel);
+    devices->setContentsMargins(0, 0, 0, 0);
+    BUiScale::track(m_devicePanel, [devices]() {
+        devices->setHorizontalSpacing(BUiScale::px(8));
+        devices->setVerticalSpacing(BUiScale::px(2));
+    });
+    m_devicePanel->setVisible(false);
+    layout->addWidget(m_devicePanel);
+
+    // The prediction replayed over the last nights of the history
+    m_backtestLabel = new QLabel(m_waitPanel);
+    m_backtestLabel->setWordWrap(true);
+    m_backtestLabel->setTextFormat(Qt::PlainText);
+    m_backtestLabel->setTextInteractionFlags(Qt::TextSelectableByMouse
+                                             | Qt::TextSelectableByKeyboard);
+    m_backtestLabel->setAccessibleName(tr("Back-test of the prediction"));
+    layout->addWidget(m_backtestLabel);
 
     connect(m_waitTable, &QTableWidget::itemSelectionChanged,
             this, &BScheduleWidget::onWaitRowChanged);
@@ -2059,6 +2104,11 @@ void BScheduleWidget::updateWaitPrediction()
         const QMap<QString, QJsonObject> &jobs = m_jobConfigModel->jobConfigsRaw();
         const QMap<QString, QJsonObject> &jobDefs = m_jobConfigModel->jobDefsConfigsRaw();
         m_limits.readJobs(jobs, jobDefs);
+        // What the Director cannot report: set by the user, per storage
+        m_limits.devices = deviceWriters();
+        // The history as ground truth: measured waits, start overheads and
+        // durations without the wait for the device (BWaitCalibration)
+        m_calibration.setRuns(m_historyRuns, waitJobInfo(), m_limits.devices);
 
         // The Director's queue holds the runs of every schedule, checked in
         // the list or not. A schedule that is disabled starts nothing.
@@ -2133,13 +2183,22 @@ void BScheduleWidget::updateWaitPrediction()
                 if (ofRun && *ofRun > 0) run.maxRunSchedSecs = *ofRun;
             }
 
+            if (!m_calibration.isEmpty())
+                m_calibration.apply(&run);
+
             for (const QDateTime &when : entry.occurrences) {
                 run.scheduled = when;
                 m_waitRuns.append(run);
             }
         }
 
+        // Runs due at the same moment in the order the history shows them
+        // to start: the Director's own order is not known
+        BWaitCalibration::orderTies(&m_waitRuns);
         m_waitResults = BScheduleWaitModel::predict(m_waitRuns, m_limits);
+        m_backtest = m_calibration.backtest(m_limits, BacktestNights);
+    } else {
+        m_backtest = BWaitCalibration::Backtest();
     }
 
     // What the timelines show of it: the entries on display, on their dates
@@ -2153,9 +2212,15 @@ void BScheduleWidget::updateWaitPrediction()
         m_waitShown.append(i);
 
         BScheduleGanttWidget::RunWait wait;
-        wait.waitSecs = m_waitResults[i].waitSecs;
+        // Only a held run is drawn as waiting; its start overhead alone is not
+        wait.waitSecs = m_waitResults[i].waits() ? m_waitResults[i].waitSecs : 0;
         wait.certain = m_waitResults[i].certain;
         wait.lines = BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults);
+        if (!wait.lines.isEmpty() || m_waitResults[i].deviceWaitSecs > 0
+            || BScheduleWaitModel::discrepancy(run, m_waitResults[i])
+                   != BScheduleWaitModel::Discrepancy::None) {
+            wait.lines << BScheduleWaitModel::describeTiming(i, m_waitRuns, m_waitResults, m_limits);
+        }
         waits.insert(BScheduleGanttWidget::waitKey(run.id, run.scheduled), wait);
     }
 
@@ -2256,7 +2321,14 @@ void BScheduleWidget::updateWaitViews()
     // --- The list: runs that wait or may wait ---
     QList<int> rows;
     for (int i : std::as_const(m_waitShown)) {
-        if (m_waitResults[i].waits() || !m_waitResults[i].certain) rows.append(i);
+        const BWaitRun &run = m_waitRuns[i];
+        const BWaitResult &result = m_waitResults[i];
+        // Also what the history says waits, predicted or not
+        const bool measuredWaits = run.measuredWait.isValid()
+                                   && run.measuredWait.medianSecs >= kMeasuredListedFromSecs;
+        const bool off = BScheduleWaitModel::discrepancy(run, result)
+                         != BScheduleWaitModel::Discrepancy::None;
+        if (result.waits() || !result.certain || measuredWaits || off) rows.append(i);
     }
 
     // What one unknown makes uncertain is often many rows. It is stated
@@ -2283,7 +2355,9 @@ void BScheduleWidget::updateWaitViews()
         const int i = rows[row];
         const BWaitRun &run = m_waitRuns[i];
         const BWaitResult &result = m_waitResults[i];
-        const QString details = BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults)
+        const QString details = (BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults)
+                                 + BScheduleWaitModel::describeTiming(i, m_waitRuns, m_waitResults,
+                                                                      m_limits))
                                     .join(QLatin1Char('\n'));
 
         QTableWidgetItem *job = new QTableWidgetItem(run.job);
@@ -2306,10 +2380,32 @@ void BScheduleWidget::updateWaitViews()
         m_waitTable->setItem(row, WaitDuration, new BSortTableItem(
             result.waits() ? BScheduleWaitModel::formatWait(result.waitSecs) : tr("none"),
             result.waitSecs));
+        m_waitTable->setItem(row, WaitMeasured, run.measuredWait.isValid()
+            ? new BSortTableItem(QStringLiteral("%1 / %2").arg(
+                  BScheduleWaitModel::formatWait(run.measuredWait.medianSecs),
+                  BScheduleWaitModel::formatWait(run.measuredWait.maxSecs)),
+                  run.measuredWait.medianSecs)
+            : new BSortTableItem(tr("not measured"), BSortValue::Missing));
         m_waitTable->setItem(row, WaitCertain, new QTableWidgetItem(
             result.certain ? tr("yes") : tr("no")));
-        m_waitTable->setItem(row, WaitReason, new QTableWidgetItem(
-            BScheduleWaitModel::reasonLine(run, result, shared)));
+        // A prediction far from what was measured says so first
+        QString reason = BScheduleWaitModel::reasonLine(run, result, shared);
+        switch (BScheduleWaitModel::discrepancy(run, result)) {
+        case BScheduleWaitModel::Discrepancy::TooLow:
+            reason = reason.isEmpty() ? tr("Prediction too low")
+                                      : tr("Prediction too low; %1").arg(reason);
+            break;
+        case BScheduleWaitModel::Discrepancy::TooHigh:
+            reason = reason.isEmpty() ? tr("Prediction too high")
+                                      : tr("Prediction too high; %1").arg(reason);
+            break;
+        case BScheduleWaitModel::Discrepancy::None:
+            if (reason.isEmpty() && result.deviceWaitSecs > 0)
+                reason = tr("Waits %1 for the device inside the run")
+                             .arg(BScheduleWaitModel::formatWait(result.deviceWaitSecs));
+            break;
+        }
+        m_waitTable->setItem(row, WaitReason, new QTableWidgetItem(reason));
 
         for (int column = 0; column < WaitColumnCount; ++column) {
             m_waitTable->item(row, column)->setToolTip(details);
@@ -2329,6 +2425,20 @@ void BScheduleWidget::updateWaitViews()
     m_waitTable->setSortingEnabled(true);
     m_waitTable->resizeColumnsToContents();
     onWaitRowChanged();
+
+    // --- Parallel writers of the storages, and the back-test ---
+    QStringList storages;
+    if (predicted) {
+        for (int i : std::as_const(m_waitShown)) {
+            const BWaitRun &run = m_waitRuns[i];
+            if (run.usesStorage && !run.storage.isEmpty() && !storages.contains(run.storage))
+                storages << run.storage;
+        }
+        storages.sort();
+    }
+    updateDevicePanel(storages);
+    m_backtestLabel->setText(backtestText());
+    m_backtestLabel->setVisible(predicted);
 }
 
 void BScheduleWidget::updateWaitButtonText()
@@ -2365,5 +2475,164 @@ void BScheduleWidget::onWaitRowChanged()
     QStringList lines;
     lines << tr("%1, scheduled %2:").arg(run.job, run.scheduled.toString("ddd yyyy-MM-dd HH:mm"));
     lines << BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults);
+    lines << BScheduleWaitModel::describeTiming(i, m_waitRuns, m_waitResults, m_limits);
     m_waitDetails->setText(lines.join(QLatin1Char('\n')));
+}
+
+// ============================================================================
+// What the Director cannot report: the devices of a storage
+// ============================================================================
+
+void BScheduleWidget::setDirectorProfileId(const QString &profileId)
+{
+    if (m_profileId == profileId)
+        return;
+    m_profileId = profileId;
+    m_deviceStorages.clear();   // the rows show the values of another profile
+    updateWaitPrediction();
+}
+
+QHash<QString, int> BScheduleWidget::deviceWriters() const
+{
+    QHash<QString, int> writers;
+    if (!m_jobConfigModel)
+        return writers;
+    QSet<QString> storages;
+    const QHash<QString, BWaitJobInfo> jobs = waitJobInfo();
+    for (const BWaitJobInfo &info : jobs) {
+        if (!info.storage.isEmpty()) storages.insert(info.storage);
+    }
+    for (const QString &storage : std::as_const(m_deviceStorages)) storages.insert(storage);
+    const BSettings &settings = BSettings::instance();
+    for (const QString &storage : std::as_const(storages)) {
+        const int value = settings.schedulesDeviceWriters(m_profileId, storage);
+        if (value > 0) writers.insert(storage, value);
+    }
+    return writers;
+}
+
+QHash<QString, BWaitJobInfo> BScheduleWidget::waitJobInfo() const
+{
+    QHash<QString, BWaitJobInfo> info;
+    if (!m_jobConfigModel)
+        return info;
+    const QMap<QString, QJsonObject> &jobs = m_jobConfigModel->jobConfigsRaw();
+    const QMap<QString, QJsonObject> &jobDefs = m_jobConfigModel->jobDefsConfigsRaw();
+    for (auto it = jobs.constBegin(); it != jobs.constEnd(); ++it) {
+        auto directive = [&](const char *key) {
+            return BWaitLimits::jobDirective(jobs, jobDefs, it.key(), QLatin1String(key));
+        };
+        BWaitJobInfo job;
+        job.client = BWaitLimits::resourceName(directive("client"));
+        job.storage = BWaitLimits::resourceName(directive("storage"));
+        const QJsonValue priority = directive("priority");
+        if (priority.isDouble())
+            job.priority = priority.toInt(10);
+        else if (priority.isString()) {
+            bool ok = false;
+            const int value = priority.toString().trimmed().toInt(&ok);
+            if (ok && value > 0) job.priority = value;
+        }
+        info.insert(it.key(), job);
+    }
+    return info;
+}
+
+void BScheduleWidget::updateDevicePanel(const QStringList &storages)
+{
+    QGridLayout *grid = qobject_cast<QGridLayout *>(m_devicePanel->layout());
+    if (storages != m_deviceStorages) {
+        // Rebuilt only when the storages change: a spin box is never
+        // deleted from inside its own signal
+        while (QLayoutItem *item = grid->takeAt(0)) {
+            if (QWidget *widget = item->widget()) {
+                widget->hide();
+                widget->deleteLater();
+            }
+            delete item;
+        }
+        m_deviceStorages = storages;
+        for (int row = 0; row < storages.size(); ++row) {
+            const QString &storage = storages[row];
+            QLabel *name = new QLabel(tr("Storage %1, parallel writers of its device:").arg(storage),
+                                      m_devicePanel);
+            QSpinBox *spin = new QSpinBox(m_devicePanel);
+            spin->setObjectName(QStringLiteral("deviceWriters:") + storage);
+            spin->setRange(0, 1000);
+            spin->setSpecialValueText(tr("unknown"));
+            spin->setProperty("storage", storage);
+            spin->setAccessibleName(tr("Parallel writers of the device of storage %1").arg(storage));
+            spin->setToolTip(tr("How many jobs the device(s) of %1 write at a time: Maximum "
+                                "Concurrent Jobs of the Device resource in the storage daemon "
+                                "(several devices: their sum). The Director cannot read it. "
+                                "\"unknown\": runs that depend on it are uncertain.").arg(storage));
+            name->setBuddy(spin);
+            QLabel *suggestion = new QLabel(m_devicePanel);
+            suggestion->setObjectName(QStringLiteral("deviceSuggestion:") + storage);
+            suggestion->setWordWrap(true);
+            suggestion->setTextFormat(Qt::PlainText);
+            suggestion->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            QPushButton *use = new QPushButton(m_devicePanel);
+            use->setObjectName(QStringLiteral("deviceUse:") + storage);
+            use->setProperty("storage", storage);
+            grid->addWidget(name, row, 0);
+            grid->addWidget(spin, row, 1);
+            grid->addWidget(use, row, 2);
+            grid->addWidget(suggestion, row, 3);
+            connect(spin, qOverload<int>(&QSpinBox::valueChanged),
+                    this, &BScheduleWidget::onDeviceWritersChanged);
+            connect(use, &QPushButton::clicked, this, [this, spin, use]() {
+                const int suggested = use->property("suggested").toInt();
+                if (suggested > 0) spin->setValue(suggested);   // the user's own click
+            });
+        }
+        grid->setColumnStretch(3, 1);
+    }
+
+    const BSettings &settings = BSettings::instance();
+    for (const QString &storage : storages) {
+        QSpinBox *spin = m_devicePanel->findChild<QSpinBox *>(QStringLiteral("deviceWriters:") + storage);
+        QLabel *suggestion = m_devicePanel->findChild<QLabel *>(QStringLiteral("deviceSuggestion:") + storage);
+        QPushButton *use = m_devicePanel->findChild<QPushButton *>(QStringLiteral("deviceUse:") + storage);
+        if (!spin || !suggestion || !use) continue;
+        {
+            const QSignalBlocker block(spin);
+            spin->setValue(settings.schedulesDeviceWriters(m_profileId, storage));
+        }
+        const BWaitCalibration::DeviceSuggestion found = m_calibration.suggestDevices(storage);
+        QString text;
+        if (m_calibration.isEmpty()) {
+            text = tr("No job history: no suggestion.");
+        } else if (found.suggested > 0) {
+            text = tr("History suggests %1.").arg(found.suggested);
+        } else {
+            text = tr("History gives no suggestion.");
+        }
+        // The conclusion; what was counted is in the tooltip
+        text += QLatin1Char(' ') + found.evidence.value(found.evidence.size() - 1);
+        suggestion->setText(text);
+        suggestion->setToolTip(found.evidence.join(QLatin1Char('\n')));
+        use->setText(found.suggested > 0 ? tr("Use %1").arg(found.suggested) : tr("Use"));
+        use->setProperty("suggested", found.suggested);
+        use->setEnabled(found.suggested > 0 && spin->value() != found.suggested);
+        use->setToolTip(found.evidence.join(QLatin1Char('\n')));
+    }
+    m_devicePanel->setVisible(!storages.isEmpty());
+}
+
+void BScheduleWidget::onDeviceWritersChanged()
+{
+    const QSpinBox *spin = qobject_cast<const QSpinBox *>(sender());
+    if (!spin) return;
+    BSettings::instance().setSchedulesDeviceWriters(m_profileId, spin->property("storage").toString(),
+                                                    spin->value());
+    // Not here directly: this runs inside the spin box's signal
+    QMetaObject::invokeMethod(this, &BScheduleWidget::updateWaitPrediction, Qt::QueuedConnection);
+}
+
+QString BScheduleWidget::backtestText() const
+{
+    if (m_calibration.isEmpty())
+        return tr("Back-test: no job history to replay.");
+    return m_backtest.text();
 }

@@ -2249,6 +2249,10 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     m_jobWidget->setConnectionState(connected);
     m_clientWidget->setConnectionState(connected);
     m_storageWidget->setConnectionState(connected);
+    // Settings of one Director (the device writers of the wait prediction)
+    // are kept under the profile it was reached with
+    if (connected)
+        m_scheduleWidget->setDirectorProfileId(BSettings::instance().lastUsedProfileId());
     m_scheduleWidget->setConnectionState(connected);
 
     if (connected) {
