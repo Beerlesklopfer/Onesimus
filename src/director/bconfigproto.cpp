@@ -6,6 +6,9 @@
 #include "director/bconfigproto.h"
 
 #include <QProtobufSerializer>
+#include <QtProtobuf/qprotobufregistration.h>
+
+#include <mutex>
 
 namespace BConfigProto {
 
@@ -47,6 +50,7 @@ BConfig::Status fromStatus(pb::ConfigStatusGadget::ConfigStatus status)
 template <typename Message>
 QByteArray serialized(const Message &message)
 {
+    BConfigProto::registerTypes();
     QProtobufSerializer serializer;
     return message.serialize(&serializer);
 }
@@ -54,11 +58,35 @@ QByteArray serialized(const Message &message)
 template <typename Message>
 bool parsed(const QByteArray &bytes, Message *message)
 {
+    BConfigProto::registerTypes();
     QProtobufSerializer serializer;
     return message->deserialize(&serializer, bytes);
 }
 
 } // namespace
+
+void registerTypes()
+{
+    static std::once_flag once;
+    std::call_once(once, [] {
+        pb::ResourceTypeGadget::registerTypes();
+        pb::ConfigOperationGadget::registerTypes();
+        pb::ConfigStatusGadget::registerTypes();
+        qRegisterProtobufType<pb::ResourceRef>();
+        qRegisterProtobufType<pb::TypeCapabilities>();
+        qRegisterProtobufType<pb::ConfigCapabilitiesRequest>();
+        qRegisterProtobufType<pb::ConfigCapabilitiesResponse>();
+        qRegisterProtobufType<pb::ListResourcesRequest>();
+        qRegisterProtobufType<pb::ListResourcesResponse>();
+        qRegisterProtobufType<pb::ResourceSummary>();
+        qRegisterProtobufType<pb::ReadResourceRequest>();
+        qRegisterProtobufType<pb::CreateResourceRequest>();
+        qRegisterProtobufType<pb::UpdateResourceRequest>();
+        qRegisterProtobufType<pb::DeleteResourceRequest>();
+        qRegisterProtobufType<pb::ResourceResponse>();
+        qRegisterProtobufType<pb::ConfigProblem>();
+    });
+}
 
 // --- Requests ----------------------------------------------------------------
 

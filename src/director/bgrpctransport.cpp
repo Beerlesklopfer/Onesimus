@@ -448,6 +448,7 @@ void BGrpcTransport::fetchConfigCapabilities()
     options.setMetadata(QHash<QByteArray, QByteArray>{{SessionHeader, m_sessionToken.toLatin1()}});
 
     const quint64 gen = m_generation;
+    BConfigProto::registerTypes();
     QGrpcCallReply *reply = m_api->GetConfigCapabilities(api::ConfigCapabilitiesRequest(), options).release();
     connect(reply, &QGrpcCallReply::finished, this, [this, reply, gen](const QGrpcStatus &status) {
         reply->deleteLater();

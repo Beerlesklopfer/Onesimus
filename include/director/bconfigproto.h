@@ -53,6 +53,17 @@ bool parseRequest(BConfig::Request::Kind kind, const QByteArray &bytes, BConfig:
 
 /// A serialized ResourceResponse as a Reply
 bool parseResourceResponse(const QByteArray &bytes, BConfig::Reply *reply);
+/**
+ * @brief Registers the enums and messages of the configuration methods with
+ *        QtProtobuf (once per process)
+ *
+ * The generated registrations live in a static library and are dropped by the
+ * linker when nothing references them; without them QtProtobuf silently skips
+ * repeated enum fields (the operations of GetConfigCapabilities came back
+ * empty). Called before every (de)serialization of these messages.
+ */
+void registerTypes();
+
 /// A serialized ConfigCapabilitiesResponse as a Reply (interfaceVersion, operations)
 bool parseCapabilitiesResponse(const QByteArray &bytes, BConfig::Reply *reply);
 /// A serialized ListResourcesResponse as a Reply (resources)

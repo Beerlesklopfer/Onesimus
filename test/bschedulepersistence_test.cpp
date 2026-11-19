@@ -179,6 +179,7 @@ private slots:
 
 #ifdef HAVE_GRPC
     // --- On the wire ---
+    void capabilitiesFromTheDirectorsBytes();
     void updateRequestBytes();
     void everyRequestKindRoundTrips();
     void everyStatusReadBack_data();
@@ -769,6 +770,33 @@ void BSchedulePersistenceTest::nothingWithoutAClient()
 // ============================================================================
 
 #ifdef HAVE_GRPC
+
+void BSchedulePersistenceTest::capabilitiesFromTheDirectorsBytes()
+{
+    // The bytes odir (prost) sends for SCHEDULE with READ_RAW, CREATE_RAW,
+    // UPDATE_RAW and DELETE: proto3 packs the repeated enum (field 2,
+    // wire type 2), as prost does by default
+    const QByteArray packed = QByteArray::fromHex("0801"           // interface_version = 1
+                                                   "1208"           // types[0], 8 bytes
+                                                   "0801"           //   type = SCHEDULE
+                                                   "120401020304"); //   operations, packed
+    BConfig::Reply reply;
+    QVERIFY(BConfigProto::parseCapabilitiesResponse(packed, &reply));
+    QCOMPARE(reply.interfaceVersion, 1);
+    QVERIFY(reply.operations.contains(int(BConfig::ResourceType::Schedule)));
+    QCOMPARE(reply.operations.value(int(BConfig::ResourceType::Schedule)),
+             (QSet<int>{1, 2, 3, 4}));
+    QVERIFY(BConfigProto::capabilitiesOf(reply).supports(BConfig::ResourceType::Schedule,
+                                                         BConfig::Operation::UpdateRaw));
+
+    // The same unpacked (one tag per element), which a parser must accept too
+    const QByteArray unpacked = QByteArray::fromHex("0801" "120a" "0801"
+                                                     "1001" "1002" "1003" "1004");
+    BConfig::Reply reply2;
+    QVERIFY(BConfigProto::parseCapabilitiesResponse(unpacked, &reply2));
+    QCOMPARE(reply2.operations.value(int(BConfig::ResourceType::Schedule)),
+             (QSet<int>{1, 2, 3, 4}));
+}
 
 void BSchedulePersistenceTest::updateRequestBytes()
 {
