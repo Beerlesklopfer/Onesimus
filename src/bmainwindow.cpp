@@ -20,6 +20,7 @@
 // Messages widget is now inside BJobWidget
 #include "config/bsettingsdialog.h"
 #include "bcleanupdialog.h"
+#include "tools/b321dialog.h"
 #include "bcapabilitynotice.h"
 #include "director/bdirectorconfigclient.h"
 #include "bconnectionwizard.h"
@@ -1377,6 +1378,12 @@ void BMainWindow::createMenus()
     m_toolsMenu->addAction(m_importConfigAction);
     m_toolsMenu->addSeparator();
     m_toolsMenu->addAction(m_cleanupDatabaseAction);
+    // 3-2-1 verifier: a window of its own, read only (B321Dialog)
+    m_toolsMenu->addAction(B321Dialog::createAction(this, m_director, [this]() {
+        return B321Dialog::Context{m_jobWidget->jobConfigModel()->jobConfigsRaw(),
+                                   m_jobWidget->jobConfigModel()->jobDefsConfigsRaw(),
+                                   m_jobWidget->storageNames(), BSettings::instance().lastUsedProfileId()};
+    }));
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
     m_helpMenu->addAction(m_documentationAction);

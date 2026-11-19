@@ -366,6 +366,9 @@ public:
         // Volume table of the Storage tab (all catalog fields per volume)
         LlistVolumes,       ///< llist volumes
 
+        // Volumes of every job, for the 3-2-1 verifier (read only)
+        ListJobMedia,       ///< list jobmedia
+
         // Custom
         Custom              ///< Custom command string
     };

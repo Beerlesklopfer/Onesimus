@@ -451,6 +451,8 @@ set(SOURCES
     src/storage/model/bvolumelist.cpp
     src/storage/model/brecycleforecast.cpp
     src/tools/b321verifier.cpp
+    src/tools/b321dialog.cpp
+    src/tools/b321action.cpp
 
     src/config/bcolumnconfiguration.cpp
     src/config/bsettings.cpp
@@ -549,6 +551,7 @@ set(HEADERS
     include/storage/model/bvolumelist.h
     include/storage/model/brecycleforecast.h
     include/tools/b321verifier.h
+    include/tools/b321dialog.h
     include/bcleanupdialog.h
     include/bcapabilities.h
     include/bcapabilitynotice.h
@@ -2074,6 +2077,62 @@ if(BUILD_TESTING)
     add_test(NAME b321verifier_test COMMAND b321verifier_test)
     set_tests_properties(b321verifier_test PROPERTIES ENVIRONMENT "TZ=UTC")
 
+    # b321dialog_test - Tools > 3-2-1 Verifier on the worked example: chips,
+    # details, off-site marks and the setting in BSettings (per profile), the
+    # read commands of Refresh and nothing else, keyboard and screen reader
+    # texts (widgets, offscreen, no Director)
+    add_executable(b321dialog_test
+        test/b321dialog_test.cpp
+        src/tools/b321dialog.cpp
+        src/tools/b321verifier.cpp
+        src/storage/model/bvolumelist.cpp
+        src/models/bvolumejson.cpp
+        src/bbyteformat.cpp
+        src/bheaderstate.cpp
+        src/config/bcolumnconfiguration.cpp
+        src/bstatuschip.cpp
+        src/bstatusdelegate.cpp
+        src/clients/bclientstatus.cpp
+        src/buiscale.cpp
+        src/config/bsettings.cpp
+        include/tools/b321dialog.h
+        include/tools/b321verifier.h
+        include/storage/model/bvolumelist.h
+        include/models/bvolumejson.h
+        include/bheaderstate.h
+        include/config/bcolumnconfiguration.h
+        include/bstatuschip.h
+        include/bstatusdelegate.h
+        include/buiscale.h
+        include/config/bsettings.h
+    )
+
+    target_include_directories(b321dialog_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(b321dialog_test PRIVATE
+        FIXTURE_DIR="${CMAKE_SOURCE_DIR}/test/fixtures"
+        THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
+    )
+
+    # bareosdirector_lib: the dialog names commands by BDirector::Command, an
+    # enum of the BareosDirector class. Nothing of a Director is created.
+    target_link_libraries(b321dialog_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME b321dialog_test COMMAND b321dialog_test)
+    set_tests_properties(b321dialog_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;TZ=UTC;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/b321dialog_test_config")
+
     # bschedulegridmodel_test - the model behind the schedule grid: cells and
     # scopes from Run lines, selection, and the edits back to Run lines
     # (no widgets, no Director)
@@ -2463,6 +2522,7 @@ if(BUILD_TESTING)
     message(STATUS "  bschedulewaitmodel_test - predicted waiting time of scheduled runs test (registered with CTest)")
     message(STATUS "  bwaitcalibration_test - wait prediction against the catalog test (registered with CTest)")
     message(STATUS "  b321verifier_test - 3-2-1 rule per backup job test (registered with CTest)")
+    message(STATUS "  b321dialog_test  - 3-2-1 verifier window test, offscreen (registered with CTest)")
     message(STATUS "  bschedulegridmodel_test - schedule grid model test (registered with CTest)")
     message(STATUS "  bschedulegridtext_test - schedule grid texts, calendar and geometry test (registered with CTest)")
     message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")

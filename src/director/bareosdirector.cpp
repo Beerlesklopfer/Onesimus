@@ -2205,6 +2205,11 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     // delete jobs and change volume states.
     case Command::LlistVolumes:     command = "llist volumes"; break;
 
+    // JobId and volume name of every JobMedia record (dird/ua_output.cc:
+    // "list jobmedia" without jobid= lists all, cats/sql_list.cc
+    // ListJobmediaRecords; the Onesimus Director does the same)
+    case Command::ListJobMedia:     command = "list jobmedia"; break;
+
     // Custom
     case Command::Custom:           command = args; break;
 

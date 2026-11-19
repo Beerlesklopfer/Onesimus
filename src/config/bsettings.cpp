@@ -940,6 +940,73 @@ void BSettings::setSchedulesDeviceWriters(const QString& profileId, const QStrin
         setValue(deviceWritersKey(profileId, storage), qBound(1, writers, 1000));
 }
 
+namespace {
+/// Key of a 3-2-1 verifier setting of a profile (and a storage), percent-encoded
+QString verify321Key(const QString& what, const QString& profileId,
+                     const QString& storage = QString())
+{
+    const QString profile = profileId.isEmpty() ? QStringLiteral("default") : profileId;
+    QString key = QStringLiteral("Widgets/Verify321/%1/%2")
+        .arg(what, QString::fromLatin1(QUrl::toPercentEncoding(profile)));
+    if (!storage.isNull())
+        key += QLatin1Char('/') + QString::fromLatin1(QUrl::toPercentEncoding(storage));
+    return key;
+}
+} // namespace
+
+bool BSettings::verify321CountOriginalData() const
+{
+    return value("Widgets/Verify321/count_original_data", true).toBool();
+}
+
+void BSettings::setVerify321CountOriginalData(bool count)
+{
+    setValue("Widgets/Verify321/count_original_data", count);
+}
+
+bool BSettings::verify321OffSite(const QString& profileId, const QString& storage) const
+{
+    return value(verify321Key(QStringLiteral("off_site"), profileId, storage), false).toBool();
+}
+
+void BSettings::setVerify321OffSite(const QString& profileId, const QString& storage, bool offSite)
+{
+    if (offSite)
+        setValue(verify321Key(QStringLiteral("off_site"), profileId, storage), true);
+    else
+        m_settings.remove(verify321Key(QStringLiteral("off_site"), profileId, storage));
+}
+
+bool BSettings::verify321UnmarkedOnSite(const QString& profileId) const
+{
+    return value(verify321Key(QStringLiteral("unmarked_on_site"), profileId), false).toBool();
+}
+
+void BSettings::setVerify321UnmarkedOnSite(const QString& profileId, bool onSite)
+{
+    setValue(verify321Key(QStringLiteral("unmarked_on_site"), profileId), onSite);
+}
+
+QByteArray BSettings::verify321HeaderState() const
+{
+    return value("Widgets/Verify321/header_state").toByteArray();
+}
+
+void BSettings::setVerify321HeaderState(const QByteArray& state)
+{
+    setValue("Widgets/Verify321/header_state", state);
+}
+
+int BSettings::verify321HeaderScale() const
+{
+    return value("Widgets/Verify321/header_scale", 0).toInt();
+}
+
+void BSettings::setVerify321HeaderScale(int pixelsPer1000)
+{
+    setValue("Widgets/Verify321/header_scale", pixelsPer1000);
+}
+
 int BSettings::schedulesHistoryRowLimit() const
 {
     return qBound(100, value("Widgets/Schedules/history_row_limit", 5000).toInt(), 100000);

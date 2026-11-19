@@ -334,6 +334,28 @@ public:
     int schedulesDeviceWriters(const QString& profileId, const QString& storage) const;
     void setSchedulesDeviceWriters(const QString& profileId, const QString& storage, int writers);
 
+    /// 3-2-1 verifier: the data on the client counts as one of the three
+    /// copies (default on: production data + 2 backups)
+    bool verify321CountOriginalData() const;
+    void setVerify321CountOriginalData(bool count);
+
+    /// 3-2-1 verifier: the user marked @p storage of a Director profile as
+    /// off site (Bareos itself has no such flag). Default false.
+    bool verify321OffSite(const QString& profileId, const QString& storage) const;
+    void setVerify321OffSite(const QString& profileId, const QString& storage, bool offSite);
+
+    /// 3-2-1 verifier: the user said that the storages of a profile that are
+    /// not marked off site are on site. Default false: they are unknown.
+    bool verify321UnmarkedOnSite(const QString& profileId) const;
+    void setVerify321UnmarkedOnSite(const QString& profileId, bool onSite);
+
+    /// 3-2-1 verifier: header of its table (QHeaderView::saveState()) and
+    /// the interface scale the widths were saved at (BHeaderState)
+    QByteArray verify321HeaderState() const;
+    void setVerify321HeaderState(const QByteArray& state);
+    int verify321HeaderScale() const;
+    void setVerify321HeaderScale(int pixelsPer1000);
+
     // Global Statistics Widget State
     bool statisticsWidgetVisible() const;
     void setStatisticsWidgetVisible(bool visible);

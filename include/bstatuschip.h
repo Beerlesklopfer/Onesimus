@@ -19,7 +19,8 @@
  *
  * Green (Tone::Success) is used for one thing only: a job that terminated
  * normally (Bareos JobStatus 'T'). Nothing that is a guess or merely
- * recent is green.
+ * recent is green. The one other use: a criterion of the 3-2-1 verifier
+ * (B321Dialog) that the catalog shows as met.
  */
 namespace BStatus {
 
