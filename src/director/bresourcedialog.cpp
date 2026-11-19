@@ -119,6 +119,11 @@ BConfigResource BResourceDialog::resource() const
     return m_form->resource();
 }
 
+QStringList BResourceDialog::formDirectives() const
+{
+    return m_form->directiveNames();
+}
+
 void BResourceDialog::setReferenceData(const QMap<QString, QStringList> &referenceData)
 {
     m_form->setReferenceData(referenceData);

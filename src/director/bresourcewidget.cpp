@@ -9,6 +9,13 @@
 #include "director/bresourcewidget.h"
 #include "buiscale.h"
 #include "director/bresourcedialog.h"
+#include "bcapabilitynotice.h"
+#include "config/bdirectiveschema.h"
+#include "config/bresourcechanges.h"
+#include "config/bresourcepersistence.h"
+#include "config/bresourcereviewdialog.h"
+#include "config/bresourcetext.h"
+#include "director/bdirectorconfigclient.h"
 #include "schedules/model/brunspec.h"
 #include "version.h"
 #include <QDateTime>
@@ -167,31 +174,143 @@ void BResourceWidget::onEditResource()
     BConfigResource res = selectedResource();
     if (res.type().isEmpty()) return;
 
-    BConfigResource modified;
-    bool accepted = false;
-
     BResourceDialog dlg(m_resourceType, res, this);
     if (!m_referenceData.isEmpty()) {
         dlg.setReferenceData(m_referenceData);
     }
-    if (dlg.exec() == QDialog::Accepted) {
-        modified = dlg.resource();
-        accepted = true;
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+    BConfigResource modified = dlg.resource();
+    if (modified.name().isEmpty())
+        modified.setName(res.name());
+
+    // Job and JobDefs go to the Director; the list changes once it is written
+    if (writeEdited(res, modified, dlg.formDirectives()))
+        return;
+
+    // Other types: no write path yet, the change stays in the list
+    QTreeWidgetItem *current = m_treeWidget->currentItem();
+    if (current) {
+        int idx = current->data(0, Qt::UserRole).toInt();
+        if (idx >= 0 && idx < m_resources.size()) {
+            m_resources[idx] = modified;
+            updateDetails(modified);
+            if (!modified.name().isEmpty()) {
+                current->setText(0, modified.name());
+            }
+            emit resourceModified(modified);
+        }
+    }
+}
+
+bool BResourceWidget::writeEdited(const BConfigResource &before, const BConfigResource &after,
+                                  const QStringList &formDirectives)
+{
+    BConfig::ResourceType type;
+    BCapabilities::Function function;
+    if (m_resourceType == QLatin1String("Job")) {
+        type = BConfig::ResourceType::Job;
+        function = BCapabilities::Function::ModifyJob;
+    } else if (m_resourceType == QLatin1String("JobDefs")) {
+        type = BConfig::ResourceType::JobDefs;
+        function = BCapabilities::Function::ModifyJobDefs;
+    } else {
+        return false;
+    }
+    // The configuration import dialog has no Director: nothing to write to
+    if (!m_director)
+        return false;
+
+    const QString name = before.name();
+    const QString title = tr("%1 %2 was not changed").arg(m_resourceType, name);
+
+    // BNET, or a session without UpdateResource: the notice, nothing written
+    if (!BCapabilityNotice::check(this, m_director, function, BCapabilities::Request::Explicit))
+        return true;
+
+    const QString typeName = m_resourceType;
+    const BResourceChanges changes = BResourceChanges::between(
+        before, after, formDirectives, [typeName](const QString &directive) {
+            const QVariant def = BDirectiveSchema::instance().directive(typeName, directive).defaultValue;
+            if (!def.isValid())
+                return QString();
+            if (def.typeId() == QMetaType::Bool)
+                return def.toBool() ? QStringLiteral("yes") : QStringLiteral("no");
+            return def.toString();
+        });
+    QString skippedNote;
+    if (!changes.skipped.isEmpty()) {
+        skippedNote = tr("Not written, because the form cannot write lists or nested blocks: %1. "
+                         "Change them in the configuration file.").arg(changes.skipped.join(QStringLiteral(", ")));
+    }
+    if (changes.isEmpty()) {
+        QMessageBox::information(this, title,
+                                 skippedNote.isEmpty() ? tr("Nothing was changed.")
+                                                       : tr("Nothing that can be written was changed. %1").arg(skippedNote));
+        return true;
     }
 
-    if (accepted) {
-        QTreeWidgetItem *current = m_treeWidget->currentItem();
-        if (current) {
-            int idx = current->data(0, Qt::UserRole).toInt();
-            if (idx >= 0 && idx < m_resources.size()) {
-                m_resources[idx] = modified;
-                updateDetails(modified);
-                if (!modified.name().isEmpty()) {
-                    current->setText(0, modified.name());
-                }
-                emit resourceModified(modified);
-            }
+    if (!m_persistence) {
+        m_saveDialogs = new BResourceSaveDialogs(this);
+        m_persistence = new BResourcePersistence(new BDirectorConfigClient(m_director, this), m_saveDialogs, this);
+        connect(m_persistence, &BResourcePersistence::finished, this, &BResourceWidget::onWriteFinished);
+        connect(m_persistence, &BResourcePersistence::reloadRequested, this,
+                [this](BConfig::ResourceType rtype, const QString &) {
+            if (!m_director || !m_director->isConnected())
+                return;
+            m_director->doSend(rtype == BConfig::ResourceType::JobDefs ? BDirector::Command::ShowJobDefs
+                                                                        : BDirector::Command::ShowJobs);
+        });
+    }
+    if (m_persistence->isBusy()) {
+        QMessageBox::information(this, title, tr("Another change is still being written. Try again when it is done."));
+        return true;
+    }
+
+    m_pendingEdit = after;
+    m_persistence->read(type, name, this,
+                        [this, type, name, title, changes, skippedNote](
+                            const BConfig::Reply &reply, const std::optional<BResourcePersistence::Raw> &raw) {
+        if (!raw) {
+            const QString why = reply.ok()
+                ? tr("The text the Director sent does not match its SHA-256.")
+                : BResourcePersistence::reportOf(reply, BResourceReview::Update, type, name).text;
+            QMessageBox::warning(this, title, tr("%1 Nothing was written.").arg(why));
+            return;
         }
+        QString newText;
+        QString error;
+        if (!BResourceText::edit(raw->text, changes.changes, &newText, &error)) {
+            QMessageBox::warning(this, title,
+                                 tr("The change cannot be written into the text of the resource safely: %1 "
+                                    "Nothing was written.").arg(error));
+            return;
+        }
+        BResourceReview review;
+        review.changes = changes.descriptions;
+        review.note = skippedNote;
+        m_persistence->update(type, name, *raw, newText, review);
+    });
+    return true;
+}
+
+void BResourceWidget::onWriteFinished(const BResourceReport &report)
+{
+    if (report.kind != BResourceReport::Written || report.name != m_pendingEdit.name())
+        return;
+    // Show what was written; the Director's own state comes with the reload
+    for (int i = 0; i < m_resources.size(); ++i) {
+        if (m_resources[i].name() != report.name)
+            continue;
+        BConfigResource merged = m_resources[i];
+        for (const QString &key : m_pendingEdit.keys())
+            merged.setValue(key, m_pendingEdit.value(key));
+        m_resources[i] = merged;
+        QTreeWidgetItem *current = m_treeWidget->currentItem();
+        if (current && current->data(0, Qt::UserRole).toInt() == i)
+            updateDetails(merged);
+        emit resourceModified(merged);
+        break;
     }
 }
 

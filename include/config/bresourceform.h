@@ -83,6 +83,9 @@ public:
      */
     QVariant directiveValue(const QString &name) const;
 
+    /// The directives the form has a field for (empty fields are not in resource())
+    QStringList directiveNames() const { return m_fieldWidgets.keys(); }
+
     /**
      * @brief Set the value of a specific directive
      * @param name Directive name

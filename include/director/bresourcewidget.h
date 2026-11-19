@@ -12,6 +12,10 @@
 #include "config/bconfigparser.h"
 #include "director/bdirector.h"
 
+class BResourcePersistence;
+class BResourceSaveDialogs;
+struct BResourceReport;
+
 /**
  * @file bresourcewidget.h
  * @brief Base widget for displaying parsed Bareos/Bacula resources
@@ -137,6 +141,21 @@ protected:
     virtual QIcon resourceIcon() const;
 
     /**
+     * @brief Writes an edited resource to the Director (Job, JobDefs)
+     *
+     * Over gRPC to an Onesimus Director with the configuration methods: the
+     * changed directives are written into the resource text as it stands in
+     * its file, checked by the Director, shown for confirmation, written.
+     * Over BNET, or where the session does not offer it, the capability
+     * notice says so and nothing is written or changed in the list.
+     * @return false if this resource type has no write path (the change
+     *         then stays in the list only, as before)
+     */
+    bool writeEdited(const BConfigResource &before, const BConfigResource &after,
+                     const QStringList &formDirectives);
+    void onWriteFinished(const BResourceReport &report);
+
+    /**
      * @brief Update the count label
      */
     void updateCountLabel();
@@ -168,6 +187,11 @@ protected:
     QList<BConfigResource> m_resources;
     QList<BConfigResource> m_exportResources;  ///< If set, used by export instead of m_resources
     QMap<QString, QStringList> m_referenceData; ///< Reference data for edit dialog combos
+
+    // Write path (writeEdited)
+    BResourcePersistence *m_persistence = nullptr;
+    BResourceSaveDialogs *m_saveDialogs = nullptr;
+    BConfigResource m_pendingEdit;              ///< What the list shows once the write went through
 };
 
 #endif // BRESOURCEWIDGET_H

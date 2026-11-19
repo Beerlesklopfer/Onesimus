@@ -501,6 +501,7 @@ set(SOURCES
     src/schedules/bschedulereviewdialog.cpp
     src/schedules/model/bscheduleresource.cpp
     src/config/bresourcetext.cpp
+    src/config/bresourcechanges.cpp
     src/config/bresourcepersistence.cpp
     src/config/bresourcereviewdialog.cpp
     src/jobs/bjobdefinitions.cpp
@@ -638,6 +639,7 @@ set(HEADERS
     include/schedules/bschedulereviewdialog.h
     include/schedules/model/bscheduleresource.h
     include/config/bresourcetext.h
+    include/config/bresourcechanges.h
     include/config/bresourcepersistence.h
     include/config/bresourcereviewdialog.h
     include/jobs/bjobdefinitions.h
@@ -1869,6 +1871,22 @@ if(BUILD_TESTING)
     target_include_directories(bresourcetext_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(bresourcetext_test PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME bresourcetext_test COMMAND bresourcetext_test)
+
+    # bresourcechanges_test - what the resource form (Edit Job...) changed,
+    # as directive changes: spelling of keys and booleans, defaults the form
+    # shows, emptied fields, list values not written (no Director)
+    add_executable(bresourcechanges_test
+        test/bresourcechanges_test.cpp
+        src/config/bresourcechanges.cpp
+        src/config/bresourcetext.cpp
+        src/config/bconfigparser.cpp
+        include/config/bresourcechanges.h
+        include/config/bresourcetext.h
+        include/config/bconfigparser.h
+    )
+    target_include_directories(bresourcechanges_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bresourcechanges_test PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME bresourcechanges_test COMMAND bresourcechanges_test)
 
     # bjobdefinitions_test - Job and JobDefs: values resolved over the JobDefs
     # chain (here, inherited from which JobDefs, default, circles, missing

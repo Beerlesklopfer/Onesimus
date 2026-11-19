@@ -52,6 +52,9 @@ public:
      */
     BConfigResource resource() const;
 
+    /// The directives the form has a field for
+    QStringList formDirectives() const;
+
     /**
      * @brief Populate resource_reference combo boxes with available names
      * @param referenceData Map of reference type to list of names
