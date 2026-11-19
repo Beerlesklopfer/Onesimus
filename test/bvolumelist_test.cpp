@@ -6,9 +6,12 @@
  *   (PDC, 19.11.2026), stripped of the console lines:
  *   test/fixtures/pdc-list-volumes-api2.json. It is the short listing: no
  *   pool field, no maxvolbytes, no voluseduration, no firstwritten.
- * - "llist volumes" in its grouped form, with the columns of Bareos 25
- *   list_volumes_select_long_0 (core/src/cats/postgresql_queries.inc). The
- *   values are made up after the PDC volumes; no long reply was captured.
+ * - The real API mode 2 reply of "llist volumes" of the same Director, the
+ *   same day: test/fixtures/pdc-llist-volumes-api2.json. Grouped by pool like
+ *   the short list (empty pools included), with a "pool" field per volume
+ *   and the columns of list_volumes_select_long_0; no actiononpurge.
+ * - "llist volumes" with made-up values for the cases the real reply lacks
+ *   (NULL and zero dates, empty strings, a use duration).
  * - Flat form, typed gRPC form, missing and null fields.
  *
  * Runs with TZ=UTC (set by CTest), so that catalog times are fixed.
@@ -17,6 +20,7 @@
 #include <QtTest>
 
 #include <QFile>
+#include <QJsonDocument>
 
 #include "storage/model/bvolumelist.h"
 
@@ -120,6 +124,7 @@ private slots:
     void pdcFixtureCounts();
     void pdcFixtureFieldsAndUnknowns();
     void pdcFixturePools();
+    void pdcLlistFixture();
     void llistGroupedAllFields();
     void llistMissingAndNullFields();
     void flatForm();
@@ -205,6 +210,74 @@ void BVolumeListTest::pdcFixturePools()
     const BVolumeList bare = BVolumeList::fromJson(json);
     QCOMPARE(bare.pools().size(), 9);
     QVERIFY(bare.pools().contains(QStringLiteral("scratch")));
+}
+
+void BVolumeListTest::pdcLlistFixture()
+{
+    const QByteArray json = readFixture(QStringLiteral("pdc-llist-volumes-api2.json"));
+    QVERIFY2(!json.isEmpty(), "fixture missing");
+
+    // The reply is grouped, not flat
+    const QJsonObject result = QJsonDocument::fromJson(json).object().value("result").toObject();
+    QVERIFY(result.value("volumes").isObject());
+
+    QString error;
+    const BVolumeList list = BVolumeList::fromJson(json, kPdcPools, &error);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    QCOMPARE(list.size(), 23);
+    QCOMPARE(list.countWithStatus(QStringLiteral("Full")), 12);
+    QCOMPARE(list.countWithStatus(QStringLiteral("Append")), 5);
+    QCOMPARE(list.countWithStatus(QStringLiteral("Error")), 4);
+    QCOMPARE(list.countWithStatus(QStringLiteral("Purged")), 2);
+    QVERIFY(list.hasLongForm());
+
+    // All nine pools, the four empty groups included, also without .pools
+    const QStringList all = {"BGLAGE", "CLOUD", "Default", "Differential", "Forgejo",
+                             "Full", "Incremental", "Scratch", "Tapir"};
+    QCOMPARE(list.pools(), all);
+    QCOMPARE(BVolumeList::fromJson(json).pools().size(), 9);
+    QCOMPARE(list.countInPool(QStringLiteral("CLOUD")), 12);
+    QCOMPARE(list.countInPool(QStringLiteral("BGLAGE")), 6);
+    QCOMPARE(list.countInPool(QStringLiteral("Scratch")), 0);
+
+    for (const BVolume &v : list.volumes()) {
+        QVERIFY2(v.longForm, qPrintable(v.name));
+        QVERIFY2(!v.pool.isEmpty() && all.contains(v.pool), qPrintable(v.name + " " + v.pool));
+        QVERIFY2(v.volJobs.has_value(), qPrintable(v.name));
+        QCOMPARE(v.maxVolBytes.value_or(-1), 53687091200LL);     // 50G on every pool
+        QCOMPARE(v.maxVolJobs.value_or(-1), 0LL);
+        QCOMPARE(v.volUseDuration.value_or(-1), 0LL);            // no use duration on PDC
+        QVERIFY2(v.firstWritten.isValid(), qPrintable(v.name));
+        QVERIFY2(v.labelDate.isValid(), qPrintable(v.name));
+        QVERIFY(v.recycle.value_or(false));
+        QCOMPARE(v.enabled.value_or(-1), 1);
+        QVERIFY(!v.actionOnPurge.has_value());                   // not a column of llist
+        QCOMPARE(v.storage, QStringLiteral("PDC-sd"));
+    }
+
+    const BVolume *v = find(list, QStringLiteral("CLOUD-0017"));
+    QVERIFY(v);
+    QCOMPARE(v->status, QStringLiteral("Error"));
+    QCOMPARE(v->volJobs.value_or(-1), 16LL);
+    QCOMPARE(v->volBytes.value_or(-1), 51233279615LL);
+    QCOMPARE(v->firstWritten, QDateTime(QDate(2026, 3, 1), QTime(23, 7, 27)));
+    QCOMPARE(v->lastWritten, QDateTime(QDate(2026, 3, 9), QTime(1, 39, 4)));
+    QVERIFY(v->recyclePool.isEmpty());
+
+    const BVolume *empty = find(list, QStringLiteral("BGLAGE-0013"));
+    QVERIFY(empty);
+    QCOMPARE(empty->volJobs.value_or(-1), 0LL);                  // known 0, not unknown
+    QCOMPARE(find(list, QStringLiteral("Vol-0005"))->volJobs.value_or(-1), 130LL);
+
+    // Same volumes, same statuses as the short list of the same day
+    const BVolumeList shortList =
+        BVolumeList::fromJson(readFixture(QStringLiteral("pdc-list-volumes-api2.json")), kPdcPools);
+    for (const BVolume &s : shortList.volumes()) {
+        const BVolume *l = find(list, s.name);
+        QVERIFY2(l, qPrintable(s.name));
+        QCOMPARE(l->status, s.status);
+        QCOMPARE(l->pool, s.pool);
+    }
 }
 
 void BVolumeListTest::llistGroupedAllFields()

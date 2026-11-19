@@ -42,7 +42,8 @@ QString fixture()
     return QString::fromUtf8(file.readAll());
 }
 
-// "llist volumes" with the long columns (values made up after PDC)
+// "llist volumes" with the long columns (values made up after PDC; the
+// real reply is test/fixtures/pdc-llist-volumes-api2.json)
 const char *kLlist = R"({"result": {"volumes": {
   "cloud": [
     {"mediaid": "17", "volumename": "CLOUD-0017", "poolid": "3", "pool": "CLOUD", "mediatype": "File",
@@ -95,6 +96,7 @@ private slots:
     void statusFilter();
     void shortListNotice();
     void longListShowsJobsAndLimit();
+    void pdcLlistReply();
     void refreshAsksForLlistOnly();
     void keyboard();
     void clearOnDisconnect();
@@ -261,6 +263,31 @@ void StorageWidgetTest::longListShowsJobsAndLimit()
         QVERIFY(!(label->isVisible() && label->text().contains(QLatin1String("short volume list"))));
     }
     QCOMPARE(columnOf(table, QStringLiteral("Jobs")), int(StorageWidget::JobsColumn));
+}
+
+void StorageWidgetTest::pdcLlistReply()
+{
+    // The real "llist volumes" reply of PDC (grouped by pool)
+    QFile file(QStringLiteral(STORAGE_FIXTURE_DIR "/pdc-llist-volumes-api2.json"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    QScopedPointer<StorageWidget> w(makeWidget());
+    w->show();
+    w->processJsonResponse(QString::fromUtf8(file.readAll()));
+    QTableWidget *table = w->volumeTable();
+    QCOMPARE(table->rowCount(), 23);
+    QVERIFY(!table->isColumnHidden(StorageWidget::JobsColumn));
+    for (const QLabel *label : w->findChildren<QLabel *>()) {
+        QVERIFY(!(label->isVisible() && label->text().contains(QLatin1String("short volume list"))));
+    }
+    QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::JobsColumn), QStringLiteral("16"));
+    QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::LimitColumn), QStringLiteral("50 GiB"));
+    QCOMPARE(cell(table, "BGLAGE-0013", StorageWidget::JobsColumn), QStringLiteral("0"));
+    QCOMPARE(cell(table, "Tapir-0021", StorageWidget::ReusableColumn), QStringLiteral("never"));
+    QVERIFY(cell(table, "Tapir-0021", StorageWidget::ReasonColumn)
+                .contains(QLatin1String("until it is full (50 GiB)")));
+    auto *pool = w->findChildren<QComboBox *>().at(0);
+    QCOMPARE(pool->count(), 10);
+    QVERIFY(pool->findText(QStringLiteral("Incremental (0)")) > 0);
 }
 
 void StorageWidgetTest::refreshAsksForLlistOnly()

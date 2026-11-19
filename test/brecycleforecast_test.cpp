@@ -79,6 +79,7 @@ private slots:
     void purgedSmall();
     void unknownStatus();
     void pdcFixture();
+    void pdcLlistFixture();
     void formatting();
 };
 
@@ -350,6 +351,41 @@ void BRecycleForecastTest::pdcFixture()
             QVERIFY2(r.reason.contains(QLatin1String("50 GiB on disk")), qPrintable(r.reason));
         }
     }
+}
+
+void BRecycleForecastTest::pdcLlistFixture()
+{
+    // The real "llist volumes" of PDC: no pool has a use duration, so every
+    // Append volume stays open until it is full (50 GiB)
+    QFile file(QStringLiteral(STORAGE_FIXTURE_DIR "/pdc-llist-volumes-api2.json"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const BVolumeList list = BVolumeList::fromJson(file.readAll(),
+                                                   {"Tapir", "Scratch", "Incremental", "Full", "Forgejo",
+                                                    "Differential", "Default", "CLOUD", "BGLAGE"});
+    QCOMPARE(list.size(), 23);
+    int never = 0, now = 0, dated = 0;
+    for (const BVolume &v : list.volumes()) {
+        const auto r = BRecycleForecast::forecast(v, kNow);
+        QVERIFY2(r.kind != Kind::Unknown, qPrintable(v.name + ": " + r.reason));
+        if (v.status == QLatin1String("Append")) {
+            QCOMPARE(r.kind, Kind::Never);
+            QVERIFY2(r.reason.contains(QLatin1String("until it is full (50 GiB)")), qPrintable(r.reason));
+            ++never;
+        } else if (v.status == QLatin1String("Error")) {
+            QCOMPARE(r.kind, Kind::Never);
+            ++never;
+        } else if (v.status == QLatin1String("Purged")) {
+            QCOMPARE(r.kind, Kind::Now);
+            ++now;
+        } else {
+            QCOMPARE(r.kind, Kind::Date);
+            QCOMPARE(r.when, v.lastWritten.addSecs(*v.volRetention));
+            ++dated;
+        }
+    }
+    QCOMPARE(never, 9);
+    QCOMPARE(now, 2);
+    QCOMPARE(dated, 12);
 }
 
 void BRecycleForecastTest::formatting()

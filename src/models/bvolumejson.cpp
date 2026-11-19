@@ -16,7 +16,7 @@ QString resolvePoolName(const QString &key, const QStringList &knownPools)
 
 QJsonArray normalizeVolumes(const QJsonValue &volumes, const QStringList &knownPools)
 {
-    // Flat form: list volumes pool=X / list volumes all / llist volumes
+    // Flat form: [l]list volumes pool=X / [l]list volumes all
     if (volumes.isArray()) {
         return volumes.toArray();
     }

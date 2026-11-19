@@ -10,12 +10,15 @@
  * @brief Helpers for the JSON reply of "list volumes"
  *
  * The Director returns two different shapes in API mode 2:
- *  - "list volumes" (no pool): volumes grouped by pool,
+ *  - "list volumes" and "llist volumes" (no pool, no "all"): volumes grouped
+ *    by pool, empty pools included,
  *    result.volumes = { "<lowercase pool name>": [ {...}, ... ], ... }
- *  - "list volumes pool=X" / "list volumes all" / "llist volumes":
- *    flat array result.volumes = [ {...}, ... ]
+ *    (Bareos 25 dird/ua_output.cc ListMedia; checked on the production
+ *    Director for both commands on 2026-11-19)
+ *  - "list volumes pool=X" / "list volumes all" / "llist volumes pool=X" /
+ *    "llist volumes all": flat array result.volumes = [ {...}, ... ]
  *
- * Only "llist volumes" carries a "pool" field per volume.
+ * Only the long listing ("llist") carries a "pool" field per volume.
  *
  * The Onesimus Director answers DirectorApi.ExecuteCommand (gRPC) with its
  * typed form instead: result.pools = { "<pool>": { "volumes": [ ... ] }, ... },
