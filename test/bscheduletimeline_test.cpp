@@ -26,6 +26,7 @@
 
 #include <QComboBox>
 #include <QDateEdit>
+#include <QSplitter>
 #include <QToolButton>
 #include <QGroupBox>
 #include <QLabel>
@@ -190,6 +191,7 @@ private slots:
     // --- The counter and its list ---
     void counterSaysWhetherTheListIsOpen();
     void themedToolbarCutsNoButtonAndWeekHasCalendar();
+    void handleBelowTimelineMovesUpAndIsKept();
     void waitsOfSecondsInTheList();
 
     // --- The review ---
@@ -586,6 +588,45 @@ void BScheduleTimelineTest::unusedSchedulesAreLeftOut()
 // ============================================================================
 // The counter and its list
 // ============================================================================
+
+void BScheduleTimelineTest::handleBelowTimelineMovesUpAndIsKept()
+{
+    BSettings::instance().setSchedulesLowerHeight(0);
+    {
+        Tab tab;
+        tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+        // The hidden grid does not count: the page fits a laptop's height
+        QVERIFY2(tab.widget.minimumSizeHint().height() < 450,
+                 qPrintable(QString::number(tab.widget.minimumSizeHint().height())));
+
+        tab.counter()->setChecked(true);
+        QTest::qWait(50);
+        auto *split = qobject_cast<QSplitter *>(tab.waitPanel()->parentWidget()->parentWidget()
+                                                    ->parentWidget());
+        QVERIFY(split);
+        // Moved up as far as it goes: the timeline keeps a few rows only
+        const int total = split->sizes().value(0) + split->sizes().value(1);
+        split->setSizes({0, total});
+        emit split->splitterMoved(0, 1);
+        QVERIFY2(split->sizes().value(0) < total / 3,
+                 qPrintable(QStringLiteral("%1 of %2").arg(split->sizes().value(0)).arg(total)));
+        QVERIFY(BSettings::instance().schedulesLowerHeight() > total / 2);
+    }
+    // Another session: the tabs open where the handle was left
+    const int kept = BSettings::instance().schedulesLowerHeight();
+    Tab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    tab.counter()->setChecked(false);
+    tab.counter()->setChecked(true);
+    QTest::qWait(50);
+    auto *split = qobject_cast<QSplitter *>(tab.waitPanel()->parentWidget()->parentWidget()
+                                                ->parentWidget());
+    QVERIFY(split);
+    // (the timeline keeps its few rows, which may cost some pixels)
+    QVERIFY2(qAbs(split->sizes().value(1) - kept) < 20,
+             qPrintable(QStringLiteral("%1, kept %2").arg(split->sizes().value(1)).arg(kept)));
+    BSettings::instance().setSchedulesLowerHeight(0);
+}
 
 void BScheduleTimelineTest::themedToolbarCutsNoButtonAndWeekHasCalendar()
 {

@@ -894,6 +894,16 @@ void BSettings::setSchedulesGanttTab(int index)
     setValue("Widgets/Schedules/gantt_tab", index);
 }
 
+int BSettings::schedulesLowerHeight() const
+{
+    return value("Widgets/Schedules/lower_height", 0).toInt();
+}
+
+void BSettings::setSchedulesLowerHeight(int height)
+{
+    setValue("Widgets/Schedules/lower_height", height);
+}
+
 bool BSettings::schedulesFilterCheckbox(const QString& key, bool defaultValue) const
 {
     return value(QString("Widgets/Schedules/FilterCheckboxes/%1").arg(key), defaultValue).toBool();

@@ -314,6 +314,10 @@ public:
     /// The timeline tab on display: 0 clients (FD), 1 storages (SD)
     int schedulesGanttTab() const;
     void setSchedulesGanttTab(int index);
+    /// Height of the tabs below the timeline (predicted waits, measured
+    /// history) as the user left the handle; 0: not moved yet
+    int schedulesLowerHeight() const;
+    void setSchedulesLowerHeight(int height);
 
     bool schedulesFilterCheckbox(const QString& key, bool defaultValue = true) const;
     void setSchedulesFilterCheckbox(const QString& key, bool value);

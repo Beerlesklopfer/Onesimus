@@ -390,6 +390,19 @@ void BScheduleWidget::setupUI()
     setupWaitsPage();
     m_viewStack->addWidget(m_waitsPage);         // index 2 = Measured waits
 
+    // Only the view on display counts for the minimum size: the grid asks
+    // for almost 500 px, and as a hidden page it kept the handle below the
+    // timeline from moving up and pushed the page out of the window
+    auto sizeByCurrentView = [this]() {
+        for (int i = 0; i < m_viewStack->count(); ++i) {
+            const QSizePolicy::Policy policy =
+                i == m_viewStack->currentIndex() ? QSizePolicy::Preferred : QSizePolicy::Ignored;
+            m_viewStack->widget(i)->setSizePolicy(policy, policy);
+        }
+    };
+    sizeByCurrentView();
+    connect(m_viewStack, &QStackedWidget::currentChanged, this, sizeByCurrentView);
+
     // The views above; below, with a handle between, the predicted waits
     // and the measured history as two tabs: both at once, one above the
     // other, did not fit. Both tabs are always there while the area is
@@ -431,6 +444,11 @@ void BScheduleWidget::setupUI()
     connect(m_lowerTabs, &QTabWidget::currentChanged, this, [this]() { syncWaitButton(); });
 
     m_rightSplitter->addWidget(m_lowerTabs);
+    // The handle stays where it is left, also over a restart
+    connect(m_rightSplitter, &QSplitter::splitterMoved, this, [this]() {
+        if (m_lowerTabs->isVisible() && m_rightSplitter->sizes().value(1) > 0)
+            BSettings::instance().setSchedulesLowerHeight(m_rightSplitter->sizes().value(1));
+    });
     m_rightSplitter->setStretchFactor(0, 1);
     m_rightSplitter->setStretchFactor(1, 0);
     rightLayout->addWidget(m_rightSplitter, 1);
@@ -1172,11 +1190,14 @@ void BScheduleWidget::fitLowerPanels()
                 sizes[i] = 0;
                 continue;
             }
-            sizes[i] = qMax(sizes[i], panel->sizeHint().height());
+            // Where the user left the handle; else what the panel asks for
+            const int stored = BSettings::instance().schedulesLowerHeight();
+            sizes[i] = stored > 0 ? stored : qMax(sizes[i], panel->sizeHint().height());
             lower += sizes[i];
         }
-        // The views keep at least half (the panels scroll what does not fit)
-        const int viewMin = qMax(BUiScale::px(160), total / 2);
+        // The views keep a few rows; without a stored height at least half
+        const int viewMin = BSettings::instance().schedulesLowerHeight() > 0
+            ? BUiScale::px(120) : qMax(BUiScale::px(160), total / 2);
         if (total - lower < viewMin && lower > 0) {
             // Not room for all: the panels share what is left
             const int room = qMax(0, total - viewMin);
