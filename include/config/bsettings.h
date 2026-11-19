@@ -290,6 +290,14 @@ public:
     int clientsHeaderScale() const;
     void setClientsHeaderScale(int pixelsPer1000);
 
+    /// Header of the jobs table, the same way (Widgets/Jobs/header_state).
+    /// The single source of the table's live layout; named view presets
+    /// (BViewPresets) are snapshots that are applied to it.
+    QByteArray jobsHeaderState() const;
+    void setJobsHeaderState(const QByteArray& state);
+    int jobsHeaderScale() const;
+    void setJobsHeaderScale(int pixelsPer1000);
+
     QByteArray schedulesSplitterState() const;
     void setSchedulesSplitterState(const QByteArray& state);
 

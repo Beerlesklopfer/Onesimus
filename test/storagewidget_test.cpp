@@ -25,6 +25,7 @@
 #include <QTimer>
 
 #include "storagewidget.h"
+#include "bstatuschip.h"
 
 namespace {
 
@@ -77,6 +78,20 @@ QString cell(QTableWidget *table, const QString &volume, int column)
     for (int r = 0; r < table->rowCount(); ++r) {
         if (table->item(r, StorageWidget::VolumeColumn)->text() == volume) {
             return table->item(r, column)->text();
+        }
+    }
+    return QString();
+}
+
+// The status chip: letter (CodeRole), word (text) and tone
+QString chip(QTableWidget *table, const QString &volume)
+{
+    for (int r = 0; r < table->rowCount(); ++r) {
+        if (table->item(r, StorageWidget::VolumeColumn)->text() == volume) {
+            const QTableWidgetItem *item = table->item(r, StorageWidget::StatusColumn);
+            return QStringLiteral("%1 %2 %3").arg(item->data(BStatus::CodeRole).toString(), item->text(),
+                                                 BStatus::toneName(static_cast<BStatus::Tone>(
+                                                     item->data(BStatus::ToneRole).toInt())));
         }
     }
     return QString();
@@ -157,7 +172,7 @@ void StorageWidgetTest::pdcRows()
     QCOMPARE(table->rowCount(), 23);
 
     QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::PoolColumn), QStringLiteral("CLOUD"));
-    QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::StatusColumn), QStringLiteral("E Error"));
+    QCOMPARE(chip(table, "CLOUD-0017"), QStringLiteral("E Error error"));
     QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::UsedColumn), QStringLiteral("47.7 GiB"));
     QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::LimitColumn), QStringLiteral("unknown"));
     QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::ReusableColumn), QStringLiteral("never"));
@@ -166,7 +181,7 @@ void StorageWidgetTest::pdcRows()
     QCOMPARE(cell(table, "CLOUD-0017", StorageWidget::LastWrittenColumn),
              QStringLiteral("2026-03-09 01:39"));
 
-    QCOMPARE(cell(table, "BGLAGE-0019", StorageWidget::StatusColumn), QStringLiteral("P Purged"));
+    QCOMPARE(chip(table, "BGLAGE-0019"), QStringLiteral("P Purged waiting"));
     QCOMPARE(cell(table, "BGLAGE-0019", StorageWidget::UsedColumn), QStringLiteral("50 GiB"));
     QCOMPARE(cell(table, "BGLAGE-0019", StorageWidget::ReusableColumn), QStringLiteral("now"));
     QCOMPARE(cell(table, "BGLAGE-0020", StorageWidget::ReusableColumn), QStringLiteral("28 Nov 2026"));

@@ -1,6 +1,8 @@
 #include "jobs/bjsonjobview.h"
 #include "buiscale.h"
 #include "blogging.h"
+#include "bheaderstate.h"
+#include "config/bsettings.h"
 #include "jobs/bjobdetailsdialog.h"
 #include "jobs/bjobfileswidget.h"
 #include "jobs/bjoblogdialog.h"
@@ -29,7 +31,7 @@ BJsonJobView::BJsonJobView(BDirector *director, QWidget *parent)
     , m_headerView(new BCheckableHeaderView(Qt::Horizontal, this))
     , m_contextMenu(new QMenu(this))
     , m_liveUpdateTimer(new QTimer(this))
-    , m_columnConfig(new BColumnConfiguration(this))
+    , m_statusDelegate(new BStatusDelegate(this))
     , m_autoSaveTimer(new QTimer(this))
     , m_director(director)
 {
@@ -71,16 +73,19 @@ BJsonJobView::BJsonJobView(BDirector *director, QWidget *parent)
     // Setup auto-save timer (debounce column changes)
     m_autoSaveTimer->setSingleShot(true);
     m_autoSaveTimer->setInterval(500);  // 500ms delay
-    connect(m_autoSaveTimer, &QTimer::timeout, [this]() {
-        m_columnConfig->saveHeaderState(horizontalHeader());
-    });
+    connect(m_autoSaveTimer, &QTimer::timeout, this, &BJsonJobView::saveCurrentState);
 
     // Connect selection model signals
     connectSelectionModel();
 
-    // Restore last saved state
-    QTimer::singleShot(100, this, &BJsonJobView::restoreLastState);
-}void BJsonJobView::setupView()
+    // Restore the saved header: order, widths, hidden columns, sort column
+    restoreLastState();
+    // The default widths set above are not a layout of the user's: nothing
+    // to save until he changes something (or the first data fits the columns)
+    m_autoSaveTimer->stop();
+}
+
+void BJsonJobView::setupView()
 {
     // Set checkbox delegate for the selection column
     setItemDelegateForColumn(BJobsModel::COL_SELECTED, m_checkBoxDelegate);
@@ -93,92 +98,46 @@ BJsonJobView::BJsonJobView(BDirector *director, QWidget *parent)
     setContextMenuPolicy(Qt::DefaultContextMenu);
     
     // Configure headers
-    horizontalHeader()->setStretchLastSection(false);
     horizontalHeader()->setSectionsMovable(true);  // Enable drag & drop reordering
     horizontalHeader()->setDragEnabled(true);
     horizontalHeader()->setDragDropMode(QAbstractItemView::InternalMove);
     verticalHeader()->setVisible(false);
 
-    // Set column resize modes
-    // Fixed width columns
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_SELECTED, QHeaderView::Fixed);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_JOBID, QHeaderView::Fixed);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_CLIENT, QHeaderView::Interactive);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_STARTTIME, QHeaderView::Interactive);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_ENDTIME, QHeaderView::Interactive);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_DURATION, QHeaderView::Fixed);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_TYPE, QHeaderView::Fixed);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_LEVEL, QHeaderView::Fixed);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_FILES, QHeaderView::Fixed);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_BYTES, QHeaderView::Fixed);
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_STATUS, QHeaderView::Fixed);
+    // Every column can be resized by the user; the last visible column takes
+    // the remaining width. Columns wider than the view scroll sideways.
+    BHeaderState::makeInteractive(horizontalHeader());
+    horizontalHeader()->setMinimumSectionSize(BUiScale::px(24));
 
-    // Job Name column stretches to fill available space
-    horizontalHeader()->setSectionResizeMode(BJobsModel::COL_NAME, QHeaderView::Stretch);
+    // Status and level as chips: code, word, colour (never colour alone)
+    setItemDelegateForColumn(BJobsModel::COL_STATUS, m_statusDelegate);
+    setItemDelegateForColumn(BJobsModel::COL_LEVEL, m_statusDelegate);
 
-    // Set column widths
+    // Default column widths (used until the user changes them)
     setColumnWidth(BJobsModel::COL_SELECTED, BUiScale::px(40));
     setColumnWidth(BJobsModel::COL_JOBID, BUiScale::px(60));
-    // COL_NAME will stretch automatically
+    setColumnWidth(BJobsModel::COL_NAME, BUiScale::px(200));
     setColumnWidth(BJobsModel::COL_CLIENT, BUiScale::px(100));
     setColumnWidth(BJobsModel::COL_STARTTIME, BUiScale::px(150));
     setColumnWidth(BJobsModel::COL_ENDTIME, BUiScale::px(150));
     setColumnWidth(BJobsModel::COL_DURATION, BUiScale::px(90));
     setColumnWidth(BJobsModel::COL_TYPE, BUiScale::px(50));
-    setColumnWidth(BJobsModel::COL_LEVEL, BUiScale::px(50));
+    setColumnWidth(BJobsModel::COL_LEVEL, BUiScale::px(80));
     setColumnWidth(BJobsModel::COL_FILES, BUiScale::px(80));
     setColumnWidth(BJobsModel::COL_BYTES, BUiScale::px(100));
-    setColumnWidth(BJobsModel::COL_STATUS, BUiScale::px(120));
-    
+    setColumnWidth(BJobsModel::COL_STATUS, BUiScale::px(130));
+
     // Enable tooltips
     setMouseTracking(true);
-    
-    // Auto-save on column resize and move (debounced)
+
+    // Auto-save on column resize, move, visibility and sort (debounced)
     connect(horizontalHeader(), &QHeaderView::sectionResized,
             this, [this]() { m_autoSaveTimer->start(); });
-
-    // The name keeps a readable width when the other columns grow
-    connect(horizontalHeader(), &QHeaderView::sectionResized, this, [this](int logicalIndex) {
-        if (logicalIndex != BJobsModel::COL_NAME) fitNameColumn();
-    });
-    connect(&BUiScale::instance(), &BUiScale::changed, this, &BJsonJobView::fitNameColumn);
     connect(horizontalHeader(), &QHeaderView::sectionMoved,
             this, [this]() { m_autoSaveTimer->start(); });
-    
-    // Also save when visibility changes
+    connect(horizontalHeader(), &QHeaderView::sortIndicatorChanged,
+            this, [this]() { m_autoSaveTimer->start(); });
     connect(m_headerView, &BCheckableHeaderView::columnVisibilityChanged,
             this, [this]() { m_autoSaveTimer->start(); });
-}
-
-void BJsonJobView::resizeEvent(QResizeEvent *event)
-{
-    QTableView::resizeEvent(event);
-    fitNameColumn();
-}
-
-void BJsonJobView::fitNameColumn()
-{
-    // The job name takes the room the other columns leave. With a large
-    // font they can leave none: then the name keeps a readable width and
-    // the table scrolls sideways.
-    if (m_fittingNameColumn || !m_model) return;
-    QHeaderView *header = horizontalHeader();
-    if (header->count() <= BJobsModel::COL_NAME || header->isSectionHidden(BJobsModel::COL_NAME)) return;
-
-    int others = 0;
-    for (int i = 0; i < header->count(); ++i) {
-        if (i != BJobsModel::COL_NAME && !header->isSectionHidden(i)) others += header->sectionSize(i);
-    }
-    const int smallest = BUiScale::px(150);
-    const bool room = viewport()->width() - others >= smallest;
-
-    m_fittingNameColumn = true;
-    const QHeaderView::ResizeMode wanted = room ? QHeaderView::Stretch : QHeaderView::Interactive;
-    if (header->sectionResizeMode(BJobsModel::COL_NAME) != wanted)
-        header->setSectionResizeMode(BJobsModel::COL_NAME, wanted);
-    if (!room && header->sectionSize(BJobsModel::COL_NAME) < smallest)
-        header->resizeSection(BJobsModel::COL_NAME, smallest);
-    m_fittingNameColumn = false;
 }
 
 void BJsonJobView::createContextMenu()
@@ -238,11 +197,13 @@ void BJsonJobView::setJobsData(const QJsonArray &jobs)
 {
     m_model->setJobs(jobs);
 
-    // Auto-resize columns to content
-    resizeColumnsToContents();
-
-    // But keep selection column fixed
-    setColumnWidth(BJobsModel::COL_SELECTED, BUiScale::px(40));
+    // Fit the columns to the first data only while the user has no layout
+    // of his own; a saved layout is never overwritten by a refresh
+    if (!m_hasSavedLayout && !jobs.isEmpty()) {
+        m_hasSavedLayout = true;
+        resizeColumnsToContents();
+        setColumnWidth(BJobsModel::COL_SELECTED, BUiScale::px(40));
+    }
 }
 
 void BJsonJobView::appendJobsData(const QJsonArray &jobs)
@@ -443,7 +404,8 @@ void BJsonJobView::contextMenuEvent(QContextMenuEvent *event)
         QString status = job["jobstatus"].toString();
         
         // Enable retry for failed jobs
-        m_actionRetry->setEnabled(status == "F" || status == "f" || status == "E" || status == "e");
+        // ('F' is "waiting on the File daemon", not a failure)
+        m_actionRetry->setEnabled(BStatus::isJobError(status));
         
         // Enable cancel for running jobs
         m_actionCancel->setEnabled(status == "R");
@@ -913,14 +875,35 @@ void BJsonJobView::applyPreset(const BViewPresets::Preset &preset)
 
 void BJsonJobView::saveCurrentState()
 {
-    // Legacy method - now uses BColumnConfiguration
-    m_columnConfig->saveHeaderState(horizontalHeader());
+    // Order, widths, hidden columns and the sort column, in BSettings,
+    // with the interface scale the widths were measured at
+    BSettings::instance().setJobsHeaderState(horizontalHeader()->saveState());
+    BSettings::instance().setJobsHeaderScale(BHeaderState::currentScale());
+    m_hasSavedLayout = true;
 }
 
 void BJsonJobView::restoreLastState()
 {
-    // Restore using BColumnConfiguration
-    m_columnConfig->restoreHeaderState(horizontalHeader());
+    // BSettings (Widgets/Jobs/header_state) is the single source of the
+    // table's layout. Older versions kept it per column through
+    // BColumnConfiguration in the group "Columns": that is taken over once
+    // when BSettings has nothing yet, then removed.
+    const BHeaderState::Source restored = BHeaderState::restoreOrMigrate(
+        horizontalHeader(), BSettings::instance().jobsHeaderState(),
+        BSettings::instance().jobsHeaderScale(), QStringLiteral("Columns"));
+    switch (restored) {
+    case BHeaderState::Source::Saved:
+        m_hasSavedLayout = true;
+        sortByColumn(horizontalHeader()->sortIndicatorSection(),
+                     horizontalHeader()->sortIndicatorOrder());
+        break;
+    case BHeaderState::Source::Legacy:
+        m_hasSavedLayout = true;
+        saveCurrentState();
+        break;
+    case BHeaderState::Source::Nothing:
+        break;
+    }
 }
 
 void BJsonJobView::connectSelectionModel()

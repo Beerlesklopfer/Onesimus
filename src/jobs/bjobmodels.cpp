@@ -1,8 +1,8 @@
 #include "jobs/bjobmodels.h"
 #include "bsortvalue.h"
+#include "bstatuschip.h"
 #include "jobs/blevelcolors.h"
 #include "blogging.h"
-#include <QBrush>
 #include <QColor>
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -113,7 +113,7 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
             case COL_TYPE:
                 return job["type"].toString();
             case COL_LEVEL:
-                return job["level"].toString();
+                return BLevelColors::getLevelShortName(job["level"].toString());
             case COL_FILES: {
                 qint64 files = job["jobfiles"].toString().toLongLong();
                 return QLocale().toString(files);
@@ -121,7 +121,7 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
             case COL_BYTES:
                 return formatBytes(job["jobbytes"].toString().toLongLong());
             case COL_STATUS:
-                return formatStatus(job["jobstatus"].toString());
+                return BStatus::jobStatus(job["jobstatus"].toString()).text;
         }
     }
 
@@ -151,21 +151,40 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
         }
     }
 
-    // Background color based on backup level
-    if (role == Qt::BackgroundRole) {
-        QString level = job["level"].toString();
-        QColor levelColor = BLevelColors::getLevelColor(level);
-        if (levelColor.isValid()) {
-            return QBrush(levelColor);
+    // Status and level are chips (BStatusDelegate). Rows are not coloured:
+    // a colour per backup level made a failed Incremental look like a
+    // success. The status chip carries the meaning (green only for 'T'),
+    // the level chip keeps the level colours of the settings.
+    if (index.column() == COL_STATUS) {
+        const QString letter = job["jobstatus"].toString();
+        switch (role) {
+            case BStatus::ToneRole:
+                return int(BStatus::jobStatus(letter).tone);
+            case BStatus::CodeRole:
+                return BStatus::jobStatus(letter).code;
+            case Qt::AccessibleTextRole:
+                return BStatus::jobStatus(letter).fullText;
+            default:
+                break;
         }
     }
-
-    // Foreground color: contrast against level background
-    if (role == Qt::ForegroundRole) {
-        QString level = job["level"].toString();
-        QColor levelColor = BLevelColors::getLevelColor(level);
-        if (levelColor.isValid()) {
-            return QBrush(BLevelColors::contrastColor(levelColor));
+    if (index.column() == COL_LEVEL) {
+        const QString level = job["level"].toString();
+        switch (role) {
+            case BStatus::ChipColorRole: {
+                const QColor levelColor = BLevelColors::getLevelColor(level);
+                return levelColor.isValid() ? QVariant(levelColor) : QVariant();
+            }
+            case BStatus::ToneRole:
+                // A level without a colour of its own gets a neutral chip
+                return BLevelColors::getLevelColor(level).isValid() || level.isEmpty()
+                           ? QVariant() : QVariant(int(BStatus::Tone::Neutral));
+            case BStatus::CodeRole:
+                return level;
+            case Qt::AccessibleTextRole:
+                return BLevelColors::getLevelName(level);
+            default:
+                break;
         }
     }
 
@@ -181,7 +200,7 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
 
     // Text alignment
     if (role == Qt::TextAlignmentRole) {
-        if (index.column() == COL_TYPE || index.column() == COL_LEVEL) {
+        if (index.column() == COL_TYPE) {
             return int(Qt::AlignCenter);
         }
         if (index.column() == COL_JOBID || index.column() == COL_FILES || index.column() == COL_BYTES) {
@@ -476,7 +495,7 @@ BJobsModel::Statistics BJobsModel::calculateStatistics() const
             stats.successfulJobs++;
         } else if (status == "W") {
             stats.warningJobs++;
-        } else if (status == "f" || status == "E") {
+        } else if (BStatus::isJobError(status)) {
             stats.failedJobs++;
         }
 
@@ -616,27 +635,7 @@ QString BJobsModel::formatBytes(qint64 bytes) const
 
 QString BJobsModel::formatStatus(const QString &status) const
 {
-    if (status == "T") return "Terminated normally";
-    if (status == "W") return "Terminated with warnings";
-    if (status == "F") return "Failed";
-    if (status == "f") return "Failed";
-    if (status == "E") return "Terminated in Error";
-    if (status == "e") return "Non-fatal error";
-    if (status == "A") return "Canceled by user";
-    if (status == "R") return "Running";
-    if (status == "C") return "Created";
-    if (status == "S") return "Waiting on Storage Daemon";
-    if (status == "m") return "Waiting for new media";
-    if (status == "M") return "Waiting for Mount";
-    if (status == "s") return "Waiting for Storage resource";
-    if (status == "j") return "Waiting for Job resource";
-    if (status == "c") return "Waiting for Client resource";
-    if (status == "d") return "Waiting for Maximum jobs";
-    if (status == "t") return "Waiting for Start Time";
-    if (status == "p") return "Waiting for higher priority job";
-    if (status == "i") return "Doing batch insert file records";
-
-    return status;
+    return BStatus::jobStatusText(status);
 }
 
 

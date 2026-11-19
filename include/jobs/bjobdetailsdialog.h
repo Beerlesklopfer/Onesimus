@@ -46,7 +46,8 @@ private:
 
     QString formatBytes(qint64 bytes) const;
     QString formatStatus(const QString &status) const;
-    QString getStatusColor(const QString &status) const;
+    /// Style of the status label: the colours of the job's status chip
+    QString statusStyleSheet(const QString &status) const;
 
     // UI Components
     QTabWidget *m_tabWidget;

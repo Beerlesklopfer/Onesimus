@@ -1,10 +1,7 @@
 #include "clients/bclientsmodel.h"
-#include "jobs/blevelcolors.h"
+#include "bstatuschip.h"
 #include "bsortvalue.h"
-#include <QBrush>
-#include <QColor>
 #include <QDateTime>
-#include <QIcon>
 #include <QTimeZone>
 #include <QLocale>
 #include <QRegularExpression>
@@ -165,20 +162,20 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
         }
     }
 
-    // Icon for status column
-    if (role == Qt::DecorationRole && index.column() == COL_STATUS) {
-        return getStatusIcon(clientActivity(client).activity);
-    }
-
-    // Background color for status column
-    if (role == Qt::BackgroundRole && index.column() == COL_STATUS) {
-        return QBrush(getStatusColor(clientActivity(client).activity));
-    }
-
-    // Foreground: contrast text on the status background
-    // (whoever sets a background also sets a readable foreground)
-    if (role == Qt::ForegroundRole && index.column() == COL_STATUS) {
-        return QBrush(BLevelColors::contrastColor(getStatusColor(clientActivity(client).activity)));
+    // Status chip (BStatusDelegate): sign and colour of the state; the
+    // cell text stays the age. Green is not used: a recent backup or
+    // contact is not a verified "online".
+    if (index.column() == COL_STATUS
+        && (role == BStatus::ToneRole || role == BStatus::CodeRole
+            || role == Qt::AccessibleTextRole)) {
+        const BClientStatus::Info activity = clientActivity(client);
+        const BStatus::Chip chip = BStatus::clientActivity(activity.activity,
+                                                           BClientStatus::label(activity));
+        if (role == BStatus::ToneRole)
+            return int(chip.tone);
+        if (role == BStatus::CodeRole)
+            return chip.code;
+        return chip.fullText;
     }
 
     // Text alignment
@@ -186,10 +183,6 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
         // Right-align numeric columns
         if (index.column() == COL_PORT || index.column() == COL_JOB_COUNT || index.column() == COL_TOTAL_BYTES) {
             return int(Qt::AlignRight | Qt::AlignVCenter);
-        }
-        // Center status column
-        if (index.column() == COL_STATUS) {
-            return int(Qt::AlignCenter);
         }
     }
 
@@ -756,30 +749,4 @@ void BClientsModel::requestStatusChecks()
     //     if (!name.isEmpty())
     //         emit sendCommand(BDirector::Command::StatusClient, name);
     // }
-}
-
-QIcon BClientsModel::getStatusIcon(BClientStatus::Activity activity) const
-{
-    switch (activity) {
-    case BClientStatus::Activity::Recent:
-        return QIcon::fromTheme("dialog-ok", QIcon::fromTheme("emblem-default"));
-    case BClientStatus::Activity::Stale:
-        return QIcon::fromTheme("dialog-warning");
-    default:
-        return QIcon::fromTheme("dialog-question");
-    }
-}
-
-QColor BClientsModel::getStatusColor(BClientStatus::Activity activity) const
-{
-    switch (activity) {
-    case BClientStatus::Activity::Recent:
-        return QColor(200, 255, 200);  // Light green
-    case BClientStatus::Activity::Stale:
-        return QColor(255, 224, 160);  // Light amber
-    case BClientStatus::Activity::Never:
-        return QColor(220, 220, 220);  // Light gray
-    default:
-        return QColor(255, 255, 200);  // Light yellow
-    }
 }

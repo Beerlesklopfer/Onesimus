@@ -8,7 +8,7 @@
 #include "bcheckboxdelegate.h"
 #include "bcheckableheaderview.h"
 #include "bviewpresets.h"
-#include "config/bcolumnconfiguration.h"
+#include "bstatusdelegate.h"
 
 /**
  * @brief Custom table view for displaying Bacula backup jobs with advanced features
@@ -124,13 +124,19 @@ public:
     void applyPreset(const BViewPresets::Preset &preset);
     
     /**
-     * @brief Saves current configuration as auto-save
+     * @brief Saves the header (order, widths, hidden columns, sort) to BSettings
+     *
+     * Widgets/Jobs/header_state with the interface scale in header_scale:
+     * the single source of the table's layout.
      * @since 2.4
      */
     void saveCurrentState();
     
     /**
-     * @brief Restores last saved state
+     * @brief Restores the header from BSettings, scaled to the interface zoom
+     *
+     * Takes over the old BColumnConfiguration group "Columns" once if
+     * BSettings has nothing yet, and removes it.
      * @since 2.4
      */
     void restoreLastState();
@@ -215,7 +221,6 @@ protected:
      */
     void mousePressEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
     
     /**
      * @brief Handles context menu events
@@ -241,10 +246,9 @@ private slots:
 private:
     void setupView();
     void createContextMenu();
-    /// Stretches the job name, or gives it a width of its own when the
-    /// other columns leave no room
-    void fitNameColumn();
-    bool m_fittingNameColumn = false;
+    /// True once the header has a layout of the user's (saved, migrated or
+    /// fitted to the first data); refreshes then keep the widths
+    bool m_hasSavedLayout = false;
     QJsonObject getJobAtRow(int row);
     
     BJobsModel *m_model;                    ///< Main data model
@@ -253,7 +257,7 @@ private:
     BCheckableHeaderView *m_headerView;     ///< Custom header with checkbox
     QMenu *m_contextMenu;                   ///< Context menu
     QTimer *m_liveUpdateTimer;              ///< Timer for live updates
-    BColumnConfiguration *m_columnConfig;   ///< Column configuration manager
+    BStatusDelegate *m_statusDelegate;      ///< Chips of the status and level columns
     QTimer *m_autoSaveTimer;                ///< Auto-save timer for column changes
     class BDirector *m_director;            ///< Director connection for job operations
     

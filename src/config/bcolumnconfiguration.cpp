@@ -70,6 +70,22 @@ void BColumnConfiguration::restoreHeaderState(QHeaderView *header, const QString
     applyConfiguration(header, config);
 }
 
+bool BColumnConfiguration::hasHeaderState(const QString &settingsKey) const
+{
+    QSettings settings(m_settings.organizationName(), m_settings.applicationName());
+    settings.beginGroup(settingsKey);
+    const bool stored = !settings.childGroups().isEmpty();
+    settings.endGroup();
+    return stored;
+}
+
+void BColumnConfiguration::removeHeaderState(const QString &settingsKey)
+{
+    if (settingsKey.isEmpty()) return;
+    m_settings.remove(settingsKey);
+    m_settings.sync();
+}
+
 void BColumnConfiguration::savePreset(QHeaderView *header, const QString &presetName, const QString &description)
 {
     if (!header || presetName.isEmpty()) return;

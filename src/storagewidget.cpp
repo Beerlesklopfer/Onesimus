@@ -1,4 +1,5 @@
 #include "storagewidget.h"
+#include "bstatusdelegate.h"
 #include "buiscale.h"
 #include "bbyteformat.h"
 #include "storage/model/brecycleforecast.h"
@@ -164,6 +165,7 @@ void StorageWidget::setupUI()
     // Tab leaves the table; the arrows move inside it
     m_volumeTable->setTabKeyNavigation(false);
     m_volumeTable->setSortingEnabled(true);
+    m_volumeTable->setItemDelegateForColumn(StatusColumn, new BStatusDelegate(m_volumeTable));
     m_volumeTable->installEventFilter(this);
 
     layout->addWidget(m_volumeTable, 1);
@@ -320,10 +322,11 @@ void StorageWidget::applyFilters()
         m_volumeTable->setItem(row, PoolColumn,
                                new QTableWidgetItem(v.pool.isEmpty() ? unknownText() : v.pool));
 
-        // Letter and word: colour is never the only cue
-        auto *statusItem = new QTableWidgetItem(
-            tr("%1 %2").arg(BVolumeList::statusLetter(v.status),
-                            v.status.isEmpty() ? unknownText() : v.status));
+        // A chip with letter, word and the colour of the state
+        // (BStatusDelegate): colour is never the only cue
+        auto *statusItem = new QTableWidgetItem(v.status.isEmpty() ? unknownText() : v.status);
+        statusItem->setData(BStatus::CodeRole, BVolumeList::statusLetter(v.status));
+        statusItem->setData(BStatus::ToneRole, int(BStatus::volumeTone(v.status)));
         statusItem->setData(Qt::AccessibleTextRole, v.status.isEmpty() ? unknownText() : v.status);
         if (v.status == QLatin1String("Error")) {
             QFont font = statusItem->font();

@@ -131,6 +131,8 @@ void BCheckableHeaderView::showContextMenu(const QPoint &pos)
         for (int i = 0; i < count(); ++i) {
             setSectionHidden(i, false);
         }
+        // Lets the table store its header again
+        emit columnVisibilityChanged(-1, true);
     });
     
     m_contextMenu->exec(pos);

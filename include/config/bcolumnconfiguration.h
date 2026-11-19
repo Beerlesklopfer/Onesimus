@@ -58,7 +58,14 @@ public:
      * @since 1.0
      */
     void restoreHeaderState(QHeaderView *header, const QString &settingsKey = "Columns");
-    
+
+    /// True if a header configuration is stored under @p settingsKey
+    bool hasHeaderState(const QString &settingsKey) const;
+
+    /// Removes the header configuration stored under @p settingsKey
+    /// (after it was migrated to BSettings)
+    void removeHeaderState(const QString &settingsKey);
+
     /**
      * @brief Saves current configuration as a preset
      * @param header Header view

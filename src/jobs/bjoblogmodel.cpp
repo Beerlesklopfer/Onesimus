@@ -1,5 +1,5 @@
 #include "jobs/bjoblogmodel.h"
-#include "jobs/blevelcolors.h"
+#include "bstatuschip.h"
 #include <QBrush>
 #include <QColor>
 #include <QJsonArray>
@@ -65,16 +65,27 @@ BJobLog::LineKind rateTermination(const QString &value)
     return BJobLog::LineKind::Normal;
 }
 
-QColor kindColor(BJobLog::LineKind kind)
+// The same semantic colours as the status chips (theme tokens, BStatus):
+// green only for the line that reports a successful end
+BStatus::Tone kindTone(BJobLog::LineKind kind, bool *colored)
 {
+    *colored = true;
     switch (kind) {
-    case BJobLog::LineKind::Success: return QColor(200, 255, 200);
-    case BJobLog::LineKind::Fatal:   return QColor(255, 200, 200);
-    case BJobLog::LineKind::Error:   return QColor(255, 230, 230);
-    case BJobLog::LineKind::Warning: return QColor(255, 255, 200);
+    case BJobLog::LineKind::Success: return BStatus::Tone::Success;
+    case BJobLog::LineKind::Fatal:   return BStatus::Tone::Error;
+    case BJobLog::LineKind::Error:   return BStatus::Tone::Error;
+    case BJobLog::LineKind::Warning: return BStatus::Tone::Warning;
     case BJobLog::LineKind::Normal:  break;
     }
-    return QColor();
+    *colored = false;
+    return BStatus::Tone::Neutral;
+}
+
+QColor kindColor(BJobLog::LineKind kind, BStatus::Part part)
+{
+    bool colored = false;
+    const BStatus::Tone tone = kindTone(kind, &colored);
+    return colored ? BStatus::color(tone, part) : QColor();
 }
 
 bool isTerminationLine(const QString &line)
@@ -290,15 +301,14 @@ QVariant BJobLogModel::data(const QModelIndex &index, int role) const
         return m_logFont;
 
     case Qt::BackgroundRole: {
-        const QColor background = kindColor(row.kind);
+        const QColor background = kindColor(row.kind, BStatus::Part::Background);
         return background.isValid() ? QVariant(QBrush(background)) : QVariant();
     }
 
     case Qt::ForegroundRole: {
         // Whoever sets a background also sets a readable foreground
-        const QColor background = kindColor(row.kind);
-        return background.isValid() ? QVariant(QBrush(BLevelColors::contrastColor(background)))
-                                    : QVariant();
+        const QColor foreground = kindColor(row.kind, BStatus::Part::Foreground);
+        return foreground.isValid() ? QVariant(QBrush(foreground)) : QVariant();
     }
 
     case LogIdRole:

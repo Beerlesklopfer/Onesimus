@@ -242,12 +242,6 @@ private:
      */
     QString lastActivityTimestamp(const QJsonObject &client) const;
 
-    /** @brief Icon for the state of the last backup */
-    QIcon getStatusIcon(BClientStatus::Activity activity) const;
-
-    /** @brief Background of the status cell; data() pairs it with a contrasting text colour */
-    QColor getStatusColor(BClientStatus::Activity activity) const;
-
     BDirector *m_director;              ///< Director connection
 
     // Data members

@@ -26,6 +26,7 @@
 #include "db/bdatabase.h"
 #include "config/bsettings.h"
 #include "jobs/blevelcolors.h"
+#include "bstatusdelegate.h"
 #include "bconnectionprofile.h"
 #include "version.h"
 
@@ -555,6 +556,8 @@ void BMainWindow::applyTheme(const QString &themeName)
         stylesheet += "\n" + m_themeScaleRules;
         qApp->setStyleSheet(stylesheet);
         themeFile.close();
+        // Status colours (chips, log marks) are tokens of the theme
+        BStatusPalette::refresh();
 
 #ifdef IS_DEVELOPER
         BLOG_DEBUG() << "Applied theme:" << themeName << "from" << themePath;

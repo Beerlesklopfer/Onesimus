@@ -1,5 +1,6 @@
 #include "jobs/bjobdetailsdialog.h"
 #include "buiscale.h"
+#include "bstatusdelegate.h"
 #include "jobs/bjobwidget.h"
 #include "jobs/bjobfileswidget.h"
 #include "blogging.h"
@@ -149,15 +150,12 @@ void BJobDetailsDialog::setupStatusTab(const QJsonObject &job)
 
     QString status = job["jobstatus"].toString();
     QString statusDesc = formatStatus(status);
-    QString statusColor = getStatusColor(status);
 
+    // The status chip of the job table: letter, word, semantic colour from
+    // the theme's tokens (green only for 'T')
     QLabel *statusLabel = new QLabel(statusDesc);
-    statusLabel->setStyleSheet(QString("QLabel { "
-                                       "background-color: %1; "
-                                       "padding: 5px; "
-                                       "border-radius: 3px; "
-                                       "font-weight: bold; "
-                                       "}").arg(statusColor));
+    statusLabel->setStyleSheet(statusStyleSheet(status));
+    statusLabel->setAccessibleName(BStatus::jobStatusText(status));
     statusGroupLayout->addRow(tr("Job Status:"), statusLabel);
 
     statusLayout->addWidget(statusGroup);
@@ -271,23 +269,20 @@ QString BJobDetailsDialog::formatBytes(qint64 bytes) const
 
 QString BJobDetailsDialog::formatStatus(const QString &status) const
 {
-    if (status == "T") return tr("Terminated normally") + " ✓";
-    if (status == "W") return tr("Terminated with warnings") + " ⚠";
-    if (status == "F") return tr("Failed") + " ✗";
-    if (status == "E") return tr("Terminated in Error") + " ✗";
-    if (status == "e") return tr("Non-fatal error") + " ⚠";
-    if (status == "A") return tr("Canceled by user");
-    if (status == "R") return tr("Running...");
-    if (status == "C") return tr("Created");
-
-    return QString("Status: %1").arg(status);
+    const BStatus::Chip chip = BStatus::jobStatus(status);
+    return QStringLiteral("%1  %2").arg(chip.code, chip.fullText);
 }
 
-QString BJobDetailsDialog::getStatusColor(const QString &status) const
+QString BJobDetailsDialog::statusStyleSheet(const QString &status) const
 {
-    if (status == "T") return "#c8ffc8";  // Light green
-    if (status == "W") return "#ffffc8";  // Light yellow
-    if (status == "f" || status == "E") return "#ffc8c8";  // Light red
-
-    return "#e0e0e0";  // Light gray
+    BStatusPalette::instance();  // the theme's tokens
+    const BStatus::Tone tone = BStatus::jobStatus(status).tone;
+    return QStringLiteral("QLabel { background-color: %1; color: %2; border: 1px solid %3; "
+                          "padding: %4px %5px; border-radius: %6px; font-weight: bold; }")
+        .arg(BStatus::color(tone, BStatus::Part::Background).name(),
+             BStatus::color(tone, BStatus::Part::Foreground).name(),
+             BStatus::color(tone, BStatus::Part::Accent).name())
+        .arg(BUiScale::px(4))
+        .arg(BUiScale::px(8))
+        .arg(BUiScale::px(4));
 }

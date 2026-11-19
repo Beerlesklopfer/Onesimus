@@ -3,7 +3,8 @@
 #include "clients/bclientsmodel.h"
 #include "clients/bclientdetailsdialog.h"
 #include "bcheckableheaderview.h"
-#include "config/bcolumnconfiguration.h"
+#include "bheaderstate.h"
+#include "bstatusdelegate.h"
 #include "blogging.h"
 #include "config/bsettings.h"
 #include <QCheckBox>
@@ -16,7 +17,6 @@
 #include <QJsonParseError>
 #include <QLabel>
 #include <QPushButton>
-#include <QSignalBlocker>
 #include <QSortFilterProxyModel>
 #include <QTableView>
 #include <QMenu>
@@ -29,7 +29,6 @@ BClientsWidget::BClientsWidget(BDirector *director, QWidget *parent)
     , m_model(new BClientsModel(director, this))
     , m_sortModel(new QSortFilterProxyModel(this))
     , m_headerView(new BCheckableHeaderView(Qt::Horizontal, this))
-    , m_columnConfig(new BColumnConfiguration(this))
     , m_autoSaveTimer(new QTimer(this))
     , m_clientFilter(new QComboBox(this))
     , m_statusFilter(new QComboBox(this))
@@ -114,7 +113,7 @@ void BClientsWidget::setupUI()
         statsLayout->addWidget(valueLabel);
     };
 
-    addCounter(tr("Recent:"), m_recentClientsLabel, "success",
+    addCounter(tr("Recent:"), m_recentClientsLabel, "active",
                tr("Clients whose last backup or contact is younger than the limit in the settings"));
     statsLayout->addSpacing(20);
     addCounter(tr("Stale:"), m_staleClientsLabel, "warning",
@@ -139,6 +138,8 @@ void BClientsWidget::setupUI()
     m_sortModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     m_tableView->setHorizontalHeader(m_headerView);
     m_tableView->setModel(m_sortModel);
+    // The last backup's age as a chip: sign, age, colour of the state
+    m_tableView->setItemDelegateForColumn(BClientsModel::COL_STATUS, new BStatusDelegate(m_tableView));
     m_tableView->setAlternatingRowColors(true);
     m_tableView->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tableView->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -177,7 +178,7 @@ void BClientsWidget::setupUI()
     connect(m_autoSaveTimer, &QTimer::timeout, this, [this]() {
         // Order, widths, hidden columns and the sort column, in BSettings
         BSettings::instance().setClientsHeaderState(m_headerView->saveState());
-        BSettings::instance().setClientsHeaderScale(BUiScale::px(1000));
+        BSettings::instance().setClientsHeaderScale(BHeaderState::currentScale());
     });
     connect(m_headerView, &QHeaderView::sectionResized,
             this, [this]() { m_autoSaveTimer->start(); });
@@ -190,24 +191,16 @@ void BClientsWidget::setupUI()
 
     // Restore the saved header. Widths saved at another interface zoom are
     // scaled to the current one. Older versions kept order, widths and
-    // visibility through BColumnConfiguration; that is read once if nothing
-    // is in BSettings yet.
-    const QByteArray headerState = BSettings::instance().clientsHeaderState();
-    if (!headerState.isEmpty() && m_headerView->restoreState(headerState)) {
-        const int savedScale = BSettings::instance().clientsHeaderScale();
-        const int currentScale = BUiScale::px(1000);
-        if (savedScale > 0 && savedScale != currentScale) {
-            const QSignalBlocker blocker(m_headerView);
-            for (int i = 0; i < m_headerView->count(); ++i) {
-                m_headerView->resizeSection(i, m_headerView->sectionSize(i) * currentScale / savedScale);
-            }
-        }
-        m_headerView->setSectionResizeMode(QHeaderView::Interactive);
-        m_headerView->setStretchLastSection(true);
+    // visibility through BColumnConfiguration; that is taken over once if
+    // nothing is in BSettings yet, and removed.
+    const BHeaderState::Source restored = BHeaderState::restoreOrMigrate(
+        m_headerView, BSettings::instance().clientsHeaderState(),
+        BSettings::instance().clientsHeaderScale(), QStringLiteral("ClientsWidget/Columns"));
+    if (restored == BHeaderState::Source::Saved) {
         m_tableView->sortByColumn(m_headerView->sortIndicatorSection(),
                                   m_headerView->sortIndicatorOrder());
-    } else {
-        m_columnConfig->restoreHeaderState(m_headerView, "ClientsWidget/Columns");
+    } else if (restored == BHeaderState::Source::Legacy) {
+        m_autoSaveTimer->start();
     }
 
     mainLayout->addWidget(m_tableView);

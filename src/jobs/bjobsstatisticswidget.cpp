@@ -42,7 +42,8 @@ void BJobsStatisticsWidget::setupUi()
     statusLayout->addLayout(successLayout);
     
     m_successBar = new QProgressBar(this);
-    m_successBar->setStyleSheet("QProgressBar::chunk { background-color: #4CAF50; }");
+    // Chunk colour from the theme: QProgressBar[state="success"] (status tokens)
+    m_successBar->setProperty("state", QStringLiteral("success"));
     m_successBar->setTextVisible(true);
     m_successBar->setFormat("%p%");
     statusLayout->addWidget(m_successBar);
@@ -56,7 +57,8 @@ void BJobsStatisticsWidget::setupUi()
     statusLayout->addLayout(warningLayout);
     
     m_warningBar = new QProgressBar(this);
-    m_warningBar->setStyleSheet("QProgressBar::chunk { background-color: #FFC107; }");
+    // Chunk colour from the theme: QProgressBar[state="warning"] (status tokens)
+    m_warningBar->setProperty("state", QStringLiteral("warning"));
     m_warningBar->setTextVisible(true);
     m_warningBar->setFormat("%p%");
     statusLayout->addWidget(m_warningBar);
@@ -70,7 +72,8 @@ void BJobsStatisticsWidget::setupUi()
     statusLayout->addLayout(failedLayout);
     
     m_failedBar = new QProgressBar(this);
-    m_failedBar->setStyleSheet("QProgressBar::chunk { background-color: #F44336; }");
+    // Chunk colour from the theme: QProgressBar[state="error"] (status tokens)
+    m_failedBar->setProperty("state", QStringLiteral("error"));
     m_failedBar->setTextVisible(true);
     m_failedBar->setFormat("%p%");
     statusLayout->addWidget(m_failedBar);

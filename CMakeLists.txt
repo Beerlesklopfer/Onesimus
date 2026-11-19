@@ -436,6 +436,9 @@ set(SOURCES
     src/bcapabilities.cpp
     src/bcapabilitynotice.cpp
     src/buiscale.cpp
+    src/bstatuschip.cpp
+    src/bstatusdelegate.cpp
+    src/bheaderstate.cpp
     src/bcleanupplan.cpp
     src/bcleanuprunner.cpp
     src/bconnectionwizard.cpp
@@ -542,6 +545,9 @@ set(HEADERS
     include/bcapabilities.h
     include/bcapabilitynotice.h
     include/buiscale.h
+    include/bstatuschip.h
+    include/bstatusdelegate.h
+    include/bheaderstate.h
     include/bcleanupplan.h
     include/bcleanuprunner.h
     include/bconnectionwizard.h
@@ -1321,8 +1327,13 @@ if(BUILD_TESTING)
         src/bbyteformat.cpp
         src/buiscale.cpp
         src/config/bsettings.cpp
+        src/bstatuschip.cpp
+        src/bstatusdelegate.cpp
+        src/clients/bclientstatus.cpp
         ui/storagewidget.ui
         include/storagewidget.h
+        include/bstatuschip.h
+        include/bstatusdelegate.h
         include/storage/model/bvolumelist.h
         include/storage/model/brecycleforecast.h
         include/models/bvolumejson.h
@@ -1358,14 +1369,96 @@ if(BUILD_TESTING)
     set_tests_properties(storagewidget_test PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=offscreen;TZ=UTC;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/storagewidget_test_config")
 
+    # bstatuschip_test - status chips of the jobs, clients and volumes tables:
+    # tone, code and words of every Bareos JobStatus, the theme tokens of
+    # both themes, and how BStatusDelegate paints a chip (widgets, no Director)
+    add_executable(bstatuschip_test
+        test/bstatuschip_test.cpp
+        src/bstatuschip.cpp
+        src/bstatusdelegate.cpp
+        src/clients/bclientstatus.cpp
+        src/buiscale.cpp
+        src/config/bsettings.cpp
+        include/bstatuschip.h
+        include/bstatusdelegate.h
+        include/clients/bclientstatus.h
+        include/buiscale.h
+        include/config/bsettings.h
+    )
+
+    target_include_directories(bstatuschip_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(bstatuschip_test PRIVATE
+        THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
+    )
+
+    target_link_libraries(bstatuschip_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+
+    add_test(NAME bstatuschip_test COMMAND bstatuschip_test)
+    set_tests_properties(bstatuschip_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/bstatuschip_test_config")
+
+    # bjobstable_test - the jobs table: header state in BSettings (round trip,
+    # interface zoom, one-time migration of the old column configuration),
+    # sorting by value, no row colour by level (widgets, no Director)
+    add_executable(bjobstable_test
+        test/bjobstable_test.cpp
+        src/jobs/bjobmodels.cpp
+        src/bheaderstate.cpp
+        src/bcheckableheaderview.cpp
+        src/config/bcolumnconfiguration.cpp
+        src/bstatuschip.cpp
+        src/clients/bclientstatus.cpp
+        src/buiscale.cpp
+        src/config/bsettings.cpp
+        include/jobs/bjobmodels.h
+        include/bheaderstate.h
+        include/bcheckableheaderview.h
+        include/config/bcolumnconfiguration.h
+        include/bstatuschip.h
+        include/buiscale.h
+        include/config/bsettings.h
+    )
+
+    target_include_directories(bjobstable_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    # bareosdirector_lib: the jobs model keeps a BDirector pointer; nothing
+    # of a Director is created
+    target_link_libraries(bjobstable_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bjobstable_test COMMAND bjobstable_test)
+    set_tests_properties(bjobstable_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;TZ=UTC;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/bjobstable_test_config")
+
     # bjoblogmodel_test - job log model, its sources and the push message parser
     add_executable(bjoblogmodel_test
         test/bjoblogmodel_test.cpp
         src/jobs/bjoblogmodel.cpp
         src/jobs/bjoblogsource.cpp
+        src/bstatuschip.cpp
+        src/clients/bclientstatus.cpp
         include/jobs/bjoblogmodel.h
         include/jobs/bjoblogsource.h
         include/director/bjobpushmessage.h
+        include/bstatuschip.h
     )
 
     target_include_directories(bjoblogmodel_test PRIVATE

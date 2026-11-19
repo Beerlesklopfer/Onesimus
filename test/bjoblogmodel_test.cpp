@@ -11,6 +11,7 @@
 #include <QJsonObject>
 #include <QSignalSpy>
 
+#include "bstatuschip.h"
 #include "director/bjobpushmessage.h"
 #include "jobs/bjoblogmodel.h"
 #include "jobs/bjoblogsource.h"
@@ -438,9 +439,12 @@ void BJobLogModelTest::summaryOfSuccessfulJobIsNotFlagged()
     QVERIFY(rowOf(model, "Non-fatal FD errors:") > 0);
     QVERIFY(rowOf(model, "SD Errors:") > 0);
 
-    // "Termination: Backup OK" keeps its own (green) mark
+    // "Termination: Backup OK" keeps its own mark: the success token of
+    // the status chips (the only green), with its text colour
     QCOMPARE(model.data(model.index(termination), Qt::BackgroundRole).value<QBrush>().color(),
-             QColor(200, 255, 200));
+             BStatus::color(BStatus::Tone::Success, BStatus::Part::Background));
+    QCOMPARE(model.data(model.index(termination), Qt::ForegroundRole).value<QBrush>().color(),
+             BStatus::color(BStatus::Tone::Success, BStatus::Part::Foreground));
 
     // The same through a snapshot (log history)
     BJobLogModel snapshot;
@@ -494,7 +498,8 @@ void BJobLogModelTest::errorLinesAreFlagged()
         entry(failedSummary),
     }));
     QVERIFY(!hasBackground(model, 0));
-    QCOMPARE(model.data(model.index(1), Qt::BackgroundRole).value<QBrush>().color(), QColor(255, 200, 200));
+    QCOMPARE(model.data(model.index(1), Qt::BackgroundRole).value<QBrush>().color(),
+             BStatus::color(BStatus::Tone::Error, BStatus::Part::Background));
     QVERIFY(!hasBackground(model, rowOf(model, "Non-fatal FD errors:")));
     QVERIFY(hasBackground(model, rowOf(model, "Termination:")));
 }

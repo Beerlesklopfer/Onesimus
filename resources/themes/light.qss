@@ -660,3 +660,38 @@ QFrame#scheduleGridPending {
     border: 1px solid #a35a00;
     border-radius: 3px;
 }
+
+/* Status tokens: colours of the status chips (BStatusDelegate), the job
+   log marks, the job details and the statistics bars. Read by the hidden
+   BStatusPalette widget; the same values are built into src/bstatuschip.cpp.
+   Green (success) is for a job that terminated normally ('T') only. */
+BStatusPalette {
+    qproperty-neutralBackground: #ebebeb;
+    qproperty-neutralForeground: #444444;
+    qproperty-neutralAccent: #9a9a9a;
+    qproperty-successBackground: #dcf2df;
+    qproperty-successForeground: #1a5c25;
+    qproperty-successAccent: #2e8b3e;
+    qproperty-warningBackground: #fff0c4;
+    qproperty-warningForeground: #6e4a00;
+    qproperty-warningAccent: #c88a00;
+    qproperty-errorBackground: #fde1df;
+    qproperty-errorForeground: #a01c16;
+    qproperty-errorAccent: #d0342c;
+    qproperty-runningBackground: #dceafa;
+    qproperty-runningForeground: #0b4a85;
+    qproperty-runningAccent: #2f7fd0;
+    qproperty-waitingBackground: #e5eaf0;
+    qproperty-waitingForeground: #3a4858;
+    qproperty-waitingAccent: #7c8a9c;
+    qproperty-infoBackground: #d8f1ee;
+    qproperty-infoForeground: #0e5750;
+    qproperty-infoAccent: #23897e;
+}
+
+QProgressBar[state="success"]::chunk { background-color: #2e8b3e; }
+QProgressBar[state="warning"]::chunk { background-color: #c88a00; }
+QProgressBar[state="error"]::chunk { background-color: #d0342c; }
+
+/* Recently active (a client's last backup): a fact, not a verified success */
+QLabel[state="active"]  { color: #0e5750; font-weight: bold; }

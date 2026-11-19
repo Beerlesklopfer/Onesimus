@@ -9,7 +9,6 @@
 // Forward declarations
 class BClientsModel;
 class BCheckableHeaderView;
-class BColumnConfiguration;
 class QTableView;
 class QCheckBox;
 class QComboBox;
@@ -155,7 +154,6 @@ private:
     BClientsModel *m_model;
     QSortFilterProxyModel *m_sortModel;     ///< Sorts m_model by its sort role; the view's model
     BCheckableHeaderView *m_headerView;
-    BColumnConfiguration *m_columnConfig;
     QTimer *m_autoSaveTimer;
     QComboBox *m_clientFilter;
     QComboBox *m_statusFilter;

@@ -351,7 +351,8 @@ void BClientDetailsDialog::setupInfoTab()
     switch (activity.activity) {
     case BClientStatus::Activity::Recent:
         statusText = tr("Recent (%1)").arg(BClientStatus::ageText(activity.ageSecs));
-        statusState = "success";
+        // Recent is a fact about the past, not a verified "online": not green
+        statusState = "active";
         break;
     case BClientStatus::Activity::Stale:
         statusText = tr("Stale (%1)").arg(BClientStatus::ageText(activity.ageSecs));
