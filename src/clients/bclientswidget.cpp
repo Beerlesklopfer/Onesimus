@@ -16,6 +16,7 @@
 #include <QJsonParseError>
 #include <QLabel>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSortFilterProxyModel>
 #include <QTableView>
 #include <QMenu>
@@ -149,23 +150,18 @@ void BClientsWidget::setupUI()
 
     // Configure headers (column visibility context menu, no checkbox)
     m_headerView->setCheckboxVisible(false);
-    m_headerView->setStretchLastSection(false);
     m_headerView->setSectionsMovable(true);
     m_headerView->setDragEnabled(true);
     m_headerView->setDragDropMode(QAbstractItemView::InternalMove);
 
-    // Column resize modes
-    m_headerView->setSectionResizeMode(BClientsModel::COL_NAME, QHeaderView::Interactive);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_ADDRESS, QHeaderView::Stretch);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_PORT, QHeaderView::Fixed);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_STATUS, QHeaderView::Fixed);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_OS, QHeaderView::Interactive);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_VERSION, QHeaderView::Interactive);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_LAST_CONN, QHeaderView::Interactive);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_JOB_COUNT, QHeaderView::Fixed);
-    m_headerView->setSectionResizeMode(BClientsModel::COL_TOTAL_BYTES, QHeaderView::Fixed);
+    // Every column can be resized by the user; the last visible column takes
+    // the remaining width, so no gap is left on the right
+    m_headerView->setSectionResizeMode(QHeaderView::Interactive);
+    m_headerView->setStretchLastSection(true);
+    m_headerView->setMinimumSectionSize(BUiScale::px(40));
 
-    // Set column widths (~20% for Name, Address stretches)
+    // Default column widths (used until the user changes them)
+    m_tableView->setColumnWidth(BClientsModel::COL_ADDRESS, BUiScale::px(200));
     m_tableView->setColumnWidth(BClientsModel::COL_NAME, BUiScale::px(180));
     m_tableView->setColumnWidth(BClientsModel::COL_PORT, BUiScale::px(50));
     m_tableView->setColumnWidth(BClientsModel::COL_STATUS, BUiScale::px(110));
@@ -179,7 +175,9 @@ void BClientsWidget::setupUI()
     m_autoSaveTimer->setSingleShot(true);
     m_autoSaveTimer->setInterval(500);
     connect(m_autoSaveTimer, &QTimer::timeout, this, [this]() {
-        m_columnConfig->saveHeaderState(m_headerView, "ClientsWidget/Columns");
+        // Order, widths, hidden columns and the sort column, in BSettings
+        BSettings::instance().setClientsHeaderState(m_headerView->saveState());
+        BSettings::instance().setClientsHeaderScale(BUiScale::px(1000));
     });
     connect(m_headerView, &QHeaderView::sectionResized,
             this, [this]() { m_autoSaveTimer->start(); });
@@ -187,9 +185,30 @@ void BClientsWidget::setupUI()
             this, [this]() { m_autoSaveTimer->start(); });
     connect(m_headerView, &BCheckableHeaderView::columnVisibilityChanged,
             this, [this]() { m_autoSaveTimer->start(); });
+    connect(m_headerView, &QHeaderView::sortIndicatorChanged,
+            this, [this]() { m_autoSaveTimer->start(); });
 
-    // Restore saved column configuration
-    m_columnConfig->restoreHeaderState(m_headerView, "ClientsWidget/Columns");
+    // Restore the saved header. Widths saved at another interface zoom are
+    // scaled to the current one. Older versions kept order, widths and
+    // visibility through BColumnConfiguration; that is read once if nothing
+    // is in BSettings yet.
+    const QByteArray headerState = BSettings::instance().clientsHeaderState();
+    if (!headerState.isEmpty() && m_headerView->restoreState(headerState)) {
+        const int savedScale = BSettings::instance().clientsHeaderScale();
+        const int currentScale = BUiScale::px(1000);
+        if (savedScale > 0 && savedScale != currentScale) {
+            const QSignalBlocker blocker(m_headerView);
+            for (int i = 0; i < m_headerView->count(); ++i) {
+                m_headerView->resizeSection(i, m_headerView->sectionSize(i) * currentScale / savedScale);
+            }
+        }
+        m_headerView->setSectionResizeMode(QHeaderView::Interactive);
+        m_headerView->setStretchLastSection(true);
+        m_tableView->sortByColumn(m_headerView->sortIndicatorSection(),
+                                  m_headerView->sortIndicatorOrder());
+    } else {
+        m_columnConfig->restoreHeaderState(m_headerView, "ClientsWidget/Columns");
+    }
 
     mainLayout->addWidget(m_tableView);
 

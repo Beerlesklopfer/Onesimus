@@ -282,6 +282,14 @@ public:
     bool schedulesWaitListShown() const;
     void setSchedulesWaitListShown(bool shown);
 
+    /// Header of the client table: column order, widths, hidden columns and
+    /// sort column (QHeaderView::saveState()), plus the interface scale the
+    /// widths were saved at, so they follow a later interface zoom
+    QByteArray clientsHeaderState() const;
+    void setClientsHeaderState(const QByteArray& state);
+    int clientsHeaderScale() const;
+    void setClientsHeaderScale(int pixelsPer1000);
+
     QByteArray schedulesSplitterState() const;
     void setSchedulesSplitterState(const QByteArray& state);
 

@@ -803,6 +803,26 @@ void BSettings::setSchedulesWaitListShown(bool shown)
     setValue("Widgets/Schedules/wait_list_shown", shown);
 }
 
+QByteArray BSettings::clientsHeaderState() const
+{
+    return value("Widgets/Clients/header_state").toByteArray();
+}
+
+void BSettings::setClientsHeaderState(const QByteArray& state)
+{
+    setValue("Widgets/Clients/header_state", state);
+}
+
+int BSettings::clientsHeaderScale() const
+{
+    return value("Widgets/Clients/header_scale", 0).toInt();
+}
+
+void BSettings::setClientsHeaderScale(int pixelsPer1000)
+{
+    setValue("Widgets/Clients/header_scale", pixelsPer1000);
+}
+
 QByteArray BSettings::schedulesSplitterState() const
 {
     return value("Widgets/Schedules/splitter_state").toByteArray();
