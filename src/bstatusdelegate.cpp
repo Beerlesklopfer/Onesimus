@@ -84,8 +84,9 @@ ChipLayout layoutChip(const QStyleOptionViewItem &option, const QString &code, c
     ChipLayout layout;
     layout.elidedText = fm.elidedText(text, Qt::ElideRight, qMax(0, available));
     const int textWidth = layout.elidedText.isEmpty() ? 0 : fm.horizontalAdvance(layout.elidedText);
-    const int width = qMin(option.rect.width() - 2 * margin,
-                           2 * padding + codeWidth + (textWidth ? gap + textWidth : 0));
+    // The chip fills the cell (maintainer's wish): the column width is the
+    // chip width, so all chips of a column line up as one band
+    const int width = option.rect.width() - 2 * margin;
 
     layout.chip = QRect(option.rect.left() + margin,
                         option.rect.top() + (option.rect.height() - height) / 2,
