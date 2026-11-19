@@ -57,9 +57,36 @@
  *  4. Jobs of the types Copy, Migrate and Consolidate take no place at a
  *     client or a storage (BWaitRun::usesClient, usesStorage).
  *
- * Not replayed, and so not predicted: volume mounts and device limits in
- * the storage daemon (Maximum Concurrent Read Jobs, devices, autochangers),
- * loss of throughput when runs share a storage, spooling, cancelled
+ *  5. The storage daemon (Bareos core/src/stored/reserve.cc
+ *     TryReserveAfterUse(), wait.cc WaitForDevice(), append.cc SetupDCR()).
+ *     With Just In Time Reservation (the default since Bareos 23.1,
+ *     stored_conf.cc) a job the Director has started reserves a device only
+ *     when its first data arrives (append.cc, "JustInTime Reservation:
+ *     Finding drive to reserve"). That is after the Director recorded its
+ *     start (dird/backup.cc DoNativeBackup() sets StartTime again after
+ *     the connections and Client Run Before Job). A device writes as many
+ *     jobs at a time as its Maximum Concurrent Jobs in the storage daemon
+ *     (BWaitLimits::devices: "parallel writers" of a storage; the Director
+ *     cannot read it). A job that finds every device busy keeps its places
+ *     at the Director and waits inside the storage daemon: the first two
+ *     times until a device is released or a minute has passed, from then
+ *     on it sleeps 30 seconds between tries and is not woken
+ *     (BWaitLimits::Sd). Its run therefore lasts longer by that wait, and
+ *     so does the wait of every run that waits for its client or slot.
+ *     Among tries at the same moment the one that asked first wins.
+ *  6. Overheads. The catalog start of a run (StartTime) is set after the
+ *     Director has connected to the storage daemon and the client and after
+ *     Client Run Before Job (fd_cmds.cc SendRunscriptsCommands() runs it
+ *     with "RunBeforeNow"). The run holds its places from the moment the
+ *     Director starts it, so that time (BWaitRun::startOverheadSecs) is
+ *     part of the measured wait, and the run has not started yet in the
+ *     sense of the catalog. A run that writes asks for a device
+ *     BWaitLimits::Sd::requestSecs after its start.
+ *
+ * Not replayed, and so not predicted: volume mounts and the other limits
+ * in the storage daemon (Maximum Concurrent Read Jobs, autochangers,
+ * several devices of different sizes), loss of throughput when runs share
+ * a storage, spooling, cancelled
  * duplicate jobs, Max Start Delay and Max Wait Time, rescheduling after an
  * error, RunScripts, jobs started by hand, and the two seconds between two
  * looks of the Director at its queue. A Verify job at level Data takes two
@@ -72,6 +99,9 @@
  * no history at all there is no length. Limits that the Director did not
  * report are not known either. For all of these nothing is assumed in the
  * answer. Instead the queue is replayed twice:
+ * (A run "lasts" here the time it writes when it does not have to wait
+ * for a device: BWaitCalibration takes the device wait out of the measured
+ * durations where it can, see there.)
  *  - once in favour of the runs: an estimate from other levels is taken
  *    as it is, a run without history ends the moment it starts, a limit
  *    that is not known does not limit, a run whose Allow Mixed Priority is
@@ -80,6 +110,8 @@
  *    running as long as its job is allowed to (below) and for at least its
  *    estimate, a limit that is not known is 1, Allow Mixed Priority that
  *    is not known is off.
+ * A number of parallel writers that is not known (the default) is taken
+ * the same way: no limit in favour of the runs, 1 against them.
  * The start and the wait of BWaitResult are those of the first replay. A
  * run whose start is the same in both is certain; otherwise it is not, and
  * BWaitResult::unknowns names what it depends on.
@@ -110,6 +142,16 @@
  * caller that shows a period should pass the runs of the day before it as
  * well, because they may still be running when the period begins.
  */
+
+/** What the catalog says this job waited before, at the level of a run. */
+struct BWaitMeasured
+{
+    int count = 0;          ///< Runs with a known wait; 0: nothing measured
+    qint64 medianSecs = 0;
+    qint64 maxSecs = 0;
+
+    bool isValid() const { return count > 0; }
+};
 
 /** One scheduled start of one job. */
 struct BWaitRun
@@ -149,6 +191,16 @@ struct BWaitRun
     qint64 maxRunSecs = 0;      ///< From its start; 0: no such limit
     Bound maxRunBound = Bound::None;    ///< The directive maxRunSecs is from
     qint64 maxRunSchedSecs = 0; ///< Max Run Sched Time, from the scheduled time; 0: none
+
+    /// From the Director starting the run to its catalog start (connections,
+    /// Client Run Before Job); the run holds its places meanwhile
+    qint64 startOverheadSecs = 0;
+
+    // For display only: the comparison with the past and where the figures
+    // come from (BWaitCalibration)
+    BWaitMeasured measuredWait;     ///< Not valid: nothing measured at this level
+    QString durationNote;           ///< How durationSecs was found; empty: as measured
+    QString overheadNote;           ///< How startOverheadSecs was found; empty: none
 };
 
 /**
@@ -174,6 +226,21 @@ struct BWaitLimits
     QHash<QString, int> jobs;
     QHash<QString, int> clients;
     QHash<QString, int> storages;
+    /// Parallel writers of the devices of a storage, as the storage daemon
+    /// allows them (Maximum Concurrent Jobs of its Device resources). The
+    /// Director cannot read it: only the user sets it. Not in the map: not
+    /// known.
+    QHash<QString, int> devices;
+
+    /** Timing of the storage daemon's reservation (see the file comment). */
+    struct Sd
+    {
+        qint64 requestSecs = 1;     ///< From the catalog start to the first try
+        int wakeWaits = 2;          ///< Tries after which it waits to be woken
+        qint64 wakeWaitSecs = 60;   ///< wait.cc WaitForDevice(): max_wait_time
+        qint64 retrySecs = 30;      ///< reserve.cc TryReserveAfterUse(): Bmicrosleep(30, 0)
+    };
+    Sd sd;
 
     /// Reads the reply of "show directors" (API mode 2). The limit is
     /// known only if the reply names exactly one Director.
@@ -284,6 +351,7 @@ struct BWaitUnknown
         MixedPriority,      ///< Allow Mixed Priority of a job
         EstimatedDuration,  ///< A job measured at other levels only
         NoHistory,          ///< A job that was never measured
+        DeviceLimit,        ///< Parallel writers of the devices of a storage
     };
 
     Kind kind = Kind::NoHistory;
@@ -305,8 +373,10 @@ struct BWaitUnknown
 /** The prediction for one run. */
 struct BWaitResult
 {
-    QDateTime start;            ///< Predicted start; the scheduled time if it does not wait
-    qint64 waitSecs = 0;        ///< start minus scheduled time
+    /// Predicted start as the catalog records it (StartTime): the Director's
+    /// start plus the start overhead; the scheduled time if neither applies
+    QDateTime start;
+    qint64 waitSecs = 0;        ///< start minus scheduled time, comparable with the measured wait
     QList<BWaitHold> holds;     ///< What held it, in order of time; empty if it does not wait
     bool certain = true;
     /// Not certain: what the start depends on. The holds that would apply
@@ -315,7 +385,15 @@ struct BWaitResult
     QList<BWaitUnknown> unknowns;
     QList<BWaitHold> possibleHolds;
 
-    bool waits() const { return waitSecs > 0; }
+    // Inside the run: the wait for a device of the storage daemon
+    QDateTime end;              ///< Predicted end (invalid for a run of unknown length)
+    qint64 deviceWaitSecs = 0;  ///< Waited inside the storage daemon for a device
+    int deviceLimit = 0;        ///< The parallel writers that applied; 0: none
+    QList<int> deviceBlockers;  ///< Runs that held the device when it first asked
+
+    /// Held by something. A run whose wait is only its start overhead
+    /// (BWaitRun::startOverheadSecs) does not wait in this sense.
+    bool waits() const { return waitSecs > 0 && !holds.isEmpty(); }
     /// The hold that lasted longest; nullptr if it does not wait
     const BWaitHold *mainHold() const;
 };
@@ -443,6 +521,37 @@ public:
      */
     static QStringList describe(int index, const QList<BWaitRun> &runs,
                                 const QList<BWaitResult> &results);
+
+    /**
+     * @brief The timing of a run, a statement per entry: the wait for a
+     *        device inside the run, its end, the start overhead, how its
+     *        duration was found, the measured wait and a discrepancy
+     */
+    static QStringList describeTiming(int index, const QList<BWaitRun> &runs,
+                                      const QList<BWaitResult> &results,
+                                      const BWaitLimits &limits);
+
+    // --- Predicted against measured ----------------------------------------
+
+    enum class Discrepancy {
+        None,       ///< Close enough, or nothing measured
+        TooLow,     ///< Measured waits are much longer than predicted
+        TooHigh,    ///< Measured waits are much shorter than predicted
+    };
+
+    /// A difference counts if it is more than a minute and more than half
+    /// of the measured median (DiscrepancyMinSecs, DiscrepancyShare)
+    static constexpr qint64 DiscrepancyMinSecs = 60;
+    static constexpr double DiscrepancyShare = 0.5;
+
+    static Discrepancy discrepancy(const BWaitRun &run, const BWaitResult &result);
+
+    /// "median 4:45 min, max 6:55 min (6 runs)"; "not measured"
+    static QString measuredText(const BWaitMeasured &measured);
+
+    /// "Prediction too low: measured median 4:45 min, predicted 40 s - a
+    /// limit the GUI does not know, ..."; empty for Discrepancy::None
+    static QString discrepancyText(const BWaitRun &run, const BWaitResult &result);
 };
 
 #endif // BSCHEDULEWAITMODEL_H

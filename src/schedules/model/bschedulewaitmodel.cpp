@@ -330,11 +330,26 @@ public:
     }
 
     bool started(int i) const { return m_state[i].started; }
+    /// The catalog start: the Director's start plus the start overhead
     qint64 start(int i) const { return m_state[i].start; }
     qint64 end(int i) const { return m_state[i].end; }
+    /// Its end is known (it has a device or needs none)
+    bool hasEnd(int i) const { return m_state[i].phase == Phase::Writing; }
     const QList<BWaitHold> &holds(int i) const { return m_state[i].holds; }
+    qint64 deviceWait(int i) const { return m_state[i].deviceWait; }
+    /// Waited for a device whose number of writers is not known
+    bool deviceWaitUnknown(int i) const { return m_state[i].deviceWait > 0 && !m_state[i].deviceKnown; }
+    int deviceLimitUsed(int i) const { return m_state[i].deviceLimit; }
+    const QList<int> &deviceBlockers(int i) const { return m_state[i].deviceBlockers; }
 
 private:
+    enum class Phase {
+        Queued,         ///< Not started by the Director
+        Starting,       ///< Started, has not asked for a device yet
+        DeviceWaiting,  ///< Waits inside the storage daemon
+        Writing,        ///< Has its device (or needs none): its end is known
+    };
+
     struct State
     {
         qint64 scheduled = 0;
@@ -343,6 +358,16 @@ private:
         bool started = false;
         bool holdOpen = false;
         QList<BWaitHold> holds;
+
+        Phase phase = Phase::Queued;
+        qint64 length = 0;      ///< How long it writes once it has a device
+        qint64 asked = 0;       ///< First try for a device
+        qint64 nextTry = 0;     ///< DeviceWaiting: the next try
+        int failures = 0;       ///< Tries that found no device
+        qint64 deviceWait = 0;
+        bool deviceKnown = true;
+        int deviceLimit = 0;
+        QList<int> deviceBlockers;
     };
 
     /// What a waiting run is held by at the moment
@@ -488,17 +513,100 @@ private:
         m_waiting.insert(at, i);
     }
 
+    /// Parallel writers of the storage of run @p i; kNoLimit: none applies
+    Limit deviceLimit(int i) const
+    {
+        if (!usesStorage(i))
+            return Limit();
+        return m_runs[i].storage.isEmpty() ? unknownLimit()
+                                           : limitIn(m_limits.devices, m_runs[i].storage);
+    }
+
+    /// Runs that write on the device of run @p i at the moment
+    QList<int> writers(int i) const
+    {
+        QList<int> found;
+        for (int other : m_running) {
+            // deviceLimit > 0: it took a device (a run without data takes none)
+            if (other != i && m_state[other].phase == Phase::Writing && m_state[other].deviceLimit > 0
+                && m_runs[other].storage == m_runs[i].storage)
+                found.append(other);
+        }
+        return found;
+    }
+
     void begin(int i, qint64 now)
     {
         State &s = m_state[i];
         s.started = true;
-        s.start = now;
-        s.end = now + duration(i, now);
+        // The Director's start: the run takes its places now; the catalog
+        // start follows after the connections and Client Run Before Job
+        s.start = now + qMax<qint64>(0, m_runs[i].startOverheadSecs);
+        s.length = duration(i, s.start);
         if (s.holdOpen) {
             s.holds.last().until = QDateTime::fromSecsSinceEpoch(now);
             s.holdOpen = false;
         }
+        const Limit device = deviceLimit(i);
+        // A run that is over before it would ask sends no data: with Just
+        // In Time Reservation it reserves no device
+        if (device.value == kNoLimit || s.length <= qMax<qint64>(0, m_limits.sd.requestSecs)) {
+            s.phase = Phase::Writing;
+            s.end = s.start + s.length;
+        } else {
+            s.phase = Phase::Starting;
+            s.asked = s.start + qMin(qMax<qint64>(0, m_limits.sd.requestSecs), s.length);
+            s.deviceKnown = device.known;
+            s.deviceLimit = device.value;
+        }
         m_running.append(i);
+    }
+
+    /// The tries for a device at @p now. true: something changed.
+    bool tryDevices(qint64 now, const QSet<QString> &released)
+    {
+        QList<int> trying;
+        for (int i : std::as_const(m_running)) {
+            const State &s = m_state[i];
+            if (s.phase == Phase::Starting && s.asked <= now) {
+                trying.append(i);
+            } else if (s.phase == Phase::DeviceWaiting) {
+                // Woken by a release only while it waits to be woken
+                const bool woken = s.failures <= m_limits.sd.wakeWaits
+                                   && released.contains(m_runs[i].storage);
+                if (s.nextTry <= now || woken) trying.append(i);
+            }
+        }
+        if (trying.isEmpty())
+            return false;
+        // The one that asked first wins
+        std::stable_sort(trying.begin(), trying.end(), [this](int a, int b) {
+            return m_state[a].asked < m_state[b].asked;
+        });
+
+        bool changed = false;
+        for (int i : std::as_const(trying)) {
+            State &s = m_state[i];
+            const QList<int> busy = writers(i);
+            if (busy.size() < s.deviceLimit) {
+                s.deviceWait = now - s.asked;
+                s.phase = Phase::Writing;
+                s.end = now + qMax<qint64>(0, s.length - (s.asked - s.start));
+                changed = true;
+                continue;
+            }
+            if (s.phase == Phase::Starting) {
+                s.phase = Phase::DeviceWaiting;
+                s.deviceBlockers = busy;
+                std::sort(s.deviceBlockers.begin(), s.deviceBlockers.end());
+                changed = true;
+            }
+            ++s.failures;
+            s.nextTry = now + (s.failures <= m_limits.sd.wakeWaits
+                                   ? qMax<qint64>(1, m_limits.sd.wakeWaitSecs)
+                                   : qMax<qint64>(1, m_limits.sd.retrySecs));
+        }
+        return changed;
     }
 
     /// The priority the Director wants now, and whether every running run
@@ -559,15 +667,25 @@ private:
     void settle(qint64 now)
     {
         const int jobSlots = directorLimit().value;
+        QSet<QString> released;     // storages a device of which was released now
         for (;;) {
             bool progress = false;
 
             for (int k = m_running.size() - 1; k >= 0; --k) {
-                if (m_state[m_running[k]].end <= now) {
+                const int i = m_running[k];
+                if (m_state[i].phase == Phase::Writing && m_state[i].end <= now) {
+                    if (m_state[i].deviceLimit > 0)
+                        released.insert(m_runs[i].storage);
                     m_running.removeAt(k);
                     progress = true;
                 }
             }
+            if (tryDevices(now, released)) {
+                released.clear();   // the woken ones have tried
+                progress = true;
+                continue;           // a run of no length may end at once
+            }
+            released.clear();
             while (!m_ready.isEmpty() && m_running.size() < jobSlots) {
                 begin(m_ready.takeFirst(), now);
                 progress = true;
@@ -697,8 +815,12 @@ private:
                 have = true;
             }
             for (int i : std::as_const(m_running)) {
-                if (!have || m_state[i].end < now) {
-                    now = m_state[i].end;
+                const State &s = m_state[i];
+                const qint64 when = s.phase == Phase::Writing  ? s.end
+                                  : s.phase == Phase::Starting ? s.asked
+                                                               : s.nextTry;
+                if (!have || when < now) {
+                    now = when;
                     have = true;
                 }
             }
@@ -776,6 +898,10 @@ QList<BWaitUnknown> unknownsOf(int index, const QList<BWaitRun> &runs,
 
                 for (int blocker : hold.blockers) {
                     const BWaitRun &other = runs[blocker];
+                    // It ran longer, against the runs, because it waited
+                    // for a device whose number of writers is not known
+                    if (against.deviceWaitUnknown(blocker))
+                        addUnknown(&unknowns, BWaitUnknown::Kind::DeviceLimit, other.storage);
                     if (other.durationBasis != BWaitRun::Duration::Measured) {
                         BWaitUnknown unknown;
                         unknown.kind = other.durationBasis == BWaitRun::Duration::Estimated
@@ -856,6 +982,12 @@ QList<BWaitResult> BScheduleWaitModel::predict(const QList<BWaitRun> &runs,
         // In the time zone the caller gave the scheduled time in
         result.start = run.scheduled.addSecs(result.waitSecs);
         result.holds = favour.holds(i);
+
+        if (favour.hasEnd(i) && (run.durationBasis != BWaitRun::Duration::Unknown))
+            result.end = run.scheduled.addSecs(favour.end(i) - scheduled);
+        result.deviceWaitSecs = favour.deviceWait(i);
+        result.deviceLimit = favour.deviceLimitUsed(i);
+        result.deviceBlockers = favour.deviceBlockers(i);
 
         result.certain = against.started(i) && against.start(i) == favour.start(i);
         if (!result.certain) {
@@ -1065,7 +1197,9 @@ QString BScheduleWaitModel::blockersText(const BWaitHold &hold, const QList<BWai
         } else {
             // With seconds where there are any: a run of seconds would
             // begin and end at the same minute otherwise
-            const QDateTime end = result.start.addSecs(qMax<qint64>(1, other.durationSecs));
+            // With the wait for a device inside the run, where there was one
+            const QDateTime end = result.end.isValid()
+                ? result.end : result.start.addSecs(qMax<qint64>(1, other.durationSecs));
             const bool seconds = result.start.time().second() != 0 || end.time().second() != 0;
             when = other.durationBasis == BWaitRun::Duration::Estimated
                 ? tr("%1 to about %2, estimated").arg(clock(result.start, day, seconds),
@@ -1113,6 +1247,13 @@ QString BScheduleWaitModel::unknownText(const BWaitUnknown &unknown, const QDate
         return withBound(tr("the duration of %1 was not measured at this level").arg(unknown.name));
     case BWaitUnknown::Kind::NoHistory:
         return withBound(tr("the duration of %1 was never measured").arg(unknown.name));
+    case BWaitUnknown::Kind::DeviceLimit:
+        return unknown.name.isEmpty()
+            ? tr("the number of parallel writers of the storage device is not known (the job "
+                 "names no storage; the Director cannot read it)")
+            : tr("the number of parallel writers of the device of storage %1 is not known (the "
+                 "Director cannot read it; set it in the list of predicted waits)")
+                  .arg(unknown.name);
     }
     return QString();
 }
@@ -1260,4 +1401,94 @@ QStringList BScheduleWaitModel::describe(int index, const QList<BWaitRun> &runs,
         }
     }
     return lines;
+}
+
+QStringList BScheduleWaitModel::describeTiming(int index, const QList<BWaitRun> &runs,
+                                               const QList<BWaitResult> &results,
+                                               const BWaitLimits &limits)
+{
+    QStringList lines;
+    if (index < 0 || index >= runs.size() || index >= results.size())
+        return lines;
+    const BWaitRun &run = runs[index];
+    const BWaitResult &result = results[index];
+    const QDate day = run.scheduled.date();
+
+    if (result.deviceWaitSecs > 0) {
+        QStringList names;
+        for (int blocker : result.deviceBlockers) {
+            if (blocker >= 0 && blocker < runs.size() && !names.contains(runs[blocker].job))
+                names << runs[blocker].job;
+        }
+        lines << tr("Inside the run: waits %1 in the storage daemon for a device of storage %2 "
+                    "(%3 parallel writer(s); after two waits for a release it tries again every "
+                    "%4 s)%5.")
+                     .arg(formatWait(result.deviceWaitSecs), run.storage)
+                     .arg(result.deviceLimit)
+                     .arg(limits.sd.retrySecs)
+                     .arg(names.isEmpty() ? QString()
+                                          : tr(", held by %1").arg(names.join(QStringLiteral(", "))));
+    }
+    if (result.end.isValid() && (result.waits() || result.deviceWaitSecs > 0)) {
+        lines << tr("Predicted end: %1").arg(clock(result.end, day, true));
+    }
+    if (run.startOverheadSecs > 0) {
+        lines << tr("Start overhead %1 (from the Director starting the job to its recorded start: "
+                    "connections, Client Run Before Job)%2.")
+                     .arg(formatWait(run.startOverheadSecs),
+                          run.overheadNote.isEmpty() ? QString()
+                                                     : QStringLiteral("; ") + run.overheadNote);
+    }
+    if (!run.durationNote.isEmpty())
+        lines << run.durationNote;
+    if (run.measuredWait.isValid()) {
+        lines << tr("Measured wait at this level: %1; predicted %2.")
+                     .arg(measuredText(run.measuredWait), formatWait(result.waitSecs));
+    }
+    const QString flag = discrepancyText(run, result);
+    if (!flag.isEmpty())
+        lines << flag;
+    return lines;
+}
+
+BScheduleWaitModel::Discrepancy BScheduleWaitModel::discrepancy(const BWaitRun &run,
+                                                                const BWaitResult &result)
+{
+    if (!run.measuredWait.isValid())
+        return Discrepancy::None;
+    const qint64 measured = run.measuredWait.medianSecs;
+    const qint64 margin = qMax<qint64>(DiscrepancyMinSecs,
+                                       static_cast<qint64>(measured * DiscrepancyShare));
+    if (measured - result.waitSecs > margin)
+        return Discrepancy::TooLow;
+    if (result.waitSecs - measured > margin)
+        return Discrepancy::TooHigh;
+    return Discrepancy::None;
+}
+
+QString BScheduleWaitModel::measuredText(const BWaitMeasured &measured)
+{
+    if (!measured.isValid())
+        return tr("not measured");
+    return tr("median %1, max %2 (%3 run(s))")
+        .arg(formatWait(measured.medianSecs), formatWait(measured.maxSecs))
+        .arg(measured.count);
+}
+
+QString BScheduleWaitModel::discrepancyText(const BWaitRun &run, const BWaitResult &result)
+{
+    switch (discrepancy(run, result)) {
+    case Discrepancy::None:
+        break;
+    case Discrepancy::TooLow:
+        return tr("Prediction too low: measured median %1, predicted %2 - a limit the GUI does "
+                  "not know, e.g. the storage device (parallel writers), or a Client Run Before "
+                  "Job that takes long.")
+            .arg(formatWait(run.measuredWait.medianSecs), formatWait(result.waitSecs));
+    case Discrepancy::TooHigh:
+        return tr("Prediction too high: measured median %1, predicted %2 - a limit is set lower "
+                  "here than it is, or the durations used are too long.")
+            .arg(formatWait(run.measuredWait.medianSecs), formatWait(result.waitSecs));
+    }
+    return QString();
 }
