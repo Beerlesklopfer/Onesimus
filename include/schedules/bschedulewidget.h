@@ -229,8 +229,6 @@ private slots:
     void onScheduleDoubleClicked(QListWidgetItem *item);
     void onViewModeChanged(int index);
     void onDayViewModeChanged(int index);
-    void onDayNavigationPrev();
-    void onDayNavigationNext();
     void onDayNavigationToday();
     void onWaitRowChanged();
     void onDeviceWritersChanged();
@@ -398,11 +396,8 @@ private:
     QPushButton *m_refreshButton;
     QComboBox *m_viewModeCombo;       // Gantt / Grid / Measured waits
     QComboBox *m_dayViewCombo;        // Day / Week
-    QToolButton *m_prevDayButton;
-    QToolButton *m_nextDayButton;
     QToolButton *m_todayButton;
-    QLabel *m_dayLabel;               // The date or the week on display
-    QDateEdit *m_dayPicker = nullptr;   ///< Day view: the date, with a calendar
+    QDateEdit *m_dayPicker = nullptr;   ///< The date, with a calendar (week view: a day of it)
     QLabel *m_dayName = nullptr;        ///< Day view: its weekday, in the language of the texts
     QLabel *m_snapLabel = nullptr;
     QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour

@@ -126,10 +126,7 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_refreshButton(new QPushButton(tr("Refresh"), this))
     , m_viewModeCombo(new QComboBox(this))
     , m_dayViewCombo(new QComboBox(this))
-    , m_prevDayButton(new QToolButton(this))
-    , m_nextDayButton(new QToolButton(this))
     , m_todayButton(new QToolButton(this))
-    , m_dayLabel(new QLabel(this))
     , m_snapCombo(new QComboBox(this))
     , m_waitButton(new BElidingButton(this))
     , m_runProblemLabel(new QLabel(this))
@@ -213,29 +210,18 @@ void BScheduleWidget::setupUI()
     m_dayViewCombo->addItem(tr("Week"), 1);
     toolbarLayout->addWidget(m_dayViewCombo);
 
-    // Day navigation
+    // The date: a calendar, and "Today"
     QString navBtnStyle =
         "QToolButton { color: #333; font-weight: bold; border: 1px solid #aaa;"
         " border-radius: 3px; background: #ddd; padding: 2px 6px; }"
         "QToolButton:hover { background: #bbb; }"
         "QToolButton:disabled { color: #aaa; background: #eee; border-color: #ccc; }";
-    m_prevDayButton->setText(QStringLiteral("\u25C0"));  // ◀
-    m_prevDayButton->setStyleSheet(navBtnStyle);
-    m_nextDayButton->setText(QStringLiteral("\u25B6"));  // ▶
-    m_nextDayButton->setStyleSheet(navBtnStyle);
-
-    m_prevDayButton->setToolTip(tr("Previous day or week"));
-    m_nextDayButton->setToolTip(tr("Next day or week"));
     m_todayButton->setText(tr("Today"));
     m_todayButton->setStyleSheet(navBtnStyle);
     m_todayButton->setToolTip(tr("Show today or the current week"));
 
-    // Wide enough for a week: "2026-11-16 - 2026-11-22"
-    BUiScale::track(m_dayLabel, [this]() { m_dayLabel->setMinimumWidth(BUiScale::px(170)); });
-    m_dayLabel->setAlignment(Qt::AlignCenter);
-    m_dayLabel->setToolTip(tr("The date or the week (Monday to Sunday) on display"));
-
-    // Day view: a date with a calendar to pick it from
+    // A date with a calendar to pick it from (in the week view: a day of
+    // the week to show)
     m_dayPicker = new QDateEdit(QDate::currentDate(), this);
     m_dayPicker->setCalendarPopup(true);
     // "ddd" would name the weekday in the locale of the language setting,
@@ -248,11 +234,8 @@ void BScheduleWidget::setupUI()
     });
     m_dayName = new QLabel(this);
 
-    toolbarLayout->addWidget(m_prevDayButton);
-    toolbarLayout->addWidget(m_dayLabel);
     toolbarLayout->addWidget(m_dayName);
     toolbarLayout->addWidget(m_dayPicker);
-    toolbarLayout->addWidget(m_nextDayButton);
     toolbarLayout->addWidget(m_todayButton);
 
     toolbarLayout->addSpacing(10);
@@ -453,10 +436,6 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onViewModeChanged);
     connect(m_dayViewCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &BScheduleWidget::onDayViewModeChanged);
-    connect(m_prevDayButton, &QToolButton::clicked,
-            this, &BScheduleWidget::onDayNavigationPrev);
-    connect(m_nextDayButton, &QToolButton::clicked,
-            this, &BScheduleWidget::onDayNavigationNext);
     connect(m_todayButton, &QToolButton::clicked,
             this, &BScheduleWidget::onDayNavigationToday);
     connect(m_snapCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -942,16 +921,6 @@ bool BScheduleWidget::showsWeek() const
     return m_dayViewCombo->currentIndex() == 1;
 }
 
-void BScheduleWidget::onDayNavigationPrev()
-{
-    setCurrentDate(m_currentDate.addDays(showsWeek() ? -7 : -1));
-}
-
-void BScheduleWidget::onDayNavigationNext()
-{
-    setCurrentDate(m_currentDate.addDays(showsWeek() ? 7 : 1));
-}
-
 void BScheduleWidget::onDayNavigationToday()
 {
     setCurrentDate(QDate::currentDate());
@@ -978,12 +947,8 @@ void BScheduleWidget::updateDateControls()
 {
     const bool gantt = m_viewModeCombo->currentIndex() == 0;
     const bool week = showsWeek();
-    // Day: weekday and date with a calendar. Week: the same calendar (a
-    // day picked shows its week) between the buttons for the week before
-    // and after; the days of the week stand in the timeline's header.
-    m_prevDayButton->setVisible(gantt && week);
-    m_dayLabel->setVisible(false);
-    m_nextDayButton->setVisible(gantt && week);
+    // Day: weekday and date with a calendar. Week: the same calendar, a
+    // day picked shows its week; the days stand in the timeline's header.
     if (m_dayPicker) {
         m_dayPicker->setVisible(gantt);
         m_dayName->setVisible(gantt && !week);
@@ -1003,18 +968,7 @@ void BScheduleWidget::updateDateLabel()
     };
 
     if (m_dayName)
-        m_dayName->setText(dayAbbrev.value(m_currentDate.dayOfWeek() - 1));
-
-    if (showsWeek()) {
-        const QDate monday = BScheduleGanttWidget::firstDateFor(
-            BScheduleGanttWidget::WeekView, m_currentDate);
-        m_dayLabel->setText(QString("%1 \u2013 %2")
-            .arg(monday.toString(Qt::ISODate), monday.addDays(6).toString(Qt::ISODate)));
-    } else {
-        m_dayLabel->setText(QString("%1 %2")
-            .arg(dayAbbrev.value(m_currentDate.dayOfWeek() - 1),  // Qt: 1=Mon
-                 m_currentDate.toString(Qt::ISODate)));
-    }
+        m_dayName->setText(dayAbbrev.value(m_currentDate.dayOfWeek() - 1));  // Qt: 1=Mon
 }
 
 void BScheduleWidget::setupStatsPanel()
