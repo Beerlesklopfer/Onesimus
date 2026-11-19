@@ -16,6 +16,7 @@
 #include "models/bresourcemodels.h"
 #include "storagewidget.h"
 #include "schedules/bschedulewidget.h"
+#include "jobs/bjobdefinitionswidget.h"
 // Messages widget is now inside BJobWidget
 #include "config/bsettingsdialog.h"
 #include "bcleanupdialog.h"
@@ -453,6 +454,39 @@ BMainWindow::BMainWindow(QWidget *parent)
     connect(m_director, &BDirector::showJobDefsResult,
             m_scheduleWidget, &BScheduleWidget::processShowJobsResponse);
 
+    // The Job Definitions tab, after the model has read them
+    auto updateDefinitions = [this]() {
+        const BJobConfigModel *model = m_jobWidget->jobConfigModel();
+        m_jobDefinitionsWidget->setResources(model->jobConfigsRaw(), model->jobDefsConfigsRaw());
+    };
+    connect(m_director, &BDirector::showJobsResult, this, updateDefinitions);
+    connect(m_director, &BDirector::showJobDefsResult, this, updateDefinitions);
+    connect(m_jobDefinitionsWidget, &BJobDefinitionsWidget::statusMessageChanged,
+            m_statusLabel, &QLabel::setText);
+    connect(m_jobDefinitionsWidget, &BJobDefinitionsWidget::refreshRequested, this, [this]() {
+        if (!m_director || !m_director->isConnected())
+            return;
+        m_director->doSend(BDirector::Command::ShowJobs);
+        m_director->doSend(BDirector::Command::ShowJobDefs);
+    });
+    // After a write: the definitions and the schedule views read again (a
+    // job's schedule, client or priority may have changed)
+    connect(m_jobDefinitionsWidget, &BJobDefinitionsWidget::definitionsChanged, this, [this]() {
+        if (!m_director || !m_director->isConnected())
+            return;
+        m_director->doSend(BDirector::Command::ShowJobs);
+        m_director->doSend(BDirector::Command::ShowJobDefs);
+        m_scheduleWidget->triggerRefresh();
+    });
+    // Without CreateResource a new resource goes through the job wizard
+    // ("configure add"), as from the Jobs menu
+    connect(m_jobDefinitionsWidget, &BJobDefinitionsWidget::wizardRequested, this,
+            [this](BJobDefinitions::Kind kind) {
+        QAction *action = kind == BJobDefinitions::Kind::Job ? m_addJobAction : m_addJobDefsAction;
+        if (action && action->isEnabled())
+            action->trigger();
+    });
+
     // Pass job config model to schedule widget for job→schedule cross-referencing
     m_scheduleWidget->setJobConfigModel(m_jobWidget->jobConfigModel());
 
@@ -627,6 +661,31 @@ void BMainWindow::setupUI()
                                         BCapabilities::Request::Explicit);
     });
     m_tabWidget->addTab(m_scheduleWidget, "Schedules");
+
+    // Job Definitions: the Job and JobDefs resources (backlog P3-18). A tab
+    // of its own, not a second view of the Jobs tab: that one shows the
+    // catalog (what ran), this one the configuration (what is to run), with
+    // a detail panel and its own write path. It comes last, so that the
+    // saved index of the active tab keeps meaning the same tab.
+    m_jobDefinitionsWidget = new BJobDefinitionsWidget(this);
+    // Changed, created and deleted through the configuration methods of the
+    // Onesimus Director over gRPC; the session's capabilities decide
+    m_jobDefinitionsWidget->setConfigClient(new BDirectorConfigClient(m_director, m_jobDefinitionsWidget));
+    m_jobDefinitionsWidget->setGate([this](QWidget *parent, BCapabilities::Function function) {
+        return BCapabilityNotice::check(parent, m_director, function, BCapabilities::Request::Explicit);
+    });
+    m_jobDefinitionsWidget->setNameSource([this]() {
+        QMap<QString, QStringList> names;
+        names["Client"] = m_jobWidget->clientNames();
+        names["FileSet"] = m_jobWidget->filesetNames();
+        names["Storage"] = m_jobWidget->storageNames();
+        names["Pool"] = m_jobWidget->poolNames();
+        names["Schedule"] = m_scheduleWidget->scheduleModel()->scheduleNames();
+        names["Messages"] = m_jobWidget->jobConfigModel()->messagesNames();
+        names["JobDefs"] = m_jobWidget->jobConfigModel()->jobDefsNames();
+        return names;
+    });
+    m_tabWidget->addTab(m_jobDefinitionsWidget, tr("Job Definitions"));
 
     int savedTab = BSettings::instance().mainWindowActiveTab();
     if (savedTab >= 0 && savedTab < m_tabWidget->count()) {
@@ -1055,7 +1114,15 @@ void BMainWindow::createActions()
     m_deleteJobDefsAction->setIcon(QIcon(":/icons/icons/delete.svg"));
     m_deleteJobDefsAction->setEnabled(false);
     connect(m_deleteJobDefsAction, &QAction::triggered, this, [this]() {
-        QMessageBox::information(this, tr("Delete JobDefs"), tr("Not implemented yet."));
+        // Deleting is done in the Job Definitions tab, where the JobDefs is
+        // chosen and the jobs that use it are shown
+        m_tabWidget->setCurrentWidget(m_jobDefinitionsWidget);
+        if (m_jobDefinitionsWidget->hasSelection()
+            && m_jobDefinitionsWidget->currentKind() == BJobDefinitions::Kind::JobDefs) {
+            m_jobDefinitionsWidget->deleteCurrent();
+        } else {
+            m_statusLabel->setText(tr("Choose a JobDefs in Job Definitions and click Delete."));
+        }
     });
 
     // Filesets submenu actions

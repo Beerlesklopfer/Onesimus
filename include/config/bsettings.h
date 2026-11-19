@@ -298,6 +298,16 @@ public:
     int jobsHeaderScale() const;
     void setJobsHeaderScale(int pixelsPer1000);
 
+    /// Header of the table of Job and JobDefs resources (Job Definitions
+    /// tab), the same way (Widgets/JobDefinitions/header_state), and the
+    /// splitter between the table and the detail panel
+    QByteArray jobDefinitionsHeaderState() const;
+    void setJobDefinitionsHeaderState(const QByteArray& state);
+    int jobDefinitionsHeaderScale() const;
+    void setJobDefinitionsHeaderScale(int pixelsPer1000);
+    QByteArray jobDefinitionsSplitterState() const;
+    void setJobDefinitionsSplitterState(const QByteArray& state);
+
     QByteArray schedulesSplitterState() const;
     void setSchedulesSplitterState(const QByteArray& state);
 

@@ -71,24 +71,12 @@ QListWidget *rowList(const QList<BScheduleReview::Row> &rows, QWidget *parent)
 
 QPlainTextEdit *textView(const QString &text, QWidget *parent)
 {
-    auto *view = new QPlainTextEdit(parent);
-    view->setReadOnly(true);
-    view->setLineWrapMode(QPlainTextEdit::NoWrap);
-    BUiScale::bind(view, BUiScale::Normal, BUiScale::Monospace);
-    // Line ends are shown as they are; a CRLF text stays one
-    QString shown = text;
-    shown.replace(QLatin1String("\r\n"), QLatin1String("\n"));
-    view->setPlainText(shown);
-    return view;
+    return BResourceReviewDialog::textView(text, parent);
 }
 
 QLabel *wrapped(const QString &text, QWidget *parent)
 {
-    auto *label = new QLabel(text, parent);
-    label->setWordWrap(true);
-    label->setTextFormat(Qt::PlainText);
-    label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    return label;
+    return BResourceReviewDialog::wrapped(text, parent);
 }
 
 } // namespace
@@ -250,126 +238,29 @@ void BScheduleReviewDialog::showEvent(QShowEvent *event)
 // Report
 // ============================================================================
 
-QString BScheduleReportDialog::problemLine(const std::optional<BConfig::Problem> &problem)
+BResourceReport BScheduleReportDialog::toResourceReport(const BScheduleReport &report)
 {
-    if (!problem)
-        return QString();
-    QStringList where;
-    if (!problem->file.isEmpty())
-        where.append(tr("file %1").arg(problem->file));
-    if (problem->line > 0)
-        where.append(tr("line %1").arg(problem->line));
-    if (problem->column > 0)
-        where.append(tr("column %1").arg(problem->column));
-    const QString place = where.join(QLatin1String(", "));
-    if (place.isEmpty())
-        return problem->text;
-    return tr("%1: %2").arg(place, problem->text);
-}
-
-QString BScheduleReportDialog::problemText() const
-{
-    return m_problem ? m_problem->text() : QString();
+    BResourceReport out;
+    out.kind = BResourceReport::Kind(int(report.kind));
+    out.operation = BResourceReview::Operation(int(report.operation));
+    out.type = BConfig::ResourceType::Schedule;
+    out.name = report.scheduleName;
+    out.title = report.title;
+    out.text = report.text;
+    out.directorMessage = report.directorMessage;
+    out.problem = report.problem;
+    out.ourText = report.ourText;
+    out.currentText = report.currentText;
+    out.referencedBy = report.referencedBy;
+    out.followups = report.followups;
+    out.reloaded = report.reloaded;
+    out.validatedOnly = report.validatedOnly;
+    return out;
 }
 
 BScheduleReportDialog::BScheduleReportDialog(const BScheduleReport &report, QWidget *parent)
-    : QDialog(parent)
-    , m_report(report)
+    : BResourceReportDialog(toResourceReport(report), parent)
 {
-    setWindowTitle(report.title);
-    auto *layout = new QVBoxLayout(this);
-
-    auto *header = new QHBoxLayout();
-    QStyle::StandardPixmap icon = QStyle::SP_MessageBoxWarning;
-    if (report.kind == BScheduleReport::Written)
-        icon = report.followups.isEmpty() ? QStyle::SP_MessageBoxInformation : QStyle::SP_MessageBoxWarning;
-    else if (report.kind == BScheduleReport::Failed || report.kind == BScheduleReport::Invalid)
-        icon = QStyle::SP_MessageBoxCritical;
-    auto *iconLabel = new QLabel(this);
-    const int iconSize = BUiScale::px(32);
-    iconLabel->setPixmap(style()->standardIcon(icon).pixmap(iconSize, iconSize));
-    iconLabel->setAlignment(Qt::AlignTop);
-    header->addWidget(iconLabel);
-    auto *texts = new QVBoxLayout();
-    auto *title = new QLabel(report.title, this);
-    title->setTextFormat(Qt::PlainText);
-    BUiScale::bind(title, BUiScale::Large, BUiScale::Bold);
-    texts->addWidget(title);
-    texts->addWidget(wrapped(report.text, this));
-    if (report.validatedOnly && report.kind != BScheduleReport::Written)
-        texts->addWidget(wrapped(tr("This was found when the Director checked the change; nothing was "
-                                    "sent to be written."), this));
-    header->addLayout(texts, 1);
-    layout->addLayout(header);
-
-    if (!report.directorMessage.isEmpty())
-        layout->addWidget(wrapped(tr("The Director says: %1").arg(report.directorMessage), this));
-
-    if (report.problem) {
-        auto *box = new QGroupBox(tr("Where the configuration is invalid"), this);
-        auto *boxLayout = new QVBoxLayout(box);
-        m_problem = wrapped(problemLine(report.problem), box);
-        BUiScale::bind(m_problem, BUiScale::Normal, BUiScale::Monospace);
-        boxLayout->addWidget(m_problem);
-        layout->addWidget(box);
-    }
-
-    if (!report.referencedBy.isEmpty()) {
-        auto *box = new QGroupBox(tr("Still referenced by"), this);
-        auto *boxLayout = new QVBoxLayout(box);
-        auto *list = new QListWidget(box);
-        list->setAccessibleName(tr("Still referenced by"));
-        for (const QString &ref : report.referencedBy)
-            new QListWidgetItem(ref, list);
-        boxLayout->addWidget(list);
-        layout->addWidget(box, 1);
-    }
-
-    if (!report.followups.isEmpty()) {
-        auto *box = new QGroupBox(tr("Follow-up commands the Director names"), this);
-        auto *boxLayout = new QVBoxLayout(box);
-        auto *list = new QListWidget(box);
-        BUiScale::bind(list, BUiScale::Normal, BUiScale::Monospace);
-        for (const QString &command : report.followups)
-            new QListWidgetItem(command, list);
-        boxLayout->addWidget(list);
-        boxLayout->addWidget(wrapped(tr("They are not run by this application."), box));
-        layout->addWidget(box, 1);
-    }
-
-    const bool offerReload = report.kind == BScheduleReport::Conflict
-                          || report.kind == BScheduleReport::FileDiffers;
-    if ((report.kind == BScheduleReport::Conflict || report.kind == BScheduleReport::FileDiffers)
-        && (!report.currentText.isEmpty() || !report.ourText.isEmpty())) {
-        auto *splitter = new QSplitter(Qt::Horizontal, this);
-        auto addText = [&](const QString &label, const QString &text) {
-            auto *box = new QGroupBox(label, splitter);
-            auto *boxLayout = new QVBoxLayout(box);
-            boxLayout->addWidget(textView(text, box));
-            splitter->addWidget(box);
-        };
-        addText(tr("On the Director now"), report.currentText);
-        if (!report.ourText.isEmpty())
-            addText(tr("What was to be written (not written)"), report.ourText);
-        layout->addWidget(splitter, 3);
-    }
-
-    auto *buttons = new QDialogButtonBox(this);
-    if (offerReload) {
-        m_reloadButton = buttons->addButton(tr("&Reload the schedule"), QDialogButtonBox::AcceptRole);
-        m_reloadButton->setToolTip(tr("Reads the schedule again from the Director; your changes are "
-                                      "offered to be kept or discarded"));
-        connect(m_reloadButton, &QPushButton::clicked, this, [this]() {
-            m_reload = true;
-            accept();
-        });
-    }
-    QPushButton *close = buttons->addButton(QDialogButtonBox::Close);
-    connect(close, &QPushButton::clicked, this, &QDialog::reject);
-    close->setDefault(true);
-    layout->addWidget(buttons);
-
-    resize(BUiScale::px(offerReload ? 900 : 560), BUiScale::px(offerReload ? 560 : 300));
 }
 
 // ============================================================================

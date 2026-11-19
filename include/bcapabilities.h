@@ -33,6 +33,12 @@ enum class Function {
     DeployFileSet,      ///< Send a FileSet with nested blocks to the Director
     DeleteSchedule,     ///< Delete a Schedule resource
     CreateSchedule,     ///< Create a Schedule resource (wizard)
+    ModifyJob,          ///< Write a change of an existing Job resource (Job Definitions)
+    DeleteJob,          ///< Delete a Job resource
+    CreateJob,          ///< Create a Job resource (CreateResource, else the wizard)
+    ModifyJobDefs,      ///< Write a change of an existing JobDefs resource
+    DeleteJobDefs,      ///< Delete a JobDefs resource
+    CreateJobDefs,      ///< Create a JobDefs resource (CreateResource, else the wizard)
 };
 
 /** What the Onesimus Director provides. */

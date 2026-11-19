@@ -497,6 +497,11 @@ set(SOURCES
     src/schedules/bschedulepersistence.cpp
     src/schedules/bschedulereviewdialog.cpp
     src/schedules/model/bscheduleresource.cpp
+    src/config/bresourcetext.cpp
+    src/config/bresourcepersistence.cpp
+    src/config/bresourcereviewdialog.cpp
+    src/jobs/bjobdefinitions.cpp
+    src/jobs/bjobdefinitionswidget.cpp
     src/schedules/model/brunparser.cpp
     src/schedules/model/brunwriter.cpp
     src/schedules/model/bscheduleoccurrences.cpp
@@ -627,6 +632,11 @@ set(HEADERS
     include/schedules/bschedulepersistence.h
     include/schedules/bschedulereviewdialog.h
     include/schedules/model/bscheduleresource.h
+    include/config/bresourcetext.h
+    include/config/bresourcepersistence.h
+    include/config/bresourcereviewdialog.h
+    include/jobs/bjobdefinitions.h
+    include/jobs/bjobdefinitionswidget.h
     include/director/bconfigtypes.h
     include/director/bconfigclient.h
     include/director/bdirectorconfigclient.h
@@ -1806,6 +1816,10 @@ if(BUILD_TESTING)
         src/schedules/bschedulepersistence.cpp
         src/schedules/bscheduledragplan.cpp
         src/schedules/model/bscheduleresource.cpp
+        src/config/bresourcetext.cpp
+        src/config/bresourcepersistence.cpp
+        include/config/bresourcetext.h
+        include/config/bresourcepersistence.h
         src/schedules/model/bschedulegridmodel.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
@@ -1837,6 +1851,88 @@ if(BUILD_TESTING)
     endif()
 
     add_test(NAME bschedulepersistence_test COMMAND bschedulepersistence_test)
+
+    # bresourcetext_test - the raw text of a resource: directives read,
+    # single directives changed, added and removed with every other line
+    # byte for byte (comments, unknown directives, nested blocks, CRLF),
+    # unsafe edits refused, the line diff of the review (no Director)
+    add_executable(bresourcetext_test
+        test/bresourcetext_test.cpp
+        src/config/bresourcetext.cpp
+        include/config/bresourcetext.h
+    )
+    target_include_directories(bresourcetext_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bresourcetext_test PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME bresourcetext_test COMMAND bresourcetext_test)
+
+    # bjobdefinitions_test - Job and JobDefs: values resolved over the JobDefs
+    # chain (here, inherited from which JobDefs, default, circles, missing
+    # JobDefs), the raw text as the judge of what is set here, who uses a
+    # JobDefs (no Director)
+    add_executable(bjobdefinitions_test
+        test/bjobdefinitions_test.cpp
+        src/jobs/bjobdefinitions.cpp
+        src/config/bresourcetext.cpp
+        include/jobs/bjobdefinitions.h
+        include/config/bresourcetext.h
+    )
+    target_include_directories(bjobdefinitions_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bjobdefinitions_test PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME bjobdefinitions_test COMMAND bjobdefinitions_test)
+
+    # bjobdefinitionswidget_test - the Job Definitions tab with a fake
+    # Director: save flow (check, review with diff and affected jobs, write)
+    # and every status, the raw text changed only where edited, delete
+    # refused while referenced, create and copy, BNET and missing ACLs
+    # read-only with nothing sent (widgets, no Director)
+    add_executable(bjobdefinitionswidget_test
+        test/bjobdefinitionswidget_test.cpp
+        test/bfakeconfigclient.h
+        src/jobs/bjobdefinitionswidget.cpp
+        src/jobs/bjobdefinitions.cpp
+        src/config/bresourcetext.cpp
+        src/config/bresourcepersistence.cpp
+        src/config/bresourcereviewdialog.cpp
+        src/bcapabilities.cpp
+        src/bheaderstate.cpp
+        src/config/bcolumnconfiguration.cpp
+        src/bstatuschip.cpp
+        src/bstatusdelegate.cpp
+        src/clients/bclientstatus.cpp
+        src/buiscale.cpp
+        src/config/bsettings.cpp
+        include/jobs/bjobdefinitionswidget.h
+        include/jobs/bjobdefinitions.h
+        include/config/bresourcetext.h
+        include/config/bresourcepersistence.h
+        include/config/bresourcereviewdialog.h
+        include/director/bconfigclient.h
+        include/director/bconfigtypes.h
+        include/bcapabilities.h
+        include/bheaderstate.h
+        include/config/bcolumnconfiguration.h
+        include/bstatuschip.h
+        include/bstatusdelegate.h
+        include/clients/bclientstatus.h
+        include/buiscale.h
+        include/config/bsettings.h
+    )
+    target_include_directories(bjobdefinitionswidget_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/test
+    )
+    target_link_libraries(bjobdefinitionswidget_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+    add_test(NAME bjobdefinitionswidget_test COMMAND bjobdefinitionswidget_test)
+    # Widgets need a QApplication; no display is used. The settings go to
+    # the build directory, never to those of the user (the test redirects
+    # them itself as well).
+    set_tests_properties(bjobdefinitionswidget_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/bjobdefinitionswidget_test_config")
 
     # bgrpcconnect_test - reaching the gRPC port: order of the resolved
     # addresses, the TLS probe per address against sockets on the loopback
@@ -2214,6 +2310,12 @@ if(BUILD_TESTING)
         include/director/bconfigclient.h
         src/schedules/bschedulereviewdialog.cpp
         src/schedules/model/bscheduleresource.cpp
+        src/config/bresourcetext.cpp
+        src/config/bresourcepersistence.cpp
+        src/config/bresourcereviewdialog.cpp
+        include/config/bresourcetext.h
+        include/config/bresourcepersistence.h
+        include/config/bresourcereviewdialog.h
         src/schedules/bjobscheduleindex.cpp
         src/schedules/bschedulegridaccessible.cpp
         src/schedules/bschedulegriddialogs.cpp

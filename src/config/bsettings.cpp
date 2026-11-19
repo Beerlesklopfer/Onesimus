@@ -844,6 +844,36 @@ void BSettings::setJobsHeaderScale(int pixelsPer1000)
     setValue("Widgets/Jobs/header_scale", pixelsPer1000);
 }
 
+QByteArray BSettings::jobDefinitionsHeaderState() const
+{
+    return value("Widgets/JobDefinitions/header_state").toByteArray();
+}
+
+void BSettings::setJobDefinitionsHeaderState(const QByteArray& state)
+{
+    setValue("Widgets/JobDefinitions/header_state", state);
+}
+
+int BSettings::jobDefinitionsHeaderScale() const
+{
+    return value("Widgets/JobDefinitions/header_scale", 0).toInt();
+}
+
+void BSettings::setJobDefinitionsHeaderScale(int pixelsPer1000)
+{
+    setValue("Widgets/JobDefinitions/header_scale", pixelsPer1000);
+}
+
+QByteArray BSettings::jobDefinitionsSplitterState() const
+{
+    return value("Widgets/JobDefinitions/splitter_state").toByteArray();
+}
+
+void BSettings::setJobDefinitionsSplitterState(const QByteArray& state)
+{
+    setValue("Widgets/JobDefinitions/splitter_state", state);
+}
+
 QByteArray BSettings::schedulesSplitterState() const
 {
     return value("Widgets/Schedules/splitter_state").toByteArray();

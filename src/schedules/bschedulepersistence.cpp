@@ -6,22 +6,27 @@
 #include "schedules/bschedulepersistence.h"
 
 #include "schedules/model/bschedulegridmodel.h"
+#include "config/bresourcepersistence.h"
+
+// A schedule report is a resource report with the schedule's own fields:
+// the kinds and operations are the same, in the same order
+static_assert(int(BScheduleReport::Written) == int(BResourceReport::Written)
+              && int(BScheduleReport::Locked) == int(BResourceReport::Locked)
+              && int(BScheduleReport::NotAvailable) == int(BResourceReport::NotAvailable)
+              && int(BScheduleReport::Failed) == int(BResourceReport::Failed),
+              "BScheduleReport::Kind follows BResourceReport::Kind");
+static_assert(int(BScheduleReview::Update) == int(BResourceReview::Update)
+              && int(BScheduleReview::Create) == int(BResourceReview::Create)
+              && int(BScheduleReview::Delete) == int(BResourceReview::Delete),
+              "BScheduleReview::Operation follows BResourceReview::Operation");
 
 namespace {
 
 using Operation = BScheduleReview::Operation;
 
-QString refText(const BConfig::ResourceRef &ref)
-{
-    return QStringLiteral("%1 %2").arg(BConfig::typeName(ref.type), ref.name);
-}
-
 QStringList refTexts(const QList<BConfig::ResourceRef> &refs)
 {
-    QStringList texts;
-    for (const BConfig::ResourceRef &ref : refs)
-        texts.append(refText(ref));
-    return texts;
+    return BResourcePersistence::refTexts(refs);
 }
 
 } // namespace
@@ -391,87 +396,21 @@ bool BSchedulePersistence::createSchedule(const QString &scheduleName, const QSt
 BScheduleReport BSchedulePersistence::reportOf(const BConfig::Reply &reply, Operation operation,
                                                const QString &name) const
 {
+    // The status texts are those of every resource (BResourcePersistence)
+    const BResourceReport generic = BResourcePersistence::reportOf(
+        reply, BResourceReview::Operation(int(operation)), BConfig::ResourceType::Schedule, name);
     BScheduleReport report;
+    report.kind = BScheduleReport::Kind(int(generic.kind));
     report.operation = operation;
     report.scheduleName = name;
-    report.directorMessage = reply.message;
-    report.problem = reply.problem;
-    report.referencedBy = refTexts(reply.referencedBy);
-    report.followups = reply.followups;
-    report.reloaded = reply.reloaded;
-
-    const QString notDone = operation == Operation::Create ? tr("Schedule %1 was not created").arg(name)
-                          : operation == Operation::Delete ? tr("Schedule %1 was not deleted").arg(name)
-                                                           : tr("Schedule %1 was not changed").arg(name);
-    report.title = notDone;
-
-    switch (reply.status) {
-    case BConfig::Status::Ok:
-        report.kind = BScheduleReport::Written;
-        report.title = operation == Operation::Create ? tr("Schedule %1 created").arg(name)
-                     : operation == Operation::Delete ? tr("Schedule %1 deleted").arg(name)
-                                                      : tr("Schedule %1 changed").arg(name);
-        report.text = reply.reloaded
-            ? tr("The Director wrote the configuration and reloaded it.")
-            : tr("The Director wrote the configuration but did not report a reload; the change takes "
-                 "effect with its next reload.");
-        if (!reply.followups.isEmpty())
-            report.text += QLatin1Char(' ') + tr("The reload does not adjust everything; the Director names "
-                                                 "these follow-up commands:");
-        break;
-    case BConfig::Status::Conflict:
-        report.kind = BScheduleReport::Conflict;
-        report.title = tr("Schedule %1 was changed on the Director").arg(name);
-        report.text = tr("The Director has another state of the schedule than the one this change "
-                         "started from. Nothing was written and nothing is overwritten. Compare the "
-                         "two texts, reload the schedule and make the change again.");
-        report.currentText = reply.text;
-        break;
-    case BConfig::Status::Invalid:
-        report.kind = BScheduleReport::Invalid;
-        report.text = tr("The Director checked the new configuration and rejected it. Nothing was written.");
-        break;
-    case BConfig::Status::Referenced:
-        report.kind = BScheduleReport::Referenced;
-        report.text = tr("The schedule is still used. The Director does not delete a schedule that other "
-                         "resources name; change them first. Nothing was deleted.");
-        break;
-    case BConfig::Status::Denied:
-        report.kind = BScheduleReport::Denied;
-        report.text = tr("The console of this session may not change this schedule (its Schedule ACL). "
-                         "Nothing was written.");
-        break;
-    case BConfig::Status::NotFound:
-        report.kind = BScheduleReport::NotFound;
-        report.text = tr("The Director has no schedule of this name (any more). Nothing was written.");
-        break;
-    case BConfig::Status::Exists:
-        report.kind = BScheduleReport::Exists;
-        report.text = tr("The Director already has a resource of this name. Nothing was written.");
-        break;
-    case BConfig::Status::ReloadFailed:
-        report.kind = BScheduleReport::ReloadFailed;
-        report.text = tr("The Director wrote the file, but reloading the configuration failed, so it put "
-                         "the old file back. The schedule is as it was.");
-        break;
-    case BConfig::Status::NotAvailable:
-        report.kind = BScheduleReport::NotAvailable;
-        report.text = reply.rpcMessage.isEmpty()
-            ? tr("This connection has no configuration methods. Nothing was sent.")
-            : reply.rpcMessage;
-        break;
-    case BConfig::Status::RpcError:
-        report.kind = BScheduleReport::Failed;
-        report.text = reply.rpcCode == 7
-            ? tr("The Director refused the call (%1). The console needs the command ACL \"configure\".")
-                  .arg(reply.rpcMessage)
-            : tr("The call failed (%1). Nothing was written.").arg(reply.rpcMessage);
-        break;
-    case BConfig::Status::Unspecified:
-        report.kind = BScheduleReport::Failed;
-        report.text = tr("The Director sent no status. Nothing is known to have been written.");
-        break;
-    }
+    report.title = generic.title;
+    report.text = generic.text;
+    report.directorMessage = generic.directorMessage;
+    report.problem = generic.problem;
+    report.currentText = generic.currentText;
+    report.referencedBy = generic.referencedBy;
+    report.followups = generic.followups;
+    report.reloaded = generic.reloaded;
     return report;
 }
 

@@ -197,7 +197,7 @@ void BCapabilitiesTest::describeServer()
 void BCapabilitiesTest::tableIsComplete()
 {
     const QList<Function> functions = allFunctions();
-    QCOMPARE(functions.size(), 5);
+    QCOMPARE(functions.size(), 11);
 
     QSet<QString> ids;
     for (Function function : functions) {
@@ -210,7 +210,7 @@ void BCapabilitiesTest::tableIsComplete()
         QCOMPARE(QString::fromLatin1(row->reason).count(QStringLiteral("%1")), 1);
         ids.insert(QString::fromLatin1(row->id));
     }
-    QCOMPARE(ids.size(), 5);
+    QCOMPARE(ids.size(), 11);
 
     // The identifiers are settings keys and must not change
     QCOMPARE(QString::fromLatin1(entry(Function::ModifySchedule)->id),
@@ -223,6 +223,12 @@ void BCapabilitiesTest::tableIsComplete()
              QStringLiteral("schedule.delete"));
     QCOMPARE(QString::fromLatin1(entry(Function::CreateSchedule)->id),
              QStringLiteral("schedule.create"));
+    QCOMPARE(QString::fromLatin1(entry(Function::ModifyJob)->id), QStringLiteral("job.modify"));
+    QCOMPARE(QString::fromLatin1(entry(Function::DeleteJob)->id), QStringLiteral("job.delete"));
+    QCOMPARE(QString::fromLatin1(entry(Function::CreateJob)->id), QStringLiteral("job.create"));
+    QCOMPARE(QString::fromLatin1(entry(Function::ModifyJobDefs)->id), QStringLiteral("jobdefs.modify"));
+    QCOMPARE(QString::fromLatin1(entry(Function::DeleteJobDefs)->id), QStringLiteral("jobdefs.delete"));
+    QCOMPARE(QString::fromLatin1(entry(Function::CreateJobDefs)->id), QStringLiteral("jobdefs.create"));
 
     // What the two Directors provide
     QCOMPARE(entry(Function::ModifySchedule)->bareos, false);
@@ -239,6 +245,17 @@ void BCapabilitiesTest::tableIsComplete()
     QCOMPARE(entry(Function::PurgeAllVolumes)->onesimus, Support::No);
     QCOMPARE(entry(Function::DeployFileSet)->bareos, false);
     QCOMPARE(entry(Function::DeployFileSet)->onesimus, Support::Planned);
+    // Job definitions: change and delete over gRPC only, create everywhere
+    for (Function function : {Function::ModifyJob, Function::DeleteJob, Function::ModifyJobDefs,
+                              Function::DeleteJobDefs}) {
+        QCOMPARE(entry(function)->bareos, false);
+        QCOMPARE(entry(function)->onesimus, Support::Live);
+    }
+    QCOMPARE(entry(Function::ModifyJob)->liveType, BConfig::ResourceType::Job);
+    QCOMPARE(entry(Function::ModifyJobDefs)->liveType, BConfig::ResourceType::JobDefs);
+    QCOMPARE(entry(Function::DeleteJobDefs)->liveOperation, BConfig::Operation::Delete);
+    QCOMPARE(entry(Function::CreateJob)->bareos, true);
+    QCOMPARE(entry(Function::CreateJobDefs)->liveOperation, BConfig::Operation::CreateRaw);
 }
 
 void BCapabilitiesTest::lookup_data()
@@ -315,6 +332,16 @@ void BCapabilitiesTest::liveCapabilitiesDecideOverGrpc()
     // ... creating still works, with "configure add"
     QVERIFY(isAvailable(Function::CreateSchedule, noSchedule));
     QVERIFY(noticeOf(Function::ModifySchedule, noSchedule).contains(QStringLiteral("\"configure\"")));
+    // Job definitions follow the types the session lists: Job yes, JobDefs no
+    QVERIFY(isAvailable(Function::ModifyJob, noSchedule));
+    QVERIFY(!isAvailable(Function::DeleteJob, noSchedule));
+    QVERIFY(!isAvailable(Function::ModifyJobDefs, noSchedule));
+    QVERIFY(!usesConfigMethod(Function::CreateJob, noSchedule));
+    QVERIFY(isAvailable(Function::CreateJobDefs, noSchedule));   // the wizard, "configure add"
+    QVERIFY(!isAvailable(Function::ModifyJob, BCapabilities::describeServer(
+                             Connection::Classic, QStringLiteral("25.2.1"), jobsOnly)));
+    QVERIFY(!isAvailable(Function::ModifyJobDefs, BCapabilities::describeServer(
+                             Connection::Classic, QStringLiteral("25.1.2+onesimus.0.3.0"), crud)));
 
     // Update listed, delete not
     BConfig::Capabilities updateOnly;

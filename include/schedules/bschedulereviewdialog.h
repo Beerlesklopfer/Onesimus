@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QPointer>
 
+#include "config/bresourcereviewdialog.h"
 #include "schedules/bschedulepersistence.h"
 
 class QDialogButtonBox;
@@ -58,29 +59,20 @@ private:
 /**
  * @brief What came of a write: success with follow-ups, or why not
  *
- * A conflict shows the text the Director has next to the text that was to
- * be written and offers "Reload"; nothing is ever written from here. An
- * invalid configuration names file, line and column.
+ * The report dialog of every resource (BResourceReportDialog) for a
+ * schedule: a conflict shows the text the Director has next to the text
+ * that was to be written and offers "Reload"; nothing is ever written from
+ * here. An invalid configuration names file, line and column.
  */
-class BScheduleReportDialog : public QDialog
+class BScheduleReportDialog : public BResourceReportDialog
 {
     Q_OBJECT
 
 public:
     explicit BScheduleReportDialog(const BScheduleReport &report, QWidget *parent = nullptr);
 
-    bool reloadChosen() const { return m_reload; }
-    QPushButton *reloadButton() const { return m_reloadButton; }
-    QString problemText() const;
-
-    /// "File ..., line 3, column 11: ..." or empty
-    static QString problemLine(const std::optional<BConfig::Problem> &problem);
-
-private:
-    BScheduleReport m_report;
-    bool m_reload = false;
-    QPushButton *m_reloadButton = nullptr;
-    QLabel *m_problem = nullptr;
+    /// The report of every resource for a schedule report
+    static BResourceReport toResourceReport(const BScheduleReport &report);
 };
 
 /**

@@ -25,6 +25,7 @@ class BJobWidget;
 class BClientsWidget;
 class StorageWidget;
 class BScheduleWidget;
+class BJobDefinitionsWidget;
 class BJobsStatisticsWidget;
 class QTabWidget;
 class QLabel;
@@ -148,6 +149,7 @@ private:
     BClientsWidget *m_clientWidget;
     StorageWidget *m_storageWidget;
     BScheduleWidget *m_scheduleWidget;
+    BJobDefinitionsWidget *m_jobDefinitionsWidget = nullptr;   ///< Job and JobDefs resources (P3-18)
 
     // Dock Widgets
     QDockWidget *m_statisticsDock;

@@ -6,11 +6,13 @@
 // SHA-256 over the exact text, CONFLICT with the current text and SHA-256
 // when expected_sha256 does not match (also when it is empty),
 // validate_only writes nothing, REFERENCED for a schedule a job names,
-// EXISTS for a name that is taken. Every request is recorded; intercept
+// EXISTS for a name that is taken (any type: the keys are names). Every
+// request is recorded; intercept
 // can answer a request with any reply instead. Nothing leaves the process.
 
 #include <QHash>
 #include <QPointer>
+#include <QRegularExpression>
 #include <QTimer>
 
 #include <functional>
@@ -44,6 +46,16 @@ public:
     void setCapabilities(const BConfig::Capabilities &capabilities)
     {
         caps = capabilities;
+        emit capabilitiesChanged(caps);
+    }
+
+    /// Lets the session read, create, change and delete resources of @p type
+    void allow(BConfig::ResourceType type,
+               const QSet<int> &operations = {int(BConfig::Operation::ReadRaw), int(BConfig::Operation::CreateRaw),
+                                              int(BConfig::Operation::UpdateRaw), int(BConfig::Operation::Delete)})
+    {
+        caps.known = true;
+        caps.operations[int(type)] = operations;
         emit capabilitiesChanged(caps);
     }
 
@@ -148,10 +160,13 @@ private:
             return reply;
         }
         case BConfig::Request::Create: {
-            // The name of the text
-            const int at = request.text.indexOf(QStringLiteral("Name = \""));
-            const int end = at >= 0 ? request.text.indexOf(QLatin1Char('"'), at + 8) : -1;
-            const QString created = end > at ? request.text.mid(at + 8, end - at - 8) : QString();
+            // The name of the text, quoted or not
+            static const QRegularExpression nameRx(
+                QStringLiteral("^\\s*Name\\s*=\\s*(?:\"([^\"]*)\"|([^\\s;#]+))"),
+                QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
+            const QRegularExpressionMatch nameMatch = nameRx.match(request.text);
+            const QString created = nameMatch.hasMatch()
+                ? (nameMatch.capturedStart(1) >= 0 ? nameMatch.captured(1) : nameMatch.captured(2)) : QString();
             if (files.contains(created))
                 return withText(BConfig::Status::Exists, created, QString());
             BConfig::Reply reply = withText(BConfig::Status::Ok, created, request.text);

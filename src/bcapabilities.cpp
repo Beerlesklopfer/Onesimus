@@ -96,6 +96,95 @@ const Entry Table[] = {
         BConfig::ResourceType::Schedule,
         BConfig::Operation::CreateRaw,
     },
+    // Job definitions (backlog P3-18): the same as schedules. Changing and
+    // deleting need the configuration methods over gRPC; creating works
+    // everywhere with "configure add" (the job wizard), and through
+    // CreateResource where the session lists it.
+    {
+        Function::ModifyJob,
+        "job.modify",
+        QT_TRANSLATE_NOOP("BCapabilities", "Change an existing job"),
+        false,
+        Support::Live,
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "%1 cannot change an existing job on this connection: that needs the "
+                          "configuration methods of the gRPC interface of the Onesimus Director "
+                          "(onesimus-dird)."),
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "Nothing was changed. A job can also be changed in its configuration "
+                          "file on the Director."),
+        BConfig::ResourceType::Job,
+        BConfig::Operation::UpdateRaw,
+    },
+    {
+        Function::DeleteJob,
+        "job.delete",
+        QT_TRANSLATE_NOOP("BCapabilities", "Delete a job"),
+        false,
+        Support::Live,
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "%1 cannot delete a job on this connection: that needs the configuration "
+                          "methods of the gRPC interface of the Onesimus Director (onesimus-dird)."),
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "Nothing was deleted. A job can also be removed from the configuration "
+                          "files on the Director."),
+        BConfig::ResourceType::Job,
+        BConfig::Operation::Delete,
+    },
+    {
+        Function::CreateJob,
+        "job.create",
+        QT_TRANSLATE_NOOP("BCapabilities", "Create a job"),
+        true,
+        Support::Yes,
+        QT_TRANSLATE_NOOP("BCapabilities", "%1 cannot create a job."),
+        nullptr,
+        BConfig::ResourceType::Job,
+        BConfig::Operation::CreateRaw,
+    },
+    {
+        Function::ModifyJobDefs,
+        "jobdefs.modify",
+        QT_TRANSLATE_NOOP("BCapabilities", "Change an existing JobDefs"),
+        false,
+        Support::Live,
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "%1 cannot change an existing JobDefs on this connection: that needs the "
+                          "configuration methods of the gRPC interface of the Onesimus Director "
+                          "(onesimus-dird)."),
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "Nothing was changed. A JobDefs can also be changed in its configuration "
+                          "file on the Director."),
+        BConfig::ResourceType::JobDefs,
+        BConfig::Operation::UpdateRaw,
+    },
+    {
+        Function::DeleteJobDefs,
+        "jobdefs.delete",
+        QT_TRANSLATE_NOOP("BCapabilities", "Delete a JobDefs"),
+        false,
+        Support::Live,
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "%1 cannot delete a JobDefs on this connection: that needs the "
+                          "configuration methods of the gRPC interface of the Onesimus Director "
+                          "(onesimus-dird)."),
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "Nothing was deleted. A JobDefs can also be removed from the configuration "
+                          "files on the Director."),
+        BConfig::ResourceType::JobDefs,
+        BConfig::Operation::Delete,
+    },
+    {
+        Function::CreateJobDefs,
+        "jobdefs.create",
+        QT_TRANSLATE_NOOP("BCapabilities", "Create a JobDefs"),
+        true,
+        Support::Yes,
+        QT_TRANSLATE_NOOP("BCapabilities", "%1 cannot create a JobDefs."),
+        nullptr,
+        BConfig::ResourceType::JobDefs,
+        BConfig::Operation::CreateRaw,
+    },
 };
 
 QString translated(const char *text)

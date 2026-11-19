@@ -6,81 +6,18 @@
 
 #include "schedules/model/bscheduleresource.h"
 
+#include "config/bresourcetext.h"
+
 #include <QHash>
 #include <QRegularExpression>
 
 namespace {
 
-/// Where the comment of a line starts (# or // outside quotes); -1 if none
-int commentStart(const QString &line)
-{
-    bool inQuote = false;
-    for (int i = 0; i < line.size(); ++i) {
-        const QChar c = line[i];
-        if (inQuote) {
-            if (c == QLatin1Char('\\'))
-                ++i;
-            else if (c == QLatin1Char('"'))
-                inQuote = false;
-            continue;
-        }
-        if (c == QLatin1Char('"'))
-            inQuote = true;
-        else if (c == QLatin1Char('#'))
-            return i;
-        else if (c == QLatin1Char('/') && i + 1 < line.size() && line[i + 1] == QLatin1Char('/'))
-            return i;
-    }
-    return -1;
-}
-
-/// The line without its line end
-QString body(const QString &line)
-{
-    QString text = line;
-    if (text.endsWith(QLatin1Char('\n')))
-        text.chop(1);
-    if (text.endsWith(QLatin1Char('\r')))
-        text.chop(1);
-    return text;
-}
-
-/// The text of a line outside quotes, with quoted parts blanked (to look
-/// for keywords without matching inside a value)
-QString unquotedPart(const QString &line)
-{
-    QString out = line;
-    bool inQuote = false;
-    for (int i = 0; i < out.size(); ++i) {
-        const QChar c = out[i];
-        if (inQuote) {
-            if (c == QLatin1Char('\\') && i + 1 < out.size()) {
-                out[i] = QLatin1Char(' ');
-                out[++i] = QLatin1Char(' ');
-                continue;
-            }
-            if (c == QLatin1Char('"'))
-                inQuote = false;
-            else
-                out[i] = QLatin1Char(' ');
-            continue;
-        }
-        if (c == QLatin1Char('"'))
-            inQuote = true;
-    }
-    return out;
-}
-
-QString unescape(const QString &quotedBody)
-{
-    QString out;
-    for (int i = 0; i < quotedBody.size(); ++i) {
-        if (quotedBody[i] == QLatin1Char('\\') && i + 1 < quotedBody.size())
-            ++i;
-        out.append(quotedBody[i]);
-    }
-    return out;
-}
+// The lexical helpers are those of every resource text (BResourceText)
+int commentStart(const QString &line) { return BResourceText::commentStart(line); }
+QString body(const QString &line) { return BResourceText::lineBody(line); }
+QString unquotedPart(const QString &line) { return BResourceText::unquotedPart(line); }
+QString unescape(const QString &quotedBody) { return BResourceText::unescape(quotedBody); }
 
 /// Everything of the text that is not a Run line, for the check after a rewrite
 QString withoutRunLines(const BScheduleResource::Parsed &parsed)
@@ -100,10 +37,7 @@ QString withoutRunLines(const BScheduleResource::Parsed &parsed)
 
 QString BScheduleResource::quoted(const QString &value)
 {
-    QString escaped = value;
-    escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
-    escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
-    return QLatin1Char('"') + escaped + QLatin1Char('"');
+    return BResourceText::quoted(value);
 }
 
 BScheduleResource::Parsed BScheduleResource::parse(const QString &text)
