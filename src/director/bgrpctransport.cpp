@@ -7,6 +7,7 @@
  */
 
 #include "director/bgrpctransport.h"
+#include "director/bgrpcconnect.h"
 #include "director/bjobpushmessage.h"
 #include "blogging.h"
 
@@ -34,9 +35,11 @@ using namespace std::chrono_literals;
 
 namespace {
 
-constexpr auto PreflightTimeout = 10s;
 constexpr auto LoginTimeout = 15s;
 constexpr auto CommandTimeout = 5min;  // restore/estimate can take a while
+
+// The gRPC package of the generated Director client (proto/director_service.proto)
+const QString ServicePackage = QStringLiteral("bareos.director");
 
 const QByteArray SessionHeader = QByteArrayLiteral("x-onesimus-session");
 const int MaxKnownJobNames = 512;      // job names remembered for parsing job messages
@@ -65,6 +68,11 @@ QString BGrpcTransport::certificateFingerprint(const QSslCertificate &cert)
 {
     return QString::fromLatin1(
         QCryptographicHash::hash(cert.toDer(), QCryptographicHash::Sha256).toHex());
+}
+
+QString BGrpcTransport::statusText(const QGrpcStatus &status, std::chrono::seconds deadline)
+{
+    return BGrpcConnect::failureText(int(status.code()), status.message(), int(deadline.count()));
 }
 
 QString BGrpcTransport::loginProof(const QString &password, const QString &nonce)
@@ -106,38 +114,34 @@ void BGrpcTransport::open(const QString &host, int port, const QString &consoleN
 
     // Pre-flight handshake: QGrpcHttp2Channel has no hook to inspect the peer
     // certificate, so we fetch it here and compare it against the pinned one.
+    // The probe tries every address of the host name (IPv4 first) and the
+    // channel then connects to the address that answered: a name with an
+    // IPv6 address that is not reachable must not hang the login.
     const quint64 gen = m_generation;
-    m_preflight = new QSslSocket(this);
-    QSslConfiguration ssl = m_preflight->sslConfiguration();
-    ssl.setPeerVerifyMode(QSslSocket::VerifyNone);  // self-signed; trust is the pin
-    m_preflight->setSslConfiguration(ssl);
-
-    connect(m_preflight, &QSslSocket::encrypted, this, &BGrpcTransport::preflightDone);
-    connect(m_preflight, &QSslSocket::errorOccurred, this, [this, gen](QAbstractSocket::SocketError) {
-        if (gen != m_generation || !m_preflight) {
-            return;
-        }
-        fail(tr("Cannot reach gRPC endpoint %1:%2: %3")
-                 .arg(m_host).arg(m_port).arg(m_preflight->errorString()));
-    });
-    QTimer::singleShot(PreflightTimeout, this, [this, gen]() {
-        if (gen == m_generation && m_preflight) {
-            fail(tr("Timeout connecting to gRPC endpoint %1:%2").arg(m_host).arg(m_port));
+    m_probe = new BGrpcAddressProbe(this);
+    connect(m_probe, &BGrpcAddressProbe::succeeded, this,
+            [this, gen](const QHostAddress &address, const QSslCertificate &cert) {
+        if (gen == m_generation && m_probe) {
+            preflightDone(address, cert);
         }
     });
-
-    m_preflight->connectToHostEncrypted(host, quint16(port));
+    connect(m_probe, &BGrpcAddressProbe::failed, this, [this, gen](const QString &reason) {
+        if (gen == m_generation && m_probe) {
+            fail(reason);
+        }
+    });
+    m_probe->start(host, quint16(port));
 }
 
-void BGrpcTransport::preflightDone()
+void BGrpcTransport::preflightDone(const QHostAddress &address, const QSslCertificate &cert)
 {
-    const QSslCertificate cert = m_preflight->peerCertificate();
-    m_preflight->abort();
-    m_preflight->deleteLater();
-    m_preflight = nullptr;
+    if (m_probe) {
+        m_probe->deleteLater();
+        m_probe = nullptr;
+    }
 
     const QString fingerprint = certificateFingerprint(cert);
-    BLOG_DEBUG() << "gRPC: server certificate SHA-256" << fingerprint;
+    BLOG_DEBUG() << "gRPC: server certificate SHA-256" << fingerprint << "at" << address.toString();
 
     if (cert.isNull() || fingerprint != m_pinnedFingerprint) {
         BLOG_WARNING() << "gRPC: certificate not trusted (pinned:"
@@ -159,13 +163,8 @@ void BGrpcTransport::preflightDone()
     QGrpcChannelOptions options;
     options.setSslConfiguration(ssl);
 
-    QUrl url;
-    url.setScheme("https");
-    url.setHost(m_host);
-    url.setPort(m_port);
-
     m_client = std::make_unique<Director::Client>();
-    m_client->attachChannel(std::make_shared<QGrpcHttp2Channel>(url, options));
+    m_client->attachChannel(std::make_shared<QGrpcHttp2Channel>(BGrpcConnect::channelUrl(m_host, m_port, address), options));
 
     startLogin();
 }
@@ -186,7 +185,10 @@ void BGrpcTransport::startLogin()
             return;
         }
         if (!status.isOk()) {
-            fail(tr("gRPC login failed: %1").arg(status.message()));
+            fail(tr("gRPC login failed: %1")
+                     .arg(BGrpcConnect::loginFailureText(int(status.code()), status.message(),
+                                                         int(std::chrono::seconds(LoginTimeout).count()),
+                                                         ServicePackage)));
             return;
         }
         const auto challenge = reply->read<ChallengeResponse>();
@@ -216,7 +218,10 @@ void BGrpcTransport::sendLogin(const QString &nonce)
             return;
         }
         if (!status.isOk()) {
-            fail(tr("gRPC login failed: %1").arg(status.message()));
+            fail(tr("gRPC login failed: %1")
+                     .arg(BGrpcConnect::loginFailureText(int(status.code()), status.message(),
+                                                         int(std::chrono::seconds(LoginTimeout).count()),
+                                                         ServicePackage)));
             return;
         }
         const auto response = reply->read<LoginResponse>();
@@ -305,7 +310,7 @@ void BGrpcTransport::openPushStream()
         }
         BLOG_DEBUG() << "gRPC: push stream finished:" << status.message();
         if (!status.isOk() && status.code() != QtGrpc::StatusCode::Cancelled) {
-            const QString reason = status.message();
+            const QString reason = statusText(status, std::chrono::seconds(0));
             close();
             emit connectionLost(reason);
         }
@@ -318,10 +323,10 @@ void BGrpcTransport::close()
     ++m_generation;
     m_jobNames.clear();
 
-    if (m_preflight) {
-        m_preflight->abort();
-        m_preflight->deleteLater();
-        m_preflight = nullptr;
+    if (m_probe) {
+        m_probe->abort();
+        m_probe->deleteLater();
+        m_probe = nullptr;
     }
     // close() may run inside a reply/stream callback of this channel:
     // destroy the stream and client deferred, not synchronously
@@ -405,10 +410,10 @@ void BGrpcTransport::sendNext()
                 emit commandFinished(commandLine, false, QString(), tr("Invalid response"));
             }
         } else {
-            emit commandFinished(commandLine, false, QString(), status.message());
+            const QString reason = statusText(status, CommandTimeout);
+            emit commandFinished(commandLine, false, QString(), reason);
             if (status.code() == QtGrpc::StatusCode::Unavailable
                 || status.code() == QtGrpc::StatusCode::Unauthenticated) {
-                const QString reason = status.message();
                 close();
                 emit connectionLost(reason);
                 return;

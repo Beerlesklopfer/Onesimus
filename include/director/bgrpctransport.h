@@ -7,10 +7,13 @@
 #include <QHash>
 #include <QPointer>
 #include <QSslCertificate>
+#include <QHostAddress>
+#include <chrono>
 #include <memory>
 
-class QSslSocket;
 class QGrpcBidiStream;
+class QGrpcStatus;
+class BGrpcAddressProbe;
 
 namespace bareos::director::Director {
 class Client;
@@ -26,10 +29,11 @@ class Client;
  *
  * Connection sequence:
  * @code
- *   pre-flight TLS handshake (QSslSocket) -> SHA-256 fingerprint
+ *   resolve host, TLS probe per address, IPv4 first (BGrpcAddressProbe)
+ *        │   first address that completes the handshake -> SHA-256 fingerprint
  *        │   mismatch / not yet pinned -> certificateNotTrusted()
  *        ▼
- *   QGrpcHttp2Channel (https://host:grpcPort)
+ *   QGrpcHttp2Channel (https://<that address>:grpcPort)
  *        ▼
  *   GetChallenge(console) -> nonce
  *        ▼
@@ -75,6 +79,9 @@ public:
     /// SHA-256 fingerprint (lowercase hex) of a certificate's DER encoding
     static QString certificateFingerprint(const QSslCertificate &cert);
 
+    /// "CODE: reason" of a failed call (BGrpcConnect::failureText())
+    static QString statusText(const QGrpcStatus &status, std::chrono::seconds deadline);
+
     /// Login proof: hex HMAC-SHA256(key = md5 hex of password, nonce)
     static QString loginProof(const QString &password, const QString &nonce);
 
@@ -103,7 +110,7 @@ signals:
     void connectionLost(const QString &reason);
 
 private:
-    void preflightDone();
+    void preflightDone(const QHostAddress &address, const QSslCertificate &cert);
     void startLogin();
     void sendLogin(const QString &nonce);
     void openPushStream();
@@ -116,7 +123,7 @@ private:
     QString m_password;
     QString m_pinnedFingerprint;
 
-    QPointer<QSslSocket> m_preflight;
+    QPointer<BGrpcAddressProbe> m_probe;
     std::unique_ptr<bareos::director::Director::Client> m_client;
     std::unique_ptr<QGrpcBidiStream> m_pushStream;
 

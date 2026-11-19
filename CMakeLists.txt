@@ -778,6 +778,8 @@ if(HAVE_GRPC)
     target_sources(${PROJECT_NAME} PRIVATE
         src/director/bgrpctransport.cpp
         include/director/bgrpctransport.h
+        src/director/bgrpcconnect.cpp
+        include/director/bgrpcconnect.h
     )
     target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_grpc_proto)
 endif()
@@ -1140,6 +1142,8 @@ if(HAVE_GRPC)
     target_sources(bareosdirector_lib PRIVATE
         src/director/bgrpctransport.cpp
         include/director/bgrpctransport.h
+        src/director/bgrpcconnect.cpp
+        include/director/bgrpcconnect.h
     )
     target_link_libraries(bareosdirector_lib PUBLIC onesimus_grpc_proto)
 endif()
@@ -1524,6 +1528,27 @@ if(BUILD_TESTING)
     # The widget's translation unit needs a QApplication; no display is used
     set_tests_properties(bmessagesmodel_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+    # bgrpcconnect_test - reaching the gRPC port: order of the resolved
+    # addresses, the TLS probe per address against sockets on the loopback
+    # interface, the texts of failed calls (no Director)
+    add_executable(bgrpcconnect_test
+        test/bgrpcconnect_test.cpp
+        src/director/bgrpcconnect.cpp
+        include/director/bgrpcconnect.h
+    )
+
+    target_include_directories(bgrpcconnect_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bgrpcconnect_test PRIVATE
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+    )
+
+    add_test(NAME bgrpcconnect_test COMMAND bgrpcconnect_test)
+
     # bcapabilities_test - capability table, server detection from the login
     # data, notice texts and the rules for showing a notice (no widgets)
     add_executable(bcapabilities_test
@@ -1899,6 +1924,7 @@ if(BUILD_TESTING)
     message(STATUS "  bscheduletimeline_test - schedule timeline test: drop without command, unused schedules, offscreen (registered with CTest)")
     message(STATUS "  bscheduleoccurrences_test - schedule run dates and overlap test (registered with CTest)")
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
+    message(STATUS "  bgrpcconnect_test - gRPC address order, TLS probe and failure text test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
     message(STATUS "  bschedulewaitmodel_test - predicted waiting time of scheduled runs test (registered with CTest)")
