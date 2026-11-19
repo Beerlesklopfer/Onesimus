@@ -162,6 +162,8 @@ private slots:
     // --- The flow ---
     void gridEditIsCheckedConfirmedAndWritten();
     void declinedReviewWritesNothing();
+    void editedTextIsCheckedAndShownAgain();
+    void editedTextMustKeepTheName();
     void conflictOnCheckIsNotOverwritten();
     void conflictOnWriteIsNeverRetried();
     void conflictWithTheStateWhenEditingBegan();
@@ -448,6 +450,57 @@ void BSchedulePersistenceTest::declinedReviewWritesNothing()
     QCOMPARE(f.client.files.value(QStringLiteral("WeeklyCycle")), kRaw);
     QVERIFY(f.ui.reports.isEmpty());   // no dialog for "you said no"
     QCOMPARE(f.reload.size(), 0);
+}
+
+void BSchedulePersistenceTest::editedTextIsCheckedAndShownAgain()
+{
+    Flow f;
+    BScheduleGridModel model;
+    const QList<BScheduleResource::Line> lines = movedThirdLine(model);
+    QVERIFY(!lines.isEmpty());
+    // The editor shows LF; the user turns 21:30 into 21:35
+    QString shown = QString(kRaw).replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    shown.replace(QStringLiteral("  Run = \"Incremental mon-fri at 21:00\""),
+                  QStringLiteral("  Run = \"Level=Incremental mon-fri at 21:35\""));
+    f.ui.editedTexts = {shown};
+    QVERIFY(f.persistence.saveRuns(model.loadedSchedule(), lines, {}, QStringLiteral("drag")));
+    QVERIFY(f.wait());
+    QCOMPARE(f.report().kind, BScheduleReport::Written);
+
+    // Read, check, check of the edited text, write of the edited text
+    QCOMPARE(f.client.requests.size(), 4);
+    QVERIFY(f.client.requests[1].validateOnly);
+    QVERIFY(f.client.requests[2].validateOnly);
+    const BConfig::Request &write = f.client.requests[3];
+    QVERIFY(!write.validateOnly);
+    QVERIFY(write.text.contains(QStringLiteral("Level=Incremental mon-fri at 21:35\"\r\n")));
+    QVERIFY(!write.text.contains(QStringLiteral("21:30")));
+    QCOMPARE(write.text.count(QStringLiteral("\r\n")), kRaw.count(QStringLiteral("\r\n")));   // CRLF kept
+    QCOMPARE(write.expectedSha256, BConfig::sha256Hex(kRaw));   // still the state the change began from
+    QVERIFY(f.writesWereConfirmedAndChecked());
+
+    // The second review shows the edited text and its rows
+    QCOMPARE(f.ui.reviews.size(), 2);
+    const BScheduleReview &again = f.ui.reviews[1];
+    QCOMPARE(again.newText, write.text);
+    QCOMPARE(again.newRows[2].text, QStringLiteral("Level=Incremental mon-fri at 21:35"));
+    QCOMPARE(again.newRows[2].state, BScheduleReview::Row::Changed);
+    QCOMPARE(again.newRows[0].state, BScheduleReview::Row::Untouched);
+    QCOMPARE(again.oldRows[2].state, BScheduleReview::Row::Changed);
+    QVERIFY(again.note.startsWith(QStringLiteral("drag")));
+}
+
+void BSchedulePersistenceTest::editedTextMustKeepTheName()
+{
+    Flow f;
+    BScheduleGridModel model;
+    f.ui.editedTexts = {QString(kRaw).replace(QStringLiteral("WeeklyCycle"), QStringLiteral("Other"))};
+    QVERIFY(f.persistence.saveRuns(model.loadedSchedule(), movedThirdLine(model), {}));
+    QVERIFY(f.wait());
+    QCOMPARE(f.report().kind, BScheduleReport::Failed);
+    QCOMPARE(f.client.requests.size(), 2);   // read and the first check; the edited text was never sent
+    QVERIFY(f.client.writes().isEmpty());
+    QCOMPARE(f.client.files.value(QStringLiteral("WeeklyCycle")), kRaw);
 }
 
 void BSchedulePersistenceTest::conflictOnCheckIsNotOverwritten()

@@ -182,12 +182,27 @@ BScheduleReviewDialog::BScheduleReviewDialog(const BScheduleReview &review, QWid
 
     // --- Resource text ---
     m_texts = new QTabWidget(this);
-    if (!review.newText.isEmpty())
-        m_texts->addTab(textView(review.newText, m_texts), tr("Text after writing"));
+    if (!review.newText.isEmpty()) {
+        m_edit = textView(review.newText, m_texts);
+        m_edit->setReadOnly(false);
+        m_edit->setTabChangesFocus(true);
+        m_edit->setAccessibleName(tr("Text after writing, editable"));
+        m_edit->setToolTip(tr("This text can be edited. An edited text is checked by the Director and "
+                              "shown again before anything is written."));
+        m_checkedText = m_edit->toPlainText();
+        m_texts->addTab(m_edit, tr("Text after writing"));
+    }
     if (!review.oldText.isEmpty())
         m_texts->addTab(textView(review.oldText, m_texts), tr("Text now"));
     m_texts->setMinimumHeight(BUiScale::px(120));
     layout->addWidget(m_texts, 2);
+    if (m_edit) {
+        m_editHint = wrapped(tr("The text was edited. \"Check with the Director\" sends it for a check "
+                                "only; the review then shows it again, and only \"Write to the Director\" "
+                                "there writes it."), this);
+        m_editHint->setVisible(false);
+        layout->addWidget(m_editHint);
+    }
 
     QStringList notes;
     if (!review.file.isEmpty()) {
@@ -207,6 +222,7 @@ BScheduleReviewDialog::BScheduleReviewDialog(const BScheduleReview &review, QWid
                                                                              : tr("&Write to the Director"),
                                  QDialogButtonBox::AcceptRole);
     QPushButton *cancel = buttons->addButton(QDialogButtonBox::Cancel);
+    m_writeLabel = m_write->text();
     m_write->setAutoDefault(false);
     m_write->setDefault(false);
     cancel->setDefault(true);
@@ -214,8 +230,33 @@ BScheduleReviewDialog::BScheduleReviewDialog(const BScheduleReview &review, QWid
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     layout->addWidget(buttons);
 
+    if (m_edit)
+        connect(m_edit, &QPlainTextEdit::textChanged, this, &BScheduleReviewDialog::textEdited);
+
     resize(BUiScale::px(820), BUiScale::px(640));
     cancel->setFocus();
+}
+
+bool BScheduleReviewDialog::isEdited() const
+{
+    return m_edit && m_edit->toPlainText() != m_checkedText;
+}
+
+QString BScheduleReviewDialog::editedText() const
+{
+    return m_edit ? m_edit->toPlainText() : QString();
+}
+
+void BScheduleReviewDialog::textEdited()
+{
+    const bool edited = isEdited();
+    m_write->setText(edited ? tr("&Check with the Director") : m_writeLabel);
+    m_editHint->setVisible(edited);
+    // The lists show what was checked, not what is typed
+    for (QListWidget *list : {m_old, m_new}) {
+        if (list)
+            list->setEnabled(!edited);
+    }
 }
 
 void BScheduleReviewDialog::showEvent(QShowEvent *event)
@@ -271,6 +312,18 @@ bool BScheduleSaveDialogs::confirm(const BScheduleReview &review)
 {
     BScheduleReviewDialog dialog(review, m_parent);
     return dialog.exec() == QDialog::Accepted;
+}
+
+BScheduleSaveUi::Decision BScheduleSaveDialogs::decide(const BScheduleReview &review, QString *edited)
+{
+    BScheduleReviewDialog dialog(review, m_parent);
+    if (dialog.exec() != QDialog::Accepted)
+        return Cancel;
+    if (!dialog.isEdited())
+        return Write;
+    if (edited)
+        *edited = dialog.editedText();
+    return Recheck;
 }
 
 bool BScheduleSaveDialogs::needsDialog(const BScheduleReport &report)

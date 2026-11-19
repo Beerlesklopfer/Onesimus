@@ -37,6 +37,11 @@ class BScheduleGridModel;
  *      it, the resource text;
  *   5. only after "Write": the request itself, with the SHA-256 of step 1.
  *
+ * In the review the text after writing may be edited (Update, Create). An
+ * edited text goes back to step 3: the Director checks it, the review shows
+ * it again, and only a "Write" in that review sends it, still with the
+ * SHA-256 of step 1.
+ *
  * Every status of the Director is reported (BScheduleSaveUi::report()).
  * CONFLICT never leads to a second attempt with the new SHA-256: the user
  * sees both texts and can reload. A delete that is REFERENCED shows the
@@ -112,6 +117,22 @@ public:
 
     /// The review; true only for "Write"
     virtual bool confirm(const BScheduleReview &review) = 0;
+
+    /// What the review with an editable text asks for
+    enum Decision { Cancel, Write, Recheck };
+    /**
+     * @brief The review, in which the text after writing may be edited
+     * @param edited For Recheck: the text the user wrote instead. It is
+     *        never written as it is: the Director checks it first and the
+     *        review is shown again.
+     *
+     * By default the review without editing (confirm()).
+     */
+    virtual Decision decide(const BScheduleReview &review, QString *edited)
+    {
+        Q_UNUSED(edited);
+        return confirm(review) ? Write : Cancel;
+    }
 
     enum Answer { Close, Reload };
     /// A report; Reload is offered for Conflict and FileDiffers
@@ -203,6 +224,12 @@ private:
                  std::function<void(const Prepared &raw)> next, BScheduleReview::Operation operation);
     void updateStep(const BSchedule &loaded, const QList<BScheduleResource::Line> &lines,
                     const QStringList &jobs, const QString &note, const Prepared &raw);
+    /// Steps 3 to 5 of an update; again for an edited text
+    void checkUpdate(const BScheduleReview &review, const Prepared &raw);
+    /// The same for a create
+    void checkCreate(const BScheduleReview &review);
+    /// The review of a text edited in the review; false (and a report) if it cannot be checked
+    bool editedReview(const BScheduleReview &shown, const QString &edited, BScheduleReview *next);
 
     QPointer<BConfigClient> m_client;
     BScheduleSaveUi *m_ui = nullptr;

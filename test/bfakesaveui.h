@@ -21,6 +21,8 @@ public:
     QList<BScheduleReview> reviews;
     QList<BScheduleReport> reports;
     QStringList log;    ///< "confirm" and "report:<kind>", with the number of requests sent so far
+    /// Texts "edited" in the reviews, one per review, in order; then confirmAnswer
+    QStringList editedTexts;
 
     bool confirm(const BScheduleReview &review) override
     {
@@ -28,6 +30,16 @@ public:
         log.append(m_client ? QStringLiteral("confirm@%1 writes=%2").arg(m_client->requests.size()).arg(m_client->writes().size())
                             : QStringLiteral("confirm@"));
         return confirmAnswer;
+    }
+    Decision decide(const BScheduleReview &review, QString *edited) override
+    {
+        if (editedTexts.isEmpty())
+            return BScheduleSaveUi::decide(review, edited);
+        reviews.append(review);
+        log.append(m_client ? QStringLiteral("confirm@%1 writes=%2 edited").arg(m_client->requests.size()).arg(m_client->writes().size())
+                            : QStringLiteral("confirm@ edited"));
+        *edited = editedTexts.takeFirst();
+        return Recheck;
     }
     Answer report(const BScheduleReport &report) override
     {

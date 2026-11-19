@@ -28,6 +28,10 @@ class QTabWidget;
  * of them), what the Director names as referencing it, the resource text
  * before and after, and the file. "Write to the Director" is never the
  * default button: Enter cancels.
+ *
+ * The text after writing can be edited. Once it differs from the text the
+ * Director checked, the button reads "Check with the Director": the edited
+ * text is checked and shown again, never written straight away.
  */
 class BScheduleReviewDialog : public QDialog
 {
@@ -42,6 +46,13 @@ public:
     QPushButton *writeButton() const { return m_write; }
     QTabWidget *textTabs() const { return m_texts; }
 
+    /// The editor of the text after writing (null for Delete)
+    QPlainTextEdit *textEdit() const { return m_edit; }
+    /// Does the text differ from the one the Director checked?
+    bool isEdited() const;
+    /// The text as it is in the editor now
+    QString editedText() const;
+
     /// "changed: ", "new: ", "removed: " or nothing
     static QString stateWord(BScheduleReview::Row::State state);
 
@@ -54,6 +65,12 @@ private:
     QListWidget *m_jobs = nullptr;
     QTabWidget *m_texts = nullptr;
     QPushButton *m_write = nullptr;
+    QPlainTextEdit *m_edit = nullptr;
+    QLabel *m_editHint = nullptr;
+    QString m_checkedText;      ///< The text the Director checked, as the editor shows it
+    QString m_writeLabel;
+
+    void textEdited();
 };
 
 /**
@@ -87,6 +104,7 @@ public:
     explicit BScheduleSaveDialogs(QWidget *parent) : m_parent(parent) {}
 
     bool confirm(const BScheduleReview &review) override;
+    Decision decide(const BScheduleReview &review, QString *edited) override;
     Answer report(const BScheduleReport &report) override;
 
     /// Does a report need a dialog?

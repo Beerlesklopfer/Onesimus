@@ -27,6 +27,7 @@
 #include <QComboBox>
 #include <QGroupBox>
 #include <QLabel>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -41,6 +42,7 @@
 #include "schedules/bscheduleganttwidget.h"
 #include "schedules/bschedulegrideditor.h"
 #include "schedules/bschedulegridview.h"
+#include "schedules/bschedulereviewdialog.h"
 #include "schedules/bschedulewidget.h"
 #include "schedules/model/bscheduleresource.h"
 
@@ -188,6 +190,9 @@ private slots:
     // --- The counter and its list ---
     void counterSaysWhetherTheListIsOpen();
     void waitsOfSecondsInTheList();
+
+    // --- The review ---
+    void reviewTextCanBeEdited();
 
 private:
     QTemporaryDir m_config;
@@ -707,6 +712,42 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
     writers->setValue(1);
     QCOMPARE(BSettings::instance().schedulesDeviceWriters(QString(), "File"), 1);
     QTRY_VERIFY(!tab.widget.backtestText().contains("without a device limit"));
+}
+
+void BScheduleTimelineTest::reviewTextCanBeEdited()
+{
+    BScheduleReview review;
+    review.scheduleName = QStringLiteral("WeeklyCycle");
+    review.oldText = QStringLiteral("Schedule {\r\n  Name = WeeklyCycle\r\n  Run = mon-sat at 23:05\r\n}\r\n");
+    review.newText = QStringLiteral("Schedule {\r\n  Name = WeeklyCycle\r\n  Run = mon-sat at 22:00\r\n}\r\n");
+    BScheduleReviewDialog dialog(review);
+    QPlainTextEdit *edit = dialog.textEdit();
+    QVERIFY(edit);
+    QVERIFY(!edit->isReadOnly());
+    const QString writeLabel = dialog.writeButton()->text();
+    QVERIFY(!dialog.isEdited());
+
+    // 22:00 -> 22:05: the button no longer writes, it checks
+    edit->setPlainText(edit->toPlainText().replace(QStringLiteral("22:00"), QStringLiteral("22:05")));
+    QVERIFY(dialog.isEdited());
+    QVERIFY(dialog.editedText().contains(QStringLiteral("22:05")));
+    QVERIFY(dialog.writeButton()->text() != writeLabel);
+    QVERIFY(!dialog.writeButton()->isDefault());
+
+    // Back to the checked text: writing again; an empty text is an edit too
+    edit->setPlainText(edit->toPlainText().replace(QStringLiteral("22:05"), QStringLiteral("22:00")));
+    QVERIFY(!dialog.isEdited());
+    QCOMPARE(dialog.writeButton()->text(), writeLabel);
+    edit->clear();
+    QVERIFY(dialog.isEdited());
+
+    // A delete has no text to edit
+    BScheduleReview gone = review;
+    gone.operation = BScheduleReview::Delete;
+    gone.newText.clear();
+    BScheduleReviewDialog deleteDialog(gone);
+    QVERIFY(!deleteDialog.textEdit());
+    QVERIFY(!deleteDialog.isEdited());
 }
 
 QTEST_MAIN(BScheduleTimelineTest)

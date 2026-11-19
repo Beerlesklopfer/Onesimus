@@ -219,8 +219,14 @@ void BSchedulePersistence::updateStep(const BSchedule &loaded, const QList<BSche
     for (int i = 0; i < parsed.runs.size(); ++i)
         review.oldRows.append(BScheduleReview::Row{parsed.runs[i].value, oldStates[i]});
 
-    const BConfig::Request check = BConfig::Request::update(BConfig::ResourceType::Schedule, name,
-                                                            raw.sha256, newText, true);
+    checkUpdate(review, raw);
+}
+
+void BSchedulePersistence::checkUpdate(const BScheduleReview &review, const Prepared &raw)
+{
+    const BConfig::Request check = BConfig::Request::update(BConfig::ResourceType::Schedule,
+                                                            review.scheduleName, raw.sha256,
+                                                            review.newText, true);
     m_client->call(check, this, [this, review, raw](const BConfig::Reply &checked) {
         if (!checked.ok()) {
             BScheduleReport report = reportOf(checked, Operation::Update, review.scheduleName);
@@ -231,7 +237,26 @@ void BSchedulePersistence::updateStep(const BSchedule &loaded, const QList<BSche
         }
         BScheduleReview shown = review;
         shown.referencedBy = refTexts(checked.referencedBy);
-        if (!m_ui || !m_ui->confirm(shown)) {
+        QString edited;
+        const BScheduleSaveUi::Decision decision = m_ui ? m_ui->decide(shown, &edited)
+                                                        : BScheduleSaveUi::Cancel;
+        if (decision == BScheduleSaveUi::Recheck) {
+            BScheduleReview next;
+            if (!editedReview(shown, edited, &next))
+                return;
+            if (next.newText == raw.text) {
+                BScheduleReport report;
+                report.kind = BScheduleReport::Cancelled;
+                report.scheduleName = review.scheduleName;
+                report.title = tr("Nothing to write");
+                report.text = tr("The edited text is the one the Director has.");
+                finish(report, false);
+                return;
+            }
+            checkUpdate(next, raw);   // the edited text is checked and shown again
+            return;
+        }
+        if (decision != BScheduleSaveUi::Write) {
             BScheduleReport report;
             report.kind = BScheduleReport::Cancelled;
             report.scheduleName = review.scheduleName;
@@ -257,6 +282,68 @@ void BSchedulePersistence::updateStep(const BSchedule &loaded, const QList<BSche
             finish(report);
         });
     });
+}
+
+bool BSchedulePersistence::editedReview(const BScheduleReview &shown, const QString &edited,
+                                        BScheduleReview *next)
+{
+    // The editor shows line ends as lines; a CRLF text stays one
+    QString text = edited;
+    if (shown.newText.contains(QLatin1String("\r\n"))) {
+        text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+        text.replace(QLatin1String("\n"), QLatin1String("\r\n"));
+    }
+
+    auto refuse = [&](const QString &why) {
+        BScheduleReport report;
+        report.kind = BScheduleReport::Failed;
+        report.operation = shown.operation;
+        report.scheduleName = shown.scheduleName;
+        report.title = shown.operation == Operation::Create
+                           ? tr("Schedule %1 was not created").arg(shown.scheduleName)
+                           : tr("Schedule %1 was not changed").arg(shown.scheduleName);
+        report.text = tr("The edited text was not sent to the Director: %1").arg(why);
+        report.ourText = text;
+        finish(report);
+        return false;
+    };
+
+    const BScheduleResource::Parsed parsed = BScheduleResource::parse(text);
+    if (parsed.name != shown.scheduleName)
+        return refuse(tr("the name of the schedule has to stay %1.").arg(shown.scheduleName));
+    QStringList newValues;
+    QString error;
+    if (!BScheduleResource::runValues(text, &newValues, &error))
+        return refuse(error);
+    QStringList oldValues;
+    if (!shown.oldText.isEmpty())
+        BScheduleResource::runValues(shown.oldText, &oldValues);
+
+    *next = shown;
+    next->newText = text;
+    next->referencedBy.clear();
+    const QString editedNote = tr("The text was edited in the review; the Director checked the edited text.");
+    next->note = shown.note.contains(editedNote) ? shown.note
+                 : shown.note.isEmpty()          ? editedNote
+                                                 : shown.note + QLatin1Char(' ') + editedNote;
+    // Line by line, in order: what the edit changed, added, removed
+    next->newRows.clear();
+    for (int i = 0; i < newValues.size(); ++i) {
+        const auto state = i >= oldValues.size()          ? BScheduleReview::Row::New
+                           : oldValues[i] == newValues[i] ? BScheduleReview::Row::Untouched
+                                                          : BScheduleReview::Row::Changed;
+        next->newRows.append(BScheduleReview::Row{newValues[i], state});
+    }
+    if (shown.operation == Operation::Update) {
+        next->oldRows.clear();
+        for (int i = 0; i < oldValues.size(); ++i) {
+            const auto state = i >= newValues.size()          ? BScheduleReview::Row::Removed
+                               : oldValues[i] == newValues[i] ? BScheduleReview::Row::Untouched
+                                                              : BScheduleReview::Row::Changed;
+            next->oldRows.append(BScheduleReview::Row{oldValues[i], state});
+        }
+    }
+    return true;
 }
 
 // ============================================================================
@@ -358,7 +445,13 @@ bool BSchedulePersistence::createSchedule(const QString &scheduleName, const QSt
         for (const QString &value : std::as_const(values))
             review.newRows.append(BScheduleReview::Row{value, BScheduleReview::Row::New});
     }
-    m_client->call(BConfig::Request::create(BConfig::ResourceType::Schedule, text, true), this,
+    checkCreate(review);
+    return true;
+}
+
+void BSchedulePersistence::checkCreate(const BScheduleReview &review)
+{
+    m_client->call(BConfig::Request::create(BConfig::ResourceType::Schedule, review.newText, true), this,
                    [this, review](const BConfig::Reply &checked) {
         if (!checked.ok()) {
             BScheduleReport report = reportOf(checked, Operation::Create, review.scheduleName);
@@ -369,7 +462,16 @@ bool BSchedulePersistence::createSchedule(const QString &scheduleName, const QSt
         }
         BScheduleReview shown = review;
         shown.file = checked.file;
-        if (!m_ui || !m_ui->confirm(shown)) {
+        QString edited;
+        const BScheduleSaveUi::Decision decision = m_ui ? m_ui->decide(shown, &edited)
+                                                        : BScheduleSaveUi::Cancel;
+        if (decision == BScheduleSaveUi::Recheck) {
+            BScheduleReview next;
+            if (editedReview(shown, edited, &next))
+                checkCreate(next);
+            return;
+        }
+        if (decision != BScheduleSaveUi::Write) {
             BScheduleReport report;
             report.kind = BScheduleReport::Cancelled;
             report.operation = Operation::Create;
@@ -386,7 +488,6 @@ bool BSchedulePersistence::createSchedule(const QString &scheduleName, const QSt
             finish(report);
         });
     });
-    return true;
 }
 
 // ============================================================================
