@@ -52,6 +52,8 @@ void BJobScheduleIndex::rebuild(const BJobConfigModel *jobConfigModel)
         int priority = priorityValue.isString() ? priorityValue.toString().toInt()
                                                 : priorityValue.toInt(10);
         if (priority < 1) priority = 10;
+        // Only an explicit "no" disables: the default is enabled
+        const bool enabled = BWaitLimits::boolValue(directive("enabled")) != std::optional<bool>(false);
 
         JobRef ref;
         ref.jobName = jobName;
@@ -60,6 +62,7 @@ void BJobScheduleIndex::rebuild(const BJobConfigModel *jobConfigModel)
         ref.pool = pool;
         ref.fileset = fileset;
         ref.priority = priority;
+        ref.enabled = enabled;
 
         m_scheduleToJobs.insert(scheduleName, ref);
     }
@@ -80,6 +83,16 @@ int BJobScheduleIndex::sharedCount(const QString &scheduleName) const
     return m_scheduleToJobs.count(scheduleName);
 }
 
+QList<BJobScheduleIndex::JobRef> BJobScheduleIndex::runningJobsForSchedule(const QString &scheduleName) const
+{
+    QList<JobRef> jobs;
+    if (!m_valid) return jobs;
+    for (const JobRef &ref : m_scheduleToJobs.values(scheduleName)) {
+        if (ref.enabled) jobs.append(ref);
+    }
+    return jobs;
+}
+
 QList<BScheduleEntry> BJobScheduleIndex::entriesFor(const QList<BSchedule> &schedules,
                                                     const QDateTime &from,
                                                     const QDateTime &to) const
@@ -93,11 +106,14 @@ QList<BScheduleEntry> BJobScheduleIndex::entriesFor(const QList<BSchedule> &sche
         if (runs.isEmpty())
             continue;
 
-        const QList<JobRef> jobs = m_valid ? m_scheduleToJobs.values(schedule.name)
-                                           : QList<JobRef>();
+        const QList<JobRef> jobs = runningJobsForSchedule(schedule.name);
         if (jobs.isEmpty()) {
-            // No job uses this schedule, or the jobs are not known yet
-            result.append(runs);
+            // The jobs are not known yet, or no enabled job uses this
+            // schedule: then nothing starts at these times
+            for (BScheduleEntry run : runs) {
+                run.unused = m_valid;
+                result.append(run);
+            }
             continue;
         }
 

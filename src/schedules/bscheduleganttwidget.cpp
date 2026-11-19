@@ -105,7 +105,7 @@ void BScheduleGanttWidget::setHistoryStats(const BJobHistoryStats &stats, const 
     m_historyNote = note;
     m_estimateCache.clear();
 
-    // Bar lengths changed under a drag: its overlap marks would be stale
+    // Bar lengths changed under a drag
     if (m_dragState != NoDrag) {
         cancelDrag();
     }
@@ -232,6 +232,9 @@ void BScheduleGanttWidget::updateMetrics()
     m_metrics.noHistoryMarkerWidth = qMax(px(22),
         smallBoldFm.horizontalAdvance(QLatin1Char('?')) + px(12));
     m_metrics.hourLabelWidth = smallFm.horizontalAdvance(QStringLiteral("00:00"));
+    // Odd, so that the hourglass and the diamond have a middle pixel
+    m_metrics.waitMarkWidth = px(9) | 1;
+    m_metrics.unusedMarkWidth = px(9) | 1;
 
     m_rowHeight = m_metrics.rowHeight;
     m_headerRow1Height = m_metrics.headerRow1Height;
@@ -240,6 +243,7 @@ void BScheduleGanttWidget::updateMetrics()
     m_labelWidth = m_metrics.labelWidth;
     m_heatmapHeight = m_metrics.heatmapHeight;
     m_noHistoryMarkerWidth = m_metrics.noHistoryMarkerWidth;
+    m_waitMarkWidth = m_metrics.waitMarkWidth;
 }
 
 int BScheduleGanttWidget::px(int designPixels) const
@@ -373,80 +377,54 @@ void BScheduleGanttWidget::rebuildRows()
 {
     m_rows.clear();
 
-    if (m_groupMode == GroupBySchedule) {
-        // Group entries by schedule name
-        QMap<QString, QVector<int>> groups;
-        for (int i = 0; i < m_entries.size(); ++i) {
-            groups[m_entries[i].scheduleName].append(i);
+    // The entries by the name of their group. A schedule that no job uses
+    // has no client and no storage to be grouped by, and no runs: its
+    // entries are a group of their own, the last one.
+    QMap<QString, QVector<int>> groups;
+    QVector<int> unused;
+    for (int i = 0; i < m_entries.size(); ++i) {
+        const BScheduleEntry &entry = m_entries[i];
+        if (entry.unused) {
+            unused.append(i);
+            continue;
         }
-
-        for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
-            // Group header
-            RowInfo header;
-            header.label = it.key();
-            header.isGroupHeader = true;
-            header.entryIndex = -1;
-            m_rows.append(header);
-
-            // Entries
-            for (int idx : it.value()) {
-                RowInfo row;
-                const BScheduleEntry &e = m_entries[idx];
-                row.label = rowLabel(e);
-                row.isGroupHeader = false;
-                row.entryIndex = idx;
-                m_rows.append(row);
-            }
+        QString group;
+        switch (m_groupMode) {
+        case GroupBySchedule:
+            group = entry.scheduleName;
+            break;
+        case GroupByClient:
+            group = entry.client.isEmpty() ? tr("(no client)") : entry.client;
+            break;
+        case GroupByStorage:
+            group = entry.storage.isEmpty() ? tr("(no storage)") : entry.storage;
+            break;
         }
-    } else if (m_groupMode == GroupByClient) {
-        // Group by client
-        QMap<QString, QVector<int>> groups;
-        for (int i = 0; i < m_entries.size(); ++i) {
-            QString client = m_entries[i].client.isEmpty() ? tr("(no client)") : m_entries[i].client;
-            groups[client].append(i);
-        }
-
-        for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
-            RowInfo header;
-            header.label = it.key();
-            header.isGroupHeader = true;
-            header.entryIndex = -1;
-            m_rows.append(header);
-
-            for (int idx : it.value()) {
-                RowInfo row;
-                const BScheduleEntry &e = m_entries[idx];
-                row.label = rowLabel(e);
-                row.isGroupHeader = false;
-                row.entryIndex = idx;
-                m_rows.append(row);
-            }
-        }
-    } else {
-        // GroupByStorage
-        QMap<QString, QVector<int>> groups;
-        for (int i = 0; i < m_entries.size(); ++i) {
-            QString storage = m_entries[i].storage.isEmpty() ? tr("(no storage)") : m_entries[i].storage;
-            groups[storage].append(i);
-        }
-
-        for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
-            RowInfo header;
-            header.label = it.key();
-            header.isGroupHeader = true;
-            header.entryIndex = -1;
-            m_rows.append(header);
-
-            for (int idx : it.value()) {
-                RowInfo row;
-                const BScheduleEntry &e = m_entries[idx];
-                row.label = rowLabel(e);
-                row.isGroupHeader = false;
-                row.entryIndex = idx;
-                m_rows.append(row);
-            }
-        }
+        groups[group].append(i);
     }
+
+    auto addGroup = [this](const QString &label, const QVector<int> &entries, bool isUnused) {
+        RowInfo header;
+        header.label = label;
+        header.isGroupHeader = true;
+        header.entryIndex = -1;
+        header.unused = isUnused;
+        m_rows.append(header);
+
+        for (int idx : entries) {
+            RowInfo row;
+            row.label = rowLabel(m_entries[idx]);
+            row.isGroupHeader = false;
+            row.entryIndex = idx;
+            row.unused = isUnused;
+            m_rows.append(row);
+        }
+    };
+
+    for (auto it = groups.constBegin(); it != groups.constEnd(); ++it)
+        addGroup(it.key(), it.value(), false);
+    if (!unused.isEmpty())
+        addGroup(tr("Not used by any job"), unused, true);
 
     updateMinimumSize();
 }
@@ -468,6 +446,13 @@ QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int da
     const int gap = px(2);
     int y = m_headerHeight + row * m_rowHeight + gap;
 
+    // A schedule no job uses has no run: the place of its diamond, centred
+    // on the time
+    if (entry.unused) {
+        const int mark = m_metrics.unusedMarkWidth;
+        return QRect(x - mark / 2, y, mark, m_rowHeight - 2 * gap);
+    }
+
     // Bar width: the measured median. Without history there is no length,
     // only a marker of fixed size at the start.
     const int secs = durationSecs(entry);
@@ -484,17 +469,49 @@ QRect BScheduleGanttWidget::waitRect(const BScheduleEntry &entry, int row, int d
     const RunWait *wait = waitFor(entry, dayOffset);
     if (!wait || wait->waitSecs <= 0) return QRect();
 
-    // Wide enough to be seen and pointed at, however short the wait
-    const int width = qMax(px(6), static_cast<int>(wait->waitSecs / 3600.0 * m_pixelsPerHour));
+    // As long as the wait and no longer: a wait of seconds has no length
+    // at this scale. That the run waits is said by the hourglass.
+    const int width = static_cast<int>(wait->waitSecs / 3600.0 * m_pixelsPerHour);
+    if (width < 1) return QRect();
     const QRect bar = barRect(entry, row, dayOffset);
-    return QRect(bar.left(), bar.top(), width, bar.height());
+    return QRect(bar.left() + waitMarkShift(entry, dayOffset), bar.top(), width, bar.height());
+}
+
+int BScheduleGanttWidget::waitMarkShift(const BScheduleEntry &entry, int dayOffset) const
+{
+    const RunWait *wait = waitFor(entry, dayOffset);
+    if (!wait || wait->waitSecs <= 0) return 0;
+    // The hourglass stands in front of the scheduled time. A run at the
+    // very beginning of the dates on display has no room there: the mark
+    // takes the place of the start and everything else moves behind it.
+    const int x = timeToX(dayOffset * 24 + entry.hour, entry.minute);
+    return (x - m_waitMarkWidth - 1 < m_labelWidth) ? m_waitMarkWidth + 1 : 0;
+}
+
+QRect BScheduleGanttWidget::waitMarkRect(const BScheduleEntry &entry, int row, int dayOffset) const
+{
+    const RunWait *wait = waitFor(entry, dayOffset);
+    if (!wait || wait->waitSecs <= 0) return QRect();
+
+    const QRect bar = barRect(entry, row, dayOffset);
+    const int left = waitMarkShift(entry, dayOffset) > 0 ? bar.left()
+                                                         : bar.left() - m_waitMarkWidth - 1;
+    return QRect(left, bar.top(), m_waitMarkWidth, bar.height());
 }
 
 QRect BScheduleGanttWidget::runRect(const BScheduleEntry &entry, int row, int dayOffset) const
 {
     const QRect bar = barRect(entry, row, dayOffset);
     const QRect lead = waitRect(entry, row, dayOffset);
-    return lead.isEmpty() ? bar : bar.translated(lead.width(), 0);
+    return bar.translated(waitMarkShift(entry, dayOffset) + lead.width(), 0);
+}
+
+bool BScheduleGanttWidget::startContains(const BScheduleEntry &entry, int row, int dayOffset,
+                                         const QPoint &pos) const
+{
+    return runRect(entry, row, dayOffset).contains(pos)
+        || waitRect(entry, row, dayOffset).contains(pos)
+        || waitMarkRect(entry, row, dayOffset).contains(pos);
 }
 
 // ============================================================================
@@ -530,7 +547,7 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
     // Heatmap
     drawHeatmap(painter);
 
-    // Drag overlay (ghost bar, dependency highlights)
+    // Drag overlay (ghost bar and preview)
     if (m_dragState == Dragging) {
         drawDragOverlay(painter);
     }
@@ -697,25 +714,32 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
                              palette().alternateBase());
         }
 
-        // Label
+        // Label. What no job uses is written in muted italics: these rows
+        // are not runs.
         QRect labelRect(px(4), y, m_labelWidth - 2 * px(4), m_rowHeight);
+        const QFont rowFont = painter.font();
+        QColor labelColor = palette().text().color();
+        if (row.unused) {
+            QFont font = rowFont;
+            font.setItalic(true);
+            painter.setFont(font);
+            labelColor = mutedColor();
+        }
         if (row.isGroupHeader) {
             QFont font = painter.font();
             font.setBold(true);
             painter.setFont(font);
-            painter.setPen(palette().text().color());
+            painter.setPen(labelColor);
             painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
                              painter.fontMetrics().elidedText(row.label, Qt::ElideRight,
                                                               labelRect.width()));
-            font.setBold(false);
-            painter.setFont(font);
 
             // Group header background — palette-derived tint, works in dark and light
             QColor groupTint = palette().highlight().color();
             groupTint.setAlpha(20);
             painter.fillRect(m_labelWidth, y, contentWidth(), m_rowHeight, groupTint);
         } else {
-            painter.setPen(palette().text().color());
+            painter.setPen(labelColor);
             painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
                              painter.fontMetrics().elidedText(row.label, Qt::ElideRight,
                                                               labelRect.width()));
@@ -723,10 +747,14 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
             // One bar for each date on display on which the entry starts
             if (row.entryIndex >= 0 && row.entryIndex < m_entries.size()) {
                 for (int d : dayOffsets(m_entries[row.entryIndex])) {
-                    drawJobBar(painter, row.entryIndex, r, d);
+                    if (row.unused)
+                        drawUnusedMark(painter, row.entryIndex, r, d);
+                    else
+                        drawJobBar(painter, row.entryIndex, r, d);
                 }
             }
         }
+        painter.setFont(rowFont);
 
         // Row separator line
         painter.setPen(QPen(palette().mid().color(), 0.5));
@@ -762,9 +790,10 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
     // the scheduled time on, is the lead-in of its wait
     QRect rect = runRect(entry, row, dayOffset);
     const QRect lead = waitRect(entry, row, dayOffset);
+    const QRect waitMark = waitMarkRect(entry, row, dayOffset);
     const RunWait *wait = waitFor(entry, dayOffset);
     bool hovered = (row == rowAtY(m_hoverPos.y())
-                    && (rect.contains(m_hoverPos) || lead.contains(m_hoverPos)));
+                    && startContains(entry, row, dayOffset, m_hoverPos));
 
     QColor fillColor = colorForLevel(entry.level, hovered);
     const BJobHistoryStats::Estimate estimate = estimateFor(entry);
@@ -776,11 +805,32 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
     painter.setClipRect(QRect(m_labelWidth, m_headerHeight, contentWidth() + 1,
                               m_rows.size() * m_rowHeight));
 
+    if (!waitMark.isEmpty()) {
+        // Waiting: an hourglass of fixed size in front of the scheduled
+        // time. It is a mark, not a length, and is there at every zoom,
+        // also where the wait itself is shorter than a pixel. Filled for a
+        // wait that is certain, an outline for one that is not.
+        const QColor ink = palette().text().color();
+        const QRectF glass = QRectF(waitMark).adjusted(0.5, px(4) + 0.5, -0.5, -px(4) - 0.5);
+        QPolygonF hourglass;
+        hourglass << glass.topLeft() << glass.topRight() << glass.center()
+                  << glass.bottomRight() << glass.bottomLeft() << glass.center();
+        QColor fill = ink;
+        fill.setAlpha(hovered ? 255 : 215);
+        painter.setPen(QPen(ink, 1));
+        painter.setBrush(wait->certain ? QBrush(fill) : QBrush(Qt::NoBrush));
+        painter.drawPolygon(hourglass);
+        painter.setBrush(Qt::NoBrush);
+        // The scheduled time: a tick of full height in the level's colour
+        const int tickX = waitMark.right() + 1;
+        painter.setPen(QPen(fillColor, 2));
+        painter.drawLine(tickX, waitMark.top(), tickX, waitMark.bottom());
+    }
     if (!lead.isEmpty()) {
-        // Waiting: a hatched strip, thinner than the bar, from the scheduled
-        // time (a tick of full height) to the predicted start. An uncertain
-        // wait has a dashed outline and a question mark; hatching and
-        // outline carry the meaning, not a colour.
+        // As long as the wait: a hatched strip, thinner than the bar, from
+        // the scheduled time to the predicted start. An uncertain wait has
+        // a dashed outline and a question mark; hatching and outline carry
+        // the meaning, not a colour.
         const QColor ink = palette().text().color();
         QColor hatch = ink;
         hatch.setAlpha(hovered ? 230 : 170);
@@ -791,8 +841,6 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
         painter.setBrush(Qt::NoBrush);
         painter.setPen(QPen(ink, 1, wait->certain ? Qt::SolidLine : Qt::DashLine));
         painter.drawRect(strip.adjusted(0, 0, -1, -1));
-        painter.setPen(QPen(fillColor, 2));
-        painter.drawLine(lead.left(), lead.top(), lead.left(), lead.bottom());
 
         const int markWidth = QFontMetrics(BUiScale::scaled(font(), BUiScale::Normal, BUiScale::Bold))
                                   .horizontalAdvance(QStringLiteral("\u00BB")) + px(4);
@@ -814,7 +862,7 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
         markFont.setBold(true);
         painter.setFont(markFont);
         painter.setPen(palette().text().color());
-        const int markX = lead.isEmpty() ? rect.left() : lead.left();
+        const int markX = waitMark.isEmpty() ? rect.left() : waitMark.left();
         const int questionWidth = painter.fontMetrics().horizontalAdvance(QLatin1Char('?')) + px(2);
         painter.drawText(QRect(markX - questionWidth - 1, rect.top(), questionWidth, rect.height()),
                          Qt::AlignCenter, QStringLiteral("?"));
@@ -874,6 +922,40 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
     painter.setFont(m_smallFont);
 
     painter.restore();      // the clip
+}
+
+QColor BScheduleGanttWidget::mutedColor() const
+{
+    // Between the text and the background: readable, and clearly not the
+    // colour of what is active
+    const QColor text = palette().text().color();
+    const QColor base = palette().base().color();
+    return QColor((text.red() * 3 + base.red() * 2) / 5,
+                  (text.green() * 3 + base.green() * 2) / 5,
+                  (text.blue() * 3 + base.blue() * 2) / 5);
+}
+
+void BScheduleGanttWidget::drawUnusedMark(QPainter &painter, int entryIndex, int row, int dayOffset)
+{
+    // Where a run would start if a job used the schedule: an open diamond
+    // in the muted colour. No bar, no level colour, no question mark:
+    // nothing runs here.
+    const BScheduleEntry &entry = m_entries[entryIndex];
+    const QRect rect = barRect(entry, row, dayOffset);
+    const bool hovered = row == rowAtY(m_hoverPos.y()) && rect.contains(m_hoverPos);
+
+    painter.save();
+    painter.setClipRect(QRect(m_labelWidth, m_headerHeight, contentWidth() + 1,
+                              m_rows.size() * m_rowHeight));
+    const qreal half = (rect.width() - 1) / 2.0;
+    const QPointF centre(rect.left() + half + 0.5, rect.center().y() + 0.5);
+    QPolygonF diamond;
+    diamond << QPointF(centre.x(), centre.y() - half) << QPointF(centre.x() + half, centre.y())
+            << QPointF(centre.x(), centre.y() + half) << QPointF(centre.x() - half, centre.y());
+    painter.setPen(QPen(hovered ? palette().text().color() : mutedColor(), 1.2));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawPolygon(diamond);
+    painter.restore();
 }
 
 void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
@@ -959,6 +1041,9 @@ void BScheduleGanttWidget::recalcHeatmap()
     const int days = dayCount();
 
     for (const BScheduleEntry &entry : m_entries) {
+        // A schedule no job uses starts nothing
+        if (entry.unused) continue;
+
         // Measured median; 0 = no history, no length
         const int secs = durationSecs(entry);
         const int slotSecs = HEATMAP_SLOT_MINUTES * 60;
@@ -1042,9 +1127,9 @@ int BScheduleGanttWidget::entryAtPos(const QPoint &pos) const
 
     const BScheduleEntry &entry = m_entries[entryIdx];
 
-    // The bar where it is drawn, and the lead-in of its wait
+    // The bar where it is drawn, the lead-in of its wait and its hourglass
     for (int d : dayOffsets(entry)) {
-        if (runRect(entry, row, d).contains(pos) || waitRect(entry, row, d).contains(pos))
+        if (startContains(entry, row, d, pos))
             return entryIdx;
     }
 
@@ -1065,7 +1150,6 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
             m_dragState = Dragging;
             setCursor(Qt::ClosedHandCursor);
             setMouseTracking(true);
-            computeDependencies(m_dragEntryIndex);
             emit dragStarted(m_entries[m_dragEntryIndex]);
         }
     }
@@ -1089,7 +1173,6 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         m_dragNewHour = rawMinutes / 60;
         m_dragNewMinute = rawMinutes % 60;
 
-        updateDragDependencies();
         update();
         event->accept();
         return;
@@ -1110,7 +1193,20 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         update();
     }
 
-    if (idx >= 0) {
+    if (idx >= 0 && m_entries[idx].unused) {
+        // Not a run: say so, and nothing about durations or waits
+        const BScheduleEntry &e = m_entries[idx];
+        QString tooltip = QString("<b>%1</b><br>%2").arg(
+            e.scheduleName.toHtmlEscaped(),
+            tr("Not used by any enabled job: nothing starts at this time."));
+        tooltip += QString("<br>%1: %2:%3").arg(tr("Time"))
+                       .arg(e.hour, 2, 10, QChar('0')).arg(e.minute, 2, 10, QChar('0'));
+        if (!e.levelLabel().isEmpty())
+            tooltip += QString("<br>%1: %2").arg(tr("Level"), e.levelLabel());
+        if (!e.source.original.isEmpty())
+            tooltip += QString("<br>%1: %2").arg(tr("Run"), e.source.original.toHtmlEscaped());
+        QToolTip::showText(event->globalPosition().toPoint(), tooltip, this);
+    } else if (idx >= 0) {
         const BScheduleEntry &e = m_entries[idx];
         QString tooltip = QString("<b>%1</b><br>"
                                   "%2: %3<br>"
@@ -1154,7 +1250,8 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         if (!estimate.hasHistory()) {
             QString why;
             if (e.jobName.isEmpty()) {
-                why = tr("no job uses this schedule");
+                why = tr("the jobs of the Director are not loaded: it is not known which job "
+                         "runs this schedule");
             } else if (!m_historyNote.isEmpty()) {
                 why = m_historyNote;
             } else {
@@ -1284,14 +1381,17 @@ void BScheduleGanttWidget::mouseReleaseEvent(QMouseEvent *event)
     if (m_dragState == Dragging && event->button() == Qt::LeftButton) {
         setCursor(Qt::ArrowCursor);
 
-        // Only emit if time actually changed and the entry still exists
-        if (dragIndexValid()
-            && (m_dragNewHour != m_dragOriginalHour || m_dragNewMinute != m_dragOriginalMinute)) {
-            emit dragCompleted(m_dragEntryIndex, m_dragNewHour, m_dragNewMinute,
-                               m_dragDependencies);
-        }
+        // Dropping changes nothing here: the bar goes back to its time
+        // first, then whoever listens is told where it was dropped. Only
+        // if the time is another one and the entry still exists.
+        const int index = m_dragEntryIndex;
+        const bool moved = dragIndexValid()
+            && (m_dragNewHour != m_dragOriginalHour || m_dragNewMinute != m_dragOriginalMinute);
+        const int newHour = m_dragNewHour;
+        const int newMinute = m_dragNewMinute;
 
         cancelDrag();
+        if (moved) emit dragDropped(index, newHour, newMinute);
     } else if (m_dragState == DragPending && event->button() == Qt::LeftButton) {
         m_dragState = NoDrag;
         m_dragEntryIndex = -1;
@@ -1347,7 +1447,6 @@ void BScheduleGanttWidget::cancelDrag()
 {
     m_dragState = NoDrag;
     m_dragEntryIndex = -1;
-    m_dragDependencies.clear();
     setCursor(Qt::ArrowCursor);
     update();
 }
@@ -1362,7 +1461,7 @@ int BScheduleGanttWidget::dayOffsetAtPos(const QPoint &pos, int entryIdx) const
 
     const BScheduleEntry &entry = m_entries[entryIdx];
     for (int d : dayOffsets(entry)) {
-        if (runRect(entry, row, d).contains(pos) || waitRect(entry, row, d).contains(pos))
+        if (startContains(entry, row, d, pos))
             return d;
     }
     return 0;
@@ -1376,95 +1475,6 @@ int BScheduleGanttWidget::rowForEntry(int entryIndex) const
         }
     }
     return -1;
-}
-
-// ============================================================================
-// Dependency calculation
-// ============================================================================
-
-void BScheduleGanttWidget::computeDependencies(int draggedIndex)
-{
-    m_dragDependencies.clear();
-    if (draggedIndex < 0 || draggedIndex >= m_entries.size()) return;
-
-    const BScheduleEntry &dragged = m_entries[draggedIndex];
-
-    for (int i = 0; i < m_entries.size(); ++i) {
-        if (i == draggedIndex) continue;
-        const BScheduleEntry &other = m_entries[i];
-
-        // Only runs that start on the same date, in the dates on display
-        if (!dragged.sharesDateWith(other)) continue;
-
-        // 1. Level chain: same client, same schedule → Full/Inc/Diff relationship
-        if (!dragged.client.isEmpty() && dragged.client == other.client
-            && dragged.scheduleName == other.scheduleName) {
-            bool isChain = false;
-            QString desc;
-
-            if (dragged.level == BScheduleEntry::Full &&
-                (other.level == BScheduleEntry::Incremental || other.level == BScheduleEntry::Differential)) {
-                isChain = true;
-                desc = tr("Level chain: %1 (%2) depends on this Full")
-                    .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
-                         other.levelLabel());
-            } else if ((dragged.level == BScheduleEntry::Incremental || dragged.level == BScheduleEntry::Differential)
-                       && other.level == BScheduleEntry::Full) {
-                isChain = true;
-                desc = tr("Level chain: this %1 depends on Full %2")
-                    .arg(dragged.levelLabel(),
-                         other.jobName.isEmpty() ? other.scheduleName : other.jobName);
-            }
-
-            if (isChain) {
-                DependencyEdge edge;
-                edge.type = DependencyEdge::LevelChain;
-                edge.sourceEntryIndex = draggedIndex;
-                edge.targetEntryIndex = i;
-                edge.description = desc;
-                m_dragDependencies.append(edge);
-                continue;  // don't duplicate as client exclusion
-            }
-        }
-
-        // 2. Same client, different job (whether one waits for the other
-        //    depends on the client's Maximum Concurrent Jobs)
-        if (!dragged.client.isEmpty() && dragged.client == other.client) {
-            DependencyEdge edge;
-            edge.type = DependencyEdge::ClientExclusion;
-            edge.sourceEntryIndex = draggedIndex;
-            edge.targetEntryIndex = i;
-            edge.description = tr("Same client: %1 (%2) also runs on client %3")
-                .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
-                     other.levelLabel(),
-                     other.client);
-            m_dragDependencies.append(edge);
-            continue;  // don't duplicate as storage contention
-        }
-
-        // 3. Same storage
-        if (!dragged.storage.isEmpty() && dragged.storage == other.storage) {
-            DependencyEdge edge;
-            edge.type = DependencyEdge::StorageContention;
-            edge.sourceEntryIndex = draggedIndex;
-            edge.targetEntryIndex = i;
-            edge.description = tr("Same storage: %1 also uses storage %2")
-                .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
-                     other.storage);
-            m_dragDependencies.append(edge);
-        }
-    }
-}
-
-void BScheduleGanttWidget::updateDragDependencies()
-{
-    // Recompute which dependencies actually overlap with the new drag position
-    // The dependency list itself stays the same (computed at drag start),
-    // but we mark which ones create actual time conflicts at the new position
-
-    // Dependencies are already computed in computeDependencies().
-    // The visual rendering in drawDependencyHighlights() checks overlap
-    // dynamically using the current m_dragNewHour/m_dragNewMinute.
 }
 
 // ============================================================================
@@ -1503,14 +1513,27 @@ void BScheduleGanttWidget::drawDragOverlay(QPainter &painter)
     painter.setBrush(previewColor);
     painter.drawRoundedRect(previewRect, 3, 3);
 
-    // --- 3. Time label centered in preview bar ---
-    painter.setPen(Qt::white);
+    // --- 3. The time: in the preview bar if it has room, otherwise beside
+    // it (a run of minutes is a narrow bar) ---
     QFont font = m_smallBoldFont;
     painter.setFont(font);
     QString timeLabel = QString("%1:%2")
         .arg(m_dragNewHour, 2, 10, QChar('0'))
         .arg(m_dragNewMinute, 2, 10, QChar('0'));
-    painter.drawText(previewRect, Qt::AlignCenter, timeLabel);
+    const int labelWidth = painter.fontMetrics().horizontalAdvance(timeLabel) + px(8);
+    if (previewRect.width() >= labelWidth) {
+        painter.setPen(Qt::white);
+        painter.drawText(previewRect, Qt::AlignCenter, timeLabel);
+    } else {
+        // To the right, or to the left where the dates on display end
+        QRect labelRect(previewRect.right() + px(3), previewRect.top(), labelWidth,
+                        previewRect.height());
+        if (labelRect.right() > m_labelWidth + contentWidth())
+            labelRect.moveRight(previewRect.left() - px(3));
+        painter.fillRect(labelRect.adjusted(0, px(2), 0, -px(2)), palette().base());
+        painter.setPen(palette().text().color());
+        painter.drawText(labelRect, Qt::AlignCenter, timeLabel);
+    }
     font.setBold(false);
     painter.setFont(font);
 
@@ -1521,101 +1544,5 @@ void BScheduleGanttWidget::drawDragOverlay(QPainter &painter)
     painter.setPen(snapPen);
     painter.drawLine(snapX, m_headerHeight, snapX, m_headerHeight + m_rows.size() * m_rowHeight);
 
-    // --- 5. Dependency highlights ---
-    drawDependencyHighlights(painter);
-
     painter.restore();
-}
-
-void BScheduleGanttWidget::drawDependencyHighlights(QPainter &painter)
-{
-    if (m_dragDependencies.isEmpty()) return;
-    if (m_dragEntryIndex < 0 || m_dragEntryIndex >= m_entries.size()) return;
-
-    const BScheduleEntry &dragged = m_entries[m_dragEntryIndex];
-
-    // Drag entry duration for overlap check (0: no history, no length)
-    int dragDur = durationSecs(dragged);
-    int dragStartMin = m_dragNewHour * 60 + m_dragNewMinute;
-    int dragEndMin = dragStartMin + dragDur / 60;
-
-    for (const DependencyEdge &dep : m_dragDependencies) {
-        int targetIdx = dep.targetEntryIndex;
-        if (targetIdx < 0 || targetIdx >= m_entries.size()) continue;
-
-        const BScheduleEntry &target = m_entries[targetIdx];
-        int targetRow = rowForEntry(targetIdx);
-        if (targetRow < 0) continue;
-
-        // Check actual time overlap with new position
-        int targetDur = durationSecs(target);
-        int targetStartMin = target.hour * 60 + target.minute;
-        int targetEndMin = targetStartMin + targetDur / 60;
-
-        // An overlap is only stated where both lengths were measured
-        bool overlaps = dragDur > 0 && targetDur > 0
-                        && (dragStartMin < targetEndMin && targetStartMin < dragEndMin);
-
-        // Choose color based on dependency type
-        QColor depColor;
-        switch (dep.type) {
-        case DependencyEdge::LevelChain:
-            depColor = QColor(255, 165, 0);   // Orange
-            break;
-        case DependencyEdge::ClientExclusion:
-            depColor = QColor(220, 40, 40);    // Red
-            break;
-        case DependencyEdge::StorageContention:
-            depColor = QColor(160, 40, 200);   // Violet
-            break;
-        }
-
-        // The target's bars on the dates on which the dragged entry runs too
-        QVector<int> targetDays;
-        const QDate first = firstDate();
-        for (int d : dayOffsets(target)) {
-            if (dragged.occursOn(first.addDays(d))) {
-                targetDays.append(d);
-            }
-        }
-
-        for (int d : targetDays) {
-            QRect targetRect = barRect(target, targetRow, d);
-
-            // Draw colored dashed border around affected entry
-            QPen borderPen(depColor, 2, overlaps ? Qt::SolidLine : Qt::DashLine);
-            painter.setPen(borderPen);
-            painter.setBrush(Qt::NoBrush);
-            painter.drawRoundedRect(targetRect.adjusted(-2, -2, 2, 2), 4, 4);
-
-            // If overlapping, draw a semi-transparent fill
-            if (overlaps) {
-                QColor fillColor = depColor;
-                fillColor.setAlpha(40);
-                painter.setBrush(fillColor);
-                painter.setPen(Qt::NoPen);
-                painter.drawRoundedRect(targetRect, 3, 3);
-            }
-
-            // Draw connector line from drag preview to target bar
-            int dragRow = rowForEntry(m_dragEntryIndex);
-            if (dragRow >= 0) {
-                BScheduleEntry previewEntry = dragged;
-                previewEntry.hour = m_dragNewHour;
-                previewEntry.minute = m_dragNewMinute;
-                QRect previewRect = barRect(previewEntry, dragRow, m_dragDayOffset);
-
-                QPoint from = previewRect.center();
-                QPoint to = targetRect.center();
-
-                // Only draw if not the same row
-                if (dragRow != targetRow) {
-                    QPen connPen(depColor, 1, Qt::DotLine);
-                    connPen.setColor(QColor(depColor.red(), depColor.green(), depColor.blue(), 150));
-                    painter.setPen(connPen);
-                    painter.drawLine(from, to);
-                }
-            }
-        }
-    }
 }

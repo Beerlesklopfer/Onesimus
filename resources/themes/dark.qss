@@ -148,6 +148,34 @@ QPushButton:disabled {
     border: 1px solid #3e3e42;
 }
 
+/* The counter of predicted waits in the schedule view opens a list below
+   the timeline. Closed it is an outlined button, open a filled one; the
+   arrow in its text says the same. */
+QPushButton[disclosure="true"] {
+    background-color: #252526;
+    color: #d4d4d4;
+    border: 1px solid #6a6a6a;
+}
+
+QPushButton[disclosure="true"]:hover {
+    background-color: #37373d;
+}
+
+QPushButton[disclosure="true"]:checked {
+    background-color: #0e639c;
+    color: #ffffff;
+    border: 1px solid #3794ff;
+}
+
+QPushButton[disclosure="true"]:checked:hover {
+    background-color: #1177bb;
+}
+
+QPushButton[disclosure="true"]:focus {
+    border: 2px solid #d4d4d4;
+    padding: 4px 14px;
+}
+
 /* Line Edit */
 QLineEdit {
     background-color: #3c3c3c;

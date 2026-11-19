@@ -1,7 +1,5 @@
 #include "schedules/bschedulewidget.h"
 #include "buiscale.h"
-#include "schedules/bscheduledragresultdialog.h"
-#include "bcapabilitynotice.h"
 #include "jobs/blevelcolors.h"
 #include "bsorttableitem.h"
 #include "bsortvalue.h"
@@ -150,10 +148,15 @@ void BScheduleWidget::setupUI()
     toolbarLayout->addStretch();
 
     // Predicted waits of the dates on display: the counter, and the way
-    // to their list (a button, so that the keyboard reaches it)
+    // to their list (a button, so that the keyboard reaches it). Whether
+    // the list is open is said three times: by the arrow in the text, by
+    // the filling of the button (the themes' rule for "disclosure") and,
+    // for a screen reader, by the name and the checked state.
     m_waitButton->setCheckable(true);
+    m_waitButton->setProperty("disclosure", true);
     connect(m_waitButton, &QPushButton::toggled, this, [this](bool on) {
         m_waitPanel->setVisible(on && m_viewStack->currentIndex() == 0);
+        updateWaitButtonText();
         BSettings::instance().setSchedulesWaitListShown(on);
         if (on && m_waitButton->hasFocus())
             m_waitTable->setFocus();
@@ -331,14 +334,14 @@ void BScheduleWidget::setupUI()
     // FD Gantt widget signals
     connect(m_fdGanttWidget, &BScheduleGanttWidget::entryClicked,
             this, &BScheduleWidget::onEntryClicked);
-    connect(m_fdGanttWidget, &BScheduleGanttWidget::dragCompleted,
-            this, &BScheduleWidget::onFdDragCompleted);
+    connect(m_fdGanttWidget, &BScheduleGanttWidget::dragDropped,
+            this, &BScheduleWidget::onDragDropped);
 
     // SD Gantt widget signals
     connect(m_sdGanttWidget, &BScheduleGanttWidget::entryClicked,
             this, &BScheduleWidget::onEntryClicked);
-    connect(m_sdGanttWidget, &BScheduleGanttWidget::dragCompleted,
-            this, &BScheduleWidget::onSdDragCompleted);
+    connect(m_sdGanttWidget, &BScheduleGanttWidget::dragDropped,
+            this, &BScheduleWidget::onDragDropped);
 
     // Horizontal scroll sync between FD and SD
     connect(m_fdScrollArea->horizontalScrollBar(), &QScrollBar::valueChanged,
@@ -1302,54 +1305,46 @@ void BScheduleWidget::updateGridView(bool namesOnly)
     m_gridView->setUsage(jobs, m_jobScheduleIndex->isValid());
 }
 
-void BScheduleWidget::onFdDragCompleted(
-    int entryIndex, int newHour, int newMinute,
-    const QList<BScheduleGanttWidget::DependencyEdge> &dependencies)
+void BScheduleWidget::onDragDropped(int entryIndex, int newHour, int newMinute)
 {
-    handleDragCompleted(m_fdGanttWidget, entryIndex, newHour, newMinute, dependencies);
-}
-
-void BScheduleWidget::onSdDragCompleted(
-    int entryIndex, int newHour, int newMinute,
-    const QList<BScheduleGanttWidget::DependencyEdge> &dependencies)
-{
-    handleDragCompleted(m_sdGanttWidget, entryIndex, newHour, newMinute, dependencies);
-}
-
-void BScheduleWidget::handleDragCompleted(
-    BScheduleGanttWidget *source,
-    int entryIndex, int newHour, int newMinute,
-    const QList<BScheduleGanttWidget::DependencyEdge> &dependencies)
-{
+    const auto *source = qobject_cast<BScheduleGanttWidget *>(sender());
+    if (!source) return;
     const QList<BScheduleEntry> &entries = source->entries();
     if (entryIndex < 0 || entryIndex >= entries.size()) return;
 
-    const BScheduleEntry &entry = entries[entryIndex];
+    // A copy: the notice below runs an event loop, and a refresh may
+    // replace the entries meanwhile
+    const BScheduleEntry entry = entries[entryIndex];
+    auto clock = [](int hour, int minute) {
+        return QStringLiteral("%1:%2").arg(hour, 2, 10, QLatin1Char('0'))
+                                      .arg(minute, 2, 10, QLatin1Char('0'));
+    };
 
-    auto *dialog = new BScheduleDragResultDialog(this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setDirector(m_director);
-    // The dialog compares what it would write with the Director's own Run lines
-    dialog->setDragResult(entry, newHour, newMinute,
-                          m_scheduleModel->runDirectives(entry.scheduleName),
-                          dependencies, m_jobScheduleIndex);
+    // The user moved a run of an existing schedule and expects that
+    // schedule to change. Whether the Director can do that is asked at the
+    // gate, which also tells the user if it cannot. Nothing is sent here.
+    const bool available = m_scheduleChangeGate && m_scheduleChangeGate(this);
+    const bool written = available && writeScheduleChange(entry, newHour, newMinute);
+    if (written) return;
 
-    // Forward the sendCommand signal to the main window
-    connect(dialog, &BScheduleDragResultDialog::sendCommand,
-            this, &BScheduleWidget::sendCommand);
+    // Always, also where the notice is not shown again: the drop did nothing
+    emit statusMessageChanged(
+        tr("Schedule %1 was not changed: changing a schedule needs the schedule methods of the "
+           "gRPC interface of the Onesimus Director (onesimus-dird), which are not available "
+           "on this connection. %2 stays at %3 (dropped at %4).")
+            .arg(entry.scheduleName, entry.jobName.isEmpty() ? entry.scheduleName : entry.jobName,
+                 clock(entry.hour, entry.minute), clock(newHour, newMinute)));
+}
 
-    dialog->show();
-
-    // The user moved an entry of an existing schedule and expects that
-    // schedule to change. Neither Director can do that through the console;
-    // the dialog offers a copy instead. Said once per session, after the
-    // drag has been handled, and only as additional information: the dialog
-    // works as before.
-    BDirector *director = m_director;
-    QTimer::singleShot(0, dialog, [dialog, director]() {
-        BCapabilityNotice::check(dialog, director, BCapabilities::Function::ModifySchedule,
-                                 BCapabilities::Request::Implicit);
-    });
+bool BScheduleWidget::writeScheduleChange(const BScheduleEntry &entry, int newHour, int newMinute)
+{
+    // No Director has a method that updates a schedule yet. The Run lines
+    // to write are those of BScheduleDragPlan::plan(); the update itself is
+    // sent here once the gRPC interface of the Onesimus Director has it.
+    Q_UNUSED(entry);
+    Q_UNUSED(newHour);
+    Q_UNUSED(newMinute);
+    return false;
 }
 
 void BScheduleWidget::onJobSelectionChanged()
@@ -1793,12 +1788,24 @@ void BScheduleWidget::setupWaitPanel()
     m_waitInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(m_waitInfoLabel);
 
+    // What several rows depend on is said once, here, and the rows name it
+    // by its number
+    m_waitSharedLabel = new QLabel(m_waitPanel);
+    m_waitSharedLabel->setWordWrap(true);
+    m_waitSharedLabel->setTextFormat(Qt::PlainText);
+    m_waitSharedLabel->setTextInteractionFlags(Qt::TextSelectableByMouse
+                                               | Qt::TextSelectableByKeyboard);
+    m_waitSharedLabel->setAccessibleName(tr("Reasons shared by several rows"));
+    m_waitSharedLabel->setVisible(false);
+    layout->addWidget(m_waitSharedLabel);
+
     m_waitTable = new QTableWidget(0, WaitColumnCount, m_waitPanel);
     m_waitTable->setHorizontalHeaderLabels({
         tr("Job"), tr("Level"), tr("Scheduled"), tr("Predicted start"),
         tr("Wait"), tr("Certain"), tr("Reason")});
     m_waitTable->horizontalHeaderItem(WaitDuration)->setToolTip(
-        tr("Predicted start minus scheduled time, hours:minutes"));
+        tr("Predicted start minus scheduled time: seconds (\"27 s\"), minutes:seconds "
+           "(\"1:35 min\") or, from ten minutes on, hours:minutes (\"0:53 h\")"));
     m_waitTable->horizontalHeaderItem(WaitCertain)->setToolTip(
         tr("No: the prediction depends on a limit the Director did not report or on a "
            "duration that was not measured"));
@@ -1863,17 +1870,15 @@ void BScheduleWidget::updateWaitPrediction()
             m_jobScheduleIndex->entriesFor(enabled, from.addDays(-1), to);
 
         for (const BScheduleEntry &entry : entries) {
-            if (entry.jobName.isEmpty()) continue;
+            // A schedule that no enabled job uses starts nothing. (The
+            // entries come once per enabled job: BJobScheduleIndex.)
+            if (entry.unused || entry.jobName.isEmpty()) continue;
 
             auto directive = [&](const char *key, bool *known) {
                 return BWaitLimits::jobDirective(jobs, jobDefs, entry.jobName,
                                                  QLatin1String(key), known);
             };
-
-            // A job that is disabled is not started by the scheduler
             bool known = false;
-            if (BWaitLimits::boolValue(directive("enabled", &known)) == std::optional<bool>(false))
-                continue;
 
             BWaitRun run;
             run.id = BScheduleGanttWidget::entryKey(entry);
@@ -1910,6 +1915,20 @@ void BScheduleWidget::updateWaitPrediction()
                 run.durationBasis = estimate.isMeasured() ? BWaitRun::Duration::Measured
                                                           : BWaitRun::Duration::Estimated;
                 run.durationSecs = qMax<qint64>(1, estimate.duration.median);
+            }
+
+            // How long the Director lets a run of this job last: the bound
+            // of a run that was not measured. The Run line may set its own
+            // Max Run Sched Time.
+            const BWaitLimits::RunTimeLimits bounds =
+                BWaitLimits::runTimeLimits(jobs, jobDefs, entry.jobName, run.level);
+            run.maxRunSecs = bounds.maxRunSecs;
+            run.maxRunBound = bounds.maxRunBound;
+            run.maxRunSchedSecs = bounds.maxRunSchedSecs;
+            if (entry.source.spec && entry.source.spec->overrides.maxRunSchedTime) {
+                const std::optional<qint64> ofRun = BWaitLimits::timeValue(
+                    QJsonValue(*entry.source.spec->overrides.maxRunSchedTime));
+                if (ofRun && *ofRun > 0) run.maxRunSchedSecs = *ofRun;
             }
 
             for (const QDateTime &when : entry.occurrences) {
@@ -1951,8 +1970,7 @@ void BScheduleWidget::updateWaitViews()
     // --- The counter ---
     const QString text = predicted ? BScheduleWaitModel::summaryText(sum)
                                    : tr("Waiting not predicted");
-    m_waitButton->setText(text);
-    m_waitButton->setAccessibleName(tr("Predicted waits: %1").arg(text));
+    m_waitSummary = text;
     QStringList tip;
     if (!predicted) {
         tip << tr("The jobs of the Director are not loaded: it is not known which job runs "
@@ -1965,7 +1983,7 @@ void BScheduleWidget::updateWaitViews()
                       "report or on a duration that was not measured.");
         }
     }
-    tip << tr("Shows or hides the list of predicted waits.");
+    tip << tr("Opens or closes the list of predicted waits below the timeline.");
     m_waitButton->setToolTip(tip.join(QLatin1Char('\n')));
     // Beside the timeline only: the other views do not show these runs
     const bool isTimeline = m_viewStack->currentIndex() == 0;
@@ -1975,8 +1993,7 @@ void BScheduleWidget::updateWaitViews()
     QFont font = m_waitButton->font();
     font.setBold(sum.waiting > 0);
     m_waitButton->setFont(font);
-    // Never cut: the theme lets a button shrink below its text
-    m_waitButton->setMinimumWidth(m_waitButton->sizeHint().width());
+    updateWaitButtonText();     // the text, and the width it needs in this font
 
     // --- What the prediction used ---
     QStringList info;
@@ -2040,13 +2057,26 @@ void BScheduleWidget::updateWaitViews()
         if (m_waitResults[i].waits() || !m_waitResults[i].certain) rows.append(i);
     }
 
+    // What one unknown makes uncertain is often many rows. It is stated
+    // once above the table and the rows name it by its number.
+    const QList<BWaitUnknown> shared = BScheduleWaitModel::sharedUnknowns(m_waitResults, rows);
+    QStringList sharedLines;
+    for (int n = 0; n < shared.size(); ++n) {
+        sharedLines << tr("[%1] %2 rows: %3.")
+            .arg(n + 1)
+            .arg(BScheduleWaitModel::dependingRuns(shared[n], m_waitResults, rows))
+            .arg(BScheduleWaitModel::unknownText(shared[n], QDate(), false));
+    }
+    m_waitSharedLabel->setText(sharedLines.join(QLatin1Char('\n')));
+    m_waitSharedLabel->setVisible(!sharedLines.isEmpty());
+
     m_waitTable->setSortingEnabled(false);
     m_waitTable->clearSpans();
     m_waitTable->clearContents();
     m_waitTable->setRowCount(rows.size());
 
-    const QString timeFormat = showsWeek() ? QStringLiteral("ddd yyyy-MM-dd HH:mm")
-                                           : QStringLiteral("HH:mm");
+    const QString dayFormat = QStringLiteral("ddd yyyy-MM-dd ");
+    const QString scheduledDay = showsWeek() ? dayFormat : QString();
     for (int row = 0; row < rows.size(); ++row) {
         const int i = rows[row];
         const BWaitRun &run = m_waitRuns[i];
@@ -2060,19 +2090,24 @@ void BScheduleWidget::updateWaitViews()
         m_waitTable->setItem(row, WaitLevel, new QTableWidgetItem(
             run.level.isEmpty() ? tr("(none)") : run.level));
         m_waitTable->setItem(row, WaitScheduled, new BSortTableItem(
-            run.scheduled.toString(timeFormat), run.scheduled.toSecsSinceEpoch()));
-        // A start on another day than the scheduled one says so
-        const QString startFormat = result.start.date() == run.scheduled.date()
-            ? timeFormat : QStringLiteral("ddd yyyy-MM-dd HH:mm");
+            run.scheduled.toString(scheduledDay + QStringLiteral("HH:mm")),
+            run.scheduled.toSecsSinceEpoch()));
+        // A start on another day than the scheduled one says so. After a
+        // wait of seconds the start has seconds: it would read like the
+        // scheduled time otherwise.
+        const QString startDay = result.start.date() == run.scheduled.date() ? scheduledDay
+                                                                             : dayFormat;
+        const QString startTime = BScheduleWaitModel::startShowsSeconds(result.waitSecs)
+            ? QStringLiteral("HH:mm:ss") : QStringLiteral("HH:mm");
         m_waitTable->setItem(row, WaitStart, new BSortTableItem(
-            result.start.toString(startFormat), result.start.toSecsSinceEpoch()));
+            result.start.toString(startDay + startTime), result.start.toSecsSinceEpoch()));
         m_waitTable->setItem(row, WaitDuration, new BSortTableItem(
             result.waits() ? BScheduleWaitModel::formatWait(result.waitSecs) : tr("none"),
             result.waitSecs));
         m_waitTable->setItem(row, WaitCertain, new QTableWidgetItem(
             result.certain ? tr("yes") : tr("no")));
         m_waitTable->setItem(row, WaitReason, new QTableWidgetItem(
-            BScheduleWaitModel::reasonLine(run, result)));
+            BScheduleWaitModel::reasonLine(run, result, shared)));
 
         for (int column = 0; column < WaitColumnCount; ++column) {
             m_waitTable->item(row, column)->setToolTip(details);
@@ -2092,6 +2127,23 @@ void BScheduleWidget::updateWaitViews()
     m_waitTable->setSortingEnabled(true);
     m_waitTable->resizeColumnsToContents();
     onWaitRowChanged();
+}
+
+void BScheduleWidget::updateWaitButtonText()
+{
+    // An arrow as on a tree: to the right while the list is closed, down
+    // while it is open
+    const bool open = m_waitButton->isChecked();
+    m_waitButton->setText((open ? QStringLiteral("\u25BC  ") : QStringLiteral("\u25B6  "))
+                          + m_waitSummary);
+    // A screen reader gets words, not the arrow
+    m_waitButton->setAccessibleName(
+        open ? tr("Predicted waits: %1. The list is open.").arg(m_waitSummary)
+             : tr("Predicted waits: %1. The list is closed.").arg(m_waitSummary));
+    m_waitButton->setAccessibleDescription(
+        tr("Opens or closes the list of predicted waits below the timeline."));
+    // Never cut: the theme lets a button shrink below its text
+    m_waitButton->setMinimumWidth(m_waitButton->sizeHint().width());
 }
 
 void BScheduleWidget::onWaitRowChanged()

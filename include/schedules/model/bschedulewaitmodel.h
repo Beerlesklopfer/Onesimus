@@ -64,6 +64,7 @@
  * error, RunScripts, jobs started by hand, and the two seconds between two
  * looks of the Director at its queue. A Verify job at level Data takes two
  * places of its storage in the Director; it is counted with one here.
+ * Schedules that no enabled job uses start nothing and are not passed in.
  *
  * Durations. A run lasts as long as it was measured (the caller passes the
  * median of BJobHistoryStats at the level of the run). Where nothing was
@@ -76,14 +77,32 @@
  *    that is not known does not limit, a run whose Allow Mixed Priority is
  *    not known has it;
  *  - once against them: a run that was not measured at its level may be
- *    running for up to UncertainSpanSecs (a day) and for at least its
+ *    running as long as its job is allowed to (below) and for at least its
  *    estimate, a limit that is not known is 1, Allow Mixed Priority that
  *    is not known is off.
  * The start and the wait of BWaitResult are those of the first replay. A
  * run whose start is the same in both is certain; otherwise it is not, and
- * BWaitResult::unknowns names what it depends on. UncertainSpanSecs is not
- * a duration that enters a prediction: it bounds how far the mark
- * "uncertain" reaches behind a run of unknown length.
+ * BWaitResult::unknowns names what it depends on.
+ *
+ * How long a run that was not measured may be running. The Director cancels
+ * a job that runs longer than its job allows (Bareos job.cc,
+ * JobMonitorWatchdog(), JobCheckMaxruntime(), JobCheckMaxrunschedtime()):
+ *  - Max Run Time, counted from the start of the run (jcr->start_time,
+ *    set when the run has left the queue), for every level;
+ *  - Full Max Runtime, Incremental Max Runtime and Differential Max
+ *    Runtime, counted the same way, for a run of that level only (a
+ *    Virtual Full is not a Full here). Where both a level limit and Max
+ *    Run Time are set, the run is cancelled at the smaller one;
+ *  - Max Run Sched Time, counted from the scheduled time, so that waiting
+ *    is part of it. A Run line may override the job's value.
+ * The smallest of these is the bound (BWaitRun::maxRunSecs and
+ * maxRunSchedSecs, read by BWaitLimits::runTimeLimits()). A job without any
+ * of them may be running for up to UncertainSpanSecs (a day). Neither is a
+ * duration that enters a prediction: it bounds how far the mark "uncertain"
+ * reaches behind a run of unknown length. The Director checks these limits
+ * once a minute and a cancelled job needs a moment to end; that is not
+ * added to the bound. A run the Director upgrades to another level (an
+ * Incremental without a Full) is taken with the level of its Run line.
  *
  * Dates. Only real time counts: two runs wait for each other if one is
  * still running, or waiting ahead in the queue, when the other is due.
@@ -101,6 +120,16 @@ struct BWaitRun
         Unknown,    ///< No history: the run has no known length
     };
 
+    /// The directive that bounds the length of a run (see the file comment)
+    enum class Bound {
+        None,                   ///< No limit is set: UncertainSpanSecs applies
+        MaxRunTime,
+        FullMaxRunTime,
+        IncrementalMaxRunTime,
+        DifferentialMaxRunTime,
+        MaxRunSchedTime,
+    };
+
     QString id;             ///< The caller's own key of the series this start belongs to
     QString job;            ///< Name of the Job resource
     QString client;         ///< Empty: the job has none
@@ -113,6 +142,13 @@ struct BWaitRun
     QDateTime scheduled;
     Duration durationBasis = Duration::Unknown;
     qint64 durationSecs = 0;    ///< Not looked at for Duration::Unknown
+
+    // The longest the Director lets this run last. Looked at only for a
+    // run that was not measured at its level, and only in the replay
+    // against the runs.
+    qint64 maxRunSecs = 0;      ///< From its start; 0: no such limit
+    Bound maxRunBound = Bound::None;    ///< The directive maxRunSecs is from
+    qint64 maxRunSchedSecs = 0; ///< Max Run Sched Time, from the scheduled time; 0: none
 };
 
 /**
@@ -173,6 +209,39 @@ struct BWaitLimits
     /// A boolean of a "show" reply: true/false, or "yes"/"no"/"true"/"false"
     static std::optional<bool> boolValue(const QJsonValue &value);
 
+    /**
+     * @brief A time period of a "show" reply or of a Run line, in seconds
+     *
+     * Bareos prints a period as "12 hours " or "1 days 6 hours " (res.cc
+     * PrintConfigTime()) and reads numbers with the modifiers seconds,
+     * minutes (mins, n), hours, days, weeks, months (30 days), quarters
+     * (91 days) and years (365 days), also abbreviated; a number without a
+     * modifier is seconds (edit.cc DurationToUtime()). A JSON number is
+     * seconds. nullopt for anything else.
+     */
+    static std::optional<qint64> timeValue(const QJsonValue &value);
+
+    /** The limits of a job on how long one of its runs may last. */
+    struct RunTimeLimits
+    {
+        qint64 maxRunSecs = 0;      ///< The smaller of Max Run Time and the level's limit; 0: none
+        BWaitRun::Bound maxRunBound = BWaitRun::Bound::None;
+        qint64 maxRunSchedSecs = 0; ///< Max Run Sched Time of the job; 0: none
+    };
+
+    /**
+     * @brief Reads them from the job and the JobDefs it names
+     * @param level The level of the run ("Full", "Incremental",
+     *              "Differential"; anything else has no level limit)
+     *
+     * A value of 0, a value that cannot be read and a JobDefs that was not
+     * reported all give "no limit": the caller then falls back to
+     * BScheduleWaitModel::UncertainSpanSecs, which is the longer bound.
+     */
+    static RunTimeLimits runTimeLimits(const QMap<QString, QJsonObject> &jobs,
+                                       const QMap<QString, QJsonObject> &jobDefs,
+                                       const QString &job, const QString &level);
+
     static constexpr int DefaultMaximumConcurrentJobs = 1;  ///< Bareos, all four resources
 
 private:
@@ -220,6 +289,13 @@ struct BWaitUnknown
     Kind kind = Kind::NoHistory;
     QString name;           ///< The storage, client or job; empty for the Director
 
+    // EstimatedDuration, NoHistory: how long the run of that job that is in
+    // the way may be running, and which limit of its job says so. Not part
+    // of the comparison: two runs of the job are one unknown.
+    QDateTime until;        ///< Invalid: not worked out
+    BWaitRun::Bound bound = BWaitRun::Bound::None;
+    qint64 boundSecs = 0;   ///< The value of that limit; UncertainSpanSecs for Bound::None
+
     bool operator==(const BWaitUnknown &other) const
     {
         return kind == other.kind && name == other.name;
@@ -260,8 +336,21 @@ class BScheduleWaitModel
 
 public:
     /// How long a run that was not measured at its level may be running in
-    /// the replay against the runs (see the file comment)
+    /// the replay against the runs if its job sets no limit (see the file
+    /// comment)
     static constexpr qint64 UncertainSpanSecs = 24 * 3600;
+
+    /// A wait shorter than this is shown with seconds, and so is its start
+    static constexpr qint64 SecondsShownBelow = 10 * 60;
+
+    /**
+     * @brief How long a run that was not measured may be running at most
+     * @param startSecs Seconds from the scheduled time to its start (its wait)
+     * @param which     If given: the limit that says so
+     * @return seconds from its start; UncertainSpanSecs without a limit
+     */
+    static qint64 upperBoundSecs(const BWaitRun &run, qint64 startSecs,
+                                 BWaitRun::Bound *which = nullptr);
 
     /**
      * @brief Replays the queue for these runs
@@ -275,8 +364,27 @@ public:
 
     // --- Texts (plain, one statement per string) ---------------------------
 
-    /// "0:53" (hours:minutes, rounded up to the minute)
+    /**
+     * @brief A waiting time for display, the same everywhere
+     *
+     * Under a minute "27 s"; under ten minutes minutes and seconds,
+     * "1:35 min"; from there on hours and minutes, rounded up to the
+     * minute, "0:53 h". The unit is always written.
+     */
     static QString formatWait(qint64 secs);
+
+    /// A predicted start is shown with seconds if its wait is shorter than
+    /// SecondsShownBelow: otherwise it reads like the scheduled time
+    static bool startShowsSeconds(qint64 waitSecs)
+    {
+        return waitSecs > 0 && waitSecs < SecondsShownBelow;
+    }
+
+    /// A limit for display: "12 h", "90 min", "1 d 6 h"
+    static QString formatSpan(qint64 secs);
+
+    /// "Max Run Time 12 h", or "no Max Run Time set, 24 h assumed"
+    static QString boundText(BWaitRun::Bound bound, qint64 secs);
 
     /// The counter line: "3 run(s) wait, longest 0:53, 2 uncertain" or
     /// "No waiting predicted"
@@ -291,12 +399,41 @@ public:
     static QString blockersText(const BWaitHold &hold, const QList<BWaitRun> &runs,
                                 const QList<BWaitResult> &results, int most = 4);
 
-    /// "the duration of backup-a was never measured"
-    static QString unknownText(const BWaitUnknown &unknown);
+    /**
+     * @brief What is not known, in words
+     *
+     * "the duration of backup-a was never measured: it may run until 14:00
+     * (Max Run Time 12 h)". The time is left out if @p withUntil is false
+     * (a statement about several runs) or if it was not worked out; then
+     * the text is "... never measured (Max Run Time 12 h)".
+     * @param reference Times on this date are written without a date
+     */
+    static QString unknownText(const BWaitUnknown &unknown, const QDate &reference = QDate(),
+                               bool withUntil = true);
 
-    /// One line for a list: the main reason of the wait, or what an
-    /// uncertain run without a wait depends on; empty for neither
-    static QString reasonLine(const BWaitRun &run, const BWaitResult &result);
+    /**
+     * @brief The unknowns that several runs of a list depend on
+     * @param indices The runs of the list
+     * @param atLeast An unknown that fewer runs depend on is not shared
+     * @return in the order of their first appearance; the list states each
+     *         of them once and marks its rows with "[1]", "[2]", ...
+     *         (reasonLine())
+     */
+    static QList<BWaitUnknown> sharedUnknowns(const QList<BWaitResult> &results,
+                                              const QList<int> &indices, int atLeast = 3);
+
+    /// How many of the runs depend on the unknown
+    static int dependingRuns(const BWaitUnknown &unknown, const QList<BWaitResult> &results,
+                             const QList<int> &indices);
+
+    /**
+     * @brief One line for a list: the main reason of the wait, or what an
+     *        uncertain run without a wait depends on; empty for neither
+     * @param shared Unknowns that are stated once beside the list: named
+     *               here by their number, "[1]", instead of in words
+     */
+    static QString reasonLine(const BWaitRun &run, const BWaitResult &result,
+                              const QList<BWaitUnknown> &shared = QList<BWaitUnknown>());
 
     /**
      * @brief Everything about the wait of one run, a statement per entry

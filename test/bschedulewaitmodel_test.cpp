@@ -114,6 +114,15 @@ private slots:
 
     // --- Summary and texts ---
     void summaryAndTexts();
+    void shortWaitsHaveSeconds();
+    void sharedUnknownsAreStatedOnce();
+
+    // --- The bound of a run that was not measured ---
+    void readTimeValues();
+    void readRunTimeLimits();
+    void maxRunTimeBoundsARunWithoutHistory();
+    void maxRunSchedTimeCountsFromTheScheduledTime();
+    void estimateIsBoundedAsWell();
     void describeNamesLimitAndRuns();
 };
 
@@ -364,7 +373,7 @@ void BScheduleWaitModelTest::maintainerCatalogBackup()
     QCOMPARE(r[1].holds.size(), 1);
     QCOMPARE(r[1].holds[0].reason, BWaitHold::Reason::Priority);
     QCOMPARE(r[1].holds[0].blockers, QList<int>({0}));
-    QCOMPARE(BScheduleWaitModel::formatWait(r[1].waitSecs), QString("0:53"));
+    QCOMPARE(BScheduleWaitModel::formatWait(r[1].waitSecs), QString("0:53 h"));
 }
 
 void BScheduleWaitModelTest::higherPriorityNeedsMixedOnAll()
@@ -786,11 +795,33 @@ void BScheduleWaitModelTest::refusedReplyLeavesLimitsUnknown()
 
 void BScheduleWaitModelTest::summaryAndTexts()
 {
-    QCOMPARE(BScheduleWaitModel::formatWait(0), QString("0:00"));
-    QCOMPARE(BScheduleWaitModel::formatWait(30), QString("0:01"));
-    QCOMPARE(BScheduleWaitModel::formatWait(53 * 60), QString("0:53"));
-    QCOMPARE(BScheduleWaitModel::formatWait(3 * 3600 + 7 * 60), QString("3:07"));
-    QCOMPARE(BScheduleWaitModel::formatWait(26 * 3600), QString("26:00"));
+    // One scheme everywhere: seconds, then minutes:seconds, from ten
+    // minutes on hours:minutes rounded up; the unit is always there
+    QCOMPARE(BScheduleWaitModel::formatWait(0), QString("0 s"));
+    QCOMPARE(BScheduleWaitModel::formatWait(-5), QString("0 s"));
+    QCOMPARE(BScheduleWaitModel::formatWait(1), QString("1 s"));
+    QCOMPARE(BScheduleWaitModel::formatWait(27), QString("27 s"));
+    QCOMPARE(BScheduleWaitModel::formatWait(59), QString("59 s"));
+    QCOMPARE(BScheduleWaitModel::formatWait(60), QString("1:00 min"));
+    QCOMPARE(BScheduleWaitModel::formatWait(95), QString("1:35 min"));
+    QCOMPARE(BScheduleWaitModel::formatWait(9 * 60 + 59), QString("9:59 min"));
+    QCOMPARE(BScheduleWaitModel::formatWait(10 * 60), QString("0:10 h"));
+    QCOMPARE(BScheduleWaitModel::formatWait(10 * 60 + 1), QString("0:11 h"));
+    QCOMPARE(BScheduleWaitModel::formatWait(53 * 60), QString("0:53 h"));
+    QCOMPARE(BScheduleWaitModel::formatWait(3 * 3600 + 7 * 60), QString("3:07 h"));
+    QCOMPARE(BScheduleWaitModel::formatWait(26 * 3600), QString("26:00 h"));
+
+    // The start has seconds while the wait has them
+    QVERIFY(!BScheduleWaitModel::startShowsSeconds(0));
+    QVERIFY(BScheduleWaitModel::startShowsSeconds(27));
+    QVERIFY(BScheduleWaitModel::startShowsSeconds(9 * 60 + 59));
+    QVERIFY(!BScheduleWaitModel::startShowsSeconds(10 * 60));
+
+    QCOMPARE(BScheduleWaitModel::formatSpan(12 * 3600), QString("12 h"));
+    QCOMPARE(BScheduleWaitModel::formatSpan(90 * 60), QString("1 h 30 min"));
+    QCOMPARE(BScheduleWaitModel::formatSpan(30 * 3600), QString("1 d 6 h"));
+    QCOMPARE(BScheduleWaitModel::formatSpan(45), QString("45 s"));
+    QCOMPARE(BScheduleWaitModel::formatSpan(0), QString("0 s"));
 
     BWaitSummary sum;
     QCOMPARE(BScheduleWaitModel::summaryText(sum), QString("No waiting predicted"));
@@ -799,9 +830,11 @@ void BScheduleWaitModelTest::summaryAndTexts()
     sum.waiting = 3;
     sum.longestSecs = 53 * 60;
     QCOMPARE(BScheduleWaitModel::summaryText(sum),
-             QString("3 run(s) wait, longest 0:53, 2 uncertain"));
+             QString("3 run(s) wait, longest 0:53 h, 2 uncertain"));
     sum.uncertain = 0;
-    QCOMPARE(BScheduleWaitModel::summaryText(sum), QString("3 run(s) wait, longest 0:53"));
+    QCOMPARE(BScheduleWaitModel::summaryText(sum), QString("3 run(s) wait, longest 0:53 h"));
+    sum.longestSecs = 27;
+    QCOMPARE(BScheduleWaitModel::summaryText(sum), QString("3 run(s) wait, longest 27 s"));
 
     // Counted over the chosen runs only
     QList<BWaitRun> runs;
@@ -841,7 +874,7 @@ void BScheduleWaitModelTest::describeNamesLimitAndRuns()
 
     // The priority rule, with both priorities and the run it waits for
     const QString priority = BScheduleWaitModel::describe(1, runs, r).join('\n');
-    QVERIFY2(priority.contains("Predicted start: 2026-11-17 00:08, 0:58 after the scheduled time (23:10)"),
+    QVERIFY2(priority.contains("Predicted start: 2026-11-17 00:08, 0:58 h after the scheduled time (23:10)"),
              qPrintable(priority));
     QVERIFY2(priority.contains("priority 11"), qPrintable(priority));
     QVERIFY2(priority.contains("priority 10"), qPrintable(priority));
@@ -871,6 +904,300 @@ void BScheduleWaitModelTest::describeNamesLimitAndRuns()
              qPrintable(unknown));
     QCOMPARE(BScheduleWaitModel::reasonLine(runs[2], u[2]),
              QString("May wait: Maximum Concurrent Jobs of client pdc-fd is not known"));
+}
+
+void BScheduleWaitModelTest::shortWaitsHaveSeconds()
+{
+    // What the maintainer saw on his Director: runs of half a minute on
+    // one client. The second one waits 27 seconds; "0:01" and a predicted
+    // start of "23:05" said nothing.
+    QList<BWaitRun> runs;
+    runs << run("first", at(16, 23, 5), 0, "fd1") << run("second", at(16, 23, 5), 0, "fd1");
+    runs[0].durationSecs = 27;
+    runs[1].durationSecs = 95;
+    BWaitLimits limits = ample(runs);
+    limits.clients.insert("fd1", 1);
+
+    const QList<BWaitResult> r = BScheduleWaitModel::predict(runs, limits);
+    QCOMPARE(r[1].waitSecs, qint64(27));
+    const QString text = BScheduleWaitModel::describe(1, runs, r).join('\n');
+    QVERIFY2(text.contains("Predicted start: 23:05:27, 27 s after the scheduled time (23:05)"),
+             qPrintable(text));
+    // The run it waits for begins and ends within a minute
+    QVERIFY2(text.contains("Waits for: first (Incremental, 23:05:00 to 23:05:27)"), qPrintable(text));
+
+    // A third one behind both: 2:02 minutes
+    runs << run("third", at(16, 23, 5), 1, "fd1");
+    limits = ample(runs);
+    limits.clients.insert("fd1", 1);
+    const QList<BWaitResult> three = BScheduleWaitModel::predict(runs, limits);
+    QCOMPARE(three[2].waitSecs, qint64(122));
+    QVERIFY2(BScheduleWaitModel::describe(2, runs, three).join('\n')
+                 .contains("Predicted start: 23:07:02, 2:02 min after the scheduled time (23:05)"),
+             qPrintable(BScheduleWaitModel::describe(2, runs, three).join('\n')));
+    QCOMPARE(BScheduleWaitModel::summaryText(BScheduleWaitModel::summary(three, {0, 1, 2})),
+             QString("2 run(s) wait, longest 2:02 min"));
+}
+
+void BScheduleWaitModelTest::readTimeValues()
+{
+    auto secs = [](const QJsonValue &value) { return BWaitLimits::timeValue(value); };
+
+    // As Bareos prints a period in "show" (res.cc PrintConfigTime()), with
+    // the blank at the end
+    QCOMPARE(secs("12 hours "), std::optional<qint64>(12 * 3600));
+    QCOMPARE(secs("1 days 6 hours "), std::optional<qint64>(30 * 3600));
+    QCOMPARE(secs("2 weeks 3 days 4 hours 5 minutes 6 seconds "),
+             std::optional<qint64>(14 * 86400 + 3 * 86400 + 4 * 3600 + 5 * 60 + 6));
+    QCOMPARE(secs("1 months "), std::optional<qint64>(30 * 86400));
+    QCOMPARE(secs("1 years "), std::optional<qint64>(365 * 86400));
+    QCOMPARE(secs("0"), std::optional<qint64>(0));
+    // As a Run line or a configuration file may write it (edit.cc
+    // DurationToUtime()): abbreviated, without a blank, without a unit
+    QCOMPARE(secs("12h"), std::optional<qint64>(12 * 3600));
+    QCOMPARE(secs("90 min"), std::optional<qint64>(90 * 60));
+    QCOMPARE(secs("90 mins"), std::optional<qint64>(90 * 60));
+    QCOMPARE(secs("5 n"), std::optional<qint64>(5 * 60));
+    QCOMPARE(secs("2 m"), std::optional<qint64>(2 * 30 * 86400));    // "m" is months
+    QCOMPARE(secs("1 quarters"), std::optional<qint64>(91 * 86400));
+    QCOMPARE(secs("3600"), std::optional<qint64>(3600));
+    QCOMPARE(secs("1 Hours"), std::optional<qint64>(3600));
+    // A number: seconds [constructed: Bareos sends a string]
+    QCOMPARE(secs(43200), std::optional<qint64>(43200));
+    // Not a period
+    QCOMPARE(secs("soon"), std::nullopt);
+    QCOMPARE(secs("12 parsecs"), std::nullopt);
+    QCOMPARE(secs(""), std::nullopt);
+    QCOMPARE(secs(QJsonValue()), std::nullopt);
+    QCOMPARE(secs(true), std::nullopt);
+    QCOMPARE(secs(-5), std::nullopt);
+}
+
+void BScheduleWaitModelTest::readRunTimeLimits()
+{
+    // Directive names as "show" prints them: the item names of
+    // dird_conf.cc in lower case (MaxRunTime, FullMaxRuntime,
+    // IncrementalMaxRuntime, DifferentialMaxRuntime, MaxRunSchedTime)
+    QMap<QString, QJsonObject> jobs;
+    QMap<QString, QJsonObject> defs;
+    jobs.insert("plain", object(R"({"name":"plain"})"));
+    jobs.insert("own", object(R"({"name":"own","maxruntime":"12 hours "})"));
+    jobs.insert("inherits", object(R"({"name":"inherits","jobdefs":"Defaults"})"));
+    jobs.insert("levels", object(R"({"name":"levels","maxruntime":"12 hours ",
+        "fullmaxruntime":"2 days ","incrementalmaxruntime":"3 hours ",
+        "differentialmaxruntime":"6 hours ","maxrunschedtime":"20 hours "})"));
+    jobs.insert("levelonly", object(R"({"name":"levelonly","fullmaxruntime":"8 hours "})"));
+    jobs.insert("orphan", object(R"({"name":"orphan","jobdefs":"Missing"})"));
+    jobs.insert("zero", object(R"({"name":"zero","maxruntime":"0"})"));
+    defs.insert("Defaults", object(R"({"name":"Defaults","maxruntime":"4 hours "})"));
+
+    auto limits = [&](const char *job, const char *level) {
+        return BWaitLimits::runTimeLimits(jobs, defs, job, level);
+    };
+
+    QCOMPARE(limits("plain", "Full").maxRunSecs, qint64(0));
+    QCOMPARE(limits("plain", "Full").maxRunBound, BWaitRun::Bound::None);
+    QCOMPARE(limits("plain", "Full").maxRunSchedSecs, qint64(0));
+
+    QCOMPARE(limits("own", "Incremental").maxRunSecs, qint64(12 * 3600));
+    QCOMPARE(limits("own", "Incremental").maxRunBound, BWaitRun::Bound::MaxRunTime);
+    // From the JobDefs
+    QCOMPARE(limits("inherits", "Full").maxRunSecs, qint64(4 * 3600));
+
+    // job.cc JobCheckMaxruntime(): the limit of the level and Max Run Time
+    // both cancel, so the smaller one counts. A Full with Full Max Runtime
+    // 2 days is still cancelled by Max Run Time after 12 hours.
+    QCOMPARE(limits("levels", "Full").maxRunSecs, qint64(12 * 3600));
+    QCOMPARE(limits("levels", "Full").maxRunBound, BWaitRun::Bound::MaxRunTime);
+    QCOMPARE(limits("levels", "Incremental").maxRunSecs, qint64(3 * 3600));
+    QCOMPARE(limits("levels", "Incremental").maxRunBound, BWaitRun::Bound::IncrementalMaxRunTime);
+    QCOMPARE(limits("levels", "differential").maxRunSecs, qint64(6 * 3600));
+    QCOMPARE(limits("levels", "differential").maxRunBound, BWaitRun::Bound::DifferentialMaxRunTime);
+    // A Virtual Full is not a Full for these limits
+    QCOMPARE(limits("levels", "VirtualFull").maxRunSecs, qint64(12 * 3600));
+    QCOMPARE(limits("levels", "VirtualFull").maxRunBound, BWaitRun::Bound::MaxRunTime);
+    QCOMPARE(limits("levels", "Full").maxRunSchedSecs, qint64(20 * 3600));
+
+    // The limit of a level applies to that level only
+    QCOMPARE(limits("levelonly", "Full").maxRunSecs, qint64(8 * 3600));
+    QCOMPARE(limits("levelonly", "Full").maxRunBound, BWaitRun::Bound::FullMaxRunTime);
+    QCOMPARE(limits("levelonly", "Incremental").maxRunSecs, qint64(0));
+
+    // Not known is no limit: the longer bound of a day applies then
+    QCOMPARE(limits("orphan", "Full").maxRunSecs, qint64(0));
+    QCOMPARE(limits("zero", "Full").maxRunSecs, qint64(0));
+    QCOMPARE(limits("nobody", "Full").maxRunSecs, qint64(0));
+}
+
+void BScheduleWaitModelTest::maxRunTimeBoundsARunWithoutHistory()
+{
+    // The maintainer's case. Samba4-Weekly at 02:00 was never measured;
+    // BackupEleLa at 23:05, 21 hours later, uses the same storage, which
+    // takes one job at a time here.
+    QList<BWaitRun> runs;
+    runs << run("Samba4-Weekly", at(16, 2, 0), 0, "samba-fd")
+         << run("BackupEleLa", at(16, 23, 5), 10, "elela-fd");
+    runs[0].durationBasis = BWaitRun::Duration::Unknown;
+    BWaitLimits limits = ample(runs);
+    limits.storages.insert("File", 1);
+
+    // Without a limit the job may run for a day: the run at 23:05 may wait
+    QList<BWaitResult> r = BScheduleWaitModel::predict(runs, limits);
+    QCOMPARE(r[1].waitSecs, qint64(0));
+    QVERIFY(!r[1].certain);
+    QCOMPARE(r[1].unknowns.size(), 1);
+    QCOMPARE(r[1].unknowns[0].kind, BWaitUnknown::Kind::NoHistory);
+    QCOMPARE(r[1].unknowns[0].bound, BWaitRun::Bound::None);
+    QCOMPARE(r[1].unknowns[0].until, at(17, 2, 0));
+    QCOMPARE(BScheduleWaitModel::reasonLine(runs[1], r[1]),
+             QString("May wait: the duration of Samba4-Weekly was never measured: it may run "
+                     "until 2026-11-17 02:00 (no Max Run Time set, 24 h assumed)"));
+
+    // Max Run Time = 12 h: the Director cancels it at 14:00, long before 23:05
+    runs[0].maxRunSecs = 12 * 3600;
+    runs[0].maxRunBound = BWaitRun::Bound::MaxRunTime;
+    r = BScheduleWaitModel::predict(runs, limits);
+    QVERIFY(r[1].certain);
+    QVERIFY(r[1].unknowns.isEmpty());
+    QCOMPARE(r[1].waitSecs, qint64(0));
+
+    // A run inside the twelve hours is still uncertain, and the text names
+    // the end and the limit
+    runs << run("Midday", at(16, 12, 30), 10, "other-fd");
+    limits = ample(runs);
+    limits.storages.insert("File", 1);
+    r = BScheduleWaitModel::predict(runs, limits);
+    QVERIFY(r[1].certain);
+    QVERIFY(!r[2].certain);
+    QCOMPARE(r[2].unknowns[0].until, at(16, 14, 0));
+    QCOMPARE(r[2].unknowns[0].bound, BWaitRun::Bound::MaxRunTime);
+    QCOMPARE(r[2].unknowns[0].boundSecs, qint64(12 * 3600));
+    QCOMPARE(BScheduleWaitModel::reasonLine(runs[2], r[2]),
+             QString("May wait: the duration of Samba4-Weekly was never measured: it may run "
+                     "until 14:00 (Max Run Time 12 h)"));
+    const QString details = BScheduleWaitModel::describe(2, runs, r).join('\n');
+    QVERIFY2(details.contains("Uncertain, this run may have to wait: the duration of "
+                              "Samba4-Weekly was never measured: it may run until 14:00 "
+                              "(Max Run Time 12 h)."), qPrintable(details));
+    // A run due exactly at the end of the limit is not held
+    runs[2].scheduled = at(16, 14, 0);
+    QVERIFY(BScheduleWaitModel::predict(runs, limits)[2].certain);
+
+    // The limit of the level is named as such
+    runs[2].scheduled = at(16, 3, 0);
+    runs[0].maxRunSecs = 2 * 3600;
+    runs[0].maxRunBound = BWaitRun::Bound::FullMaxRunTime;
+    r = BScheduleWaitModel::predict(runs, limits);
+    QVERIFY2(BScheduleWaitModel::reasonLine(runs[2], r[2])
+                 .endsWith("it may run until 04:00 (Full Max Runtime 2 h)"),
+             qPrintable(BScheduleWaitModel::reasonLine(runs[2], r[2])));
+}
+
+void BScheduleWaitModelTest::maxRunSchedTimeCountsFromTheScheduledTime()
+{
+    // job.cc JobCheckMaxrunschedtime(): from the scheduled time, so that
+    // what the run waited is used up. "blocker" is scheduled for 01:00 and
+    // waits an hour for "first"; Max Run Sched Time 3 h ends it at 04:00,
+    // not at 05:00.
+    QList<BWaitRun> runs;
+    runs << run("first", at(16, 0, 30), 90, "fd1")
+         << run("blocker", at(16, 1, 0), 0, "fd1")
+         << run("late", at(16, 4, 30), 10, "fd1")
+         << run("early", at(16, 3, 30), 10, "fd1");
+    runs[1].durationBasis = BWaitRun::Duration::Unknown;
+    runs[1].maxRunSchedSecs = 3 * 3600;
+    BWaitLimits limits = ample(runs);
+    limits.clients.insert("fd1", 1);
+
+    const QList<BWaitResult> r = BScheduleWaitModel::predict(runs, limits);
+    QCOMPARE(r[1].start, at(16, 2, 0));
+    QVERIFY(r[2].certain);
+    QVERIFY(!r[3].certain);
+    QCOMPARE(r[3].unknowns[0].bound, BWaitRun::Bound::MaxRunSchedTime);
+    QCOMPARE(r[3].unknowns[0].until, at(16, 4, 0));
+    QVERIFY2(BScheduleWaitModel::reasonLine(runs[3], r[3])
+                 .endsWith("it may run until 04:00 (Max Run Sched Time 3 h)"),
+             qPrintable(BScheduleWaitModel::reasonLine(runs[3], r[3])));
+
+    // Both limits: the one that ends the run first. Max Run Time 1 h from
+    // the start at 02:00 is 03:00.
+    QList<BWaitRun> both = runs;
+    both[1].maxRunSecs = 3600;
+    both[1].maxRunBound = BWaitRun::Bound::MaxRunTime;
+    const QList<BWaitResult> b = BScheduleWaitModel::predict(both, limits);
+    QVERIFY(b[3].certain);
+    BWaitRun::Bound which = BWaitRun::Bound::None;
+    QCOMPARE(BScheduleWaitModel::upperBoundSecs(both[1], 3600, &which), qint64(3600));
+    QCOMPARE(which, BWaitRun::Bound::MaxRunTime);
+    QCOMPARE(BScheduleWaitModel::upperBoundSecs(runs[1], 3600, &which), qint64(2 * 3600));
+    QCOMPARE(which, BWaitRun::Bound::MaxRunSchedTime);
+    // Nothing set: a day
+    QCOMPARE(BScheduleWaitModel::upperBoundSecs(runs[0], 0, &which),
+             BScheduleWaitModel::UncertainSpanSecs);
+    QCOMPARE(which, BWaitRun::Bound::None);
+}
+
+void BScheduleWaitModelTest::estimateIsBoundedAsWell()
+{
+    // a has an estimate of 20 minutes from other levels and Max Run Time
+    // 1 h: it runs for at least its estimate and for an hour at most
+    QList<BWaitRun> runs;
+    runs << run("a", at(16, 2, 0), 20, "fd1") << run("b", at(16, 2, 30), 10, "fd1")
+         << run("c", at(16, 3, 30), 10, "fd1");
+    runs[0].durationBasis = BWaitRun::Duration::Estimated;
+    runs[0].maxRunSecs = 3600;
+    runs[0].maxRunBound = BWaitRun::Bound::MaxRunTime;
+    BWaitLimits limits = ample(runs);
+    limits.clients.insert("fd1", 1);
+
+    QList<BWaitResult> r = BScheduleWaitModel::predict(runs, limits);
+    QVERIFY(!r[1].certain);
+    QCOMPARE(r[1].unknowns[0].kind, BWaitUnknown::Kind::EstimatedDuration);
+    QCOMPARE(r[1].unknowns[0].until, at(16, 3, 0));
+    QVERIFY(r[2].certain);
+
+    // Without the limit c is not certain either
+    runs[0].maxRunSecs = 0;
+    runs[0].maxRunBound = BWaitRun::Bound::None;
+    r = BScheduleWaitModel::predict(runs, limits);
+    QVERIFY(!r[2].certain);
+}
+
+void BScheduleWaitModelTest::sharedUnknownsAreStatedOnce()
+{
+    // One run without history on a storage that takes one job: every run
+    // of the following day depends on it
+    QList<BWaitRun> runs;
+    runs << run("unmeasured", at(16, 2, 0), 0, "fd0");
+    for (int i = 1; i <= 4; ++i)
+        runs << run(QString("job%1").arg(i), at(16, 3 + 4 * i, 0), 10, QString("fd%1").arg(i));
+    runs << run("mystery", at(16, 21, 0), 10, "fd9", "Other");
+    runs[0].durationBasis = BWaitRun::Duration::Unknown;
+    BWaitLimits limits = ample(runs);
+    limits.storages.insert("File", 1);
+    limits.clients.remove("fd9");   // an unknown of one run only
+
+    const QList<BWaitResult> r = BScheduleWaitModel::predict(runs, limits);
+    const QList<int> rows = {1, 2, 3, 4, 5};
+    for (int i = 1; i <= 4; ++i)
+        QVERIFY2(!r[i].certain, qPrintable(runs[i].job));
+
+    const QList<BWaitUnknown> shared = BScheduleWaitModel::sharedUnknowns(r, rows);
+    QCOMPARE(shared.size(), 1);
+    QCOMPARE(shared[0].kind, BWaitUnknown::Kind::NoHistory);
+    QCOMPARE(shared[0].name, QString("unmeasured"));
+    QCOMPARE(BScheduleWaitModel::dependingRuns(shared[0], r, rows), 4);
+    // Stated once, without the time that differs from run to run
+    QCOMPARE(BScheduleWaitModel::unknownText(shared[0], QDate(), false),
+             QString("the duration of unmeasured was never measured "
+                     "(no Max Run Time set, 24 h assumed)"));
+    // The rows name it by its number
+    QCOMPARE(BScheduleWaitModel::reasonLine(runs[2], r[2], shared), QString("May wait: [1]"));
+    // Without the list of shared reasons the row says it in full
+    QVERIFY(BScheduleWaitModel::reasonLine(runs[2], r[2]).contains("was never measured"));
+    // Two rows are not "several"
+    QVERIFY(BScheduleWaitModel::sharedUnknowns(r, {1, 2}).isEmpty());
+    QCOMPARE(BScheduleWaitModel::sharedUnknowns(r, {1, 2}, 2).size(), 1);
 }
 
 QTEST_GUILESS_MAIN(BScheduleWaitModelTest)

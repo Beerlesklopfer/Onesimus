@@ -35,9 +35,19 @@
  *   (BJobHistoryStats), with a mark at the 90th percentile. A run without
  *   history is a dashed outline with a question mark: it has no length.
  * - Predicted waiting (setWaits()): a run that is expected to wait for a
- *   limit of the Director has a hatched lead-in from its scheduled time to
- *   its predicted start, and its bar begins there. Runs that only run at
+ *   limit of the Director has an hourglass in front of its scheduled time,
+ *   a mark of fixed size that is seen at every zoom, and a hatched lead-in
+ *   as long as the wait from its scheduled time to its predicted start,
+ *   where its bar begins. The lead-in of a short wait has no visible
+ *   length; the hourglass says that the run waits. Runs that only run at
  *   the same time are not marked: that is allowed by the limits.
+ * - A schedule that no enabled job uses (BScheduleEntry::unused) starts
+ *   nothing. Its Run lines are rows of a last group "Not used by any job",
+ *   in muted italics, with an open diamond where a run would start: no
+ *   bar, no question mark, no wait, and nothing to drag.
+ * - A bar can be dragged to another time of the day as a what-if: the
+ *   ghost stays, a preview follows the pointer. Dropping it changes
+ *   nothing; the bar goes back and dragDropped() tells whoever listens.
  * - Heatmap at bottom showing how many runs are running per time slot, in
  *   one neutral colour, with a strip where runs are waiting
  * - Zoom control (15min to 1h blocks)
@@ -144,21 +154,6 @@ public:
     static QString waitKey(const QString &entryKey, const QDateTime &when);
 
     /**
-     * @brief Dependency edge between two schedule entries
-     * Used during drag to show affected jobs
-     */
-    struct DependencyEdge {
-        /// ClientExclusion and StorageContention say that two entries share
-        /// a client or a storage; whether one waits for the other depends
-        /// on the limits and is not decided here
-        enum Type { LevelChain, ClientExclusion, StorageContention };
-        Type type;
-        int sourceEntryIndex;
-        int targetEntryIndex;
-        QString description;
-    };
-
-    /**
      * @brief Returns the current entries list
      */
     const QList<BScheduleEntry>& entries() const { return m_entries; }
@@ -189,6 +184,8 @@ public:
         int labelWidth = 0;         ///< The column of job names
         int heatmapHeight = 0;
         int noHistoryMarkerWidth = 0;
+        int waitMarkWidth = 0;      ///< The hourglass of a run that waits
+        int unusedMarkWidth = 0;    ///< The diamond of a schedule no job uses
         int hourLabelWidth = 0;     ///< Width of the text "00:00"
     };
     Metrics metrics() const { return m_metrics; }
@@ -201,8 +198,14 @@ signals:
     void entryClicked(const BScheduleEntry &entry);
     void entryDoubleClicked(const BScheduleEntry &entry);
     void dragStarted(const BScheduleEntry &entry);
-    void dragCompleted(int entryIndex, int newHour, int newMinute,
-                       const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
+    /**
+     * @brief A dragged bar was dropped at another time of the day
+     *
+     * The widget has changed nothing and never does: the bar is back at
+     * its time when this is emitted. @p entryIndex is an index into
+     * entries().
+     */
+    void dragDropped(int entryIndex, int newHour, int newMinute);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -227,6 +230,9 @@ private:
     /// Width in pixels of the marker of a run without history. It is a
     /// marker, not a length: it does not change with the time zoom.
     int m_noHistoryMarkerWidth = 22;
+    /// Width of the hourglass in front of a run that waits. A marker as
+    /// well: it says that the run waits, not for how long.
+    int m_waitMarkWidth = 9;
     Metrics m_metrics;
     QFont m_smallFont;            // Hour labels, heat map label
     QFont m_smallBoldFont;        // Day names, letters in the bars
@@ -244,6 +250,10 @@ private:
     void drawNowMarker(QPainter &painter);
     void drawRows(QPainter &painter);
     void drawJobBar(QPainter &painter, int entryIndex, int row, int dayOffset);
+    /// The diamond of a schedule no job uses, where a run would start
+    void drawUnusedMark(QPainter &painter, int entryIndex, int row, int dayOffset);
+    /// The colour of what is not active: between text and background
+    QColor mutedColor() const;
     void drawHeatmap(QPainter &painter);
 
     // --- Layout calculation ---
@@ -251,6 +261,7 @@ private:
         QString label;
         bool isGroupHeader;
         int entryIndex;  // -1 for group headers
+        bool unused = false;    ///< The group or the row of schedules no job uses
     };
     void rebuildRows();
     /// "job · level"; the schedule name stands in for a missing job
@@ -264,9 +275,19 @@ private:
     QRect barRect(const BScheduleEntry &entry, int row, int dayOffset) const;
     /// The bar where it is drawn: at the predicted start
     QRect runRect(const BScheduleEntry &entry, int row, int dayOffset) const;
-    /// The lead-in from the scheduled time to the predicted start; empty
-    /// if the run does not wait
+    /// The lead-in from the scheduled time to the predicted start, as long
+    /// as the wait; empty if the run does not wait or the wait is shorter
+    /// than a pixel
     QRect waitRect(const BScheduleEntry &entry, int row, int dayOffset) const;
+    /// The hourglass of a run that waits: of fixed size, in front of the
+    /// scheduled time; empty if the run does not wait
+    QRect waitMarkRect(const BScheduleEntry &entry, int row, int dayOffset) const;
+    /// Everything of the start that can be pointed at: bar, lead-in, hourglass
+    bool startContains(const BScheduleEntry &entry, int row, int dayOffset,
+                       const QPoint &pos) const;
+    /// How far the bar is moved to the right of its predicted start
+    /// because the hourglass had no room in front of it (a run at 00:00)
+    int waitMarkShift(const BScheduleEntry &entry, int dayOffset) const;
     /// What is predicted for the start of the entry on that day; nullptr
     /// if nothing was set for it
     const RunWait *waitFor(const BScheduleEntry &entry, int dayOffset) const;
@@ -313,9 +334,6 @@ private:
 
     // --- Drag & Drop ---
     void drawDragOverlay(QPainter &painter);
-    void drawDependencyHighlights(QPainter &painter);
-    void computeDependencies(int draggedIndex);
-    void updateDragDependencies();
     void cancelDrag();
 
     // --- Data ---
@@ -362,7 +380,6 @@ private:
     int m_dragNewHour = 0;
     int m_dragNewMinute = 0;
     int m_dragSnapMinutes = 15;
-    QList<DependencyEdge> m_dragDependencies;
 };
 
 #endif // BSCHEDULEGANTTWIDGET_H

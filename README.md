@@ -364,7 +364,6 @@ onesimus/
 │       ├── bscheduleganttwidget.h       #   Gantt timeline widget (dual FD/SD)
 │       ├── bweeklyplanner.h             #   Compact 7x24 weekly grid view
 │       ├── bschedulewizard.h            #   Schedule Wizard (3-page QWizard)
-│       ├── bscheduledragresultdialog.h  #   Drag result dialog (configure commands)
 │       └── bjobscheduleindex.h          #   Schedule-to-job mapping index
 ├── src/                                 # Implementations (.cpp) — mirrors include/
 ├── resources/                           # Qt resources (embedded at build time)

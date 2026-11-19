@@ -17,6 +17,10 @@ const char Context[] = "BCapabilities";
 // - Onesimus Director: `configure update` covers client and job; the typed
 //   configure commands take a flat map of directives; `purge` follows the
 //   Bareos command (no form for all volumes).
+// - Changing a schedule is to come through methods of the gRPC interface
+//   of the Onesimus Director (onesimus-dird) that do not exist yet. Until
+//   then no connection can do it, the console protocol never will, and the
+//   GUI sends nothing: the notice says that nothing was changed.
 const Entry Table[] = {
     {
         Function::ModifySchedule,
@@ -25,10 +29,12 @@ const Entry Table[] = {
         false,
         Support::Planned,
         QT_TRANSLATE_NOOP("BCapabilities",
-                          "%1 cannot change an existing schedule through the console."),
+                          "%1 cannot change an existing schedule on this connection: that "
+                          "needs the schedule methods of the gRPC interface of the Onesimus "
+                          "Director (onesimus-dird)."),
         QT_TRANSLATE_NOOP("BCapabilities",
-                          "You can copy the configuration text and place it on the Director "
-                          "yourself."),
+                          "Nothing was changed. For now a schedule is changed in its "
+                          "configuration file on the Director."),
     },
     {
         Function::PurgeAllVolumes,

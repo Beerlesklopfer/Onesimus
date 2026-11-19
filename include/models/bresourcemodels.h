@@ -306,6 +306,10 @@ struct BScheduleEntry
     /// in ascending order. Filled by fromOccurrences() only.
     QList<QDateTime> occurrences;
 
+    /// No enabled job uses the schedule (BJobScheduleIndex::entriesFor()):
+    /// at these times nothing starts. Such an entry has no job.
+    bool unused = false;
+
     /// Does it start on this date?
     bool occursOn(const QDate &date) const;
 

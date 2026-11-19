@@ -19,6 +19,7 @@
 // Messages widget is now inside BJobWidget
 #include "config/bsettingsdialog.h"
 #include "bcleanupdialog.h"
+#include "bcapabilitynotice.h"
 #include "bconnectionwizard.h"
 #include "director/bconfigimportdialog.h"
 #include "db/bdatabase.h"
@@ -584,6 +585,14 @@ void BMainWindow::setupUI()
     // Schedule-Widget
     m_scheduleWidget = new BScheduleWidget(this);
     m_scheduleWidget->setDirector(m_director);
+    // A bar dropped in the timeline asks for a change of an existing
+    // schedule. No Director can do that yet; the notice says so, once per
+    // session (the schedule view adds a line in the status bar every time).
+    m_scheduleWidget->setScheduleChangeGate([this](QWidget *parent) {
+        return BCapabilityNotice::check(parent, m_director,
+                                        BCapabilities::Function::ModifySchedule,
+                                        BCapabilities::Request::Implicit);
+    });
     m_tabWidget->addTab(m_scheduleWidget, "Schedules");
 
     int savedTab = BSettings::instance().mainWindowActiveTab();

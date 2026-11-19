@@ -26,7 +26,7 @@ namespace BCapabilities {
 
 /** Functions listed in the capability table. */
 enum class Function {
-    ModifySchedule,     ///< Write a change of an existing Schedule resource
+    ModifySchedule,     ///< Write a change of an existing Schedule resource (a dropped bar)
     PurgeAllVolumes,    ///< "Prune and purge" over all volumes (cleanup dialog)
     DeployFileSet,      ///< Send a FileSet with nested blocks to the Director
 };

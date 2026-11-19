@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
+#include <QRegularExpression>
 #include <QSet>
 #include <QVector>
 
@@ -94,6 +95,96 @@ std::optional<bool> BWaitLimits::boolValue(const QJsonValue &value)
             return false;
     }
     return std::nullopt;
+}
+
+std::optional<qint64> BWaitLimits::timeValue(const QJsonValue &value)
+{
+    if (value.isDouble()) {
+        const double seconds = value.toDouble();
+        if (seconds < 0)
+            return std::nullopt;
+        return static_cast<qint64>(seconds);
+    }
+    if (!value.isString())
+        return std::nullopt;
+
+    const QString text = value.toString().trimmed().toLower();
+    if (text.isEmpty())
+        return std::nullopt;
+
+    // edit.cc DurationToUtime(): what is written is taken as the beginning
+    // of the first modifier in this order that begins with it, so that "m"
+    // is months and "min" is minutes
+    static const struct { const char *name; qint64 secs; } modifiers[] = {
+        {"n", 60}, {"seconds", 1}, {"months", 30 * 86400}, {"minutes", 60}, {"mins", 60},
+        {"hours", 3600}, {"days", 86400}, {"weeks", 7 * 86400}, {"quarters", 91 * 86400},
+        {"years", 365 * 86400},
+    };
+
+    static const QRegularExpression part(QStringLiteral("\\G\\s*(\\d+(?:\\.\\d+)?)\\s*([a-z]*)\\s*"));
+    double total = 0;
+    qsizetype at = 0;
+    while (at < text.size()) {
+        const QRegularExpressionMatch match = part.match(text, at);
+        if (!match.hasMatch() || match.capturedLength() == 0)
+            return std::nullopt;
+        const QString written = match.captured(2);
+        qint64 factor = written.isEmpty() ? 1 : 0;
+        for (const auto &modifier : modifiers) {
+            if (factor == 0 && QLatin1String(modifier.name).startsWith(written))
+                factor = modifier.secs;
+        }
+        if (factor == 0)
+            return std::nullopt;
+        total += match.captured(1).toDouble() * static_cast<double>(factor);
+        at = match.capturedEnd();
+    }
+    return static_cast<qint64>(total);
+}
+
+BWaitLimits::RunTimeLimits BWaitLimits::runTimeLimits(const QMap<QString, QJsonObject> &jobs,
+                                                      const QMap<QString, QJsonObject> &jobDefs,
+                                                      const QString &job, const QString &level)
+{
+    // A limit of 0 is "none" in Bareos; so is everything that is not known
+    auto limit = [&](const char *key) -> qint64 {
+        bool known = false;
+        const QJsonValue value = jobDirective(jobs, jobDefs, job, QLatin1String(key), &known);
+        if (!known || value.isUndefined() || value.isNull())
+            return 0;
+        return qMax<qint64>(0, timeValue(value).value_or(0));
+    };
+
+    RunTimeLimits limits;
+    limits.maxRunSecs = limit("maxruntime");
+    if (limits.maxRunSecs > 0)
+        limits.maxRunBound = BWaitRun::Bound::MaxRunTime;
+
+    // job.cc JobCheckMaxruntime(): the limit of the level and Max Run Time
+    // both cancel; the smaller one is reached first
+    const QString which = level.trimmed().toLower();
+    const char *levelKey = nullptr;
+    BWaitRun::Bound levelBound = BWaitRun::Bound::None;
+    if (which == QLatin1String("full")) {
+        levelKey = "fullmaxruntime";
+        levelBound = BWaitRun::Bound::FullMaxRunTime;
+    } else if (which == QLatin1String("incremental")) {
+        levelKey = "incrementalmaxruntime";
+        levelBound = BWaitRun::Bound::IncrementalMaxRunTime;
+    } else if (which == QLatin1String("differential")) {
+        levelKey = "differentialmaxruntime";
+        levelBound = BWaitRun::Bound::DifferentialMaxRunTime;
+    }
+    if (levelKey) {
+        const qint64 levelSecs = limit(levelKey);
+        if (levelSecs > 0 && (limits.maxRunSecs == 0 || levelSecs < limits.maxRunSecs)) {
+            limits.maxRunSecs = levelSecs;
+            limits.maxRunBound = levelBound;
+        }
+    }
+
+    limits.maxRunSchedSecs = limit("maxrunschedtime");
+    return limits;
 }
 
 QHash<QString, int> BWaitLimits::readResourceLimits(const QString &json, const QString &kind,
@@ -240,6 +331,7 @@ public:
 
     bool started(int i) const { return m_state[i].started; }
     qint64 start(int i) const { return m_state[i].start; }
+    qint64 end(int i) const { return m_state[i].end; }
     const QList<BWaitHold> &holds(int i) const { return m_state[i].holds; }
 
 private:
@@ -265,19 +357,20 @@ private:
 
     // --- What is not known, taken one way or the other ---
 
-    qint64 duration(int i) const
+    /// How long the run lasts if it starts at @p now
+    qint64 duration(int i, qint64 now) const
     {
         const BWaitRun &r = m_runs[i];
-        switch (r.durationBasis) {
-        case BWaitRun::Duration::Measured:
+        if (r.durationBasis == BWaitRun::Duration::Measured)
             return qMax<qint64>(1, r.durationSecs);
-        case BWaitRun::Duration::Estimated:
-            return m_against ? qMax<qint64>(r.durationSecs, BScheduleWaitModel::UncertainSpanSecs)
-                             : qMax<qint64>(1, r.durationSecs);
-        case BWaitRun::Duration::Unknown:
-            break;
-        }
-        return m_against ? BScheduleWaitModel::UncertainSpanSecs : 0;
+
+        // Not measured at its level. Against the runs: as long as its job
+        // lets it run, a day if the job sets no limit.
+        const qint64 longest = m_against
+            ? BScheduleWaitModel::upperBoundSecs(r, now - m_state[i].scheduled) : 0;
+        if (r.durationBasis == BWaitRun::Duration::Estimated)
+            return qMax<qint64>(qMax<qint64>(1, r.durationSecs), longest);
+        return longest;
     }
 
     bool mixes(int i) const
@@ -400,7 +493,7 @@ private:
         State &s = m_state[i];
         s.started = true;
         s.start = now;
-        s.end = now + duration(i);
+        s.end = now + duration(i, now);
         if (s.holdOpen) {
             s.holds.last().until = QDateTime::fromSecsSinceEpoch(now);
             s.holdOpen = false;
@@ -683,10 +776,26 @@ QList<BWaitUnknown> unknownsOf(int index, const QList<BWaitRun> &runs,
 
                 for (int blocker : hold.blockers) {
                     const BWaitRun &other = runs[blocker];
-                    if (other.durationBasis == BWaitRun::Duration::Estimated)
-                        addUnknown(&unknowns, BWaitUnknown::Kind::EstimatedDuration, other.job);
-                    else if (other.durationBasis == BWaitRun::Duration::Unknown)
-                        addUnknown(&unknowns, BWaitUnknown::Kind::NoHistory, other.job);
+                    if (other.durationBasis != BWaitRun::Duration::Measured) {
+                        BWaitUnknown unknown;
+                        unknown.kind = other.durationBasis == BWaitRun::Duration::Estimated
+                            ? BWaitUnknown::Kind::EstimatedDuration : BWaitUnknown::Kind::NoHistory;
+                        unknown.name = other.job;
+                        // How long it may be in the way: its end in the
+                        // replay against the runs, and the limit behind it
+                        if (against.started(blocker)) {
+                            const qint64 scheduled = other.scheduled.toSecsSinceEpoch();
+                            BScheduleWaitModel::upperBoundSecs(other, against.start(blocker) - scheduled,
+                                                               &unknown.bound);
+                            unknown.boundSecs =
+                                unknown.bound == BWaitRun::Bound::None ? BScheduleWaitModel::UncertainSpanSecs
+                                : unknown.bound == BWaitRun::Bound::MaxRunSchedTime ? other.maxRunSchedSecs
+                                                                                    : other.maxRunSecs;
+                            unknown.until = other.scheduled.addSecs(against.end(blocker) - scheduled);
+                        }
+                        if (!unknowns.contains(unknown))
+                            unknowns.append(unknown);
+                    }
                     // Its own start is not certain: look at what held it
                     if (favour.start(blocker) != against.start(blocker) && !seen.contains(blocker)) {
                         seen.insert(blocker);
@@ -699,12 +808,13 @@ QList<BWaitUnknown> unknownsOf(int index, const QList<BWaitRun> &runs,
     return unknowns;
 }
 
-QString clock(const QDateTime &when, const QDate &reference)
+QString clock(const QDateTime &when, const QDate &reference, bool seconds = false)
 {
     if (!when.isValid())
         return QStringLiteral("?");
-    return when.date() == reference ? when.toString(QStringLiteral("HH:mm"))
-                                    : when.toString(QStringLiteral("yyyy-MM-dd HH:mm"));
+    const QString time = seconds ? QStringLiteral("HH:mm:ss") : QStringLiteral("HH:mm");
+    return when.date() == reference ? when.toString(time)
+                                    : when.toString(QStringLiteral("yyyy-MM-dd ") + time);
 }
 
 } // namespace
@@ -796,10 +906,79 @@ BWaitSummary BScheduleWaitModel::summary(const QList<BWaitResult> &results,
 // Texts
 // ============================================================================
 
+qint64 BScheduleWaitModel::upperBoundSecs(const BWaitRun &run, qint64 startSecs,
+                                          BWaitRun::Bound *which)
+{
+    qint64 longest = UncertainSpanSecs;
+    BWaitRun::Bound bound = BWaitRun::Bound::None;
+
+    if (run.maxRunSecs > 0) {
+        longest = run.maxRunSecs;
+        bound = run.maxRunBound == BWaitRun::Bound::None ? BWaitRun::Bound::MaxRunTime
+                                                         : run.maxRunBound;
+    }
+    // Counted from the scheduled time: what the run waited is used up
+    if (run.maxRunSchedSecs > 0) {
+        const qint64 left = qMax<qint64>(0, run.maxRunSchedSecs - qMax<qint64>(0, startSecs));
+        if (bound == BWaitRun::Bound::None || left < longest) {
+            longest = left;
+            bound = BWaitRun::Bound::MaxRunSchedTime;
+        }
+    }
+    if (which) *which = bound;
+    return longest;
+}
+
 QString BScheduleWaitModel::formatWait(qint64 secs)
 {
-    const qint64 minutes = (qMax<qint64>(0, secs) + 59) / 60;
-    return QStringLiteral("%1:%2").arg(minutes / 60).arg(minutes % 60, 2, 10, QLatin1Char('0'));
+    const qint64 s = qMax<qint64>(0, secs);
+    if (s < 60)
+        return tr("%1 s").arg(s);
+    if (s < SecondsShownBelow) {
+        return tr("%1 min").arg(QStringLiteral("%1:%2").arg(s / 60)
+                                    .arg(s % 60, 2, 10, QLatin1Char('0')));
+    }
+    // Rounded up: a wait is never shown shorter than it is
+    const qint64 minutes = (s + 59) / 60;
+    return tr("%1 h").arg(QStringLiteral("%1:%2").arg(minutes / 60)
+                              .arg(minutes % 60, 2, 10, QLatin1Char('0')));
+}
+
+QString BScheduleWaitModel::formatSpan(qint64 secs)
+{
+    qint64 left = qMax<qint64>(0, secs);
+    QStringList parts;
+    const qint64 days = left / 86400;
+    left %= 86400;
+    const qint64 hours = left / 3600;
+    left %= 3600;
+    const qint64 minutes = left / 60;
+    left %= 60;
+    if (days > 0) parts << tr("%1 d").arg(days);
+    if (hours > 0) parts << tr("%1 h").arg(hours);
+    if (minutes > 0) parts << tr("%1 min").arg(minutes);
+    if (left > 0 || parts.isEmpty()) parts << tr("%1 s").arg(left);
+    return parts.join(QLatin1Char(' '));
+}
+
+QString BScheduleWaitModel::boundText(BWaitRun::Bound bound, qint64 secs)
+{
+    switch (bound) {
+    case BWaitRun::Bound::MaxRunTime:
+        return tr("Max Run Time %1").arg(formatSpan(secs));
+    case BWaitRun::Bound::FullMaxRunTime:
+        return tr("Full Max Runtime %1").arg(formatSpan(secs));
+    case BWaitRun::Bound::IncrementalMaxRunTime:
+        return tr("Incremental Max Runtime %1").arg(formatSpan(secs));
+    case BWaitRun::Bound::DifferentialMaxRunTime:
+        return tr("Differential Max Runtime %1").arg(formatSpan(secs));
+    case BWaitRun::Bound::MaxRunSchedTime:
+        return tr("Max Run Sched Time %1").arg(formatSpan(secs));
+    case BWaitRun::Bound::None:
+        break;
+    }
+    // In hours: "24 h" reads as the assumption it is, "1 d" as a setting
+    return tr("no Max Run Time set, %1 assumed").arg(tr("%1 h").arg(UncertainSpanSecs / 3600));
 }
 
 QString BScheduleWaitModel::summaryText(const BWaitSummary &summary)
@@ -881,12 +1060,17 @@ QString BScheduleWaitModel::blockersText(const BWaitHold &hold, const QList<BWai
         const QDate day = hold.from.date();
         QString when;
         if (other.durationBasis == BWaitRun::Duration::Unknown) {
-            when = tr("from %1, duration unknown").arg(clock(result.start, day));
+            when = tr("from %1, duration unknown")
+                       .arg(clock(result.start, day, result.start.time().second() != 0));
         } else {
+            // With seconds where there are any: a run of seconds would
+            // begin and end at the same minute otherwise
             const QDateTime end = result.start.addSecs(qMax<qint64>(1, other.durationSecs));
+            const bool seconds = result.start.time().second() != 0 || end.time().second() != 0;
             when = other.durationBasis == BWaitRun::Duration::Estimated
-                ? tr("%1 to about %2, estimated").arg(clock(result.start, day), clock(end, day))
-                : tr("%1 to %2").arg(clock(result.start, day), clock(end, day));
+                ? tr("%1 to about %2, estimated").arg(clock(result.start, day, seconds),
+                                                      clock(end, day, seconds))
+                : tr("%1 to %2").arg(clock(result.start, day, seconds), clock(end, day, seconds));
         }
         names << (other.level.isEmpty()
             ? QStringLiteral("%1 (%2)").arg(other.job, when)
@@ -899,8 +1083,19 @@ QString BScheduleWaitModel::blockersText(const BWaitHold &hold, const QList<BWai
     return text;
 }
 
-QString BScheduleWaitModel::unknownText(const BWaitUnknown &unknown)
+QString BScheduleWaitModel::unknownText(const BWaitUnknown &unknown, const QDate &reference,
+                                        bool withUntil)
 {
+    // A run of unknown length: how long it may be in the way, and why
+    auto withBound = [&](const QString &what) {
+        if (unknown.boundSecs <= 0)
+            return what;    // not worked out
+        const QString bound = boundText(unknown.bound, unknown.boundSecs);
+        if (withUntil && unknown.until.isValid())
+            return tr("%1: it may run until %2 (%3)").arg(what, clock(unknown.until, reference), bound);
+        return tr("%1 (%2)").arg(what, bound);
+    };
+
     switch (unknown.kind) {
     case BWaitUnknown::Kind::DirectorLimit:
         return tr("Maximum Concurrent Jobs of the Director is not known");
@@ -915,26 +1110,65 @@ QString BScheduleWaitModel::unknownText(const BWaitUnknown &unknown)
     case BWaitUnknown::Kind::MixedPriority:
         return tr("Allow Mixed Priority of job %1 is not known").arg(unknown.name);
     case BWaitUnknown::Kind::EstimatedDuration:
-        return tr("the duration of %1 was not measured at this level").arg(unknown.name);
+        return withBound(tr("the duration of %1 was not measured at this level").arg(unknown.name));
     case BWaitUnknown::Kind::NoHistory:
-        return tr("the duration of %1 was never measured").arg(unknown.name);
+        return withBound(tr("the duration of %1 was never measured").arg(unknown.name));
     }
     return QString();
 }
 
 namespace {
 
-QString unknownsText(const QList<BWaitUnknown> &unknowns)
+/// The unknowns in words. Those of @p shared are named by their number
+/// only, "[1]", and come first.
+QString unknownsText(const QList<BWaitUnknown> &unknowns, const QDate &reference,
+                     const QList<BWaitUnknown> &shared = QList<BWaitUnknown>())
 {
+    QStringList marks;
     QStringList parts;
-    for (const BWaitUnknown &unknown : unknowns)
-        parts << BScheduleWaitModel::unknownText(unknown);
+    for (const BWaitUnknown &unknown : unknowns) {
+        const qsizetype number = shared.indexOf(unknown);
+        if (number >= 0)
+            marks << QStringLiteral("[%1]").arg(number + 1);
+        else
+            parts << BScheduleWaitModel::unknownText(unknown, reference);
+    }
+    if (!marks.isEmpty())
+        parts.prepend(marks.join(QLatin1Char(' ')));
     return parts.join(QStringLiteral("; "));
 }
 
 } // namespace
 
-QString BScheduleWaitModel::reasonLine(const BWaitRun &run, const BWaitResult &result)
+int BScheduleWaitModel::dependingRuns(const BWaitUnknown &unknown,
+                                      const QList<BWaitResult> &results,
+                                      const QList<int> &indices)
+{
+    int count = 0;
+    for (int index : indices) {
+        if (index >= 0 && index < results.size() && results[index].unknowns.contains(unknown))
+            ++count;
+    }
+    return count;
+}
+
+QList<BWaitUnknown> BScheduleWaitModel::sharedUnknowns(const QList<BWaitResult> &results,
+                                                       const QList<int> &indices, int atLeast)
+{
+    QList<BWaitUnknown> shared;
+    for (int index : indices) {
+        if (index < 0 || index >= results.size())
+            continue;
+        for (const BWaitUnknown &unknown : results[index].unknowns) {
+            if (!shared.contains(unknown) && dependingRuns(unknown, results, indices) >= atLeast)
+                shared.append(unknown);
+        }
+    }
+    return shared;
+}
+
+QString BScheduleWaitModel::reasonLine(const BWaitRun &run, const BWaitResult &result,
+                                       const QList<BWaitUnknown> &shared)
 {
     QString line;
     if (const BWaitHold *hold = result.mainHold()) {
@@ -967,7 +1201,7 @@ QString BScheduleWaitModel::reasonLine(const BWaitRun &run, const BWaitResult &r
     if (!result.certain) {
         const QString why = result.unknowns.isEmpty()
             ? tr("depends on values that are not known")
-            : unknownsText(result.unknowns);
+            : unknownsText(result.unknowns, run.scheduled.date(), shared);
         if (line.isEmpty())
             line = tr("May wait: %1").arg(why);
         else
@@ -991,7 +1225,10 @@ QStringList BScheduleWaitModel::describe(int index, const QList<BWaitRun> &runs,
         for (const BWaitHold &hold : holds) {
             QString text = holdText(hold, run);
             if (holds.size() > 1 && hold.until.isValid()) {
-                text = tr("%1 to %2: %3").arg(clock(hold.from, day), clock(hold.until, day), text);
+                const bool seconds = hold.from.time().second() != 0
+                                     || hold.until.time().second() != 0;
+                text = tr("%1 to %2: %3").arg(clock(hold.from, day, seconds),
+                                              clock(hold.until, day, seconds), text);
             }
             lines << text;
             const QString blockers = blockersText(hold, runs, results);
@@ -1002,7 +1239,8 @@ QStringList BScheduleWaitModel::describe(int index, const QList<BWaitRun> &runs,
 
     if (result.waits()) {
         lines << tr("Predicted start: %1, %2 after the scheduled time (%3)")
-                     .arg(clock(result.start, day), formatWait(result.waitSecs),
+                     .arg(clock(result.start, day, startShowsSeconds(result.waitSecs)),
+                          formatWait(result.waitSecs),
                           clock(run.scheduled, day));
         holdLines(result.holds);
     }
@@ -1010,7 +1248,7 @@ QStringList BScheduleWaitModel::describe(int index, const QList<BWaitRun> &runs,
     if (!result.certain) {
         const QString why = result.unknowns.isEmpty()
             ? tr("it depends on values that are not known")
-            : unknownsText(result.unknowns);
+            : unknownsText(result.unknowns, day);
         if (result.waits()) {
             lines << tr("Uncertain, the wait may be longer: %1.").arg(why);
         } else {

@@ -16,6 +16,7 @@
 #include <QPointer>
 #include <QThread>
 #include <QTimer>
+#include <functional>
 #include "director/bdirector.h"
 #include "schedules/bschedulegridview.h"
 #include "schedules/bscheduleganttwidget.h"
@@ -50,12 +51,23 @@
  * only of the checked ones, and with the runs of the day before, which may
  * still be running. The timeline draws the wait of each run, the counter in
  * the toolbar sums up the runs on display and opens the list of them below
- * the timeline. The limits come from the Director: Maximum Concurrent Jobs
+ * the timeline (an arrow in its text and its filling say whether the list
+ * is open). Schedules that no enabled job uses start nothing: they are not
+ * replayed, not counted and not listed, and the timeline shows them as a
+ * last group "Not used by any job". The limits come from the Director: Maximum Concurrent Jobs
  * of the jobs from "show jobs" and "show jobdefs", of the clients from
  * "show clients", of the storages from "show storages" and of the Director
  * from "show directors" (the last two are asked for with every refresh of
  * the schedules; nothing is written). A limit the Director did not report
  * is not replaced by a default: the runs it matters for are "uncertain".
+ *
+ * Dragging a bar of the timeline is a what-if and writes nothing, on any
+ * connection: no command is sent when it is dropped. The user wanted to
+ * change an existing schedule; that needs the gRPC interface of the
+ * Onesimus Director, which has no method for it yet. The drop is answered
+ * through the gate of setScheduleChangeGate() (the capability notice, as
+ * often as that mechanism allows) and always by a line in the status bar.
+ * writeScheduleChange() is the one place a later step fills in.
  *
  * The grid can be edited. Its changes are kept in the view and not written
  * to the Director yet. A refresh or a choice in the list never replaces
@@ -83,6 +95,17 @@ public:
 
     void setDirector(BDirector *director) { m_director = director; }
     void triggerRefresh() { onRefreshClicked(); }
+
+    /**
+     * @brief Asked when the user tries to change an existing schedule
+     *
+     * Returns whether the connected Director can do that
+     * (BCapabilities::Function::ModifySchedule) and tells the user if it
+     * cannot (BCapabilityNotice::check()). The main window sets it. Without
+     * a gate nothing can be changed.
+     */
+    using ScheduleChangeGate = std::function<bool(QWidget *parent)>;
+    void setScheduleChangeGate(ScheduleChangeGate gate) { m_scheduleChangeGate = std::move(gate); }
     void clearData();
 
     BScheduleModel *scheduleModel() { return m_scheduleModel; }
@@ -131,10 +154,8 @@ private slots:
     void onWaitRowChanged();
     void onHistoryRefreshClicked();
     void onEntryClicked(const BScheduleEntry &entry);
-    void onFdDragCompleted(int entryIndex, int newHour, int newMinute,
-                           const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
-    void onSdDragCompleted(int entryIndex, int newHour, int newMinute,
-                           const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
+    /// A bar of one of the timelines was dropped at another time
+    void onDragDropped(int entryIndex, int newHour, int newMinute);
     void onSnapChanged(int index);
     void onScheduleCheckChanged(QListWidgetItem *item);
     void onZoomSliderChanged(int value);
@@ -198,9 +219,18 @@ private:
     QList<BSchedule> checkedSchedules() const;
     void updateRunProblems();
     void updateJobList();  // Aggregates jobs from all checked schedules
-    void handleDragCompleted(BScheduleGanttWidget *source, int entryIndex,
-                             int newHour, int newMinute,
-                             const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
+    /**
+     * @brief Writes a new time of a Run line of an existing schedule
+     * @return false: nothing was written
+     *
+     * Always false today: no Director has a method that updates a
+     * schedule. A later step sends the update through the gRPC interface of
+     * the Onesimus Director here. It must never be replaced by "configure
+     * add": that creates another schedule and leaves this one as it is.
+     */
+    bool writeScheduleChange(const BScheduleEntry &entry, int newHour, int newMinute);
+    /// The text of the counter with the arrow that says whether its list is open
+    void updateWaitButtonText();
     void resizeBothGanttWidgets();
     void updateSnapComboForViewMode(BScheduleGanttWidget::ViewMode mode);
 
@@ -232,6 +262,7 @@ private:
     QList<BWaitRun> m_waitRuns;         ///< What was replayed, with the day before
     QList<BWaitResult> m_waitResults;   ///< One per run
     QList<int> m_waitShown;             ///< Runs of the entries and dates on display
+    QString m_waitSummary;              ///< The counter's text without its arrow
 
     // --- UI ---
     QSplitter *m_splitter;
@@ -274,6 +305,7 @@ private:
     // Predicted waits of the dates on display (below the timeline)
     QGroupBox *m_waitPanel = nullptr;
     QLabel *m_waitInfoLabel = nullptr;    ///< The limits the prediction used, and what is not known
+    QLabel *m_waitSharedLabel = nullptr;  ///< Reasons several rows share, stated once: "[1] ..."
     QTableWidget *m_waitTable = nullptr;
     QLabel *m_waitDetails = nullptr;      ///< The reason of the current row in full
 
@@ -297,6 +329,7 @@ private:
     QTableWidget *m_statsRunsTable;
 
     BDirector *m_director;
+    ScheduleChangeGate m_scheduleChangeGate;
     QDate m_currentDate;              // The day on display; in week views its week
 };
 

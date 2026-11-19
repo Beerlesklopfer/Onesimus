@@ -294,16 +294,29 @@ void BCapabilitiesTest::noticeTextOfTheTable()
         " Support for this is planned for a later version of the Onesimus Director.");
 
     // --- Change an existing schedule ---
-    QString reason = QStringLiteral(" cannot change an existing schedule through the console.");
+    // The answer to a bar dropped in the schedule timeline, on every
+    // connection: it needs the gRPC interface, and nothing was changed.
+    // No word about copying a configuration text: no such text is offered.
+    QString reason = QStringLiteral(" cannot change an existing schedule on this connection: that "
+                                    "needs the schedule methods of the gRPC interface of "
+                                    "the Onesimus Director (onesimus-dird).");
+    const QString nothingChanged = QStringLiteral(
+        " Nothing was changed. For now a schedule is changed in its configuration file on "
+        "the Director.");
     QCOMPARE(notice(Function::ModifySchedule, bareos()).title,
              QStringLiteral("Change an existing schedule"));
     QCOMPARE(notice(Function::ModifySchedule, bareos()).text,
-             QStringLiteral("This Director (Bareos 25.2)") + reason + copyText + plannedElsewhere);
+             QStringLiteral("This Director (Bareos 25.2)") + reason + nothingChanged
+                 + plannedElsewhere);
     QCOMPARE(notice(Function::ModifySchedule, onesimus()).text,
-             QStringLiteral("This Director (Onesimus Director 0.2.0)") + reason + copyText
+             QStringLiteral("This Director (Onesimus Director 0.2.0)") + reason + nothingChanged
                  + plannedHere);
     QCOMPARE(notice(Function::ModifySchedule, unidentified()).text,
-             QStringLiteral("This Director") + reason + copyText + plannedElsewhere);
+             QStringLiteral("This Director") + reason + nothingChanged + plannedElsewhere);
+    // Not available anywhere, gRPC included, until the methods exist
+    QVERIFY(!isAvailable(Function::ModifySchedule, bareos()));
+    QVERIFY(!isAvailable(Function::ModifySchedule, onesimus()));
+    QVERIFY(!isAvailable(Function::ModifySchedule, BCapabilities::describeServer(Connection::Grpc, QString())));
 
     // --- Prune and purge: no word about the Onesimus Director ---
     reason = QStringLiteral(" has no command that purges all volumes at once; purge works on "

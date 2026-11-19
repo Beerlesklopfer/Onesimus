@@ -113,6 +113,7 @@ private slots:
     void realOverlap();
     void lineNotUnderstoodHasNoOccurrence();
     void entriesOncePerJobAndRun();
+    void disabledJobsStartNothing();
     void jobValuesFromListsAndJobDefs();
 };
 
@@ -837,6 +838,9 @@ void BScheduleOccurrencesTest::entriesOncePerJobAndRun()
     entries = index.entriesFor(schedules, at(QDate(2026, 11, 1)), at(QDate(2026, 11, 2)));
     QCOMPARE(rows(entries), QStringList({"- Full line 0 3:00 x1"}));
     QCOMPARE(entries[0].scheduleName, QString("Unused"));
+    // ... and marked: nothing starts at this time
+    QVERIFY(entries[0].unused);
+    QVERIFY(index.runningJobsForSchedule("Unused").isEmpty());
 
     // A dragged bar finds its line: the entry's own line at its position
     entries = index.entriesFor(schedules, at(QDate(2026, 11, 14)), at(QDate(2026, 11, 15)));
@@ -849,6 +853,44 @@ void BScheduleOccurrencesTest::entriesOncePerJobAndRun()
     BJobScheduleIndex empty;
     entries = empty.entriesFor(schedules, at(QDate(2026, 11, 7)), at(QDate(2026, 11, 8)));
     QCOMPARE(rows(entries), QStringList({"- Full line 0 21:00 x1"}));
+    // Not marked as unused: nobody knows yet
+    QVERIFY(!entries[0].unused);
+}
+
+void BScheduleOccurrencesTest::disabledJobsStartNothing()
+{
+    // "Enabled = no" in the job or in its JobDefs: the scheduler does not
+    // start the job. A schedule that only such jobs use is not used.
+    const QList<BSchedule> schedules = {
+        scheduleOf({"Incremental daily at 23:05"}, "Nightly"),
+        scheduleOf({"Full daily at 02:00"}, "Retired"),
+    };
+    BJobConfigModel jobs;
+    jobs.parseShowJobs(R"({"result":{"jobs":{
+        "active":{"name":"active","schedule":"Nightly","client":"a-fd","storage":"File"},
+        "paused":{"name":"paused","schedule":"Nightly","client":"b-fd","storage":"File","enabled":false},
+        "old":{"name":"old","schedule":"Retired","client":"c-fd","storage":"File","enabled":"no"},
+        "older":{"name":"older","jobdefs":"Off","schedule":"Retired","client":"c-fd","storage":"File"}
+    }}})");
+    jobs.parseShowJobDefs(R"({"result":{"jobdefs":{"Off":{"name":"Off","enabled":false}}}})");
+    BJobScheduleIndex index;
+    index.rebuild(&jobs);
+
+    // The list of the jobs of a schedule still has all of them
+    QCOMPARE(index.sharedCount("Nightly"), 2);
+    QCOMPARE(index.sharedCount("Retired"), 2);
+    QCOMPARE(index.runningJobsForSchedule("Nightly").size(), 1);
+    QVERIFY(index.runningJobsForSchedule("Retired").isEmpty());
+
+    const QList<BScheduleEntry> entries = index.entriesFor(
+        schedules, at(QDate(2026, 11, 16)), at(QDate(2026, 11, 17)));
+    QCOMPARE(entries.size(), 2);
+    QCOMPARE(entries[0].jobName, QString("active"));
+    QVERIFY(!entries[0].unused);
+    QCOMPARE(entries[1].scheduleName, QString("Retired"));
+    QVERIFY(entries[1].jobName.isEmpty());
+    QVERIFY(entries[1].client.isEmpty());
+    QVERIFY(entries[1].unused);
 }
 
 QTEST_APPLESS_MAIN(BScheduleOccurrencesTest)
