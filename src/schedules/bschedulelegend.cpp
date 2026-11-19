@@ -14,6 +14,7 @@
 #include <QGuiApplication>
 #include <QLabel>
 #include <QPainter>
+#include <QPainterPath>
 #include <QScreen>
 
 BScheduleLegend::BScheduleLegend(QWidget *parent)
@@ -29,7 +30,7 @@ QList<BScheduleLegend::Mark> BScheduleLegend::marks()
     return {Mark::Full, Mark::Differential, Mark::Incremental, Mark::VirtualFull,
             Mark::Estimated, Mark::Unmeasured, Mark::Percentile90,
             Mark::WaitCertain, Mark::WaitUncertain, Mark::WaitStrip, Mark::MayWait, Mark::StartsLater,
-            Mark::Unused, Mark::Now};
+            Mark::Unused, Mark::Waits, Mark::Now};
 }
 
 QString BScheduleLegend::text(Mark mark)
@@ -62,6 +63,10 @@ QString BScheduleLegend::text(Mark mark)
         return tr("\"»\" at the right edge: the run starts after the last day on display.");
     case Mark::Unused:
         return tr("Open diamond: no job uses this schedule. It marks where a run would start.");
+    case Mark::Waits:
+        return tr("Arrow (day view only): the run at the head waits for the run at the tail, from the moment "
+                  "that one lets it go. The label names the limit; dotted: priority; dashed: only if "
+                  "something unknown turns out against the run. Point at a run to see its arrows.");
     case Mark::Now:
         return tr("Red line: now.");
     }
@@ -206,6 +211,29 @@ QPixmap BScheduleLegend::picture(Mark mark) const
         p.setPen(QPen(muted, 1.2));
         p.setBrush(Qt::NoBrush);
         p.drawPolygon(diamond);
+        break;
+    }
+    case Mark::Waits: {
+        const QColor fill = BLevelColors::getLevelColor(QStringLiteral("I"));
+        const QRect a(BUiScale::px(2), BUiScale::px(2), BUiScale::px(16), BUiScale::px(7));
+        const QRect b(BUiScale::px(30), h - BUiScale::px(9), BUiScale::px(22), BUiScale::px(7));
+        p.setPen(Qt::NoPen);
+        p.setBrush(fill);
+        p.drawRoundedRect(a, 2, 2);
+        p.drawRoundedRect(b, 2, 2);
+        const QPointF p0(a.right(), a.bottom());
+        const QPointF p1(b.left(), b.center().y());
+        QPainterPath path(p0);
+        path.cubicTo(QPointF(p0.x(), p1.y()), QPointF(p0.x(), p1.y()), p1);
+        p.setPen(QPen(ink, 1.2));
+        p.setBrush(Qt::NoBrush);
+        p.drawPath(path);
+        const qreal s = BUiScale::px(5);
+        QPolygonF head;
+        head << p1 << p1 + QPointF(-s, -s / 2) << p1 + QPointF(-s, s / 2);
+        p.setPen(Qt::NoPen);
+        p.setBrush(ink);
+        p.drawPolygon(head);
         break;
     }
     case Mark::Now: {

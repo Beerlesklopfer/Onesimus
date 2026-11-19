@@ -2,6 +2,8 @@
 #define BSCHEDULEWIDGET_H
 
 #include <QWidget>
+#include <QDateEdit>
+#include <QTabWidget>
 #include <QListWidget>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -298,6 +300,8 @@ private:
     void updateGanttEntries();
     void setCurrentDate(const QDate &date);
     void updateDateLabel();
+    /// Day view: the calendar; week view: previous, the week, next
+    void updateDateControls();
     bool showsWeek() const;     ///< The timeline is in week view
     /// The schedules checked in the list
     QList<BSchedule> checkedSchedules() const;
@@ -372,7 +376,7 @@ private:
 
     // Right panel — dual Gantt timelines
     QStackedWidget *m_viewStack;
-    QSplitter *m_ganttSplitter;           // Vertical: FD on top, SD on bottom
+    QTabWidget *m_ganttTabs;              // Tabs: clients (FD), storages (SD)
     BScheduleGanttWidget *m_fdGanttWidget; // FD/Client timeline
     QScrollArea *m_fdScrollArea;
     BScheduleGanttWidget *m_sdGanttWidget; // SD/Storage timeline
@@ -394,6 +398,7 @@ private:
     QToolButton *m_nextDayButton;
     QToolButton *m_todayButton;
     QLabel *m_dayLabel;               // The date or the week on display
+    QDateEdit *m_dayPicker = nullptr;   ///< Day view: the date, with a calendar
     QLabel *m_snapLabel = nullptr;
     QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour
     QLabel *m_zoomLabel;

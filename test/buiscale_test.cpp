@@ -76,6 +76,7 @@ private slots:
     void timelineGeometry_data();
     void timelineGeometry();
     void timelineFollowsAChange();
+    void dayViewDrawsWhoWaitsForWhom();
 
 private:
     QTemporaryDir m_config;
@@ -410,6 +411,46 @@ void BUiScaleTest::timelineGeometry()
 
     // And it paints
     QVERIFY(!gantt.grab().isNull());
+}
+
+void BUiScaleTest::dayViewDrawsWhoWaitsForWhom()
+{
+    BUiScale::instance().setZoomPercent(100);
+    const QDate date(2026, 11, 19);
+    const BScheduleEntry mail = entry(QStringLiteral("BackupMail"), 21, 5, date);
+    const BScheduleEntry web = entry(QStringLiteral("BackupWeb"), 21, 5, date);
+    const QDateTime when(date, QTime(21, 5));
+
+    // Web waits an hour for Mail: the client allows one job
+    BScheduleGanttWidget::RunWait waits;
+    waits.waitSecs = 3600;
+    BScheduleGanttWidget::RunWait::Link link;
+    link.blockerKey = BScheduleGanttWidget::waitKey(mail, when);
+    link.freedAt = when.addSecs(3600);
+    link.label = QStringLiteral("Client client-fd (1)");
+    waits.links.append(link);
+    BScheduleGanttWidget::RunWait plain = waits;
+    plain.links.clear();
+
+    auto render = [&](BScheduleGanttWidget::ViewMode mode, const BScheduleGanttWidget::RunWait &wait) {
+        BScheduleGanttWidget gantt;
+        gantt.setCurrentDate(date);
+        gantt.setViewMode(mode);
+        gantt.setEntries({mail, web});
+        gantt.setWaits({{BScheduleGanttWidget::waitKey(web, when), wait}});
+        gantt.resize(1400, 300);
+        return gantt.grab().toImage();
+    };
+
+    // The day view draws the arrow, the week view does not
+    const QImage dayWith = render(BScheduleGanttWidget::DayView, waits);
+    QVERIFY(dayWith != render(BScheduleGanttWidget::DayView, plain));
+    QCOMPARE(render(BScheduleGanttWidget::WeekView, waits), render(BScheduleGanttWidget::WeekView, plain));
+
+    // For a look at it: ONESIMUS_LINKS_PNG=/path/links.png
+    const QString png = qEnvironmentVariable("ONESIMUS_LINKS_PNG");
+    if (!png.isEmpty())
+        dayWith.save(png);
 }
 
 void BUiScaleTest::timelineFollowsAChange()

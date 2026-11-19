@@ -759,7 +759,7 @@ void BScheduleTimelineTest::legendExplainsEveryMark()
     // Every mark the timeline draws has a picture and a sentence
     BScheduleLegend legend;
     const QList<BScheduleLegend::Mark> marks = BScheduleLegend::marks();
-    QCOMPARE(marks.size(), 14);
+    QCOMPARE(marks.size(), 15);
     for (BScheduleLegend::Mark mark : marks) {
         QVERIFY(!BScheduleLegend::text(mark).isEmpty());
         const QImage image = legend.picture(mark).toImage();

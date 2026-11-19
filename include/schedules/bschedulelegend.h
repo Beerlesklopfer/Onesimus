@@ -25,7 +25,7 @@ public:
         Full, Differential, Incremental, VirtualFull,
         Estimated, Unmeasured, Percentile90,
         WaitCertain, WaitUncertain, WaitStrip, MayWait, StartsLater,
-        Unused, Now,
+        Unused, Waits, Now,
     };
 
     explicit BScheduleLegend(QWidget *parent = nullptr);

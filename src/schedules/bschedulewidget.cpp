@@ -1,5 +1,8 @@
 #include "schedules/bschedulewidget.h"
 #include "schedules/bschedulelegend.h"
+#include <QDateEdit>
+#include <QTabWidget>
+#include <QSignalBlocker>
 #include "schedules/bscheduledragplan.h"
 #include "schedules/bschedulegriddialogs.h"
 #include "schedules/bschedulereviewdialog.h"
@@ -34,7 +37,7 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_jobListLabel(new QLabel(tr("Jobs:"), this))
     , m_jobList(new QTableWidget(this))
     , m_viewStack(new QStackedWidget(this))
-    , m_ganttSplitter(new QSplitter(Qt::Vertical, this))
+    , m_ganttTabs(new QTabWidget(this))
     , m_fdGanttWidget(new BScheduleGanttWidget(this))
     , m_fdScrollArea(new QScrollArea(this))
     , m_sdGanttWidget(new BScheduleGanttWidget(this))
@@ -106,7 +109,7 @@ BScheduleWidget::~BScheduleWidget()
 
     BSettings &s = BSettings::instance();
     s.setSchedulesSplitterState(m_splitter->saveState());
-    s.setSchedulesGanttSplitterState(m_ganttSplitter->saveState());
+    s.setSchedulesGanttTab(m_ganttTabs->currentIndex());
 }
 
 void BScheduleWidget::setupUI()
@@ -152,8 +155,18 @@ void BScheduleWidget::setupUI()
     m_dayLabel->setAlignment(Qt::AlignCenter);
     m_dayLabel->setToolTip(tr("The date or the week (Monday to Sunday) on display"));
 
+    // Day view: a date with a calendar to pick it from
+    m_dayPicker = new QDateEdit(QDate::currentDate(), this);
+    m_dayPicker->setCalendarPopup(true);
+    m_dayPicker->setDisplayFormat(QStringLiteral("ddd yyyy-MM-dd"));
+    m_dayPicker->setToolTip(tr("The date on display; the calendar opens from the arrow"));
+    connect(m_dayPicker, &QDateEdit::dateChanged, this, [this](const QDate &date) {
+        setCurrentDate(date);
+    });
+
     toolbarLayout->addWidget(m_prevDayButton);
     toolbarLayout->addWidget(m_dayLabel);
+    toolbarLayout->addWidget(m_dayPicker);
     toolbarLayout->addWidget(m_nextDayButton);
     toolbarLayout->addWidget(m_todayButton);
 
@@ -267,40 +280,22 @@ void BScheduleWidget::setupUI()
     QWidget *rightWidget = new QWidget(this);
     QVBoxLayout *rightLayout = new QVBoxLayout(rightWidget);
 
-    // --- FD pane (top) ---
-    QWidget *fdPane = new QWidget(this);
-    QVBoxLayout *fdLayout = new QVBoxLayout(fdPane);
-    fdLayout->setContentsMargins(0, 0, 0, 0);
-    fdLayout->setSpacing(2);
-    QLabel *fdLabel = new QLabel(tr("Clients (FD)"), fdPane);
-    fdLabel->setStyleSheet("font-weight: bold; padding: 2px 4px;");
-    fdLayout->addWidget(fdLabel);
+    // Clients (FD) and storages (SD) in two tabs: one above the other does
+    // not fit on a laptop. Both timelines keep the same dates, zoom and
+    // horizontal position.
     m_fdScrollArea->setWidget(m_fdGanttWidget);
     m_fdScrollArea->setWidgetResizable(true);
     m_fdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_fdScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    fdLayout->addWidget(m_fdScrollArea);
-
-    // --- SD pane (bottom) ---
-    QWidget *sdPane = new QWidget(this);
-    QVBoxLayout *sdLayout = new QVBoxLayout(sdPane);
-    sdLayout->setContentsMargins(0, 0, 0, 0);
-    sdLayout->setSpacing(2);
-    QLabel *sdLabel = new QLabel(tr("Storage (SD)"), sdPane);
-    sdLabel->setStyleSheet("font-weight: bold; padding: 2px 4px;");
-    sdLayout->addWidget(sdLabel);
     m_sdScrollArea->setWidget(m_sdGanttWidget);
     m_sdScrollArea->setWidgetResizable(true);
     m_sdScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_sdScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    sdLayout->addWidget(m_sdScrollArea);
+    m_ganttTabs->addTab(m_fdScrollArea, tr("Clients (FD)"));
+    m_ganttTabs->addTab(m_sdScrollArea, tr("Storage (SD)"));
+    m_ganttTabs->setDocumentMode(true);
 
-    // Vertical splitter holding both
-    m_ganttSplitter->addWidget(fdPane);
-    m_ganttSplitter->addWidget(sdPane);
-    m_ganttSplitter->setSizes(QList<int>() << 300 << 200);
-
-    m_viewStack->addWidget(m_ganttSplitter);   // index 0 = Gantt (dual)
+    m_viewStack->addWidget(m_ganttTabs);   // index 0 = timelines (FD, SD)
 
     // The grid: one schedule resource, the current row of the schedule list.
     // Its level colours are those of the settings, as everywhere else.
@@ -424,14 +419,14 @@ void BScheduleWidget::setupUI()
         m_splitter->restoreState(splitterState);
     }
 
-    QByteArray ganttSplitterState = s.schedulesGanttSplitterState();
-    if (!ganttSplitterState.isEmpty()) {
-        m_ganttSplitter->restoreState(ganttSplitterState);
-    }
+    const int ganttTab = s.schedulesGanttTab();
+    if (ganttTab >= 0 && ganttTab < m_ganttTabs->count())
+        m_ganttTabs->setCurrentIndex(ganttTab);
 
     m_fdGanttWidget->setCurrentDate(m_currentDate);
     m_sdGanttWidget->setCurrentDate(m_currentDate);
     updateDateLabel();
+    updateDateControls();
 }
 
 void BScheduleWidget::setConnectionState(bool connected)
@@ -789,10 +784,8 @@ void BScheduleWidget::onViewModeChanged(int index)
     bool isWeekGantt = isGantt && (m_dayViewCombo->currentIndex() == 1);
     m_zoomLabel->setVisible(isWeekGantt);
     m_zoomSlider->setVisible(isWeekGantt);
-    m_prevDayButton->setVisible(isGantt);
-    m_dayLabel->setVisible(isGantt);
-    m_nextDayButton->setVisible(isGantt);
     m_todayButton->setVisible(isGantt);
+    updateDateControls();
     // The predicted waits are those of the dates of the timeline
     m_waitButton->setVisible(isGantt);
     m_waitPanel->setVisible(isGantt && m_waitButton->isChecked());
@@ -835,6 +828,8 @@ void BScheduleWidget::onDayViewModeChanged(int index)
     updateDateLabel();
     updateGanttEntries();
 
+    updateDateControls();
+
     // Show zoom slider only in week mode
     bool isWeek = (mode == BScheduleGanttWidget::WeekView);
     m_zoomLabel->setVisible(isWeek);
@@ -873,10 +868,28 @@ void BScheduleWidget::setCurrentDate(const QDate &date)
     m_currentDate = date;
     m_fdGanttWidget->setCurrentDate(date);
     m_sdGanttWidget->setCurrentDate(date);
+    if (m_dayPicker && m_dayPicker->date() != date) {
+        const QSignalBlocker blocker(m_dayPicker);
+        m_dayPicker->setDate(date);
+    }
     updateDateLabel();
 
     // Other dates, other runs
     updateGanttEntries();
+}
+
+void BScheduleWidget::updateDateControls()
+{
+    const bool gantt = m_viewModeCombo->currentIndex() == 0;
+    const bool week = showsWeek();
+    m_prevDayButton->setVisible(gantt && week);
+    m_dayLabel->setVisible(gantt && week);
+    m_nextDayButton->setVisible(gantt && week);
+    if (m_dayPicker) {
+        m_dayPicker->setVisible(gantt && !week);
+        const QSignalBlocker blocker(m_dayPicker);
+        m_dayPicker->setDate(m_currentDate);
+    }
 }
 
 void BScheduleWidget::updateDateLabel()
@@ -2099,6 +2112,27 @@ void BScheduleWidget::setupWaitPanel()
     m_waitButton->setChecked(BSettings::instance().schedulesWaitListShown());
 }
 
+// The limit of a hold in a few words, for the arrows of the day view
+static QString holdLabel(const BWaitHold &hold)
+{
+    const QString limit = hold.limitKnown ? QString::number(hold.limit) : QStringLiteral("1?");
+    switch (hold.reason) {
+    case BWaitHold::Reason::DirectorLimit:
+        return BScheduleWidget::tr("Director (%1)").arg(limit);
+    case BWaitHold::Reason::StorageLimit:
+        return BScheduleWidget::tr("Storage %1 (%2)").arg(hold.resource, limit);
+    case BWaitHold::Reason::ClientLimit:
+        return BScheduleWidget::tr("Client %1 (%2)").arg(hold.resource, limit);
+    case BWaitHold::Reason::JobLimit:
+        return BScheduleWidget::tr("Job %1 (%2)").arg(hold.resource, limit);
+    case BWaitHold::Reason::Priority:
+        return BScheduleWidget::tr("Priority %1").arg(hold.otherPriority);
+    case BWaitHold::Reason::QueueOrder:
+        return BScheduleWidget::tr("Queue: priority %1 first").arg(hold.otherPriority);
+    }
+    return QString();
+}
+
 void BScheduleWidget::updateWaitPrediction()
 {
     m_waitRuns.clear();
@@ -2231,6 +2265,31 @@ void BScheduleWidget::updateWaitPrediction()
                    != BScheduleWaitModel::Discrepancy::None) {
             wait.lines << BScheduleWaitModel::describeTiming(i, m_waitRuns, m_waitResults, m_limits);
         }
+        // Who it waits for, as arrows in the day view
+        QSet<QString> linked;
+        auto addLinks = [&](const QList<BWaitHold> &holds, bool possible) {
+            for (const BWaitHold &hold : holds) {
+                for (int b : hold.blockers) {
+                    if (b < 0 || b >= m_waitRuns.size())
+                        continue;
+                    const QString key = BScheduleGanttWidget::waitKey(m_waitRuns[b].id, m_waitRuns[b].scheduled);
+                    if (linked.contains(key))
+                        continue;
+                    linked.insert(key);
+                    BScheduleGanttWidget::RunWait::Link link;
+                    link.blockerKey = key;
+                    link.freedAt = hold.until;
+                    link.possible = possible;
+                    link.label = holdLabel(hold);
+                    link.priority = hold.reason == BWaitHold::Reason::Priority
+                                    || hold.reason == BWaitHold::Reason::QueueOrder;
+                    wait.links.append(link);
+                }
+            }
+        };
+        if (wait.waitSecs > 0)
+            addLinks(m_waitResults[i].holds, false);
+        addLinks(m_waitResults[i].possibleHolds, true);
         waits.insert(BScheduleGanttWidget::waitKey(run.id, run.scheduled), wait);
     }
 

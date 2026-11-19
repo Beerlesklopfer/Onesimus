@@ -884,14 +884,14 @@ void BSettings::setSchedulesSplitterState(const QByteArray& state)
     setValue("Widgets/Schedules/splitter_state", state);
 }
 
-QByteArray BSettings::schedulesGanttSplitterState() const
+int BSettings::schedulesGanttTab() const
 {
-    return value("Widgets/Schedules/gantt_splitter_state").toByteArray();
+    return value("Widgets/Schedules/gantt_tab", 0).toInt();
 }
 
-void BSettings::setSchedulesGanttSplitterState(const QByteArray& state)
+void BSettings::setSchedulesGanttTab(int index)
 {
-    setValue("Widgets/Schedules/gantt_splitter_state", state);
+    setValue("Widgets/Schedules/gantt_tab", index);
 }
 
 bool BSettings::schedulesFilterCheckbox(const QString& key, bool defaultValue) const

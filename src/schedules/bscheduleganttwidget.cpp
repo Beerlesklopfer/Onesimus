@@ -3,6 +3,8 @@
 #include "buiscale.h"
 #include "blogging.h"
 #include <QPainter>
+#include <QPainterPath>
+#include <cmath>
 #include <QStyleOption>
 #include <QToolTip>
 #include <QDateTime>
@@ -349,6 +351,12 @@ int BScheduleGanttWidget::timeToX(int hour, int minute) const
     return m_labelWidth + static_cast<int>(fractionalHour * m_pixelsPerHour);
 }
 
+int BScheduleGanttWidget::xForTime(const QDateTime &when) const
+{
+    const qint64 secs = firstDate().startOfDay().secsTo(when);
+    return m_labelWidth + static_cast<int>(secs / 3600.0 * m_pixelsPerHour);
+}
+
 int BScheduleGanttWidget::xToHour(int x) const
 {
     int relX = x - m_labelWidth;
@@ -553,6 +561,7 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
     }
 
     // Now marker on top
+    drawLinks(painter);
     drawNowMarker(painter);
 }
 
@@ -922,6 +931,134 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
     painter.setFont(m_smallFont);
 
     painter.restore();      // the clip
+}
+
+void BScheduleGanttWidget::drawLinks(QPainter &painter)
+{
+    // Only the day view has room for them: who waits for whom, so that a
+    // collision is seen where it happens
+    if (m_viewMode != DayView || m_waits.isEmpty())
+        return;
+
+    // Where each run is drawn: its start (after its wait) and its bar
+    struct Placed { QRect run; QRect start; };
+    QHash<QString, Placed> placed;
+    for (int r = 0; r < m_rows.size(); ++r) {
+        const RowInfo &row = m_rows[r];
+        if (row.isGroupHeader || row.unused || row.entryIndex < 0 || row.entryIndex >= m_entries.size())
+            continue;
+        const BScheduleEntry &entry = m_entries[row.entryIndex];
+        for (int d : dayOffsets(entry)) {
+            const QDateTime when = occurrenceOn(entry, d);
+            if (!when.isValid())
+                continue;
+            const QString key = waitKey(entry, when);
+            if (placed.contains(key))
+                continue;
+            const QRect run = runRect(entry, r, d);
+            const QRect mark = waitMarkRect(entry, r, d);
+            const QRect lead = waitRect(entry, r, d);
+            QRect start = run;
+            if (!lead.isEmpty())
+                start = lead;
+            else if (!mark.isEmpty())
+                start = mark;
+            placed.insert(key, Placed{run, start});
+        }
+    }
+
+    // The hovered run: its arrows, in and out, are drawn strong and labelled
+    QString hoveredKey;
+    for (auto it = placed.constBegin(); it != placed.constEnd(); ++it) {
+        if (it.value().run.contains(m_hoverPos) || it.value().start.contains(m_hoverPos)) {
+            hoveredKey = it.key();
+            break;
+        }
+    }
+
+    int linkCount = 0;
+    for (auto it = m_waits.constBegin(); it != m_waits.constEnd(); ++it)
+        linkCount += it.value().links.size();
+    const bool labelAll = linkCount <= 8;
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setClipRect(QRect(m_labelWidth, m_headerHeight, contentWidth() + 1, m_rows.size() * m_rowHeight));
+    painter.setFont(m_smallFont);
+    const QColor ink = palette().text().color();
+    const QColor strong = palette().highlight().color();
+
+    for (auto it = m_waits.constBegin(); it != m_waits.constEnd(); ++it) {
+        const auto target = placed.constFind(it.key());
+        if (target == placed.constEnd())
+            continue;
+        for (const RunWait::Link &link : it.value().links) {
+            const auto source = placed.constFind(link.blockerKey);
+            if (source == placed.constEnd())
+                continue;       // the run in the way is not on display (the day before)
+            const bool emphasized = !hoveredKey.isEmpty()
+                                    && (hoveredKey == it.key() || hoveredKey == link.blockerKey);
+            const bool dimmed = !hoveredKey.isEmpty() && !emphasized;
+
+            // From the run in the way, at the moment it lets go, to the
+            // predicted start of the run that waits: "when that one ends,
+            // this one starts". The moment is the prediction's, not the
+            // end of the drawn bar (a run never measured has no bar).
+            const QRect &from = source.value().run;
+            const QRect &to = target.value().run;
+            const int x0 = link.freedAt.isValid() ? xForTime(link.freedAt) : from.right();
+            const QPointF p0(x0, from.top() < to.top() ? from.bottom() : from.top());
+            const QPointF p1(to.left(), from.top() < to.top() ? to.top() : to.bottom());
+            QPainterPath path(p0);
+            path.cubicTo(QPointF(p0.x(), p1.y()), QPointF(p0.x(), p1.y()), p1);
+
+            QColor colour = emphasized ? strong : ink;
+            colour.setAlpha(dimmed ? 50 : emphasized ? 255 : 140);
+            const Qt::PenStyle style = link.possible ? Qt::DashLine : link.priority ? Qt::DotLine : Qt::SolidLine;
+            painter.setPen(QPen(colour, emphasized ? 2.0 : 1.2, style));
+            painter.setBrush(Qt::NoBrush);
+            painter.drawPath(path);
+            // The run in the way holds its place until then: a thin line
+            // along its row where its drawn bar is shorter than that
+            if (x0 > from.right() + 1) {
+                painter.setPen(QPen(colour, 1, Qt::DashLine));
+                painter.drawLine(QPointF(from.right() + 1, from.center().y()), QPointF(x0, from.center().y()));
+                painter.drawLine(QPointF(x0, from.center().y()), p0);
+            }
+
+            // Arrowhead at the waiting run, pointing along the last stretch
+            const QPointF tip = p1;
+            const QPointF dir = tip - path.pointAtPercent(0.92);
+            const qreal len = std::hypot(dir.x(), dir.y());
+            if (len > 0.01) {
+                const QPointF u = dir / len;
+                const QPointF n(-u.y(), u.x());
+                const qreal a = px(6);
+                QPolygonF head;
+                head << tip << tip - u * a + n * (a * 0.5) << tip - u * a - n * (a * 0.5);
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(colour);
+                painter.drawPolygon(head);
+            }
+
+            if ((emphasized || (labelAll && hoveredKey.isEmpty())) && !link.label.isEmpty()) {
+                const QFontMetrics fm(m_smallFont);
+                const QString text = link.possible ? tr("%1, if it turns out against it").arg(link.label)
+                                                   : link.label;
+                QRect box = fm.boundingRect(text).adjusted(-px(3), -px(1), px(3), px(1));
+                box.moveCenter(QPoint(int(p0.x()) + box.width() / 2 + px(4),
+                                      int((p0.y() + p1.y()) / 2)));
+                QColor back = palette().base().color();
+                back.setAlpha(225);
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(back);
+                painter.drawRoundedRect(box, 3, 3);
+                painter.setPen(colour);
+                painter.drawText(box, Qt::AlignCenter, text);
+            }
+        }
+    }
+    painter.restore();
 }
 
 QColor BScheduleGanttWidget::mutedColor() const

@@ -311,8 +311,9 @@ public:
     QByteArray schedulesSplitterState() const;
     void setSchedulesSplitterState(const QByteArray& state);
 
-    QByteArray schedulesGanttSplitterState() const;
-    void setSchedulesGanttSplitterState(const QByteArray& state);
+    /// The timeline tab on display: 0 clients (FD), 1 storages (SD)
+    int schedulesGanttTab() const;
+    void setSchedulesGanttTab(int index);
 
     bool schedulesFilterCheckbox(const QString& key, bool defaultValue = true) const;
     void setSchedulesFilterCheckbox(const QString& key, bool value);

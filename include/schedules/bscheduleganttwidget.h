@@ -135,6 +135,16 @@ public:
         /// The reason in plain words, a statement per entry: the limit and
         /// its value or the priority rule, and the runs it waits for
         QStringList lines;
+
+        /// A run it waits for (day view: an arrow from that run to this one)
+        struct Link {
+            QString blockerKey;     ///< waitKey() of the run in the way
+            QDateTime freedAt;      ///< When that run lets this one go
+            QString label;          ///< The limit: "Storage PDC-sd (10)", "Priority"
+            bool priority = false;  ///< Held by the priority rule, not by a limit
+            bool possible = false;  ///< Only if an unknown turns out against the run
+        };
+        QList<Link> links;
     };
 
     /**
@@ -248,6 +258,9 @@ private:
     // --- Drawing ---
     void drawTimeHeader(QPainter &painter);
     void drawNowMarker(QPainter &painter);
+    /// Day view: arrows from the runs in the way to the runs that wait
+    void drawLinks(QPainter &painter);
+    int xForTime(const QDateTime &when) const;
     void drawRows(QPainter &painter);
     void drawJobBar(QPainter &painter, int entryIndex, int row, int dayOffset);
     /// The diamond of a schedule no job uses, where a run would start
