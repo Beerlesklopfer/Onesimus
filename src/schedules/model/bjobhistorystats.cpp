@@ -135,6 +135,7 @@ BJobHistoryReply BJobHistoryReply::parse(const QString &reply)
 
         BJobRun run;
         run.name = row.value(QLatin1String("name")).toString();
+        run.client = row.value(QLatin1String("client")).toString();
         if (run.name.isEmpty()) {
             continue;
         }
@@ -215,6 +216,8 @@ BJobHistoryStats::Quantiles BJobHistoryStats::quantiles(QList<qint64> values)
     result.median = quantileOf(values, 0.50);
     result.p75 = quantileOf(values, 0.75);
     result.p90 = quantileOf(values, 0.90);
+    result.min = values.first();
+    result.max = values.last();
     return result;
 }
 

@@ -502,6 +502,7 @@ set(SOURCES
     src/schedules/model/bscheduleoccurrences.cpp
     src/schedules/model/bjobhistorystats.cpp
     src/schedules/model/bschedulewaitmodel.cpp
+    src/schedules/model/bwaitcalibration.cpp
     src/schedules/model/bschedulegridmodel.cpp
     src/schedules/model/bschedulegridtext.cpp
     src/jobs/bpaginationwidget.cpp
@@ -633,6 +634,7 @@ set(HEADERS
     include/schedules/model/bscheduleoccurrences.h
     include/schedules/model/bjobhistorystats.h
     include/schedules/model/bschedulewaitmodel.h
+    include/schedules/model/bwaitcalibration.h
     include/schedules/model/bschedulegridmodel.h
     include/schedules/model/bschedulegridtext.h
 
@@ -1917,6 +1919,31 @@ if(BUILD_TESTING)
 
     add_test(NAME bschedulewaitmodel_test COMMAND bschedulewaitmodel_test)
 
+    # bwaitcalibration_test - the wait prediction measured against the
+    # catalog: measured waits, start overhead, pure durations without the
+    # wait for the device, the suggestion of parallel writers, the back-test
+    # and the fixture built from the production Director's measured table
+    add_executable(bwaitcalibration_test
+        test/bwaitcalibration_test.cpp
+        src/schedules/model/bwaitcalibration.cpp
+        src/schedules/model/bschedulewaitmodel.cpp
+        src/schedules/model/bjobhistorystats.cpp
+        include/schedules/model/bwaitcalibration.h
+        include/schedules/model/bschedulewaitmodel.h
+        include/schedules/model/bjobhistorystats.h
+    )
+
+    target_include_directories(bwaitcalibration_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bwaitcalibration_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bwaitcalibration_test COMMAND bwaitcalibration_test)
+
     # bschedulegridmodel_test - the model behind the schedule grid: cells and
     # scopes from Run lines, selection, and the edits back to Run lines
     # (no widgets, no Director)
@@ -2202,6 +2229,7 @@ if(BUILD_TESTING)
         src/schedules/model/bscheduleoccurrences.cpp
         src/schedules/model/bjobhistorystats.cpp
         src/schedules/model/bschedulewaitmodel.cpp
+        src/schedules/model/bwaitcalibration.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
         src/models/bresourcemodels.cpp
@@ -2226,6 +2254,7 @@ if(BUILD_TESTING)
         include/schedules/model/bscheduleoccurrences.h
         include/schedules/model/bjobhistorystats.h
         include/schedules/model/bschedulewaitmodel.h
+        include/schedules/model/bwaitcalibration.h
         include/schedules/model/brunspec.h
         include/models/bresourcemodels.h
         include/models/bbasemodels.h
@@ -2296,6 +2325,7 @@ if(BUILD_TESTING)
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
     message(STATUS "  bschedulewaitmodel_test - predicted waiting time of scheduled runs test (registered with CTest)")
+    message(STATUS "  bwaitcalibration_test - wait prediction against the catalog test (registered with CTest)")
     message(STATUS "  bschedulegridmodel_test - schedule grid model test (registered with CTest)")
     message(STATUS "  bschedulegridtext_test - schedule grid texts, calendar and geometry test (registered with CTest)")
     message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")

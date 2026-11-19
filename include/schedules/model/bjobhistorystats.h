@@ -57,6 +57,7 @@ struct BJobRun
 {
     quint64 jobId = 0;
     QString name;           ///< Job.Name, the name of the Job resource
+    QString client;         ///< Client.Name; empty if not delivered
     QChar type;             ///< Job.Type ('B' backup, 'C' copy of a job, ...)
     QChar level;            ///< Job.Level ('F', 'I', 'D', 'f', ' ' = none, ...)
     QChar status;           ///< Job.JobStatus ('T', 'W', 'E', 'A', ...)
@@ -141,6 +142,8 @@ public:
         qint64 median = 0;
         qint64 p75 = 0;
         qint64 p90 = 0;
+        qint64 min = 0;     ///< Smallest value
+        qint64 max = 0;     ///< Largest value
 
         bool isValid() const { return count > 0; }
     };
