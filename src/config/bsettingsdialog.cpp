@@ -619,6 +619,11 @@ void BSettingsDialog::createAppearancePage()
 
     m_languageCombo = new QComboBox();
 
+    // The language of the system first: the default
+    m_languageCombo->addItem(
+        tr("System (%1)").arg(BTranslations::languageName(BTranslations::detectSystemLanguage())),
+        BTranslations::systemCode());
+
     // Populate with available languages using flags
     QList<BTranslations::Language> languages = BTranslations::availableLanguages();
     for (BTranslations::Language lang : languages) {
@@ -631,7 +636,7 @@ void BSettingsDialog::createAppearancePage()
     languageLayout->addRow(tr("Application Language:"), m_languageCombo);
 
     QLabel *infoLabel = new QLabel(
-        tr("Language changes require an application restart."));
+        tr("Language changes require an application restart. \"System\" follows the language of the operating system."));
     infoLabel->setWordWrap(true);
     infoLabel->setStyleSheet("color: #888; font-style: italic;");
     BUiScale::bind(infoLabel, BUiScale::Small);
@@ -1225,9 +1230,7 @@ void BSettingsDialog::loadSettings()
     // Language
     QString currentLangCode = settings.appearanceLanguage();
     int langIndex = m_languageCombo->findData(currentLangCode);
-    if (langIndex >= 0) {
-        m_languageCombo->setCurrentIndex(langIndex);
-    }
+    m_languageCombo->setCurrentIndex(langIndex >= 0 ? langIndex : 0);
 
     // Level Colors
     QColor colorFull = settings.levelColor("F");

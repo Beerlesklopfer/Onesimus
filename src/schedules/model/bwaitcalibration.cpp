@@ -183,9 +183,9 @@ QString BWaitCalibration::overheadNote(const Overhead &overhead)
 {
     switch (overhead.basis) {
     case Basis::JobLevel:
-        return tr("median of %1 measured run(s) at this level").arg(overhead.samples);
+        return tr("median of %n measured run(s) at this level", nullptr, int(overhead.samples));
     case Basis::Job:
-        return tr("median of %1 measured run(s) of this job at other levels").arg(overhead.samples);
+        return tr("median of %n measured run(s) of this job at other levels", nullptr, int(overhead.samples));
     case Basis::Director:
         return tr("this job was not measured: median of all %1 runs on this Director")
             .arg(overhead.samples);
@@ -207,8 +207,9 @@ QString BWaitCalibration::durationNote(const Pure &pure, const QString &storage)
             .arg(storage.isEmpty() ? tr("its storage") : storage);
     }
     if (pure.secs == pure.rawSecs) {
-        return tr("Duration %1: median of %2 measured run(s); they did not wait for the device.")
-            .arg(BScheduleWaitModel::formatWait(pure.secs)).arg(pure.samples);
+        return tr("Duration %1: median of %n measured run(s); they did not wait for the device.",
+                  nullptr, int(pure.samples))
+            .arg(BScheduleWaitModel::formatWait(pure.secs));
     }
     return tr("Duration %1 without the wait for the device (measured %2, median of %3 run(s)): "
               "counted from the end of the run that held the device before it (%4 parallel "

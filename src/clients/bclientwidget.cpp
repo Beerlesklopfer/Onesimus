@@ -43,7 +43,7 @@ void BClientWidget::setupUI()
     m_clientTable = new QTableWidget(this);
     m_clientTable->setColumnCount(5);
     m_clientTable->setHorizontalHeaderLabels({
-        "Name", "Adresse", "Port", "OS", "Auto Prune"
+        tr("Name"), tr("Address"), tr("Port"), "OS", "Auto Prune"
     });
 
     m_clientTable->horizontalHeader()->setStretchLastSection(true);

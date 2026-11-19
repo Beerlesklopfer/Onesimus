@@ -1116,7 +1116,7 @@ QString BScheduleWaitModel::boundText(BWaitRun::Bound bound, qint64 secs)
 QString BScheduleWaitModel::summaryText(const BWaitSummary &summary)
 {
     QString text = summary.waiting > 0
-        ? tr("%1 run(s) wait, longest %2").arg(summary.waiting).arg(formatWait(summary.longestSecs))
+        ? tr("%n run(s) wait, longest %1", nullptr, int(summary.waiting)).arg(formatWait(summary.longestSecs))
         : tr("No waiting predicted");
     if (summary.uncertain > 0)
         text += QStringLiteral(", ") + tr("%1 uncertain").arg(summary.uncertain);

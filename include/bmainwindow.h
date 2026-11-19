@@ -118,6 +118,9 @@ private:
     /// View > Language: the languages under their own names; a choice is
     /// stored and takes effect with a restart, which is offered at once
     void addLanguageMenu(QMenu *menu);
+    /// Offers a restart when the language setting names another language
+    /// than the one on display
+    void offerLanguageRestart();
     void createToolBar();
     void showConnectionDialog();
     void loadAndConnectLastUsed();

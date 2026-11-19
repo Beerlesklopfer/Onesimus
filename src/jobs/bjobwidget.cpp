@@ -203,20 +203,20 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
 
                 if (command == "cancel") {
                     cmd = BDirector::Command::Cancel;
-                    emit statusMessageChanged(QString("Breche Job ab..."));
+                    emit statusMessageChanged(tr("Cancelling job..."));
                 } else if (command == "delete") {
                     cmd = BDirector::Command::DeleteJob;
-                    emit statusMessageChanged(QString("Lösche Job..."));
+                    emit statusMessageChanged(tr("Deleting job..."));
                 } else if (command == "rerun") {
                     cmd = BDirector::Command::Rerun;
-                    emit statusMessageChanged(QString("Führe Job erneut aus..."));
+                    emit statusMessageChanged(tr("Running job again..."));
                 } else if (command == "list") {
                     cmd = BDirector::Command::ListJobId;
-                    emit statusMessageChanged(QString("Lade Job-Log..."));
+                    emit statusMessageChanged(tr("Loading job log..."));
                 } else if (command == "prune") {
                     // Prune jobs - args contains "jobs client=XX yes"
                     cmd = BDirector::Command::Custom;
-                    emit statusMessageChanged(QString("Prune abgelaufener Jobs..."));
+                    emit statusMessageChanged(tr("Pruning expired jobs..."));
                     emit sendCommand(cmd, "prune " + args);
                     return;
                 } else {
@@ -410,13 +410,13 @@ void BJobWidget::setupUI()
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
 
     // Auto-refresh controls
-    m_autoRefreshCheck = new QCheckBox("Auto-Refresh", this);
+    m_autoRefreshCheck = new QCheckBox(tr("Auto-Refresh"), this);
     m_refreshIntervalCombo = new QComboBox(this);
-    m_refreshIntervalCombo->addItem("5 Sek", 5000);
-    m_refreshIntervalCombo->addItem("10 Sek", 10000);
-    m_refreshIntervalCombo->addItem("30 Sek", 30000);
-    m_refreshIntervalCombo->addItem("1 Min", 60000);
-    m_refreshIntervalCombo->addItem("5 Min", 300000);
+    m_refreshIntervalCombo->addItem(tr("5 s"), 5000);
+    m_refreshIntervalCombo->addItem(tr("10 s"), 10000);
+    m_refreshIntervalCombo->addItem(tr("30 s"), 30000);
+    m_refreshIntervalCombo->addItem(tr("1 min"), 60000);
+    m_refreshIntervalCombo->addItem(tr("5 min"), 300000);
     m_refreshIntervalCombo->setCurrentIndex(2);
     m_refreshIntervalCombo->setEnabled(false);
 
@@ -675,7 +675,7 @@ void BJobWidget::onJobsReceived(const QList<BDirector::JobInfo> &jobs)
     applyFilters();
 
     // Update status
-    emit statusMessageChanged(QString("Aktualisiert: %1 - %2 Jobs geladen")
+    emit statusMessageChanged(tr("Updated: %1 - %2 jobs loaded")
         .arg(QDateTime::currentDateTime().toString("HH:mm:ss"))
         .arg(jobs.size()));
 }
@@ -720,8 +720,8 @@ void BJobWidget::onCancelJobClicked()
     QSet<QString> selectedJobs = m_tableView->selectedJobIds();
 
     if (selectedJobs.isEmpty()) {
-        QMessageBox::information(this, "Keine Auswahl",
-            "Bitte wählen Sie einen Job zum Abbrechen aus.");
+        QMessageBox::information(this, tr("No selection"),
+            tr("Please select a job to cancel."));
         return;
     }
 
@@ -732,8 +732,8 @@ void BJobWidget::onCancelJobClicked()
 
     bool proceed = true;
     if (shouldConfirm) {
-        int ret = QMessageBox::question(this, "Job abbrechen",
-            QString("Möchten Sie Job ID %1 wirklich abbrechen?").arg(jobId),
+        int ret = QMessageBox::question(this, tr("Cancel Job"),
+            tr("Do you really want to cancel job ID %1?").arg(jobId),
             QMessageBox::Yes | QMessageBox::No);
         proceed = (ret == QMessageBox::Yes);
     }
@@ -741,8 +741,8 @@ void BJobWidget::onCancelJobClicked()
     if (proceed) {
         emit sendCommand(BDirector::Command::Cancel, QString::number(jobId.toULongLong()));
 
-        QMessageBox::information(this, "Job abgebrochen",
-            QString("Job %1 wurde abgebrochen.").arg(jobId));
+        QMessageBox::information(this, tr("Job Cancelled"),
+            tr("Job %1 was cancelled.").arg(jobId));
 
         // Refresh after 1 second
         QTimer::singleShot(1000, this, &BJobWidget::onRefreshClicked);
@@ -1277,7 +1277,7 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
              << m_filterComboModel->clientNames().size() << "client names";
 #endif
 
-    emit statusMessageChanged(QString("%1 Jobs geladen").arg(enrichedJobsArray.size()));
+    emit statusMessageChanged(tr("%1 jobs loaded").arg(enrichedJobsArray.size()));
     m_refreshButton->setEnabled(true);
 
     // Apply saved filters after loading jobs

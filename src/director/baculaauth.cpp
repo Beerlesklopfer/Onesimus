@@ -827,12 +827,12 @@ bool BaculaAuth::cramMD5Challenge(const QString &password)
         dirResponse.contains("failed") ||
         dirResponse.startsWith("2999")) {
 
-        m_errorMessage = QString("Director rejected our CRAM-MD5 response: %1\n"
-                                 "Mögliche Ursachen:\n"
-                                 "  1. Falsches Passwort in der Konfiguration\n"
-                                 "  2. Console-Name '%2' nicht in bacula-dir.conf definiert\n"
-                                 "  3. Passwort-Encoding-Problem (Sonderzeichen?)\n"
-                                 "  4. MD5-Hash vs Klartext-Passwort Verwechslung")
+        m_errorMessage = tr("Director rejected our CRAM-MD5 response: %1\n"
+                            "Possible causes:\n"
+                            "  1. Wrong password in the configuration\n"
+                            "  2. Console name '%2' not defined in bacula-dir.conf\n"
+                            "  3. Password encoding problem (special characters?)\n"
+                            "  4. MD5 hash and plain-text password mixed up")
                              .arg(dirResponse.trimmed())
                              .arg("bconsole");  // TODO: Console-Name übergeben
         BLOG_ERROR() << m_errorMessage;
@@ -854,12 +854,12 @@ bool BaculaAuth::cramMD5Challenge(const QString &password)
 
     if (receivedTrimmed != expectedBase64) {
         // Detaillierte Fehlermeldung
-        m_errorMessage = QString("Director's CRAM-MD5 response doesn't match.\n"
-                                 "  Expected: %1\n"
-                                 "  Received: %2\n"
-                                 "  Challenge was: %3\n"
-                                 "Dies bedeutet der Director verwendet ein anderes Passwort "
-                                 "als wir. Überprüfen Sie die Passwort-Konfiguration auf beiden Seiten.")
+        m_errorMessage = tr("Director's CRAM-MD5 response doesn't match.\n"
+                            "  Expected: %1\n"
+                            "  Received: %2\n"
+                            "  Challenge was: %3\n"
+                            "This means the Director uses another password than we do. "
+                            "Check the password configuration on both sides.")
                              .arg(expectedBase64)
                              .arg(receivedTrimmed)
                              .arg(challenge);

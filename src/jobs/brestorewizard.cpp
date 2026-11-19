@@ -710,7 +710,7 @@ void BRestoreBrowsePage::onSelectionCountChanged(int count)
                 parts << tr("%n file(s)", "", fileCount);
             m_selectionLabel->setText(tr("Selected: %1").arg(parts.join(", ")));
         } else {
-            m_selectionLabel->setText(tr("%1 item(s) selected").arg(count));
+            m_selectionLabel->setText(tr("%n item(s) selected", nullptr, int(count)));
         }
     }
     emit completeChanged();

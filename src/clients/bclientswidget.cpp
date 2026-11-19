@@ -425,7 +425,7 @@ void BClientsWidget::processJsonResponse(const QString &jsonData)
     // Store in model (triggers cached enrichments + allClientsChanged → applyFilters)
     m_model->setAllClients(clientsArray);
 
-    emit statusMessageChanged(tr("%1 client(s) loaded").arg(clientsArray.size()));
+    emit statusMessageChanged(tr("%n client(s) loaded", nullptr, int(clientsArray.size())));
 }
 
 void BClientsWidget::applyFilters()

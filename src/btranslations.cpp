@@ -137,6 +137,13 @@ QString BTranslations::languageFlag(Language language)
     }
 }
 
+BTranslations::Language BTranslations::resolve(const QString &code)
+{
+    if (code.isEmpty() || code == systemCode())
+        return detectSystemLanguage();
+    return languageFromCode(code);
+}
+
 BTranslations::Language BTranslations::detectSystemLanguage()
 {
     QLocale systemLocale = QLocale::system();

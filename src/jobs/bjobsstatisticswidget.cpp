@@ -16,28 +16,28 @@ void BJobsStatisticsWidget::setupUi()
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     
     // Summary group
-    QGroupBox *summaryGroup = new QGroupBox("Job Summary", this);
+    QGroupBox *summaryGroup = new QGroupBox(tr("Job Summary"), this);
     QFormLayout *summaryLayout = new QFormLayout(summaryGroup);
     
     m_totalJobsLabel = new QLabel("0", this);
     m_totalJobsLabel->setStyleSheet("font-weight: bold;");
     BUiScale::bind(m_totalJobsLabel, BUiScale::Title);
-    summaryLayout->addRow("Total Jobs:", m_totalJobsLabel);
+    summaryLayout->addRow(tr("Total Jobs:"), m_totalJobsLabel);
     
     m_selectedLabel = new QLabel("0", this);
-    summaryLayout->addRow("Selected:", m_selectedLabel);
+    summaryLayout->addRow(tr("Selected:"), m_selectedLabel);
     
     mainLayout->addWidget(summaryGroup);
     
     // Status breakdown group
-    QGroupBox *statusGroup = new QGroupBox("Status Breakdown", this);
+    QGroupBox *statusGroup = new QGroupBox(tr("Status Breakdown"), this);
     QVBoxLayout *statusLayout = new QVBoxLayout(statusGroup);
     
     // Successful jobs
     QHBoxLayout *successLayout = new QHBoxLayout();
     m_successLabel = new QLabel("0", this);
     BUiScale::track(m_successLabel, [this]() { m_successLabel->setMinimumWidth(BUiScale::px(50)); });
-    successLayout->addWidget(new QLabel("Successful:", this));
+    successLayout->addWidget(new QLabel(tr("Successful:"), this));
     successLayout->addWidget(m_successLabel);
     statusLayout->addLayout(successLayout);
     
@@ -52,7 +52,7 @@ void BJobsStatisticsWidget::setupUi()
     QHBoxLayout *warningLayout = new QHBoxLayout();
     m_warningLabel = new QLabel("0", this);
     BUiScale::track(m_warningLabel, [this]() { m_warningLabel->setMinimumWidth(BUiScale::px(50)); });
-    warningLayout->addWidget(new QLabel("Warnings:", this));
+    warningLayout->addWidget(new QLabel(tr("Warnings:"), this));
     warningLayout->addWidget(m_warningLabel);
     statusLayout->addLayout(warningLayout);
     
@@ -67,7 +67,7 @@ void BJobsStatisticsWidget::setupUi()
     QHBoxLayout *failedLayout = new QHBoxLayout();
     m_failedLabel = new QLabel("0", this);
     BUiScale::track(m_failedLabel, [this]() { m_failedLabel->setMinimumWidth(BUiScale::px(50)); });
-    failedLayout->addWidget(new QLabel("Failed:", this));
+    failedLayout->addWidget(new QLabel(tr("Failed:"), this));
     failedLayout->addWidget(m_failedLabel);
     statusLayout->addLayout(failedLayout);
     
@@ -81,17 +81,17 @@ void BJobsStatisticsWidget::setupUi()
     mainLayout->addWidget(statusGroup);
     
     // Data summary group
-    QGroupBox *dataGroup = new QGroupBox("Data Summary", this);
+    QGroupBox *dataGroup = new QGroupBox(tr("Data Summary"), this);
     QFormLayout *dataLayout = new QFormLayout(dataGroup);
     
     m_totalFilesLabel = new QLabel("0", this);
-    dataLayout->addRow("Total Files:", m_totalFilesLabel);
+    dataLayout->addRow(tr("Total Files:"), m_totalFilesLabel);
     
     m_totalBytesLabel = new QLabel("0 B", this);
-    dataLayout->addRow("Total Size:", m_totalBytesLabel);
+    dataLayout->addRow(tr("Total Size:"), m_totalBytesLabel);
     
-    m_dateRangeLabel = new QLabel("N/A", this);
-    dataLayout->addRow("Date Range:", m_dateRangeLabel);
+    m_dateRangeLabel = new QLabel(tr("N/A"), this);
+    dataLayout->addRow(tr("Date Range:"), m_dateRangeLabel);
     
     mainLayout->addWidget(dataGroup);
 
@@ -173,12 +173,12 @@ void BJobsStatisticsWidget::updateStatistics()
     
     // Update date range
     if (stats.earliestJob.isValid() && stats.latestJob.isValid()) {
-        QString dateRange = QString("%1 to %2")
+        QString dateRange = tr("%1 to %2")
             .arg(stats.earliestJob.toString("yyyy-MM-dd"))
             .arg(stats.latestJob.toString("yyyy-MM-dd"));
         m_dateRangeLabel->setText(dateRange);
     } else {
-        m_dateRangeLabel->setText("N/A");
+        m_dateRangeLabel->setText(tr("N/A"));
     }
 }
 

@@ -23,13 +23,13 @@ void BPaginationWidget::setupUi()
     layout->setContentsMargins(0, 0, 0, 0);
     
     // Enable/disable checkbox
-    m_enabledCheckBox = new QCheckBox("Enable Pagination", this);
+    m_enabledCheckBox = new QCheckBox(tr("Enable Pagination"), this);
     layout->addWidget(m_enabledCheckBox);
     
     layout->addSpacing(20);
     
     // Page size selector
-    layout->addWidget(new QLabel("Items per page:", this));
+    layout->addWidget(new QLabel(tr("Items per page:"), this));
     m_pageSizeCombo = new QComboBox(this);
     m_pageSizeCombo->addItem("25", 25);
     m_pageSizeCombo->addItem("50", 50);
@@ -43,31 +43,31 @@ void BPaginationWidget::setupUi()
     
     // Navigation buttons
     m_firstButton = new QPushButton("<<", this);
-    m_firstButton->setToolTip("First Page");
+    m_firstButton->setToolTip(tr("First Page"));
     BUiScale::track(m_firstButton, [this]() { m_firstButton->setMaximumWidth(BUiScale::px(40)); });
     m_firstButton->setEnabled(false);
     layout->addWidget(m_firstButton);
     
     m_prevButton = new QPushButton("<", this);
-    m_prevButton->setToolTip("Previous Page");
+    m_prevButton->setToolTip(tr("Previous Page"));
     BUiScale::track(m_prevButton, [this]() { m_prevButton->setMaximumWidth(BUiScale::px(40)); });
     m_prevButton->setEnabled(false);
     layout->addWidget(m_prevButton);
     
     // Page info label
-    m_pageLabel = new QLabel("Page 0 of 0", this);
+    m_pageLabel = new QLabel(tr("Page 0 of 0"), this);
     BUiScale::track(m_pageLabel, [this]() { m_pageLabel->setMinimumWidth(BUiScale::px(100)); });
     m_pageLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_pageLabel);
     
     m_nextButton = new QPushButton(">", this);
-    m_nextButton->setToolTip("Next Page");
+    m_nextButton->setToolTip(tr("Next Page"));
     BUiScale::track(m_nextButton, [this]() { m_nextButton->setMaximumWidth(BUiScale::px(40)); });
     m_nextButton->setEnabled(false);
     layout->addWidget(m_nextButton);
     
     m_lastButton = new QPushButton(">>", this);
-    m_lastButton->setToolTip("Last Page");
+    m_lastButton->setToolTip(tr("Last Page"));
     BUiScale::track(m_lastButton, [this]() { m_lastButton->setMaximumWidth(BUiScale::px(40)); });
     m_lastButton->setEnabled(false);
     layout->addWidget(m_lastButton);
@@ -75,14 +75,14 @@ void BPaginationWidget::setupUi()
     layout->addSpacing(20);
     
     // Jump to page
-    layout->addWidget(new QLabel("Go to page:", this));
+    layout->addWidget(new QLabel(tr("Go to page:"), this));
     m_pageSpinBox = new QSpinBox(this);
     m_pageSpinBox->setMinimum(1);
     m_pageSpinBox->setMaximum(1);
     m_pageSpinBox->setEnabled(false);
     layout->addWidget(m_pageSpinBox);
     
-    m_jumpButton = new QPushButton("Go", this);
+    m_jumpButton = new QPushButton(tr("Go"), this);
     m_jumpButton->setEnabled(false);
     layout->addWidget(m_jumpButton);
     

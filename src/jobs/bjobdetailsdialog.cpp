@@ -28,7 +28,7 @@ BJobDetailsDialog::BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidg
     QString jobId = job["jobid"].toString();
     QString client = job["client"].toString();
 
-    setWindowTitle(QString("Job Details: %1 (ID: %2) - Client: %3")
+    setWindowTitle(tr("Job Details: %1 (ID: %2) - Client: %3")
                        .arg(jobName)
                        .arg(jobId)
                        .arg(client));

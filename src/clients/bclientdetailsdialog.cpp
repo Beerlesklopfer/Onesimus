@@ -296,15 +296,15 @@ static QString formatRetention(const QJsonValue &val)
 
     qint64 days = secs / 86400;
     if (days >= 365 && days % 365 == 0)
-        return QObject::tr("%1 year(s)").arg(days / 365);
+        return QObject::tr("%n year(s)", nullptr, int(days / 365));
     if (days > 0)
-        return QObject::tr("%1 day(s)").arg(days);
+        return QObject::tr("%n day(s)", nullptr, int(days));
 
     qint64 hours = secs / 3600;
     if (hours > 0)
-        return QObject::tr("%1 hour(s)").arg(hours);
+        return QObject::tr("%n hour(s)", nullptr, int(hours));
 
-    return QObject::tr("%1 second(s)").arg(secs);
+    return QObject::tr("%n second(s)", nullptr, int(secs));
 }
 
 void BClientDetailsDialog::setupInfoTab()

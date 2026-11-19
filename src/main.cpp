@@ -486,29 +486,14 @@ int main(int argc, char *argv[])
     // Initialize Translations
     // ========================================
 
-    BTranslations::Language language;
-    QString languageCode;
-
-    // Check if this is the first start (no language preference saved)
-    if (!BSettings::instance().hasLanguagePreference()) {
-        // First start: detect and save system language
-        language = BTranslations::detectSystemLanguage();
-        languageCode = BTranslations::languageCode(language);
-        BSettings::instance().setAppearanceLanguage(languageCode);
-
-        if (options.verbose) {
-            BLOG_INFO() << "First start: Detected system language:" << languageCode
-                        << "(" << BTranslations::languageName(language) << ")";
-        }
-    } else {
-        // Load saved language preference
-        languageCode = BSettings::instance().appearanceLanguage();
-        language = BTranslations::languageFromCode(languageCode);
-
-        if (options.verbose) {
-            BLOG_INFO() << "Loading saved language preference:" << languageCode
-                        << "(" << BTranslations::languageName(language) << ")";
-        }
+    // The language of the system, unless the settings name another one.
+    // Nothing is stored here: a system that changes its language takes
+    // Onesimus along at the next start.
+    const QString languageCode = BSettings::instance().appearanceLanguage();
+    const BTranslations::Language language = BTranslations::resolve(languageCode);
+    if (options.verbose) {
+        BLOG_INFO() << "Language setting:" << languageCode
+                    << "->" << BTranslations::languageName(language);
     }
 
     // Initialize translation system BEFORE creating MainWindow

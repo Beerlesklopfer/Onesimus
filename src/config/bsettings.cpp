@@ -326,7 +326,7 @@ void BSettings::setAppearanceCompactMode(bool compact)
 
 QString BSettings::appearanceLanguage() const
 {
-    return value("Appearance/language", "en").toString();
+    return value("Appearance/language", QStringLiteral("system")).toString();
 }
 
 void BSettings::setAppearanceLanguage(const QString& languageCode)

@@ -139,14 +139,14 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     }
 
     // Bareos 18.2+ sequence: TLS-PSK first, then Hello + CRAM-MD5
-    emit statusMessage("Starting Bareos authentication...");
+    emit statusMessage(tr("Starting Bareos authentication..."));
 
     m_authState = BAuthState::AUTH_IDLE;
 
     // PSK Auth (Bareos 18.2+)
     if (tlsPSKEnable && !password.isEmpty())
     {
-        emit statusMessage("Setting up TLS-PSK...");
+        emit statusMessage(tr("Setting up TLS-PSK..."));
 
         // Prepare Hello for TLS-PSK mode (Bareos 18.2+)
         // Format: "Hello <consoleName> calling version <version>\n"
@@ -165,14 +165,14 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
 
         // ✅ Hello wird in onEncrypted() nach TLS-Handshake gesendet
         // m_writeBuffer wurde bereits vorbereitet (Zeile 102-106)
-        emit statusMessage("Starting TLS-PSK handshake...");
+        emit statusMessage(tr("Starting TLS-PSK handshake..."));
 
         return true;
     }
     // Certificate-based TLS (Bareos <= 18.2.1 oder explizit konfiguriert)
     else if (tlsEnable && !password.isEmpty())
     {
-        emit statusMessage("Setting up certificate-based TLS...");
+        emit statusMessage(tr("Setting up certificate-based TLS..."));
 
         // Prepare Hello for Certificate TLS mode (Bareos 18.2+)
         // Format: "Hello <consoleName> calling version <version>\n"
@@ -188,7 +188,7 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
         }
 
         // ✅ Hello wird in onEncrypted() nach TLS-Handshake gesendet
-        emit statusMessage("Starting TLS handshake...");
+        emit statusMessage(tr("Starting TLS handshake..."));
 
         return true;
     }
@@ -196,7 +196,7 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
     else if (!password.isEmpty())
     {
         // Legacy mode: Hello + CRAM-MD5 (no TLS)
-        emit statusMessage("Starting legacy authentication (no TLS)...");
+        emit statusMessage(tr("Starting legacy authentication (no TLS)..."));
 
         // Prepare Hello for Legacy mode (pre-18.2 format)
         // Format: "Hello <consoleName> calling\n"
@@ -625,7 +625,7 @@ void BareosAuth::onEncrypted()
     m_tlsStarted = true;
 
     // ✅ Nach PSK-TLS: Jetzt Hello senden und CRAM-MD5 starten
-    emit statusMessage("TLS established, sending Hello packet...");
+    emit statusMessage(tr("TLS established, sending Hello packet..."));
 
     // m_writeBuffer wurde bereits in authenticateDirector() vorbereitet
     // Format: "Hello <consoleName> calling <directorName> version <version>"
@@ -649,7 +649,7 @@ void BareosAuth::onEncrypted()
     AUTH_DEBUG << "  State changed -> WAIT_FOR_CHALLENGE";
 #endif
 
-    emit statusMessage("Waiting for Director challenge...");
+    emit statusMessage(tr("Waiting for Director challenge..."));
 }
 
 void BareosAuth::onSslErrors(const QList<QSslError> &errors)
@@ -829,7 +829,7 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
     AUTH_DEBUG << "  ✓ HMAC response sent";
 #endif
 
-    emit statusMessage("CRAM-MD5 response sent successfully");
+    emit statusMessage(tr("CRAM-MD5 response sent successfully"));
     return true;
 }
 
@@ -1371,7 +1371,7 @@ void BareosAuth::onReadyRead()
             m_authState = BAuthState::AUTH_SUCCESS;
             stopAuthTimeout();
             disconnectSignals();
-            emit statusMessage("Connected");
+            emit statusMessage(tr("Connected"));
             m_directorBanner = msgStr;
             emit authenticationSucceeded(msgStr);
         } else if (msgStr.startsWith("1999")) {
@@ -1485,7 +1485,7 @@ void BareosAuth::onReadyRead()
             stopAuthTimeout();
 
             disconnectSignals();
-            emit statusMessage("Connected");
+            emit statusMessage(tr("Connected"));
             emit authenticationSucceeded(m_directorVersionString);
         } else {
 #ifdef IS_DEVELOPER

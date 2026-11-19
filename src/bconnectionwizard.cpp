@@ -3300,7 +3300,7 @@ void ConsoleSetupPage::onConsolesResult(const QJsonArray &consoles)
                                   "to create a personalized Console resource on the Director."));
         m_statusLabel->setStyleSheet("color: #c08000; font-style: italic;");
     } else {
-        m_statusLabel->setText(tr("Found %1 console(s)").arg(m_consoleCombo->count()));
+        m_statusLabel->setText(tr("Found %n console(s)", nullptr, m_consoleCombo->count()));
         m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
     }
 

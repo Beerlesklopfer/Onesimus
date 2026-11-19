@@ -226,10 +226,10 @@ void BNewJobDialog::createAdvancedTab()
     replaceLayout->addWidget(m_replaceCheck);
 
     m_replaceCombo = new QComboBox();
-    m_replaceCombo->addItem("Always", "always");
-    m_replaceCombo->addItem("Never", "never");
-    m_replaceCombo->addItem("If Newer", "ifnewer");
-    m_replaceCombo->addItem("If Older", "ifolder");
+    m_replaceCombo->addItem(tr("Always"), "always");
+    m_replaceCombo->addItem(tr("Never"), "never");
+    m_replaceCombo->addItem(tr("If Newer"), "ifnewer");
+    m_replaceCombo->addItem(tr("If Older"), "ifolder");
     m_replaceCombo->setEnabled(false);
     replaceLayout->addWidget(m_replaceCombo);
 

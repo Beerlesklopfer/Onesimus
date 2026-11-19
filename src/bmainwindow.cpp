@@ -92,9 +92,9 @@ BMainWindow::BMainWindow(QWidget *parent)
     ui->setupUi(this);
 
 #if USE_BACULA
-    setWindowTitle("Onesimus - Bacula Backup Management");
+    setWindowTitle(tr("Onesimus - Bacula Backup Management"));
 #elif defined(USE_BAREOS)
-    setWindowTitle("Onesimus - Bareos Backup Management");
+    setWindowTitle(tr("Onesimus - Bareos Backup Management"));
 #endif
     resize(BUiScale::px(1200), BUiScale::px(800));
 
@@ -596,15 +596,15 @@ void BMainWindow::setupUI()
     setCentralWidget(centralScroll);
 
     m_jobWidget = new BJobWidget(m_director, this);
-    m_tabWidget->addTab(m_jobWidget, "Jobs");
+    m_tabWidget->addTab(m_jobWidget, tr("Jobs"));
 
     // Client-Widget
     m_clientWidget = new BClientsWidget(m_director, this);
-    m_tabWidget->addTab(m_clientWidget, "Clients");
+    m_tabWidget->addTab(m_clientWidget, tr("Clients"));
 
     // Storage-Widget
     m_storageWidget = new StorageWidget(m_director, this);
-    m_tabWidget->addTab(m_storageWidget, "Storage/Volumes");
+    m_tabWidget->addTab(m_storageWidget, tr("Storage/Volumes"));
 
     // Schedule-Widget
     m_scheduleWidget = new BScheduleWidget(this);
@@ -633,7 +633,7 @@ void BMainWindow::setupUI()
                                         BCapabilities::Function::DeleteSchedule,
                                         BCapabilities::Request::Explicit);
     });
-    m_tabWidget->addTab(m_scheduleWidget, "Schedules");
+    m_tabWidget->addTab(m_scheduleWidget, tr("Schedules"));
 
     int savedTab = BSettings::instance().mainWindowActiveTab();
     if (savedTab >= 0 && savedTab < m_tabWidget->count()) {
@@ -1272,56 +1272,71 @@ void BMainWindow::createActions()
 void BMainWindow::addLanguageMenu(QMenu *menu)
 {
     // The languages carry their own names ("Deutsch", "Русский"): whoever
-    // landed in a language they cannot read still finds their own
+    // landed in a language they cannot read still finds their own. On top,
+    // the language of the system, which is the default.
     QMenu *languageMenu = menu->addMenu(tr("Language"));
     auto *group = new QActionGroup(languageMenu);
     group->setExclusive(true);
-    const BTranslations::Language current = BTranslations::instance()->currentLanguage();
+    const QString stored = BSettings::instance().appearanceLanguage();
+
+    QAction *system = languageMenu->addAction(
+        tr("System (%1)").arg(BTranslations::languageName(BTranslations::detectSystemLanguage())));
+    system->setCheckable(true);
+    system->setData(BTranslations::systemCode());
+    system->setChecked(stored == BTranslations::systemCode() || stored.isEmpty());
+    group->addAction(system);
+    languageMenu->addSeparator();
+
     for (BTranslations::Language lang : BTranslations::availableLanguages()) {
         QAction *action = languageMenu->addAction(BTranslations::languageName(lang));
         action->setCheckable(true);
-        action->setChecked(lang == current);
         action->setData(BTranslations::languageCode(lang));
+        action->setChecked(stored == BTranslations::languageCode(lang));
         group->addAction(action);
     }
 
     connect(group, &QActionGroup::triggered, this, [this](QAction *action) {
-        const QString code = action->data().toString();
-        const BTranslations::Language chosen = BTranslations::languageFromCode(code);
-        const BTranslations::Language running = BTranslations::instance()->currentLanguage();
-        BSettings::instance().setAppearanceLanguage(code);
+        BSettings::instance().setAppearanceLanguage(action->data().toString());
         BSettings::instance().sync();
-        if (chosen == running)
-            return;
-
-        // The windows build their texts once: the language changes with a
-        // restart, not in the middle of a session (that would mix two)
-        QMessageBox box(this);
-        box.setIcon(QMessageBox::Question);
-        box.setWindowTitle(tr("Language"));
-        box.setText(tr("Onesimus will speak %1 after a restart.")
-                        .arg(BTranslations::languageName(chosen)));
-        box.setInformativeText(m_director && m_director->isConnected()
-            ? tr("Restart now? The connection to the Director is closed and opened again "
-                 "if automatic connection is on.")
-            : tr("Restart now?"));
-        QPushButton *now = box.addButton(tr("Restart now"), QMessageBox::AcceptRole);
-        box.addButton(tr("Later"), QMessageBox::RejectRole);
-        box.setDefaultButton(now);
-        box.exec();
-        if (box.clickedButton() != now) {
-            // The menu shows what the next start uses
-            return;
-        }
-        if (!QProcess::startDetached(QCoreApplication::applicationFilePath(),
-                                     QCoreApplication::arguments().mid(1))) {
-            QMessageBox::warning(this, tr("Language"),
-                                 tr("Onesimus could not be started again. "
-                                    "The new language takes effect at the next start."));
-            return;
-        }
-        qApp->quit();
+        // After the menu has closed
+        QTimer::singleShot(0, this, &BMainWindow::offerLanguageRestart);
     });
+}
+
+void BMainWindow::offerLanguageRestart()
+{
+    const BTranslations::Language chosen =
+        BTranslations::resolve(BSettings::instance().appearanceLanguage());
+    if (chosen == BTranslations::instance()->currentLanguage())
+        return;
+
+    // The windows build their texts once: the language changes with a
+    // restart, not in the middle of a session (that would mix two)
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(tr("Language"));
+    box.setText(tr("Onesimus will speak %1 after a restart.")
+                    .arg(BTranslations::languageName(chosen)));
+    box.setInformativeText(m_director && m_director->isConnected()
+        ? tr("Restart now? The connection to the Director is closed and opened again "
+             "if automatic connection is on.")
+        : tr("Restart now?"));
+    QPushButton *now = box.addButton(tr("Restart now"), QMessageBox::AcceptRole);
+    box.addButton(tr("Later"), QMessageBox::RejectRole);
+    box.setDefaultButton(now);
+    box.exec();
+    if (box.clickedButton() != now)
+        return;     // the menu shows what the next start uses
+
+    if (!QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                 QCoreApplication::arguments().mid(1))) {
+        QMessageBox::warning(this, tr("Language"),
+                             tr("Onesimus could not be started again. "
+                                "The new language takes effect at the next start."));
+        return;
+    }
+    BLOG_INFO() << "Restart for the language" << BTranslations::languageName(chosen);
+    QTimer::singleShot(0, qApp, &QCoreApplication::quit);
 }
 
 void BMainWindow::createMenus()
@@ -1669,7 +1684,7 @@ void BMainWindow::onDisconnectTriggered()
     }
 
     m_director->disconnect();
-    m_statusLabel->setText("Getrennt");
+    m_statusLabel->setText(tr("Disconnected"));
 }
 
 void BMainWindow::onToggleConnectionTriggered()
@@ -1714,15 +1729,15 @@ void BMainWindow::onAboutTriggered()
     QLabel* titleLabel = new QLabel("<h1 style='margin:0;'>Onesimus</h1>");
     titleLayout->addWidget(titleLabel);
 
-    QLabel* versionLabel = new QLabel(QString("<p style='color:#666; margin:0;'>Version %1 (Build %2)</p>")
+    QLabel* versionLabel = new QLabel(tr("<p style='color:#666; margin:0;'>Version %1 (Build %2)</p>")
                                           .arg(PROJECT_VERSION)
                                           .arg(BUILD_NUMBER));
     titleLayout->addWidget(versionLabel);
 
 #if USE_BACULA
-    QLabel* subtitleLabel = new QLabel("<p style='margin:0;'>Modern Qt6 GUI for Bacula Backup</p>");
+    QLabel* subtitleLabel = new QLabel(tr("<p style='margin:0;'>Modern Qt6 GUI for Bacula Backup</p>"));
 #elif defined(USE_BAREOS)
-    QLabel* subtitleLabel = new QLabel("<p style='margin:0;'>Modern Qt6 GUI for Bareos Backup</p>");
+    QLabel* subtitleLabel = new QLabel(tr("<p style='margin:0;'>Modern Qt6 GUI for Bareos Backup</p>"));
 #endif
     titleLayout->addWidget(subtitleLabel);
     titleLayout->addStretch();
@@ -2286,6 +2301,8 @@ void BMainWindow::onSettingsTriggered()
     if (dialog.exec() == QDialog::Accepted) {
         // The settings were changed
         m_statusLabel->setText(tr("Settings saved"));
+        // A language chosen there takes effect with a restart
+        offerLanguageRestart();
 
         // Settings are automatically applied via BSettings signals
         // Auto-refresh is handled by onAutoRefreshSettingsChanged slot
@@ -2468,7 +2485,7 @@ void BMainWindow::onRefreshAll()
         return;
     }
 
-    m_statusLabel->setText("Aktualisiere Daten...");
+    m_statusLabel->setText(tr("Refreshing data..."));
 
     // Use pagination-aware refresh for jobs (respects ListJobTotals → ListJobs flow)
     m_jobWidget->triggerRefresh();
@@ -2734,7 +2751,7 @@ void BMainWindow::onCopyTriggered()
             }
 
             QApplication::clipboard()->setText(copyText);
-            m_statusLabel->setText(tr("%1 row(s) copied").arg(selectedIndexes.count()));
+            m_statusLabel->setText(tr("%n row(s) copied", nullptr, int(selectedIndexes.count())));
         }
     } else if (currentWidget == m_clientWidget) {
         // Copy selected client data
@@ -2862,7 +2879,7 @@ void BMainWindow::onExportSettingsTriggered()
 
     // Export all jobs to JSON
     m_jobWidget->tableView()->exportToJson(false);
-    m_statusLabel->setText("Jobs als JSON exportiert");
+    m_statusLabel->setText(tr("Jobs exported as JSON"));
 }
 
 void BMainWindow::onImportSettingsTriggered()
@@ -2874,7 +2891,7 @@ void BMainWindow::onImportSettingsTriggered()
 
     // Export all jobs to CSV
     m_jobWidget->tableView()->exportToCsv(false);
-    m_statusLabel->setText("Jobs als CSV exportiert");
+    m_statusLabel->setText(tr("Jobs exported as CSV"));
 }
 
 void BMainWindow::onCleanupDatabase()

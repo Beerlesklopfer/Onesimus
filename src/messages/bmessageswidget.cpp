@@ -366,5 +366,5 @@ void BMessagesWidget::onRefreshClicked()
 void BMessagesWidget::updateMessageCount()
 {
     int count = m_model->messageCount();
-    m_countLabel->setText(tr("%1 message(s)").arg(count));
+    m_countLabel->setText(tr("%n message(s)", nullptr, int(count)));
 }

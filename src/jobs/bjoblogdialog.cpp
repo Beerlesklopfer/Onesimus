@@ -24,7 +24,7 @@ void BJobLogDialog::setupUI()
     QString jobId = m_job["jobid"].toString();
     QString client = m_job["client"].toString();
 
-    setWindowTitle(QString("Job-Log: %1 (ID: %2) - %3")
+    setWindowTitle(tr("Job Log: %1 (ID: %2) - %3")
                        .arg(jobName)
                        .arg(jobId)
                        .arg(client));
@@ -45,7 +45,7 @@ void BJobLogDialog::setupUI()
     else if (status == "E") statusText = tr("Error") + " ✗";
     else statusText = status;
 
-    infoLabel->setText(QString("<b>Status:</b> %1 | <b>Start:</b> %2")
+    infoLabel->setText(tr("<b>Status:</b> %1 | <b>Start:</b> %2")
                            .arg(statusText)
                            .arg(m_job["starttime"].toString()));
     mainLayout->addWidget(infoLabel);

@@ -432,7 +432,7 @@ void BFileSetTemplatePage::onMixTemplates()
         QJsonObject tmpl = it.value().toObject();
         QString platform = tmpl["platform"].toString();
         QString desc = tmpl["description"].toString();
-        item->setToolTip(QString("%1\nPlatform: %2").arg(desc, platform));
+        item->setToolTip(tr("%1\nPlatform: %2").arg(desc, platform));
 
         listWidget->addItem(item);
     }
@@ -832,7 +832,7 @@ void BFileSetSettingsPage::onFileSetsLoaded(const QStringList &names)
         m_filesetCombo->addItem(name, name);
     }
 
-    m_loadingLabel->setText(QString("(%1 FileSets)").arg(names.count()));
+    m_loadingLabel->setText(tr("(%1 FileSets)").arg(names.count()));
 
     // If we have a preset name, select it
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());

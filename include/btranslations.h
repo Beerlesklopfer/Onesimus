@@ -99,6 +99,12 @@ public:
      */
     static Language detectSystemLanguage();
 
+    /// The setting that follows the language of the system
+    static QString systemCode() { return QStringLiteral("system"); }
+    /// The language a setting stands for: "system" (or nothing) is the
+    /// system's language, any other code that language
+    static Language resolve(const QString &code);
+
 signals:
     /**
      * @brief Emitted when language changes

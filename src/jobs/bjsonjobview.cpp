@@ -143,52 +143,52 @@ void BJsonJobView::setupView()
 void BJsonJobView::createContextMenu()
 {
     // Job actions
-    m_actionDetails = m_contextMenu->addAction("Show Details...");
+    m_actionDetails = m_contextMenu->addAction(tr("Show Details..."));
     connect(m_actionDetails, &QAction::triggered, this, &BJsonJobView::showJobDetails);
     
     m_contextMenu->addSeparator();
     
-    m_actionRetry = m_contextMenu->addAction("Retry Job");
+    m_actionRetry = m_contextMenu->addAction(tr("Retry Job"));
     connect(m_actionRetry, &QAction::triggered, this, &BJsonJobView::retryJob);
     
-    m_actionCancel = m_contextMenu->addAction("Cancel Job");
+    m_actionCancel = m_contextMenu->addAction(tr("Cancel Job"));
     connect(m_actionCancel, &QAction::triggered, this, &BJsonJobView::cancelJob);
     
-    m_actionDelete = m_contextMenu->addAction("Delete Job");
+    m_actionDelete = m_contextMenu->addAction(tr("Delete Job"));
     connect(m_actionDelete, &QAction::triggered, this, &BJsonJobView::deleteJob);
     
     m_contextMenu->addSeparator();
     
-    m_actionViewLog = m_contextMenu->addAction("View Log...");
+    m_actionViewLog = m_contextMenu->addAction(tr("View Log..."));
     connect(m_actionViewLog, &QAction::triggered, this, &BJsonJobView::viewJobLog);
 
-    m_actionRestoreFiles = m_contextMenu->addAction("Restore Files...");
+    m_actionRestoreFiles = m_contextMenu->addAction(tr("Restore Files..."));
     m_actionRestoreFiles->setIcon(QIcon::fromTheme("edit-undo"));
     connect(m_actionRestoreFiles, &QAction::triggered, this, &BJsonJobView::restoreFiles);
 
     m_contextMenu->addSeparator();
 
     // Export actions
-    m_actionExportJson = m_contextMenu->addAction("Export to JSON...");
+    m_actionExportJson = m_contextMenu->addAction(tr("Export to JSON..."));
     connect(m_actionExportJson, &QAction::triggered, 
             [this]() { exportToJson(true); });
     
-    m_actionExportCsv = m_contextMenu->addAction("Export to CSV...");
+    m_actionExportCsv = m_contextMenu->addAction(tr("Export to CSV..."));
     connect(m_actionExportCsv, &QAction::triggered,
             [this]() { exportToCsv(true); });
     
     m_contextMenu->addSeparator();
     
     // Selection actions
-    m_actionSelectAll = m_contextMenu->addAction("Select All");
+    m_actionSelectAll = m_contextMenu->addAction(tr("Select All"));
     connect(m_actionSelectAll, &QAction::triggered,
             this, &BJsonJobView::selectAllVisible);
     
-    m_actionInvertSelection = m_contextMenu->addAction("Invert Selection");
+    m_actionInvertSelection = m_contextMenu->addAction(tr("Invert Selection"));
     connect(m_actionInvertSelection, &QAction::triggered,
             m_model, &BJobsModel::invertSelection);
     
-    m_actionClearSelection = m_contextMenu->addAction("Clear Selection");
+    m_actionClearSelection = m_contextMenu->addAction(tr("Clear Selection"));
     connect(m_actionClearSelection, &QAction::triggered,
             this, &BJsonJobView::clearSelection);
 }
@@ -269,7 +269,7 @@ void BJsonJobView::exportToJson(bool selectedOnly)
 {
     QString fileName = QFileDialog::getSaveFileName(
         this,
-        selectedOnly ? "Export Selected Jobs to JSON" : "Export All Jobs to JSON",
+        selectedOnly ? tr("Export Selected Jobs to JSON") : tr("Export All Jobs to JSON"),
         "jobs_export.json",
         "JSON Files (*.json);;All Files (*)"
     );
@@ -282,17 +282,17 @@ void BJsonJobView::exportToJson(bool selectedOnly)
     
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly)) {
-        QMessageBox::critical(this, "Export Error",
-            QString("Could not write to file: %1").arg(file.errorString()));
+        QMessageBox::critical(this, tr("Export Error"),
+            tr("Could not write to file: %1").arg(file.errorString()));
         return;
     }
     
     file.write(doc.toJson(QJsonDocument::Indented));
     file.close();
     
-    QMessageBox::information(this, "Export Successful",
-        QString("Exported %1 job(s) to %2")
-            .arg(selectedOnly ? m_model->selectedJobs().size() : m_model->rowCount())
+    QMessageBox::information(this, tr("Export Successful"),
+        tr("Exported %n job(s) to %1", nullptr,
+           int(selectedOnly ? m_model->selectedJobs().size() : m_model->rowCount()))
             .arg(fileName));
     
     emit exportRequested("json", selectedOnly);
@@ -302,7 +302,7 @@ void BJsonJobView::exportToCsv(bool selectedOnly)
 {
     QString fileName = QFileDialog::getSaveFileName(
         this,
-        selectedOnly ? "Export Selected Jobs to CSV" : "Export All Jobs to CSV",
+        selectedOnly ? tr("Export Selected Jobs to CSV") : tr("Export All Jobs to CSV"),
         "jobs_export.csv",
         "CSV Files (*.csv);;All Files (*)"
     );
@@ -315,17 +315,17 @@ void BJsonJobView::exportToCsv(bool selectedOnly)
     
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "Export Error",
-            QString("Could not write to file: %1").arg(file.errorString()));
+        QMessageBox::critical(this, tr("Export Error"),
+            tr("Could not write to file: %1").arg(file.errorString()));
         return;
     }
     
     file.write(csv.toUtf8());
     file.close();
     
-    QMessageBox::information(this, "Export Successful",
-        QString("Exported %1 job(s) to %2")
-            .arg(selectedOnly ? m_model->selectedJobs().size() : m_model->rowCount())
+    QMessageBox::information(this, tr("Export Successful"),
+        tr("Exported %n job(s) to %1", nullptr,
+           int(selectedOnly ? m_model->selectedJobs().size() : m_model->rowCount()))
             .arg(fileName));
     
     emit exportRequested("csv", selectedOnly);
@@ -336,23 +336,23 @@ void BJsonJobView::showStatistics()
     BJobsModel::Statistics stats = m_model->calculateStatistics();
     
     QString message;
-    message += QString("Total Jobs: %1\n").arg(stats.totalJobs);
-    message += QString("Successful: %1\n").arg(stats.successfulJobs);
-    message += QString("Warnings: %1\n").arg(stats.warningJobs);
-    message += QString("Failed: %1\n\n").arg(stats.failedJobs);
+    message += tr("Total Jobs: %1\n").arg(stats.totalJobs);
+    message += tr("Successful: %1\n").arg(stats.successfulJobs);
+    message += tr("Warnings: %1\n").arg(stats.warningJobs);
+    message += tr("Failed: %1\n\n").arg(stats.failedJobs);
     
-    message += QString("Total Files: %1\n").arg(stats.totalFiles);
-    message += QString("Total Size: %1 bytes\n\n").arg(stats.totalBytes);
+    message += tr("Total Files: %1\n").arg(stats.totalFiles);
+    message += tr("Total Size: %1 bytes\n\n").arg(stats.totalBytes);
     
     if (stats.earliestJob.isValid() && stats.latestJob.isValid()) {
-        message += QString("Date Range:\n");
-        message += QString("  From: %1\n").arg(stats.earliestJob.toString("yyyy-MM-dd HH:mm"));
-        message += QString("  To: %1\n\n").arg(stats.latestJob.toString("yyyy-MM-dd HH:mm"));
+        message += tr("Date Range:\n");
+        message += tr("  From: %1\n").arg(stats.earliestJob.toString("yyyy-MM-dd HH:mm"));
+        message += tr("  To: %1\n\n").arg(stats.latestJob.toString("yyyy-MM-dd HH:mm"));
     }
     
-    message += QString("Selected: %1").arg(stats.selectedCount);
+    message += tr("Selected: %1").arg(stats.selectedCount);
     
-    QMessageBox::information(this, "Job Statistics", message);
+    QMessageBox::information(this, tr("Job Statistics"), message);
 }
 
 void BJsonJobView::mousePressEvent(QMouseEvent *event)
@@ -417,8 +417,8 @@ void BJsonJobView::contextMenuEvent(QContextMenuEvent *event)
         menu.addAction(m_actionSelectAll);
         menu.addAction(m_actionClearSelection);
         menu.addSeparator();
-        menu.addAction("Export All to JSON...", [this]() { exportToJson(false); });
-        menu.addAction("Export All to CSV...", [this]() { exportToCsv(false); });
+        menu.addAction(tr("Export All to JSON..."), [this]() { exportToJson(false); });
+        menu.addAction(tr("Export All to CSV..."), [this]() { exportToCsv(false); });
         menu.exec(event->globalPos());
     }
 }
@@ -685,8 +685,8 @@ void BJsonJobView::retryJob()
     QString jobId = job["jobid"].toString();
     QString jobName = job["name"].toString();
 
-    int ret = QMessageBox::question(this, "Job erneut ausführen",
-        QString("Möchten Sie Job %1 (%2) erneut ausführen?")
+    int ret = QMessageBox::question(this, tr("Rerun Job"),
+        tr("Do you want to run job %1 (%2) again?")
             .arg(jobId)
             .arg(jobName),
         QMessageBox::Yes | QMessageBox::No);
@@ -717,8 +717,8 @@ void BJsonJobView::cancelJob()
     QString jobId = job["jobid"].toString();
     QString jobName = job["name"].toString();
 
-    int ret = QMessageBox::question(this, "Job abbrechen",
-        QString("Möchten Sie den laufenden Job %1 (%2) wirklich abbrechen?")
+    int ret = QMessageBox::question(this, tr("Cancel Job"),
+        tr("Do you really want to cancel the running job %1 (%2)?")
             .arg(jobId)
             .arg(jobName),
         QMessageBox::Yes | QMessageBox::No);
