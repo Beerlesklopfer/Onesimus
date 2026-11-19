@@ -484,6 +484,8 @@ set(SOURCES
     src/jobs/fileset/bincludeblockwidget.cpp
 
     src/schedules/bschedulewidget.cpp
+
+    src/schedules/bschedulelegend.cpp
     src/schedules/bschedulegridaccessible.cpp
     src/schedules/bschedulegriddialogs.cpp
     src/schedules/bschedulegrideditor.cpp
@@ -622,6 +624,8 @@ set(HEADERS
     include/clients/bnewclientdialog.h
 
     include/schedules/bschedulewidget.h
+
+    include/schedules/bschedulelegend.h
     include/schedules/bschedulegridaccessible.h
     include/schedules/bschedulegriddialogs.h
     include/schedules/bschedulegrideditor.h
@@ -2413,6 +2417,7 @@ if(BUILD_TESTING)
         src/buiscale.cpp
         src/config/bsettings.cpp
         src/schedules/bschedulewidget.cpp
+        src/schedules/bschedulelegend.cpp
         src/schedules/bscheduleganttwidget.cpp
         src/schedules/bscheduledragplan.cpp
         src/schedules/bschedulepersistence.cpp
@@ -2451,6 +2456,7 @@ if(BUILD_TESTING)
         include/buiscale.h
         include/config/bsettings.h
         include/schedules/bschedulewidget.h
+        include/schedules/bschedulelegend.h
         include/schedules/bscheduleganttwidget.h
         include/schedules/bjobscheduleindex.h
         include/schedules/bschedulegridaccessible.h

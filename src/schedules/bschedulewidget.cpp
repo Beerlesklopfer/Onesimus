@@ -1,4 +1,5 @@
 #include "schedules/bschedulewidget.h"
+#include "schedules/bschedulelegend.h"
 #include "schedules/bscheduledragplan.h"
 #include "schedules/bschedulegriddialogs.h"
 #include "schedules/bschedulereviewdialog.h"
@@ -206,6 +207,15 @@ void BScheduleWidget::setupUI()
     m_runProblemLabel->setVisible(false);
     m_runProblemLabel->setStyleSheet("color: red; font-weight: bold;");
     toolbarLayout->addWidget(m_runProblemLabel);
+
+    // What the marks of the timeline mean
+    QPushButton *legendButton = new QPushButton(tr("Legend"), this);
+    legendButton->setIcon(QIcon::fromTheme("help-contents"));
+    legendButton->setToolTip(tr("What the bars, hourglasses, question marks and diamonds of the timeline mean"));
+    connect(legendButton, &QPushButton::clicked, this, [legendButton]() {
+        (new BScheduleLegend(legendButton))->popupBelow(legendButton);
+    });
+    toolbarLayout->addWidget(legendButton);
 
     // Refresh
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));

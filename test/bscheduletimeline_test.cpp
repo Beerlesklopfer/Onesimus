@@ -42,6 +42,7 @@
 #include "schedules/bscheduleganttwidget.h"
 #include "schedules/bschedulegrideditor.h"
 #include "schedules/bschedulegridview.h"
+#include "schedules/bschedulelegend.h"
 #include "schedules/bschedulereviewdialog.h"
 #include "schedules/bschedulewidget.h"
 #include "schedules/model/bscheduleresource.h"
@@ -193,6 +194,9 @@ private slots:
 
     // --- The review ---
     void reviewTextCanBeEdited();
+
+    // --- The legend ---
+    void legendExplainsEveryMark();
 
 private:
     QTemporaryDir m_config;
@@ -748,6 +752,33 @@ void BScheduleTimelineTest::reviewTextCanBeEdited()
     BScheduleReviewDialog deleteDialog(gone);
     QVERIFY(!deleteDialog.textEdit());
     QVERIFY(!deleteDialog.isEdited());
+}
+
+void BScheduleTimelineTest::legendExplainsEveryMark()
+{
+    // Every mark the timeline draws has a picture and a sentence
+    BScheduleLegend legend;
+    const QList<BScheduleLegend::Mark> marks = BScheduleLegend::marks();
+    QCOMPARE(marks.size(), 14);
+    for (BScheduleLegend::Mark mark : marks) {
+        QVERIFY(!BScheduleLegend::text(mark).isEmpty());
+        const QImage image = legend.picture(mark).toImage();
+        QVERIFY(!image.isNull());
+        // Something is drawn on the background
+        const QRgb background = image.pixel(0, 0);
+        bool drawn = false;
+        for (int y = 0; y < image.height() && !drawn; ++y)
+            for (int x = 0; x < image.width() && !drawn; ++x)
+                drawn = image.pixel(x, y) != background;
+        QVERIFY2(drawn, qPrintable(BScheduleLegend::text(mark)));
+    }
+    QCOMPARE(legend.findChildren<QLabel *>().size(), 1 + 2 * marks.size());
+    // For a look at it: ONESIMUS_LEGEND_PNG=/path/legend.png
+    const QString png = qEnvironmentVariable("ONESIMUS_LEGEND_PNG");
+    if (!png.isEmpty()) {
+        legend.adjustSize();
+        legend.grab().save(png);
+    }
 }
 
 QTEST_MAIN(BScheduleTimelineTest)
