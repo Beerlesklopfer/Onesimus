@@ -191,6 +191,17 @@ public:
     /// "1st", "2nd-5th", "1st,3rd last", ...; empty if every week is set
     static QString weekOfMonthText(const BDateTimeMask &mask);
 
+    /// "jan-mar", "jan,jul", ...; empty if every month is set
+    static QString monthText(const BDateTimeMask &mask);
+
+    /// "1", "1,15", "2-31" or a modulo "1/2"; empty if every day of the
+    /// month is set. Without the leading "on".
+    static QString dayOfMonthText(const BDateTimeMask &mask);
+
+    /// "w03", "w01-w04" or a modulo "w01/w02"; empty if every week of the
+    /// year is set
+    static QString weekOfYearText(const BDateTimeMask &mask);
+
     /// A Run text as the value of run="..." in a "configure add" command
     static QString quotedForCommand(const QString &runText);
 };

@@ -471,7 +471,11 @@ set(SOURCES
     src/jobs/fileset/bincludeblockwidget.cpp
 
     src/schedules/bschedulewidget.cpp
-    src/schedules/bweeklyplanner.cpp
+    src/schedules/bschedulegridaccessible.cpp
+    src/schedules/bschedulegridgeometry.cpp
+    src/schedules/bschedulegridview.cpp
+    src/schedules/bschedulegridwidget.cpp
+    src/schedules/bscheduleminicalendar.cpp
     src/schedules/bscheduleganttwidget.cpp
     src/schedules/bschedulewizard.cpp
     src/schedules/bjobscheduleindex.cpp
@@ -482,6 +486,7 @@ set(SOURCES
     src/schedules/model/bscheduleoccurrences.cpp
     src/schedules/model/bjobhistorystats.cpp
     src/schedules/model/bschedulegridmodel.cpp
+    src/schedules/model/bschedulegridtext.cpp
     src/jobs/bpaginationwidget.cpp
     src/jobs/bviewpresets.cpp
 
@@ -581,7 +586,11 @@ set(HEADERS
     include/clients/bnewclientdialog.h
 
     include/schedules/bschedulewidget.h
-    include/schedules/bweeklyplanner.h
+    include/schedules/bschedulegridaccessible.h
+    include/schedules/bschedulegridgeometry.h
+    include/schedules/bschedulegridview.h
+    include/schedules/bschedulegridwidget.h
+    include/schedules/bscheduleminicalendar.h
     include/schedules/bscheduleganttwidget.h
     include/schedules/bschedulewizard.h
     include/schedules/bjobscheduleindex.h
@@ -591,6 +600,7 @@ set(HEADERS
     include/schedules/model/bscheduleoccurrences.h
     include/schedules/model/bjobhistorystats.h
     include/schedules/model/bschedulegridmodel.h
+    include/schedules/model/bschedulegridtext.h
 
     include/messages/bmessageswidget.h
 
@@ -1559,6 +1569,83 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bschedulegridmodel_test COMMAND bschedulegridmodel_test)
+
+    # bschedulegridtext_test - what the schedule grid says in words (scope
+    # labels, cell names, readings of calendar rules), the dates of its
+    # calendar, and where its parts are (no widgets, no Director)
+    add_executable(bschedulegridtext_test
+        test/bschedulegridtext_test.cpp
+        src/schedules/bschedulegridgeometry.cpp
+        src/schedules/model/bschedulegridtext.cpp
+        src/schedules/model/bschedulegridmodel.cpp
+        src/schedules/model/bscheduleoccurrences.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/schedules/bschedulegridgeometry.h
+        include/schedules/model/bschedulegridtext.h
+        include/schedules/model/bschedulegridmodel.h
+        include/schedules/model/bscheduleoccurrences.h
+        include/schedules/model/brunspec.h
+    )
+
+    target_include_directories(bschedulegridtext_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bschedulegridtext_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bschedulegridtext_test COMMAND bschedulegridtext_test)
+
+    # bschedulegridwidget_test - the schedule grid on screen: selection with
+    # mouse and keyboard, the lists beside it, the table for screen readers
+    # and a rendering smoke test in both themes (widgets, no Director)
+    add_executable(bschedulegridwidget_test
+        test/bschedulegridwidget_test.cpp
+        src/schedules/bschedulegridaccessible.cpp
+        src/schedules/bschedulegridgeometry.cpp
+        src/schedules/bschedulegridview.cpp
+        src/schedules/bschedulegridwidget.cpp
+        src/schedules/bscheduleminicalendar.cpp
+        src/schedules/model/bschedulegridtext.cpp
+        src/schedules/model/bschedulegridmodel.cpp
+        src/schedules/model/bscheduleoccurrences.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/schedules/bschedulegridaccessible.h
+        include/schedules/bschedulegridgeometry.h
+        include/schedules/bschedulegridview.h
+        include/schedules/bschedulegridwidget.h
+        include/schedules/bscheduleminicalendar.h
+        include/schedules/model/bschedulegridtext.h
+        include/schedules/model/bschedulegridmodel.h
+        include/schedules/model/bscheduleoccurrences.h
+        include/schedules/model/brunspec.h
+    )
+
+    target_include_directories(bschedulegridwidget_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    # The themes are read from the source tree
+    target_compile_definitions(bschedulegridwidget_test PRIVATE
+        ONESIMUS_THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
+    )
+
+    target_link_libraries(bschedulegridwidget_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+
+    add_test(NAME bschedulegridwidget_test COMMAND bschedulegridwidget_test)
+    # Widgets need a QApplication; no display is used. To keep pictures of
+    # what the test renders, run it with ONESIMUS_GRID_SCREENSHOT_DIR set to
+    # a directory.
+    set_tests_properties(bschedulegridwidget_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
 
 message(STATUS "")
@@ -1586,6 +1673,8 @@ if(BUILD_TESTING)
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
     message(STATUS "  bschedulegridmodel_test - schedule grid model test (registered with CTest)")
+    message(STATUS "  bschedulegridtext_test - schedule grid texts, calendar and geometry test (registered with CTest)")
+    message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")
 endif()
 message(STATUS "")
 

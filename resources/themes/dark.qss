@@ -483,3 +483,48 @@ QCheckBox[level] {
 BScheduleGanttWidget {
     border: none;
 }
+
+/* ============================================================
+   Schedule grid view
+   The grid, its legend and the calendar are custom-painted from the
+   palette roles of the global QWidget rule and the level colours.
+   Rules are needed only for the scope bar, whose buttons act as tabs
+   (the checked one is the scope on display, one without Run lines is
+   dimmed), and for the notice about lines that are not understood.
+   ============================================================ */
+BScheduleGridWidget {
+    border: none;
+}
+
+QToolButton[scopeButton="true"] {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 3px;
+    padding: 4px 12px;
+}
+
+QToolButton[scopeButton="true"]:hover {
+    background-color: #37373d;
+}
+
+QToolButton[scopeButton="true"]:checked {
+    background-color: #094771;
+    border: 1px solid #007acc;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+QToolButton[scopeButton="true"]:focus {
+    border: 2px solid #d4d4d4;
+    padding: 3px 11px;
+}
+
+QToolButton[scopeEmpty="true"] {
+    color: #8a8a8a;
+    font-style: italic;
+}
+
+QLabel#scheduleGridNotice {
+    color: #e0a030;
+    font-weight: bold;
+}

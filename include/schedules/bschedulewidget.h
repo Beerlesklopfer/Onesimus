@@ -17,7 +17,7 @@
 #include <QThread>
 #include <QTimer>
 #include "director/bdirector.h"
-#include "schedules/bweeklyplanner.h"
+#include "schedules/bschedulegridview.h"
 #include "schedules/bscheduleganttwidget.h"
 #include "schedules/bjobscheduleindex.h"
 #include "models/bresourcemodels.h"
@@ -28,12 +28,19 @@
  *
  * Provides three views:
  * - Gantt/Timeline view: dual stacked timelines (FD/Client + SD/Storage)
- * - Grid view: compact 7x24 weekly planner (legacy)
+ * - Grid view: one schedule resource as weekdays by hours (BScheduleGridView)
  * - Measured waits: a table of what was measured per job and level
  *
- * The first two show concrete dates: the day chosen in the toolbar or the
+ * The timeline shows concrete dates: the day chosen in the toolbar or the
  * week (Monday to Sunday) it is in. What runs on them is worked out from
- * the Run lines of the schedules (BScheduleOccurrences).
+ * the Run lines of the checked schedules (BScheduleOccurrences).
+ *
+ * The grid is not about a date and not about the checked schedules: it
+ * shows the schedule of the current row of the list, one at a time,
+ * because that is the resource a later step writes. Without a current row
+ * it takes the first schedule. The controls of the toolbar that belong to
+ * the timeline (day or week, date navigation, snap, zoom) are hidden while
+ * the grid is shown; its calendar of five weeks has its own navigation.
  *
  * Job history. How long jobs run and wait is measured from the catalog
  * (BJobHistoryStats). The request (BDirector::Command::LlistJobs, bounded
@@ -116,7 +123,13 @@ protected:
 private:
     void setupUI();
     void setupWaitsPage();
-    void updateFilteredViews();
+    /**
+     * @brief Shows the schedule of the current row of the list in the grid
+     * @param namesOnly The model was filled from the list of names, which
+     *                  may come without Run lines: a schedule on display is
+     *                  not replaced by it
+     */
+    void updateGridView(bool namesOnly = false);
 
     // --- Job history ---
     enum HistoryState {
@@ -146,7 +159,7 @@ private:
     void updateGanttEntries();
     void setCurrentDate(const QDate &date);
     void updateDateLabel();
-    bool showsWeek() const;     ///< The grid, or the timeline in week view
+    bool showsWeek() const;     ///< The timeline is in week view
     /// The schedules checked in the list
     QList<BSchedule> checkedSchedules() const;
     void updateRunProblems();
@@ -193,9 +206,8 @@ private:
     QScrollArea *m_fdScrollArea;
     BScheduleGanttWidget *m_sdGanttWidget; // SD/Storage timeline
     QScrollArea *m_sdScrollArea;
-    BWeeklyPlanner *m_weeklyPlanner;
-    QScrollArea *m_gridScrollArea;
-    QLabel *m_outsideWeekLabel;   ///< Run lines without a run in the week of the grid
+    BScheduleGridView *m_gridView;        ///< The schedule of the current row of the list
+    QString m_gridScheduleName;           ///< Its name: the list is rebuilt on every refresh
 
     // Measured waits (view stack index 2)
     QWidget *m_waitsPage = nullptr;
@@ -211,6 +223,7 @@ private:
     QToolButton *m_nextDayButton;
     QToolButton *m_todayButton;
     QLabel *m_dayLabel;               // The date or the week on display
+    QLabel *m_snapLabel = nullptr;
     QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour
     QLabel *m_zoomLabel;
     QSlider *m_zoomSlider;             // Zoom in week mode (px/hour)

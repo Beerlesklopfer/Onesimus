@@ -1,6 +1,7 @@
 #include "schedules/bschedulewidget.h"
 #include "schedules/bscheduledragresultdialog.h"
 #include "bcapabilitynotice.h"
+#include "jobs/blevelcolors.h"
 #include "bsorttableitem.h"
 #include "bsortvalue.h"
 #include "config/bsettings.h"
@@ -14,7 +15,6 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDate>
-#include <QSet>
 #include <QHeaderView>
 #include <QScrollBar>
 #include <QShowEvent>
@@ -34,7 +34,7 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_fdScrollArea(new QScrollArea(this))
     , m_sdGanttWidget(new BScheduleGanttWidget(this))
     , m_sdScrollArea(new QScrollArea(this))
-    , m_weeklyPlanner(new BWeeklyPlanner(this))
+    , m_gridView(new BScheduleGridView(this))
     , m_refreshButton(new QPushButton(tr("Refresh"), this))
     , m_viewModeCombo(new QComboBox(this))
     , m_dayViewCombo(new QComboBox(this))
@@ -128,7 +128,8 @@ void BScheduleWidget::setupUI()
     toolbarLayout->addSpacing(10);
 
     // Snap granularity (items populated by updateSnapComboForViewMode)
-    toolbarLayout->addWidget(new QLabel(tr("Snap:"), this));
+    m_snapLabel = new QLabel(tr("Snap:"), this);
+    toolbarLayout->addWidget(m_snapLabel);
     toolbarLayout->addWidget(m_snapCombo);
 
     toolbarLayout->addSpacing(10);
@@ -241,26 +242,13 @@ void BScheduleWidget::setupUI()
 
     m_viewStack->addWidget(m_ganttSplitter);   // index 0 = Gantt (dual)
 
-    // Wrap weekly planner in scroll area
-    m_gridScrollArea = new QScrollArea(this);
-    m_gridScrollArea->setWidget(m_weeklyPlanner);
-    m_gridScrollArea->setWidgetResizable(true);
-    m_gridScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    m_gridScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    // Below the grid: the Run lines that have no run in the week on display,
-    // so that they do not go unnoticed
-    QWidget *gridPane = new QWidget(this);
-    QVBoxLayout *gridLayout = new QVBoxLayout(gridPane);
-    gridLayout->setContentsMargins(0, 0, 0, 0);
-    gridLayout->setSpacing(2);
-    gridLayout->addWidget(m_gridScrollArea, 1);
-    m_outsideWeekLabel = new QLabel(gridPane);
-    m_outsideWeekLabel->setWordWrap(true);
-    m_outsideWeekLabel->setTextFormat(Qt::PlainText);
-    m_outsideWeekLabel->setVisible(false);
-    gridLayout->addWidget(m_outsideWeekLabel);
-    m_viewStack->addWidget(gridPane);            // index 1 = Grid
+    // The grid: one schedule resource, the current row of the schedule list.
+    // Its level colours are those of the settings, as everywhere else.
+    m_gridView->setLevelColorSource(&BLevelColors::getLevelColor);
+    connect(&BSettings::instance(), &BSettings::appearanceSettingsChanged, m_gridView, [this]() {
+        m_gridView->setLevelColorSource(&BLevelColors::getLevelColor);
+    });
+    m_viewStack->addWidget(m_gridView);          // index 1 = Grid
 
     setupWaitsPage();
     m_viewStack->addWidget(m_waitsPage);         // index 2 = Measured waits
@@ -282,6 +270,8 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onRefreshClicked);
     connect(m_scheduleList, &QListWidget::itemSelectionChanged,
             this, &BScheduleWidget::onScheduleSelectionChanged);
+    connect(m_scheduleList, &QListWidget::currentItemChanged,
+            this, [this]() { updateGridView(); });
     connect(m_scheduleList, &QListWidget::itemDoubleClicked,
             this, &BScheduleWidget::onScheduleDoubleClicked);
     connect(m_scheduleList, &QListWidget::itemChanged,
@@ -388,14 +378,14 @@ void BScheduleWidget::setConnectionState(bool connected)
 void BScheduleWidget::clearData()
 {
     m_scheduleList->clear();
-    m_weeklyPlanner->clearSchedule();
+    m_gridScheduleName.clear();
+    m_gridView->clear();
     m_fdGanttWidget->setEntries({});
     m_sdGanttWidget->setEntries({});
     m_scheduleModel->clear();
     resetHistory();     // the history belongs to the connection
     m_collisionLabel->setVisible(false);
     m_runProblemLabel->setVisible(false);
-    m_outsideWeekLabel->setVisible(false);
 }
 
 void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
@@ -461,7 +451,7 @@ void BScheduleWidget::processDotScheduleResponse(const QString &jsonData)
 
     // Update both views with all schedules (all checked initially)
     updateRunProblems();
-    updateFilteredViews();
+    updateGridView(true);   // names; the Run lines follow with "show schedules"
     updateGanttEntries();
     updateJobList();
 }
@@ -551,7 +541,7 @@ void BScheduleWidget::processShowSchedulesResponse(const QString &jsonData)
         .arg(m_scheduleList->count()).arg(runLineCount));
 
     updateRunProblems();
-    updateFilteredViews();
+    updateGridView();
     updateGanttEntries();
     updateJobList();
 }
@@ -563,6 +553,7 @@ void BScheduleWidget::processShowJobsResponse(const QString &)
         m_jobScheduleIndex->rebuild(m_jobConfigModel);
         updateGanttEntries();
         updateJobList();
+        updateGridView();   // how many jobs use the schedule on display
     }
 }
 
@@ -674,22 +665,28 @@ void BScheduleWidget::onViewModeChanged(int index)
 {
     m_viewStack->setCurrentIndex(index);
 
-    // Show/hide Gantt-specific controls
-    // The date navigation stays: the grid shows a concrete week too
-    bool isGantt = (index == 0);
+    // The controls of the timeline are hidden where they have no effect.
+    // The grid is not about a date (its calendar has its own navigation)
+    // and the table of measured waits is not either.
+    const bool isGantt = (index == 0);
+    const bool isGrid = (index == 1);
     const bool isWaits = (index == 2);
     m_dayViewCombo->setVisible(isGantt);
+    m_snapLabel->setVisible(isGantt);
     m_snapCombo->setVisible(isGantt);
     updateDateLabel();
     bool isWeekGantt = isGantt && (m_dayViewCombo->currentIndex() == 1);
     m_zoomLabel->setVisible(isWeekGantt);
     m_zoomSlider->setVisible(isWeekGantt);
+    m_prevDayButton->setVisible(isGantt);
+    m_dayLabel->setVisible(isGantt);
+    m_nextDayButton->setVisible(isGantt);
+    m_todayButton->setVisible(isGantt);
 
-    // The table of measured waits is not about a date
-    m_prevDayButton->setVisible(!isWaits);
-    m_dayLabel->setVisible(!isWaits);
-    m_nextDayButton->setVisible(!isWaits);
-    m_todayButton->setVisible(!isWaits);
+    // The figures of a run clicked in the timeline would take the room of
+    // the grid
+    if (isGrid)
+        m_statsPanel->setVisible(false);
 
     if (isWaits) {
         // Not stored: the setting keeps meaning "timeline or grid", and the
@@ -737,7 +734,7 @@ void BScheduleWidget::onDayViewModeChanged(int index)
 
 bool BScheduleWidget::showsWeek() const
 {
-    return m_viewModeCombo->currentIndex() == 1 || m_dayViewCombo->currentIndex() == 1;
+    return m_dayViewCombo->currentIndex() == 1;
 }
 
 void BScheduleWidget::onDayNavigationPrev()
@@ -765,7 +762,6 @@ void BScheduleWidget::setCurrentDate(const QDate &date)
     updateDateLabel();
 
     // Other dates, other runs
-    updateFilteredViews();
     updateGanttEntries();
 }
 
@@ -1194,60 +1190,53 @@ void BScheduleWidget::onScheduleCheckChanged(QListWidgetItem *item)
         BSettings::instance().setSchedulesFilterCheckbox(
             item->text(), item->checkState() == Qt::Checked);
     }
-    updateFilteredViews();
     updateGanttEntries();
     updateJobList();
 }
 
-void BScheduleWidget::updateFilteredViews()
+void BScheduleWidget::updateGridView(bool namesOnly)
 {
-    // The grid shows the week (Monday to Sunday) of the date on display
-    const QDate monday = BScheduleGanttWidget::firstDateFor(
-        BScheduleGanttWidget::WeekView, m_currentDate);
-    const QDateTime from = monday.startOfDay();
-    const QDateTime to = monday.addDays(7).startOfDay();
+    // The grid shows one schedule resource: the current row of the list.
+    // The list is rebuilt on every refresh, so the choice is kept by name;
+    // without one the first schedule is taken.
+    QListWidgetItem *current = m_scheduleList->currentItem();
+    if (!current && m_scheduleList->count() > 0) {
+        const QList<QListWidgetItem *> named =
+            m_scheduleList->findItems(m_gridScheduleName, Qt::MatchExactly);
+        current = (!m_gridScheduleName.isEmpty() && !named.isEmpty()) ? named.first()
+                                                                      : m_scheduleList->item(0);
+        const QSignalBlocker blocker(m_scheduleList);
+        m_scheduleList->setCurrentItem(current);
+    }
+    if (!current) {
+        m_gridView->clear();
+        return;
+    }
+    m_gridScheduleName = current->text();
 
-    QList<BScheduleEntry> entries;
-    QStringList outside;    // Understood Run lines without a run in this week
-
-    for (const BSchedule &schedule : checkedSchedules()) {
-        const QList<BOccurrence> occurrences =
-            BScheduleOccurrences::occurrences(schedule, from, to);
-        entries.append(BScheduleEntry::fromOccurrences(schedule, occurrences));
-
-        QSet<int> ran;
-        for (const BOccurrence &occurrence : occurrences) {
-            ran.insert(occurrence.run);
-        }
-        for (int i = 0; i < schedule.runs.size(); ++i) {
-            const BRunLine &line = schedule.runs[i];
-            if (!line.spec || ran.contains(i)) continue;
-
-            const QDateTime next = BScheduleOccurrences::next(*line.spec, to);
-            outside.append(next.isValid()
-                ? tr("%1: %2 (next run after this week: %3)")
-                      .arg(schedule.name, line.original, next.date().toString(Qt::ISODate))
-                : tr("%1: %2 (no run in the ten years after this week)")
-                      .arg(schedule.name, line.original));
+    // A refresh that brings the same schedule keeps scope and selection.
+    // The list of names (".schedule") comes first on every refresh and may
+    // come without Run lines: it does not replace a schedule that is on
+    // display, the reply with the Run lines follows.
+    const BSchedule schedule = m_scheduleModel->schedule(m_gridScheduleName);
+    const BSchedule &shown = m_gridView->model()->loadedSchedule();
+    bool same = m_gridView->hasSchedule() && schedule.name == shown.name;
+    if (same && !namesOnly) {
+        same = schedule.description == shown.description && schedule.enabled == shown.enabled
+            && schedule.runs.size() == shown.runs.size();
+        for (int i = 0; same && i < schedule.runs.size(); ++i) {
+            same = schedule.runs[i].original == shown.runs[i].original;
         }
     }
-
-    m_weeklyPlanner->setWeek(monday, entries);
-
-    // A run that is not in this week is not in the grid. Say so, or the
-    // schedule looks as if it had fewer runs than it has.
-    m_outsideWeekLabel->setVisible(!outside.isEmpty());
-    if (!outside.isEmpty()) {
-        const int shown = qMin(3, outside.size());
-        QString text = tr("%n Run line(s) of the shown schedules do not run in this week:",
-                          "", outside.size())
-                       + " " + outside.mid(0, shown).join("; ");
-        if (outside.size() > shown) {
-            text += " " + tr("... (all of them in the tooltip)");
-        }
-        m_outsideWeekLabel->setText(text);
-        m_outsideWeekLabel->setToolTip(outside.join("\n"));
+    if (!same) {
+        m_gridView->setSchedule(schedule);
     }
+
+    QStringList jobs;
+    for (const BJobScheduleIndex::JobRef &job : m_jobScheduleIndex->jobsForSchedule(m_gridScheduleName)) {
+        jobs.append(job.jobName);
+    }
+    m_gridView->setUsage(jobs, m_jobScheduleIndex->isValid());
 }
 
 void BScheduleWidget::onFdDragCompleted(

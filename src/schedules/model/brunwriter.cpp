@@ -126,6 +126,40 @@ QString BRunWriter::weekOfMonthText(const BDateTimeMask &mask)
     return parts.join(QLatin1Char(' '));
 }
 
+QString BRunWriter::monthText(const BDateTimeMask &mask)
+{
+    const quint16 months = mask.month & BDateTimeMask::AllMonths;
+    if (months == BDateTimeMask::AllMonths)
+        return QString();
+    return listOf(months, 12, [](int i) { return QString::fromLatin1(monthNames[i]); });
+}
+
+QString BRunWriter::dayOfMonthText(const BDateTimeMask &mask)
+{
+    const quint32 mdays = mask.mday & BDateTimeMask::AllMdays;
+    if (mdays == BDateTimeMask::AllMdays)
+        return QString();
+    QString days;
+    if (bitCount(mdays) >= 3)
+        days = mdayModulo(mdays);
+    if (days.isEmpty())
+        days = listOf(mdays, 31, [](int i) { return QString::number(i + 1); });
+    return days;
+}
+
+QString BRunWriter::weekOfYearText(const BDateTimeMask &mask)
+{
+    const quint64 woys = mask.woy & BDateTimeMask::AllWoys;
+    if (woys == BDateTimeMask::AllWoys)
+        return QString();
+    QString weeks;
+    if (bitCount(woys) >= 3)
+        weeks = woyModulo(woys);
+    if (weeks.isEmpty())
+        weeks = listOf(woys, 54, weekName);
+    return weeks;
+}
+
 QString BRunWriter::write(const BRunSpec &spec, QString *error)
 {
     setError(error, QString());
@@ -173,17 +207,10 @@ QString BRunWriter::write(const BRunSpec &spec, QString *error)
     }
 
     // --- Date ---
-    if (months != BDateTimeMask::AllMonths) {
-        parts.append(listOf(months, 12, [](int i) { return QString::fromLatin1(monthNames[i]); }));
-    }
-    if (woys != BDateTimeMask::AllWoys) {
-        QString weeks;
-        if (bitCount(woys) >= 3)
-            weeks = woyModulo(woys);
-        if (weeks.isEmpty())
-            weeks = listOf(woys, 54, weekName);
-        parts.append(weeks);
-    }
+    if (months != BDateTimeMask::AllMonths)
+        parts.append(monthText(m));
+    if (woys != BDateTimeMask::AllWoys)
+        parts.append(weekOfYearText(m));
     const QString weekOfMonth = weekOfMonthText(m);
     if (!weekOfMonth.isEmpty())
         parts.append(weekOfMonth);
@@ -191,13 +218,8 @@ QString BRunWriter::write(const BRunSpec &spec, QString *error)
         parts.append(listOf(wdays, 7, [](int i) { return QString::fromLatin1(wdayNames[i]); }));
     }
     if (mdays != BDateTimeMask::AllMdays) {
-        QString days;
-        if (bitCount(mdays) >= 3)
-            days = mdayModulo(mdays);
-        if (days.isEmpty())
-            days = listOf(mdays, 31, [](int i) { return QString::number(i + 1); });
         // "on": Bareos does not take a bare number directly behind the overrides
-        parts.append(QStringLiteral("on ") + days);
+        parts.append(QStringLiteral("on ") + dayOfMonthText(m));
     }
 
     // --- Time ---
