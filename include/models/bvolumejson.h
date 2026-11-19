@@ -2,6 +2,7 @@
 #define BVOLUMEJSON_H
 
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QJsonValue>
 #include <QStringList>
 
@@ -15,6 +16,11 @@
  *    flat array result.volumes = [ {...}, ... ]
  *
  * Only "llist volumes" carries a "pool" field per volume.
+ *
+ * The Onesimus Director answers DirectorApi.ExecuteCommand (gRPC) with its
+ * typed form instead: result.pools = { "<pool>": { "volumes": [ ... ] }, ... },
+ * where volstatus is the number of the VolumeStatus enum (1 Append, 2 Full,
+ * 6 Error, ...). volumesFromResult() accepts all three shapes.
  *
  * @since 2.8
  */
@@ -34,6 +40,27 @@ namespace BVolumeJson {
  */
 QJsonArray normalizeVolumes(const QJsonValue &volumes,
                             const QStringList &knownPools = QStringList());
+
+/**
+ * @brief Flat array of volume objects from the "result" object of any of the
+ *        three reply shapes (grouped, flat, typed gRPC)
+ *
+ * A numeric volstatus is replaced by its name ("Append", "Full", ...), so the
+ * rest of the application sees the API-mode-2 spelling.
+ *
+ * @param result      The value of reply["result"]
+ * @param knownPools  Configured pool names (optional)
+ * @param recognized  Set to false if the result carries none of the shapes
+ */
+QJsonArray volumesFromResult(const QJsonObject &result,
+                             const QStringList &knownPools = QStringList(),
+                             bool *recognized = nullptr);
+
+/**
+ * @brief Name of a numeric VolumeStatus (onesimus-dird proto), e.g. 6 -> "Error"
+ * @return The Bareos spelling, or an empty string for an unknown number
+ */
+QString volumeStatusName(int status);
 
 /**
  * @brief Maps a (lowercased) pool key back to the configured pool name

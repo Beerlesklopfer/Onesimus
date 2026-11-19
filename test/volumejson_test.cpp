@@ -84,6 +84,22 @@ static const char *kLlistReply = R"({
   }
 })";
 
+// Onesimus Director over gRPC (DirectorApi.ExecuteCommand, typed JSON),
+// as seen on a production Director on 2026-11-19
+static const char *kTypedReply = R"({
+  "result": {
+    "pools": {
+      "full": {},
+      "cloud": {"volumes": [
+        {"mediaid": 2, "volumename": "CLOUD-0002", "mediatype": "File", "volbytes": 53686795849,
+         "volstatus": 2, "enabled": 1, "recycle": true, "volretention": 31536000, "storage": "PDC-sd"}]},
+      "default": {"volumes": [
+        {"mediaid": 1, "volumename": "Vol-0001", "mediatype": "File", "volbytes": 3127776477,
+         "volstatus": 6, "enabled": 1, "recycle": true, "volretention": 31536000, "storage": "PDC-sd"}]}
+    }
+  }
+})";
+
 static QJsonObject findVolume(const QJsonArray &volumes, const QString &name)
 {
     for (const QJsonValue &v : volumes) {
@@ -137,6 +153,33 @@ int main(int argc, char *argv[])
     {
         check(BVolumeJson::normalizeVolumes(QJsonValue()).isEmpty(), "missing volumes -> empty");
         check(BVolumeJson::normalizeVolumes(QJsonObject()).isEmpty(), "empty object -> empty");
+    }
+
+    // Typed gRPC form: pools -> {volumes}, numeric volstatus mapped to names
+    {
+        const QJsonObject result =
+            QJsonDocument::fromJson(kTypedReply).object()["result"].toObject();
+        bool recognized = false;
+        QJsonArray volumes = BVolumeJson::volumesFromResult(result, {"Full", "CLOUD", "Default"}, &recognized);
+        check(recognized, "typed: recognized");
+        check(volumes.size() == 2, "typed: two volumes from two non-empty pools");
+        check(findVolume(volumes, "CLOUD-0002")["pool"].toString() == "CLOUD", "typed: pool from key");
+        check(findVolume(volumes, "CLOUD-0002")["volstatus"].toString() == "Full", "typed: 2 -> Full");
+        check(findVolume(volumes, "Vol-0001")["volstatus"].toString() == "Error", "typed: 6 -> Error");
+    }
+    // volumesFromResult on the API mode 2 shapes and on an unknown shape
+    {
+        bool recognized = false;
+        const QJsonObject grouped =
+            QJsonDocument::fromJson(kGroupedReply).object()["result"].toObject();
+        check(BVolumeJson::volumesFromResult(grouped, knownPools, &recognized).size()
+                  == BVolumeJson::normalizeVolumes(grouped["volumes"], knownPools).size(),
+              "volumesFromResult: grouped form unchanged");
+        check(recognized, "volumesFromResult: grouped recognized");
+        BVolumeJson::volumesFromResult(QJsonObject{{"jobs", QJsonArray()}}, knownPools, &recognized);
+        check(!recognized, "volumesFromResult: unknown shape reported");
+        check(BVolumeJson::volumeStatusName(5) == "Purged", "volumeStatusName: 5 -> Purged");
+        check(BVolumeJson::volumeStatusName(99).isEmpty(), "volumeStatusName: unknown -> empty");
     }
 
     // resolvePoolName

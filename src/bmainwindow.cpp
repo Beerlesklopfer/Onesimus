@@ -606,6 +606,12 @@ void BMainWindow::setupUI()
         if (m_tabWidget->widget(index) == m_scheduleWidget && m_director && m_director->isConnected()) {
             m_scheduleWidget->triggerRefresh();
         }
+        // Same for the Storage/Volumes tab: the list sent at connect time can
+        // be stale or missing, and the user expects the tab to show the
+        // current volumes when it is opened
+        if (m_tabWidget->widget(index) == m_storageWidget && m_director && m_director->isConnected()) {
+            m_storageWidget->triggerRefresh();
+        }
     });
 
     m_tabWidget->setEnabled(false);

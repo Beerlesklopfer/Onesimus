@@ -197,8 +197,14 @@ void StorageWidget::processJsonResponse(const QString &jsonData)
     QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
     // "list volumes" returns volumes grouped by pool ({"<pool>": [...]}),
-    // "list volumes pool=X|all" a flat array - accept both
-    QJsonArray volumesArray = BVolumeJson::normalizeVolumes(result["volumes"], m_knownPools);
+    // "list volumes pool=X|all" a flat array, and the Onesimus Director over
+    // gRPC its typed form ({"pools": {"<pool>": {"volumes": [...]}}})
+    bool recognized = false;
+    QJsonArray volumesArray = BVolumeJson::volumesFromResult(result, m_knownPools, &recognized);
+    if (!recognized) {
+        BLOG_WARNING() << "StorageWidget: volume reply in an unknown shape, keys:"
+                       << result.keys();
+    }
 
     // Store all volumes
     m_allVolumes = volumesArray;

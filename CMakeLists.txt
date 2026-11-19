@@ -1181,6 +1181,9 @@ include(CTest)
 if(BUILD_TESTING)
     find_package(Qt6 REQUIRED COMPONENTS Test)
 
+    # volumejson_test is built above; register it so ctest runs it
+    add_test(NAME volumejson_test COMMAND volumejson_test)
+
     # bjoblogmodel_test - job log model, its sources and the push message parser
     add_executable(bjoblogmodel_test
         test/bjoblogmodel_test.cpp
