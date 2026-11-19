@@ -281,6 +281,9 @@ public:
 
     int schedulesSnapIndex() const;
     void setSchedulesSnapIndex(int index);
+    /// The list of predicted waits below the timeline is open
+    bool schedulesWaitListShown() const;
+    void setSchedulesWaitListShown(bool shown);
 
     QByteArray schedulesSplitterState() const;
     void setSchedulesSplitterState(const QByteArray& state);

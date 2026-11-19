@@ -110,9 +110,10 @@ private slots:
     void daylightSavingAutumn();
     void nextRun();
     void firstAndOtherSaturdaysDoNotCollide();
-    void realCollision();
+    void realOverlap();
     void lineNotUnderstoodHasNoOccurrence();
     void entriesOncePerJobAndRun();
+    void jobValuesFromListsAndJobDefs();
 };
 
 // --- Week of the month: hand calendar and the Bareos rule ---
@@ -629,7 +630,7 @@ void BScheduleOccurrencesTest::nextRun()
              QDateTime(QDate(2028, 2, 29), QTime(1, 0), utc));
 }
 
-// --- Collisions on concrete dates ---
+// --- Overlaps on concrete dates ---
 
 void BScheduleOccurrencesTest::firstAndOtherSaturdaysDoNotCollide()
 {
@@ -647,7 +648,7 @@ void BScheduleOccurrencesTest::firstAndOtherSaturdaysDoNotCollide()
     QVERIFY(!BScheduleOccurrences::overlaps(full, 7 * 86400 + 1, diff, 3600).isEmpty());
 }
 
-void BScheduleOccurrencesTest::realCollision()
+void BScheduleOccurrencesTest::realOverlap()
 {
     const QTimeZone utc = QTimeZone::utc();
 
@@ -673,7 +674,7 @@ void BScheduleOccurrencesTest::realCollision()
     QCOMPARE(reversed[0].start(), hour[0].start());
 
     // The duration decides: half an hour ends when the other one starts,
-    // and touching is no collision
+    // and touching is no overlap
     QVERIFY(BScheduleOccurrences::overlaps(full, 1800, incr, 900).isEmpty());
     QCOMPARE(BScheduleOccurrences::overlaps(full, 1801, incr, 900).size(), 2);
 
@@ -716,6 +717,51 @@ void BScheduleOccurrencesTest::lineNotUnderstoodHasNoOccurrence()
 }
 
 // --- What the views get: one entry per job and run that starts in the dates ---
+
+void BScheduleOccurrencesTest::jobValuesFromListsAndJobDefs()
+{
+    // What a Director sends for a job according to the Bareos sources
+    // (lib/res.cc PrintResourceItem(), CFG_TYPE_ALIST_RES): the storage of
+    // a job is a list of names, and what the job inherits from its JobDefs
+    // is not printed in the job. Written from the sources, not captured.
+    const QList<BSchedule> schedules = {
+        scheduleOf({"Incremental mon-fri at 23:05"}, "Nightly"),
+    };
+    BJobConfigModel jobs;
+    jobs.parseShowJobs(R"({"result":{"jobs":{
+        "listed":{"name":"listed","schedule":"Nightly","client":"a-fd","storage":["PDC-sd"]},
+        "inherits":{"name":"inherits","jobdefs":"Defaults","client":"b-fd"},
+        "overrides":{"name":"overrides","jobdefs":"Defaults","client":"c-fd","storage":["Tape","PDC-sd"],"priority":"12"},
+        "unscheduled":{"name":"unscheduled","client":"a-fd"}
+    }}})");
+    jobs.parseShowJobDefs(R"({"result":{"jobdefs":{
+        "Defaults":{"name":"Defaults","schedule":"Nightly","storage":["PDC-sd"],"pool":"Daily","priority":11}
+    }}})");
+    BJobScheduleIndex index;
+    index.rebuild(&jobs);
+
+    QMap<QString, BJobScheduleIndex::JobRef> byName;
+    for (const BJobScheduleIndex::JobRef &ref : index.jobsForSchedule("Nightly"))
+        byName.insert(ref.jobName, ref);
+    QCOMPARE(byName.keys(), QStringList({"inherits", "listed", "overrides"}));
+
+    QCOMPARE(byName["listed"].storage, QString("PDC-sd"));
+    QCOMPARE(byName["listed"].priority, 10);
+    // Schedule, storage, pool and priority from the JobDefs
+    QCOMPARE(byName["inherits"].storage, QString("PDC-sd"));
+    QCOMPARE(byName["inherits"].pool, QString("Daily"));
+    QCOMPARE(byName["inherits"].priority, 11);
+    QCOMPARE(byName["inherits"].client, QString("b-fd"));
+    // The job's own values win; of several storages the first is used
+    QCOMPARE(byName["overrides"].storage, QString("Tape"));
+    QCOMPARE(byName["overrides"].priority, 12);
+
+    const QList<BScheduleEntry> entries = index.entriesFor(
+        schedules, at(QDate(2026, 11, 16)), at(QDate(2026, 11, 17)));
+    QCOMPARE(entries.size(), 3);
+    for (const BScheduleEntry &e : entries)
+        QVERIFY2(!e.storage.isEmpty(), qPrintable(e.jobName));
+}
 
 void BScheduleOccurrencesTest::entriesOncePerJobAndRun()
 {

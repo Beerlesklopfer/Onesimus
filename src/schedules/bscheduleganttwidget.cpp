@@ -40,10 +40,61 @@ void BScheduleGanttWidget::setEntries(const QList<BScheduleEntry> &entries)
     // the level a job runs at when its Run line names none
     m_estimateCache.clear();
 
+    // What was predicted belongs to the entries shown so far
+    m_waits.clear();
+
     rebuildRows();
     recalcHeatmap();
-    detectCollisions();
     update();
+}
+
+void BScheduleGanttWidget::setWaits(const QHash<QString, RunWait> &waits)
+{
+    m_waits = waits;
+
+    // The bars moved under a drag
+    if (m_dragState != NoDrag) {
+        cancelDrag();
+    }
+
+    recalcHeatmap();
+    update();
+}
+
+QString BScheduleGanttWidget::entryKey(const BScheduleEntry &entry)
+{
+    const QChar sep(0x1F);
+    return entry.scheduleName + sep + QString::number(entry.runIndex) + sep
+           + QString::number(entry.hour) + sep + entry.jobName;
+}
+
+QString BScheduleGanttWidget::waitKey(const BScheduleEntry &entry, const QDateTime &when)
+{
+    return waitKey(entryKey(entry), when);
+}
+
+QString BScheduleGanttWidget::waitKey(const QString &entryKey, const QDateTime &when)
+{
+    return entryKey + QChar(0x1F) + QString::number(when.toSecsSinceEpoch());
+}
+
+QDateTime BScheduleGanttWidget::occurrenceOn(const BScheduleEntry &entry, int dayOffset) const
+{
+    const QDate date = firstDate().addDays(dayOffset);
+    for (const QDateTime &when : entry.occurrences) {
+        if (when.date() == date) return when;
+    }
+    return QDateTime();
+}
+
+const BScheduleGanttWidget::RunWait *BScheduleGanttWidget::waitFor(const BScheduleEntry &entry,
+                                                                   int dayOffset) const
+{
+    if (m_waits.isEmpty()) return nullptr;
+    const QDateTime when = occurrenceOn(entry, dayOffset);
+    if (!when.isValid()) return nullptr;
+    const auto it = m_waits.constFind(waitKey(entry, when));
+    return it == m_waits.constEnd() ? nullptr : &it.value();
 }
 
 void BScheduleGanttWidget::setHistoryStats(const BJobHistoryStats &stats, const QString &note)
@@ -58,7 +109,6 @@ void BScheduleGanttWidget::setHistoryStats(const BJobHistoryStats &stats, const 
     }
 
     recalcHeatmap();
-    detectCollisions();
     update();
 }
 
@@ -73,7 +123,6 @@ void BScheduleGanttWidget::setViewMode(ViewMode mode)
     m_viewMode = mode;
     updateMinimumSize();
     recalcHeatmap();
-    detectCollisions();
     update();
 }
 
@@ -96,7 +145,6 @@ void BScheduleGanttWidget::setCurrentDate(const QDate &date)
 
     m_currentDate = date;
     recalcHeatmap();
-    detectCollisions();
     update();
 }
 
@@ -273,9 +321,7 @@ void BScheduleGanttWidget::rebuildRows()
             for (int idx : it.value()) {
                 RowInfo row;
                 const BScheduleEntry &e = m_entries[idx];
-                row.label = QString("  %1 %2")
-                    .arg(e.levelLabel(),
-                         e.jobName.isEmpty() ? QString() : e.jobName);
+                row.label = rowLabel(e);
                 row.isGroupHeader = false;
                 row.entryIndex = idx;
                 m_rows.append(row);
@@ -299,8 +345,7 @@ void BScheduleGanttWidget::rebuildRows()
             for (int idx : it.value()) {
                 RowInfo row;
                 const BScheduleEntry &e = m_entries[idx];
-                row.label = QString("  %1 %2")
-                    .arg(e.levelLabel(), e.scheduleName);
+                row.label = rowLabel(e);
                 row.isGroupHeader = false;
                 row.entryIndex = idx;
                 m_rows.append(row);
@@ -324,8 +369,7 @@ void BScheduleGanttWidget::rebuildRows()
             for (int idx : it.value()) {
                 RowInfo row;
                 const BScheduleEntry &e = m_entries[idx];
-                row.label = QString("  %1 %2")
-                    .arg(e.levelLabel(), e.scheduleName);
+                row.label = rowLabel(e);
                 row.isGroupHeader = false;
                 row.entryIndex = idx;
                 m_rows.append(row);
@@ -334,6 +378,16 @@ void BScheduleGanttWidget::rebuildRows()
     }
 
     updateMinimumSize();
+}
+
+QString BScheduleGanttWidget::rowLabel(const BScheduleEntry &entry)
+{
+    // The job first: rows of one schedule differ in nothing else. An entry
+    // without a job (no job uses the schedule) is named by its schedule.
+    const QString who = entry.jobName.isEmpty() ? entry.scheduleName : entry.jobName;
+    const QString level = entry.levelLabel();
+    return level.isEmpty() ? QStringLiteral("  %1").arg(who)
+                           : QStringLiteral("  %1 \u00B7 %2").arg(who, level);
 }
 
 QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int dayOffset) const
@@ -351,6 +405,24 @@ QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int da
     }
 
     return QRect(x, y, barWidth, ROW_HEIGHT - 4);
+}
+
+QRect BScheduleGanttWidget::waitRect(const BScheduleEntry &entry, int row, int dayOffset) const
+{
+    const RunWait *wait = waitFor(entry, dayOffset);
+    if (!wait || wait->waitSecs <= 0) return QRect();
+
+    // Wide enough to be seen and pointed at, however short the wait
+    const int width = qMax(6, static_cast<int>(wait->waitSecs / 3600.0 * m_pixelsPerHour));
+    const QRect bar = barRect(entry, row, dayOffset);
+    return QRect(bar.left(), bar.top(), width, bar.height());
+}
+
+QRect BScheduleGanttWidget::runRect(const BScheduleEntry &entry, int row, int dayOffset) const
+{
+    const QRect bar = barRect(entry, row, dayOffset);
+    const QRect lead = waitRect(entry, row, dayOffset);
+    return lead.isEmpty() ? bar : bar.translated(lead.width(), 0);
 }
 
 // ============================================================================
@@ -385,9 +457,6 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
 
     // Heatmap
     drawHeatmap(painter);
-
-    // Collision markers
-    drawCollisionMarkers(painter);
 
     // Drag overlay (ghost bar, dependency highlights)
     if (m_dragState == Dragging) {
@@ -569,7 +638,9 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
             painter.fillRect(LABEL_WIDTH, y, contentWidth(), ROW_HEIGHT, groupTint);
         } else {
             painter.setPen(palette().text().color());
-            painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, row.label);
+            painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
+                             painter.fontMetrics().elidedText(row.label, Qt::ElideRight,
+                                                              labelRect.width()));
 
             // One bar for each date on display on which the entry starts
             if (row.entryIndex >= 0 && row.entryIndex < m_entries.size()) {
@@ -609,11 +680,64 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
                                        int row, int dayOffset)
 {
     const BScheduleEntry &entry = m_entries[entryIndex];
-    QRect rect = barRect(entry, row, dayOffset);
-    bool hovered = (row == rowAtY(m_hoverPos.y()) && rect.contains(m_hoverPos));
+    // The bar begins where the run is predicted to start; before it, from
+    // the scheduled time on, is the lead-in of its wait
+    QRect rect = runRect(entry, row, dayOffset);
+    const QRect lead = waitRect(entry, row, dayOffset);
+    const RunWait *wait = waitFor(entry, dayOffset);
+    bool hovered = (row == rowAtY(m_hoverPos.y())
+                    && (rect.contains(m_hoverPos) || lead.contains(m_hoverPos)));
 
     QColor fillColor = colorForLevel(entry.level, hovered);
     const BJobHistoryStats::Estimate estimate = estimateFor(entry);
+
+    // Nothing is drawn outside the dates on display: a run that waits past
+    // their end has its lead-in cut there
+    painter.save();
+    const int contentRight = LABEL_WIDTH + contentWidth();
+    painter.setClipRect(QRect(LABEL_WIDTH, HEADER_HEIGHT, contentWidth() + 1,
+                              m_rows.size() * ROW_HEIGHT));
+
+    if (!lead.isEmpty()) {
+        // Waiting: a hatched strip, thinner than the bar, from the scheduled
+        // time (a tick of full height) to the predicted start. An uncertain
+        // wait has a dashed outline and a question mark; hatching and
+        // outline carry the meaning, not a colour.
+        const QColor ink = palette().text().color();
+        QColor hatch = ink;
+        hatch.setAlpha(hovered ? 230 : 170);
+        const QRect strip = lead.adjusted(0, 6, 0, -6);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QBrush(hatch, Qt::BDiagPattern));
+        painter.drawRect(strip);
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(ink, 1, wait->certain ? Qt::SolidLine : Qt::DashLine));
+        painter.drawRect(strip.adjusted(0, 0, -1, -1));
+        painter.setPen(QPen(fillColor, 2));
+        painter.drawLine(lead.left(), lead.top(), lead.left(), lead.bottom());
+
+        if (rect.left() >= contentRight && lead.left() < contentRight - 12) {
+            // The start is after the dates on display
+            QFont markFont = font();
+            markFont.setBold(true);
+            painter.setFont(markFont);
+            const QRect markRect(contentRight - 13, lead.top(), 12, lead.height());
+            painter.fillRect(markRect.adjusted(0, 4, 0, -4), palette().base());
+            painter.setPen(ink);
+            painter.drawText(markRect, Qt::AlignCenter, QStringLiteral("\u00BB"));
+        }
+    }
+    if (wait && !wait->certain) {
+        // Not certain: a question mark in front, also where no wait is
+        // predicted (the run may have to wait)
+        QFont markFont = font();
+        markFont.setBold(true);
+        painter.setFont(markFont);
+        painter.setPen(palette().text().color());
+        const int markX = lead.isEmpty() ? rect.left() : lead.left();
+        painter.drawText(QRect(markX - 11, rect.top(), 10, rect.height()),
+                         Qt::AlignCenter, QStringLiteral("?"));
+    }
 
     if (!estimate.hasHistory()) {
         // No history: nothing was measured, so there is no bar. A dashed
@@ -651,33 +775,6 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
         }
     }
 
-    // Collision border: this entry's start on this date runs at the same
-    // time as another one, for certain (red) or possibly (amber, dashed)
-    const QDate barDate = firstDate().addDays(dayOffset);
-    bool collides = false;
-    bool mayCollide = false;
-    for (const Collision &c : m_collisions) {
-        if (c.index1 != entryIndex && c.index2 != entryIndex) continue;
-        for (const BRunOverlap &o : c.overlaps) {
-            const QDateTime &mine = (c.index1 == entryIndex) ? o.a : o.b;
-            if (mine.date() == barDate) {
-                if (c.uncertain) mayCollide = true;
-                else collides = true;
-                break;
-            }
-        }
-        if (collides) break;
-    }
-    if (collides) {
-        painter.setPen(QPen(Qt::red, 2));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(rect.adjusted(-1, -1, 1, 1), 3, 3);
-    } else if (mayCollide) {
-        painter.setPen(QPen(QColor(230, 140, 0), 2, Qt::DotLine));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawRoundedRect(rect.adjusted(-2, -2, 2, 2), 3, 3);
-    }
-
     // Inside: a question mark without history, otherwise the level letter
     // if the bar is wide enough ("~" in front for an estimate)
     QFont font = painter.font();
@@ -695,6 +792,8 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
     }
     font.setBold(false);
     painter.setFont(font);
+
+    painter.restore();      // the clip
 }
 
 void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
@@ -716,6 +815,11 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
 
     double slotWidth = static_cast<double>(contentWidth()) / slotCount;
 
+    // One hue, stronger with every run that is running: several runs at
+    // the same time are what the limits allow, not a fault
+    const QColor running = palette().highlight().color();
+    const QColor ink = palette().text().color();
+
     for (int i = 0; i < slotCount; ++i) {
         int count = m_heatmapSlots[i];
         QColor color;
@@ -723,12 +827,9 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
         if (count == 0) {
             color = palette().mid().color();
             color.setAlpha(80);
-        } else if (count <= 1) {
-            color = QColor(76, 175, 80, 150);    // Green
-        } else if (count <= 3) {
-            color = QColor(255, 193, 7, 180);    // Yellow/Amber
         } else {
-            color = QColor(244, 67, 54, 200);    // Red
+            color = running;
+            color.setAlpha(qMin(235, 70 + 33 * (count - 1)));
         }
 
         int x = LABEL_WIDTH + static_cast<int>(i * slotWidth);
@@ -741,55 +842,19 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
             painter.fillRect(x, y, qMax(2, w), 4,
                              QBrush(palette().text().color(), Qt::BDiagPattern));
         }
+
+        // Runs are predicted to wait in this slot: the hatching of the
+        // lead-ins, as a strip along the bottom
+        if (m_heatmapWaiting.value(i) > 0) {
+            const QRect strip(x, y + HEATMAP_HEIGHT - 7, qMax(2, w), 7);
+            painter.fillRect(strip, palette().base());
+            painter.fillRect(strip, QBrush(ink, Qt::BDiagPattern));
+        }
     }
 
     // Border
     painter.setPen(QPen(palette().mid().color(), 1));
     painter.drawRect(LABEL_WIDTH, y, contentWidth(), HEATMAP_HEIGHT);
-
-    painter.restore();
-}
-
-void BScheduleGanttWidget::drawCollisionMarkers(QPainter &painter)
-{
-    // Collision markers are drawn as part of job bars (red border)
-    // This method draws the collision warning icon in the heatmap area
-    if (m_collisions.isEmpty()) return;
-
-    painter.save();
-    QFont font = painter.font();
-    font.setPointSize(7);
-    painter.setFont(font);
-
-    const QDate first = firstDate();
-    const int days = dayCount();
-    const int y = HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT + 2;
-
-    for (const Collision &c : m_collisions) {
-        for (const BRunOverlap &o : c.overlaps) {
-            // Where the two start to run at the same time
-            const QDateTime start = o.start();
-            const int d = static_cast<int>(first.daysTo(start.date()));
-            if (d < 0 || d >= days) continue;
-
-            int x = timeToX(d * 24 + start.time().hour(), start.time().minute());
-
-            // Warning triangle: red and filled for a certain collision,
-            // amber and hollow for an uncertain one
-            if (c.uncertain) {
-                painter.setPen(QPen(QColor(230, 140, 0), 1, Qt::DashLine));
-                painter.setBrush(Qt::NoBrush);
-            } else {
-                painter.setPen(QPen(Qt::red, 1));
-                painter.setBrush(QColor(255, 0, 0, 100));
-            }
-            QPolygonF triangle;
-            triangle << QPointF(x - 5, y + HEATMAP_HEIGHT - 2)
-                     << QPointF(x + 5, y + HEATMAP_HEIGHT - 2)
-                     << QPointF(x, y + 2);
-            painter.drawPolygon(triangle);
-        }
-    }
 
     painter.restore();
 }
@@ -808,6 +873,7 @@ void BScheduleGanttWidget::recalcHeatmap()
     int slotCount = heatmapSlotCount();
     m_heatmapSlots.fill(0, slotCount);
     m_heatmapUnknown.fill(0, slotCount);
+    m_heatmapWaiting.fill(0, slotCount);
 
     const QDate first = firstDate();
     const int days = dayCount();
@@ -823,8 +889,23 @@ void BScheduleGanttWidget::recalcHeatmap()
             const int d = static_cast<int>(first.daysTo(when.date()));
             if (d < 0 || d >= days) continue;
 
-            int startSlot = (d * 24 * 60 + when.time().hour() * 60 + when.time().minute())
-                            / HEATMAP_SLOT_MINUTES;
+            const int scheduledMinute = d * 24 * 60 + when.time().hour() * 60
+                                        + when.time().minute();
+
+            // The run is counted from its predicted start; until then it
+            // is waiting
+            int waitMinutes = 0;
+            const auto waitIt = m_waits.constFind(waitKey(entry, when));
+            if (waitIt != m_waits.constEnd() && waitIt->waitSecs > 0) {
+                waitMinutes = static_cast<int>((waitIt->waitSecs + 59) / 60);
+                const int firstWaiting = scheduledMinute / HEATMAP_SLOT_MINUTES;
+                const int lastWaiting = (scheduledMinute + waitMinutes - 1) / HEATMAP_SLOT_MINUTES;
+                for (int s = qMax(0, firstWaiting); s <= lastWaiting && s < slotCount; ++s) {
+                    m_heatmapWaiting[s]++;
+                }
+            }
+
+            int startSlot = (scheduledMinute + waitMinutes) / HEATMAP_SLOT_MINUTES;
 
             if (secs <= 0) {
                 // Marked at its start, counted nowhere
@@ -837,114 +918,6 @@ void BScheduleGanttWidget::recalcHeatmap()
             }
         }
     }
-}
-
-// ============================================================================
-// Collision detection
-// ============================================================================
-
-void BScheduleGanttWidget::detectCollisions()
-{
-    m_collisions.clear();
-
-    for (int i = 0; i < m_entries.size(); ++i) {
-        for (int j = i + 1; j < m_entries.size(); ++j) {
-            const BScheduleEntry &a = m_entries[i];
-            const BScheduleEntry &b = m_entries[j];
-
-            // Nothing to collide on
-            const bool sameClient = !a.client.isEmpty() && a.client == b.client;
-            const bool sameStorage = !a.storage.isEmpty() && a.storage == b.storage;
-            if (!sameClient && !sameStorage) continue;
-
-            // Two runs collide only if they really run at the same time on
-            // a date: the concrete starts are compared, not the days of the
-            // week. "1st sat" and "2nd-5th sat" never meet.
-            //
-            // The lengths are the measured medians. A run without history
-            // has no length: it is taken at the instant of its start (one
-            // second), which is certain, and nothing is assumed beyond it.
-            const BJobHistoryStats::Estimate estA = estimateFor(a);
-            const BJobHistoryStats::Estimate estB = estimateFor(b);
-            const int durA = durationSecs(a);
-            const int durB = durationSecs(b);
-            const QList<BRunOverlap> computed = BScheduleOccurrences::overlaps(
-                a.occurrences, qMax(1, durA),
-                b.occurrences, qMax(1, durB));
-
-            // Certain only if every length involved was measured at its
-            // level; an estimate from other levels makes it uncertain
-            const bool estimated = (estA.hasHistory() && !estA.isMeasured())
-                                   || (estB.hasHistory() && !estB.isMeasured());
-
-            // What cannot be computed: a run without history that starts
-            // before the other one on the same date. Whether it is still
-            // running then is not known.
-            QList<BRunOverlap> possible;
-            if (durA <= 0 || durB <= 0) {
-                for (const QDateTime &startA : a.occurrences) {
-                    for (const QDateTime &startB : b.occurrences) {
-                        if (startA.date() != startB.date() || startA == startB) continue;
-                        const bool firstIsA = startA < startB;
-                        if ((firstIsA ? durA : durB) > 0) continue;  // computed above
-                        bool known = false;
-                        for (const BRunOverlap &o : computed) {
-                            if (o.a == startA && o.b == startB) { known = true; break; }
-                        }
-                        if (known) continue;
-                        BRunOverlap o;
-                        o.a = startA;
-                        o.b = startB;
-                        possible.append(o);
-                    }
-                }
-            }
-
-            auto append = [&](const QList<BRunOverlap> &overlaps, bool uncertain) {
-                if (overlaps.isEmpty()) return;
-
-                Collision c;
-                c.entry1 = a;
-                c.entry2 = b;
-                c.index1 = i;
-                c.index2 = j;
-                c.overlaps = overlaps;
-                c.uncertain = uncertain;
-
-                if (sameClient) {
-                    c.type = Collision::ClientCollision;
-                    c.description = (uncertain
-                            ? tr("Possible client collision: %1 and %2 on %3 (duration not measured)")
-                            : tr("Client collision: %1 and %2 on %3"))
-                        .arg(a.scheduleName, b.scheduleName, a.client);
-                    m_collisions.append(c);
-                }
-
-                if (sameStorage) {
-                    c.type = Collision::StorageCollision;
-                    c.description = (uncertain
-                            ? tr("Possible storage collision: %1 and %2 on %3 (duration not measured)")
-                            : tr("Storage collision: %1 and %2 on %3"))
-                        .arg(a.scheduleName, b.scheduleName, a.storage);
-                    m_collisions.append(c);
-                }
-            };
-
-            append(computed, estimated);
-            append(possible, true);
-        }
-    }
-
-    int certain = 0;
-    int uncertain = 0;
-    for (const Collision &c : m_collisions) {
-        if (c.uncertain) ++uncertain;
-        else ++certain;
-    }
-
-    // Also when there is none: the count belongs to the dates on display
-    // and has to go away with them
-    emit collisionsDetected(certain, uncertain);
 }
 
 // ============================================================================
@@ -989,9 +962,10 @@ int BScheduleGanttWidget::entryAtPos(const QPoint &pos) const
 
     const BScheduleEntry &entry = m_entries[entryIdx];
 
+    // The bar where it is drawn, and the lead-in of its wait
     for (int d : dayOffsets(entry)) {
-        QRect br = barRect(entry, row, d);
-        if (br.contains(pos)) return entryIdx;
+        if (runRect(entry, row, d).contains(pos) || waitRect(entry, row, d).contains(pos))
+            return entryIdx;
     }
 
     return -1;
@@ -1061,7 +1035,9 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         QString tooltip = QString("<b>%1</b><br>"
                                   "%2: %3<br>"
                                   "%4: %5:%6")
-            .arg(e.scheduleName,
+            .arg((e.jobName.isEmpty() ? e.scheduleName
+                                      : QString("%1 (%2)").arg(e.jobName, e.scheduleName))
+                     .toHtmlEscaped(),
                  tr("Level"),
                  e.levelLabel().isEmpty() ? tr("(level of the job)") : e.levelLabel(),
                  tr("Time"),
@@ -1075,10 +1051,23 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         }
 
         if (!e.jobName.isEmpty()) {
-            tooltip += QString("<br>%1: %2").arg(tr("Job"), e.jobName);
+            tooltip += QString("<br>%1: %2").arg(tr("Schedule"), e.scheduleName.toHtmlEscaped());
         }
         if (!e.client.isEmpty()) {
             tooltip += QString("<br>%1: %2").arg(tr("Client"), e.client);
+        }
+        // What is predicted for the start under the pointer: whether it
+        // waits, for which limit or rule, and for which runs
+        if (const RunWait *wait = waitFor(e, dayOffsetAtPos(event->pos(), idx))) {
+            if (wait->lines.isEmpty()) {
+                tooltip += QString("<br>%1: %2").arg(tr("Predicted wait"), tr("none"));
+            } else {
+                tooltip += QString("<br><b>%1</b>").arg(
+                    wait->waitSecs > 0 ? tr("Predicted wait") : tr("Predicted wait: none"));
+                for (const QString &line : wait->lines) {
+                    tooltip += QString("<br>") + line.toHtmlEscaped();
+                }
+            }
         }
         // What was measured, or that nothing was
         const BJobHistoryStats::Estimate estimate = estimateFor(e);
@@ -1167,7 +1156,12 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
                     .arg((slotMinutes + HEATMAP_SLOT_MINUTES) / 60, 2, 10, QChar('0'))
                     .arg((slotMinutes + HEATMAP_SLOT_MINUTES) % 60, 2, 10, QChar('0'))
                     .arg(count)
-                    .arg(tr("concurrent jobs"));
+                    .arg(tr("job(s) running"));
+
+                const int waiting = m_heatmapWaiting.value(slotIdx);
+                if (waiting > 0) {
+                    tooltip += QString("; ") + tr("%1 run(s) predicted to wait").arg(waiting);
+                }
 
                 const int unknown = m_heatmapUnknown.value(slotIdx);
                 if (unknown > 0) {
@@ -1288,8 +1282,8 @@ int BScheduleGanttWidget::dayOffsetAtPos(const QPoint &pos, int entryIdx) const
 
     const BScheduleEntry &entry = m_entries[entryIdx];
     for (int d : dayOffsets(entry)) {
-        QRect br = barRect(entry, row, d);
-        if (br.contains(pos)) return d;
+        if (runRect(entry, row, d).contains(pos) || waitRect(entry, row, d).contains(pos))
+            return d;
     }
     return 0;
 }
@@ -1353,13 +1347,14 @@ void BScheduleGanttWidget::computeDependencies(int draggedIndex)
             }
         }
 
-        // 2. Client exclusion: same client, different job
+        // 2. Same client, different job (whether one waits for the other
+        //    depends on the client's Maximum Concurrent Jobs)
         if (!dragged.client.isEmpty() && dragged.client == other.client) {
             DependencyEdge edge;
             edge.type = DependencyEdge::ClientExclusion;
             edge.sourceEntryIndex = draggedIndex;
             edge.targetEntryIndex = i;
-            edge.description = tr("Client exclusion: %1 (%2) on same client %3")
+            edge.description = tr("Same client: %1 (%2) also runs on client %3")
                 .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
                      other.levelLabel(),
                      other.client);
@@ -1367,13 +1362,13 @@ void BScheduleGanttWidget::computeDependencies(int draggedIndex)
             continue;  // don't duplicate as storage contention
         }
 
-        // 3. Storage contention: same storage
+        // 3. Same storage
         if (!dragged.storage.isEmpty() && dragged.storage == other.storage) {
             DependencyEdge edge;
             edge.type = DependencyEdge::StorageContention;
             edge.sourceEntryIndex = draggedIndex;
             edge.targetEntryIndex = i;
-            edge.description = tr("Storage contention: %1 on same storage %2")
+            edge.description = tr("Same storage: %1 also uses storage %2")
                 .arg(other.jobName.isEmpty() ? other.scheduleName : other.jobName,
                      other.storage);
             m_dragDependencies.append(edge);

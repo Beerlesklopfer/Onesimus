@@ -26,6 +26,11 @@ class BJobConfigModel;
  * Jobs reference schedules via Job { Schedule = "ScheduleName" }.
  * This index builds the reverse mapping, so that the views can show each
  * run once per job that runs it.
+ *
+ * Schedule, client, storage, pool, fileset and priority of a job are taken
+ * from the job and, where the job does not have them, from the JobDefs it
+ * names (BJobConfigModel::jobDefsConfigsRaw()). The index therefore has to
+ * be rebuilt when the jobs or the JobDefs have been loaded.
  */
 class BJobScheduleIndex : public QObject
 {

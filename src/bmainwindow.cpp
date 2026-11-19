@@ -251,6 +251,17 @@ BMainWindow::BMainWindow(QWidget *parent)
         case BDirector::Command::ShowClient:
         case BDirector::Command::ShowClients:
             m_clientWidget->model()->enrichWithShowClientData(jsonData);
+            // Maximum Concurrent Jobs of the clients, for the predicted waits
+            m_scheduleWidget->processShowClientsResponse(jsonData);
+            break;
+
+        // Limits of the storages and of the Director, asked for by the
+        // schedule view for its predicted waits
+        case BDirector::Command::ShowStorages:
+            m_scheduleWidget->processShowStoragesResponse(jsonData);
+            break;
+        case BDirector::Command::Show:
+            m_scheduleWidget->processShowDirectorResponse(jsonData);
             break;
 
         case BDirector::Command::ListBackups:
@@ -393,6 +404,10 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_scheduleWidget, &BScheduleWidget::processShowJobsResponse);
     connect(m_director, &BDirector::showJobDefsResult,
             m_jobWidget->jobConfigModel(), &BJobConfigModel::parseShowJobDefs);
+    // After the model has read them: a job inherits its schedule, client,
+    // storage, priority and limit from its JobDefs
+    connect(m_director, &BDirector::showJobDefsResult,
+            m_scheduleWidget, &BScheduleWidget::processShowJobsResponse);
 
     // Pass job config model to schedule widget for job→schedule cross-referencing
     m_scheduleWidget->setJobConfigModel(m_jobWidget->jobConfigModel());

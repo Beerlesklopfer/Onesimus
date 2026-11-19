@@ -8,6 +8,7 @@
 
 #include "schedules/bjobscheduleindex.h"
 #include "models/bresourcemodels.h"
+#include "schedules/model/bschedulewaitmodel.h"
 #include "blogging.h"
 #include <QJsonObject>
 #include <QJsonValue>
@@ -28,60 +29,29 @@ void BJobScheduleIndex::rebuild(const BJobConfigModel *jobConfigModel)
     }
 
     const QMap<QString, QJsonObject> &configs = jobConfigModel->jobConfigsRaw();
+    const QMap<QString, QJsonObject> &jobDefs = jobConfigModel->jobDefsConfigsRaw();
 
     for (auto it = configs.constBegin(); it != configs.constEnd(); ++it) {
         const QString &jobName = it.key();
-        const QJsonObject &jobObj = it.value();
 
-        // Extract schedule name — Bareos JSON uses {"name": "ScheduleName"} for references
-        QString scheduleName;
-        QJsonValue schedVal = jobObj["schedule"];
-        if (schedVal.isObject()) {
-            scheduleName = schedVal.toObject()["name"].toString();
-        } else if (schedVal.isString()) {
-            scheduleName = schedVal.toString();
-        }
+        // A directive of the job, or of the JobDefs it names: without
+        // "verbose" the Director does not print in a Job what the Job
+        // inherits (BWaitLimits). A reference is {"name": ...} or a string.
+        auto directive = [&](const char *key) {
+            return BWaitLimits::jobDirective(configs, jobDefs, jobName, QLatin1String(key));
+        };
 
+        const QString scheduleName = BWaitLimits::resourceName(directive("schedule"));
         if (scheduleName.isEmpty()) continue;
 
-        // Extract client
-        QString client;
-        QJsonValue clientVal = jobObj["client"];
-        if (clientVal.isObject()) {
-            client = clientVal.toObject()["name"].toString();
-        } else if (clientVal.isString()) {
-            client = clientVal.toString();
-        }
-
-        // Extract storage
-        QString storage;
-        QJsonValue storageVal = jobObj["storage"];
-        if (storageVal.isObject()) {
-            storage = storageVal.toObject()["name"].toString();
-        } else if (storageVal.isString()) {
-            storage = storageVal.toString();
-        }
-
-        // Extract pool
-        QString pool;
-        QJsonValue poolVal = jobObj["pool"];
-        if (poolVal.isObject()) {
-            pool = poolVal.toObject()["name"].toString();
-        } else if (poolVal.isString()) {
-            pool = poolVal.toString();
-        }
-
-        // Extract fileset
-        QString fileset;
-        QJsonValue filesetVal = jobObj["fileset"];
-        if (filesetVal.isObject()) {
-            fileset = filesetVal.toObject()["name"].toString();
-        } else if (filesetVal.isString()) {
-            fileset = filesetVal.toString();
-        }
-
-        // Extract priority
-        int priority = jobObj["priority"].toInt(10);
+        const QString client = BWaitLimits::resourceName(directive("client"));
+        const QString storage = BWaitLimits::resourceName(directive("storage"));
+        const QString pool = BWaitLimits::resourceName(directive("pool"));
+        const QString fileset = BWaitLimits::resourceName(directive("fileset"));
+        const QJsonValue priorityValue = directive("priority");
+        int priority = priorityValue.isString() ? priorityValue.toString().toInt()
+                                                : priorityValue.toInt(10);
+        if (priority < 1) priority = 10;
 
         JobRef ref;
         ref.jobName = jobName;

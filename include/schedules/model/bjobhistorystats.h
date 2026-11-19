@@ -14,7 +14,7 @@
  * @file bjobhistorystats.h
  * @brief Measured durations and waits of past job runs, without widgets
  *
- * The schedule views draw bars, find collisions and fill a heat map. For
+ * The schedule views draw bars, predict waits and fill a heat map. For
  * that they need to know how long a job runs and how long it waits before
  * it starts. Both are measured here from the catalog: the reply of
  * "llist jobs days=<n> reverse limit=<m>" is read into runs

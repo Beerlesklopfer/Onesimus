@@ -801,6 +801,16 @@ void BSettings::setSchedulesSnapIndex(int index)
     setValue("Widgets/Schedules/snap_index", index);
 }
 
+bool BSettings::schedulesWaitListShown() const
+{
+    return value("Widgets/Schedules/wait_list_shown", false).toBool();
+}
+
+void BSettings::setSchedulesWaitListShown(bool shown)
+{
+    setValue("Widgets/Schedules/wait_list_shown", shown);
+}
+
 QByteArray BSettings::schedulesSplitterState() const
 {
     return value("Widgets/Schedules/splitter_state").toByteArray();

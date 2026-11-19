@@ -33,9 +33,12 @@
  * - Bar width is the measured median duration of the job at that level
  *   (BJobHistoryStats), with a mark at the 90th percentile. A run without
  *   history is a dashed outline with a question mark: it has no length.
- * - Heatmap at bottom showing utilization per time slot
- * - Collision detection for overlapping jobs on same client/storage; a
- *   collision that depends on a length nobody measured is "uncertain"
+ * - Predicted waiting (setWaits()): a run that is expected to wait for a
+ *   limit of the Director has a hatched lead-in from its scheduled time to
+ *   its predicted start, and its bar begins there. Runs that only run at
+ *   the same time are not marked: that is allowed by the limits.
+ * - Heatmap at bottom showing how many runs are running per time slot, in
+ *   one neutral colour, with a strip where runs are waiting
  * - Zoom control (15min to 1h blocks)
  * - Now-marker (red vertical line at current time)
  * - Tooltips with job details
@@ -68,8 +71,8 @@ public:
     void setEntries(const QList<BScheduleEntry> &entries);
 
     /**
-     * @brief Sets the measured job history the bars, the collisions and the
-     *        heat map take their durations from
+     * @brief Sets the measured job history the bars and the heat map take
+     *        their durations from
      * @param stats The statistics; empty if there is no history
      * @param note  Why there is no history at all (not loaded yet, refused
      *              by the Director), for the tooltips; empty if it was
@@ -114,37 +117,39 @@ public:
     void setZoomLevel(int pixelsPerHour);
     int zoomLevel() const { return m_pixelsPerHour; }
 
-    /**
-     * @brief Returns all detected collisions
-     */
-    struct Collision {
-        enum Type { ClientCollision, StorageCollision };
-        Type type;
-        BScheduleEntry entry1;
-        BScheduleEntry entry2;
-        int index1 = -1;            ///< Index of entry1 in entries()
-        int index2 = -1;            ///< Index of entry2 in entries()
-        /// Every pair of starts that runs at the same time, in the dates
-        /// on display; never empty
-        QList<BRunOverlap> overlaps;
-        /**
-         * Whether the two run at the same time depends on a length that
-         * was not measured at this level: one of them has no history and
-         * starts first on the same date, or one has only an estimate from
-         * other levels. A certain collision is computed from measured
-         * lengths only (a run without history that starts while a measured
-         * one is running collides for certain).
-         */
-        bool uncertain = false;
-        QString description;
+    /** What is predicted for one start of an entry (BScheduleWaitModel). */
+    struct RunWait {
+        qint64 waitSecs = 0;    ///< Predicted start minus scheduled time
+        bool certain = true;    ///< false: depends on something that is not known
+        /// The reason in plain words, a statement per entry: the limit and
+        /// its value or the priority rule, and the runs it waits for
+        QStringList lines;
     };
-    QList<Collision> collisions() const { return m_collisions; }
+
+    /**
+     * @brief Sets the predicted waits of the starts on display
+     * @param waits By waitKey(); a start that is not in it does not wait
+     *              and is certain
+     *
+     * The widget does not predict anything itself: it draws what it is
+     * given. Has to be set again after setEntries().
+     */
+    void setWaits(const QHash<QString, RunWait> &waits);
+
+    /// Names one entry among those of a view: schedule, Run line, hour, job
+    static QString entryKey(const BScheduleEntry &entry);
+    /// Names one start of an entry
+    static QString waitKey(const BScheduleEntry &entry, const QDateTime &when);
+    static QString waitKey(const QString &entryKey, const QDateTime &when);
 
     /**
      * @brief Dependency edge between two schedule entries
      * Used during drag to show affected jobs
      */
     struct DependencyEdge {
+        /// ClientExclusion and StorageContention say that two entries share
+        /// a client or a storage; whether one waits for the other depends
+        /// on the limits and is not decided here
         enum Type { LevelChain, ClientExclusion, StorageContention };
         Type type;
         int sourceEntryIndex;
@@ -172,9 +177,6 @@ public:
 signals:
     void entryClicked(const BScheduleEntry &entry);
     void entryDoubleClicked(const BScheduleEntry &entry);
-    /// @param certain   Collisions computed from measured durations
-    /// @param uncertain Possible collisions that depend on an unknown length
-    void collisionsDetected(int certain, int uncertain);
     void dragStarted(const BScheduleEntry &entry);
     void dragCompleted(int entryIndex, int newHour, int newMinute,
                        const QList<BScheduleGanttWidget::DependencyEdge> &dependencies);
@@ -196,7 +198,7 @@ private:
     static const int HEADER_ROW1_HEIGHT = 18;  // Weekday row
     static const int HEADER_ROW2_HEIGHT = 18;  // Hours row
     static const int HEADER_HEIGHT = HEADER_ROW1_HEIGHT + HEADER_ROW2_HEIGHT;
-    static const int LABEL_WIDTH = 180;
+    static const int LABEL_WIDTH = 230;     // "job · level"; longer labels are elided
     static const int HEATMAP_HEIGHT = 24;
     static const int GROUP_HEADER_HEIGHT = 22;
     static const int HEATMAP_SLOT_MINUTES = 15;
@@ -210,7 +212,6 @@ private:
     void drawRows(QPainter &painter);
     void drawJobBar(QPainter &painter, int entryIndex, int row, int dayOffset);
     void drawHeatmap(QPainter &painter);
-    void drawCollisionMarkers(QPainter &painter);
 
     // --- Layout calculation ---
     struct RowInfo {
@@ -219,12 +220,25 @@ private:
         int entryIndex;  // -1 for group headers
     };
     void rebuildRows();
+    /// "job · level"; the schedule name stands in for a missing job
+    static QString rowLabel(const BScheduleEntry &entry);
     int totalHours() const;
     int timeToX(int hour, int minute) const;
     int xToHour(int x) const;
     int xToMinute(int x) const;
     int rowAtY(int y) const;
+    /// The bar at the scheduled time, as if the run did not wait
     QRect barRect(const BScheduleEntry &entry, int row, int dayOffset) const;
+    /// The bar where it is drawn: at the predicted start
+    QRect runRect(const BScheduleEntry &entry, int row, int dayOffset) const;
+    /// The lead-in from the scheduled time to the predicted start; empty
+    /// if the run does not wait
+    QRect waitRect(const BScheduleEntry &entry, int row, int dayOffset) const;
+    /// What is predicted for the start of the entry on that day; nullptr
+    /// if nothing was set for it
+    const RunWait *waitFor(const BScheduleEntry &entry, int dayOffset) const;
+    /// The start of the entry on that day; invalid if it has none
+    QDateTime occurrenceOn(const BScheduleEntry &entry, int dayOffset) const;
     int contentHeight() const;
     int contentWidth() const;
     void updateMinimumSize();
@@ -232,9 +246,6 @@ private:
     // --- Heatmap calculation ---
     void recalcHeatmap();
     int heatmapSlotCount() const;
-
-    // --- Collision detection ---
-    void detectCollisions();
 
     // --- Dates and durations ---
     /// The days on display on which the entry starts, 0 = firstDate()
@@ -294,9 +305,10 @@ private:
     // --- Heatmap ---
     QVector<int> m_heatmapSlots;  // concurrent job count per slot
     QVector<int> m_heatmapUnknown; // runs without history that start in the slot
+    QVector<int> m_heatmapWaiting; // runs that are predicted to wait in the slot
 
-    // --- Collisions ---
-    QList<Collision> m_collisions;
+    // --- Predicted waits ---
+    QHash<QString, RunWait> m_waits;    ///< By waitKey()
 
     // --- Hover state ---
     int m_hoverEntryIndex = -1;

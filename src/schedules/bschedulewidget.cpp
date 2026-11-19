@@ -43,7 +43,7 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_todayButton(new QToolButton(this))
     , m_dayLabel(new QLabel(this))
     , m_snapCombo(new QComboBox(this))
-    , m_collisionLabel(new QLabel(this))
+    , m_waitButton(new QPushButton(this))
     , m_runProblemLabel(new QLabel(this))
     , m_jobScheduleIndex(new BJobScheduleIndex(this))
     , m_director(nullptr)
@@ -148,10 +148,16 @@ void BScheduleWidget::setupUI()
 
     toolbarLayout->addStretch();
 
-    // Collision indicator
-    m_collisionLabel->setVisible(false);
-    m_collisionLabel->setStyleSheet("color: red; font-weight: bold;");
-    toolbarLayout->addWidget(m_collisionLabel);
+    // Predicted waits of the dates on display: the counter, and the way
+    // to their list (a button, so that the keyboard reaches it)
+    m_waitButton->setCheckable(true);
+    connect(m_waitButton, &QPushButton::toggled, this, [this](bool on) {
+        m_waitPanel->setVisible(on && m_viewStack->currentIndex() == 0);
+        BSettings::instance().setSchedulesWaitListShown(on);
+        if (on && m_waitButton->hasFocus())
+            m_waitTable->setFocus();
+    });
+    toolbarLayout->addWidget(m_waitButton);
 
     // Run lines that were not understood: named here, shown nowhere else
     m_runProblemLabel->setVisible(false);
@@ -268,6 +274,10 @@ void BScheduleWidget::setupUI()
 
     rightLayout->addWidget(m_viewStack, 1);
 
+    // Predicted waits (below the timeline, opened by the counter)
+    setupWaitPanel();
+    rightLayout->addWidget(m_waitPanel);
+
     // Stats panel (below Gantt)
     setupStatsPanel();
     rightLayout->addWidget(m_statsPanel);
@@ -310,16 +320,12 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onZoomSliderChanged);
 
     // FD Gantt widget signals
-    connect(m_fdGanttWidget, &BScheduleGanttWidget::collisionsDetected,
-            this, &BScheduleWidget::onCollisionsDetected);
     connect(m_fdGanttWidget, &BScheduleGanttWidget::entryClicked,
             this, &BScheduleWidget::onEntryClicked);
     connect(m_fdGanttWidget, &BScheduleGanttWidget::dragCompleted,
             this, &BScheduleWidget::onFdDragCompleted);
 
     // SD Gantt widget signals
-    connect(m_sdGanttWidget, &BScheduleGanttWidget::collisionsDetected,
-            this, &BScheduleWidget::onCollisionsDetected);
     connect(m_sdGanttWidget, &BScheduleGanttWidget::entryClicked,
             this, &BScheduleWidget::onEntryClicked);
     connect(m_sdGanttWidget, &BScheduleGanttWidget::dragCompleted,
@@ -403,8 +409,9 @@ void BScheduleWidget::clearData()
     m_sdGanttWidget->setEntries({});
     m_scheduleModel->clear();
     resetHistory();     // the history belongs to the connection
-    m_haveCollisions = false;
-    m_collisionLabel->setVisible(false);
+    m_limits = BWaitLimits();   // and so do the limits
+    m_directorLimitAsked = false;
+    updateWaitPrediction();
     m_runProblemLabel->setVisible(false);
 }
 
@@ -593,6 +600,36 @@ void BScheduleWidget::onRefreshClicked()
     emit statusMessageChanged(tr("Refreshing schedule list..."));
     emit sendCommand(BDirector::Command::DotSchedule, "");
     emit sendCommand(BDirector::Command::ShowSchedules, "");
+
+    // The limits the predicted waits need and nothing else asks for:
+    // Maximum Concurrent Jobs of the storages and of the Director. Both
+    // commands only read. Without a reply the limits stay unknown.
+    emit sendCommand(BDirector::Command::ShowStorages, "");
+    m_directorLimitAsked = true;
+    emit sendCommand(BDirector::Command::Show, QStringLiteral("directors"));
+}
+
+void BScheduleWidget::processShowStoragesResponse(const QString &jsonData)
+{
+    m_limits.readStorages(jsonData);
+    updateWaitPrediction();
+}
+
+void BScheduleWidget::processShowDirectorResponse(const QString &jsonData)
+{
+    // "show <something>" is one command for every kind of resource: only
+    // the reply this widget asked for may say that the limit is not known
+    if (!m_directorLimitAsked && !jsonData.contains(QLatin1String("\"directors\"")))
+        return;
+    m_directorLimitAsked = false;
+    m_limits.readDirector(jsonData);
+    updateWaitPrediction();
+}
+
+void BScheduleWidget::processShowClientsResponse(const QString &jsonData)
+{
+    m_limits.readClients(jsonData);
+    updateWaitPrediction();
 }
 
 void BScheduleWidget::onScheduleSelectionChanged()
@@ -702,8 +739,9 @@ void BScheduleWidget::onViewModeChanged(int index)
     m_dayLabel->setVisible(isGantt);
     m_nextDayButton->setVisible(isGantt);
     m_todayButton->setVisible(isGantt);
-    // The collisions are those of the timeline
-    m_collisionLabel->setVisible(isGantt && m_haveCollisions);
+    // The predicted waits are those of the dates of the timeline
+    m_waitButton->setVisible(isGantt);
+    m_waitPanel->setVisible(isGantt && m_waitButton->isChecked());
 
     // The figures of a run clicked in the timeline would take the room of
     // the grid
@@ -804,33 +842,6 @@ void BScheduleWidget::updateDateLabel()
             .arg(dayAbbrev.value(m_currentDate.dayOfWeek() - 1),  // Qt: 1=Mon
                  m_currentDate.toString(Qt::ISODate)));
     }
-}
-
-void BScheduleWidget::onCollisionsDetected(int certain, int uncertain)
-{
-    m_haveCollisions = certain > 0 || uncertain > 0;
-    if (!m_haveCollisions) {
-        m_collisionLabel->setVisible(false);
-        return;
-    }
-
-    QStringList parts;
-    if (certain > 0) {
-        parts << tr("%1 collision(s)").arg(certain);
-    }
-    if (uncertain > 0) {
-        parts << tr("%1 uncertain").arg(uncertain);
-    }
-    m_collisionLabel->setText(parts.join(", "));
-    m_collisionLabel->setToolTip(uncertain > 0
-        ? tr("Uncertain: whether the two runs overlap depends on a duration that was "
-             "not measured (no history, or an estimate from other levels).")
-        : QString());
-    // Red is for what was computed from measured durations
-    m_collisionLabel->setStyleSheet(certain > 0 ? "color: red; font-weight: bold;"
-                                                : "color: #b26a00; font-weight: bold;");
-    // Only beside the timeline: the other views do not show these runs
-    m_collisionLabel->setVisible(m_viewStack->currentIndex() == 0);
 }
 
 void BScheduleWidget::setupStatsPanel()
@@ -1156,6 +1167,9 @@ void BScheduleWidget::updateGanttEntries()
     // Both widgets receive the identical list
     m_fdGanttWidget->setEntries(entries);
     m_sdGanttWidget->setEntries(entries);
+
+    // What waits among them
+    updateWaitPrediction();
 
     // Something is on display that wants durations
     scheduleHistoryRequest();
@@ -1494,6 +1508,19 @@ void BScheduleWidget::processJobHistoryReply(const QString &args, const QString 
 void BScheduleWidget::onCommandFailed(BDirector::Command cmd, const QString &args,
                                       const QString &errorMsg)
 {
+    // The limits of the predicted waits: without a reply they are not known
+    if (cmd == BDirector::Command::ShowStorages) {
+        m_limits.storages.clear();
+        updateWaitPrediction();
+        return;
+    }
+    if (cmd == BDirector::Command::Show && args == QLatin1String("directors")) {
+        m_directorLimitAsked = false;
+        m_limits.director.reset();
+        updateWaitPrediction();
+        return;
+    }
+
     if (cmd != BDirector::Command::LlistJobs) return;
     if (m_historyState != HistoryLoading || args != m_historyArgs) return;
 
@@ -1609,6 +1636,7 @@ void BScheduleWidget::updateHistoryViews()
     const QString note = historyNote();
     m_fdGanttWidget->setHistoryStats(m_historyStats, note);
     m_sdGanttWidget->setHistoryStats(m_historyStats, note);
+    updateWaitPrediction();     // other durations, other waits
     updateJobList();
     updateWaitsTable();
     updateHistoryInfo();
@@ -1721,4 +1749,352 @@ void BScheduleWidget::updateWaitsTable()
 
     m_waitsTable->setSortingEnabled(true);
     m_waitsTable->resizeColumnsToContents();
+}
+
+// ============================================================================
+// Predicted waits of the dates on display
+// ============================================================================
+
+namespace {
+
+enum WaitColumn {
+    WaitJob = 0, WaitLevel, WaitScheduled, WaitStart, WaitDuration, WaitCertain,
+    WaitReason, WaitColumnCount
+};
+
+} // namespace
+
+void BScheduleWidget::setupWaitPanel()
+{
+    m_waitPanel = new QGroupBox(tr("Predicted waits"), this);
+    m_waitPanel->setVisible(false);
+
+    QVBoxLayout *layout = new QVBoxLayout(m_waitPanel);
+    layout->setContentsMargins(8, 8, 8, 8);
+    layout->setSpacing(4);
+
+    // What the prediction is based on, and what it does not know
+    m_waitInfoLabel = new QLabel(m_waitPanel);
+    m_waitInfoLabel->setWordWrap(true);
+    m_waitInfoLabel->setTextFormat(Qt::PlainText);
+    m_waitInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(m_waitInfoLabel);
+
+    m_waitTable = new QTableWidget(0, WaitColumnCount, m_waitPanel);
+    m_waitTable->setHorizontalHeaderLabels({
+        tr("Job"), tr("Level"), tr("Scheduled"), tr("Predicted start"),
+        tr("Wait"), tr("Certain"), tr("Reason")});
+    m_waitTable->horizontalHeaderItem(WaitDuration)->setToolTip(
+        tr("Predicted start minus scheduled time, hours:minutes"));
+    m_waitTable->horizontalHeaderItem(WaitCertain)->setToolTip(
+        tr("No: the prediction depends on a limit the Director did not report or on a "
+           "duration that was not measured"));
+    m_waitTable->setAccessibleName(tr("Predicted waits of the dates on display"));
+    m_waitTable->setAccessibleDescription(
+        tr("One row per run that is predicted to wait or whose prediction is uncertain. "
+           "The reason of the current row is below the table."));
+    m_waitTable->setAlternatingRowColors(true);
+    m_waitTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_waitTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_waitTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_waitTable->setTabKeyNavigation(false);    // Tab leaves the table
+    m_waitTable->verticalHeader()->setVisible(false);
+    m_waitTable->horizontalHeader()->setStretchLastSection(true);
+    m_waitTable->setSortingEnabled(true);
+    m_waitTable->sortByColumn(WaitDuration, Qt::DescendingOrder);   // longest waits first
+    m_waitTable->setMinimumHeight(90);
+    m_waitTable->setMaximumHeight(190);
+    layout->addWidget(m_waitTable);
+
+    // The reason of the current row in full: the limit with its value or
+    // the priority rule, and the runs it waits for
+    m_waitDetails = new QLabel(m_waitPanel);
+    m_waitDetails->setWordWrap(true);
+    m_waitDetails->setTextFormat(Qt::PlainText);
+    m_waitDetails->setTextInteractionFlags(Qt::TextSelectableByMouse
+                                           | Qt::TextSelectableByKeyboard);
+    m_waitDetails->setAccessibleName(tr("Reason of the selected wait"));
+    layout->addWidget(m_waitDetails);
+
+    connect(m_waitTable, &QTableWidget::itemSelectionChanged,
+            this, &BScheduleWidget::onWaitRowChanged);
+
+    m_waitButton->setChecked(BSettings::instance().schedulesWaitListShown());
+}
+
+void BScheduleWidget::updateWaitPrediction()
+{
+    m_waitRuns.clear();
+    m_waitResults.clear();
+    m_waitShown.clear();
+    QHash<QString, BScheduleGanttWidget::RunWait> waits;
+
+    const QDate first = m_fdGanttWidget->firstDate();
+    const QDateTime from = first.startOfDay();
+    const QDateTime to = first.addDays(m_fdGanttWidget->dayCount()).startOfDay();
+
+    if (m_jobConfigModel && m_jobScheduleIndex->isValid()) {
+        const QMap<QString, QJsonObject> &jobs = m_jobConfigModel->jobConfigsRaw();
+        const QMap<QString, QJsonObject> &jobDefs = m_jobConfigModel->jobDefsConfigsRaw();
+        m_limits.readJobs(jobs, jobDefs);
+
+        // The Director's queue holds the runs of every schedule, checked in
+        // the list or not. A schedule that is disabled starts nothing.
+        QList<BSchedule> enabled;
+        for (const BSchedule &schedule : m_scheduleModel->schedules()) {
+            if (schedule.enabled) enabled.append(schedule);
+        }
+
+        // With the day before: its runs may still be running or waiting
+        const QList<BScheduleEntry> entries =
+            m_jobScheduleIndex->entriesFor(enabled, from.addDays(-1), to);
+
+        for (const BScheduleEntry &entry : entries) {
+            if (entry.jobName.isEmpty()) continue;
+
+            auto directive = [&](const char *key, bool *known) {
+                return BWaitLimits::jobDirective(jobs, jobDefs, entry.jobName,
+                                                 QLatin1String(key), known);
+            };
+
+            // A job that is disabled is not started by the scheduler
+            bool known = false;
+            if (BWaitLimits::boolValue(directive("enabled", &known)) == std::optional<bool>(false))
+                continue;
+
+            BWaitRun run;
+            run.id = BScheduleGanttWidget::entryKey(entry);
+            run.job = entry.jobName;
+            run.client = entry.client;
+            run.storage = entry.storage;
+            run.level = historyLevel(entry);
+            run.priority = entry.priority;
+
+            // Not printed and no JobDefs left to look in: the default, "no"
+            const QJsonValue mixed = directive("allowmixedpriority", &known);
+            if (known)
+                run.allowMixedPriority = mixed.isUndefined() ? std::optional<bool>(false)
+                                                             : BWaitLimits::boolValue(mixed);
+
+            // Bareos jobq.cc AcquireResources(): these types take no place
+            // at a client or a storage. (The jobs they start to do the
+            // copying do use the storage; those are not scheduled runs.)
+            const QString type = directive("type", &known).toString().toLower();
+            if (type == QLatin1String("copy") || type == QLatin1String("migrate")
+                || type == QLatin1String("consolidate")) {
+                run.usesClient = false;
+                run.usesStorage = false;
+            }
+            // An Admin job that names no storage has none. For every other
+            // job an empty storage means "not known" (it may come from the
+            // Pool): the model then treats the storage limit as unknown.
+            if (type == QLatin1String("admin") && run.storage.isEmpty())
+                run.usesStorage = false;
+
+            const BJobHistoryStats::Estimate estimate =
+                m_historyStats.estimate(entry.jobName, run.level);
+            if (estimate.hasHistory()) {
+                run.durationBasis = estimate.isMeasured() ? BWaitRun::Duration::Measured
+                                                          : BWaitRun::Duration::Estimated;
+                run.durationSecs = qMax<qint64>(1, estimate.duration.median);
+            }
+
+            for (const QDateTime &when : entry.occurrences) {
+                run.scheduled = when;
+                m_waitRuns.append(run);
+            }
+        }
+
+        m_waitResults = BScheduleWaitModel::predict(m_waitRuns, m_limits);
+    }
+
+    // What the timelines show of it: the entries on display, on their dates
+    QSet<QString> shownEntries;
+    for (const BScheduleEntry &entry : m_fdGanttWidget->entries()) {
+        shownEntries.insert(BScheduleGanttWidget::entryKey(entry));
+    }
+    for (int i = 0; i < m_waitRuns.size() && i < m_waitResults.size(); ++i) {
+        const BWaitRun &run = m_waitRuns[i];
+        if (run.scheduled < from || !shownEntries.contains(run.id)) continue;
+        m_waitShown.append(i);
+
+        BScheduleGanttWidget::RunWait wait;
+        wait.waitSecs = m_waitResults[i].waitSecs;
+        wait.certain = m_waitResults[i].certain;
+        wait.lines = BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults);
+        waits.insert(BScheduleGanttWidget::waitKey(run.id, run.scheduled), wait);
+    }
+
+    m_fdGanttWidget->setWaits(waits);
+    m_sdGanttWidget->setWaits(waits);
+    updateWaitViews();
+}
+
+void BScheduleWidget::updateWaitViews()
+{
+    const bool predicted = m_jobConfigModel && m_jobScheduleIndex->isValid();
+    const BWaitSummary sum = BScheduleWaitModel::summary(m_waitResults, m_waitShown);
+
+    // --- The counter ---
+    const QString text = predicted ? BScheduleWaitModel::summaryText(sum)
+                                   : tr("Waiting not predicted");
+    m_waitButton->setText(text);
+    m_waitButton->setAccessibleName(tr("Predicted waits: %1").arg(text));
+    QStringList tip;
+    if (!predicted) {
+        tip << tr("The jobs of the Director are not loaded: it is not known which job runs "
+                  "which schedule.");
+    } else {
+        tip << tr("Predicted for the dates on display from the limits of the Director "
+                  "(Maximum Concurrent Jobs, priorities) and the measured durations.");
+        if (sum.uncertain > 0) {
+            tip << tr("Uncertain: the prediction depends on a limit the Director did not "
+                      "report or on a duration that was not measured.");
+        }
+    }
+    tip << tr("Shows or hides the list of predicted waits.");
+    m_waitButton->setToolTip(tip.join(QLatin1Char('\n')));
+    // Beside the timeline only: the other views do not show these runs
+    const bool isTimeline = m_viewStack->currentIndex() == 0;
+    m_waitButton->setVisible(isTimeline);
+    m_waitPanel->setVisible(isTimeline && m_waitButton->isChecked());
+    // A wait is a finding; runs that only run at the same time are not
+    QFont font = m_waitButton->font();
+    font.setBold(sum.waiting > 0);
+    m_waitButton->setFont(font);
+
+    // --- What the prediction used ---
+    QStringList info;
+    if (!predicted) {
+        info << tr("Not predicted: the jobs of the Director are not loaded.");
+    } else {
+        info << tr("%1 run(s) on display, replayed with the %2 run(s) of all enabled schedules "
+                   "from the day before on.").arg(m_waitShown.size()).arg(m_waitRuns.size());
+
+        // The limits that apply to the runs on display
+        QStringList storages, clients, unknown;
+        QSet<QString> seenStorages, seenClients, seenJobs;
+        for (int i : std::as_const(m_waitShown)) {
+            const BWaitRun &run = m_waitRuns[i];
+            if (run.usesStorage && run.storage.isEmpty()) {
+                const QString text = tr("the storage of job %1 (the job names none)").arg(run.job);
+                if (!unknown.contains(text)) unknown << text;
+            } else if (run.usesStorage && !seenStorages.contains(run.storage)) {
+                seenStorages.insert(run.storage);
+                if (m_limits.storages.contains(run.storage))
+                    storages << QString("%1 = %2").arg(run.storage).arg(m_limits.storages.value(run.storage));
+                else
+                    unknown << tr("storage %1").arg(run.storage);
+            }
+            if (run.usesClient && !run.client.isEmpty() && !seenClients.contains(run.client)) {
+                seenClients.insert(run.client);
+                if (m_limits.clients.contains(run.client))
+                    clients << QString("%1 = %2").arg(run.client).arg(m_limits.clients.value(run.client));
+                else
+                    unknown << tr("client %1").arg(run.client);
+            }
+            if (!seenJobs.contains(run.job)) {
+                seenJobs.insert(run.job);
+                if (!m_limits.jobs.contains(run.job))
+                    unknown << tr("job %1").arg(run.job);
+            }
+        }
+        storages.sort();
+        clients.sort();
+        QStringList limits;
+        if (m_limits.director)
+            limits << tr("Director = %1").arg(*m_limits.director);
+        else
+            unknown.prepend(tr("the Director"));
+        if (!storages.isEmpty())
+            limits << tr("storages: %1").arg(storages.join(QStringLiteral(", ")));
+        if (!clients.isEmpty())
+            limits << tr("clients: %1").arg(clients.join(QStringLiteral(", ")));
+        if (!limits.isEmpty())
+            info << tr("Maximum Concurrent Jobs as reported: %1.").arg(limits.join(QStringLiteral("; ")));
+        if (!unknown.isEmpty()) {
+            info << tr("Maximum Concurrent Jobs not reported by this Director for: %1. "
+                       "Runs it matters for are uncertain.").arg(unknown.join(QStringLiteral(", ")));
+        }
+    }
+    m_waitInfoLabel->setText(info.join(QLatin1Char('\n')));
+
+    // --- The list: runs that wait or may wait ---
+    QList<int> rows;
+    for (int i : std::as_const(m_waitShown)) {
+        if (m_waitResults[i].waits() || !m_waitResults[i].certain) rows.append(i);
+    }
+
+    m_waitTable->setSortingEnabled(false);
+    m_waitTable->clearSpans();
+    m_waitTable->clearContents();
+    m_waitTable->setRowCount(rows.size());
+
+    const QString timeFormat = showsWeek() ? QStringLiteral("ddd yyyy-MM-dd HH:mm")
+                                           : QStringLiteral("HH:mm");
+    for (int row = 0; row < rows.size(); ++row) {
+        const int i = rows[row];
+        const BWaitRun &run = m_waitRuns[i];
+        const BWaitResult &result = m_waitResults[i];
+        const QString details = BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults)
+                                    .join(QLatin1Char('\n'));
+
+        QTableWidgetItem *job = new QTableWidgetItem(run.job);
+        job->setData(Qt::UserRole, i);
+        m_waitTable->setItem(row, WaitJob, job);
+        m_waitTable->setItem(row, WaitLevel, new QTableWidgetItem(
+            run.level.isEmpty() ? tr("(none)") : run.level));
+        m_waitTable->setItem(row, WaitScheduled, new BSortTableItem(
+            run.scheduled.toString(timeFormat), run.scheduled.toSecsSinceEpoch()));
+        // A start on another day than the scheduled one says so
+        const QString startFormat = result.start.date() == run.scheduled.date()
+            ? timeFormat : QStringLiteral("ddd yyyy-MM-dd HH:mm");
+        m_waitTable->setItem(row, WaitStart, new BSortTableItem(
+            result.start.toString(startFormat), result.start.toSecsSinceEpoch()));
+        m_waitTable->setItem(row, WaitDuration, new BSortTableItem(
+            result.waits() ? BScheduleWaitModel::formatWait(result.waitSecs) : tr("none"),
+            result.waitSecs));
+        m_waitTable->setItem(row, WaitCertain, new QTableWidgetItem(
+            result.certain ? tr("yes") : tr("no")));
+        m_waitTable->setItem(row, WaitReason, new QTableWidgetItem(
+            BScheduleWaitModel::reasonLine(run, result)));
+
+        for (int column = 0; column < WaitColumnCount; ++column) {
+            m_waitTable->item(row, column)->setToolTip(details);
+        }
+    }
+
+    if (rows.isEmpty()) {
+        m_waitTable->setRowCount(1);
+        QTableWidgetItem *none = new QTableWidgetItem(
+            predicted ? tr("No run on display is predicted to wait.")
+                      : tr("Not predicted."));
+        none->setFlags(Qt::ItemIsEnabled);
+        m_waitTable->setItem(0, 0, none);
+        m_waitTable->setSpan(0, 0, 1, WaitColumnCount);
+    }
+
+    m_waitTable->setSortingEnabled(true);
+    m_waitTable->resizeColumnsToContents();
+    onWaitRowChanged();
+}
+
+void BScheduleWidget::onWaitRowChanged()
+{
+    const QTableWidgetItem *current = m_waitTable->item(m_waitTable->currentRow(), WaitJob);
+    const QVariant index = current ? current->data(Qt::UserRole) : QVariant();
+    if (!index.isValid() || index.toInt() < 0 || index.toInt() >= m_waitRuns.size()) {
+        // Rows to choose from, or only the line that says there are none
+        const bool hasRows = m_waitTable->rowCount() > 0 && m_waitTable->columnSpan(0, 0) == 1;
+        m_waitDetails->setText(hasRows ? tr("Select a row to read its reason in full.")
+                                       : QString());
+        return;
+    }
+
+    const int i = index.toInt();
+    const BWaitRun &run = m_waitRuns[i];
+    QStringList lines;
+    lines << tr("%1, scheduled %2:").arg(run.job, run.scheduled.toString("ddd yyyy-MM-dd HH:mm"));
+    lines << BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults);
+    m_waitDetails->setText(lines.join(QLatin1Char('\n')));
 }

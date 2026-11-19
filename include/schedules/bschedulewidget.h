@@ -22,6 +22,7 @@
 #include "schedules/bjobscheduleindex.h"
 #include "models/bresourcemodels.h"
 #include "schedules/model/bjobhistorystats.h"
+#include "schedules/model/bschedulewaitmodel.h"
 
 /**
  * @brief Widget for displaying and managing backup schedules
@@ -39,9 +40,22 @@
  * shows the schedule of the current row of the list, one at a time,
  * because that is the resource a later step writes. Without a current row
  * it takes the first schedule. The controls of the toolbar that belong to
- * the timeline (day or week, date navigation, snap, zoom, the collision
- * counter) are hidden while the grid is shown; its calendar of five weeks
- * has its own navigation.
+ * the timeline (day or week, date navigation, snap, zoom, the counter of
+ * predicted waits) are hidden while the grid is shown; its calendar of five
+ * weeks has its own navigation.
+ *
+ * Predicted waits. A run waits only when a limit of the Director is
+ * exceeded. For the dates on display the queue of the Director is replayed
+ * (BScheduleWaitModel) with the runs of all enabled schedules and jobs, not
+ * only of the checked ones, and with the runs of the day before, which may
+ * still be running. The timeline draws the wait of each run, the counter in
+ * the toolbar sums up the runs on display and opens the list of them below
+ * the timeline. The limits come from the Director: Maximum Concurrent Jobs
+ * of the jobs from "show jobs" and "show jobdefs", of the clients from
+ * "show clients", of the storages from "show storages" and of the Director
+ * from "show directors" (the last two are asked for with every refresh of
+ * the schedules; nothing is written). A limit the Director did not report
+ * is not replaced by a default: the runs it matters for are "uncertain".
  *
  * The grid can be edited. Its changes are kept in the view and not written
  * to the Director yet. A refresh or a choice in the list never replaces
@@ -81,6 +95,10 @@ public slots:
     void processDotScheduleResponse(const QString &jsonData);
     void processShowSchedulesResponse(const QString &jsonData);
     void processShowJobsResponse(const QString &jsonData);
+    /// Replies the limits of the wait prediction are read from
+    void processShowStoragesResponse(const QString &jsonData);
+    void processShowDirectorResponse(const QString &jsonData);
+    void processShowClientsResponse(const QString &jsonData);
     void setConnectionState(bool connected);
 
     /**
@@ -93,7 +111,7 @@ public slots:
     void processJobHistoryReply(const QString &args, const QString &reply);
 
     /// A command got no reply (BDirector::commandFailed); only the job
-    /// history request of this widget is looked at
+    /// history request and the limit requests of this widget are looked at
     void onCommandFailed(BDirector::Command cmd, const QString &args, const QString &errorMsg);
 
 signals:
@@ -110,7 +128,7 @@ private slots:
     void onDayNavigationPrev();
     void onDayNavigationNext();
     void onDayNavigationToday();
-    void onCollisionsDetected(int certain, int uncertain);
+    void onWaitRowChanged();
     void onHistoryRefreshClicked();
     void onEntryClicked(const BScheduleEntry &entry);
     void onFdDragCompleted(int entryIndex, int newHour, int newMinute,
@@ -161,6 +179,16 @@ private:
     /// The level a run of this entry has: the Run line's, else the job's own
     QString historyLevel(const BScheduleEntry &entry) const;
     void setupStatsPanel();
+    void setupWaitPanel();
+    /**
+     * @brief Replays the Director's queue for the dates on display and
+     *        hands the result to the timelines, the counter and the list
+     *
+     * Called whenever the entries on display, the job history, the jobs or
+     * a limit have changed.
+     */
+    void updateWaitPrediction();
+    void updateWaitViews();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
     void setCurrentDate(const QDate &date);
@@ -198,6 +226,13 @@ private:
     bool m_connected = false;
     BJobConfigModel *m_jobConfigModel = nullptr;  // not owned
 
+    // --- Predicted waits ---
+    BWaitLimits m_limits;               ///< What the Director reported; reset with the connection
+    bool m_directorLimitAsked = false;  ///< "show directors" is in flight
+    QList<BWaitRun> m_waitRuns;         ///< What was replayed, with the day before
+    QList<BWaitResult> m_waitResults;   ///< One per run
+    QList<int> m_waitShown;             ///< Runs of the entries and dates on display
+
     // --- UI ---
     QSplitter *m_splitter;
     QSplitter *m_leftSplitter;            // Vertical: schedules top, jobs bottom
@@ -233,9 +268,14 @@ private:
     QComboBox *m_snapCombo;            // 15 min / 30 min / 1 hour
     QLabel *m_zoomLabel;
     QSlider *m_zoomSlider;             // Zoom in week mode (px/hour)
-    QLabel *m_collisionLabel;
-    bool m_haveCollisions = false;    ///< The timeline reported some; shown only beside it
+    QPushButton *m_waitButton;     ///< Counter of predicted waits; opens their list
     QLabel *m_runProblemLabel;     ///< Run lines that were not understood
+
+    // Predicted waits of the dates on display (below the timeline)
+    QGroupBox *m_waitPanel = nullptr;
+    QLabel *m_waitInfoLabel = nullptr;    ///< The limits the prediction used, and what is not known
+    QTableWidget *m_waitTable = nullptr;
+    QLabel *m_waitDetails = nullptr;      ///< The reason of the current row in full
 
     // Stats panel
     QGroupBox *m_statsPanel;

@@ -224,6 +224,8 @@ public:
     void parseShowJobDefs(const QString &jsonResponse);
     QList<BConfigResource> jobDefsResources() const;
     QStringList jobDefsNames() const;
+    /// The JobDefs as the Director reported them ("show jobdefs"), by name
+    const QMap<QString, QJsonObject>& jobDefsConfigsRaw() const { return m_jobDefsConfigs; }
 
     /**
      * @brief Names of the Messages resources the loaded Jobs and JobDefs refer to

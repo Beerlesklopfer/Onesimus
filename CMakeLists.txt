@@ -489,6 +489,7 @@ set(SOURCES
     src/schedules/model/brunwriter.cpp
     src/schedules/model/bscheduleoccurrences.cpp
     src/schedules/model/bjobhistorystats.cpp
+    src/schedules/model/bschedulewaitmodel.cpp
     src/schedules/model/bschedulegridmodel.cpp
     src/schedules/model/bschedulegridtext.cpp
     src/jobs/bpaginationwidget.cpp
@@ -607,6 +608,7 @@ set(HEADERS
     include/schedules/model/brunspec.h
     include/schedules/model/bscheduleoccurrences.h
     include/schedules/model/bjobhistorystats.h
+    include/schedules/model/bschedulewaitmodel.h
     include/schedules/model/bschedulegridmodel.h
     include/schedules/model/bschedulegridtext.h
 
@@ -1464,13 +1466,14 @@ if(BUILD_TESTING)
 
     # bscheduleoccurrences_test - when the Run lines of a schedule trigger on
     # concrete dates (weeks of the month and of the year, daylight saving),
-    # collisions on concrete dates, and the entries the schedule views get
+    # overlaps on concrete dates, and the entries the schedule views get
     add_executable(bscheduleoccurrences_test
         test/bscheduleoccurrences_test.cpp
         src/schedules/model/bscheduleoccurrences.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
         src/schedules/bjobscheduleindex.cpp
+        src/schedules/model/bschedulewaitmodel.cpp
         src/models/bresourcemodels.cpp
         src/models/bbasemodels.cpp
         src/config/bconfigparser.cpp
@@ -1554,6 +1557,26 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bjobhistorystats_test COMMAND bjobhistorystats_test)
+
+    # bschedulewaitmodel_test - predicted waiting time of scheduled runs: the
+    # replay of the Director's job queue (limits, priority, certainty) and
+    # the limits read from "show" replies (no widgets, no Director)
+    add_executable(bschedulewaitmodel_test
+        test/bschedulewaitmodel_test.cpp
+        src/schedules/model/bschedulewaitmodel.cpp
+        include/schedules/model/bschedulewaitmodel.h
+    )
+
+    target_include_directories(bschedulewaitmodel_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bschedulewaitmodel_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bschedulewaitmodel_test COMMAND bschedulewaitmodel_test)
 
     # bschedulegridmodel_test - the model behind the schedule grid: cells and
     # scopes from Run lines, selection, and the edits back to Run lines
@@ -1739,10 +1762,11 @@ if(BUILD_TESTING)
     message(STATUS "  bcommandlineconnection_test - command line TLS/password option test (registered with CTest)")
     message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
     message(STATUS "  bscheduledragplan_test - schedule drag Run line comparison test (registered with CTest)")
-    message(STATUS "  bscheduleoccurrences_test - schedule run dates and collision test (registered with CTest)")
+    message(STATUS "  bscheduleoccurrences_test - schedule run dates and overlap test (registered with CTest)")
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
+    message(STATUS "  bschedulewaitmodel_test - predicted waiting time of scheduled runs test (registered with CTest)")
     message(STATUS "  bschedulegridmodel_test - schedule grid model test (registered with CTest)")
     message(STATUS "  bschedulegridtext_test - schedule grid texts, calendar and geometry test (registered with CTest)")
     message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")
