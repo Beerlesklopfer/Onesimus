@@ -542,5 +542,12 @@ void BGrpcTransport::finishConfigCall(quint64 id, QGrpcCallReply *reply, BConfig
             result.rpcMessage = tr("The reply of the Director could not be read");
         }
         emit configReply(id, result);
+        // As for commands: an expired session or a gone service ends the
+        // connection, so the GUI stops showing "Connected"
+        if (status.code() == QtGrpc::StatusCode::Unavailable
+            || status.code() == QtGrpc::StatusCode::Unauthenticated) {
+            close();
+            emit connectionLost(result.rpcMessage);
+        }
     });
 }

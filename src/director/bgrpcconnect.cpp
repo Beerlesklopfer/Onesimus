@@ -72,7 +72,18 @@ QString statusCodeName(int code)
 
 QString failureText(int code, const QString &message, int deadlineSeconds)
 {
-    QString reason = message.trimmed();
+    // grpc-message travels percent-encoded ("invalid%20session%20token");
+    // QtGrpc hands it over as it came
+    QString reason = message.contains(QLatin1Char('%'))
+        ? QUrl::fromPercentEncoding(message.toUtf8()).trimmed()
+        : message.trimmed();
+    if (code == 16 && !reason.isEmpty()) {
+        // The Director forgets a session after 8 hours without a request and
+        // on restart; the GUI only learns that with the next call
+        reason = tr("%1 - the Director no longer knows this session (it ends after "
+                    "8 hours without a request or when the Director restarts). "
+                    "Connect again.").arg(reason);
+    }
     if (reason.isEmpty()) {
         switch (code) {
         case 1:

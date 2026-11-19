@@ -102,6 +102,14 @@ private slots:
         QCOMPARE(BGrpcConnect::failureText(7, QStringLiteral("command \"configure\" not allowed"), 15),
                  QStringLiteral("PERMISSION_DENIED: command \"configure\" not allowed"));
 
+        // grpc-message arrives percent-encoded; an expired session is explained
+        const QString expired = BGrpcConnect::failureText(16, QStringLiteral("invalid%20session%20token"), 15);
+        QVERIFY2(expired.startsWith(QStringLiteral("UNAUTHENTICATED: invalid session token - ")),
+                 qPrintable(expired));
+        QVERIFY2(expired.contains(QStringLiteral("8 hours")), qPrintable(expired));
+        QCOMPARE(BGrpcConnect::failureText(13, QStringLiteral("disk%20full"), 15),
+                 QStringLiteral("INTERNAL: disk full"));
+
         // Every code says something
         for (int code = 1; code <= 16; ++code) {
             const QString text = BGrpcConnect::failureText(code, QString(), 15);
