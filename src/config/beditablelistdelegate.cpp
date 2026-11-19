@@ -7,6 +7,7 @@
  */
 
 #include "config/beditablelistdelegate.h"
+#include "buiscale.h"
 #include "config/beditablelistmodel.h"
 #include <QPainter>
 #include <QApplication>
@@ -67,9 +68,20 @@ QString BEditableListDelegate::placeholderText() const
 // Geometry helpers
 // ============================================================================
 
+int BEditableListDelegate::buttonSize() const
+{
+    // Follows the interface font: the buttons hold a character
+    return BUiScale::px(BUTTON_SIZE);
+}
+
+int BEditableListDelegate::buttonMargin() const
+{
+    return BUiScale::px(BUTTON_MARGIN);
+}
+
 int BEditableListDelegate::buttonWidth() const
 {
-    return BUTTON_SIZE + BUTTON_MARGIN * 2;
+    return buttonSize() + buttonMargin() * 2;
 }
 
 QRect BEditableListDelegate::deleteButtonRect(const QStyleOptionViewItem &option) const
@@ -79,8 +91,8 @@ QRect BEditableListDelegate::deleteButtonRect(const QStyleOptionViewItem &option
     }
 
     int x = option.rect.right() - buttonWidth();
-    int y = option.rect.top() + (option.rect.height() - BUTTON_SIZE) / 2;
-    return QRect(x + BUTTON_MARGIN, y, BUTTON_SIZE, BUTTON_SIZE);
+    int y = option.rect.top() + (option.rect.height() - buttonSize()) / 2;
+    return QRect(x + buttonMargin(), y, buttonSize(), buttonSize());
 }
 
 QRect BEditableListDelegate::browseButtonRect(const QStyleOptionViewItem &option) const
@@ -91,8 +103,8 @@ QRect BEditableListDelegate::browseButtonRect(const QStyleOptionViewItem &option
 
     int offset = m_showDeleteButton ? buttonWidth() : 0;
     int x = option.rect.right() - buttonWidth() - offset;
-    int y = option.rect.top() + (option.rect.height() - BUTTON_SIZE) / 2;
-    return QRect(x + BUTTON_MARGIN, y, BUTTON_SIZE, BUTTON_SIZE);
+    int y = option.rect.top() + (option.rect.height() - buttonSize()) / 2;
+    return QRect(x + buttonMargin(), y, buttonSize(), buttonSize());
 }
 
 QRect BEditableListDelegate::textRect(const QStyleOptionViewItem &option) const
@@ -203,7 +215,7 @@ QSize BEditableListDelegate::sizeHint(const QStyleOptionViewItem &option,
     QSize size = QStyledItemDelegate::sizeHint(option, index);
 
     // Ensure minimum height for buttons
-    int minHeight = BUTTON_SIZE + BUTTON_MARGIN * 2 + 4;
+    int minHeight = buttonSize() + buttonMargin() * 2 + 4;
     if (size.height() < minHeight) {
         size.setHeight(minHeight);
     }

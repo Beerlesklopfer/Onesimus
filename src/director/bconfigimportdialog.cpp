@@ -7,6 +7,7 @@
  */
 
 #include "director/bconfigimportdialog.h"
+#include "buiscale.h"
 #include "config/bdirectiveschema.h"
 #include <QApplication>
 #include <QClipboard>
@@ -31,7 +32,7 @@ BConfigImportDialog::BConfigImportDialog(QWidget *parent)
     , m_tempDir(nullptr)
 {
     setWindowTitle(tr("Import Director Configuration"));
-    setMinimumSize(900, 700);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(900), BUiScale::px(700)); });
 
     // Load directive schemas
     BDirectiveSchema::instance().loadSchemas();

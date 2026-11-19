@@ -7,6 +7,7 @@
  */
 
 #include "jobs/bfilesetwizard.h"
+#include "buiscale.h"
 #include "jobs/fileset/bfilesetdocument.h"
 #include "bcapabilitynotice.h"
 #include "blogging.h"
@@ -78,7 +79,7 @@ void BFileSetWizard::init()
 {
     setWindowTitle(m_mode == NewMode ? tr("New FileSet Wizard") : tr("Edit FileSet"));
     setWizardStyle(QWizard::ModernStyle);
-    setMinimumSize(800, 700);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(800), BUiScale::px(700)); });
 
     // Load templates if not already loaded
     if (s_templates.isEmpty()) {
@@ -210,7 +211,7 @@ BFileSetTemplatePage::BFileSetTemplatePage(QWidget *parent)
     includeLayout->addWidget(new QLabel(tr("<b>Include:</b>")));
     QScrollArea *includeScroll = new QScrollArea(this);
     includeScroll->setWidgetResizable(true);
-    includeScroll->setMinimumHeight(100);
+    BUiScale::track(includeScroll, [includeScroll]() { includeScroll->setMinimumHeight(BUiScale::px(100)); });
     m_includePreview = new QLabel(this);
     m_includePreview->setWordWrap(true);
     m_includePreview->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -223,7 +224,7 @@ BFileSetTemplatePage::BFileSetTemplatePage(QWidget *parent)
     excludeLayout->addWidget(new QLabel(tr("<b>Exclude:</b>")));
     QScrollArea *excludeScroll = new QScrollArea(this);
     excludeScroll->setWidgetResizable(true);
-    excludeScroll->setMinimumHeight(100);
+    BUiScale::track(excludeScroll, [excludeScroll]() { excludeScroll->setMinimumHeight(BUiScale::px(100)); });
     m_excludePreview = new QLabel(this);
     m_excludePreview->setWordWrap(true);
     m_excludePreview->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -409,7 +410,7 @@ void BFileSetTemplatePage::onMixTemplates()
     // Create a dialog with checkable list
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Mix Templates"));
-    dialog.setMinimumSize(500, 600);
+    dialog.setMinimumSize(BUiScale::px(500), BUiScale::px(600));
 
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
@@ -629,7 +630,7 @@ void BFileSetSettingsPage::setupUi()
 
     QLabel *selectLabel = new QLabel(tr("Select FileSet:"), this);
     m_filesetCombo = new QComboBox(this);
-    m_filesetCombo->setMinimumWidth(250);
+    BUiScale::track(m_filesetCombo, [this]() { m_filesetCombo->setMinimumWidth(BUiScale::px(250)); });
     m_filesetCombo->setPlaceholderText(tr("Loading FileSets..."));
 
     m_loadingLabel = new QLabel(this);
@@ -1087,8 +1088,8 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     // Configure command text
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    m_commandEdit->setMinimumHeight(160);
-    m_commandEdit->setFont(QFont("Consolas", 9));
+    BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMinimumHeight(BUiScale::px(160)); });
+    BUiScale::bind(m_commandEdit, BUiScale::Small, BUiScale::Monospace);
     m_commandEdit->setLineWrapMode(QTextEdit::WidgetWidth);
     m_commandEdit->setStyleSheet("QTextEdit { background: palette(base); border: 1px solid palette(mid); padding: 2px; }");
     mainLayout->addWidget(m_commandEdit);
@@ -1106,7 +1107,7 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     m_progressBar = new QProgressBar(this);
     m_progressBar->setRange(0, 0);
     m_progressBar->setVisible(false);
-    m_progressBar->setMaximumWidth(100);
+    BUiScale::track(m_progressBar, [this]() { m_progressBar->setMaximumWidth(BUiScale::px(100)); });
     bottomLayout->addWidget(m_progressBar);
 
     bottomLayout->addStretch();

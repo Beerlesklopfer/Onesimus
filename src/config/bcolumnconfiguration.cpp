@@ -1,4 +1,5 @@
 #include "config/bcolumnconfiguration.h"
+#include "buiscale.h"
 #include "blogging.h"
 #include <QApplication>
 
@@ -215,17 +216,17 @@ void BColumnConfiguration::resetToDefault(QHeaderView *header)
     
     // Set reasonable default widths (can be customized)
     if (header->count() >= 11) {  // BJobsModel specific
-        header->resizeSection(0, 40);   // Checkbox
-        header->resizeSection(1, 60);   // Job ID
-        header->resizeSection(2, 150);  // Name
-        header->resizeSection(3, 100);  // Client
-        header->resizeSection(4, 150);  // Start Time
-        header->resizeSection(5, 90);   // Duration
-        header->resizeSection(6, 50);   // Type
-        header->resizeSection(7, 50);   // Level
-        header->resizeSection(8, 80);   // Files
-        header->resizeSection(9, 100);  // Bytes
-        header->resizeSection(10, 120); // Status
+        header->resizeSection(0, BUiScale::px(40));   // Checkbox
+        header->resizeSection(1, BUiScale::px(60));   // Job ID
+        header->resizeSection(2, BUiScale::px(150));  // Name
+        header->resizeSection(3, BUiScale::px(100));  // Client
+        header->resizeSection(4, BUiScale::px(150));  // Start Time
+        header->resizeSection(5, BUiScale::px(90));   // Duration
+        header->resizeSection(6, BUiScale::px(50));   // Type
+        header->resizeSection(7, BUiScale::px(50));   // Level
+        header->resizeSection(8, BUiScale::px(80));   // Files
+        header->resizeSection(9, BUiScale::px(100));  // Bytes
+        header->resizeSection(10, BUiScale::px(120)); // Status
     }
     
     BLOG_DEBUG() << "Reset to default configuration";
@@ -238,7 +239,8 @@ QMap<int, BColumnConfiguration::ColumnConfig> BColumnConfiguration::readConfigur
     for (int logicalIndex = 0; logicalIndex < header->count(); ++logicalIndex) {
         ColumnConfig col;
         col.visualIndex = header->visualIndex(logicalIndex);
-        col.width = header->sectionSize(logicalIndex);
+        // Stored for a 10 pt font, so that it fits any interface zoom later
+        col.width = BUiScale::designPx(header->sectionSize(logicalIndex));
         col.visible = !header->isSectionHidden(logicalIndex);
         
         config[logicalIndex] = col;
@@ -255,7 +257,7 @@ void BColumnConfiguration::applyConfiguration(QHeaderView *header, const QMap<in
         const ColumnConfig &col = it.value();
         
         if (logicalIndex >= 0 && logicalIndex < header->count()) {
-            header->resizeSection(logicalIndex, col.width);
+            header->resizeSection(logicalIndex, BUiScale::px(col.width));
             header->setSectionHidden(logicalIndex, !col.visible);
         }
     }

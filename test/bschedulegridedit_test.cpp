@@ -36,6 +36,7 @@
 #include <QTreeWidget>
 #include <QUndoStack>
 
+#include "buiscale.h"
 #include "schedules/brunruledialog.h"
 #include "schedules/bschedulegridaccessible.h"
 #include "schedules/bschedulegriddialogs.h"
@@ -319,6 +320,9 @@ private slots:
 
 void BScheduleGridEditTest::initTestCase()
 {
+    // Not the font of the machine: the tests measure and compare pictures
+    BUiScale::instance().setBaseFont(QFont(QStringLiteral("DejaVu Sans"), 10));
+
     // The lines the tests rely on are understood as they stand
     for (const QString &run : typicalRuns()) {
         const BRunLine line = BRunParser::parse(run);

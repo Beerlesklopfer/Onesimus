@@ -4,6 +4,7 @@
  */
 
 #include "bconnectionwizard.h"
+#include "buiscale.h"
 #include "blabelstate.h"
 #include "blogging.h"
 #include "bprivatefile.h"
@@ -55,8 +56,8 @@ BConnectionWizard::BConnectionWizard(BConnectionWizardData *wizardData,
 {
     setWindowTitle(tr("Connection Setup"));
     setWizardStyle(QWizard::ModernStyle);
-    setMinimumSize(560, 460);
-    resize(640, 600);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(560), BUiScale::px(460)); });
+    resize(BUiScale::px(640), BUiScale::px(600));
     setWindowIcon(QIcon(":/icons/icons/onesimus.svg"));
 
     // Custom button layout: Connect/Finish on left, Cancel on right
@@ -326,9 +327,7 @@ QAPage::QAPage(const QString &question, QWidget *parent)
 
     m_questionLabel = new QLabel(question, this);
     m_questionLabel->setWordWrap(true);
-    QFont font = m_questionLabel->font();
-    font.setPointSize(font.pointSize() + 2);
-    m_questionLabel->setFont(font);
+    BUiScale::bind(m_questionLabel, BUiScale::Large);
     m_layout->addWidget(m_questionLabel);
 
     m_hintLabel = new QLabel(this);
@@ -356,9 +355,7 @@ WelcomePage::WelcomePage(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     auto *label = new QLabel(this);
     label->setWordWrap(true);
-    QFont font = label->font();
-    font.setPointSize(font.pointSize() + 2);
-    label->setFont(font);
+    BUiScale::bind(label, BUiScale::Large);
     label->setText(tr(
         "Let's set up a connection to your Bareos Director.\n\n"
         "You'll need:\n"
@@ -402,12 +399,12 @@ TemplateSelectionPage::TemplateSelectionPage(QWidget *parent)
 
     m_templateCombo = new QComboBox(this);
     m_templateCombo->setEnabled(false);
-    m_templateCombo->setMinimumWidth(300);
+    BUiScale::track(m_templateCombo, [this]() { m_templateCombo->setMinimumWidth(BUiScale::px(300)); });
     templateLayout->addWidget(m_templateCombo, 1);
 
     m_refreshButton = new QPushButton(tr("Refresh"), this);
     m_refreshButton->setEnabled(false);
-    m_refreshButton->setMaximumWidth(80);
+    BUiScale::track(m_refreshButton, [this]() { m_refreshButton->setMaximumWidth(BUiScale::px(80)); });
     templateLayout->addWidget(m_refreshButton);
 
     m_layout->addLayout(templateLayout);
@@ -433,7 +430,7 @@ TemplateSelectionPage::TemplateSelectionPage(QWidget *parent)
 
     m_browseZipButton = new QPushButton(tr("Browse..."), this);
     m_browseZipButton->setEnabled(false);
-    m_browseZipButton->setMaximumWidth(80);
+    BUiScale::track(m_browseZipButton, [this]() { m_browseZipButton->setMaximumWidth(BUiScale::px(80)); });
     zipLayout->addWidget(m_browseZipButton);
 
     m_layout->addLayout(zipLayout);
@@ -756,8 +753,8 @@ ImportConsoleSelectionPage::ImportConsoleSelectionPage(QWidget *parent)
     // Details area (read-only) showing selected console config
     m_detailsEdit = new QTextEdit(this);
     m_detailsEdit->setReadOnly(true);
-    m_detailsEdit->setMaximumHeight(200);
-    m_detailsEdit->setFont(QFont("monospace", 9));
+    BUiScale::track(m_detailsEdit, [this]() { m_detailsEdit->setMaximumHeight(BUiScale::px(200)); });
+    BUiScale::bind(m_detailsEdit, BUiScale::Small, BUiScale::Monospace);
     m_detailsEdit->setPlaceholderText(tr("Select a console to view its details..."));
     m_layout->addWidget(m_detailsEdit);
 
@@ -1166,8 +1163,11 @@ ServerPage::ServerPage(QWidget *parent)
     m_layout->addLayout(discoveredHeader);
 
     m_discoveredList = new QListWidget(this);
-    m_discoveredList->setMinimumHeight(m_discoveredList->fontMetrics().lineSpacing() * 3 + 8);
-    m_discoveredList->setMaximumHeight(m_discoveredList->fontMetrics().lineSpacing() * 5 + 8);
+    BUiScale::track(m_discoveredList, [this]() {
+        const int line = m_discoveredList->fontMetrics().lineSpacing();
+        m_discoveredList->setMinimumHeight(line * 3 + 8);
+        m_discoveredList->setMaximumHeight(line * 5 + 8);
+    });
     m_discoveredList->setToolTip(tr("Onesimus Directors announce themselves in the local network. "
                                     "Select one to fill in the connection data."));
     m_layout->addWidget(m_discoveredList);
@@ -1200,7 +1200,7 @@ ServerPage::ServerPage(QWidget *parent)
     m_portSpin = new QSpinBox(this);
     m_portSpin->setRange(1, 65535);
     m_portSpin->setValue(9101);
-    m_portSpin->setMaximumWidth(100);
+    BUiScale::track(m_portSpin, [this]() { m_portSpin->setMaximumWidth(BUiScale::px(100)); });
     form->addRow(tr("Port:"), m_portSpin);
 
     m_platformCombo = new QComboBox(this);
@@ -1228,7 +1228,7 @@ ServerPage::ServerPage(QWidget *parent)
     m_grpcPortSpin = new QSpinBox(this);
     m_grpcPortSpin->setRange(1, 65535);
     m_grpcPortSpin->setValue(10101);
-    m_grpcPortSpin->setMaximumWidth(100);
+    BUiScale::track(m_grpcPortSpin, [this]() { m_grpcPortSpin->setMaximumWidth(BUiScale::px(100)); });
     m_grpcPortLabel = new QLabel(tr("gRPC port:"), this);
     form->addRow(m_grpcPortLabel, m_grpcPortSpin);
 
@@ -1241,7 +1241,8 @@ ServerPage::ServerPage(QWidget *parent)
     // Config file path hint
     auto *configLabel = new QLabel(this);
     configLabel->setWordWrap(true);
-    configLabel->setStyleSheet("color: #666; font-size: 11px;");
+    configLabel->setStyleSheet("color: #666;");
+    BUiScale::bind(configLabel, BUiScale::Tiny);
     configLabel->setText(tr("Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"));
     m_layout->addWidget(configLabel);
 
@@ -1434,7 +1435,7 @@ CredentialsPage::CredentialsPage(QWidget *parent)
 
     m_generateBtn = new QPushButton(tr("Generate"), this);
     m_generateBtn->setToolTip(tr("Generate a secure random password"));
-    m_generateBtn->setMaximumWidth(80);
+    BUiScale::track(m_generateBtn, [this]() { m_generateBtn->setMaximumWidth(BUiScale::px(80)); });
     connect(m_generateBtn, &QPushButton::clicked, this, &CredentialsPage::onGeneratePassword);
     passwordRow->addWidget(m_generateBtn);
 
@@ -1443,7 +1444,7 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     // MD5 Hash preview (read-only, updates in real-time)
     m_md5Label = new QLabel(this);
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_md5Label->setStyleSheet("QLabel { font-family: monospace; font-size: 11px; }");
+    BUiScale::bind(m_md5Label, BUiScale::Tiny, BUiScale::Monospace);
     bSetLabelState(m_md5Label, "muted");
     m_md5Label->setText(tr("(password MD5 hash will appear here)"));
     form->addRow(tr("MD5 Hash:"), m_md5Label);
@@ -1491,7 +1492,8 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     // Config file path hints
     auto *configLabel = new QLabel(this);
     configLabel->setWordWrap(true);
-    configLabel->setStyleSheet("color: #666; font-size: 11px;");
+    configLabel->setStyleSheet("color: #666;");
+    BUiScale::bind(configLabel, BUiScale::Tiny);
     configLabel->setText(tr(
         "Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf\n"
         "Console config: /etc/bareos/bareos-dir.d/console/<name>.conf"
@@ -1600,7 +1602,8 @@ AuthMethodPage::AuthMethodPage(QWidget *parent)
     // Capability info label (shown after server check)
     m_capabilityLabel = new QLabel(this);
     m_capabilityLabel->setWordWrap(true);
-    m_capabilityLabel->setStyleSheet("color: #666; font-size: 11px; margin-top: 10px;");
+    m_capabilityLabel->setStyleSheet("color: #666; margin-top: 10px;");
+    BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
     m_capabilityLabel->setVisible(false);
     m_layout->addWidget(m_capabilityLabel);
 
@@ -1610,7 +1613,8 @@ AuthMethodPage::AuthMethodPage(QWidget *parent)
     cipherLayout->setContentsMargins(0, 10, 0, 0);
 
     QLabel *cipherLabel = new QLabel(tr("TLS Cipher List (optional):"), m_cipherWidget);
-    cipherLabel->setStyleSheet("font-size: 11px; color: #666;");
+    cipherLabel->setStyleSheet("color: #666;");
+    BUiScale::bind(cipherLabel, BUiScale::Tiny);
     cipherLayout->addWidget(cipherLabel);
 
     QHBoxLayout *cipherInputLayout = new QHBoxLayout();
@@ -1690,7 +1694,8 @@ void AuthMethodPage::updateCapabilityHints()
     if (caps.reachable) {
         if (caps.supportsPSK) {
             m_capabilityLabel->setText(tr("Server supports TLS encryption."));
-            m_capabilityLabel->setStyleSheet("color: #008000; font-size: 11px; margin-top: 10px;");
+            m_capabilityLabel->setStyleSheet("color: #008000; margin-top: 10px;");
+            BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
         } else {
             // Server doesn't support PSK (older Bareos/Bacula?)
             m_pskRadio->setEnabled(caps.supportsPSK);
@@ -1699,13 +1704,15 @@ void AuthMethodPage::updateCapabilityHints()
                 m_pskRadio->setText(tr("TLS-PSK - not available on this server"));
                 m_capabilityLabel->setText(tr("This server doesn't appear to support TLS-PSK. "
                                               "Consider upgrading to Bareos 18.2 or later."));
-                m_capabilityLabel->setStyleSheet("color: #c08000; font-size: 11px; margin-top: 10px;");
+                m_capabilityLabel->setStyleSheet("color: #c08000; margin-top: 10px;");
+                BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
             }
         }
     } else {
         // Server not reachable
         m_capabilityLabel->setText(tr("Server check failed: %1").arg(caps.lastError));
-        m_capabilityLabel->setStyleSheet("color: #c00000; font-size: 11px; margin-top: 10px;");
+        m_capabilityLabel->setStyleSheet("color: #c00000; margin-top: 10px;");
+        BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
     }
 }
 
@@ -1766,7 +1773,7 @@ TLSPage::TLSPage(QWidget *parent)
     m_caCertEdit = new QLineEdit(this);
     m_caCertEdit->setPlaceholderText(tr("/etc/bareos/ssl/ca.pem"));
     m_caBrowseButton = new QPushButton(tr("..."), this);
-    m_caBrowseButton->setMaximumWidth(40);
+    BUiScale::track(m_caBrowseButton, [this]() { m_caBrowseButton->setMaximumWidth(BUiScale::px(40)); });
     caRow->addWidget(m_caCertEdit);
     caRow->addWidget(m_caBrowseButton);
     form->addRow(tr("CA Cert:"), caRow);
@@ -1777,7 +1784,7 @@ TLSPage::TLSPage(QWidget *parent)
     m_clientCertEdit = new QLineEdit(this);
     m_clientCertEdit->setPlaceholderText(tr("Path to PFX certificate file"));
     m_clientCertBrowseButton = new QPushButton(tr("..."), this);
-    m_clientCertBrowseButton->setMaximumWidth(40);
+    BUiScale::track(m_clientCertBrowseButton, [this]() { m_clientCertBrowseButton->setMaximumWidth(BUiScale::px(40)); });
     pfxRow->addWidget(m_clientCertEdit);
     pfxRow->addWidget(m_clientCertBrowseButton);
     form->addRow(tr("PFX File:"), pfxRow);
@@ -1798,7 +1805,7 @@ TLSPage::TLSPage(QWidget *parent)
     m_clientCertEdit = new QLineEdit(this);
     m_clientCertEdit->setPlaceholderText(tr("/etc/bareos/ssl/client.pem"));
     m_clientCertBrowseButton = new QPushButton(tr("..."), this);
-    m_clientCertBrowseButton->setMaximumWidth(40);
+    BUiScale::track(m_clientCertBrowseButton, [this]() { m_clientCertBrowseButton->setMaximumWidth(BUiScale::px(40)); });
     certRow->addWidget(m_clientCertEdit);
     certRow->addWidget(m_clientCertBrowseButton);
     form->addRow(tr("Client Cert:"), certRow);
@@ -1807,7 +1814,7 @@ TLSPage::TLSPage(QWidget *parent)
     m_clientKeyEdit = new QLineEdit(this);
     m_clientKeyEdit->setPlaceholderText(tr("/etc/bareos/ssl/client.key"));
     m_clientKeyBrowseButton = new QPushButton(tr("..."), this);
-    m_clientKeyBrowseButton->setMaximumWidth(40);
+    BUiScale::track(m_clientKeyBrowseButton, [this]() { m_clientKeyBrowseButton->setMaximumWidth(BUiScale::px(40)); });
     keyRow->addWidget(m_clientKeyEdit);
     keyRow->addWidget(m_clientKeyBrowseButton);
     form->addRow(tr("Private Key:"), keyRow);
@@ -2027,13 +2034,14 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     consoleLayout->addWidget(consoleLabel);
 
     auto *consolePath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/console/&lt;name&gt;.conf"), consoleWidget);
-    consolePath->setStyleSheet("color: #666; font-size: 10px;");
+    consolePath->setStyleSheet("color: #666;");
+    BUiScale::bind(consolePath, BUiScale::Tiny);
     consoleLayout->addWidget(consolePath);
 
     m_consoleConfigEdit = new QTextEdit(consoleWidget);
     m_consoleConfigEdit->setReadOnly(true);
-    m_consoleConfigEdit->setFont(QFont("monospace", 9));
-    m_consoleConfigEdit->setMinimumHeight(150);
+    BUiScale::bind(m_consoleConfigEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_consoleConfigEdit, [this]() { m_consoleConfigEdit->setMinimumHeight(BUiScale::px(150)); });
     consoleLayout->addWidget(m_consoleConfigEdit);
 
     auto *consoleButtonLayout = new QHBoxLayout();
@@ -2067,13 +2075,14 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     directorLayout->addWidget(directorLabel);
 
     auto *directorPath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"), directorWidget);
-    directorPath->setStyleSheet("color: #666; font-size: 10px;");
+    directorPath->setStyleSheet("color: #666;");
+    BUiScale::bind(directorPath, BUiScale::Tiny);
     directorLayout->addWidget(directorPath);
 
     m_directorConfigEdit = new QTextEdit(directorWidget);
     m_directorConfigEdit->setReadOnly(true);
-    m_directorConfigEdit->setFont(QFont("monospace", 9));
-    m_directorConfigEdit->setMinimumHeight(150);
+    BUiScale::bind(m_directorConfigEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_directorConfigEdit, [this]() { m_directorConfigEdit->setMinimumHeight(BUiScale::px(150)); });
     directorLayout->addWidget(m_directorConfigEdit);
 
     auto *directorButtonLayout = new QHBoxLayout();
@@ -2107,13 +2116,14 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     grpcLayout->addWidget(grpcLabel);
 
     auto *grpcPath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"), grpcWidget);
-    grpcPath->setStyleSheet("color: #666; font-size: 10px;");
+    grpcPath->setStyleSheet("color: #666;");
+    BUiScale::bind(grpcPath, BUiScale::Tiny);
     grpcLayout->addWidget(grpcPath);
 
     m_grpcDirectorEdit = new QTextEdit(grpcWidget);
     m_grpcDirectorEdit->setReadOnly(true);
-    m_grpcDirectorEdit->setFont(QFont("monospace", 9));
-    m_grpcDirectorEdit->setMinimumHeight(150);
+    BUiScale::bind(m_grpcDirectorEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_grpcDirectorEdit, [this]() { m_grpcDirectorEdit->setMinimumHeight(BUiScale::px(150)); });
     grpcLayout->addWidget(m_grpcDirectorEdit);
 
     auto *grpcButtonLayout = new QHBoxLayout();
@@ -2139,7 +2149,8 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     auto *clientPath = new QLabel(tr("Path: /etc/bareos/bconsole.conf (bconsole), "
                                      "/etc/bareos/oconsole.conf or oconsole -c &lt;file&gt; (oconsole)"),
                                   clientWidget);
-    clientPath->setStyleSheet("color: #666; font-size: 10px;");
+    clientPath->setStyleSheet("color: #666;");
+    BUiScale::bind(clientPath, BUiScale::Tiny);
     clientPath->setWordWrap(true);
     clientLayout->addWidget(clientPath);
 
@@ -2154,13 +2165,13 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     m_clientTabs->setDocumentMode(true);
     m_bconsoleEdit = new QTextEdit(m_clientTabs);
     m_bconsoleEdit->setReadOnly(true);
-    m_bconsoleEdit->setFont(QFont("monospace", 9));
-    m_bconsoleEdit->setMinimumHeight(150);
+    BUiScale::bind(m_bconsoleEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_bconsoleEdit, [this]() { m_bconsoleEdit->setMinimumHeight(BUiScale::px(150)); });
     m_clientTabs->addTab(m_bconsoleEdit, "bconsole.conf");
     m_oconsoleEdit = new QTextEdit(m_clientTabs);
     m_oconsoleEdit->setReadOnly(true);
-    m_oconsoleEdit->setFont(QFont("monospace", 9));
-    m_oconsoleEdit->setMinimumHeight(150);
+    BUiScale::bind(m_oconsoleEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_oconsoleEdit, [this]() { m_oconsoleEdit->setMinimumHeight(BUiScale::px(150)); });
     m_oconsoleTab = m_clientTabs->addTab(m_oconsoleEdit, "oconsole.conf");
     clientLayout->addWidget(m_clientTabs);
 
@@ -2673,9 +2684,7 @@ TestPage::TestPage(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
 
     auto *label = new QLabel(tr("Let's test your connection."), this);
-    QFont f = label->font();
-    f.setPointSize(f.pointSize() + 2);
-    label->setFont(f);
+    BUiScale::bind(label, BUiScale::Large);
     layout->addWidget(label);
 
     m_statusLabel = new QLabel(tr("Click the button to test."), this);
@@ -2688,12 +2697,12 @@ TestPage::TestPage(QWidget *parent)
     layout->addWidget(m_progressBar);
 
     m_testButton = new QPushButton(tr("Test Connection"), this);
-    m_testButton->setMinimumHeight(40);
+    BUiScale::track(m_testButton, [this]() { m_testButton->setMinimumHeight(BUiScale::px(40)); });
     layout->addWidget(m_testButton);
 
     m_logEdit = new QTextEdit(this);
     m_logEdit->setReadOnly(true);
-    m_logEdit->setMaximumHeight(120);
+    BUiScale::track(m_logEdit, [this]() { m_logEdit->setMaximumHeight(BUiScale::px(120)); });
     m_logEdit->setVisible(false);
     layout->addWidget(m_logEdit);
 
@@ -2954,21 +2963,21 @@ ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
     selectLayout->setContentsMargins(25, 5, 0, 5);
     selectLayout->setSpacing(10);
     m_consoleCombo = new QComboBox(this);
-    m_consoleCombo->setMinimumWidth(250);
+    BUiScale::track(m_consoleCombo, [this]() { m_consoleCombo->setMinimumWidth(BUiScale::px(250)); });
     m_consoleCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     selectLayout->addWidget(m_consoleCombo, 1);
     m_refreshButton = new QPushButton(tr("Refresh"), this);
-    m_refreshButton->setMinimumWidth(80);
+    BUiScale::track(m_refreshButton, [this]() { m_refreshButton->setMinimumWidth(BUiScale::px(80)); });
     selectLayout->addWidget(m_refreshButton);
     m_layout->addLayout(selectLayout);
 
     // Console details display (shown when selecting existing console)
     m_consoleDetails = new QTextEdit(this);
     m_consoleDetails->setReadOnly(true);
-    m_consoleDetails->setMinimumHeight(80);
-    m_consoleDetails->setMaximumHeight(120);
+    BUiScale::track(m_consoleDetails, [this]() { m_consoleDetails->setMinimumHeight(BUiScale::px(80)); });
+    BUiScale::track(m_consoleDetails, [this]() { m_consoleDetails->setMaximumHeight(BUiScale::px(120)); });
     m_consoleDetails->setPlaceholderText(tr("Select a console to view its configuration..."));
-    m_consoleDetails->setStyleSheet("font-family: monospace; font-size: 9pt;");
+    BUiScale::bind(m_consoleDetails, BUiScale::Small, BUiScale::Monospace);
     auto *detailsLayout = new QHBoxLayout();
     detailsLayout->setContentsMargins(25, 0, 0, 10);
     detailsLayout->addWidget(m_consoleDetails);
@@ -2995,7 +3004,7 @@ ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
     pwdLayout->addWidget(m_newPasswordEdit, 1);
     m_generatePasswordButton = new QPushButton(tr("Generate"), this);
     m_generatePasswordButton->setEnabled(false);
-    m_generatePasswordButton->setMinimumWidth(80);
+    BUiScale::track(m_generatePasswordButton, [this]() { m_generatePasswordButton->setMinimumWidth(BUiScale::px(80)); });
     pwdLayout->addWidget(m_generatePasswordButton);
     createForm->addRow(tr("Password:"), pwdLayout);
     m_layout->addLayout(createForm);
@@ -3009,9 +3018,10 @@ ConsoleSetupPage::ConsoleSetupPage(QWidget *parent)
                                 "grant full access to all backup operations, including deletion. "
                                 "Ask your backup administrator to create a Console resource "
                                 "with restricted ACLs tailored to your needs."));
-    securityWarning->setStyleSheet("color: #c08000; font-size: 10px; padding: 8px; "
+    securityWarning->setStyleSheet("color: #c08000; padding: 8px; "
                                    "border: 1px solid #c08000; border-radius: 4px; "
                                    "background-color: rgba(192, 128, 0, 30);");
+    BUiScale::bind(securityWarning, BUiScale::Tiny);
     m_layout->addWidget(securityWarning);
 
     m_layout->addSpacing(5);

@@ -1,4 +1,5 @@
 #include "jobs/bnewjobdialog.h"
+#include "buiscale.h"
 #include "jobs/bjobwidget.h"
 #include "blogging.h"
 #include "config/bsettings.h"
@@ -21,7 +22,7 @@ BNewJobDialog::BNewJobDialog(BJobWidget *jobWidget, BDirector *director, QWidget
     , m_dataLoaded(false)
 {
     setWindowTitle(tr("Run New Job"));
-    resize(700, 600);
+    resize(BUiScale::px(700), BUiScale::px(600));
     setModal(true);
 
     setupUI();
@@ -61,7 +62,7 @@ void BNewJobDialog::setupUI()
 
     m_commandPreview = new QTextEdit();
     m_commandPreview->setReadOnly(true);
-    m_commandPreview->setMaximumHeight(80);
+    BUiScale::track(m_commandPreview, [this]() { m_commandPreview->setMaximumHeight(BUiScale::px(80)); });
     m_commandPreview->setStyleSheet("background-color: #2b2b2b; color: #00ff00; font-family: monospace;");
     previewLayout->addWidget(m_commandPreview);
 

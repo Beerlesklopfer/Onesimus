@@ -165,6 +165,12 @@ public:
     void paintRuleMark(QPainter &painter, const QRect &rect, const QString &text,
                        const std::optional<QString> &level, bool highlighted) const;
 
+    /// A measure designed for a 10 pt font, for this widget's font
+    int px(int designPixels) const;
+    /// The size of a sample of a run in the palette and the legend: room
+    /// for what paintRun() draws with this widget's font
+    QSize swatchSize() const;
+
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
 
@@ -215,6 +221,7 @@ private:
     void paintOutline(QPainter &painter, const BGridCellSet &cells, const QPen &pen) const;
 
     QFont smallFont() const;
+    int m_loadBarHeight = 3;    ///< Set in updateLayout()
     QColor gridLineColor() const;
     QColor selectionOutlineColor() const;
     QString dayHeaderText(int row) const;

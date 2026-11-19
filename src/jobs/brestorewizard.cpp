@@ -1,4 +1,5 @@
 #include "jobs/brestorewizard.h"
+#include "buiscale.h"
 #include "blogging.h"
 #include "blogredact.h"
 
@@ -113,7 +114,7 @@ BRestoreWizard::BRestoreWizard(const QJsonObject &job, BDirector *director,
     setWindowTitle(tr("Restore Wizard — Job %1: %2")
                        .arg(m_data.jobId)
                        .arg(m_data.jobName));
-    resize(900, 650);
+    resize(BUiScale::px(900), BUiScale::px(650));
 
     setWizardStyle(QWizard::ModernStyle);
 }
@@ -901,7 +902,7 @@ BRestorePreviewPage::BRestorePreviewPage(QWidget *parent)
     // Command preview — only visible in debug builds
     m_commandPreview = new QTextEdit(this);
     m_commandPreview->setReadOnly(true);
-    m_commandPreview->setFont(QFont("monospace"));
+    BUiScale::bind(m_commandPreview, BUiScale::Normal, BUiScale::Monospace);
 #ifdef QT_DEBUG
     layout->addWidget(m_commandPreview);
 #else
@@ -1180,7 +1181,7 @@ BRestoreExecutePage::BRestoreExecutePage(QWidget *parent)
 
     m_logEdit = new QTextEdit(this);
     m_logEdit->setReadOnly(true);
-    m_logEdit->setFont(QFont("monospace"));
+    BUiScale::bind(m_logEdit, BUiScale::Normal, BUiScale::Monospace);
     layout->addWidget(m_logEdit);
 
     m_hintLabel = new QLabel(this);

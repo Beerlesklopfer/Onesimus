@@ -7,6 +7,7 @@
  */
 
 #include "schedules/bschedulewizard.h"
+#include "buiscale.h"
 #include "config/bdirectiveschema.h"
 #include "blogging.h"
 #include "blogredact.h"
@@ -44,7 +45,7 @@ BScheduleRunDialog::BScheduleRunDialog(const BScheduleEntry &entry, QWidget *par
 void BScheduleRunDialog::setupUi()
 {
     setWindowTitle(tr("Edit Run Directive"));
-    setMinimumWidth(500);
+    BUiScale::track(this, [this]() { setMinimumWidth(BUiScale::px(500)); });
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
@@ -130,8 +131,8 @@ void BScheduleRunDialog::setupUi()
     // Preview
     m_previewLabel = new QLabel(this);
     m_previewLabel->setStyleSheet(
-        "background-color: #f5f5f5; color: #202020; padding: 6px; border: 1px solid #ccc; "
-        "font-family: monospace; font-size: 10pt;");
+        "background-color: #f5f5f5; color: #202020; padding: 6px; border: 1px solid #ccc;");
+    BUiScale::bind(m_previewLabel, BUiScale::Normal, BUiScale::Monospace);
     m_previewLabel->setWordWrap(true);
     mainLayout->addWidget(new QLabel(tr("Preview:"), this));
     mainLayout->addWidget(m_previewLabel);
@@ -681,8 +682,8 @@ BSchedulePreviewPage::BSchedulePreviewPage(QWidget *parent)
 
     m_configEdit = new QTextEdit(this);
     m_configEdit->setReadOnly(true);
-    m_configEdit->setFont(QFont("Monospace", 9));
-    m_configEdit->setMaximumHeight(200);
+    BUiScale::bind(m_configEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_configEdit, [this]() { m_configEdit->setMaximumHeight(BUiScale::px(200)); });
     mainLayout->addWidget(m_configEdit);
 
     QHBoxLayout *configBtnLayout = new QHBoxLayout();
@@ -699,8 +700,8 @@ BSchedulePreviewPage::BSchedulePreviewPage(QWidget *parent)
 
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    m_commandEdit->setFont(QFont("Monospace", 9));
-    m_commandEdit->setMaximumHeight(80);
+    BUiScale::bind(m_commandEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMaximumHeight(BUiScale::px(80)); });
     mainLayout->addWidget(m_commandEdit);
 
     QHBoxLayout *cmdBtnLayout = new QHBoxLayout();
@@ -904,7 +905,7 @@ BScheduleWizard::~BScheduleWizard()
 void BScheduleWizard::init()
 {
     setWindowTitle(tr("Add Schedule"));
-    setMinimumSize(600, 500);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(600), BUiScale::px(500)); });
 
     setPage(Page_Basics, new BScheduleBasicsPage(this));
     setPage(Page_Runs, new BScheduleRunsPage(this));

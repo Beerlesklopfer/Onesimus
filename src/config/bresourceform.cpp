@@ -7,6 +7,7 @@
  */
 
 #include "config/bresourceform.h"
+#include "buiscale.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFileDialog>
@@ -380,7 +381,7 @@ QWidget *BResourceForm::createWidgetForDirective(const BDirective &directive,
 
         QPushButton *toggleBtn = new QPushButton();
         toggleBtn->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
-        toggleBtn->setFixedWidth(30);
+        BUiScale::track(toggleBtn, [toggleBtn]() { toggleBtn->setFixedWidth(BUiScale::px(30)); });
         toggleBtn->setCheckable(true);
         toggleBtn->setToolTip(tr("Show/Hide password"));
         connect(toggleBtn, &QPushButton::toggled, edit, [edit](bool checked) {
@@ -409,7 +410,7 @@ QWidget *BResourceForm::createWidgetForDirective(const BDirective &directive,
         hbox->addWidget(edit);
 
         QPushButton *browseBtn = new QPushButton(tr("..."));
-        browseBtn->setFixedWidth(30);
+        BUiScale::track(browseBtn, [browseBtn]() { browseBtn->setFixedWidth(BUiScale::px(30)); });
         browseBtn->setToolTip(directive.type == "file" ? tr("Browse for file") : tr("Browse for directory"));
         connect(browseBtn, &QPushButton::clicked, edit, [edit, directive, this]() {
             QString path;
@@ -467,7 +468,7 @@ QWidget *BResourceForm::createWidgetForDirective(const BDirective &directive,
 
     if (directive.type == "string_list" || directive.type == "addresses" || directive.type == "block") {
         QTextEdit *textEdit = new QTextEdit();
-        textEdit->setMaximumHeight(directive.type == "block" ? 160 : 80);
+        textEdit->setMaximumHeight(BUiScale::px(directive.type == "block" ? 160 : 80));
         if (!currentStr.isEmpty()) {
             textEdit->setPlainText(currentStr);
         } else if (currentValue.type() == BConfigValue::List) {

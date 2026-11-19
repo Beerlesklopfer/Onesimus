@@ -1,4 +1,5 @@
 #include "storagewidget.h"
+#include "buiscale.h"
 #include "models/bvolumejson.h"
 #include "bsorttableitem.h"
 #include "ui_storagewidget.h"
@@ -49,7 +50,7 @@ void StorageWidget::setupUI()
     // Pool filter
     topLayout->addWidget(new QLabel(tr("Pool:")));
     m_poolFilter->addItem(tr("Alle"), "all");
-    m_poolFilter->setMinimumWidth(150);
+    BUiScale::track(m_poolFilter, [this]() { m_poolFilter->setMinimumWidth(BUiScale::px(150)); });
     topLayout->addWidget(m_poolFilter);
 
     topLayout->addSpacing(20);
@@ -61,7 +62,7 @@ void StorageWidget::setupUI()
     m_statusFilter->addItem(tr("Full"), "Full");
     m_statusFilter->addItem(tr("Error"), "Error");
     m_statusFilter->addItem(tr("Purged"), "Purged");
-    m_statusFilter->setMinimumWidth(120);
+    BUiScale::track(m_statusFilter, [this]() { m_statusFilter->setMinimumWidth(BUiScale::px(120)); });
     topLayout->addWidget(m_statusFilter);
 
     topLayout->addStretch();

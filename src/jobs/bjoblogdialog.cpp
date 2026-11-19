@@ -1,4 +1,5 @@
 #include "jobs/bjoblogdialog.h"
+#include "buiscale.h"
 #include "blogging.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -29,8 +30,8 @@ void BJobLogDialog::setupUI()
                        .arg(client));
 
     // Setze minimale Fenstergröße
-    resize(800, 600);
-    setMinimumSize(600, 400);
+    resize(BUiScale::px(800), BUiScale::px(600));
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(600), BUiScale::px(400)); });
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 

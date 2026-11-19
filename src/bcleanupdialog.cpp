@@ -1,4 +1,5 @@
 #include "bcleanupdialog.h"
+#include "buiscale.h"
 #include "bcapabilitynotice.h"
 #include "blabelstate.h"
 #include "bcleanuprunner.h"
@@ -36,7 +37,7 @@ BCleanupDialog::BCleanupDialog(BDirector *director, BJobsModel *jobsModel, QWidg
     , m_replyTimer(new QTimer(this))
 {
     setWindowTitle(tr("Database Cleanup"));
-    resize(800, 600);
+    resize(BUiScale::px(800), BUiScale::px(600));
 
     setupUI();
 
@@ -217,7 +218,7 @@ void BCleanupDialog::setupUI()
 
     m_logTextEdit = new QTextEdit();
     m_logTextEdit->setReadOnly(true);
-    m_logTextEdit->setFont(QFont("Monospace", 9));
+    BUiScale::bind(m_logTextEdit, BUiScale::Small, BUiScale::Monospace);
     logLayout->addWidget(m_logTextEdit);
 
     mainLayout->addWidget(logGroup);

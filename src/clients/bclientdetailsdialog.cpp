@@ -1,4 +1,5 @@
 #include "clients/bclientdetailsdialog.h"
+#include "buiscale.h"
 #include "clients/bclientsmodel.h"
 #include "blogging.h"
 #include <QDateTime>
@@ -186,7 +187,7 @@ BClientDetailsDialog::BClientDetailsDialog(BDirector *director, BClientsModel *m
     , m_row(row)
 {
     setWindowTitle(tr("Client Details - %1").arg(m_clientName));
-    resize(800, 600);
+    resize(BUiScale::px(800), BUiScale::px(600));
 
     setupUI();
     loadClientJobs();

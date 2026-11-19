@@ -1,4 +1,5 @@
 #include "jobs/bjobdetailsdialog.h"
+#include "buiscale.h"
 #include "jobs/bjobwidget.h"
 #include "jobs/bjobfileswidget.h"
 #include "blogging.h"
@@ -31,7 +32,7 @@ BJobDetailsDialog::BJobDetailsDialog(const QJsonObject &job, BJobWidget *jobWidg
                        .arg(jobId)
                        .arg(client));
 
-    resize(900, 600);
+    resize(BUiScale::px(900), BUiScale::px(600));
 
     // Query full job details (list jobs doesn't include fileset, schedule, etc.)
     queryJobDetails();

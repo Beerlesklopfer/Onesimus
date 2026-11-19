@@ -2,6 +2,7 @@
 #define BSCHEDULEGANTTWIDGET_H
 
 #include <QWidget>
+#include <QFont>
 #include <QScrollArea>
 #include <QComboBox>
 #include <QPushButton>
@@ -174,6 +175,28 @@ public:
     QSize sizeHint() const override;
     QSize minimumSizeHint() const override;
 
+    /**
+     * @brief The measures of the layout, in pixels
+     *
+     * All of them follow the widget's font (the desktop's font times the
+     * interface zoom), so that no text is cut when the font grows.
+     */
+    struct Metrics {
+        int rowHeight = 0;          ///< A job row or a group header
+        int headerRow1Height = 0;   ///< Day names
+        int headerRow2Height = 0;   ///< Hour labels
+        int headerHeight = 0;       ///< Both rows
+        int labelWidth = 0;         ///< The column of job names
+        int heatmapHeight = 0;
+        int noHistoryMarkerWidth = 0;
+        int hourLabelWidth = 0;     ///< Width of the text "00:00"
+    };
+    Metrics metrics() const { return m_metrics; }
+
+    /// Minutes between two hour labels of the header: as many labels as
+    /// fit without touching
+    int hourLabelStepMinutes() const;
+
 signals:
     void entryClicked(const BScheduleEntry &entry);
     void entryDoubleClicked(const BScheduleEntry &entry);
@@ -184,6 +207,7 @@ signals:
 protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    void changeEvent(QEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -193,18 +217,27 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
-    // --- Layout constants ---
-    static const int ROW_HEIGHT = 28;
-    static const int HEADER_ROW1_HEIGHT = 18;  // Weekday row
-    static const int HEADER_ROW2_HEIGHT = 18;  // Hours row
-    static const int HEADER_HEIGHT = HEADER_ROW1_HEIGHT + HEADER_ROW2_HEIGHT;
-    static const int LABEL_WIDTH = 230;     // "job · level"; longer labels are elided
-    static const int HEATMAP_HEIGHT = 24;
-    static const int GROUP_HEADER_HEIGHT = 22;
-    static const int HEATMAP_SLOT_MINUTES = 15;
+    // --- Layout: follows the widget's font (updateMetrics()) ---
+    int m_rowHeight = 28;
+    int m_headerRow1Height = 18;  // Weekday row
+    int m_headerRow2Height = 18;  // Hours row
+    int m_headerHeight = 36;
+    int m_labelWidth = 230;       // "job · level"; longer labels are elided
+    int m_heatmapHeight = 24;
     /// Width in pixels of the marker of a run without history. It is a
-    /// marker, not a length: it does not change with the zoom.
-    static const int NO_HISTORY_MARKER_WIDTH = 22;
+    /// marker, not a length: it does not change with the time zoom.
+    int m_noHistoryMarkerWidth = 22;
+    Metrics m_metrics;
+    QFont m_smallFont;            // Hour labels, heat map label
+    QFont m_smallBoldFont;        // Day names, letters in the bars
+    static const int HEATMAP_SLOT_MINUTES = 15;
+
+    /// Works out all measures from font(); after every change of it
+    void updateMetrics();
+    /// A measure designed for a 10 pt font, for this widget's font
+    int px(int designPixels) const;
+    /// Pixels per hour from the width and the time zoom
+    void fitToWidth();
 
     // --- Drawing ---
     void drawTimeHeader(QPainter &painter);

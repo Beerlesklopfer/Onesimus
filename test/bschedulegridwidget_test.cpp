@@ -23,6 +23,7 @@
 #include <QApplication>
 #include <QTreeWidget>
 
+#include "buiscale.h"
 #include "schedules/bschedulegridaccessible.h"
 #include "schedules/bschedulegridview.h"
 #include "schedules/bschedulegridwidget.h"
@@ -192,6 +193,26 @@ QColor meanColor(const QImage &image, const QRect &rect)
     return QColor(int(red / count), int(green / count), int(blue / count));
 }
 
+/// The colour most pixels of a rectangle have
+QColor commonColor(const QImage &image, const QRect &rect)
+{
+    const QRect area = rect.intersected(image.rect());
+    QHash<QRgb, int> counts;
+    for (int y = area.top(); y <= area.bottom(); ++y) {
+        for (int x = area.left(); x <= area.right(); ++x)
+            ++counts[image.pixel(x, y) | 0xff000000];
+    }
+    QRgb best = 0;
+    int most = 0;
+    for (auto it = counts.constBegin(); it != counts.constEnd(); ++it) {
+        if (it.value() > most) {
+            most = it.value();
+            best = it.key();
+        }
+    }
+    return QColor(best);
+}
+
 int distance(const QColor &a, const QColor &b)
 {
     return qAbs(a.red() - b.red()) + qAbs(a.green() - b.green()) + qAbs(a.blue() - b.blue());
@@ -218,6 +239,7 @@ class BScheduleGridWidgetTest : public QObject
     Q_OBJECT
 
 private slots:
+    void initTestCase();
     void cleanup();
 
     // --- Selection ---
@@ -246,11 +268,23 @@ private slots:
     void rendering_data();
     void rendering();
     void renderingOfTheLoadBar();
+
+    // --- Font and interface zoom ---
+    void geometryFollowsTheFont_data();
+    void geometryFollowsTheFont();
+    void zoomChangesAShownGrid();
 };
+
+void BScheduleGridWidgetTest::initTestCase()
+{
+    // Not the font of the machine: the tests measure and compare pictures
+    BUiScale::instance().setBaseFont(QFont(QStringLiteral("DejaVu Sans"), 10));
+}
 
 void BScheduleGridWidgetTest::cleanup()
 {
     qApp->setStyleSheet(QString());
+    BUiScale::instance().resetZoom();
 }
 
 // --- Selection -----------------------------------------------------------------
@@ -1128,7 +1162,7 @@ void BScheduleGridWidgetTest::rendering()
         Shown s(typicalSchedule(), QSize(620, 560));
         QVERIFY(s.ok);
         const BScheduleGridGeometry &geometry = s.grid()->gridGeometry();
-        QCOMPARE(geometry.cellWidth(), int(BScheduleGridGeometry::MinCellWidth));
+        QCOMPARE(geometry.cellWidth(), geometry.minCellWidth());
         QVERIFY(geometry.scrollRange().width() > 0);
         // The keyboard brings the cell into view
         s.grid()->setCurrentCell(BGridPos{Mon, 21});
@@ -1136,7 +1170,10 @@ void BScheduleGridWidgetTest::rendering()
         QVERIFY(geometry.scrollAreaRect().contains(geometry.cellRect(Mon, 21)));
         const QImage image = paint(s);
         const QColor fill = s.grid()->levelFill(std::optional<QString>(QStringLiteral("Incremental")));
-        QVERIFY(distance(meanColor(image, inside(s, Mon, 21)), fill) < 60);
+        // The cell is at its smallest and it is the current one: letter,
+        // minute and focus frame cover much of it. Its fill is the colour
+        // most of its pixels have.
+        QCOMPARE(commonColor(image, inside(s, Mon, 21)), fill);
         // The row header is still at the left edge
         QCOMPARE(geometry.rowHeaderRect(Mon).left(), 0);
         save(&s.view, QStringLiteral("d-small-window"));
@@ -1195,6 +1232,123 @@ void BScheduleGridWidgetTest::renderingOfTheLoadBar()
     // Cleared: as before
     s.model()->clearExpectedLoad();
     QCOMPARE(paint(), before);
+}
+
+// --- Font and interface zoom ------------------------------------------------------
+
+void BScheduleGridWidgetTest::geometryFollowsTheFont_data()
+{
+    QTest::addColumn<int>("zoom");
+    QTest::newRow("100 %") << 100;
+    QTest::newRow("200 %") << 200;
+}
+
+void BScheduleGridWidgetTest::geometryFollowsTheFont()
+{
+    QFETCH(int, zoom);
+    BUiScale::instance().setZoomPercent(zoom);
+
+    // A calendar rule, so that the band is there; a window that is too
+    // small at 200 %, so that the cells are at their smallest
+    Shown s(mixedSchedule(), QSize(1000, 600));
+    QVERIFY(s.ok);
+    const BScheduleGridGeometry &geometry = s.grid()->gridGeometry();
+
+    QCOMPARE(s.grid()->font().pointSizeF(), 10.0 * zoom / 100);
+    QFont bold = s.grid()->font();
+    bold.setBold(true);
+    const QFontMetrics metrics(bold);
+    const QFontMetrics smallMetrics(BUiScale::scaled(bold, BUiScale::Tiny));
+
+    // The headers hold their text
+    QVERIFY(geometry.columnHeaderHeight() >= metrics.height());
+    for (int day = Qt::Monday; day <= Qt::Sunday; ++day) {
+        QVERIFY(geometry.rowHeaderWidth()
+                >= metrics.horizontalAdvance(BScheduleGridText::dayName(Qt::DayOfWeek(day))));
+    }
+    QVERIFY(geometry.rowHeaderWidth() >= metrics.horizontalAdvance(QStringLiteral("Calendar rules")));
+
+    // A cell is never lower than the letter and the small line below it,
+    // never narrower than the hour in its header
+    QVERIFY(geometry.minCellHeight() >= metrics.height() + smallMetrics.height());
+    QVERIFY(geometry.cellHeight() >= geometry.minCellHeight());
+    QVERIFY(geometry.minCellWidth() >= metrics.horizontalAdvance(QStringLiteral("00")));
+    QVERIFY(geometry.cellWidth() >= geometry.minCellWidth());
+    QVERIFY(geometry.maxCellHeight() >= geometry.minCellHeight());
+
+    // The band of calendar rules holds its marks
+    QVERIFY(geometry.hasRuleBand());
+    QVERIFY(geometry.ruleCellRect(0).height() >= smallMetrics.height());
+
+    // Nothing overlaps: headers, cells and band lie side by side
+    for (int row = 0; row < BScheduleGridGeometry::Rows; ++row) {
+        for (int column = 0; column < BScheduleGridGeometry::Columns; ++column) {
+            const QRect cell = geometry.cellRect(row, column);
+            if (column + 1 < BScheduleGridGeometry::Columns)
+                QVERIFY(!cell.intersects(geometry.cellRect(row, column + 1)));
+            if (row + 1 < BScheduleGridGeometry::Rows)
+                QVERIFY(!cell.intersects(geometry.cellRect(row + 1, column)));
+            QVERIFY(!cell.intersects(geometry.ruleCellRect(column)));
+        }
+    }
+    QVERIFY(!geometry.cornerRect().intersects(geometry.cellRect(0, 0).translated(geometry.scrollOffset())));
+    QVERIFY(geometry.ruleCellRect(0).top() >= geometry.cellRect(Sun, 0).bottom());
+
+    // Exactly the measures of the design at 100 %, twice them at 200 %
+    QCOMPARE(geometry.minCellWidth(), qMax(BScheduleGridGeometry::MinCellWidth * zoom / 100,
+                                           metrics.horizontalAdvance(QStringLiteral("00"))
+                                               + 8 * zoom / 100));
+    QCOMPARE(geometry.ruleBandGap(), BScheduleGridGeometry::RuleBandGap * zoom / 100);
+
+    // The palette: a sample is as large as the grid draws a run
+    const QSize swatch = s.grid()->swatchSize();
+    QVERIFY(swatch.height() >= metrics.height());
+    QCOMPARE(s.view.palette()->eraserButton()->iconSize(), swatch);
+    QVERIFY(s.view.palette()->eraserButton()->height() >= swatch.height());
+
+    // The calendar: a day holds its date and the squares of the levels
+    const QSize smallest = s.view.calendar()->minimumSizeHint();
+    QVERIFY(smallest.height() >= 5 * (smallMetrics.height() + smallMetrics.ascent()));
+    QVERIFY(smallest.width() >= 7 * smallMetrics.horizontalAdvance(QStringLiteral("30 MMM")));
+
+    // And it paints
+    QVERIFY(!s.viewport()->grab().isNull());
+}
+
+void BScheduleGridWidgetTest::zoomChangesAShownGrid()
+{
+    Shown s(mixedSchedule(), QSize(1000, 600));
+    QVERIFY(s.ok);
+    const BScheduleGridGeometry &geometry = s.grid()->gridGeometry();
+    const int headerWidth = geometry.rowHeaderWidth();
+    const int headerHeight = geometry.columnHeaderHeight();
+    const int minCellHeight = geometry.minCellHeight();
+    const QSize swatch = s.grid()->swatchSize();
+    const QSize calendar = s.view.calendar()->minimumSizeHint();
+    const qreal listSize = s.view.runLineList()->font().pointSizeF();
+
+    // Without a restart: the open window follows
+    BUiScale::instance().setZoomPercent(200);
+    QCoreApplication::processEvents();
+
+    QCOMPARE(s.grid()->font().pointSizeF(), 20.0);
+    QVERIFY(geometry.rowHeaderWidth() > headerWidth * 3 / 2);
+    QVERIFY(geometry.columnHeaderHeight() > headerHeight * 3 / 2);
+    QVERIFY(geometry.minCellHeight() > minCellHeight * 3 / 2);
+    QVERIFY(s.grid()->swatchSize().height() > swatch.height() * 3 / 2);
+    QCOMPARE(s.view.palette()->eraserButton()->iconSize(), s.grid()->swatchSize());
+    QVERIFY(s.view.calendar()->minimumSizeHint().height() > calendar.height() * 3 / 2);
+    QCOMPARE(s.view.runLineList()->font().pointSizeF(), 2 * listSize);
+    // The Run lines keep their fixed-pitch font at the new size
+    QTreeWidgetItem *line = s.view.runLineList()->topLevelItem(0);
+    QVERIFY(line);
+    QCOMPARE(line->font(1).pointSizeF(), 20.0);
+    QVERIFY(line->font(1).fixedPitch());
+
+    BUiScale::instance().setZoomPercent(100);
+    QCoreApplication::processEvents();
+    QCOMPARE(geometry.rowHeaderWidth(), headerWidth);
+    QCOMPARE(geometry.minCellHeight(), minCellHeight);
 }
 
 QTEST_MAIN(BScheduleGridWidgetTest)

@@ -1,4 +1,5 @@
 #include "bmainwindow.h"
+#include "buiscale.h"
 #include "ui_bmainwindow.h"
 #include "blogging.h"
 #include "jobs/bjobwidget.h"
@@ -74,6 +75,10 @@ BMainWindow::BMainWindow(QWidget *parent)
     , m_connectionLabel(nullptr)
     , m_autoRefreshTimer(nullptr)
 {
+    // Text size: the desktop's font times the stored interface zoom. Before
+    // any widget exists, so that all of them are built at that size.
+    BUiScale::instance().setZoomPercent(BSettings::instance().appearanceUiZoom());
+
     ui->setupUi(this);
 
 #if USE_BACULA
@@ -81,7 +86,7 @@ BMainWindow::BMainWindow(QWidget *parent)
 #elif defined(USE_BAREOS)
     setWindowTitle("Onesimus - Bareos Backup Management");
 #endif
-    resize(1200, 800);
+    resize(BUiScale::px(1200), BUiScale::px(800));
 
     m_director = new BDirector(this);
 
@@ -97,6 +102,34 @@ BMainWindow::BMainWindow(QWidget *parent)
     createActions();
     createMenus();
     createToolBar();
+
+    // The theme has sizes that follow the font (applyTheme())
+    connect(&BUiScale::instance(), &BUiScale::changed, this, [this]() {
+        if (BUiScale::themeRules() != m_themeScaleRules)
+            applyTheme(BSettings::instance().appearanceTheme());
+    });
+
+    // The pages of the tabs differ in the room they need: only the one on
+    // display counts for the size of the window's content
+    auto fitPages = [this]() {
+        for (int i = 0; i < m_tabWidget->count(); ++i) {
+            const QSizePolicy::Policy policy = i == m_tabWidget->currentIndex()
+                ? QSizePolicy::Preferred : QSizePolicy::Ignored;
+            m_tabWidget->widget(i)->setSizePolicy(policy, policy);
+        }
+    };
+    connect(m_tabWidget, &QTabWidget::currentChanged, this, fitPages);
+    fitPages();
+
+    // Interface zoom: stored, and shown in the View menu and the status bar
+    updateZoomActions();
+    connect(&BUiScale::instance(), &BUiScale::zoomChanged, this, [this](int percent) {
+        BSettings::instance().setAppearanceUiZoom(percent);
+        updateZoomActions();
+        if (m_statusLabel) {
+            m_statusLabel->setText(tr("Interface zoom: %1 %").arg(percent));
+        }
+    });
 
     // Restore statistics action checked state after action is created
     bool statsVisible = BSettings::instance().statisticsWidgetVisible();
@@ -417,8 +450,8 @@ BMainWindow::BMainWindow(QWidget *parent)
             this, [this](const QString &jobName) {
         QDialog dlg(this);
         dlg.setWindowTitle(tr("Job: %1").arg(jobName));
-        dlg.setMinimumSize(900, 600);
-        dlg.resize(1000, 700);
+        dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600));
+        dlg.resize(BUiScale::px(1000), BUiScale::px(700));
 
         QVBoxLayout *layout = new QVBoxLayout(&dlg);
         BJobResourceWidget *jobWidget = new BJobResourceWidget("Job", m_director, &dlg);
@@ -507,6 +540,9 @@ void BMainWindow::applyTheme(const QString &themeName)
     if (themeFile.open(QFile::ReadOnly | QFile::Text)) {
         QString stylesheet = QLatin1String(themeFile.readAll());
         stylesheet += "\n" + BLevelColors::generateLevelQss();
+        // What the theme gives in pixels and has to follow the font
+        m_themeScaleRules = BUiScale::themeRules();
+        stylesheet += "\n" + m_themeScaleRules;
         qApp->setStyleSheet(stylesheet);
         themeFile.close();
 
@@ -524,7 +560,15 @@ void BMainWindow::setupUI()
     // Main Tab Widget (Jobs, Clients, Storage, Schedules)
     // ========================================================================
     m_tabWidget = new QTabWidget(this);
-    setCentralWidget(m_tabWidget);
+    // In a scroll area: with a large interface zoom a page can need more
+    // room than the window has. Then the window scrolls; it does not grow
+    // beyond the screen. With room enough nothing differs.
+    auto *centralScroll = new QScrollArea(this);
+    centralScroll->setFrameShape(QFrame::NoFrame);
+    centralScroll->setWidgetResizable(true);
+    centralScroll->setFocusPolicy(Qt::NoFocus);
+    centralScroll->setWidget(m_tabWidget);
+    setCentralWidget(centralScroll);
 
     m_jobWidget = new BJobWidget(m_director, this);
     m_tabWidget->addTab(m_jobWidget, "Jobs");
@@ -573,8 +617,8 @@ void BMainWindow::setupUI()
     addDockWidget(Qt::RightDockWidgetArea, m_statisticsDock);
 
     // Setze feste Breite für das DockWidget
-    m_statisticsDock->setMinimumWidth(300);
-    m_statisticsDock->setMaximumWidth(300);
+    BUiScale::track(m_statisticsDock, [this]() { m_statisticsDock->setMinimumWidth(BUiScale::px(300)); });
+    BUiScale::track(m_statisticsDock, [this]() { m_statisticsDock->setMaximumWidth(BUiScale::px(300)); });
 
     // Lade gespeicherten Sichtbarkeitszustand (oder standardmäßig versteckt)
     bool statsVisible = BSettings::instance().statisticsWidgetVisible();
@@ -719,6 +763,25 @@ void BMainWindow::createActions()
         }
     });
 
+    // Interface zoom (text size of the whole application; the timeline of
+    // the schedules has a zoom of its own for the time axis). Application
+    // wide, so that it also works in a dialog that is not modal.
+    m_zoomInAction = new QAction(tr("Interface Zoom In"), this);
+    m_zoomInAction->setShortcuts({QKeySequence(QStringLiteral("Ctrl++")),
+                                  QKeySequence(QStringLiteral("Ctrl+="))});
+    m_zoomInAction->setShortcutContext(Qt::ApplicationShortcut);
+    connect(m_zoomInAction, &QAction::triggered, &BUiScale::instance(), &BUiScale::zoomIn);
+
+    m_zoomOutAction = new QAction(tr("Interface Zoom Out"), this);
+    m_zoomOutAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+-")));
+    m_zoomOutAction->setShortcutContext(Qt::ApplicationShortcut);
+    connect(m_zoomOutAction, &QAction::triggered, &BUiScale::instance(), &BUiScale::zoomOut);
+
+    m_zoomResetAction = new QAction(this);
+    m_zoomResetAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+0")));
+    m_zoomResetAction->setShortcutContext(Qt::ApplicationShortcut);
+    connect(m_zoomResetAction, &QAction::triggered, &BUiScale::instance(), &BUiScale::resetZoom);
+
     // Theme Toggle Action
     m_toggleThemeAction = new QAction(this);
     m_toggleThemeAction->setToolTip(tr("Toggle Dark/Light Theme"));
@@ -800,8 +863,8 @@ void BMainWindow::createActions()
         // Create dialog with BJobResourceWidget
         QDialog dlg(this);
         dlg.setWindowTitle(tr("Job Resources"));
-        dlg.setMinimumSize(900, 600);
-        dlg.resize(1000, 700);
+        dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600));
+        dlg.resize(BUiScale::px(1000), BUiScale::px(700));
 
         QVBoxLayout *layout = new QVBoxLayout(&dlg);
         BJobResourceWidget *jobWidget = new BJobResourceWidget("Job", m_director, &dlg);
@@ -886,8 +949,8 @@ void BMainWindow::createActions()
         // Create dialog with BJobResourceWidget for JobDefs
         QDialog dlg(this);
         dlg.setWindowTitle(tr("JobDefs Resources"));
-        dlg.setMinimumSize(900, 600);
-        dlg.resize(1000, 700);
+        dlg.setMinimumSize(BUiScale::px(900), BUiScale::px(600));
+        dlg.resize(BUiScale::px(1000), BUiScale::px(700));
 
         QVBoxLayout *layout = new QVBoxLayout(&dlg);
         BJobResourceWidget *jdWidget = new BJobResourceWidget("JobDefs", m_director, &dlg);
@@ -980,7 +1043,7 @@ void BMainWindow::createActions()
 
         QDialog dialog(this);
         dialog.setWindowTitle(tr("Delete FileSet"));
-        dialog.setMinimumWidth(400);
+        dialog.setMinimumWidth(BUiScale::px(400));
 
         QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
@@ -1136,6 +1199,10 @@ void BMainWindow::createMenus()
     m_viewMenu = menuBar()->addMenu(tr("View"));
     m_viewMenu->addAction(m_toggleStatisticsAction);
     m_viewMenu->addAction(m_toggleJobLogAction);
+    m_viewMenu->addSeparator();
+    m_viewMenu->addAction(m_zoomInAction);
+    m_viewMenu->addAction(m_zoomOutAction);
+    m_viewMenu->addAction(m_zoomResetAction);
 
     // Jobs Menu
     m_jobsMenu = menuBar()->addMenu(tr("Jobs"));
@@ -1208,7 +1275,11 @@ void BMainWindow::createMenus()
 
     QToolBar *themeToolbar = new QToolBar();
     themeToolbar->setStyleSheet("QToolBar { border: none; background: transparent; }");
-    themeToolbar->setIconSize(QSize(16, 16));  // Half size (16x16 instead of 32x32)
+    // Half size (16x16 instead of 32x32 at a 10 pt font), following the font
+    BUiScale::track(themeToolbar, [themeToolbar]() {
+        const int side = BUiScale::px(16);
+        themeToolbar->setIconSize(QSize(side, side));
+    });
     themeToolbar->addAction(m_toggleThemeAction);
     menuBar()->setCornerWidget(themeToolbar, Qt::TopRightCorner);
 }
@@ -1216,6 +1287,12 @@ void BMainWindow::createMenus()
 void BMainWindow::createToolBar()
 {
     m_mainToolBar = addToolBar(tr("Main Toolbar"));
+    // The icons follow the font: the size of the style is the one for 10 pt
+    const int toolBarIcon = style()->pixelMetric(QStyle::PM_ToolBarIconSize, nullptr, m_mainToolBar);
+    BUiScale::track(m_mainToolBar, [this, toolBarIcon]() {
+        const int side = BUiScale::px(toolBarIcon);
+        m_mainToolBar->setIconSize(QSize(side, side));
+    });
 
     // Exit button first
     m_mainToolBar->addAction(m_exitAction);
@@ -1289,14 +1366,15 @@ void BMainWindow::showConnectionDialog()
 
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Connect to Director"));
-    dialog.resize(450, 250);
+    dialog.resize(BUiScale::px(450), BUiScale::px(250));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
     mainLayout->setSpacing(20);
 
     // Title
     QLabel *titleLabel = new QLabel(tr("Select Connection Profile"));
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold;");
+    titleLabel->setStyleSheet("font-weight: bold;");
+    BUiScale::bind(titleLabel, BUiScale::Large);
     mainLayout->addWidget(titleLabel);
 
     // Profile selection
@@ -1456,7 +1534,7 @@ void BMainWindow::onAboutTriggered()
     // Dialog erstellen
     QDialog aboutDialog(this);
     aboutDialog.setWindowTitle(tr("About Onesimus"));
-    aboutDialog.setMinimumSize(500, 450);
+    aboutDialog.setMinimumSize(BUiScale::px(500), BUiScale::px(450));
 
     // Hauptlayout
     QVBoxLayout* mainLayout = new QVBoxLayout(&aboutDialog);
@@ -1524,35 +1602,38 @@ void BMainWindow::onAboutTriggered()
     mainLayout->addWidget(copyrightLabel);
 
     // License
+    // Rich text takes its small size from the interface font
+    const QString smallCss = BUiScale::cssFontSize(BUiScale::Small);
     QLabel* licenseLabel = new QLabel(
-        "<p><b>License:</b> GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)</p>"
-        "<p style='font-size:9pt; color:#666;'>"
+        QString("<p><b>License:</b> GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)</p>"
+        "<p style='" + smallCss + "; color:#666;'>"
         "This program is free software: you can redistribute it and/or modify it under the "
         "terms of the GNU Affero General Public License as published by the Free Software "
         "Foundation, either version 3 of the License, or (at your option) any later version.</p>"
-        "<p style='font-size:9pt; color:#666;'>"
+        "<p style='" + smallCss + "; color:#666;'>"
         "This program is distributed in the hope that it will be useful, but WITHOUT ANY "
         "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A "
-        "PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.</p>"
+        "PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.</p>")
     );
     licenseLabel->setWordWrap(true);
     mainLayout->addWidget(licenseLabel);
 
     // Build Information
     QLabel* buildInfoLabel = new QLabel(
-        QString("<p style='font-size:9pt;'><b>Build Date:</b> %1 %2</p>"
-                "<p style='font-size:9pt;'><b>Git:</b> %3 (%4)</p>")
+        QString("<p style='%5;'><b>Build Date:</b> %1 %2</p>"
+                "<p style='%5;'><b>Git:</b> %3 (%4)</p>")
             .arg(BUILD_DATE)
             .arg(BUILD_TIME)
             .arg(GIT_COMMIT_HASH)
             .arg(GIT_BRANCH)
+            .arg(smallCss)
     );
     buildInfoLabel->setWordWrap(true);
     mainLayout->addWidget(buildInfoLabel);
 
     // Acknowledgments
     QLabel* ackLabel = new QLabel(
-        "<p style='font-size:9pt;'><b>Built with:</b> Qt " + QString(qVersion()) +
+        "<p style='" + smallCss + ";'><b>Built with:</b> Qt " + QString(qVersion()) +
         QString(", OpenSSL, %1 %2</p>").arg(COMPILER_ID).arg(COMPILER_VERSION)
     );
     ackLabel->setWordWrap(true);
@@ -1600,7 +1681,7 @@ void BMainWindow::onKeyboardShortcutsTriggered()
     // Create dialog showing keyboard shortcuts
     QDialog shortcutsDialog(this);
     shortcutsDialog.setWindowTitle(tr("Keyboard Shortcuts"));
-    shortcutsDialog.setMinimumSize(600, 500);
+    shortcutsDialog.setMinimumSize(BUiScale::px(600), BUiScale::px(500));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(&shortcutsDialog);
 
@@ -1654,6 +1735,9 @@ void BMainWindow::onKeyboardShortcutsTriggered()
         "<tr><td width='50%'><b>" + tr("Show Statistics") + "</b></td><td>Ctrl+Shift+S</td></tr>"
         "<tr><td><b>" + tr("Show Job Log") + "</b></td><td>Ctrl+Shift+L</td></tr>"
         "<tr><td><b>" + tr("Toggle Theme") + "</b></td><td>Ctrl+Shift+T</td></tr>"
+        "<tr><td><b>" + tr("Interface Zoom In") + "</b></td><td>Ctrl++</td></tr>"
+        "<tr><td><b>" + tr("Interface Zoom Out") + "</b></td><td>Ctrl+-</td></tr>"
+        "<tr><td><b>" + tr("Reset Interface Zoom") + "</b></td><td>Ctrl+0</td></tr>"
         "</table>"
     );
     viewLayout->addWidget(viewText);
@@ -1716,7 +1800,7 @@ public:
         , m_received(false)
     {
         setWindowTitle(tr("My Permissions"));
-        setMinimumSize(550, 600);
+        BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(550), BUiScale::px(600)); });
 
         QVBoxLayout *dialogLayout = new QVBoxLayout(this);
 
@@ -1805,8 +1889,8 @@ public:
         QVBoxLayout *rawLayout = new QVBoxLayout(m_rawGroup);
         m_rawEdit = new QTextEdit(scrollContent);
         m_rawEdit->setReadOnly(true);
-        m_rawEdit->setFont(QFont("monospace"));
-        m_rawEdit->setMaximumHeight(200);
+        BUiScale::bind(m_rawEdit, BUiScale::Normal, BUiScale::Monospace);
+        BUiScale::track(m_rawEdit, [this]() { m_rawEdit->setMaximumHeight(BUiScale::px(200)); });
         m_rawEdit->setVisible(false);
         rawLayout->addWidget(m_rawEdit);
         connect(m_rawGroup, &QGroupBox::toggled, m_rawEdit, &QTextEdit::setVisible);
@@ -2569,6 +2653,14 @@ void BMainWindow::onAutoRefreshSettingsChanged(bool enabled, int intervalSeconds
             m_statusLabel->setText(tr("Auto-refresh disabled"));
         }
     }
+}
+
+void BMainWindow::updateZoomActions()
+{
+    const int percent = BUiScale::instance().zoomPercent();
+    m_zoomInAction->setEnabled(percent < BUiScale::MaxZoom);
+    m_zoomOutAction->setEnabled(percent > BUiScale::MinZoom);
+    m_zoomResetAction->setText(tr("Reset Interface Zoom (now %1 %)").arg(percent));
 }
 
 void BMainWindow::onToggleTheme()

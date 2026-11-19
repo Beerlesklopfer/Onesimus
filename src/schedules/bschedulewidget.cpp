@@ -1,4 +1,5 @@
 #include "schedules/bschedulewidget.h"
+#include "buiscale.h"
 #include "schedules/bscheduledragresultdialog.h"
 #include "bcapabilitynotice.h"
 #include "jobs/blevelcolors.h"
@@ -116,7 +117,7 @@ void BScheduleWidget::setupUI()
     m_todayButton->setToolTip(tr("Show today or the current week"));
 
     // Wide enough for a week: "2026-11-16 - 2026-11-22"
-    m_dayLabel->setMinimumWidth(170);
+    BUiScale::track(m_dayLabel, [this]() { m_dayLabel->setMinimumWidth(BUiScale::px(170)); });
     m_dayLabel->setAlignment(Qt::AlignCenter);
     m_dayLabel->setToolTip(tr("The date or the week (Monday to Sunday) on display"));
 
@@ -139,7 +140,7 @@ void BScheduleWidget::setupUI()
     m_zoomSlider = new QSlider(Qt::Horizontal, this);
     m_zoomSlider->setRange(10, 60);    // px per hour: 10 (compact) to 60 (detailed)
     m_zoomSlider->setValue(15);
-    m_zoomSlider->setFixedWidth(120);
+    BUiScale::track(m_zoomSlider, [this]() { m_zoomSlider->setFixedWidth(BUiScale::px(120)); });
     m_zoomSlider->setToolTip(tr("Zoom level (pixels per hour)"));
     m_zoomLabel->setVisible(false);
     m_zoomSlider->setVisible(false);
@@ -158,6 +159,13 @@ void BScheduleWidget::setupUI()
             m_waitTable->setFocus();
     });
     toolbarLayout->addWidget(m_waitButton);
+    // Its text stays whole at another font size as well (after the theme
+    // was applied again, which sets the width of buttons)
+    connect(&BUiScale::instance(), &BUiScale::changed, m_waitButton, [this]() {
+        QTimer::singleShot(0, m_waitButton, [this]() {
+            m_waitButton->setMinimumWidth(m_waitButton->sizeHint().width());
+        });
+    });
 
     // Run lines that were not understood: named here, shown nowhere else
     m_runProblemLabel->setVisible(false);
@@ -180,7 +188,8 @@ void BScheduleWidget::setupUI()
     scheduleLayout->setContentsMargins(0, 0, 0, 0);
     scheduleLayout->setSpacing(2);
     QLabel *listLabel = new QLabel(tr("Schedules:"), this);
-    listLabel->setStyleSheet("font-weight: bold; font-size: 12pt;");
+    listLabel->setStyleSheet("font-weight: bold;");
+    BUiScale::bind(listLabel, BUiScale::Large);
     listLabel->setAlignment(Qt::AlignRight);
     scheduleLayout->addWidget(listLabel);
     m_scheduleList->setAlternatingRowColors(true);
@@ -191,7 +200,7 @@ void BScheduleWidget::setupUI()
     QVBoxLayout *jobLayout = new QVBoxLayout(jobPane);
     jobLayout->setContentsMargins(0, 0, 0, 0);
     jobLayout->setSpacing(2);
-    m_jobListLabel->setStyleSheet("font-weight: bold; font-size: 10pt;");
+    m_jobListLabel->setStyleSheet("font-weight: bold;");
     jobLayout->addWidget(m_jobListLabel);
 
     m_jobList->setColumnCount(6);
@@ -219,7 +228,7 @@ void BScheduleWidget::setupUI()
     fdLayout->setContentsMargins(0, 0, 0, 0);
     fdLayout->setSpacing(2);
     QLabel *fdLabel = new QLabel(tr("Clients (FD)"), fdPane);
-    fdLabel->setStyleSheet("font-weight: bold; font-size: 10pt; padding: 2px 4px;");
+    fdLabel->setStyleSheet("font-weight: bold; padding: 2px 4px;");
     fdLayout->addWidget(fdLabel);
     m_fdScrollArea->setWidget(m_fdGanttWidget);
     m_fdScrollArea->setWidgetResizable(true);
@@ -233,7 +242,7 @@ void BScheduleWidget::setupUI()
     sdLayout->setContentsMargins(0, 0, 0, 0);
     sdLayout->setSpacing(2);
     QLabel *sdLabel = new QLabel(tr("Storage (SD)"), sdPane);
-    sdLabel->setStyleSheet("font-weight: bold; font-size: 10pt; padding: 2px 4px;");
+    sdLabel->setStyleSheet("font-weight: bold; padding: 2px 4px;");
     sdLayout->addWidget(sdLabel);
     m_sdScrollArea->setWidget(m_sdGanttWidget);
     m_sdScrollArea->setWidgetResizable(true);
@@ -856,13 +865,14 @@ void BScheduleWidget::setupStatsPanel()
     // Title row with close button
     QHBoxLayout *titleRow = new QHBoxLayout();
     m_statsTitle = new QLabel(this);
-    m_statsTitle->setStyleSheet("font-weight: bold; font-size: 11pt;");
+    m_statsTitle->setStyleSheet("font-weight: bold;");
+    BUiScale::bind(m_statsTitle, BUiScale::Large);
     titleRow->addWidget(m_statsTitle, 1);
 
     QToolButton *closeButton = new QToolButton(this);
     closeButton->setText(QStringLiteral("\u2715"));  // Unicode ✕
     closeButton->setToolTip(tr("Close"));
-    closeButton->setFixedSize(20, 20);
+    BUiScale::track(closeButton, [closeButton]() { closeButton->setFixedSize(BUiScale::px(20), BUiScale::px(20)); });
     closeButton->setStyleSheet(
         "QToolButton { color: #333; font-weight: bold; border: 1px solid #aaa;"
         " border-radius: 3px; background: #ddd; }"
@@ -881,7 +891,8 @@ void BScheduleWidget::setupStatsPanel()
         QVBoxLayout *box = new QVBoxLayout();
         box->setSpacing(0);
         QLabel *hdr = new QLabel(label, this);
-        hdr->setStyleSheet("color: gray; font-size: 9pt;");
+        hdr->setStyleSheet("color: gray;");
+        BUiScale::bind(hdr, BUiScale::Small);
         hdr->setAlignment(Qt::AlignLeft);
         QLabel *val = new QLabel("-", this);
         val->setWordWrap(false);
@@ -920,10 +931,12 @@ void BScheduleWidget::setupStatsPanel()
         QVBoxLayout *box = new QVBoxLayout();
         box->setSpacing(0);
         QLabel *headerLabel = new QLabel(label, this);
-        headerLabel->setStyleSheet("color: gray; font-size: 9pt;");
+        headerLabel->setStyleSheet("color: gray;");
+        BUiScale::bind(headerLabel, BUiScale::Small);
         headerLabel->setAlignment(Qt::AlignCenter);
         QLabel *valueLabel = new QLabel("-", this);
-        valueLabel->setStyleSheet("font-size: 12pt; font-weight: bold;");
+        valueLabel->setStyleSheet("font-weight: bold;");
+        BUiScale::bind(valueLabel, BUiScale::Large);
         valueLabel->setAlignment(Qt::AlignCenter);
         box->addWidget(headerLabel);
         box->addWidget(valueLabel);
@@ -960,7 +973,7 @@ void BScheduleWidget::setupStatsPanel()
     m_statsRunsTable->verticalHeader()->setVisible(false);
     m_statsRunsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_statsRunsTable->setSelectionMode(QAbstractItemView::NoSelection);
-    m_statsRunsTable->setMaximumHeight(140);
+    BUiScale::track(m_statsRunsTable, [this]() { m_statsRunsTable->setMaximumHeight(BUiScale::px(140)); });
     m_statsRunsTable->setAlternatingRowColors(true);
     statsLayout->addWidget(m_statsRunsTable);
 }
@@ -1802,8 +1815,8 @@ void BScheduleWidget::setupWaitPanel()
     m_waitTable->horizontalHeader()->setStretchLastSection(true);
     m_waitTable->setSortingEnabled(true);
     m_waitTable->sortByColumn(WaitDuration, Qt::DescendingOrder);   // longest waits first
-    m_waitTable->setMinimumHeight(90);
-    m_waitTable->setMaximumHeight(190);
+    BUiScale::track(m_waitTable, [this]() { m_waitTable->setMinimumHeight(BUiScale::px(90)); });
+    BUiScale::track(m_waitTable, [this]() { m_waitTable->setMaximumHeight(BUiScale::px(190)); });
     layout->addWidget(m_waitTable);
 
     // The reason of the current row in full: the limit with its value or
@@ -1962,6 +1975,8 @@ void BScheduleWidget::updateWaitViews()
     QFont font = m_waitButton->font();
     font.setBold(sum.waiting > 0);
     m_waitButton->setFont(font);
+    // Never cut: the theme lets a button shrink below its text
+    m_waitButton->setMinimumWidth(m_waitButton->sizeHint().width());
 
     // --- What the prediction used ---
     QStringList info;

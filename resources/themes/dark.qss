@@ -1,14 +1,14 @@
 /* Onesimus Dark Theme - Industrial Design */
 
-/* Main Application */
+/* Main Application
+   No font here: family and size are the desktop's font times the interface
+   zoom (BUiScale). A size in a theme would override both. */
 QWidget {
     background-color: #1e1e1e;
     color: #d4d4d4;
     alternate-background-color: #252526;
     selection-background-color: #094771;
     selection-color: #ffffff;
-    font-family: "Segoe UI", "Ubuntu", sans-serif;
-    font-size: 10pt;
 }
 
 QMainWindow {
@@ -453,11 +453,9 @@ QLabel#hintLabel {
     margin-top: 16px;
 }
 
-/* Monospace hash / fingerprint display */
+/* Hash / fingerprint display; its fixed-pitch font is set in the code */
 QLabel#md5HashLabel {
     color: #888888;
-    font-family: monospace;
-    font-size: 10px;
 }
 
 /* Client statistics bar */

@@ -1,5 +1,6 @@
 #include "schedules/bscheduleganttwidget.h"
 #include "jobs/blevelcolors.h"
+#include "buiscale.h"
 #include "blogging.h"
 #include <QPainter>
 #include <QStyleOption>
@@ -16,6 +17,7 @@ BScheduleGanttWidget::BScheduleGanttWidget(QWidget *parent)
     // Allow QSS to control background-color and other palette roles
     setAttribute(Qt::WA_StyledBackground, true);
     setMouseTracking(true);
+    updateMetrics();
 
     // Update now-marker every minute
     connect(m_nowTimer, &QTimer::timeout, this, QOverload<>::of(&QWidget::update));
@@ -208,12 +210,62 @@ void BScheduleGanttWidget::setZoomLevel(int pixelsPerHour)
     update();
 }
 
-void BScheduleGanttWidget::resizeEvent(QResizeEvent *event)
+void BScheduleGanttWidget::updateMetrics()
 {
-    QWidget::resizeEvent(event);
+    // Everything is a multiple of the widget's font: the font of the
+    // desktop times the interface zoom. A measure given in pixels is the
+    // one for a 10 pt font (BUiScale::px()); where text has to fit, the
+    // height of that text is the lower limit.
+    const QFont base = font();
+    m_smallFont = BUiScale::scaled(base, BUiScale::Tiny);
+    m_smallBoldFont = BUiScale::scaled(base, BUiScale::Tiny, BUiScale::Bold);
+    const QFontMetrics fm(base);
+    const QFontMetrics smallFm(m_smallFont);
+    const QFontMetrics smallBoldFm(m_smallBoldFont);
 
+    m_metrics.rowHeight = qMax(px(28), fm.height() + px(8));
+    m_metrics.headerRow1Height = qMax(px(18), smallBoldFm.height() + px(4));
+    m_metrics.headerRow2Height = qMax(px(18), smallFm.height() + px(6));
+    m_metrics.headerHeight = m_metrics.headerRow1Height + m_metrics.headerRow2Height;
+    m_metrics.labelWidth = px(230);
+    m_metrics.heatmapHeight = qMax(px(24), smallFm.height() + px(6));
+    m_metrics.noHistoryMarkerWidth = qMax(px(22),
+        smallBoldFm.horizontalAdvance(QLatin1Char('?')) + px(12));
+    m_metrics.hourLabelWidth = smallFm.horizontalAdvance(QStringLiteral("00:00"));
+
+    m_rowHeight = m_metrics.rowHeight;
+    m_headerRow1Height = m_metrics.headerRow1Height;
+    m_headerRow2Height = m_metrics.headerRow2Height;
+    m_headerHeight = m_metrics.headerHeight;
+    m_labelWidth = m_metrics.labelWidth;
+    m_heatmapHeight = m_metrics.heatmapHeight;
+    m_noHistoryMarkerWidth = m_metrics.noHistoryMarkerWidth;
+}
+
+int BScheduleGanttWidget::px(int designPixels) const
+{
+    return BUiScale::px(designPixels, font());
+}
+
+int BScheduleGanttWidget::hourLabelStepMinutes() const
+{
+    // In day view a label every hour, in week view not closer than the
+    // snap. Fewer if the labels would touch: the next step that leaves a
+    // gap between two of them.
+    const int wanted = (m_viewMode == DayView) ? 60 : qMax(60, m_dragSnapMinutes);
+    const int needed = m_metrics.hourLabelWidth + px(6);
+    static const int steps[] = {60, 120, 180, 240, 360, 720, 1440};
+    for (int step : steps) {
+        if (step < wanted) continue;
+        if (step * m_pixelsPerHour / 60 >= needed) return step;
+    }
+    return 1440;
+}
+
+void BScheduleGanttWidget::fitToWidth()
+{
     // Stretch-to-fit: compute pixels-per-hour from available width
-    int availableWidth = width() - LABEL_WIDTH - 20;
+    int availableWidth = width() - m_labelWidth - 20;
     if (availableWidth < 100) availableWidth = 100;
 
     int hours = totalHours();
@@ -225,14 +277,33 @@ void BScheduleGanttWidget::resizeEvent(QResizeEvent *event)
     recalcHeatmap();
 }
 
+void BScheduleGanttWidget::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    fitToWidth();
+}
+
+void BScheduleGanttWidget::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::FontChange || event->type() == QEvent::StyleChange) {
+        // Another font or zoom: rows, header and label column follow
+        updateMetrics();
+        updateMinimumSize();
+        fitToWidth();
+        updateGeometry();
+        update();
+    }
+}
+
 QSize BScheduleGanttWidget::sizeHint() const
 {
-    return QSize(LABEL_WIDTH + contentWidth() + 20, contentHeight() + 20);
+    return QSize(m_labelWidth + contentWidth() + 20, contentHeight() + 20);
 }
 
 QSize BScheduleGanttWidget::minimumSizeHint() const
 {
-    return QSize(300, HEADER_HEIGHT + ROW_HEIGHT * 3 + HEATMAP_HEIGHT);
+    return QSize(px(300), m_headerHeight + m_rowHeight * 3 + m_heatmapHeight);
 }
 
 // ============================================================================
@@ -251,7 +322,7 @@ int BScheduleGanttWidget::contentWidth() const
 
 int BScheduleGanttWidget::contentHeight() const
 {
-    return HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT + HEATMAP_HEIGHT;
+    return m_headerHeight + m_rows.size() * m_rowHeight + m_heatmapHeight;
 }
 
 void BScheduleGanttWidget::updateMinimumSize()
@@ -261,7 +332,7 @@ void BScheduleGanttWidget::updateMinimumSize()
 
     // Width: in week mode, enforce minimum from zoom so horizontal scrollbar appears
     if (m_viewMode == WeekView) {
-        int minWidth = LABEL_WIDTH + totalHours() * m_zoomMinPph + 20;
+        int minWidth = m_labelWidth + totalHours() * m_zoomMinPph + 20;
         setMinimumWidth(minWidth);
     } else {
         setMinimumWidth(0);  // day mode: stretch to fit
@@ -271,19 +342,19 @@ void BScheduleGanttWidget::updateMinimumSize()
 int BScheduleGanttWidget::timeToX(int hour, int minute) const
 {
     double fractionalHour = hour + minute / 60.0;
-    return LABEL_WIDTH + static_cast<int>(fractionalHour * m_pixelsPerHour);
+    return m_labelWidth + static_cast<int>(fractionalHour * m_pixelsPerHour);
 }
 
 int BScheduleGanttWidget::xToHour(int x) const
 {
-    int relX = x - LABEL_WIDTH;
+    int relX = x - m_labelWidth;
     if (relX < 0) return -1;
     return relX / m_pixelsPerHour;
 }
 
 int BScheduleGanttWidget::xToMinute(int x) const
 {
-    int relX = x - LABEL_WIDTH;
+    int relX = x - m_labelWidth;
     if (relX < 0) return 0;
     int hourPixels = relX % m_pixelsPerHour;
     return (hourPixels * 60) / m_pixelsPerHour;
@@ -291,9 +362,9 @@ int BScheduleGanttWidget::xToMinute(int x) const
 
 int BScheduleGanttWidget::rowAtY(int y) const
 {
-    int relY = y - HEADER_HEIGHT;
+    int relY = y - m_headerHeight;
     if (relY < 0) return -1;
-    int row = relY / ROW_HEIGHT;
+    int row = relY / m_rowHeight;
     if (row >= m_rows.size()) return -1;
     return row;
 }
@@ -394,17 +465,18 @@ QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int da
 {
     int startHour = dayOffset * 24 + entry.hour;
     int x = timeToX(startHour, entry.minute);
-    int y = HEADER_HEIGHT + row * ROW_HEIGHT + 2;
+    const int gap = px(2);
+    int y = m_headerHeight + row * m_rowHeight + gap;
 
     // Bar width: the measured median. Without history there is no length,
     // only a marker of fixed size at the start.
     const int secs = durationSecs(entry);
-    int barWidth = NO_HISTORY_MARKER_WIDTH;
+    int barWidth = m_noHistoryMarkerWidth;
     if (secs > 0) {
-        barWidth = qMax(6, static_cast<int>(secs / 3600.0 * m_pixelsPerHour));
+        barWidth = qMax(px(6), static_cast<int>(secs / 3600.0 * m_pixelsPerHour));
     }
 
-    return QRect(x, y, barWidth, ROW_HEIGHT - 4);
+    return QRect(x, y, barWidth, m_rowHeight - 2 * gap);
 }
 
 QRect BScheduleGanttWidget::waitRect(const BScheduleEntry &entry, int row, int dayOffset) const
@@ -413,7 +485,7 @@ QRect BScheduleGanttWidget::waitRect(const BScheduleEntry &entry, int row, int d
     if (!wait || wait->waitSecs <= 0) return QRect();
 
     // Wide enough to be seen and pointed at, however short the wait
-    const int width = qMax(6, static_cast<int>(wait->waitSecs / 3600.0 * m_pixelsPerHour));
+    const int width = qMax(px(6), static_cast<int>(wait->waitSecs / 3600.0 * m_pixelsPerHour));
     const QRect bar = barRect(entry, row, dayOffset);
     return QRect(bar.left(), bar.top(), width, bar.height());
 }
@@ -449,7 +521,7 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
 
     if (m_rows.isEmpty()) {
         painter.setPen(palette().text().color());
-        painter.drawText(QRect(LABEL_WIDTH, HEADER_HEIGHT, contentWidth(), ROW_HEIGHT * 2),
+        painter.drawText(QRect(m_labelWidth, m_headerHeight, contentWidth(), m_rowHeight * 2),
                          Qt::AlignCenter,
                          m_viewMode == WeekView ? tr("No runs in this week")
                                                 : tr("No runs on this date"));
@@ -474,7 +546,7 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
     int hours = totalHours();
 
     // Header background — full widget width to clear old paint after view switch
-    QRect headerBg(LABEL_WIDTH, 0, width() - LABEL_WIDTH, HEADER_HEIGHT);
+    QRect headerBg(m_labelWidth, 0, width() - m_labelWidth, m_headerHeight);
     painter.fillRect(headerBg, palette().alternateBase());
 
     QFont font = painter.font();
@@ -489,9 +561,9 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
         tr("Fri"), tr("Sat"), tr("Sun")
     };
 
-    font.setPointSize(8);
-    font.setBold(true);
+    font = m_smallBoldFont;
     painter.setFont(font);
+    const QFontMetrics dayFm(font);
 
     // Derive palette-based colors for the header
     QColor hlBase = palette().highlight().color();
@@ -510,47 +582,51 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
             int dayWidth = x2 - x1;
 
             // Alternating day background in row 1
-            painter.fillRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT,
+            painter.fillRect(x1, 0, dayWidth, m_headerRow1Height,
                              (d % 2 == 0) ? hlTintEven : hlTintOdd);
 
             // Day name and date — shorter forms if too narrow
             const QDate date = first.addDays(d);
             QString label;
-            if (dayWidth > 170)
-                label = QString("%1, %2").arg(dayNames[d], date.toString(Qt::ISODate));
-            else if (dayWidth > 80)
-                label = QString("%1 %2").arg(dayAbbrev[d], date.toString("MM-dd"));
+            const QString longLabel = QString("%1, %2").arg(dayNames[d], date.toString(Qt::ISODate));
+            const QString shortLabel = QString("%1 %2").arg(dayAbbrev[d], date.toString("MM-dd"));
+            const int room = dayWidth - px(8);
+            if (dayFm.horizontalAdvance(longLabel) <= room)
+                label = longLabel;
+            else if (dayFm.horizontalAdvance(shortLabel) <= room)
+                label = shortLabel;
             else
                 label = dayAbbrev[d];
             painter.setPen(palette().text().color());
-            QRect textRect(x1, 0, dayWidth, HEADER_ROW1_HEIGHT);
+            QRect textRect(x1, 0, dayWidth, m_headerRow1Height);
             painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, label);
 
             // Vertical separator between days
             painter.setPen(QPen(hlSep, 1));
-            painter.drawLine(x1, 0, x1, HEADER_ROW1_HEIGHT);
+            painter.drawLine(x1, 0, x1, m_headerRow1Height);
         }
     } else {
         // Day mode: day name and date centered
         int dayIdx = first.dayOfWeek() - 1;  // Qt: 1=Mon → 0=Mon
-        painter.fillRect(LABEL_WIDTH, 0, width() - LABEL_WIDTH, HEADER_ROW1_HEIGHT, hlTintDay);
+        painter.fillRect(m_labelWidth, 0, width() - m_labelWidth, m_headerRow1Height, hlTintDay);
         painter.setPen(palette().text().color());
-        QRect textRect(LABEL_WIDTH, 0, contentWidth(), HEADER_ROW1_HEIGHT);
+        QRect textRect(m_labelWidth, 0, contentWidth(), m_headerRow1Height);
         painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter,
                          QString("%1, %2").arg(dayNames[dayIdx], first.toString(Qt::ISODate)));
     }
 
     // Separator line between row 1 and row 2
     painter.setPen(QPen(palette().mid().color(), 1));
-    painter.drawLine(LABEL_WIDTH, HEADER_ROW1_HEIGHT, width(), HEADER_ROW1_HEIGHT);
+    painter.drawLine(m_labelWidth, m_headerRow1Height, width(), m_headerRow1Height);
 
     // === Row 2: Hour labels ===
-    font.setBold(false);
-    font.setPointSize(7);
+    font = m_smallFont;
     painter.setFont(font);
 
-    int labelIntervalMin = (m_viewMode == DayView) ? 60 : qMax(60, m_dragSnapMinutes);
+    int labelIntervalMin = hourLabelStepMinutes();
     int totalMinutes = hours * 60;
+    const int tick = px(4);
+    const int labelBox = m_metrics.hourLabelWidth + px(6);
 
     for (int m = 0; m < totalMinutes; m += labelIntervalMin) {
         int h = m / 60;
@@ -559,7 +635,7 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
 
         // Tick line at bottom of row 2
         painter.setPen(QPen(palette().mid().color(), 1));
-        painter.drawLine(x, HEADER_HEIGHT - 4, x, HEADER_HEIGHT);
+        painter.drawLine(x, m_headerHeight - tick, x, m_headerHeight);
 
         // Hour label
         int displayHour = h % 24;
@@ -568,13 +644,13 @@ void BScheduleGanttWidget::drawTimeHeader(QPainter &painter)
             .arg(min, 2, 10, QChar('0'));
 
         painter.setPen(palette().text().color());
-        QRect textRect(x - 20, HEADER_ROW1_HEIGHT, 40, HEADER_ROW2_HEIGHT);
-        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, label);
+        QRect textRect(x - labelBox / 2, m_headerRow1Height, labelBox, m_headerRow2Height - tick);
+        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter | Qt::TextDontClip, label);
     }
 
     // Bottom border
     painter.setPen(QPen(palette().mid().color(), 1));
-    painter.drawLine(LABEL_WIDTH, HEADER_HEIGHT, width(), HEADER_HEIGHT);
+    painter.drawLine(m_labelWidth, m_headerHeight, width(), m_headerHeight);
 
     painter.restore();
 }
@@ -594,13 +670,13 @@ void BScheduleGanttWidget::drawNowMarker(QPainter &painter)
 
     painter.save();
     painter.setPen(QPen(Qt::red, 2));
-    painter.drawLine(x, HEADER_HEIGHT, x, HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT);
+    painter.drawLine(x, m_headerHeight, x, m_headerHeight + m_rows.size() * m_rowHeight);
 
     // Small triangle at top
     QPolygonF triangle;
-    triangle << QPointF(x - 4, HEADER_HEIGHT)
-             << QPointF(x + 4, HEADER_HEIGHT)
-             << QPointF(x, HEADER_HEIGHT + 6);
+    triangle << QPointF(x - px(4), m_headerHeight)
+             << QPointF(x + px(4), m_headerHeight)
+             << QPointF(x, m_headerHeight + px(6));
     painter.setBrush(Qt::red);
     painter.setPen(Qt::NoPen);
     painter.drawPolygon(triangle);
@@ -613,29 +689,31 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
 
     for (int r = 0; r < m_rows.size(); ++r) {
         const RowInfo &row = m_rows[r];
-        int y = HEADER_HEIGHT + r * ROW_HEIGHT;
+        int y = m_headerHeight + r * m_rowHeight;
 
         // Alternating row background
         if (r % 2 == 0) {
-            painter.fillRect(LABEL_WIDTH, y, contentWidth(), ROW_HEIGHT,
+            painter.fillRect(m_labelWidth, y, contentWidth(), m_rowHeight,
                              palette().alternateBase());
         }
 
         // Label
-        QRect labelRect(4, y, LABEL_WIDTH - 8, ROW_HEIGHT);
+        QRect labelRect(px(4), y, m_labelWidth - 2 * px(4), m_rowHeight);
         if (row.isGroupHeader) {
             QFont font = painter.font();
             font.setBold(true);
             painter.setFont(font);
             painter.setPen(palette().text().color());
-            painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, row.label);
+            painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
+                             painter.fontMetrics().elidedText(row.label, Qt::ElideRight,
+                                                              labelRect.width()));
             font.setBold(false);
             painter.setFont(font);
 
             // Group header background — palette-derived tint, works in dark and light
             QColor groupTint = palette().highlight().color();
             groupTint.setAlpha(20);
-            painter.fillRect(LABEL_WIDTH, y, contentWidth(), ROW_HEIGHT, groupTint);
+            painter.fillRect(m_labelWidth, y, contentWidth(), m_rowHeight, groupTint);
         } else {
             painter.setPen(palette().text().color());
             painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter,
@@ -652,13 +730,13 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
 
         // Row separator line
         painter.setPen(QPen(palette().mid().color(), 0.5));
-        painter.drawLine(0, y + ROW_HEIGHT, LABEL_WIDTH + contentWidth(), y + ROW_HEIGHT);
+        painter.drawLine(0, y + m_rowHeight, m_labelWidth + contentWidth(), y + m_rowHeight);
     }
 
     // Grid: vertical lines at snap interval
     int snapMin = qMax(1, m_dragSnapMinutes);
     int totalMin = totalHours() * 60;
-    int rowsBottom = HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT;
+    int rowsBottom = m_headerHeight + m_rows.size() * m_rowHeight;
     for (int m = 0; m <= totalMin; m += snapMin) {
         int h = m / 60;
         int min = m % 60;
@@ -670,7 +748,7 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
             painter.setPen(QPen(palette().mid().color(), 0.5));
         else
             painter.setPen(QPen(palette().mid().color(), 0.2));
-        painter.drawLine(x, HEADER_HEIGHT, x, rowsBottom);
+        painter.drawLine(x, m_headerHeight, x, rowsBottom);
     }
 
     painter.restore();
@@ -694,9 +772,9 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
     // Nothing is drawn outside the dates on display: a run that waits past
     // their end has its lead-in cut there
     painter.save();
-    const int contentRight = LABEL_WIDTH + contentWidth();
-    painter.setClipRect(QRect(LABEL_WIDTH, HEADER_HEIGHT, contentWidth() + 1,
-                              m_rows.size() * ROW_HEIGHT));
+    const int contentRight = m_labelWidth + contentWidth();
+    painter.setClipRect(QRect(m_labelWidth, m_headerHeight, contentWidth() + 1,
+                              m_rows.size() * m_rowHeight));
 
     if (!lead.isEmpty()) {
         // Waiting: a hatched strip, thinner than the bar, from the scheduled
@@ -706,7 +784,7 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
         const QColor ink = palette().text().color();
         QColor hatch = ink;
         hatch.setAlpha(hovered ? 230 : 170);
-        const QRect strip = lead.adjusted(0, 6, 0, -6);
+        const QRect strip = lead.adjusted(0, px(6), 0, -px(6));
         painter.setPen(Qt::NoPen);
         painter.setBrush(QBrush(hatch, Qt::BDiagPattern));
         painter.drawRect(strip);
@@ -716,13 +794,15 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
         painter.setPen(QPen(fillColor, 2));
         painter.drawLine(lead.left(), lead.top(), lead.left(), lead.bottom());
 
-        if (rect.left() >= contentRight && lead.left() < contentRight - 12) {
+        const int markWidth = QFontMetrics(BUiScale::scaled(font(), BUiScale::Normal, BUiScale::Bold))
+                                  .horizontalAdvance(QStringLiteral("\u00BB")) + px(4);
+        if (rect.left() >= contentRight && lead.left() < contentRight - markWidth) {
             // The start is after the dates on display
             QFont markFont = font();
             markFont.setBold(true);
             painter.setFont(markFont);
-            const QRect markRect(contentRight - 13, lead.top(), 12, lead.height());
-            painter.fillRect(markRect.adjusted(0, 4, 0, -4), palette().base());
+            const QRect markRect(contentRight - markWidth - 1, lead.top(), markWidth, lead.height());
+            painter.fillRect(markRect.adjusted(0, px(4), 0, -px(4)), palette().base());
             painter.setPen(ink);
             painter.drawText(markRect, Qt::AlignCenter, QStringLiteral("\u00BB"));
         }
@@ -735,7 +815,8 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
         painter.setFont(markFont);
         painter.setPen(palette().text().color());
         const int markX = lead.isEmpty() ? rect.left() : lead.left();
-        painter.drawText(QRect(markX - 11, rect.top(), 10, rect.height()),
+        const int questionWidth = painter.fontMetrics().horizontalAdvance(QLatin1Char('?')) + px(2);
+        painter.drawText(QRect(markX - questionWidth - 1, rect.top(), questionWidth, rect.height()),
                          Qt::AlignCenter, QStringLiteral("?"));
     }
 
@@ -777,21 +858,20 @@ void BScheduleGanttWidget::drawJobBar(QPainter &painter, int entryIndex,
 
     // Inside: a question mark without history, otherwise the level letter
     // if the bar is wide enough ("~" in front for an estimate)
-    QFont font = painter.font();
-    font.setPointSize(8);
-    font.setBold(true);
-    painter.setFont(font);
+    painter.setFont(m_smallBoldFont);
     if (!estimate.hasHistory()) {
         painter.setPen(palette().text().color());
         painter.drawText(rect, Qt::AlignCenter, QStringLiteral("?"));
-    } else if (rect.width() > 20) {
-        painter.setPen(estimate.isMeasured() ? QColor(Qt::white) : palette().text().color());
+    } else {
         QString levelChar = entry.levelLabel().left(1);
         if (!estimate.isMeasured()) levelChar.prepend(QLatin1Char('~'));
-        painter.drawText(rect, Qt::AlignCenter, levelChar);
+        // Only if the bar has room for it
+        if (rect.width() >= painter.fontMetrics().horizontalAdvance(levelChar) + px(10)) {
+            painter.setPen(estimate.isMeasured() ? QColor(Qt::white) : palette().text().color());
+            painter.drawText(rect, Qt::AlignCenter, levelChar);
+        }
     }
-    font.setBold(false);
-    painter.setFont(font);
+    painter.setFont(m_smallFont);
 
     painter.restore();      // the clip
 }
@@ -802,16 +882,16 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
 
     painter.save();
 
-    int y = HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT + 2;
+    int y = m_headerHeight + m_rows.size() * m_rowHeight + px(2);
     int slotCount = m_heatmapSlots.size();
 
     // Label
-    QRect labelRect(4, y, LABEL_WIDTH - 8, HEATMAP_HEIGHT);
+    QRect labelRect(px(4), y, m_labelWidth - 2 * px(4), m_heatmapHeight);
     painter.setPen(palette().text().color());
-    QFont font = painter.font();
-    font.setPointSize(8);
-    painter.setFont(font);
+    painter.setFont(m_smallFont);
     painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignVCenter, tr("Utilization"));
+    const int unknownStrip = px(4);
+    const int waitingStrip = px(7);
 
     double slotWidth = static_cast<double>(contentWidth()) / slotCount;
 
@@ -832,21 +912,21 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
             color.setAlpha(qMin(235, 70 + 33 * (count - 1)));
         }
 
-        int x = LABEL_WIDTH + static_cast<int>(i * slotWidth);
+        int x = m_labelWidth + static_cast<int>(i * slotWidth);
         int w = static_cast<int>((i + 1) * slotWidth) - static_cast<int>(i * slotWidth);
-        painter.fillRect(x, y, w, HEATMAP_HEIGHT, color);
+        painter.fillRect(x, y, w, m_heatmapHeight, color);
 
         // A run without history starts here: it is not in the count of any
         // slot, because nobody knows how many slots it covers
         if (m_heatmapUnknown.value(i) > 0) {
-            painter.fillRect(x, y, qMax(2, w), 4,
+            painter.fillRect(x, y, qMax(2, w), unknownStrip,
                              QBrush(palette().text().color(), Qt::BDiagPattern));
         }
 
         // Runs are predicted to wait in this slot: the hatching of the
         // lead-ins, as a strip along the bottom
         if (m_heatmapWaiting.value(i) > 0) {
-            const QRect strip(x, y + HEATMAP_HEIGHT - 7, qMax(2, w), 7);
+            const QRect strip(x, y + m_heatmapHeight - waitingStrip, qMax(2, w), waitingStrip);
             painter.fillRect(strip, palette().base());
             painter.fillRect(strip, QBrush(ink, Qt::BDiagPattern));
         }
@@ -854,7 +934,7 @@ void BScheduleGanttWidget::drawHeatmap(QPainter &painter)
 
     // Border
     painter.setPen(QPen(palette().mid().color(), 1));
-    painter.drawRect(LABEL_WIDTH, y, contentWidth(), HEATMAP_HEIGHT);
+    painter.drawRect(m_labelWidth, y, contentWidth(), m_heatmapHeight);
 
     painter.restore();
 }
@@ -1132,11 +1212,11 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         QToolTip::showText(event->globalPosition().toPoint(), tooltip, this);
     } else {
         // Check heatmap hover
-        int hmY = HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT + 2;
-        if (event->pos().y() >= hmY && event->pos().y() <= hmY + HEATMAP_HEIGHT
-            && event->pos().x() >= LABEL_WIDTH) {
+        int hmY = m_headerHeight + m_rows.size() * m_rowHeight + px(2);
+        if (event->pos().y() >= hmY && event->pos().y() <= hmY + m_heatmapHeight
+            && event->pos().x() >= m_labelWidth) {
 
-            int relX = event->pos().x() - LABEL_WIDTH;
+            int relX = event->pos().x() - m_labelWidth;
             int slotIdx = relX * heatmapSlotCount() / contentWidth();
 
             if (slotIdx >= 0 && slotIdx < m_heatmapSlots.size()) {
@@ -1425,9 +1505,7 @@ void BScheduleGanttWidget::drawDragOverlay(QPainter &painter)
 
     // --- 3. Time label centered in preview bar ---
     painter.setPen(Qt::white);
-    QFont font = painter.font();
-    font.setPointSize(8);
-    font.setBold(true);
+    QFont font = m_smallBoldFont;
     painter.setFont(font);
     QString timeLabel = QString("%1:%2")
         .arg(m_dragNewHour, 2, 10, QChar('0'))
@@ -1441,7 +1519,7 @@ void BScheduleGanttWidget::drawDragOverlay(QPainter &painter)
     QColor snapColor = palette().mid().color(); snapColor.setAlpha(150);
     QPen snapPen(snapColor, 1, Qt::DotLine);
     painter.setPen(snapPen);
-    painter.drawLine(snapX, HEADER_HEIGHT, snapX, HEADER_HEIGHT + m_rows.size() * ROW_HEIGHT);
+    painter.drawLine(snapX, m_headerHeight, snapX, m_headerHeight + m_rows.size() * m_rowHeight);
 
     // --- 5. Dependency highlights ---
     drawDependencyHighlights(painter);

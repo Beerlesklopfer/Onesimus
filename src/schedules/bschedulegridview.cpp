@@ -5,6 +5,7 @@
  */
 
 #include "schedules/bschedulegridview.h"
+#include "buiscale.h"
 
 #include "schedules/brunruledialog.h"
 #include "schedules/bschedulegriddialogs.h"
@@ -103,20 +104,39 @@ public:
     {
         return layoutItems(width, nullptr);
     }
-    QSize sizeHint() const override { return QSize(400, heightForWidth(qMax(400, width()))); }
-    QSize minimumSizeHint() const override { return QSize(120, m_items.isEmpty() ? 0 : RowHeight); }
+    QSize sizeHint() const override
+    {
+        const int wide = m_grid->px(400);
+        return QSize(wide, heightForWidth(qMax(wide, width())));
+    }
+    QSize minimumSizeHint() const override
+    {
+        return QSize(m_grid->px(120), m_items.isEmpty() ? 0 : rowHeight());
+    }
 
 protected:
+    void changeEvent(QEvent *event) override
+    {
+        QWidget::changeEvent(event);
+        if (event->type() == QEvent::FontChange || event->type() == QEvent::StyleChange) {
+            updateGeometry();
+            update();
+        }
+    }
+
     void paintEvent(QPaintEvent *) override
     {
         QList<QRect> places;
         layoutItems(width(), &places);
         QPainter painter(this);
         const QColor text = palette().color(QPalette::Text);
+        const QSize swatchSize = m_grid->swatchSize();
+        const int gap = m_grid->px(5);
         for (int i = 0; i < m_items.size(); ++i) {
             const Item &item = m_items[i];
-            const QRect swatch(places[i].left(), places[i].top() + (RowHeight - SwatchHeight) / 2,
-                               SwatchWidth, SwatchHeight);
+            const QRect swatch(places[i].left(),
+                               places[i].top() + (places[i].height() - swatchSize.height()) / 2,
+                               swatchSize.width(), swatchSize.height());
             switch (item.kind) {
             case Run:
                 m_grid->paintRun(painter, swatch, item.run, true);
@@ -125,7 +145,7 @@ protected:
                 m_grid->paintRun(painter, swatch, item.run, false);
                 break;
             case Warning:
-                m_grid->paintWarningMark(painter, swatch.adjusted(11, 0, 0, -6), text);
+                m_grid->paintWarningMark(painter, swatch.adjusted(m_grid->px(11), 0, 0, -m_grid->px(6)), text);
                 break;
             case Rule:
                 m_grid->paintRuleMark(painter, swatch, item.mark, item.level, false);
@@ -138,34 +158,39 @@ protected:
             }
             painter.setFont(font());
             painter.setPen(text);
-            painter.drawText(places[i].adjusted(SwatchWidth + 5, 0, 0, 0),
+            painter.drawText(places[i].adjusted(swatchSize.width() + gap, 0, 0, 0),
                              Qt::AlignLeft | Qt::AlignVCenter, item.text);
         }
     }
 
 private:
-    static constexpr int SwatchWidth = 36;
-    static constexpr int SwatchHeight = 24;
-    static constexpr int RowHeight = 28;
-    static constexpr int Spacing = 18;
+    /// A row holds a swatch and a line of text, whichever is higher
+    int rowHeight() const
+    {
+        return qMax(m_grid->swatchSize().height(), QFontMetrics(font()).height()) + m_grid->px(4);
+    }
 
     /// Places the items in rows; @return the height they need
     int layoutItems(int width, QList<QRect> *places) const
     {
         const QFontMetrics metrics(font());
+        const int swatchWidth = m_grid->swatchSize().width();
+        const int gap = m_grid->px(5);
+        const int spacing = m_grid->px(18);
+        const int row = rowHeight();
         int x = 0;
         int y = 0;
         for (const Item &item : m_items) {
-            const int itemWidth = SwatchWidth + 5 + metrics.horizontalAdvance(item.text);
+            const int itemWidth = swatchWidth + gap + metrics.horizontalAdvance(item.text);
             if (x > 0 && x + itemWidth > width) {
                 x = 0;
-                y += RowHeight;
+                y += row;
             }
             if (places)
-                places->append(QRect(x, y, itemWidth, RowHeight));
-            x += itemWidth + Spacing;
+                places->append(QRect(x, y, itemWidth, row));
+            x += itemWidth + spacing;
         }
-        return m_items.isEmpty() ? 0 : y + RowHeight;
+        return m_items.isEmpty() ? 0 : y + row;
     }
 
     BScheduleGridWidget *m_grid;
@@ -284,10 +309,7 @@ void BScheduleGridView::buildUi()
     auto *headerRow = new QHBoxLayout();
     m_title = new QLabel(top);
     m_title->setTextFormat(Qt::PlainText);
-    QFont titleFont = m_title->font();
-    titleFont.setBold(true);
-    titleFont.setPointSizeF(titleFont.pointSizeF() > 0 ? titleFont.pointSizeF() + 1 : 11);
-    m_title->setFont(titleFont);
+    BUiScale::bind(m_title, BUiScale::Large, BUiScale::Bold);
     headerRow->addWidget(m_title);
     m_usage = new QLabel(top);
     m_usage->setTextFormat(Qt::PlainText);
@@ -903,9 +925,7 @@ void BScheduleGridView::rebuildRunLines()
     const QList<BGridCalendarRule> &rules = m_model->calendarRules();
     const QIcon warning = QIcon::fromTheme(QStringLiteral("dialog-warning"),
                                            style()->standardIcon(QStyle::SP_MessageBoxWarning));
-    QFont mono(QStringLiteral("monospace"));
-    mono.setStyleHint(QFont::Monospace);
-    mono.setPointSizeF(font().pointSizeF() > 0 ? font().pointSizeF() : 10);
+    const QFont mono = BUiScale::scaled(font(), BUiScale::Normal, BUiScale::Monospace);
 
     for (const BGridRunLineText &line : m_model->runLines()) {
         auto *item = new QTreeWidgetItem(m_runLines);
@@ -1246,6 +1266,22 @@ void BScheduleGridView::showRuleMenu(const QPoint &globalPos)
         removeRule(rule);
     else if (chosen == add)
         openRuleDialog(-1);
+}
+
+void BScheduleGridView::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+    // The Run lines are set in a fixed-pitch font made from this font:
+    // the same again at the new size, a removed line stays struck out
+    if (event->type() == QEvent::FontChange && m_runLines) {
+        const QFont mono = BUiScale::scaled(font(), BUiScale::Normal, BUiScale::Monospace);
+        for (int i = 0; i < m_runLines->topLevelItemCount(); ++i) {
+            QTreeWidgetItem *item = m_runLines->topLevelItem(i);
+            QFont font = mono;
+            font.setStrikeOut(item->font(1).strikeOut());
+            item->setFont(1, font);
+        }
+    }
 }
 
 bool BScheduleGridView::eventFilter(QObject *watched, QEvent *event)

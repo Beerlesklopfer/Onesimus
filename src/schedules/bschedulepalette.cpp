@@ -23,9 +23,6 @@
 
 namespace {
 
-const int SwatchWidth = 36;
-const int SwatchHeight = 24;
-
 /// Places its items in rows, as many as the width needs
 class FlowLayout : public QLayout
 {
@@ -103,7 +100,6 @@ QToolButton *toolButton(QWidget *parent, bool checkable)
     button->setAutoRaise(false);
     button->setFocusPolicy(Qt::StrongFocus);
     button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    button->setIconSize(QSize(SwatchWidth, SwatchHeight));
     // The theme marks the checked one
     button->setProperty("paletteButton", true);
     return button;
@@ -224,12 +220,16 @@ void BSchedulePalette::rebuild()
 
     const QColor frame = palette().color(QPalette::Mid);
     const qreal ratio = devicePixelRatioF();
+    // As large as the grid draws a run with its font
+    const QSize swatchSize = m_grid->swatchSize();
+    for (QToolButton *button : {m_eraser, m_newBrush, m_paintMode, m_keepRuns})
+        button->setIconSize(swatchSize);
     auto swatch = [&](const std::function<void(QPainter &, const QRect &)> &draw) {
-        QPixmap pixmap(QSize(SwatchWidth, SwatchHeight) * ratio);
+        QPixmap pixmap(swatchSize * ratio);
         pixmap.setDevicePixelRatio(ratio);
         pixmap.fill(Qt::transparent);
         QPainter painter(&pixmap);
-        const QRect rect(0, 0, SwatchWidth, SwatchHeight);
+        const QRect rect(QPoint(0, 0), swatchSize);
         draw(painter, rect);
         painter.setPen(frame);
         painter.setBrush(Qt::NoBrush);
@@ -240,6 +240,7 @@ void BSchedulePalette::rebuild()
     const QList<BGridBrush> &brushes = m_editor->brushes();
     for (int i = 0; i < brushes.size(); ++i) {
         QToolButton *button = toolButton(m_tools, true);
+        button->setIconSize(swatchSize);
         const QString label = brushLabel(i);
         button->setText(label);
         button->setAccessibleName(tr("Brush %1").arg(label));
@@ -261,8 +262,10 @@ void BSchedulePalette::rebuild()
         painter.fillRect(rect, m_grid->palette().color(QPalette::Base));
         painter.setRenderHint(QPainter::Antialiasing, true);
         painter.setPen(QPen(m_grid->palette().color(QPalette::Text), 1.5));
-        painter.drawLine(rect.topLeft() + QPoint(9, 5), rect.bottomRight() - QPoint(9, 5));
-        painter.drawLine(rect.topRight() + QPoint(-9, 5), rect.bottomLeft() - QPoint(-9, 5));
+        const int dx = m_grid->px(9);
+        const int dy = m_grid->px(5);
+        painter.drawLine(rect.topLeft() + QPoint(dx, dy), rect.bottomRight() - QPoint(dx, dy));
+        painter.drawLine(rect.topRight() + QPoint(-dx, dy), rect.bottomLeft() - QPoint(-dx, dy));
         painter.setRenderHint(QPainter::Antialiasing, false);
     }));
     m_group->addButton(m_eraser, -2);   // not -1: that id means "give me one"

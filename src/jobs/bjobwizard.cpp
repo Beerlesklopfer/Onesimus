@@ -7,6 +7,7 @@
  */
 
 #include "jobs/bjobwizard.h"
+#include "buiscale.h"
 #include "config/bresourceform.h"
 #include "director/bdirectorreply.h"
 #include "blogging.h"
@@ -42,7 +43,7 @@ BRunScriptDialog::BRunScriptDialog(const RunScriptEntry &entry, QWidget *parent)
 void BRunScriptDialog::setupUi()
 {
     setWindowTitle(tr("Edit RunScript"));
-    setMinimumWidth(450);
+    BUiScale::track(this, [this]() { setMinimumWidth(BUiScale::px(450)); });
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     QFormLayout *form = new QFormLayout();
@@ -52,7 +53,7 @@ void BRunScriptDialog::setupUi()
     m_commandEdit = new QLineEdit(this);
     m_commandEdit->setPlaceholderText(tr("/path/to/script.sh"));
     QPushButton *browseBtn = new QPushButton(tr("..."), this);
-    browseBtn->setFixedWidth(30);
+    BUiScale::track(browseBtn, [browseBtn]() { browseBtn->setFixedWidth(BUiScale::px(30)); });
     connect(browseBtn, &QPushButton::clicked, this, [this]() {
         QString file = QFileDialog::getOpenFileName(this, tr("Select Script"));
         if (!file.isEmpty()) {
@@ -705,8 +706,8 @@ BJobPreviewPage::BJobPreviewPage(QWidget *parent)
 
     m_configEdit = new QTextEdit(this);
     m_configEdit->setReadOnly(true);
-    m_configEdit->setFont(QFont("Monospace", 9));
-    m_configEdit->setMaximumHeight(200);
+    BUiScale::bind(m_configEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_configEdit, [this]() { m_configEdit->setMaximumHeight(BUiScale::px(200)); });
     mainLayout->addWidget(m_configEdit);
 
     // Copy config button
@@ -724,8 +725,8 @@ BJobPreviewPage::BJobPreviewPage(QWidget *parent)
 
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    m_commandEdit->setFont(QFont("Monospace", 9));
-    m_commandEdit->setMaximumHeight(80);
+    BUiScale::bind(m_commandEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMaximumHeight(BUiScale::px(80)); });
     mainLayout->addWidget(m_commandEdit);
 
     // Copy command button
@@ -989,7 +990,7 @@ void BJobWizard::init()
                    ? tr("New Job Wizard")
                    : tr("New JobDefs Wizard"));
     setWizardStyle(QWizard::ModernStyle);
-    setMinimumSize(800, 700);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(800), BUiScale::px(700)); });
 
     setPage(Page_Basics, new BJobBasicsPage());
     setPage(Page_Resources, new BJobResourcesPage());

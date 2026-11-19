@@ -126,6 +126,8 @@ private:
     /// (Bareos rejects "list backups" without client=)
     void requestClientBackups();
     void applyTheme(const QString &themeName);
+    /// State and text of the interface zoom entries in the View menu
+    void updateZoomActions();
 
     Ui::BMainWindow *ui;
     BDirector *m_director;
@@ -175,6 +177,10 @@ private:
     QAction *m_keyboardShortcutsAction;
     QAction *m_toggleStatisticsAction;
     QAction *m_toggleThemeAction;
+    QAction *m_zoomInAction = nullptr;      ///< Interface zoom (BUiScale)
+    QAction *m_zoomOutAction = nullptr;
+    QAction *m_zoomResetAction = nullptr;
+    QString m_themeScaleRules;              ///< BUiScale::themeRules() of the applied theme
 
     // Edit Actions
     QAction *m_copyAction;

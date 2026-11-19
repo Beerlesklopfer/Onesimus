@@ -1,4 +1,5 @@
 #include "jobs/bjoblogview.h"
+#include "buiscale.h"
 #include "jobs/bjoblogsource.h"
 #include <QPainter>
 #include <QScrollBar>
@@ -14,7 +15,7 @@ BJobLogView::BJobLogView(QWidget *parent)
     // Per pixel: a row can never be scrolled out of reach. Do not enable
     // uniform item sizes, that clips the row width (no horizontal scrolling).
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-    setFont(QFont("Courier", 9));
+    BUiScale::bind(this, BUiScale::Small, BUiScale::Monospace);
 
     // Prevent the global QSS hover rule from overriding the model's
     // BackgroundRole colours (error/warning lines)

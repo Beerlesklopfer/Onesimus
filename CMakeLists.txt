@@ -432,6 +432,7 @@ set(SOURCES
     src/bcleanupdialog.cpp
     src/bcapabilities.cpp
     src/bcapabilitynotice.cpp
+    src/buiscale.cpp
     src/bcleanupplan.cpp
     src/bcleanuprunner.cpp
     src/bconnectionwizard.cpp
@@ -529,6 +530,7 @@ set(HEADERS
     include/bcleanupdialog.h
     include/bcapabilities.h
     include/bcapabilitynotice.h
+    include/buiscale.h
     include/bcleanupplan.h
     include/bcleanuprunner.h
     include/bconnectionwizard.h
@@ -1501,7 +1503,9 @@ if(BUILD_TESTING)
     add_executable(bmessagesmodel_test
         test/bmessagesmodel_test.cpp
         src/messages/bmessageswidget.cpp
+        src/buiscale.cpp
         include/messages/bmessageswidget.h
+        include/buiscale.h
     )
 
     target_link_libraries(bmessagesmodel_test PRIVATE
@@ -1635,6 +1639,7 @@ if(BUILD_TESTING)
     # and a rendering smoke test in both themes (widgets, no Director)
     add_executable(bschedulegridwidget_test
         test/bschedulegridwidget_test.cpp
+        src/buiscale.cpp
         src/schedules/bschedulegridaccessible.cpp
         src/schedules/bschedulegriddialogs.cpp
         src/schedules/bschedulegrideditor.cpp
@@ -1649,6 +1654,7 @@ if(BUILD_TESTING)
         src/schedules/model/bscheduleoccurrences.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
+        include/buiscale.h
         include/schedules/bschedulegridaccessible.h
         include/schedules/bschedulegriddialogs.h
         include/schedules/bschedulegrideditor.h
@@ -1693,6 +1699,7 @@ if(BUILD_TESTING)
     # no Director)
     add_executable(bschedulegridedit_test
         test/bschedulegridedit_test.cpp
+        src/buiscale.cpp
         src/schedules/bschedulegridaccessible.cpp
         src/schedules/bschedulegriddialogs.cpp
         src/schedules/bschedulegrideditor.cpp
@@ -1707,6 +1714,7 @@ if(BUILD_TESTING)
         src/schedules/model/bscheduleoccurrences.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
+        include/buiscale.h
         include/schedules/bschedulegridaccessible.h
         include/schedules/bschedulegriddialogs.h
         include/schedules/bschedulegrideditor.h
@@ -1740,6 +1748,49 @@ if(BUILD_TESTING)
     add_test(NAME bschedulegridedit_test COMMAND bschedulegridedit_test)
     # As above; pictures with ONESIMUS_GRID_SCREENSHOT_DIR
     set_tests_properties(bschedulegridedit_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # buiscale_test - font sizes and the interface zoom: roles relative to
+    # the base font, clamping, pixel measures, a live change, the stored
+    # value in BSettings, and the measures of the schedule timeline at
+    # 100 % and 200 % (widgets, no Director)
+    add_executable(buiscale_test
+        test/buiscale_test.cpp
+        src/buiscale.cpp
+        src/config/bsettings.cpp
+        src/schedules/bscheduleganttwidget.cpp
+        src/schedules/model/bjobhistorystats.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        src/schedules/model/bscheduleoccurrences.cpp
+        src/models/bresourcemodels.cpp
+        src/models/bbasemodels.cpp
+        src/config/bconfigparser.cpp
+        include/buiscale.h
+        include/config/bsettings.h
+        include/schedules/bscheduleganttwidget.h
+        include/schedules/model/bjobhistorystats.h
+        include/models/bresourcemodels.h
+        include/models/bbasemodels.h
+        include/config/bconfigparser.h
+    )
+
+    target_include_directories(buiscale_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(buiscale_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+
+    add_test(NAME buiscale_test COMMAND buiscale_test)
+    # Widgets need a QApplication; no display is used. The settings the test
+    # writes go to the build directory, never to those of the user (the
+    # test redirects them itself as well).
+    set_tests_properties(buiscale_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/buiscale_test_config")
 endif()
 
 message(STATUS "")
@@ -1771,6 +1822,7 @@ if(BUILD_TESTING)
     message(STATUS "  bschedulegridtext_test - schedule grid texts, calendar and geometry test (registered with CTest)")
     message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")
     message(STATUS "  bschedulegridedit_test - schedule grid editing test, offscreen (registered with CTest)")
+    message(STATUS "  buiscale_test    - font roles, interface zoom and timeline measures test, offscreen (registered with CTest)")
 endif()
 message(STATUS "")
 

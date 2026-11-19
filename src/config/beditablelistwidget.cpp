@@ -7,6 +7,7 @@
  */
 
 #include "config/beditablelistwidget.h"
+#include "buiscale.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -241,12 +242,12 @@ void BEditableListWidget::setCompactMode(bool compact)
         if (titleLayout) {
             // Create small icon buttons for compact mode
             QPushButton *addBtn = new QPushButton("+", this);
-            addBtn->setFixedSize(24, 24);
+            BUiScale::track(addBtn, [addBtn]() { addBtn->setFixedSize(BUiScale::px(24), BUiScale::px(24)); });
             addBtn->setToolTip(tr("Add item"));
             connect(addBtn, &QPushButton::clicked, this, &BEditableListWidget::onAddClicked);
 
             QPushButton *removeBtn = new QPushButton("-", this);
-            removeBtn->setFixedSize(24, 24);
+            BUiScale::track(removeBtn, [removeBtn]() { removeBtn->setFixedSize(BUiScale::px(24), BUiScale::px(24)); });
             removeBtn->setToolTip(tr("Remove selected"));
             removeBtn->setEnabled(false);
             connect(removeBtn, &QPushButton::clicked, this, &BEditableListWidget::onRemoveClicked);

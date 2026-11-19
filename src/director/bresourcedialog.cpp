@@ -7,6 +7,7 @@
  */
 
 #include "director/bresourcedialog.h"
+#include "buiscale.h"
 #include "config/bresourceform.h"
 #include "schedules/model/brunspec.h"
 #include <QVBoxLayout>
@@ -50,7 +51,7 @@ BResourceDialog::BResourceDialog(const QString &resourceType,
 
         m_selectorCombo = new QComboBox(this);
         m_selectorCombo->addItems(names);
-        m_selectorCombo->setMinimumWidth(250);
+        BUiScale::track(m_selectorCombo, [this]() { m_selectorCombo->setMinimumWidth(BUiScale::px(250)); });
         selectorLayout->addWidget(m_selectorCombo, 1);
         selectorLayout->addStretch();
 
@@ -64,8 +65,8 @@ BResourceDialog::BResourceDialog(const QString &resourceType,
 void BResourceDialog::buildUi(const BConfigResource &existing)
 {
     setWindowTitle(tr("Edit %1 Resource").arg(m_resourceType));
-    setMinimumSize(600, 500);
-    resize(700, 600);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(600), BUiScale::px(500)); });
+    resize(BUiScale::px(700), BUiScale::px(600));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 

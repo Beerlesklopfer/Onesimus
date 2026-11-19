@@ -7,6 +7,7 @@
  */
 
 #include "director/bresourcewidget.h"
+#include "buiscale.h"
 #include "director/bresourcedialog.h"
 #include "schedules/model/brunspec.h"
 #include "version.h"
@@ -84,7 +85,7 @@ BResourceWidget::BResourceWidget(const QString &resourceType, BDirector *directo
     // Details text edit
     m_detailsEdit = new QTextEdit(this);
     m_detailsEdit->setReadOnly(true);
-    m_detailsEdit->setFont(QFont("Monospace", 9));
+    BUiScale::bind(m_detailsEdit, BUiScale::Small, BUiScale::Monospace);
     m_splitter->addWidget(m_detailsEdit);
 
     m_splitter->setSizes({300, 400});

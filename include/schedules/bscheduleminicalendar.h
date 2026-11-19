@@ -72,6 +72,11 @@ private:
     void setFirstDate(const QDate &first);
     void rebuild();
     int headerHeight() const;
+    /// A measure designed for a 10 pt font, for this widget's font
+    int px(int designPixels) const;
+    /// The smallest square of a level and the smallest day that hold their text
+    int minimumChipSize() const;
+    QSize minimumCellSize() const;
 
     BSchedule m_schedule;
     Qt::DayOfWeek m_firstDay = Qt::Monday;

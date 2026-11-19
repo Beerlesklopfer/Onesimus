@@ -1,4 +1,5 @@
 #include "jobs/bjobwidget.h"
+#include "buiscale.h"
 #include "blogging.h"
 #include "jobs/bjobdetailsdialog.h"
 #include "jobs/bnewjobdialog.h"
@@ -446,8 +447,9 @@ void BJobWidget::setupUI()
     // QToolBox für Akkordeon-Style Filter-Sektionen
     m_filterToolBox = new QToolBox(this);
     // Set minimum width relative to font size (~30 average characters)
-    QFontMetrics fm(font());
-    m_filterToolBox->setMinimumWidth(fm.averageCharWidth() * 30);
+    BUiScale::track(m_filterToolBox, [this]() {
+        m_filterToolBox->setMinimumWidth(m_filterToolBox->fontMetrics().averageCharWidth() * 30);
+    });
 
     // ========================================================================
     // Page 1: Basis-Filter (Text + Status)

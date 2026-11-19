@@ -4,6 +4,7 @@
  */
 
 #include "schedules/brunruledialog.h"
+#include "buiscale.h"
 
 #include "schedules/bschedulegriddialogs.h"
 #include "schedules/model/bschedulegridmodel.h"
@@ -218,10 +219,7 @@ BRunRuleDialog::BRunRuleDialog(QWidget *parent)
     layout->addWidget(timeBox);
 
     // --- The line it makes ---
-    QFont mono(QStringLiteral("monospace"));
-    mono.setStyleHint(QFont::Monospace);
-    mono.setPointSizeF(font().pointSizeF() > 0 ? font().pointSizeF() : 10);
-    m_runText->setFont(mono);
+    BUiScale::bind(m_runText, BUiScale::Normal, BUiScale::Monospace);
     m_runText->setTextFormat(Qt::PlainText);
     m_runText->setWordWrap(true);
     m_runText->setTextInteractionFlags(Qt::TextSelectableByMouse);

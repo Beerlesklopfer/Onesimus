@@ -11,30 +11,37 @@ void BScheduleGridGeometry::setHeaderSize(int rowHeaderWidth, int columnHeaderHe
     m_headerHeight = qMax(0, columnHeaderHeight);
 }
 
+void BScheduleGridGeometry::setCellLimits(int minWidth, int minHeight, int maxHeight)
+{
+    m_minCellWidth = qMax(1, minWidth);
+    m_minCellHeight = qMax(1, minHeight);
+    m_maxCellHeight = qMax(m_minCellHeight, maxHeight);
+}
+
 int BScheduleGridGeometry::cellWidth() const
 {
-    return qMax(int(MinCellWidth), (m_viewport.width() - m_headerWidth) / Columns);
+    return qMax(m_minCellWidth, (m_viewport.width() - m_headerWidth) / Columns);
 }
 
 int BScheduleGridGeometry::cellHeight() const
 {
-    const int band = hasRuleBand() ? RuleBandGap + m_ruleBandHeight : 0;
+    const int band = hasRuleBand() ? m_ruleBandGap + m_ruleBandHeight : 0;
     const int available = (m_viewport.height() - m_headerHeight - band) / Rows;
-    return qBound(int(MinCellHeight), available, int(MaxCellHeight));
+    return qBound(m_minCellHeight, available, m_maxCellHeight);
 }
 
 QSize BScheduleGridGeometry::contentSize() const
 {
-    const int band = hasRuleBand() ? RuleBandGap + m_ruleBandHeight : 0;
+    const int band = hasRuleBand() ? m_ruleBandGap + m_ruleBandHeight : 0;
     return QSize(m_headerWidth + Columns * cellWidth(),
                  m_headerHeight + Rows * cellHeight() + band);
 }
 
 QSize BScheduleGridGeometry::minimumContentSize() const
 {
-    const int band = hasRuleBand() ? RuleBandGap + m_ruleBandHeight : 0;
-    return QSize(m_headerWidth + Columns * MinCellWidth,
-                 m_headerHeight + Rows * MinCellHeight + band);
+    const int band = hasRuleBand() ? m_ruleBandGap + m_ruleBandHeight : 0;
+    return QSize(m_headerWidth + Columns * m_minCellWidth,
+                 m_headerHeight + Rows * m_minCellHeight + band);
 }
 
 QSize BScheduleGridGeometry::scrollRange() const
@@ -72,7 +79,7 @@ QRect BScheduleGridGeometry::ruleHeaderRect() const
 {
     if (!hasRuleBand())
         return QRect();
-    return QRect(0, m_headerHeight + Rows * cellHeight() + RuleBandGap - m_offset.y(),
+    return QRect(0, m_headerHeight + Rows * cellHeight() + m_ruleBandGap - m_offset.y(),
                  m_headerWidth, m_ruleBandHeight);
 }
 
@@ -81,7 +88,7 @@ QRect BScheduleGridGeometry::ruleCellRect(int column) const
     if (!hasRuleBand())
         return QRect();
     return QRect(m_headerWidth + column * cellWidth() - m_offset.x(),
-                 m_headerHeight + Rows * cellHeight() + RuleBandGap - m_offset.y(),
+                 m_headerHeight + Rows * cellHeight() + m_ruleBandGap - m_offset.y(),
                  cellWidth(), m_ruleBandHeight);
 }
 
@@ -115,7 +122,7 @@ BScheduleGridGeometry::Hit BScheduleGridGeometry::hitTest(const QPoint &pos) con
     const int y = pos.y() - m_headerHeight + m_offset.y();
     const int column = x / cellWidth();
     const int row = y / cellHeight();
-    const int bandTop = Rows * cellHeight() + RuleBandGap;
+    const int bandTop = Rows * cellHeight() + m_ruleBandGap;
     const bool inBand = hasRuleBand() && y >= bandTop && y < bandTop + m_ruleBandHeight;
 
     if (inHeaderRow) {

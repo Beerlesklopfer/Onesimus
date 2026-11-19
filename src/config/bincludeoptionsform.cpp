@@ -7,6 +7,7 @@
  */
 
 #include "config/bincludeoptionsform.h"
+#include "buiscale.h"
 #include "config/beditablelistwidget.h"
 #include "config/beditablelistmodel.h"
 #include "blogging.h"
@@ -262,7 +263,7 @@ QWidget *BIncludeOptionsForm::createWidgetForOption(const QString &name, const Q
         listWidget->setToolTip(description);
         listWidget->setTitle(displayName);
         listWidget->setCompactMode(true);  // Compact mode with +/- in title
-        listWidget->setMaximumHeight(100);
+        BUiScale::track(listWidget, [listWidget]() { listWidget->setMaximumHeight(BUiScale::px(100)); });
 
         // Set placeholder based on example if available
         if (def.contains("example")) {

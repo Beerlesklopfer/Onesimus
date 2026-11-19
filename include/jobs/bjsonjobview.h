@@ -215,6 +215,7 @@ protected:
      */
     void mousePressEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
     
     /**
      * @brief Handles context menu events
@@ -240,6 +241,10 @@ private slots:
 private:
     void setupView();
     void createContextMenu();
+    /// Stretches the job name, or gives it a width of its own when the
+    /// other columns leave no room
+    void fitNameColumn();
+    bool m_fittingNameColumn = false;
     QJsonObject getJobAtRow(int row);
     
     BJobsModel *m_model;                    ///< Main data model

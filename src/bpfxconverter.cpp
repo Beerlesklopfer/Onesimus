@@ -4,6 +4,7 @@
  */
 
 #include "bpfxconverter.h"
+#include "buiscale.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -24,8 +25,8 @@ BPFXConverter::BPFXConverter(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("Convert to PFX Format"));
-    setMinimumWidth(600);
-    setMinimumHeight(500);
+    BUiScale::track(this, [this]() { setMinimumWidth(BUiScale::px(600)); });
+    BUiScale::track(this, [this]() { setMinimumHeight(BUiScale::px(500)); });
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
@@ -123,8 +124,8 @@ BPFXConverter::BPFXConverter(QWidget *parent)
 
     m_logText = new QTextEdit();
     m_logText->setReadOnly(true);
-    m_logText->setMaximumHeight(150);
-    m_logText->setStyleSheet("QTextEdit { font-family: monospace; font-size: 10px; }");
+    BUiScale::track(m_logText, [this]() { m_logText->setMaximumHeight(BUiScale::px(150)); });
+    BUiScale::bind(m_logText, BUiScale::Tiny, BUiScale::Monospace);
     mainLayout->addWidget(m_logText);
 
     // Buttons

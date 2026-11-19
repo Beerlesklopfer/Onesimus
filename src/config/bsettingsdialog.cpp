@@ -1,4 +1,5 @@
 #include "config/bsettingsdialog.h"
+#include "buiscale.h"
 #include "blabelstate.h"
 #include "ui_bsettingsdialog.h"
 #include "config/bsettings.h"
@@ -61,7 +62,7 @@ BSettingsDialog::BSettingsDialog(BDirector *director,
     }
 
     setWindowTitle(tr("Settings"));
-    resize(900, 600);
+    resize(BUiScale::px(900), BUiScale::px(600));
     setModal(true);
 
     setupUI();
@@ -131,7 +132,7 @@ void BSettingsDialog::createSidebar()
 {
     m_categoryList = new QListWidget(this);
     m_categoryList->setObjectName("categoryList");
-    m_categoryList->setFixedWidth(220);
+    BUiScale::track(m_categoryList, [this]() { m_categoryList->setFixedWidth(BUiScale::px(220)); });
     m_categoryList->setSpacing(2);
     m_categoryList->setFrameShape(QFrame::NoFrame);
 
@@ -191,8 +192,8 @@ void BSettingsDialog::createConnectionPage()
 
     // Profile list
     m_profileList = new QListWidget();
-    m_profileList->setMinimumHeight(120);
-    m_profileList->setMaximumHeight(180);
+    BUiScale::track(m_profileList, [this]() { m_profileList->setMinimumHeight(BUiScale::px(120)); });
+    BUiScale::track(m_profileList, [this]() { m_profileList->setMaximumHeight(BUiScale::px(180)); });
     m_profileList->setSelectionMode(QAbstractItemView::SingleSelection);
     profilesLayout->addWidget(m_profileList);
 
@@ -320,7 +321,7 @@ void BSettingsDialog::createConnectionPage()
     // MD5 Hash preview (read-only, updates in real-time)
     m_md5Label = new QLabel();
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_md5Label->setStyleSheet("QLabel { font-family: monospace; font-size: 11px; }");
+    BUiScale::bind(m_md5Label, BUiScale::Tiny, BUiScale::Monospace);
     bSetLabelState(m_md5Label, "muted");
     m_md5Label->setText(tr("(password MD5 hash will appear here)"));
     bconsoleLayout->addRow(tr("MD5 Hash:"), m_md5Label);
@@ -579,16 +580,19 @@ void BSettingsDialog::createAppearancePage()
     titleLabel->setObjectName("pageTitle");
     layout->addWidget(titleLabel);
 
-    // Font
-    QGroupBox *fontGroup = new QGroupBox(tr("Font Size"));
+    // Interface zoom: the text size is the desktop's font times this factor
+    QGroupBox *fontGroup = new QGroupBox(tr("Text Size"));
     fontGroup->setObjectName("settingsGroup");
     QFormLayout *fontLayout = new QFormLayout(fontGroup);
 
-    m_fontSizeSpin = new QSpinBox();
-    m_fontSizeSpin->setRange(8, 16);
-    m_fontSizeSpin->setValue(10);
-    m_fontSizeSpin->setSuffix(" pt");
-    fontLayout->addRow(tr("Base Font Size:"), m_fontSizeSpin);
+    m_uiZoomSpin = new QSpinBox();
+    m_uiZoomSpin->setRange(BUiScale::MinZoom, BUiScale::MaxZoom);
+    m_uiZoomSpin->setSingleStep(BUiScale::ZoomStep);
+    m_uiZoomSpin->setValue(BUiScale::DefaultZoom);
+    m_uiZoomSpin->setSuffix(" %");
+    m_uiZoomSpin->setToolTip(tr("The text follows the font of your desktop. "
+                                "This factor enlarges or reduces it (Ctrl++, Ctrl+-, Ctrl+0)."));
+    fontLayout->addRow(tr("Interface zoom:"), m_uiZoomSpin);
 
     layout->addWidget(fontGroup);
 
@@ -627,7 +631,8 @@ void BSettingsDialog::createAppearancePage()
     QLabel *infoLabel = new QLabel(
         tr("Language changes require an application restart."));
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("color: #888; font-size: 9pt; font-style: italic;");
+    infoLabel->setStyleSheet("color: #888; font-style: italic;");
+    BUiScale::bind(infoLabel, BUiScale::Small);
     languageLayout->addRow("", infoLabel);
 
     layout->addWidget(languageGroup);
@@ -640,7 +645,7 @@ void BSettingsDialog::createAppearancePage()
 
     // Connected Color
     m_colorButtonConnected = new QPushButton();
-    m_colorButtonConnected->setMinimumSize(80, 30);
+    BUiScale::track(m_colorButtonConnected, [this]() { m_colorButtonConnected->setMinimumSize(BUiScale::px(80), BUiScale::px(30)); });
     m_colorButtonConnected->setCursor(Qt::PointingHandCursor);
     m_colorButtonConnected->setToolTip(tr("Color shown when connected to Director"));
     connect(m_colorButtonConnected, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorConnected);
@@ -648,7 +653,7 @@ void BSettingsDialog::createAppearancePage()
 
     // Disconnected Color
     m_colorButtonDisconnected = new QPushButton();
-    m_colorButtonDisconnected->setMinimumSize(80, 30);
+    BUiScale::track(m_colorButtonDisconnected, [this]() { m_colorButtonDisconnected->setMinimumSize(BUiScale::px(80), BUiScale::px(30)); });
     m_colorButtonDisconnected->setCursor(Qt::PointingHandCursor);
     m_colorButtonDisconnected->setToolTip(tr("Color shown when not connected"));
     connect(m_colorButtonDisconnected, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorDisconnected);
@@ -664,28 +669,28 @@ void BSettingsDialog::createAppearancePage()
 
     // Full Backup Color
     m_colorButtonFull = new QPushButton();
-    m_colorButtonFull->setMinimumSize(80, 30);
+    BUiScale::track(m_colorButtonFull, [this]() { m_colorButtonFull->setMinimumSize(BUiScale::px(80), BUiScale::px(30)); });
     m_colorButtonFull->setCursor(Qt::PointingHandCursor);
     connect(m_colorButtonFull, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorFull);
     levelColorsLayout->addRow("Full (F):", m_colorButtonFull);
 
     // Incremental Backup Color
     m_colorButtonIncremental = new QPushButton();
-    m_colorButtonIncremental->setMinimumSize(80, 30);
+    BUiScale::track(m_colorButtonIncremental, [this]() { m_colorButtonIncremental->setMinimumSize(BUiScale::px(80), BUiScale::px(30)); });
     m_colorButtonIncremental->setCursor(Qt::PointingHandCursor);
     connect(m_colorButtonIncremental, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorIncremental);
     levelColorsLayout->addRow("Incremental (I):", m_colorButtonIncremental);
 
     // Differential Backup Color
     m_colorButtonDifferential = new QPushButton();
-    m_colorButtonDifferential->setMinimumSize(80, 30);
+    BUiScale::track(m_colorButtonDifferential, [this]() { m_colorButtonDifferential->setMinimumSize(BUiScale::px(80), BUiScale::px(30)); });
     m_colorButtonDifferential->setCursor(Qt::PointingHandCursor);
     connect(m_colorButtonDifferential, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorDifferential);
     levelColorsLayout->addRow("Differential (D):", m_colorButtonDifferential);
 
     // Virtual Full Backup Color
     m_colorButtonVirtualFull = new QPushButton();
-    m_colorButtonVirtualFull->setMinimumSize(80, 30);
+    BUiScale::track(m_colorButtonVirtualFull, [this]() { m_colorButtonVirtualFull->setMinimumSize(BUiScale::px(80), BUiScale::px(30)); });
     m_colorButtonVirtualFull->setCursor(Qt::PointingHandCursor);
     connect(m_colorButtonVirtualFull, &QPushButton::clicked, this, &BSettingsDialog::onChooseColorVirtualFull);
     levelColorsLayout->addRow("Virtual Full (V):", m_colorButtonVirtualFull);
@@ -955,7 +960,9 @@ void BSettingsDialog::createAdvancedPage()
 
 void BSettingsDialog::applyModernStyle()
 {
-    setStyleSheet(R"(
+    // Sizes are named by role (@small, @headline) and filled in from the
+    // interface font, again after every change of the zoom
+    static const char sheet[] = R"(
         /* Main Dialog */
         BSettingsDialog {
             background-color: #1a1d23;
@@ -976,7 +983,6 @@ void BSettingsDialog::applyModernStyle()
             margin: 2px 10px;
             border-radius: 6px;
             color: #8b92a0;
-            font-size: 13px;
             font-weight: 500;
         }
 
@@ -992,7 +998,7 @@ void BSettingsDialog::applyModernStyle()
 
         /* Page Titles */
         QLabel#pageTitle {
-            font-size: 24px;
+            font-size: @headline;
             font-weight: 600;
             color: #ffffff;
             padding-bottom: 10px;
@@ -1001,7 +1007,6 @@ void BSettingsDialog::applyModernStyle()
 
         /* Group Boxes */
         QGroupBox#settingsGroup {
-            font-size: 13px;
             font-weight: 600;
             color: #c4c9d4;
             border: 1px solid #2d3139;
@@ -1028,7 +1033,7 @@ void BSettingsDialog::applyModernStyle()
             border-radius: 6px;
             padding: 10px 12px;
             color: #e4e6eb;
-            font-size: 12px;
+            font-size: @small;
         }
 
         QLineEdit:focus, QSpinBox:focus {
@@ -1070,11 +1075,11 @@ void BSettingsDialog::applyModernStyle()
         QCheckBox {
             color: #e4e6eb;
             spacing: 8px;
-            font-size: 12px;
+            font-size: @small;
         }
 
         QCheckBox#prominentCheckbox {
-            font-size: 14px;
+            font-size: @normal;
             font-weight: 600;
             color: #ffffff;
         }
@@ -1104,7 +1109,7 @@ void BSettingsDialog::applyModernStyle()
             border: 1px solid #2d3139;
             border-radius: 6px;
             padding: 10px 20px;
-            font-size: 12px;
+            font-size: @small;
             font-weight: 500;
         }
 
@@ -1168,7 +1173,10 @@ void BSettingsDialog::applyModernStyle()
             border-radius: 4px;
             color: #e8d9c4;
         }
-    )");
+    )";
+    BUiScale::track(this, [this]() {
+        setStyleSheet(BUiScale::resolveCss(QString::fromUtf8(sheet)));
+    });
 }
 
 void BSettingsDialog::loadSettings()
@@ -1209,7 +1217,7 @@ void BSettingsDialog::loadSettings()
     m_connectionTimeoutSpin->setValue(settings.connectionTimeout());
 
     // Appearance
-    m_fontSizeSpin->setValue(settings.appearanceFontSize());
+    m_uiZoomSpin->setValue(settings.appearanceUiZoom());
     m_animationsCheck->setChecked(settings.appearanceAnimations());
     m_compactModeCheck->setChecked(settings.appearanceCompactMode());
 
@@ -1312,7 +1320,9 @@ void BSettingsDialog::saveSettings()
     settings.setConnectionTimeout(m_connectionTimeoutSpin->value());
 
     // Appearance
-    settings.setAppearanceFontSize(m_fontSizeSpin->value());
+    // Applied at once; the main window stores the value
+    settings.setAppearanceUiZoom(m_uiZoomSpin->value());
+    BUiScale::instance().setZoomPercent(m_uiZoomSpin->value());
     settings.setAppearanceAnimations(m_animationsCheck->isChecked());
     settings.setAppearanceCompactMode(m_compactModeCheck->isChecked());
 

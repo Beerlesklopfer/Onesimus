@@ -4,6 +4,7 @@
  */
 
 #include "config/bprofilesettingsdialog.h"
+#include "buiscale.h"
 #include "director/bareosdirector.h"
 
 #include <QVBoxLayout>
@@ -20,7 +21,7 @@ BProfileSettingsDialog::BProfileSettingsDialog(const BConnectionProfile &profile
     , m_profile(profile)
 {
     setWindowTitle(tr("Advanced Profile Settings - %1").arg(profile.name));
-    setMinimumSize(600, 500);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(600), BUiScale::px(500)); });
     setupUi();
     loadProfile();
 }
@@ -127,7 +128,8 @@ QWidget* BProfileSettingsDialog::createGeneralTab()
            "the server-side Profile."),
         widget);
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("color: #666; font-size: 11px;");
+    infoLabel->setStyleSheet("color: #666;");
+    BUiScale::bind(infoLabel, BUiScale::Tiny);
     layout->addRow(infoLabel);
 
     layout->addItem(new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
@@ -187,7 +189,7 @@ QWidget* BProfileSettingsDialog::createTlsTab()
     m_tlsDhFileEdit->setToolTip(tr("Path to Diffie-Hellman parameters file"));
     certLayout->addWidget(m_tlsDhFileEdit, 0, 1);
     m_browseDhFileButton = new QPushButton(tr("..."), certGroup);
-    m_browseDhFileButton->setMaximumWidth(30);
+    BUiScale::track(m_browseDhFileButton, [this]() { m_browseDhFileButton->setMaximumWidth(BUiScale::px(30)); });
     connect(m_browseDhFileButton, &QPushButton::clicked, this, [this]() {
         QString file = QFileDialog::getOpenFileName(this, tr("Select DH Parameters File"),
                                                      QString(), tr("PEM Files (*.pem);;All Files (*)"));
@@ -203,7 +205,7 @@ QWidget* BProfileSettingsDialog::createTlsTab()
     m_tlsCrlFileEdit->setToolTip(tr("Path to Certificate Revocation List file"));
     certLayout->addWidget(m_tlsCrlFileEdit, 1, 1);
     m_browseCrlFileButton = new QPushButton(tr("..."), certGroup);
-    m_browseCrlFileButton->setMaximumWidth(30);
+    BUiScale::track(m_browseCrlFileButton, [this]() { m_browseCrlFileButton->setMaximumWidth(BUiScale::px(30)); });
     connect(m_browseCrlFileButton, &QPushButton::clicked, this, [this]() {
         QString file = QFileDialog::getOpenFileName(this, tr("Select CRL File"),
                                                      QString(), tr("CRL Files (*.crl *.pem);;All Files (*)"));
@@ -223,7 +225,7 @@ QWidget* BProfileSettingsDialog::createTlsTab()
     m_tlsAllowedCnEdit->setPlaceholderText(tr("One Common Name per line"));
     m_tlsAllowedCnEdit->setToolTip(tr("List of allowed certificate Common Names.\n"
                                        "Leave empty to allow all valid certificates."));
-    m_tlsAllowedCnEdit->setMaximumHeight(80);
+    BUiScale::track(m_tlsAllowedCnEdit, [this]() { m_tlsAllowedCnEdit->setMaximumHeight(BUiScale::px(80)); });
     cnLayout->addWidget(m_tlsAllowedCnEdit);
 
     mainLayout->addWidget(cnGroup);
@@ -261,7 +263,7 @@ QWidget* BProfileSettingsDialog::createAclTab()
         QTextEdit *edit = new QTextEdit(widget);
         edit->setPlaceholderText(title);
         edit->setToolTip(tooltip);
-        edit->setMaximumHeight(60);
+        BUiScale::track(edit, [edit]() { edit->setMaximumHeight(BUiScale::px(60)); });
         return edit;
     };
 

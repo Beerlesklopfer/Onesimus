@@ -170,8 +170,10 @@ private:
     BrowseMode m_browseMode = BrowseFile;
     QString m_placeholderText;
 
-    static constexpr int BUTTON_SIZE = 20;  ///< Size of action buttons
-    static constexpr int BUTTON_MARGIN = 2; ///< Margin around buttons
+    static constexpr int BUTTON_SIZE = 20;  ///< Size of action buttons at a 10 pt font
+    static constexpr int BUTTON_MARGIN = 2; ///< Margin around buttons at a 10 pt font
+    int buttonSize() const;                 ///< BUTTON_SIZE for the interface font
+    int buttonMargin() const;
 };
 
 #endif // BEDITABLELISTDELEGATE_H

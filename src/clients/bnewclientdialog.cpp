@@ -1,4 +1,5 @@
 #include "clients/bnewclientdialog.h"
+#include "buiscale.h"
 #include "blogging.h"
 #include "blogredact.h"
 
@@ -49,7 +50,7 @@ BNewClientWizard::BNewClientWizard(BDirector *director, QWidget *parent)
 {
     setWindowTitle(tr("Add New Client"));
     setWizardStyle(QWizard::ModernStyle);
-    resize(700, 550);
+    resize(BUiScale::px(700), BUiScale::px(550));
 
     // Pre-populate director info from active connection
     if (m_director) {
@@ -229,6 +230,7 @@ BNewClientSettingsPage::BNewClientSettingsPage(QWidget *parent)
 
     m_md5Label = new QLabel(this);
     m_md5Label->setObjectName("md5HashLabel");
+    BUiScale::bind(m_md5Label, BUiScale::Tiny, BUiScale::Monospace);
     m_md5Label->setTextInteractionFlags(Qt::TextSelectableByMouse);
     basicLayout->addRow(tr("MD5 Hash:"), m_md5Label);
 
@@ -496,7 +498,7 @@ BNewClientPreviewPage::BNewClientPreviewPage(QWidget *parent)
     // Raw text pane (shows deployable config for clipboard/ZIP)
     m_rawTextEdit = new QTextEdit(this);
     m_rawTextEdit->setReadOnly(true);
-    m_rawTextEdit->setFont(QFont("Monospace", 9));
+    BUiScale::bind(m_rawTextEdit, BUiScale::Small, BUiScale::Monospace);
     m_mainSplitter->addWidget(m_rawTextEdit);
 
     m_mainSplitter->setSizes({400, 150});
@@ -512,8 +514,8 @@ BNewClientPreviewPage::BNewClientPreviewPage(QWidget *parent)
     QVBoxLayout *cmdLayout = new QVBoxLayout(m_cmdGroup);
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    m_commandEdit->setFont(QFont("Monospace", 9));
-    m_commandEdit->setMaximumHeight(50);
+    BUiScale::bind(m_commandEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMaximumHeight(BUiScale::px(50)); });
     cmdLayout->addWidget(m_commandEdit);
     layout->addWidget(m_cmdGroup);
 

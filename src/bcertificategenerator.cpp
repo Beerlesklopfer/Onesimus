@@ -7,6 +7,7 @@
  */
 
 #include "bcertificategenerator.h"
+#include "buiscale.h"
 #include "blabelstate.h"
 
 #include <QVBoxLayout>
@@ -33,7 +34,7 @@ BCertificateGenerator::BCertificateGenerator(QWidget *parent)
     , m_success(false)
 {
     setWindowTitle(tr("Generate TLS Certificates"));
-    setMinimumSize(500, 450);
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(500), BUiScale::px(450)); });
     setupUI();
 }
 
@@ -103,14 +104,14 @@ void BCertificateGenerator::setupUI()
     // Log
     m_logEdit = new QTextEdit(this);
     m_logEdit->setReadOnly(true);
-    m_logEdit->setMaximumHeight(120);
+    BUiScale::track(m_logEdit, [this]() { m_logEdit->setMaximumHeight(BUiScale::px(120)); });
     m_logEdit->setVisible(false);
     mainLayout->addWidget(m_logEdit);
 
     // Buttons
     auto *buttonLayout = new QHBoxLayout();
     m_generateButton = new QPushButton(tr("Generate Certificates"), this);
-    m_generateButton->setMinimumHeight(35);
+    BUiScale::track(m_generateButton, [this]() { m_generateButton->setMinimumHeight(BUiScale::px(35)); });
     m_closeButton = new QPushButton(tr("Close"), this);
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_generateButton);

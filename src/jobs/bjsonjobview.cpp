@@ -1,4 +1,5 @@
 #include "jobs/bjsonjobview.h"
+#include "buiscale.h"
 #include "blogging.h"
 #include "jobs/bjobdetailsdialog.h"
 #include "jobs/bjobfileswidget.h"
@@ -116,18 +117,18 @@ BJsonJobView::BJsonJobView(BDirector *director, QWidget *parent)
     horizontalHeader()->setSectionResizeMode(BJobsModel::COL_NAME, QHeaderView::Stretch);
 
     // Set column widths
-    setColumnWidth(BJobsModel::COL_SELECTED, 40);
-    setColumnWidth(BJobsModel::COL_JOBID, 60);
+    setColumnWidth(BJobsModel::COL_SELECTED, BUiScale::px(40));
+    setColumnWidth(BJobsModel::COL_JOBID, BUiScale::px(60));
     // COL_NAME will stretch automatically
-    setColumnWidth(BJobsModel::COL_CLIENT, 100);
-    setColumnWidth(BJobsModel::COL_STARTTIME, 150);
-    setColumnWidth(BJobsModel::COL_ENDTIME, 150);
-    setColumnWidth(BJobsModel::COL_DURATION, 90);
-    setColumnWidth(BJobsModel::COL_TYPE, 50);
-    setColumnWidth(BJobsModel::COL_LEVEL, 50);
-    setColumnWidth(BJobsModel::COL_FILES, 80);
-    setColumnWidth(BJobsModel::COL_BYTES, 100);
-    setColumnWidth(BJobsModel::COL_STATUS, 120);
+    setColumnWidth(BJobsModel::COL_CLIENT, BUiScale::px(100));
+    setColumnWidth(BJobsModel::COL_STARTTIME, BUiScale::px(150));
+    setColumnWidth(BJobsModel::COL_ENDTIME, BUiScale::px(150));
+    setColumnWidth(BJobsModel::COL_DURATION, BUiScale::px(90));
+    setColumnWidth(BJobsModel::COL_TYPE, BUiScale::px(50));
+    setColumnWidth(BJobsModel::COL_LEVEL, BUiScale::px(50));
+    setColumnWidth(BJobsModel::COL_FILES, BUiScale::px(80));
+    setColumnWidth(BJobsModel::COL_BYTES, BUiScale::px(100));
+    setColumnWidth(BJobsModel::COL_STATUS, BUiScale::px(120));
     
     // Enable tooltips
     setMouseTracking(true);
@@ -135,12 +136,49 @@ BJsonJobView::BJsonJobView(BDirector *director, QWidget *parent)
     // Auto-save on column resize and move (debounced)
     connect(horizontalHeader(), &QHeaderView::sectionResized,
             this, [this]() { m_autoSaveTimer->start(); });
+
+    // The name keeps a readable width when the other columns grow
+    connect(horizontalHeader(), &QHeaderView::sectionResized, this, [this](int logicalIndex) {
+        if (logicalIndex != BJobsModel::COL_NAME) fitNameColumn();
+    });
+    connect(&BUiScale::instance(), &BUiScale::changed, this, &BJsonJobView::fitNameColumn);
     connect(horizontalHeader(), &QHeaderView::sectionMoved,
             this, [this]() { m_autoSaveTimer->start(); });
     
     // Also save when visibility changes
     connect(m_headerView, &BCheckableHeaderView::columnVisibilityChanged,
             this, [this]() { m_autoSaveTimer->start(); });
+}
+
+void BJsonJobView::resizeEvent(QResizeEvent *event)
+{
+    QTableView::resizeEvent(event);
+    fitNameColumn();
+}
+
+void BJsonJobView::fitNameColumn()
+{
+    // The job name takes the room the other columns leave. With a large
+    // font they can leave none: then the name keeps a readable width and
+    // the table scrolls sideways.
+    if (m_fittingNameColumn || !m_model) return;
+    QHeaderView *header = horizontalHeader();
+    if (header->count() <= BJobsModel::COL_NAME || header->isSectionHidden(BJobsModel::COL_NAME)) return;
+
+    int others = 0;
+    for (int i = 0; i < header->count(); ++i) {
+        if (i != BJobsModel::COL_NAME && !header->isSectionHidden(i)) others += header->sectionSize(i);
+    }
+    const int smallest = BUiScale::px(150);
+    const bool room = viewport()->width() - others >= smallest;
+
+    m_fittingNameColumn = true;
+    const QHeaderView::ResizeMode wanted = room ? QHeaderView::Stretch : QHeaderView::Interactive;
+    if (header->sectionResizeMode(BJobsModel::COL_NAME) != wanted)
+        header->setSectionResizeMode(BJobsModel::COL_NAME, wanted);
+    if (!room && header->sectionSize(BJobsModel::COL_NAME) < smallest)
+        header->resizeSection(BJobsModel::COL_NAME, smallest);
+    m_fittingNameColumn = false;
 }
 
 void BJsonJobView::createContextMenu()
@@ -204,7 +242,7 @@ void BJsonJobView::setJobsData(const QJsonArray &jobs)
     resizeColumnsToContents();
 
     // But keep selection column fixed
-    setColumnWidth(BJobsModel::COL_SELECTED, 40);
+    setColumnWidth(BJobsModel::COL_SELECTED, BUiScale::px(40));
 }
 
 void BJsonJobView::appendJobsData(const QJsonArray &jobs)
@@ -524,7 +562,7 @@ void BJsonJobView::deleteJob()
     // Create dialog with delete options
     QDialog dialog(this);
     dialog.setWindowTitle(batchMode ? tr("Delete %1 Jobs").arg(jobsToDelete.size()) : tr("Delete Job"));
-    dialog.setMinimumWidth(450);
+    dialog.setMinimumWidth(BUiScale::px(450));
 
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
@@ -817,7 +855,8 @@ BViewPresets::Preset BJsonJobView::currentPreset() const
     
     // Save column widths
     for (int i = 0; i < columnCount; ++i) {
-        preset.columnWidths.append(columnWidth(i));
+        // Stored for a 10 pt font, so that it fits any interface zoom later
+        preset.columnWidths.append(BUiScale::designPx(columnWidth(i)));
     }
     
     // Save column order
@@ -848,7 +887,7 @@ void BJsonJobView::applyPreset(const BViewPresets::Preset &preset)
     
     // Apply column widths
     for (int i = 0; i < qMin(preset.columnWidths.size(), m_model->columnCount()); ++i) {
-        setColumnWidth(i, preset.columnWidths[i]);
+        setColumnWidth(i, BUiScale::px(preset.columnWidths[i]));
     }
     
     // Apply column order

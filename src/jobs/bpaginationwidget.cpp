@@ -1,4 +1,5 @@
 #include "bpaginationwidget.h"
+#include "buiscale.h"
 #include "jobs/bjobpaging.h"
 #include "config/bsettings.h"
 #include <QHBoxLayout>
@@ -43,31 +44,31 @@ void BPaginationWidget::setupUi()
     // Navigation buttons
     m_firstButton = new QPushButton("<<", this);
     m_firstButton->setToolTip("First Page");
-    m_firstButton->setMaximumWidth(40);
+    BUiScale::track(m_firstButton, [this]() { m_firstButton->setMaximumWidth(BUiScale::px(40)); });
     m_firstButton->setEnabled(false);
     layout->addWidget(m_firstButton);
     
     m_prevButton = new QPushButton("<", this);
     m_prevButton->setToolTip("Previous Page");
-    m_prevButton->setMaximumWidth(40);
+    BUiScale::track(m_prevButton, [this]() { m_prevButton->setMaximumWidth(BUiScale::px(40)); });
     m_prevButton->setEnabled(false);
     layout->addWidget(m_prevButton);
     
     // Page info label
     m_pageLabel = new QLabel("Page 0 of 0", this);
-    m_pageLabel->setMinimumWidth(100);
+    BUiScale::track(m_pageLabel, [this]() { m_pageLabel->setMinimumWidth(BUiScale::px(100)); });
     m_pageLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_pageLabel);
     
     m_nextButton = new QPushButton(">", this);
     m_nextButton->setToolTip("Next Page");
-    m_nextButton->setMaximumWidth(40);
+    BUiScale::track(m_nextButton, [this]() { m_nextButton->setMaximumWidth(BUiScale::px(40)); });
     m_nextButton->setEnabled(false);
     layout->addWidget(m_nextButton);
     
     m_lastButton = new QPushButton(">>", this);
     m_lastButton->setToolTip("Last Page");
-    m_lastButton->setMaximumWidth(40);
+    BUiScale::track(m_lastButton, [this]() { m_lastButton->setMaximumWidth(BUiScale::px(40)); });
     m_lastButton->setEnabled(false);
     layout->addWidget(m_lastButton);
     

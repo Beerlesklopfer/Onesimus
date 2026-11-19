@@ -4,6 +4,7 @@
  */
 
 #include "schedules/bschedulegridwidget.h"
+#include "buiscale.h"
 
 #include "schedules/bschedulegridaccessible.h"
 #include "schedules/bschedulegrideditor.h"
@@ -26,8 +27,6 @@
 namespace {
 
 const int MaxStripes = 3;
-const int LoadBarHeight = 3;
-const int RuleBandHeight = 22;
 
 QColor mix(const QColor &a, const QColor &b, double share)
 {
@@ -250,12 +249,21 @@ QList<int> BScheduleGridWidget::rulesAtHour(int hour) const
 
 QFont BScheduleGridWidget::smallFont() const
 {
-    QFont small = font();
-    if (small.pointSizeF() > 0)
-        small.setPointSizeF(qMax(6.5, small.pointSizeF() * 0.75));
-    else
-        small.setPixelSize(qMax(9, small.pixelSize() * 3 / 4));
-    return small;
+    return BUiScale::scaled(font(), BUiScale::Tiny);
+}
+
+int BScheduleGridWidget::px(int designPixels) const
+{
+    return BUiScale::px(designPixels, font());
+}
+
+QSize BScheduleGridWidget::swatchSize() const
+{
+    QFont bold = font();
+    bold.setBold(true);
+    const QFontMetrics metrics(bold);
+    return QSize(qMax(px(36), metrics.horizontalAdvance(QLatin1Char('M')) + px(20)),
+                 qMax(px(24), metrics.height() + px(6)));
 }
 
 QString BScheduleGridWidget::dayHeaderText(int row) const
@@ -275,8 +283,24 @@ void BScheduleGridWidget::updateLayout()
         headerWidth = qMax(headerWidth, metrics.horizontalAdvance(
                                             BScheduleGridText::dayName(Qt::DayOfWeek(day))));
     }
-    m_geometry.setHeaderSize(headerWidth + 16, metrics.height() + 8);
-    m_geometry.setRuleBandHeight(m_model && !m_model->calendarRules().isEmpty() ? RuleBandHeight : 0);
+    m_geometry.setHeaderSize(headerWidth + px(16), metrics.height() + px(8));
+
+    // A cell holds the level letter and, below it, a line of small text
+    // (the minute or a scope) above the load bar: never lower than that
+    QFont smallBold = smallFont();
+    smallBold.setBold(true);
+    const QFontMetrics smallMetrics(smallBold);
+    m_loadBarHeight = px(3);
+    const int textHeight = metrics.height() + smallMetrics.height() + m_loadBarHeight + px(6);
+    const int minCellHeight = qMax(px(BScheduleGridGeometry::MinCellHeight), textHeight);
+    m_geometry.setCellLimits(
+        qMax(px(BScheduleGridGeometry::MinCellWidth),
+             metrics.horizontalAdvance(QStringLiteral("00")) + px(8)),
+        minCellHeight,
+        qMax(px(BScheduleGridGeometry::MaxCellHeight), minCellHeight));
+    m_geometry.setRuleBandGap(px(BScheduleGridGeometry::RuleBandGap));
+    const int ruleBandHeight = qMax(px(22), smallMetrics.height() + px(8));
+    m_geometry.setRuleBandHeight(m_model && !m_model->calendarRules().isEmpty() ? ruleBandHeight : 0);
     m_geometry.setViewportSize(viewport()->size());
 
     const QSize range = m_geometry.scrollRange();
@@ -297,8 +321,8 @@ QSize BScheduleGridWidget::sizeHint() const
 QSize BScheduleGridWidget::minimumSizeHint() const
 {
     // Smaller than the content: then the cells scroll under the headers
-    return QSize(m_geometry.rowHeaderWidth() + 8 * BScheduleGridGeometry::MinCellWidth,
-                 m_geometry.columnHeaderHeight() + 4 * BScheduleGridGeometry::MinCellHeight);
+    return QSize(m_geometry.rowHeaderWidth() + 8 * m_geometry.minCellWidth(),
+                 m_geometry.columnHeaderHeight() + 4 * m_geometry.minCellHeight());
 }
 
 void BScheduleGridWidget::resizeEvent(QResizeEvent *event)
@@ -396,13 +420,14 @@ QColor BScheduleGridWidget::selectionOutlineColor() const
 
 void BScheduleGridWidget::paintWarningMark(QPainter &painter, const QRect &rect, const QColor &ink) const
 {
-    // A triangle with an exclamation mark, 11 by 10 pixels
+    // A triangle with an exclamation mark, 11 by 10 pixels at a 10 pt font
     const int left = rect.left() + 1;
     const int bottom = rect.bottom() - 1;
+    const int half = px(5);
     QPainterPath triangle;
     triangle.moveTo(left, bottom);
-    triangle.lineTo(left + 10, bottom);
-    triangle.lineTo(left + 5, bottom - 9);
+    triangle.lineTo(left + 2 * half, bottom);
+    triangle.lineTo(left + half, bottom - px(9));
     triangle.closeSubpath();
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing, true);
@@ -410,9 +435,9 @@ void BScheduleGridWidget::paintWarningMark(QPainter &painter, const QRect &rect,
     painter.setBrush(QColor(0xf2, 0xb1, 0x1a));
     painter.drawPath(triangle);
     painter.setRenderHint(QPainter::Antialiasing, false);
-    painter.setPen(QPen(Qt::black, 1));
-    painter.drawLine(left + 5, bottom - 6, left + 5, bottom - 3);
-    painter.drawPoint(left + 5, bottom - 1);
+    painter.setPen(QPen(Qt::black, qMax(1, px(1))));
+    painter.drawLine(left + half, bottom - px(6), left + half, bottom - px(3));
+    painter.drawPoint(left + half, bottom - 1);
     painter.restore();
 }
 
@@ -455,8 +480,8 @@ void BScheduleGridWidget::paintRun(QPainter &painter, const QRect &rect, const B
 
     // The minute: a tick at minute/60 across the stripe
     const int tickX = rect.left() + qBound(0, qRound(run.minute / 60.0 * rect.width()),
-                                           qMax(0, rect.width() - 2));
-    painter.fillRect(QRect(tickX, rect.top(), 2, 5), ink);
+                                           qMax(0, rect.width() - px(2)));
+    painter.fillRect(QRect(tickX, rect.top(), px(2), px(5)), ink);
 
     QFont letterFont = font();
     letterFont.setBold(true);
@@ -481,9 +506,9 @@ void BScheduleGridWidget::paintRun(QPainter &painter, const QRect &rect, const B
     const int belowHeight = smallMetrics.height();
     const bool showBelow = !below.isEmpty()
         && smallMetrics.horizontalAdvance(below) <= rect.width() - 2
-        && rect.height() >= letterMetrics.height() + belowHeight + loadBar + 6;
+        && rect.height() >= letterMetrics.height() + belowHeight + loadBar + px(6);
 
-    QRect letterRect = rect.adjusted(0, 5, 0, -loadBar);
+    QRect letterRect = rect.adjusted(0, px(5), 0, -loadBar);
     if (showBelow)
         letterRect.setBottom(rect.bottom() - loadBar - belowHeight);
     if (!inScope) {
@@ -532,7 +557,7 @@ void BScheduleGridWidget::paintRuleMark(QPainter &painter, const QRect &rect, co
     QFont bold = smallFont();
     bold.setBold(true);
     const QFontMetrics metrics(bold);
-    QRect pill(0, 0, qMin(rect.width() - 2, metrics.horizontalAdvance(text) + 10),
+    QRect pill(0, 0, qMin(rect.width() - 2, metrics.horizontalAdvance(text) + px(10)),
                qMin(rect.height() - 4, metrics.height() + 2));
     pill.moveCenter(rect.center());
     const QColor fill = levelFill(level);
@@ -593,7 +618,7 @@ void BScheduleGridWidget::paintHeaders(QPainter &painter) const
         painter.drawLine(rect.bottomLeft(), rect.bottomRight());
         painter.setFont(selected || (hasFocus() && row == m_current.row) ? bold : plain);
         painter.setPen(selected ? selectedText : text);
-        painter.drawText(rect.adjusted(8, 0, -4, 0), Qt::AlignLeft | Qt::AlignVCenter,
+        painter.drawText(rect.adjusted(px(8), 0, -px(4), 0), Qt::AlignLeft | Qt::AlignVCenter,
                          dayHeaderText(row));
     }
     if (m_geometry.hasRuleBand()) {
@@ -602,7 +627,7 @@ void BScheduleGridWidget::paintHeaders(QPainter &painter) const
         italic.setItalic(true);
         painter.setFont(italic);
         painter.setPen(text);
-        painter.drawText(rect.adjusted(8, 0, -4, 0), Qt::AlignLeft | Qt::AlignVCenter,
+        painter.drawText(rect.adjusted(px(8), 0, -px(4), 0), Qt::AlignLeft | Qt::AlignVCenter,
                          tr("Calendar rules"));
     }
     painter.restore();
@@ -614,9 +639,9 @@ void BScheduleGridWidget::paintHeaders(QPainter &painter) const
     painter.drawLine(corner.topRight(), corner.bottomRight());
     painter.drawLine(corner.bottomLeft(), corner.bottomRight());
     QPainterPath mark;
-    mark.moveTo(corner.right() - 4, corner.bottom() - 12);
-    mark.lineTo(corner.right() - 4, corner.bottom() - 4);
-    mark.lineTo(corner.right() - 12, corner.bottom() - 4);
+    mark.moveTo(corner.right() - px(4), corner.bottom() - px(12));
+    mark.lineTo(corner.right() - px(4), corner.bottom() - px(4));
+    mark.lineTo(corner.right() - px(12), corner.bottom() - px(4));
     mark.closeSubpath();
     painter.fillPath(mark, mix(headerFill, text, 0.55));
 }
@@ -629,7 +654,7 @@ void BScheduleGridWidget::paintCell(QPainter &painter, int row, int column, doub
     const QColor text = palette().color(QPalette::Text);
 
     const BGridCell cell = m_model->cell(row, column);
-    const int loadBar = cell.expectedConcurrentRuns ? LoadBarHeight : 0;
+    const int loadBar = cell.expectedConcurrentRuns ? m_loadBarHeight : 0;
 
     struct Stripe
     {
@@ -677,7 +702,7 @@ void BScheduleGridWidget::paintCell(QPainter &painter, int row, int column, doub
 
     // The load of a later step: a thin bar at the bottom
     if (cell.expectedConcurrentRuns) {
-        const QRect track(inner.left(), inner.bottom() - LoadBarHeight + 1, inner.width(), LoadBarHeight);
+        const QRect track(inner.left(), inner.bottom() - m_loadBarHeight + 1, inner.width(), m_loadBarHeight);
         painter.fillRect(track, mix(base, text, 0.22));
         const double share = maxLoad > 0 ? qBound(0.0, *cell.expectedConcurrentRuns / maxLoad, 1.0) : 0.0;
         painter.fillRect(QRect(track.left(), track.top(), qRound(track.width() * share), track.height()),
@@ -1428,8 +1453,8 @@ bool BScheduleGridWidget::showCellDetails(int row, int column)
     for (int i = 0; i < tree->columnCount(); ++i)
         width += tree->columnWidth(i);
     const int rows = tree->topLevelItemCount();
-    const int rowHeight = qMax(18, tree->sizeHintForRow(0));
-    tree->setMinimumWidth(qMin(width, 900));
+    const int rowHeight = qMax(tree->fontMetrics().height() + 2, tree->sizeHintForRow(0));
+    tree->setMinimumWidth(qMin(width, px(900)));
     tree->setFixedHeight(tree->header()->sizeHint().height() + qMin(rows, 12) * rowHeight
                          + 2 * tree->frameWidth() + 4);
 

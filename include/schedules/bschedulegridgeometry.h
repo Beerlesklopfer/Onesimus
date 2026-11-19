@@ -24,7 +24,8 @@
  * The row headers stay at the left edge and the column headers at the top
  * while the cells scroll under them. The cells take the space there is,
  * never less than the minimum size; the height is limited so that the grid
- * does not grow into a wall of colour on a large window.
+ * does not grow into a wall of colour on a large window. All measures are
+ * given by the widget from its font; the class itself knows no font.
  * QtCore only.
  */
 class BScheduleGridGeometry
@@ -55,10 +56,23 @@ public:
 
     static constexpr int Rows = BGridCellSet::Rows;
     static constexpr int Columns = BGridCellSet::Columns;
+    /// The limits of a cell and the gap above the rule band for a 10 pt
+    /// font: what a geometry starts with. The widget sets them for its
+    /// font with setCellLimits() and setRuleBandGap().
     static constexpr int MinCellWidth = 30;
     static constexpr int MinCellHeight = 34;
     static constexpr int MaxCellHeight = 64;
     static constexpr int RuleBandGap = 6;
+
+    /// The smallest and the tallest a cell may be, in pixels
+    void setCellLimits(int minWidth, int minHeight, int maxHeight);
+    int minCellWidth() const { return m_minCellWidth; }
+    int minCellHeight() const { return m_minCellHeight; }
+    int maxCellHeight() const { return m_maxCellHeight; }
+
+    /// The gap between the cells and the band of calendar rules
+    void setRuleBandGap(int gap) { m_ruleBandGap = qMax(0, gap); }
+    int ruleBandGap() const { return m_ruleBandGap; }
 
     void setViewportSize(const QSize &size) { m_viewport = size; }
     QSize viewportSize() const { return m_viewport; }
@@ -109,6 +123,10 @@ private:
     int m_headerWidth = 90;
     int m_headerHeight = 24;
     int m_ruleBandHeight = 0;
+    int m_minCellWidth = MinCellWidth;
+    int m_minCellHeight = MinCellHeight;
+    int m_maxCellHeight = MaxCellHeight;
+    int m_ruleBandGap = RuleBandGap;
     QPoint m_offset;
 };
 

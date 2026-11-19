@@ -1,4 +1,5 @@
 #include "schedules/bscheduledragresultdialog.h"
+#include "buiscale.h"
 #include "blabelstate.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -15,7 +16,7 @@ BScheduleDragResultDialog::BScheduleDragResultDialog(QWidget *parent)
     , m_timeoutTimer(new QTimer(this))
 {
     setWindowTitle(tr("Create Schedule Copy"));
-    setMinimumWidth(550);
+    BUiScale::track(this, [this]() { setMinimumWidth(BUiScale::px(550)); });
     m_timeoutTimer->setSingleShot(true);
     m_timeoutTimer->setInterval(30000);
     connect(m_timeoutTimer, &QTimer::timeout, this, &BScheduleDragResultDialog::onTimeout);
@@ -74,8 +75,8 @@ void BScheduleDragResultDialog::buildUI()
     m_compareTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     m_compareTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_compareTable->setSelectionMode(QAbstractItemView::NoSelection);
-    m_compareTable->setFont(QFont("Monospace", 9));
-    m_compareTable->setMaximumHeight(160);
+    BUiScale::bind(m_compareTable, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_compareTable, [this]() { m_compareTable->setMaximumHeight(BUiScale::px(160)); });
     m_compareTable->setVisible(false);
     layout->addWidget(m_compareTable);
 
@@ -92,8 +93,8 @@ void BScheduleDragResultDialog::buildUI()
 
     m_configEdit = new QTextEdit(this);
     m_configEdit->setReadOnly(true);
-    m_configEdit->setFont(QFont("Monospace", 9));
-    m_configEdit->setMaximumHeight(200);
+    BUiScale::bind(m_configEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_configEdit, [this]() { m_configEdit->setMaximumHeight(BUiScale::px(200)); });
     layout->addWidget(m_configEdit);
 
     auto *configBtnLayout = new QHBoxLayout();
@@ -110,8 +111,8 @@ void BScheduleDragResultDialog::buildUI()
 
     m_commandEdit = new QTextEdit(this);
     m_commandEdit->setReadOnly(true);
-    m_commandEdit->setFont(QFont("Monospace", 9));
-    m_commandEdit->setMaximumHeight(80);
+    BUiScale::bind(m_commandEdit, BUiScale::Small, BUiScale::Monospace);
+    BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMaximumHeight(BUiScale::px(80)); });
     layout->addWidget(m_commandEdit);
 
     auto *cmdBtnLayout = new QHBoxLayout();

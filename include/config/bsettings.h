@@ -125,6 +125,10 @@ public:
     int appearanceFontSize() const;
     void setAppearanceFontSize(int size);
 
+    /// Interface zoom in percent (BUiScale): 70 to 250 in steps of 10
+    int appearanceUiZoom() const;
+    void setAppearanceUiZoom(int percent);
+
     bool appearanceAnimations() const;
     void setAppearanceAnimations(bool enabled);
 

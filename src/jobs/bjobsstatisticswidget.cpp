@@ -1,4 +1,5 @@
 #include "jobs/bjobsstatisticswidget.h"
+#include "buiscale.h"
 #include <QVBoxLayout>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -19,7 +20,8 @@ void BJobsStatisticsWidget::setupUi()
     QFormLayout *summaryLayout = new QFormLayout(summaryGroup);
     
     m_totalJobsLabel = new QLabel("0", this);
-    m_totalJobsLabel->setStyleSheet("font-weight: bold; font-size: 14pt;");
+    m_totalJobsLabel->setStyleSheet("font-weight: bold;");
+    BUiScale::bind(m_totalJobsLabel, BUiScale::Title);
     summaryLayout->addRow("Total Jobs:", m_totalJobsLabel);
     
     m_selectedLabel = new QLabel("0", this);
@@ -34,7 +36,7 @@ void BJobsStatisticsWidget::setupUi()
     // Successful jobs
     QHBoxLayout *successLayout = new QHBoxLayout();
     m_successLabel = new QLabel("0", this);
-    m_successLabel->setMinimumWidth(50);
+    BUiScale::track(m_successLabel, [this]() { m_successLabel->setMinimumWidth(BUiScale::px(50)); });
     successLayout->addWidget(new QLabel("Successful:", this));
     successLayout->addWidget(m_successLabel);
     statusLayout->addLayout(successLayout);
@@ -48,7 +50,7 @@ void BJobsStatisticsWidget::setupUi()
     // Warning jobs
     QHBoxLayout *warningLayout = new QHBoxLayout();
     m_warningLabel = new QLabel("0", this);
-    m_warningLabel->setMinimumWidth(50);
+    BUiScale::track(m_warningLabel, [this]() { m_warningLabel->setMinimumWidth(BUiScale::px(50)); });
     warningLayout->addWidget(new QLabel("Warnings:", this));
     warningLayout->addWidget(m_warningLabel);
     statusLayout->addLayout(warningLayout);
@@ -62,7 +64,7 @@ void BJobsStatisticsWidget::setupUi()
     // Failed jobs
     QHBoxLayout *failedLayout = new QHBoxLayout();
     m_failedLabel = new QLabel("0", this);
-    m_failedLabel->setMinimumWidth(50);
+    BUiScale::track(m_failedLabel, [this]() { m_failedLabel->setMinimumWidth(BUiScale::px(50)); });
     failedLayout->addWidget(new QLabel("Failed:", this));
     failedLayout->addWidget(m_failedLabel);
     statusLayout->addLayout(failedLayout);

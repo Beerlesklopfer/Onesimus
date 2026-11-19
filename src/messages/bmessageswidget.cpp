@@ -7,6 +7,7 @@
  */
 
 #include "messages/bmessageswidget.h"
+#include "buiscale.h"
 #include "director/bdirector.h"
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -20,7 +21,15 @@
 BMessagesModel::BMessagesModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    m_messageFont = QFont("Monospace", 9);
+    // The desktop's fixed-pitch font, a little smaller than the text around
+    // it; follows the interface zoom
+    m_messageFont = BUiScale::instance().font(BUiScale::Small, BUiScale::Monospace);
+    connect(&BUiScale::instance(), &BUiScale::changed, this, [this]() {
+        m_messageFont = BUiScale::instance().font(BUiScale::Small, BUiScale::Monospace);
+        if (!m_messages.isEmpty()) {
+            emit dataChanged(index(0), index(m_messages.size() - 1), {Qt::FontRole});
+        }
+    });
 }
 
 int BMessagesModel::rowCount(const QModelIndex &parent) const

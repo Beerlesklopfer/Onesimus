@@ -4,6 +4,7 @@
  */
 
 #include "schedules/bscheduleminicalendar.h"
+#include "buiscale.h"
 
 #include <QHelpEvent>
 #include <QKeyEvent>
@@ -132,9 +133,31 @@ QString BScheduleMiniCalendar::dayText(const QDate &date) const
     return QStringLiteral("%1: %2").arg(head, runs.join(QLatin1String(", ")));
 }
 
+int BScheduleMiniCalendar::px(int designPixels) const
+{
+    return BUiScale::px(designPixels, font());
+}
+
 int BScheduleMiniCalendar::headerHeight() const
 {
-    return fontMetrics().height() + 6;
+    return fontMetrics().height() + px(6);
+}
+
+int BScheduleMiniCalendar::minimumChipSize() const
+{
+    // A square with the letter of a level in the small bold font
+    QFont smallBold = BUiScale::scaled(font(), BUiScale::Tiny, BUiScale::Bold);
+    return qMax(px(12), QFontMetrics(smallBold).ascent() + 2);
+}
+
+QSize BScheduleMiniCalendar::minimumCellSize() const
+{
+    // The date with a month ("30 Sep") in the first line, the squares of
+    // the levels below it
+    const QFont smallBold = BUiScale::scaled(font(), BUiScale::Tiny, BUiScale::Bold);
+    const QFontMetrics metrics(smallBold);
+    return QSize(qMax(px(34), metrics.horizontalAdvance(QStringLiteral("30 MMM")) + px(5)),
+                 qMax(px(30), metrics.height() + minimumChipSize() + px(5)));
 }
 
 QRect BScheduleMiniCalendar::dayRect(const QDate &date) const
@@ -163,12 +186,15 @@ QDate BScheduleMiniCalendar::dateAt(const QPoint &pos) const
 
 QSize BScheduleMiniCalendar::sizeHint() const
 {
-    return QSize(7 * 52, headerHeight() + BScheduleCalendar::Weeks * 40);
+    const QSize cell = minimumCellSize();
+    return QSize(7 * qMax(px(52), cell.width()),
+                 headerHeight() + BScheduleCalendar::Weeks * qMax(px(40), cell.height()));
 }
 
 QSize BScheduleMiniCalendar::minimumSizeHint() const
 {
-    return QSize(7 * 34, headerHeight() + BScheduleCalendar::Weeks * 30);
+    const QSize cell = minimumCellSize();
+    return QSize(7 * cell.width(), headerHeight() + BScheduleCalendar::Weeks * cell.height());
 }
 
 void BScheduleMiniCalendar::paintEvent(QPaintEvent *)
@@ -180,9 +206,7 @@ void BScheduleMiniCalendar::paintEvent(QPaintEvent *)
     const QColor line = mix(base, text, 0.28);
     painter.fillRect(rect(), palette().color(QPalette::Window));
 
-    QFont small = font();
-    if (small.pointSizeF() > 0)
-        small.setPointSizeF(qMax(6.5, small.pointSizeF() * 0.8));
+    const QFont small = BUiScale::scaled(font(), BUiScale::Tiny);
     QFont smallBold = small;
     smallBold.setBold(true);
     const QFontMetrics smallMetrics(small);
@@ -217,16 +241,18 @@ void BScheduleMiniCalendar::paintEvent(QPaintEvent *)
         }
         painter.setFont(named || day.date == now ? smallBold : small);
         painter.setPen(day.date < now ? mix(text, base, 0.35) : text);
-        painter.drawText(inner.adjusted(3, 1, -2, 0), Qt::AlignLeft | Qt::AlignTop, label);
+        painter.drawText(inner.adjusted(px(3), 1, -2, 0), Qt::AlignLeft | Qt::AlignTop, label);
 
         // The levels of the day
         const QList<std::optional<QString>> levels = day.levels();
         // As many squares as fit; the last place says how many more there are
-        const int chip = qBound(12, inner.height() - smallMetrics.height() - 5, 16);
+        const int smallestChip = minimumChipSize();
+        const int chip = qBound(smallestChip, inner.height() - smallMetrics.height() - px(5),
+                                qMax(px(16), smallestChip));
         const int room = qMax(1, qMin(MaxChips, (inner.width() - 4) / (chip + 2)));
         const bool more = levels.size() > room;
         const int shown = more ? room - 1 : int(levels.size());
-        int x = inner.left() + 3;
+        int x = inner.left() + px(3);
         const int y = inner.bottom() - chip - 2;
         painter.setFont(smallBold);
         for (int k = 0; k < shown; ++k) {
@@ -299,5 +325,10 @@ bool BScheduleMiniCalendar::event(QEvent *event)
     }
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut)
         update();
+    if (event->type() == QEvent::FontChange) {
+        // The smallest size follows the font
+        updateGeometry();
+        update();
+    }
     return QWidget::event(event);
 }

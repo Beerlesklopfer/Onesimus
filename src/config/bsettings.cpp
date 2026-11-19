@@ -1,5 +1,6 @@
 #include "config/bsettings.h"
 #include "blogging.h"
+#include "buiscale.h"
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -285,6 +286,18 @@ int BSettings::appearanceFontSize() const
 void BSettings::setAppearanceFontSize(int size)
 {
     setValue("Appearance/font_size", size);
+    emit appearanceSettingsChanged();
+}
+
+int BSettings::appearanceUiZoom() const
+{
+    // Whatever the file says: a value in range, on a step
+    return BUiScale::clampZoom(value("Appearance/ui_zoom", BUiScale::DefaultZoom).toInt());
+}
+
+void BSettings::setAppearanceUiZoom(int percent)
+{
+    setValue("Appearance/ui_zoom", BUiScale::clampZoom(percent));
     emit appearanceSettingsChanged();
 }
 

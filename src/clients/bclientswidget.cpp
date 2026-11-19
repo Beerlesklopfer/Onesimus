@@ -1,4 +1,5 @@
 #include "clients/bclientswidget.h"
+#include "buiscale.h"
 #include "clients/bclientsmodel.h"
 #include "clients/bclientdetailsdialog.h"
 #include "bcheckableheaderview.h"
@@ -57,7 +58,7 @@ void BClientsWidget::setupUI()
     m_clientFilter->setEditable(true);
     m_clientFilter->setInsertPolicy(QComboBox::NoInsert);
     m_clientFilter->setPlaceholderText(tr("Filter by client..."));
-    m_clientFilter->setMinimumWidth(200);
+    BUiScale::track(m_clientFilter, [this]() { m_clientFilter->setMinimumWidth(BUiScale::px(200)); });
     topLayout->addWidget(m_clientFilter);
 
     topLayout->addSpacing(20);
@@ -69,7 +70,7 @@ void BClientsWidget::setupUI()
     m_statusFilter->addItem(tr("Stale"), "stale");
     m_statusFilter->addItem(tr("Never"), "never");
     m_statusFilter->addItem(tr("Unknown"), "unknown");
-    m_statusFilter->setMinimumWidth(120);
+    BUiScale::track(m_statusFilter, [this]() { m_statusFilter->setMinimumWidth(BUiScale::px(120)); });
     topLayout->addWidget(m_statusFilter);
 
     topLayout->addStretch();
@@ -165,14 +166,14 @@ void BClientsWidget::setupUI()
     m_headerView->setSectionResizeMode(BClientsModel::COL_TOTAL_BYTES, QHeaderView::Fixed);
 
     // Set column widths (~20% for Name, Address stretches)
-    m_tableView->setColumnWidth(BClientsModel::COL_NAME, 180);
-    m_tableView->setColumnWidth(BClientsModel::COL_PORT, 50);
-    m_tableView->setColumnWidth(BClientsModel::COL_STATUS, 110);
-    m_tableView->setColumnWidth(BClientsModel::COL_OS, 120);
-    m_tableView->setColumnWidth(BClientsModel::COL_VERSION, 80);
-    m_tableView->setColumnWidth(BClientsModel::COL_LAST_CONN, 160);
-    m_tableView->setColumnWidth(BClientsModel::COL_JOB_COUNT, 50);
-    m_tableView->setColumnWidth(BClientsModel::COL_TOTAL_BYTES, 80);
+    m_tableView->setColumnWidth(BClientsModel::COL_NAME, BUiScale::px(180));
+    m_tableView->setColumnWidth(BClientsModel::COL_PORT, BUiScale::px(50));
+    m_tableView->setColumnWidth(BClientsModel::COL_STATUS, BUiScale::px(110));
+    m_tableView->setColumnWidth(BClientsModel::COL_OS, BUiScale::px(120));
+    m_tableView->setColumnWidth(BClientsModel::COL_VERSION, BUiScale::px(80));
+    m_tableView->setColumnWidth(BClientsModel::COL_LAST_CONN, BUiScale::px(160));
+    m_tableView->setColumnWidth(BClientsModel::COL_JOB_COUNT, BUiScale::px(50));
+    m_tableView->setColumnWidth(BClientsModel::COL_TOTAL_BYTES, BUiScale::px(80));
 
     // Auto-save column config on resize/move (debounced)
     m_autoSaveTimer->setSingleShot(true);
