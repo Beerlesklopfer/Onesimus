@@ -269,9 +269,7 @@ void BScheduleWidget::setupUI()
     m_waitButton->setCheckable(true);
     m_waitButton->setProperty("disclosure", true);
     connect(m_waitButton, &QPushButton::toggled, this, [this](bool on) {
-        m_waitPanel->setVisible(on && m_viewStack->currentIndex() == 0);
-        if (on)
-            fitLowerPanels();
+        showLowerPage(m_waitPanel, on && m_viewStack->currentIndex() == 0);
         updateWaitButtonText();
         BSettings::instance().setSchedulesWaitListShown(on);
         if (on && m_waitButton->hasFocus())
@@ -391,23 +389,44 @@ void BScheduleWidget::setupUI()
     setupWaitsPage();
     m_viewStack->addWidget(m_waitsPage);         // index 2 = Measured waits
 
-    // The views above, the predicted waits and the measured history below,
-    // with a handle between them: an opened panel is shown whole, and the
-    // handle gives the timeline back its room
+    // The views above; below, with a handle between, the predicted waits
+    // and the measured history as two tabs: both at once, one above the
+    // other, did not fit. A tab is there while its content is open (the
+    // counter, a run clicked); the tabs go when none is.
     m_rightSplitter = new QSplitter(Qt::Vertical, rightWidget);
     m_rightSplitter->setChildrenCollapsible(false);
     m_rightSplitter->addWidget(m_viewStack);
 
-    // Predicted waits (below the timeline, opened by the counter)
-    setupWaitPanel();
-    m_rightSplitter->addWidget(m_waitPanel);
+    m_lowerTabs = new QTabWidget(rightWidget);
+    m_lowerTabs->setDocumentMode(true);
+    m_lowerTabs->setTabsClosable(true);
 
-    // Stats panel (below Gantt)
+    // Predicted waits (opened by the counter)
+    setupWaitPanel();
+    m_lowerTabs->addTab(m_waitPanel, tr("Predicted waits"));
+
+    // Measured history of a run clicked in the timeline; it scrolls when
+    // the room below the timeline is small
     setupStatsPanel();
-    m_rightSplitter->addWidget(m_statsPanel);
+    auto *statsArea = new QScrollArea(rightWidget);
+    statsArea->setFrameShape(QFrame::NoFrame);
+    statsArea->setWidgetResizable(true);
+    statsArea->setWidget(m_statsPanel);
+    m_statsPage = statsArea;
+    m_lowerTabs->addTab(m_statsPage, tr("Measured history"));
+    m_lowerTabs->setTabVisible(0, false);
+    m_lowerTabs->setTabVisible(1, false);
+    m_lowerTabs->setVisible(false);
+    connect(m_lowerTabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
+        if (m_lowerTabs->widget(index) == m_waitPanel)
+            m_waitButton->setChecked(false);    // the counter says it is closed
+        else
+            showLowerPage(m_statsPage, false);
+    });
+
+    m_rightSplitter->addWidget(m_lowerTabs);
     m_rightSplitter->setStretchFactor(0, 1);
     m_rightSplitter->setStretchFactor(1, 0);
-    m_rightSplitter->setStretchFactor(2, 0);
     rightLayout->addWidget(m_rightSplitter, 1);
 
     m_splitter->addWidget(m_leftSplitter);
@@ -863,12 +882,12 @@ void BScheduleWidget::onViewModeChanged(int index)
     updateDateControls();
     // The predicted waits are those of the dates of the timeline
     m_waitButton->setVisible(isGantt);
-    m_waitPanel->setVisible(isGantt && m_waitButton->isChecked());
+    showLowerPage(m_waitPanel, isGantt && m_waitButton->isChecked(), false);
 
     // The figures of a run clicked in the timeline would take the room of
     // the grid
     if (isGrid)
-        m_statsPanel->setVisible(false);
+        showLowerPage(m_statsPage, false);
 
     if (isWaits) {
         // Not stored: the setting keeps meaning "timeline or grid", and the
@@ -973,32 +992,23 @@ void BScheduleWidget::updateDateLabel()
 
 void BScheduleWidget::setupStatsPanel()
 {
-    m_statsPanel = new QGroupBox(tr("Measured history"), this);
-    m_statsPanel->setVisible(false);
+    // Its name is the tab's
+    m_statsPanel = new QGroupBox(this);
+    m_statsPanel->setObjectName(QStringLiteral("measuredHistory"));
+    m_statsPanel->setFlat(true);
 
     QVBoxLayout *statsLayout = new QVBoxLayout(m_statsPanel);
     statsLayout->setContentsMargins(8, 8, 8, 8);
     statsLayout->setSpacing(4);
 
-    // Title row with close button
+    // Title row
     QHBoxLayout *titleRow = new QHBoxLayout();
     m_statsTitle = new QLabel(this);
     m_statsTitle->setStyleSheet("font-weight: bold;");
     BUiScale::bind(m_statsTitle, BUiScale::Large);
     titleRow->addWidget(m_statsTitle, 1);
 
-    QToolButton *closeButton = new QToolButton(this);
-    closeButton->setText(QStringLiteral("\u2715"));  // Unicode ✕
-    closeButton->setToolTip(tr("Close"));
-    BUiScale::track(closeButton, [closeButton]() { closeButton->setFixedSize(BUiScale::px(20), BUiScale::px(20)); });
-    closeButton->setStyleSheet(
-        "QToolButton { color: #333; font-weight: bold; border: 1px solid #aaa;"
-        " border-radius: 3px; background: #ddd; }"
-        "QToolButton:hover { background: #c44; color: white; }");
-    connect(closeButton, &QToolButton::clicked, m_statsPanel, [this]() {
-        m_statsPanel->setVisible(false);
-    });
-    titleRow->addWidget(closeButton);
+    // Closed by the ✕ of its tab
     statsLayout->addLayout(titleRow);
 
     // --- Job config info row ---
@@ -1099,8 +1109,27 @@ void BScheduleWidget::setupStatsPanel()
 void BScheduleWidget::onEntryClicked(const BScheduleEntry &entry)
 {
     updateStatsPanel(entry);
-    m_statsPanel->setVisible(true);
-    fitLowerPanels();
+    showLowerPage(m_statsPage, true);
+}
+
+void BScheduleWidget::showLowerPage(QWidget *page, bool on, bool bringToFront)
+{
+    if (!m_lowerTabs || !page)
+        return;
+    const int index = m_lowerTabs->indexOf(page);
+    if (index < 0)
+        return;
+    const bool was = m_lowerTabs->isTabVisible(index);
+    m_lowerTabs->setTabVisible(index, on);
+    if (on && bringToFront)
+        m_lowerTabs->setCurrentIndex(index);
+    bool any = false;
+    for (int i = 0; i < m_lowerTabs->count(); ++i)
+        any = any || m_lowerTabs->isTabVisible(i);
+    const bool opened = any && !m_lowerTabs->isVisible();
+    m_lowerTabs->setVisible(any);
+    if (opened || (on && !was))
+        fitLowerPanels();
 }
 
 void BScheduleWidget::fitLowerPanels()
@@ -2104,8 +2133,10 @@ constexpr qint64 kMeasuredListedFromSecs = 30;
 
 void BScheduleWidget::setupWaitPanel()
 {
-    m_waitPanel = new QGroupBox(tr("Predicted waits"), this);
-    m_waitPanel->setVisible(false);
+    // Its name is the tab's
+    m_waitPanel = new QGroupBox(this);
+    m_waitPanel->setObjectName(QStringLiteral("predictedWaits"));
+    m_waitPanel->setFlat(true);
 
     // The table on the left, with the device writers below it; on the
     // right, scrolling on its own, the reason of the selected row, the
@@ -2438,7 +2469,7 @@ void BScheduleWidget::updateWaitViews()
     // Beside the timeline only: the other views do not show these runs
     const bool isTimeline = m_viewStack->currentIndex() == 0;
     m_waitButton->setVisible(isTimeline);
-    m_waitPanel->setVisible(isTimeline && m_waitButton->isChecked());
+    showLowerPage(m_waitPanel, isTimeline && m_waitButton->isChecked(), false);
     // A wait is a finding; runs that only run at the same time are not
     QFont font = m_waitButton->font();
     font.setBold(sum.waiting > 0);

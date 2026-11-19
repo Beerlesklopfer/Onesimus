@@ -108,13 +108,10 @@ struct Tab
         return nullptr;
     }
 
+    /// The tab of the predicted waits below the timeline
     QGroupBox *waitPanel() const
     {
-        const QList<QGroupBox *> boxes = widget.findChildren<QGroupBox *>();
-        for (QGroupBox *box : boxes) {
-            if (box->title() == QLatin1String("Predicted waits")) return box;
-        }
-        return nullptr;
+        return widget.findChild<QGroupBox *>(QStringLiteral("predictedWaits"));
     }
 
     QTableWidget *waitTable() const { return waitPanel()->findChild<QTableWidget *>(); }
@@ -729,6 +726,29 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
         QCoreApplication::processEvents();
         tab.widget.grab().save(qEnvironmentVariable("ONESIMUS_WAITS_PNG"));
     }
+
+    // A run clicked: its history opens as a second tab beside the waits,
+    // not below them
+    QTabWidget *lower = tab.waitPanel()->parentWidget()
+        ? qobject_cast<QTabWidget *>(tab.waitPanel()->parentWidget()->parentWidget()) : nullptr;
+    QVERIFY(lower);
+    BScheduleEntry clicked;
+    clicked.jobName = QStringLiteral("JobA");
+    emit tab.timeline()->entryClicked(clicked);
+    QCoreApplication::processEvents();
+    QCOMPARE(lower->count(), 2);
+    QVERIFY(lower->isTabVisible(0) && lower->isTabVisible(1));
+    QCOMPARE(lower->currentIndex(), 1);
+    QVERIFY(!tab.waitPanel()->isVisible());     // behind the history's tab
+    if (qEnvironmentVariableIsSet("ONESIMUS_WAITS_PNG")) {
+        tab.widget.grab().save(qEnvironmentVariable("ONESIMUS_WAITS_PNG")
+                                   .replace(QLatin1String(".png"), QLatin1String("-history.png")));
+    }
+    // Closing the waits' tab closes the list: the counter says so
+    emit lower->tabCloseRequested(0);
+    QVERIFY(!tab.counter()->isChecked());
+    QVERIFY(!lower->isTabVisible(0));
+    QVERIFY(lower->isVisible());               // the history is still open
 
     // Columns: job, level, scheduled, predicted start, wait, measured,
     // certain, reason. Longest wait first: by its length, not by its text

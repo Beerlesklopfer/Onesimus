@@ -303,6 +303,10 @@ private:
     /// Gives an open panel below the views (wait list, history) at least
     /// the height it needs; the views keep the rest
     void fitLowerPanels();
+    /// Shows or hides a tab below the views (predicted waits, measured
+    /// history); the tabs go when none is open. @p bringToFront: make it
+    /// the current tab.
+    void showLowerPage(QWidget *page, bool on, bool bringToFront = true);
     bool showsWeek() const;     ///< The timeline is in week view
     /// The schedules checked in the list
     QList<BSchedule> checkedSchedules() const;
@@ -371,7 +375,9 @@ private:
     // --- UI ---
     QSplitter *m_splitter;
     QSplitter *m_leftSplitter;            // Vertical: schedules top, jobs bottom
-    QSplitter *m_rightSplitter = nullptr; // Vertical: views top, wait list and history below
+    QSplitter *m_rightSplitter = nullptr; // Vertical: views top, the tabs below
+    QTabWidget *m_lowerTabs = nullptr;    // Predicted waits, measured history
+    QWidget *m_statsPage = nullptr;       // The history's tab: m_statsPanel, scrolling
     QListWidget *m_scheduleList;
     QLabel *m_jobListLabel;
     QTableWidget *m_jobList;
