@@ -366,8 +366,11 @@ void BStatusChipTest::delegatePaintsTheTone()
     cell.paint();
     QCOMPARE(cell.chipPixel(), BStatus::color(Tone::Error, Part::Background));
 
-    // The cell right of the chip stays the cell's own background
-    QCOMPARE(cell.image.pixelColor(295, 15), QColor(Qt::white));
+    // The chip fills the cell up to its margin; the margin keeps the cell's
+    // own background
+    QCOMPARE(cell.image.pixelColor(cell.image.width() - 1, 15), QColor(Qt::white));
+    QCOMPARE(cell.image.pixelColor(cell.image.width() - BUiScale::px(4) - 3, cell.image.height() / 2),
+             BStatus::color(Tone::Error, Part::Background));
 
     // Wide enough for code and word
     const QSize hint = cell.delegate.sizeHint(cell.option, cell.index());
@@ -396,7 +399,7 @@ void BStatusChipTest::delegateKeepsTheSelection()
     cell.paint();
 
     // Selection around the chip, the chip's own fill inside
-    QCOMPARE(cell.image.pixelColor(295, 15), QColor(9, 71, 113));
+    QCOMPARE(cell.image.pixelColor(cell.image.width() - 1, 15), QColor(9, 71, 113));
     QCOMPARE(cell.chipPixel(), BStatus::color(Tone::Warning, Part::Background));
 }
 
