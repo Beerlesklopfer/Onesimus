@@ -25,6 +25,7 @@
 #include <QtTest>
 
 #include <QComboBox>
+#include <QDateEdit>
 #include <QGroupBox>
 #include <QLabel>
 #include <QPlainTextEdit>
@@ -190,6 +191,7 @@ private slots:
 
     // --- The counter and its list ---
     void counterSaysWhetherTheListIsOpen();
+    void themedToolbarCutsNoButtonAndWeekHasCalendar();
     void waitsOfSecondsInTheList();
 
     // --- The review ---
@@ -587,6 +589,42 @@ void BScheduleTimelineTest::unusedSchedulesAreLeftOut()
 // The counter and its list
 // ============================================================================
 
+void BScheduleTimelineTest::themedToolbarCutsNoButtonAndWeekHasCalendar()
+{
+    // A large font: the texts are wider than the themes' minimum of 80 px
+    const int zoom = BUiScale::instance().zoomPercent();
+    BUiScale::instance().setZoomPercent(200);
+    Tab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    // The rule of the themes that cut the buttons: a minimum width of 80 px
+    BUiScale::instance().setApplicationStyleSheet(
+        QStringLiteral("QPushButton { padding: 5px 15px; min-width: 80px; }"));
+    for (QComboBox *combo : tab.widget.findChildren<QComboBox *>()) {
+        if (combo->findText(QStringLiteral("Week")) >= 0)
+            combo->setCurrentIndex(combo->findText(QStringLiteral("Week")));
+    }
+    tab.widget.resize(900, 900);
+    QCoreApplication::processEvents();
+
+    for (const QString &name : {QStringLiteral("Legend"), QStringLiteral("Refresh")}) {
+        QPushButton *button = nullptr;
+        for (QPushButton *b : tab.widget.findChildren<QPushButton *>())
+            if (b->text() == name) button = b;
+        QVERIFY(button);
+        QVERIFY2(button->width() >= button->sizeHint().width(),
+                 qPrintable(QStringLiteral("%1: %2 px of %3").arg(name).arg(button->width())
+                                .arg(button->sizeHint().width())));
+    }
+    // The week has the calendar as well
+    QDateEdit *picker = tab.widget.findChild<QDateEdit *>();
+    QVERIFY(picker);
+    QVERIFY(picker->isVisible());
+    QVERIFY(picker->calendarPopup());
+
+    BUiScale::instance().setApplicationStyleSheet(QString());
+    BUiScale::instance().setZoomPercent(zoom);
+}
+
 void BScheduleTimelineTest::counterSaysWhetherTheListIsOpen()
 {
     Tab tab;
@@ -684,8 +722,9 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
 
     QPushButton *counter = tab.counter();
     counter->setChecked(true);
-    QTRY_VERIFY2_WITH_TIMEOUT(counter->text().endsWith("2 run(s) wait, longest 1:16 min"),
-                              qPrintable(counter->text()), 15000);
+    // The whole text: the shown one is cut when the toolbar has no room
+    QTRY_VERIFY2_WITH_TIMEOUT(counter->accessibleName().contains("2 run(s) wait, longest 1:16 min"),
+                              qPrintable(counter->accessibleName()), 15000);
 
     // Columns: job, level, scheduled, predicted start, wait, measured,
     // certain, reason. Longest wait first: by its length, not by its text

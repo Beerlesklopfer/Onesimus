@@ -2,6 +2,8 @@
 
 #include <QApplication>
 #include <QComboBox>
+#include <QPushButton>
+#include <QTimer>
 #include <QStyledItemDelegate>
 #include <QDialog>
 #include <QEvent>
@@ -454,6 +456,28 @@ bool BUiScale::eventFilter(QObject *watched, QEvent *event)
     if (event->type() == QEvent::Polish || event->type() == QEvent::FontChange) {
         if (auto *table = qobject_cast<QTableView *>(watched))
             fitRowHeight(table);
+    }
+
+    // Every push button: the theme's "min-width: 80px" becomes the button's
+    // minimum, and a crowded layout squeezed it down to that, cutting its
+    // text ("egend", "tualisier"). Never narrower than its text, unless
+    // the code bounds its width itself (small browse buttons).
+    if (event->type() == QEvent::Polish || event->type() == QEvent::FontChange
+        || event->type() == QEvent::StyleChange) {
+        if (auto *button = qobject_cast<QPushButton *>(watched)) {
+            // After the style sheet has set its minimum (it polishes after
+            // this filter has seen the event)
+            QPointer<QPushButton> guarded(button);
+            QTimer::singleShot(0, button, [guarded]() {
+                if (!guarded || guarded->maximumWidth() != QWIDGETSIZE_MAX
+                    || guarded->text().isEmpty()
+                    || guarded->property("buiscaleMayShrink").toBool())
+                    return;
+                const int wanted = guarded->sizeHint().width();
+                if (guarded->minimumWidth() < wanted)
+                    guarded->setMinimumWidth(wanted);
+            });
+        }
     }
 
     // Every combo box: its open list measured its rows with the menu font

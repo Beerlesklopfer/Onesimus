@@ -40,6 +40,8 @@ class BElidingButton : public QPushButton
 public:
     explicit BElidingButton(QWidget *parent) : QPushButton(parent)
     {
+        // It shortens its text itself: no minimum of its whole text
+        setProperty("buiscaleMayShrink", true);
         setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     }
 
@@ -314,18 +316,11 @@ void BScheduleWidget::setupUI()
         (new BScheduleLegend(legendButton))->popupBelow(legendButton);
     });
     toolbarLayout->addWidget(legendButton);
-    // Never cut: the theme lets a button shrink below its text
-    BUiScale::track(legendButton, [legendButton]() {
-        legendButton->setMinimumWidth(legendButton->sizeHint().width());
-    });
 
     // Refresh
     m_refreshButton->setIcon(QIcon::fromTheme("view-refresh"));
     m_refreshButton->setEnabled(false);
     toolbarLayout->addWidget(m_refreshButton);
-    BUiScale::track(m_refreshButton, [this]() {
-        m_refreshButton->setMinimumWidth(m_refreshButton->sizeHint().width());
-    });
 
     mainLayout->addLayout(toolbarLayout);
 
@@ -983,12 +978,18 @@ void BScheduleWidget::updateDateControls()
 {
     const bool gantt = m_viewModeCombo->currentIndex() == 0;
     const bool week = showsWeek();
+    // Day: weekday and date with a calendar. Week: the same calendar (a
+    // day picked shows its week) between the buttons for the week before
+    // and after; the days of the week stand in the timeline's header.
     m_prevDayButton->setVisible(gantt && week);
-    m_dayLabel->setVisible(gantt && week);
+    m_dayLabel->setVisible(false);
     m_nextDayButton->setVisible(gantt && week);
     if (m_dayPicker) {
-        m_dayPicker->setVisible(gantt && !week);
+        m_dayPicker->setVisible(gantt);
         m_dayName->setVisible(gantt && !week);
+        m_dayPicker->setToolTip(week
+            ? tr("The week on display: pick any day of it; the calendar opens from the arrow")
+            : tr("The date on display; the calendar opens from the arrow"));
         const QSignalBlocker blocker(m_dayPicker);
         m_dayPicker->setDate(m_currentDate);
     }
