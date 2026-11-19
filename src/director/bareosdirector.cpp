@@ -122,6 +122,9 @@ void BareosDirector::initialize()
     QObject::connect(m_grpc, &BGrpcTransport::jobMessage, this, &BareosDirector::jobMessage);
     QObject::connect(m_grpc, &BGrpcTransport::connectionLost,
                      this, &BareosDirector::onGrpcConnectionLost);
+    QObject::connect(m_grpc, &BGrpcTransport::configReply, this, &BareosDirector::configReply);
+    QObject::connect(m_grpc, &BGrpcTransport::configCapabilities,
+                     this, &BareosDirector::configCapabilitiesChanged);
 #endif
 
     m_initialized = true;
@@ -164,6 +167,21 @@ BareosDirector::~BareosDirector()
 QString BareosDirector::backupSystemName() const
 {
     return QString(BACKUP_SYSTEM_NAME);
+}
+
+void BareosDirector::configCall(quint64 id, const BConfig::Request &request)
+{
+#ifdef HAVE_GRPC
+    if (m_transport == Transport::Grpc && m_grpc) {
+        m_grpc->configCall(id, request);
+        return;
+    }
+#endif
+    // The console protocol has no configuration CRUD: nothing is sent
+    BConfig::Reply reply;
+    reply.status = BConfig::Status::NotAvailable;
+    reply.rpcMessage = tr("Changing the configuration needs the gRPC interface of the Onesimus Director");
+    QTimer::singleShot(0, this, [this, id, reply]() { emit configReply(id, reply); });
 }
 
 bool BareosDirector::grpcAvailable()

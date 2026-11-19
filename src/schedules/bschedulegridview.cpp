@@ -250,6 +250,7 @@ BScheduleGridView::BScheduleGridView(QWidget *parent)
         m_undo->setEnabled(stack->canUndo());
         m_redo->setEnabled(stack->canRedo());
         m_revert->setEnabled(stack->canUndo());
+        m_save->setEnabled(isModified() && !isLocked());
         m_undo->setToolTip(stack->canUndo() ? tr("Undo: %1 (Ctrl+Z)").arg(stack->undoText())
                                             : tr("Nothing to undo (Ctrl+Z)"));
         m_redo->setToolTip(stack->canRedo() ? tr("Redo: %1 (Ctrl+Shift+Z or Ctrl+Y)").arg(stack->redoText())
@@ -310,9 +311,13 @@ void BScheduleGridView::buildUi()
     m_title = new QLabel(top);
     m_title->setTextFormat(Qt::PlainText);
     BUiScale::bind(m_title, BUiScale::Large, BUiScale::Bold);
+    // Name and use may be cut in a narrow window (both have tool tips);
+    // the buttons may not
+    BUiScale::track(m_title, [this]() { m_title->setMinimumWidth(BUiScale::px(60)); });
     headerRow->addWidget(m_title);
     m_usage = new QLabel(top);
     m_usage->setTextFormat(Qt::PlainText);
+    BUiScale::track(m_usage, [this]() { m_usage->setMinimumWidth(BUiScale::px(40)); });
     headerRow->addWidget(m_usage);
     headerRow->addStretch(1);
     // Whether the Run lines differ from what the Director reported
@@ -329,10 +334,25 @@ void BScheduleGridView::buildUi()
     m_revert = new QPushButton(top);
     m_revert->setText(tr("Revert all"));
     m_revert->setToolTip(tr("Undoes every change of this schedule. Redo brings them back."));
+    m_save = new QPushButton(top);
+    m_save->setText(tr("&Save..."));
+    m_save->setObjectName(QStringLiteral("scheduleGridSave"));
+    m_save->setToolTip(tr("Writes the changed Run lines to the Director. The Director checks them first, "
+                          "and you see old and new lines and the jobs that use the schedule before "
+                          "anything is written."));
+    m_save->setEnabled(false);
+    m_delete = new QPushButton(top);
+    m_delete->setText(tr("Delete..."));
+    m_delete->setToolTip(tr("Deletes this schedule on the Director, after a check that no job uses it "
+                            "and your confirmation"));
     headerRow->addWidget(m_undo);
     headerRow->addWidget(m_redo);
     headerRow->addWidget(m_revert);
+    headerRow->addWidget(m_save);
+    headerRow->addWidget(m_delete);
     topLayout->addLayout(headerRow);
+    connect(m_save, &QPushButton::clicked, this, &BScheduleGridView::saveRequested);
+    connect(m_delete, &QPushButton::clicked, this, &BScheduleGridView::deleteRequested);
 
     // What stands in the way of writing the schedule; a line of its own,
     // because it can be long
@@ -616,6 +636,7 @@ bool BScheduleGridView::isModified() const
 void BScheduleGridView::clear()
 {
     m_hasSchedule = false;
+    m_delete->setEnabled(false);
     m_jobs.clear();
     m_jobsKnown = false;
     m_pending.reset();
@@ -709,6 +730,39 @@ QAbstractButton *BScheduleGridView::addScopeButton() const { return m_addScope; 
 QAbstractButton *BScheduleGridView::addRuleButton() const { return m_addRule; }
 QAbstractButton *BScheduleGridView::editRuleButton() const { return m_editRule; }
 QAbstractButton *BScheduleGridView::removeRuleButton() const { return m_removeRule; }
+QAbstractButton *BScheduleGridView::saveButton() const { return m_save; }
+QAbstractButton *BScheduleGridView::deleteButton() const { return m_delete; }
+
+bool BScheduleGridView::isLocked() const
+{
+    return m_hasSchedule && m_editor->isLocked();
+}
+
+void BScheduleGridView::setWritable(bool canSave, bool canDelete)
+{
+    m_canSave = canSave;
+    m_canDelete = canDelete;
+    m_save->setToolTip(canSave
+        ? tr("Writes the changed Run lines to the Director. The Director checks them first, and you "
+             "see old and new lines and the jobs that use the schedule before anything is written.")
+        : tr("This connection cannot change a schedule; the click says why."));
+    m_delete->setToolTip(canDelete
+        ? tr("Deletes this schedule on the Director, after a check that no job uses it and your "
+             "confirmation")
+        : tr("This connection cannot delete a schedule; the click says why."));
+}
+
+void BScheduleGridView::updateLock()
+{
+    // Locked: nothing that edits is offered
+    const bool editable = m_hasSchedule && !isLocked();
+    m_palette->setEnabled(editable);
+    m_addScope->setEnabled(editable);
+    m_scopeBar->setProperty("locked", !editable);
+    m_save->setEnabled(isModified() && editable);
+    m_delete->setEnabled(m_hasSchedule);
+    updateRuleButtons();
+}
 
 // --- Model changes -------------------------------------------------------------
 
@@ -732,6 +786,7 @@ void BScheduleGridView::onScheduleReset()
     updatePendingNotice();
     updateSelectionLabel();
     m_calendar->setSchedule(m_model->schedule());
+    updateLock();
 }
 
 void BScheduleGridView::updateModified()
@@ -739,6 +794,7 @@ void BScheduleGridView::updateModified()
     const bool modified = isModified();
     m_modified->setText(modifiedText());
     m_modified->setVisible(modified);
+    m_save->setEnabled(modified && !isLocked());
     if (modified != m_wasModified) {
         m_wasModified = modified;
         emit modifiedChanged(modified);
@@ -807,9 +863,9 @@ void BScheduleGridView::updateHeader()
     if (!m_model->canBeWritten(&reason)) {
         // U+26A0, the warning sign
         notices.append(QStringLiteral("\u26A0 ")
-                       + tr("Contains %n Run line(s) that are not understood; the application "
-                            "cannot write this schedule. The other lines can be edited here; "
-                            "these stay as they are.", "", int(m_model->notUnderstood().size())));
+                       + tr("Contains %n Run line(s) that are not understood. The schedule is locked: "
+                            "it cannot be edited or written here. Change it in its configuration file "
+                            "on the Director.", "", int(m_model->notUnderstood().size())));
     }
     m_notice->setText(notices.join(QLatin1Char(' ')));
     m_notice->setToolTip(reason);
@@ -1201,9 +1257,10 @@ int BScheduleGridView::currentRule() const
 void BScheduleGridView::updateRuleButtons()
 {
     const bool chosen = currentRule() >= 0;
-    m_addRule->setEnabled(m_hasSchedule);
-    m_editRule->setEnabled(chosen);
-    m_removeRule->setEnabled(chosen);
+    const bool editable = m_hasSchedule && !isLocked();
+    m_addRule->setEnabled(editable);
+    m_editRule->setEnabled(chosen && editable);
+    m_removeRule->setEnabled(chosen && editable);
 }
 
 BRunRuleDialog *BScheduleGridView::openRuleDialog(int ruleIndex)
@@ -1315,7 +1372,7 @@ QList<QWidget *> BScheduleGridView::focusParts() const
     if (QAbstractButton *scope = m_scopeGroup->checkedButton())
         parts.append(scope);
     parts.append(m_grid);
-    if (QAbstractButton *tool = m_palette->activeButton())
+    if (QAbstractButton *tool = m_palette->activeButton(); tool && m_palette->isEnabled())
         parts.append(tool);
     parts.append(m_runLines);
     if (m_rulesBox->isVisibleTo(this))

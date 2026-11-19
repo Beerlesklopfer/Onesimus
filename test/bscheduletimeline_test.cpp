@@ -2,9 +2,15 @@
  * @file bscheduletimeline_test.cpp
  * @brief The timeline of the schedule tab as a whole (BScheduleWidget)
  *
- * - A bar that is dragged and dropped writes nothing: no command leaves
- *   the widget, the capability gate is asked, the status line says that
- *   the schedule was not changed, and the bar is back at its time.
+ * - A bar that is dragged and dropped over a connection without the
+ *   configuration methods (BNET, plain Bareos) writes nothing: no command
+ *   leaves the widget, the capability gate is asked, the status line says
+ *   that the schedule was not changed, and the bar is back at its time.
+ * - Over gRPC with the configuration methods (a fake Director here) a drop
+ *   updates the same schedule: read, check, review, write; never a new
+ *   schedule, never "configure add". "Save..." of the grid writes the grid's
+ *   changes the same way; "Delete..." of a schedule a job uses deletes
+ *   nothing. A schedule with a Run line that is not understood is locked.
  * - Schedules that no enabled job uses are left out of the prediction, the
  *   counter and the list, and are marked for the timeline.
  * - The counter says whether its list is open.
@@ -26,11 +32,18 @@
 #include <QSignalSpy>
 #include <QTableWidget>
 #include <QTemporaryDir>
+#include <QUndoStack>
 
 #include "buiscale.h"
 #include "models/bresourcemodels.h"
 #include "schedules/bscheduleganttwidget.h"
+#include "schedules/bschedulegrideditor.h"
+#include "schedules/bschedulegridview.h"
 #include "schedules/bschedulewidget.h"
+#include "schedules/model/bscheduleresource.h"
+
+#include "bfakeconfigclient.h"
+#include "bfakesaveui.h"
 
 namespace {
 
@@ -160,6 +173,13 @@ private slots:
     void dropWritesNothingEvenIfTheGateAllows();
     void dropWithoutGateSaysSoAsWell();
 
+    // --- Writing over gRPC (a fake Director) ---
+    void dropOnGrpcUpdatesTheSameSchedule();
+    void dropOnBnetSendsNothingEvenWithAClient();
+    void dropOnALockedScheduleIsRefused();
+    void gridSaveWritesAndStartsAfresh();
+    void deleteOfAScheduleInUseDeletesNothing();
+
     // --- Schedules no job uses ---
     void unusedSchedulesAreLeftOut();
 
@@ -282,8 +302,8 @@ void BScheduleTimelineTest::dropSendsNoCommandAndAsksTheGate()
 
 void BScheduleTimelineTest::dropWritesNothingEvenIfTheGateAllows()
 {
-    // A Director that is said to be able to change a schedule: there is
-    // still no method to send, so nothing is sent and the user is told
+    // A gate that says yes, but no configuration methods (no client, as on
+    // BNET): nothing is sent and the user is told
     Tab tab;
     tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
     int asked = 0;
@@ -312,6 +332,180 @@ void BScheduleTimelineTest::dropWithoutGateSaysSoAsWell()
     QCOMPARE(commands.count(), 0);
     QCOMPARE(status.count(), 1);
     QVERIFY(status[0][0].toString().contains("was not changed"));
+}
+
+// ============================================================================
+// Writing over gRPC (a fake Director)
+// ============================================================================
+
+namespace {
+
+const QString kWeeklyCycleText = QStringLiteral(
+    "Schedule {\n"
+    "  Name = \"WeeklyCycle\"\n"
+    "  Run = Level=Incremental daily at 08:00   # mornings\n"
+    "}\n");
+
+/// The tab with a fake Director behind the configuration methods
+struct GrpcTab : Tab
+{
+    BFakeConfigClient client;
+    BFakeSaveUi ui{&client};
+    QSignalSpy finished{widget.persistence(), &BSchedulePersistence::finished};
+
+    GrpcTab()
+    {
+        client.files.insert(QStringLiteral("WeeklyCycle"), kWeeklyCycleText);
+        widget.setConfigClient(&client);
+        widget.setSaveUi(&ui);
+    }
+    ~GrpcTab() { widget.setConfigClient(nullptr); widget.setSaveUi(nullptr); }
+
+    bool wait() { return !finished.isEmpty() || finished.wait(3000); }
+    BScheduleReport report() const { return finished.last().at(0).value<BScheduleReport>(); }
+};
+
+} // namespace
+
+void BScheduleTimelineTest::dropOnGrpcUpdatesTheSameSchedule()
+{
+    GrpcTab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    int asked = 0;
+    tab.widget.setScheduleChangeGate([&](QWidget *) { ++asked; return true; });
+    QSignalSpy commands(&tab.widget, &BScheduleWidget::sendCommand);
+
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QVERIFY(tab.wait());
+    QCOMPARE(asked, 1);
+    QCOMPARE(tab.report().kind, BScheduleReport::Written);
+
+    // Read, check, write - of WeeklyCycle; nothing created, no command
+    QCOMPARE(tab.client.requests.size(), 3);
+    QCOMPARE(tab.client.requests[0].kind, BConfig::Request::Read);
+    QCOMPARE(tab.client.requests[1].kind, BConfig::Request::Update);
+    QVERIFY(tab.client.requests[1].validateOnly);
+    QCOMPARE(tab.client.writes().size(), 1);
+    const BConfig::Request write = tab.client.writes().first();
+    QCOMPARE(write.kind, BConfig::Request::Update);
+    QCOMPARE(write.name, QStringLiteral("WeeklyCycle"));
+    QCOMPARE(write.expectedSha256, BConfig::sha256Hex(kWeeklyCycleText));
+    for (const BConfig::Request &request : std::as_const(tab.client.requests))
+        QVERIFY(request.kind != BConfig::Request::Create);
+    QCOMPARE(commands.count(), 0);
+
+    // The new time, the comment kept
+    QStringList values;
+    QVERIFY(BScheduleResource::runValues(write.text, &values));
+    QCOMPARE(values.size(), 1);
+    QVERIFY2(values.first().contains(QStringLiteral("at 11:00")), qPrintable(values.first()));
+    QVERIFY(write.text.contains(QStringLiteral("   # mornings\n")));
+
+    // The review named the job and the move
+    QCOMPARE(tab.ui.reviews.size(), 1);
+    QCOMPARE(tab.ui.reviews.first().jobs, QStringList({QStringLiteral("BackupEleLa")}));
+    QVERIFY(tab.ui.reviews.first().note.contains(QStringLiteral("from 08:00 to 11:00")));
+}
+
+void BScheduleTimelineTest::dropOnBnetSendsNothingEvenWithAClient()
+{
+    // The gate answers as BCapabilityNotice::check() does on BNET: no
+    GrpcTab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    tab.widget.setScheduleChangeGate([](QWidget *) { return false; });
+    QSignalSpy commands(&tab.widget, &BScheduleWidget::sendCommand);
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QTest::qWait(50);
+    QVERIFY(tab.client.requests.isEmpty());
+    QCOMPARE(commands.count(), 0);
+    QCOMPARE(status.count(), 1);
+    QVERIFY(status[0][0].toString().contains(QStringLiteral("was not changed")));
+    QCOMPARE(tab.client.files.value(QStringLiteral("WeeklyCycle")), kWeeklyCycleText);
+}
+
+void BScheduleTimelineTest::dropOnALockedScheduleIsRefused()
+{
+    GrpcTab tab;
+    const char *locked = R"({"result":{"schedules":{
+        "WeeklyCycle":{"name":"WeeklyCycle","run":["Level=Incremental daily at 08:00",
+                                                    "Level=Full every other sat at 21:00"]}}}})";
+    tab.feed(locked, kOneJob, kNoJobDefs, kOneClient);
+    tab.widget.setScheduleChangeGate([](QWidget *) { return true; });
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QTest::qWait(50);
+    QVERIFY(tab.client.requests.isEmpty());
+    QVERIFY(!status.isEmpty());
+    QVERIFY2(status.last()[0].toString().contains(QStringLiteral("locked")), qPrintable(status.last()[0].toString()));
+}
+
+void BScheduleTimelineTest::gridSaveWritesAndStartsAfresh()
+{
+    GrpcTab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    int asked = 0;
+    tab.widget.setScheduleSaveGate([&](QWidget *) { ++asked; return true; });
+    BScheduleGridView *grid = tab.widget.gridView();
+    QVERIFY(grid->hasSchedule());
+    QVERIFY(!grid->saveButton()->isEnabled());
+
+    // An edit: the third Run line... here the only one, moved to :30
+    QVERIFY(grid->editor()->paint(BGridCellSet::rect(6, 5, 6, 5), [] {
+        BGridBrush brush;
+        brush.overrides.level = QStringLiteral("Full");
+        return brush;
+    }()));
+    QVERIFY(grid->isModified());
+    QVERIFY(grid->saveButton()->isEnabled());
+    // Editing began: the raw text was read for its SHA-256
+    QTRY_COMPARE(tab.widget.persistence()->preparedText(QStringLiteral("WeeklyCycle")), kWeeklyCycleText);
+
+    QTest::mouseClick(grid->saveButton(), Qt::LeftButton);
+    QVERIFY(tab.wait());
+    QCOMPARE(asked, 1);
+    QCOMPARE(tab.report().kind, BScheduleReport::Written);
+    const BConfig::Request write = tab.client.writes().value(0);
+    QCOMPARE(write.name, QStringLiteral("WeeklyCycle"));
+    QStringList values;
+    QVERIFY(BScheduleResource::runValues(write.text, &values));
+    QCOMPARE(values.first(), QStringLiteral("Level=Incremental daily at 08:00"));   // untouched, as in the file
+    QCOMPARE(values.size(), 2);
+
+    // The schedule is read again: it is what the grid starts from now
+    const QString reloaded = QStringLiteral(R"({"result":{"schedules":{"WeeklyCycle":{"name":"WeeklyCycle","run":["%1","%2"]}}}})")
+                                 .arg(values[0], values[1]);
+    tab.widget.processShowSchedulesResponse(reloaded);
+    QVERIFY(!grid->isModified());
+    QVERIFY(!grid->hasPendingSchedule());
+    QCOMPARE(grid->model()->loadedSchedule().runs.size(), 2);
+    QCOMPARE(grid->editor()->undoStack()->count(), 0);
+}
+
+void BScheduleTimelineTest::deleteOfAScheduleInUseDeletesNothing()
+{
+    GrpcTab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    tab.client.refs.insert(QStringLiteral("WeeklyCycle"),
+                           {BConfig::ResourceRef{BConfig::ResourceType::Job, QStringLiteral("BackupEleLa")}});
+    tab.widget.setScheduleDeleteGate([](QWidget *) { return true; });
+
+    QTest::mouseClick(tab.widget.gridView()->deleteButton(), Qt::LeftButton);
+    QVERIFY(tab.wait());
+    QCOMPARE(tab.report().kind, BScheduleReport::Referenced);
+    QCOMPARE(tab.report().referencedBy, QStringList({QStringLiteral("Job BackupEleLa")}));
+    QVERIFY(tab.client.writes().isEmpty());
+    QVERIFY(tab.ui.reviews.isEmpty());
+    QVERIFY(tab.client.files.contains(QStringLiteral("WeeklyCycle")));
+
+    // Without the capability (BNET): nothing is asked of the Director
+    tab.client.requests.clear();
+    tab.widget.setScheduleDeleteGate([](QWidget *) { return false; });
+    QTest::mouseClick(tab.widget.gridView()->deleteButton(), Qt::LeftButton);
+    QTest::qWait(50);
+    QVERIFY(tab.client.requests.isEmpty());
 }
 
 // ============================================================================

@@ -13,6 +13,8 @@
 
 #include "director_service.qpb.h"
 #include "director_service_client.grpc.qpb.h"
+#include "director_api_client.grpc.qpb.h"
+#include "director/bconfigproto.h"
 
 #include <QGrpcHttp2Channel>
 #include <QGrpcChannelOptions>
@@ -37,6 +39,7 @@ namespace {
 
 constexpr auto LoginTimeout = 15s;
 constexpr auto CommandTimeout = 5min;  // restore/estimate can take a while
+constexpr auto ConfigTimeout = 2min;   // write, check and reload of the configuration
 
 // The gRPC package of the generated Director client (proto/director_service.proto)
 const QString ServicePackage = QStringLiteral("onesimus.director");
@@ -163,8 +166,12 @@ void BGrpcTransport::preflightDone(const QHostAddress &address, const QSslCertif
     QGrpcChannelOptions options;
     options.setSslConfiguration(ssl);
 
+    // One channel for both services
+    auto channel = std::make_shared<QGrpcHttp2Channel>(BGrpcConnect::channelUrl(m_host, m_port, address), options);
     m_client = std::make_unique<Director::Client>();
-    m_client->attachChannel(std::make_shared<QGrpcHttp2Channel>(BGrpcConnect::channelUrl(m_host, m_port, address), options));
+    m_client->attachChannel(channel);
+    m_api = std::make_unique<api::DirectorApi::Client>();
+    m_api->attachChannel(channel);
 
     startLogin();
 }
@@ -240,6 +247,7 @@ void BGrpcTransport::sendLogin(const QString &nonce)
 
         openPushStream();
         emit loggedIn(response->directorName(), response->version());
+        fetchConfigCapabilities();
         sendNext();
     });
 }
@@ -337,6 +345,9 @@ void BGrpcTransport::close()
     if (m_client) {
         m_client.release()->deleteLater();
     }
+    if (m_api) {
+        m_api.release()->deleteLater();
+    }
     m_sessionToken.clear();
     m_pending.clear();
     m_inFlight = false;
@@ -420,5 +431,114 @@ void BGrpcTransport::sendNext()
             }
         }
         sendNext();
+    });
+}
+
+// ============================================================================
+// Configuration (DirectorApi CRUD)
+// ============================================================================
+
+void BGrpcTransport::fetchConfigCapabilities()
+{
+    if (!m_api || !isLoggedIn()) {
+        return;
+    }
+    QGrpcCallOptions options;
+    options.setDeadlineTimeout(LoginTimeout);
+    options.setMetadata(QHash<QByteArray, QByteArray>{{SessionHeader, m_sessionToken.toLatin1()}});
+
+    const quint64 gen = m_generation;
+    QGrpcCallReply *reply = m_api->GetConfigCapabilities(api::ConfigCapabilitiesRequest(), options).release();
+    connect(reply, &QGrpcCallReply::finished, this, [this, reply, gen](const QGrpcStatus &status) {
+        reply->deleteLater();
+        if (gen != m_generation) {
+            return;
+        }
+        BConfig::Capabilities capabilities;
+        capabilities.known = true;
+        if (status.isOk()) {
+            if (const auto response = reply->read<api::ConfigCapabilitiesResponse>()) {
+                capabilities = BConfigProto::capabilitiesOf(BConfigProto::fromMessage(*response));
+            }
+        } else {
+            // UNIMPLEMENTED: a Director without configuration CRUD. Any
+            // other error: nothing is offered either; the reason is logged.
+            BLOG_DEBUG() << "gRPC: GetConfigCapabilities:" << statusText(status, std::chrono::seconds(0));
+        }
+        BLOG_DEBUG() << "gRPC: configuration capabilities, interface" << capabilities.interfaceVersion
+                     << "types" << capabilities.operations.keys();
+        emit configCapabilities(capabilities);
+    });
+}
+
+void BGrpcTransport::configCall(quint64 id, const BConfig::Request &request)
+{
+    if (!m_api || !isLoggedIn()) {
+        BConfig::Reply reply;
+        reply.status = BConfig::Status::NotAvailable;
+        reply.rpcMessage = tr("Not connected to the gRPC service of the Director");
+        QTimer::singleShot(0, this, [this, id, reply]() { emit configReply(id, reply); });
+        return;
+    }
+
+    QGrpcCallOptions options;
+    options.setDeadlineTimeout(ConfigTimeout);
+    options.setMetadata(QHash<QByteArray, QByteArray>{{SessionHeader, m_sessionToken.toLatin1()}});
+
+    std::unique_ptr<QGrpcCallReply> reply;
+    switch (request.kind) {
+    case BConfig::Request::Capabilities:
+        reply = m_api->GetConfigCapabilities(BConfigProto::toCapabilitiesRequest(request), options);
+        break;
+    case BConfig::Request::List:
+        reply = m_api->ListResources(BConfigProto::toListRequest(request), options);
+        break;
+    case BConfig::Request::Read:
+        reply = m_api->ReadResource(BConfigProto::toReadRequest(request), options);
+        break;
+    case BConfig::Request::Create:
+        reply = m_api->CreateResource(BConfigProto::toCreateRequest(request), options);
+        break;
+    case BConfig::Request::Update:
+        reply = m_api->UpdateResource(BConfigProto::toUpdateRequest(request), options);
+        break;
+    case BConfig::Request::Delete:
+        reply = m_api->DeleteResource(BConfigProto::toDeleteRequest(request), options);
+        break;
+    }
+    BLOG_DEBUG() << "gRPC: configuration request" << int(request.kind) << BConfig::typeName(request.type)
+                 << request.name << (request.validateOnly ? "(validate only)" : "");
+    finishConfigCall(id, reply.release(), request.kind);
+}
+
+void BGrpcTransport::finishConfigCall(quint64 id, QGrpcCallReply *reply, BConfig::Request::Kind kind)
+{
+    const quint64 gen = m_generation;
+    connect(reply, &QGrpcCallReply::finished, this, [this, id, reply, gen, kind](const QGrpcStatus &status) {
+        reply->deleteLater();
+        if (gen != m_generation) {
+            return;
+        }
+        BConfig::Reply result;
+        if (!status.isOk()) {
+            result.status = BConfig::Status::RpcError;
+            result.rpcCode = int(status.code());
+            result.rpcMessage = statusText(status, std::chrono::duration_cast<std::chrono::seconds>(ConfigTimeout));
+        } else if (kind == BConfig::Request::Capabilities) {
+            const auto response = reply->read<api::ConfigCapabilitiesResponse>();
+            result = response ? BConfigProto::fromMessage(*response) : BConfig::Reply();
+        } else if (kind == BConfig::Request::List) {
+            const auto response = reply->read<api::ListResourcesResponse>();
+            result = response ? BConfigProto::fromMessage(*response) : BConfig::Reply();
+        } else {
+            const auto response = reply->read<api::ResourceResponse>();
+            result = response ? BConfigProto::fromMessage(*response) : BConfig::Reply();
+        }
+        if (status.isOk() && result.status == BConfig::Status::Unspecified) {
+            result.status = BConfig::Status::RpcError;
+            result.rpcCode = int(QtGrpc::StatusCode::Internal);
+            result.rpcMessage = tr("The reply of the Director could not be read");
+        }
+        emit configReply(id, result);
     });
 }

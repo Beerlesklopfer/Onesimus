@@ -20,6 +20,7 @@
 #include "config/bsettingsdialog.h"
 #include "bcleanupdialog.h"
 #include "bcapabilitynotice.h"
+#include "director/bdirectorconfigclient.h"
 #include "bconnectionwizard.h"
 #include "director/bconfigimportdialog.h"
 #include "db/bdatabase.h"
@@ -414,6 +415,13 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_jobWidget, &BJobWidget::processDotStoragesResponse);
     connect(m_director, &BDirector::dotPoolsResult,
             m_jobWidget, &BJobWidget::processDotPoolsResponse);
+    // Pools and storages are offered as pick lists in the schedule forms:
+    // the names the Director reported (after the job widget has read them)
+    auto updateScheduleNames = [this]() {
+        m_scheduleWidget->setResourceNames(m_jobWidget->poolNames(), m_jobWidget->storageNames());
+    };
+    connect(m_director, &BDirector::dotPoolsResult, this, updateScheduleNames);
+    connect(m_director, &BDirector::dotStoragesResult, this, updateScheduleNames);
     connect(m_director, &BDirector::dotLevelsResult,
             m_jobWidget, &BJobWidget::processDotLevelsResponse);
     connect(m_director, &BDirector::dotJobsResult,
@@ -585,13 +593,29 @@ void BMainWindow::setupUI()
     // Schedule-Widget
     m_scheduleWidget = new BScheduleWidget(this);
     m_scheduleWidget->setDirector(m_director);
+    // Schedules are changed and deleted through the configuration methods
+    // of the Onesimus Director over gRPC (DirectorApi CRUD); whether this
+    // session may is what GetConfigCapabilities said after the login.
+    m_scheduleWidget->setConfigClient(new BDirectorConfigClient(m_director, m_scheduleWidget));
     // A bar dropped in the timeline asks for a change of an existing
-    // schedule. No Director can do that yet; the notice says so, once per
-    // session (the schedule view adds a line in the status bar every time).
+    // schedule. Where the connection cannot do that, the notice says so,
+    // once per session (the schedule view adds a line in the status bar
+    // every time).
     m_scheduleWidget->setScheduleChangeGate([this](QWidget *parent) {
         return BCapabilityNotice::check(parent, m_director,
                                         BCapabilities::Function::ModifySchedule,
                                         BCapabilities::Request::Implicit);
+    });
+    // "Save..." and "Delete..." are asked for explicitly: an answer every time
+    m_scheduleWidget->setScheduleSaveGate([this](QWidget *parent) {
+        return BCapabilityNotice::check(parent, m_director,
+                                        BCapabilities::Function::ModifySchedule,
+                                        BCapabilities::Request::Explicit);
+    });
+    m_scheduleWidget->setScheduleDeleteGate([this](QWidget *parent) {
+        return BCapabilityNotice::check(parent, m_director,
+                                        BCapabilities::Function::DeleteSchedule,
+                                        BCapabilities::Request::Explicit);
     });
     m_tabWidget->addTab(m_scheduleWidget, "Schedules");
 
@@ -1157,6 +1181,12 @@ void BMainWindow::createActions()
         refData["Pool"] = m_jobWidget->poolNames();
         refData["Storage"] = m_jobWidget->storageNames();
         wizard.setReferenceData(refData);
+        // Where the session lists CreateResource, the schedule is created
+        // through it (checked and reviewed); otherwise with "configure add"
+        if (BCapabilities::usesConfigMethod(BCapabilities::Function::CreateSchedule,
+                                            BCapabilityNotice::serverOf(m_director))) {
+            wizard.setPersistence(m_scheduleWidget->persistence());
+        }
         if (wizard.exec() == QDialog::Accepted) {
             m_scheduleWidget->triggerRefresh();
         }

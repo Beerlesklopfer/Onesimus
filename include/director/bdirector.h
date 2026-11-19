@@ -156,6 +156,26 @@ public:
     QString serverIdentity() const { return m_serverIdentity; }
 
     // ========================================================================
+    // Configuration CRUD (Onesimus Director over gRPC)
+    // ========================================================================
+
+    /**
+     * @brief What the Director lets this session do with its configuration
+     *
+     * GetConfigCapabilities, asked once after a gRPC login. Not known
+     * (known=false) while disconnected, before the answer and on BNET.
+     * Main-thread copy; BCapabilities decides with it.
+     */
+    BConfig::Capabilities configCapabilities() const { return m_configCapabilities; }
+
+    /**
+     * @brief Sends a configuration request (thread-safe)
+     * @return the id that configReply() carries; over BNET the reply is
+     *         Status::NotAvailable and nothing is sent
+     */
+    quint64 configCall(const BConfig::Request &request);
+
+    // ========================================================================
     // Resource State Machine
     // ========================================================================
 
@@ -348,6 +368,11 @@ signals:
     void grpcCertificateNotTrusted(const QString &host, int grpcPort,
                                    const QString &fingerprint, const QString &pinnedFingerprint);
 
+    /// Reply to configCall()
+    void configReply(quint64 id, const BConfig::Reply &reply);
+    /// configCapabilities() changed
+    void configCapabilitiesChanged(const BConfig::Capabilities &capabilities);
+
     /// Job status push event (gRPC only)
     void jobStatusChanged(int jobId, BDirector::JobStatus status);
 
@@ -494,6 +519,9 @@ private:
     QThread *m_workerThread;     ///< Worker thread for director and auth
     Transport m_transport = Transport::Bnet;  ///< Last value passed to setTransport()
     QString m_serverIdentity;    ///< Last serverIdentified() text, cleared on disconnect
+    BConfig::Capabilities m_configCapabilities;  ///< Cleared on disconnect
+    quint64 m_nextConfigId = 1;
+    void setConfigCapabilities(const BConfig::Capabilities &capabilities);
 };
 
 #endif // BDIRECTOR_H

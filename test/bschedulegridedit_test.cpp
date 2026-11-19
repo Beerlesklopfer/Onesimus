@@ -95,6 +95,20 @@ BSchedule mixedSchedule()
     return scheduleOf(QStringLiteral("FirstOfMonth"), mixedRuns());
 }
 
+/// As mixedRuns(), with the line that is not understood replaced by one that
+/// is: a schedule with such a line is locked, this one can be edited
+QStringList editableRuns()
+{
+    QStringList runs = mixedRuns();
+    runs[2] = QStringLiteral("Level=Differential 2nd sat at 21:00");
+    return runs;
+}
+
+BSchedule editableMixedSchedule()
+{
+    return scheduleOf(QStringLiteral("FirstOfMonth"), editableRuns());
+}
+
 /// The lines as they would be written; not understood ones as reported
 QStringList texts(const BScheduleGridModel *model)
 {
@@ -261,6 +275,14 @@ int notedCount(QAccessible::Event type)
 
 } // namespace
 
+/// Chooses a name in a pick list of the forms; it has to be offered
+void pick(QComboBox *combo, const QString &name)
+{
+    const int index = combo->findData(name);
+    QVERIFY2(index >= 0, qPrintable(name));
+    combo->setCurrentIndex(index);
+}
+
 class BScheduleGridEditTest : public QObject
 {
     Q_OBJECT
@@ -322,6 +344,12 @@ void BScheduleGridEditTest::initTestCase()
 {
     // Not the font of the machine: the tests measure and compare pictures
     BUiScale::instance().setBaseFont(QFont(QStringLiteral("DejaVu Sans"), 10));
+
+    // The pools and storages "the Director reported": the forms offer them
+    // as pick lists, no free text
+    BRunOverridesEditor::setResourceNames({QStringLiteral("Daily"), QStringLiteral("Long Term"),
+                                           QStringLiteral("Monthly"), QStringLiteral("Yearly")},
+                                          {QStringLiteral("File"), QStringLiteral("Tape")});
 
     // The lines the tests rely on are understood as they stand
     for (const QString &run : typicalRuns()) {
@@ -593,8 +621,8 @@ void BScheduleGridEditTest::newBrushForm()
     BRunOverridesEditor *overrides = dialog->overridesEditor();
     overrides->levelCombo()->setCurrentIndex(overrides->levelCombo()->findData(QStringLiteral("VirtualFull")));
     dialog->minuteBox()->setValue(30);
-    overrides->poolEdit()->setText(QStringLiteral("Long Term"));
-    overrides->storageEdit()->setText(QStringLiteral("Tape"));
+    pick(overrides->poolCombo(), QStringLiteral("Long Term"));
+    pick(overrides->storageCombo(), QStringLiteral("Tape"));
     BGridBrush wanted = brushOf("VirtualFull", 30, "Long Term");
     wanted.overrides.storage = QStringLiteral("Tape");
     QCOMPARE(dialog->brush(), wanted);
@@ -1492,7 +1520,7 @@ void BScheduleGridEditTest::contextMenus()
     scope->reject();
 
     // The list of calendar rules: edit, remove, add
-    Shown mixed(mixedSchedule());
+    Shown mixed(editableMixedSchedule());
     QVERIFY(mixed.ok);
     QTreeWidget *rules = mixed.view.ruleList();
     rules->setCurrentItem(rules->topLevelItem(1));
@@ -1547,7 +1575,7 @@ void BScheduleGridEditTest::calendarRuleFormShowsARule()
     // The first of them, part by part
     dialog.setSpec(*BRunParser::parse(lines[0]).spec);
     QCOMPARE(dialog.overridesEditor()->levelCombo()->currentText(), QStringLiteral("Full"));
-    QCOMPARE(dialog.overridesEditor()->poolEdit()->text(), QStringLiteral("Monthly"));
+    QCOMPARE(dialog.overridesEditor()->poolCombo()->currentData().toString(), QStringLiteral("Monthly"));
     QVERIFY(dialog.daysBox()->isChecked());
     QVERIFY(!dialog.weeksBox()->isChecked());
     QCOMPARE(dialog.dayButtons().size(), 31);
@@ -1595,7 +1623,7 @@ void BScheduleGridEditTest::calendarRuleFormShowsARule()
 
 void BScheduleGridEditTest::calendarRuleChanged()
 {
-    Shown s(mixedSchedule());
+    Shown s(editableMixedSchedule());
     QVERIFY(s.ok);
     QTreeWidget *rules = s.view.ruleList();
     QTreeWidget *lines = s.view.runLineList();
@@ -1620,7 +1648,7 @@ void BScheduleGridEditTest::calendarRuleChanged()
     QVERIFY(dialog);
     QVERIFY(dialog->isVisible());
     QCOMPARE(dialog->windowTitle(), QStringLiteral("Calendar rule R1"));
-    QCOMPARE(dialog->runText(), QStringLiteral("Run = ") + mixedRuns()[0]);
+    QCOMPARE(dialog->runText(), QStringLiteral("Run = ") + editableRuns()[0]);
 
     // Cancelled: nothing changes
     dialog->reject();
@@ -1645,7 +1673,7 @@ void BScheduleGridEditTest::calendarRuleChanged()
     dialog->accept();
 
     // One line changed, every other one as it was reported
-    QStringList expected = mixedRuns();
+    QStringList expected = editableRuns();
     expected[0] = QStringLiteral("Level=Full Pool=Monthly on 1,15 at 21:15");
     QCOMPARE(texts(s.model()), expected);
     QCOMPARE(states(s.model()), QStringLiteral("cuuuu"));
@@ -1665,7 +1693,7 @@ void BScheduleGridEditTest::calendarRuleChanged()
     dialog = s.view.openRuleDialog(1);
     QVERIFY(dialog);
     QCOMPARE(dialog->windowTitle(), QStringLiteral("Calendar rule R2"));
-    QCOMPARE(dialog->runText(), QStringLiteral("Run = ") + mixedRuns()[3]);
+    QCOMPARE(dialog->runText(), QStringLiteral("Run = ") + editableRuns()[3]);
     // Accepted without a change: no step
     dialog->accept();
     QCOMPARE(s.undo()->count(), 1);
@@ -1674,10 +1702,10 @@ void BScheduleGridEditTest::calendarRuleChanged()
     // Undo: the reported text, byte for byte
     s.grid()->setFocus();
     s.key(Qt::Key_Z, Qt::ControlModifier);
-    QCOMPARE(texts(s.model()), mixedRuns());
+    QCOMPARE(texts(s.model()), editableRuns());
     QCOMPARE(states(s.model()), QStringLiteral("uuuuu"));
     QVERIFY(!s.view.isModified());
-    QCOMPARE(rules->topLevelItem(0)->text(2), mixedRuns()[0]);
+    QCOMPARE(rules->topLevelItem(0)->text(2), editableRuns()[0]);
     s.key(Qt::Key_Y, Qt::ControlModifier);
     QCOMPARE(texts(s.model()), expected);
 
@@ -1687,7 +1715,7 @@ void BScheduleGridEditTest::calendarRuleChanged()
     dialog->dayButtons()[14]->setChecked(false);
     dialog->minuteBox()->setValue(0);
     dialog->accept();
-    QCOMPARE(texts(s.model()), mixedRuns());
+    QCOMPARE(texts(s.model()), editableRuns());
     QCOMPARE(states(s.model()), QStringLiteral("uuuuu"));
 }
 
@@ -1708,7 +1736,7 @@ void BScheduleGridEditTest::calendarRuleAddedAndRemoved()
     // Full to the yearly pool on the first of January, at night
     BRunOverridesEditor *overrides = dialog->overridesEditor();
     overrides->levelCombo()->setCurrentIndex(overrides->levelCombo()->findData(QStringLiteral("Full")));
-    overrides->poolEdit()->setText(QStringLiteral("Yearly"));
+    pick(overrides->poolCombo(), QStringLiteral("Yearly"));
     for (int month = 1; month < 12; ++month)
         dialog->monthBoxes()[month]->setChecked(false);
     dialog->hourButtons()[21]->setChecked(false);
@@ -1745,17 +1773,17 @@ void BScheduleGridEditTest::calendarRuleAddedAndRemoved()
     QCOMPARE(s.undo()->undoText(), QStringLiteral("Remove the calendar rule R1"));
 
     // A rule the Director reported: removed with the button, back with undo
-    Shown mixed(mixedSchedule());
+    Shown mixed(editableMixedSchedule());
     QVERIFY(mixed.ok);
     mixed.view.ruleList()->setCurrentItem(mixed.view.ruleList()->topLevelItem(1));
     QCOMPARE(mixed.view.currentRule(), 1);
     QTest::mouseClick(mixed.view.removeRuleButton(), Qt::LeftButton);
     QCOMPARE(states(mixed.model()), QStringLiteral("uuuru"));
     QCOMPARE(mixed.view.ruleList()->topLevelItemCount(), 1);
-    QCOMPARE(listRows(mixed.view.runLineList())[3], QStringLiteral("removed | ") + mixedRuns()[3]);
+    QCOMPARE(listRows(mixed.view.runLineList())[3], QStringLiteral("removed | ") + editableRuns()[3]);
     QVERIFY(!mixed.view.removeRuleButton()->isEnabled());   // nothing is chosen now
     mixed.key(Qt::Key_Z, Qt::ControlModifier);
-    QCOMPARE(texts(mixed.model()), mixedRuns());
+    QCOMPARE(texts(mixed.model()), editableRuns());
     QCOMPARE(states(mixed.model()), QStringLiteral("uuuuu"));
     QCOMPARE(mixed.view.ruleList()->topLevelItemCount(), 2);
 }
@@ -1856,6 +1884,8 @@ void BScheduleGridEditTest::calendarRuleFormKeyboard()
 
 void BScheduleGridEditTest::scheduleWithALineNotUnderstood()
 {
+    // Decision of the maintainer (19.11.2026): a schedule with a Run line
+    // that is not understood is locked for editing entirely
     Shown s(mixedSchedule());
     QVERIFY(s.ok);
     const QString bad = mixedRuns()[2];
@@ -1864,51 +1894,65 @@ void BScheduleGridEditTest::scheduleWithALineNotUnderstood()
     QString reason;
     QVERIFY(!s.model()->canBeWritten(&reason));
     QVERIFY(reason.contains(bad));
-    QVERIFY2(s.view.noticeText().contains(QStringLiteral("cannot write this schedule")),
+    QVERIFY2(s.view.noticeText().contains(QStringLiteral("The schedule is locked")),
              qPrintable(s.view.noticeText()));
     QCOMPARE(s.model()->notUnderstood().size(), 1);
     QCOMPARE(s.model()->notUnderstood().first().text, bad);
+    QVERIFY(s.view.isLocked());
+    QVERIFY(s.editor()->isLocked());
 
-    // The other lines can be edited in memory, as the model defines
+    // Nothing that edits is offered
+    QVERIFY(!s.palette()->isEnabled());
+    QVERIFY(!s.view.addScopeButton()->isEnabled());
+    QVERIFY(!s.view.addRuleButton()->isEnabled());
+    QVERIFY(!s.view.saveButton()->isEnabled());
+    s.view.ruleList()->setCurrentItem(s.view.ruleList()->topLevelItem(0));
+    QVERIFY(!s.view.editRuleButton()->isEnabled());
+    QVERIFY(!s.view.removeRuleButton()->isEnabled());
+    // Looking stays possible: the scopes can be chosen, the lines too
+    QVERIFY(!s.view.scopeButtons().isEmpty());
+    QVERIFY(s.view.scopeButtons().first()->isEnabled());
+
+    // Painting with the keyboard does nothing and says why
     s.click(s.cell(Sun, 5));
     s.key(Qt::Key_Space);
-    QVERIFY(s.view.isModified());
-    QStringList expected = mixedRuns();
-    expected.append(QStringLiteral("Level=Incremental sun at 05:00"));
-    QCOMPARE(texts(s.model()), expected);
-    QCOMPARE(states(s.model()), QStringLiteral("uuuuun"));
+    QVERIFY(!s.view.isModified());
+    QVERIFY2(s.view.editErrorText().contains(QStringLiteral("locked")), qPrintable(s.view.editErrorText()));
+    QCOMPARE(texts(s.model()), mixedRuns());
+    QCOMPARE(states(s.model()), QStringLiteral("uuuuu"));
 
-    // ... but it stays locked: nothing is handed out to write
+    // ... and so does everything else: erasing, the level keys, the forms
+    s.key(Qt::Key_A, Qt::ControlModifier);
+    s.key(Qt::Key_Delete);
+    s.key(Qt::Key_F);
+    QVERIFY(!s.view.removeRule(0));
+    QVERIFY(!s.view.removeScope(1));
+    QVERIFY(!s.editor()->paint(BGridCellSet::rect(Sun, 2, Sun, 2), brushOf("Full")));
+    QVERIFY(!s.editor()->erase(BGridCellSet::rect(Sat, 0, Sat, 23)));
+    QCOMPARE(s.editor()->addScope(BGridScope()), -1);
+    BRunSpec rule;
+    rule.mask.mday = 1u;
+    rule.mask.hour = 1u;
+    QVERIFY(!s.editor()->addCalendarRule(rule));
+    QVERIFY(!s.editor()->changeCalendarRule(0, rule));
+    QCOMPARE(s.undo()->count(), 0);
+    QVERIFY(!s.view.isModified());
+    QCOMPARE(texts(s.model()), mixedRuns());
+    QVERIFY(!s.view.saveButton()->isEnabled());
+
+    // Nothing is handed out to write either
     QStringList written{QStringLiteral("left over")};
     QString error;
     QVERIFY(!s.model()->runTexts(&written, &error));
     QVERIFY(written.isEmpty());
     QVERIFY(error.contains(bad));
-    QVERIFY(!s.model()->canBeWritten());
-    QVERIFY(s.view.noticeText().contains(QStringLiteral("cannot write this schedule")));
-    QVERIFY(!s.view.modifiedText().isEmpty());
 
-    // The line itself is never touched, whatever is edited: everything erased ...
-    s.key(Qt::Key_A, Qt::ControlModifier);
-    s.key(Qt::Key_Delete);
-    QCOMPARE(texts(s.model()), QStringList({mixedRuns()[0], bad, mixedRuns()[3]}));
-    QCOMPARE(s.model()->notUnderstood().first().text, bad);
+    // The model itself never reaches the line
+    QVERIFY(!s.model()->moveRun(2, 30).ok);
     const BSchedule now = s.model()->schedule();
-    QCOMPARE(now.runs[1].original, bad);
-    QVERIFY(!now.runs[1].dirty);
-    QVERIFY(!now.runs[1].understood());
-    // ... the calendar rules changed and removed ...
-    QVERIFY(s.view.removeRule(0));
-    QCOMPARE(s.model()->notUnderstood().first().text, bad);
-    QCOMPARE(s.model()->notUnderstood().first().runIndex, 0);
-    // ... and no edit of the model reaches it
-    BRunSpec rule;
-    rule.mask.mday = 1u;
-    rule.mask.hour = 1u;
-    QVERIFY(!s.model()->changeCalendarRule(0, rule).ok);
-    QVERIFY(!s.model()->removeCalendarRule(0).ok);
-    QVERIFY(!s.model()->moveRun(0, 30).ok);
-    QVERIFY(!s.model()->canBeWritten());
+    QCOMPARE(now.runs[2].original, bad);
+    QVERIFY(!now.runs[2].dirty);
+    QVERIFY(!now.runs[2].understood());
 
     // In the list it keeps its warning sign and its text
     QTreeWidget *lines = s.view.runLineList();
@@ -1921,18 +1965,25 @@ void BScheduleGridEditTest::scheduleWithALineNotUnderstood()
     QVERIFY(!row->icon(0).isNull());
     QVERIFY(row->text(2).startsWith(QStringLiteral("not understood: ")));
 
-    // Everything undone: all five lines as they were reported
-    QTest::mouseClick(s.view.revertButton(), Qt::LeftButton);
-    QCOMPARE(texts(s.model()), mixedRuns());
-    QCOMPARE(states(s.model()), QStringLiteral("uuuuu"));
-    QVERIFY(!s.view.isModified());
-    QVERIFY(!s.model()->canBeWritten());
-
-    // A schedule without such a line has no such notice
+    // A schedule without such a line has no such notice and can be edited
     Shown typical(typicalSchedule());
     QVERIFY(typical.ok);
     QVERIFY(typical.view.noticeText().isEmpty());
     QVERIFY(typical.model()->canBeWritten());
+    QVERIFY(!typical.view.isLocked());
+    QVERIFY(typical.palette()->isEnabled());
+    QVERIFY(!typical.view.saveButton()->isEnabled());
+    typical.click(typical.cell(Sun, 5));
+    typical.key(Qt::Key_Space);
+    QVERIFY(typical.view.isModified());
+    QVERIFY(typical.view.saveButton()->isEnabled());
+
+    // Offered the locked schedule without changes: locked again
+    Shown other(typicalSchedule());
+    QVERIFY(other.ok);
+    QVERIFY(other.view.offerSchedule(mixedSchedule()));
+    QVERIFY(other.view.isLocked());
+    QVERIFY(!other.palette()->isEnabled());
 }
 
 void BScheduleGridEditTest::refreshWhileModified()
@@ -2354,7 +2405,7 @@ void BScheduleGridEditTest::screenshots()
         QVERIFY(brush);
         brush->overridesEditor()->levelCombo()->setCurrentIndex(
             brush->overridesEditor()->levelCombo()->findData(QStringLiteral("VirtualFull")));
-        brush->overridesEditor()->poolEdit()->setText(QStringLiteral("Long Term"));
+        pick(brush->overridesEditor()->poolCombo(), QStringLiteral("Long Term"));
         brush->minuteBox()->setValue(30);
         QVERIFY(QTest::qWaitForWindowExposed(brush));
         save(brush, QStringLiteral("g-new-brush-form"));

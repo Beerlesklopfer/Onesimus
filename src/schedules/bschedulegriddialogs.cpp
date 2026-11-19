@@ -56,6 +56,47 @@ void setYesNo(QComboBox *combo, const std::optional<bool> &value)
     combo->setCurrentIndex(!value ? 0 : (*value ? 1 : 2));
 }
 
+QStringList &knownPools()
+{
+    static QStringList names;
+    return names;
+}
+
+QStringList &knownStorages()
+{
+    static QStringList names;
+    return names;
+}
+
+/// A pick list: "not set" and the names the Director reported
+QComboBox *nameCombo(const QStringList &names, const QString &what, QWidget *parent)
+{
+    auto *combo = new QComboBox(parent);
+    combo->setEditable(false);
+    // Wide enough for its names; a name the Director did not report adds
+    // a remark that has to be readable as well
+    int longest = 0;
+    for (const QString &name : names)
+        longest = qMax(longest, int(name.size()));
+    combo->setMinimumContentsLength(qBound(22, longest + 2, 40));
+    combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    combo->addItem(BRunOverridesEditor::tr("(job's setting)"), QString());
+    for (const QString &name : names)
+        combo->addItem(name, name);
+    combo->setToolTip(names.isEmpty()
+        ? BRunOverridesEditor::tr("The Director has not reported any %1 yet; refresh the view after "
+                                  "connecting. Not set: the setting of the job applies.").arg(what)
+        : BRunOverridesEditor::tr("The %1 the Director reported. Not set: the setting of the job applies.")
+              .arg(what));
+    return combo;
+}
+
+std::optional<QString> nameOf(const QComboBox *combo)
+{
+    const QString name = combo->currentData().toString();
+    return name.isEmpty() ? std::nullopt : std::optional<QString>(name);
+}
+
 } // namespace
 
 // ============================================================================
@@ -65,12 +106,12 @@ void setYesNo(QComboBox *combo, const std::optional<bool> &value)
 BRunOverridesEditor::BRunOverridesEditor(QWidget *parent)
     : QWidget(parent)
     , m_level(new QComboBox(this))
-    , m_pool(new QLineEdit(this))
-    , m_fullPool(new QLineEdit(this))
-    , m_incrementalPool(new QLineEdit(this))
-    , m_differentialPool(new QLineEdit(this))
-    , m_nextPool(new QLineEdit(this))
-    , m_storage(new QLineEdit(this))
+    , m_pool(nameCombo(knownPools(), tr("pools"), this))
+    , m_fullPool(nameCombo(knownPools(), tr("pools"), this))
+    , m_incrementalPool(nameCombo(knownPools(), tr("pools"), this))
+    , m_differentialPool(nameCombo(knownPools(), tr("pools"), this))
+    , m_nextPool(nameCombo(knownPools(), tr("pools"), this))
+    , m_storage(nameCombo(knownStorages(), tr("storages"), this))
     , m_messages(new QLineEdit(this))
     , m_maxRunSchedTime(new QLineEdit(this))
     , m_havePriority(new QCheckBox(tr("set to"), this))
@@ -98,11 +139,14 @@ BRunOverridesEditor::BRunOverridesEditor(QWidget *parent)
     m_havePriority->setAccessibleName(tr("Override the priority"));
     m_maxRunSchedTime->setPlaceholderText(tr("a time period, e.g. 8 hours"));
     const QString optional = tr("Empty: the setting of the job applies");
-    for (QLineEdit *edit : {m_pool, m_fullPool, m_incrementalPool, m_differentialPool, m_nextPool,
-                            m_storage, m_messages, m_maxRunSchedTime}) {
+    for (QLineEdit *edit : {m_messages, m_maxRunSchedTime}) {
         edit->setToolTip(optional);
         edit->setClearButtonEnabled(true);
         connect(edit, &QLineEdit::textChanged, this, &BRunOverridesEditor::changed);
+    }
+    for (QComboBox *combo : {m_pool, m_fullPool, m_incrementalPool, m_differentialPool, m_nextPool,
+                             m_storage}) {
+        connect(combo, &QComboBox::currentIndexChanged, this, &BRunOverridesEditor::changed);
     }
 
     auto *priorityRow = new QWidget(this);
@@ -162,12 +206,12 @@ void BRunOverridesEditor::setOverrides(const BRunOverrides &overrides)
         level = m_level->count() - 1;
     }
     m_level->setCurrentIndex(level);
-    setText(m_pool, overrides.pool);
-    setText(m_fullPool, overrides.fullPool);
-    setText(m_incrementalPool, overrides.incrementalPool);
-    setText(m_differentialPool, overrides.differentialPool);
-    setText(m_nextPool, overrides.nextPool);
-    setText(m_storage, overrides.storage);
+    choose(m_pool, overrides.pool.value_or(QString()));
+    choose(m_fullPool, overrides.fullPool.value_or(QString()));
+    choose(m_incrementalPool, overrides.incrementalPool.value_or(QString()));
+    choose(m_differentialPool, overrides.differentialPool.value_or(QString()));
+    choose(m_nextPool, overrides.nextPool.value_or(QString()));
+    choose(m_storage, overrides.storage.value_or(QString()));
     setText(m_messages, overrides.messages);
     setText(m_maxRunSchedTime, overrides.maxRunSchedTime);
     m_havePriority->setChecked(overrides.priority.has_value());
@@ -184,12 +228,12 @@ BRunOverrides BRunOverridesEditor::overrides() const
     const QString level = m_level->currentData().toString();
     if (!level.isEmpty())
         overrides.level = level;
-    overrides.pool = textOf(m_pool);
-    overrides.fullPool = textOf(m_fullPool);
-    overrides.incrementalPool = textOf(m_incrementalPool);
-    overrides.differentialPool = textOf(m_differentialPool);
-    overrides.nextPool = textOf(m_nextPool);
-    overrides.storage = textOf(m_storage);
+    overrides.pool = nameOf(m_pool);
+    overrides.fullPool = nameOf(m_fullPool);
+    overrides.incrementalPool = nameOf(m_incrementalPool);
+    overrides.differentialPool = nameOf(m_differentialPool);
+    overrides.nextPool = nameOf(m_nextPool);
+    overrides.storage = nameOf(m_storage);
     overrides.messages = textOf(m_messages);
     overrides.maxRunSchedTime = textOf(m_maxRunSchedTime);
     if (m_havePriority->isChecked())
@@ -197,6 +241,41 @@ BRunOverrides BRunOverridesEditor::overrides() const
     overrides.spoolData = yesNoOf(m_spoolData);
     overrides.accurate = yesNoOf(m_accurate);
     return overrides;
+}
+
+void BRunOverridesEditor::setResourceNames(const QStringList &pools, const QStringList &storages)
+{
+    knownPools() = pools;
+    knownStorages() = storages;
+}
+
+QStringList BRunOverridesEditor::poolNames()
+{
+    return knownPools();
+}
+
+QStringList BRunOverridesEditor::storageNames()
+{
+    return knownStorages();
+}
+
+void BRunOverridesEditor::choose(QComboBox *combo, const QString &name)
+{
+    if (name.isEmpty()) {
+        combo->setCurrentIndex(0);
+        return;
+    }
+    int index = combo->findData(name);
+    if (index < 0) {
+        // Named by the Run line, not reported by the Director: kept as it is
+        const QString text = tr("%1 (not reported)").arg(name);
+        combo->addItem(text, name);
+        combo->setItemData(combo->count() - 1, tr("%1 is named by the Run line, but the Director did not report "
+                                                  "it. It is kept as it is.").arg(name), Qt::ToolTipRole);
+        combo->setMinimumContentsLength(qMax(combo->minimumContentsLength(), qMin(int(text.size()) + 2, 48)));
+        index = combo->count() - 1;
+    }
+    combo->setCurrentIndex(index);
 }
 
 // ============================================================================

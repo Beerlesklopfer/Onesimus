@@ -1,4 +1,7 @@
 #include "schedules/bschedulewidget.h"
+#include "schedules/bscheduledragplan.h"
+#include "schedules/bschedulegriddialogs.h"
+#include "schedules/bschedulereviewdialog.h"
 #include "buiscale.h"
 #include "jobs/blevelcolors.h"
 #include "bsorttableitem.h"
@@ -57,6 +60,29 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
 
     setupUI();
 
+    // Writing schedules: the flow and its dialogs. The configuration
+    // methods come with setConfigClient().
+    m_saveDialogs = new BScheduleSaveDialogs(this);
+    m_persistence = new BSchedulePersistence(nullptr, m_saveDialogs, this);
+    connect(m_persistence, &BSchedulePersistence::finished,
+            this, &BScheduleWidget::onPersistenceFinished);
+    connect(m_persistence, &BSchedulePersistence::reloadRequested, this, [this](const QString &) {
+        if (m_connected)
+            onRefreshClicked();
+    });
+    connect(m_gridView, &BScheduleGridView::saveRequested, this, &BScheduleWidget::onGridSaveRequested);
+    connect(m_gridView, &BScheduleGridView::deleteRequested, this, &BScheduleWidget::onGridDeleteRequested);
+    // The raw text and its SHA-256 are read when editing begins: a change
+    // made on the Director after that is a conflict when saving
+    connect(m_gridView, &BScheduleGridView::modifiedChanged, this, [this](bool modified) {
+        if (modified && m_configClient
+            && m_configClient->capabilities().supports(BConfig::ResourceType::Schedule,
+                                                       BConfig::Operation::ReadRaw)) {
+            m_persistence->prepare(m_gridView->model()->loadedSchedule().name);
+        }
+    });
+    updateWritable();
+
     // Lock group modes: FD always by client, SD always by storage
     m_fdGanttWidget->setGroupMode(BScheduleGanttWidget::GroupByClient);
     m_sdGanttWidget->setGroupMode(BScheduleGanttWidget::GroupByStorage);
@@ -66,6 +92,10 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
 
 BScheduleWidget::~BScheduleWidget()
 {
+    m_persistence->setUi(nullptr);
+    delete m_saveDialogs;
+    m_saveDialogs = nullptr;
+
     // The reader thread posts its result to this object
     if (m_historyParser) {
         m_historyParser->wait();
@@ -1279,6 +1309,12 @@ void BScheduleWidget::updateGridView(bool namesOnly)
     // come without Run lines: it does not replace a schedule that is on
     // display, the reply with the Run lines follows.
     const BSchedule schedule = m_scheduleModel->schedule(m_gridScheduleName);
+    // Just written from the grid: what the Director reports now is what
+    // the grid starts from (the undo history ends with the write)
+    if (!namesOnly && !m_gridAwaitingReload.isEmpty() && schedule.name == m_gridAwaitingReload) {
+        m_gridAwaitingReload.clear();
+        m_gridView->setSchedule(schedule);
+    }
     const BSchedule &shown = m_gridView->model()->loadedSchedule();
     bool same = m_gridView->hasSchedule() && schedule.name == shown.name;
     if (same && !namesOnly) {
@@ -1322,29 +1358,195 @@ void BScheduleWidget::onDragDropped(int entryIndex, int newHour, int newMinute)
 
     // The user moved a run of an existing schedule and expects that
     // schedule to change. Whether the Director can do that is asked at the
-    // gate, which also tells the user if it cannot. Nothing is sent here.
+    // gate, which also tells the user if it cannot; then nothing is sent.
     const bool available = m_scheduleChangeGate && m_scheduleChangeGate(this);
-    const bool written = available && writeScheduleChange(entry, newHour, newMinute);
-    if (written) return;
+    const bool handled = available && writeScheduleChange(entry, newHour, newMinute);
+    if (handled) return;
 
     // Always, also where the notice is not shown again: the drop did nothing
     emit statusMessageChanged(
-        tr("Schedule %1 was not changed: changing a schedule needs the schedule methods of the "
+        tr("Schedule %1 was not changed: changing a schedule needs the configuration methods of the "
            "gRPC interface of the Onesimus Director (onesimus-dird), which are not available "
            "on this connection. %2 stays at %3 (dropped at %4).")
             .arg(entry.scheduleName, entry.jobName.isEmpty() ? entry.scheduleName : entry.jobName,
                  clock(entry.hour, entry.minute), clock(newHour, newMinute)));
 }
 
+QStringList BScheduleWidget::jobsUsing(const QString &scheduleName) const
+{
+    QStringList jobs;
+    for (const BJobScheduleIndex::JobRef &job : m_jobScheduleIndex->jobsForSchedule(scheduleName)) {
+        if (!jobs.contains(job.jobName))
+            jobs.append(job.jobName);
+    }
+    return jobs;
+}
+
 bool BScheduleWidget::writeScheduleChange(const BScheduleEntry &entry, int newHour, int newMinute)
 {
-    // No Director has a method that updates a schedule yet. The Run lines
-    // to write are those of BScheduleDragPlan::plan(); the update itself is
-    // sent here once the gRPC interface of the Onesimus Director has it.
-    Q_UNUSED(entry);
-    Q_UNUSED(newHour);
-    Q_UNUSED(newMinute);
-    return false;
+    if (!m_configClient)
+        return false;
+    auto clock = [](int hour, int minute) {
+        return QStringLiteral("%1:%2").arg(hour, 2, 10, QLatin1Char('0'))
+                                      .arg(minute, 2, 10, QLatin1Char('0'));
+    };
+    const QString name = entry.scheduleName;
+    if (m_persistence->isBusy()) {
+        emit statusMessageChanged(tr("Schedule %1 was not changed: another change is being written.").arg(name));
+        return true;
+    }
+
+    // The Run lines of the schedule as loaded; only the dragged one changes
+    const BSchedule loaded = m_scheduleModel->schedule(name);
+    QStringList originals;
+    for (const BRunLine &run : loaded.runs)
+        originals.append(run.original);
+    const BScheduleDragPlan::Plan plan = BScheduleDragPlan::plan(originals, entry, newHour, newMinute);
+    if (plan.refused()) {
+        QString why;
+        switch (plan.reason) {
+        case BScheduleDragPlan::Reason::NotUnderstood:
+            why = tr("Run line %1 is not understood, so the schedule is locked.").arg(plan.reasonLine + 1);
+            break;
+        case BScheduleDragPlan::Reason::SeveralHours:
+            why = tr("the dragged Run line runs at several hours of the day; change it in the grid.");
+            break;
+        case BScheduleDragPlan::Reason::DraggedLineNotFound:
+        case BScheduleDragPlan::Reason::DraggedLineAmbiguous:
+            why = tr("the dragged run could not be matched to exactly one Run line; refresh and try again, "
+                     "or change it in the grid.");
+            break;
+        case BScheduleDragPlan::Reason::NoRunLines:
+            why = tr("its Run lines are not loaded yet.");
+            break;
+        case BScheduleDragPlan::Reason::BadTime:
+            why = tr("%1 is not a time of day.").arg(clock(newHour, newMinute));
+            break;
+        case BScheduleDragPlan::Reason::WriteCheckFailed:
+        case BScheduleDragPlan::Reason::None:
+            why = tr("the new Run line did not read back as intended (%1).").arg(plan.reasonText);
+            break;
+        }
+        emit statusMessageChanged(tr("Schedule %1 was not changed: %2").arg(name, why));
+        return true;
+    }
+
+    const int line = plan.draggedLine;
+    const QString note = tr("Run line %1 of schedule %2 moves from %3 to %4 (dragged in the timeline: %5). "
+                            "Only this line is written anew; the other lines stay as they are in the file.")
+                             .arg(line + 1).arg(name, clock(entry.hour, entry.minute),
+                                  clock(newHour, newMinute),
+                                  entry.jobName.isEmpty() ? name : entry.jobName);
+    emit statusMessageChanged(tr("The Director checks the change of schedule %1...").arg(name));
+    m_persistence->saveRuns(loaded, BSchedulePersistence::linesFromDrag(loaded, line, plan.generatedRuns.value(line)),
+                            jobsUsing(name), note);
+    return true;
+}
+
+void BScheduleWidget::setConfigClient(BConfigClient *client)
+{
+    if (m_configClient)
+        disconnect(m_configClient, nullptr, this, nullptr);
+    m_configClient = client;
+    m_persistence->setClient(client);
+    m_persistence->forget();
+    if (client)
+        connect(client, &BConfigClient::capabilitiesChanged, this, &BScheduleWidget::updateWritable);
+    updateWritable();
+}
+
+void BScheduleWidget::setSaveUi(BScheduleSaveUi *ui)
+{
+    m_persistence->setUi(ui ? ui : m_saveDialogs);
+}
+
+void BScheduleWidget::setResourceNames(const QStringList &pools, const QStringList &storages)
+{
+    BRunOverridesEditor::setResourceNames(pools, storages);
+}
+
+void BScheduleWidget::updateWritable()
+{
+    const BConfig::Capabilities caps = m_configClient ? m_configClient->capabilities() : BConfig::Capabilities();
+    m_gridView->setWritable(caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::UpdateRaw),
+                            caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::Delete));
+    // A text read with another session's rights is not kept
+    if (!caps.known)
+        m_persistence->forget();
+}
+
+void BScheduleWidget::onGridSaveRequested()
+{
+    const BScheduleGridModel *model = m_gridView->model();
+    const QString name = model->loadedSchedule().name;
+    if (!m_gridView->isModified() || name.isEmpty())
+        return;
+    if (m_gridView->isLocked()) {
+        emit statusMessageChanged(tr("Schedule %1 is locked: it contains a Run line that is not understood.")
+                                      .arg(name));
+        return;
+    }
+    // Whether the Director can do it; the gate tells the user if not
+    if (!m_scheduleSaveGate || !m_scheduleSaveGate(this) || !m_configClient) {
+        emit statusMessageChanged(tr("Schedule %1 was not written: changing a schedule needs the "
+                                     "configuration methods of the gRPC interface of the Onesimus "
+                                     "Director. Your changes are kept in the grid.").arg(name));
+        return;
+    }
+    if (m_persistence->isBusy()) {
+        emit statusMessageChanged(tr("Another change is being written."));
+        return;
+    }
+    QList<BScheduleResource::Line> lines;
+    QString error;
+    if (!BSchedulePersistence::linesFromModel(*model, &lines, &error)) {
+        emit statusMessageChanged(tr("Schedule %1 cannot be written: %2").arg(name, error));
+        return;
+    }
+    emit statusMessageChanged(tr("The Director checks the changes of schedule %1...").arg(name));
+    m_gridSaving = name;
+    m_persistence->saveRuns(model->loadedSchedule(), lines, jobsUsing(name),
+                            tr("The changes made in the grid. Lines that were not touched stay as they "
+                               "are in the file."));
+}
+
+void BScheduleWidget::onGridDeleteRequested()
+{
+    const QString name = m_gridView->model()->loadedSchedule().name;
+    if (name.isEmpty())
+        return;
+    if (!m_scheduleDeleteGate || !m_scheduleDeleteGate(this) || !m_configClient) {
+        emit statusMessageChanged(tr("Schedule %1 was not deleted: deleting a schedule needs the "
+                                     "configuration methods of the gRPC interface of the Onesimus "
+                                     "Director.").arg(name));
+        return;
+    }
+    if (m_persistence->isBusy()) {
+        emit statusMessageChanged(tr("Another change is being written."));
+        return;
+    }
+    emit statusMessageChanged(tr("The Director checks whether schedule %1 can be deleted...").arg(name));
+    m_persistence->deleteSchedule(name, jobsUsing(name));
+}
+
+void BScheduleWidget::onPersistenceFinished(const BScheduleReport &report)
+{
+    const QString saving = m_gridSaving;
+    m_gridSaving.clear();
+    if (report.kind == BScheduleReport::Written) {
+        // The schedule is read again (reloadRequested); a write from the
+        // grid makes that the new state of the grid
+        if (report.operation == BScheduleReview::Update && saving == report.scheduleName)
+            m_gridAwaitingReload = report.scheduleName;
+        QString text = report.title + QLatin1Char('.');
+        if (report.reloaded)
+            text += QLatin1Char(' ') + tr("The Director reloaded its configuration.");
+        if (!report.followups.isEmpty())
+            text += QLatin1Char(' ') + tr("Follow-up commands: %1").arg(report.followups.join(QLatin1String("; ")));
+        emit statusMessageChanged(text);
+        return;
+    }
+    emit statusMessageChanged(report.title + QLatin1String(". ") + report.text);
 }
 
 void BScheduleWidget::onJobSelectionChanged()

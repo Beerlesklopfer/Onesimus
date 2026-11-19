@@ -18,6 +18,8 @@
 #include "director/bdirector.h"
 #include "blogging.h"
 
+#include <QTimer>
+
 // ============================================================================
 // Constructor / Destructor
 // ============================================================================
@@ -47,6 +49,11 @@ BDirector::BDirector(QObject *parent)
     BLOG_DEBUG() << "  Director moved to worker thread";
 #endif
 
+    // Configuration requests and replies cross the thread boundary
+    qRegisterMetaType<BConfig::Request>();
+    qRegisterMetaType<BConfig::Reply>();
+    qRegisterMetaType<BConfig::Capabilities>();
+
     // Forward all signals from director to BDirector wrapper
     // Qt automatically handles thread-safety for signal forwarding (signals are queued connections)
 
@@ -56,12 +63,18 @@ BDirector::BDirector(QObject *parent)
     QObject::connect(m_director, &DIRECTOR_CLASS::serverIdentified,
                      this, [this](const QString &identity) { m_serverIdentity = identity; });
     QObject::connect(m_director, &DIRECTOR_CLASS::disconnected,
-                     this, [this]() { m_serverIdentity.clear(); });
+                     this, [this]() {
+                         m_serverIdentity.clear();
+                         setConfigCapabilities(BConfig::Capabilities());
+                     });
     QObject::connect(m_director, &DIRECTOR_CLASS::authentificationSucceeded,
                      this, [this](bool success, const QString &) {
                          if (!success) {
                              m_serverIdentity.clear();
                          }
+                         // A new session: what the last one could do is gone
+                         // until the Director says it again
+                         setConfigCapabilities(BConfig::Capabilities());
                      });
 
     QObject::connect(m_director, &DIRECTOR_CLASS::disconnected,
@@ -83,6 +96,11 @@ BDirector::BDirector(QObject *parent)
 
     QObject::connect(m_director, &DIRECTOR_CLASS::statusMessage,
                      this, &BDirector::statusMessage);
+
+    // Configuration CRUD
+    QObject::connect(m_director, &DIRECTOR_CLASS::configReply, this, &BDirector::configReply);
+    QObject::connect(m_director, &DIRECTOR_CLASS::configCapabilitiesChanged,
+                     this, &BDirector::setConfigCapabilities);
 
     // Forward enum-based response signals
     QObject::connect(m_director, &DIRECTOR_CLASS::jsonResult,
@@ -414,6 +432,33 @@ void BDirector::doSend(const Command cmd, const QString &args)
                               Qt::QueuedConnection,
                               Q_ARG(DIRECTOR_CLASS::Command, cmd),
                               Q_ARG(QString, args));
+}
+
+// ============================================================================
+// Configuration CRUD (thread-safe forwarding)
+// ============================================================================
+
+quint64 BDirector::configCall(const BConfig::Request &request)
+{
+    const quint64 id = m_nextConfigId++;
+    if (!m_director) {
+        BConfig::Reply reply;
+        reply.status = BConfig::Status::NotAvailable;
+        QTimer::singleShot(0, this, [this, id, reply]() { emit configReply(id, reply); });
+        return id;
+    }
+    QMetaObject::invokeMethod(m_director, "configCall", Qt::QueuedConnection,
+                              Q_ARG(quint64, id), Q_ARG(BConfig::Request, request));
+    return id;
+}
+
+void BDirector::setConfigCapabilities(const BConfig::Capabilities &capabilities)
+{
+    if (capabilities == m_configCapabilities) {
+        return;
+    }
+    m_configCapabilities = capabilities;
+    emit configCapabilitiesChanged(capabilities);
 }
 
 // ============================================================================

@@ -780,9 +780,11 @@ void BScheduleGridWidgetTest::f6GoesRound()
     s.grid()->setFocus();
     QTRY_VERIFY(s.grid()->hasFocus());
 
-    // Grid, palette, Run lines, calendar rules, calendar, scope bar, grid
-    s.view.focusNextPart();
-    QVERIFY(s.view.palette()->activeButton()->hasFocus());
+    // Grid, Run lines, calendar rules, calendar, scope bar, grid. The
+    // schedule has a line that is not understood ("every other sat"): it is
+    // locked, and its palette is not a part to go to
+    QVERIFY(s.view.isLocked());
+    QVERIFY(!s.view.palette()->isEnabled());
     s.view.focusNextPart();
     QVERIFY(s.view.runLineList()->hasFocus());
     s.view.focusNextPart();
@@ -816,6 +818,15 @@ void BScheduleGridWidgetTest::f6GoesRound()
     QTRY_VERIFY(typical.view.runLineList()->hasFocus());
     typical.view.focusNextPart();
     QVERIFY(typical.view.calendar()->hasFocus());
+
+    // A schedule that can be edited: grid, palette, Run lines
+    QVERIFY(!typical.view.isLocked());
+    typical.grid()->setFocus();
+    QTRY_VERIFY(typical.grid()->hasFocus());
+    typical.view.focusNextPart();
+    QVERIFY(typical.view.palette()->activeButton()->hasFocus());
+    typical.view.focusNextPart();
+    QVERIFY(typical.view.runLineList()->hasFocus());
 }
 
 void BScheduleGridWidgetTest::noSchedule()

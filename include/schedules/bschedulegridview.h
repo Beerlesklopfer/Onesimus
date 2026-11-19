@@ -67,10 +67,14 @@ class BScheduleScopeDialog;
  * wherever in the view the keyboard is.
  *
  * The view owns its model and its editor. Nothing here writes a schedule
- * to a Director: an edit ends at the Run lines of the model. A schedule
- * with a Run line that is not understood can be edited like any other, but
- * that line is never changed and the notice says that the schedule cannot
- * be written.
+ * to a Director: an edit ends at the Run lines of the model. "Save..." asks
+ * the schedule tab to write the changes (saveRequested(); BSchedulePersistence
+ * checks, shows and confirms), "Delete..." asks it to delete the schedule
+ * (deleteRequested()).
+ *
+ * A schedule with a Run line that is not understood is locked: the editor
+ * refuses every edit, the palette, the scope and rule buttons and "Save..."
+ * are disabled, and the notice says why.
  */
 class BScheduleGridView : public QWidget
 {
@@ -151,6 +155,20 @@ public:
     QAbstractButton *addRuleButton() const;
     QAbstractButton *editRuleButton() const;
     QAbstractButton *removeRuleButton() const;
+    QAbstractButton *saveButton() const;
+    QAbstractButton *deleteButton() const;
+
+    /// The schedule has a Run line that is not understood: nothing can be edited
+    bool isLocked() const;
+
+    /**
+     * @brief Whether "Save..." and "Delete..." can be used at all
+     *
+     * The schedule tab sets this from the capabilities of the Director. If
+     * not, the buttons stay enabled and their click is still sent: the tab
+     * answers with the capability notice.
+     */
+    void setWritable(bool canSave, bool canDelete);
 
     // --- Scopes and calendar rules: what the buttons and menus do -----------
     //
@@ -184,6 +202,10 @@ signals:
     void changesKept(const QString &scheduleName);
     /// "Discard" was the answer: the schedule that was offered is on display
     void pendingScheduleShown(const QString &scheduleName);
+    /// "Save...": write the changes of the schedule on display
+    void saveRequested();
+    /// "Delete...": delete the schedule on display
+    void deleteRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -228,6 +250,11 @@ private:
     QPushButton *m_undo = nullptr;
     QPushButton *m_redo = nullptr;
     QPushButton *m_revert = nullptr;
+    QPushButton *m_save = nullptr;
+    QPushButton *m_delete = nullptr;
+    bool m_canSave = false;
+    bool m_canDelete = false;
+    void updateLock();
     QLabel *m_notice = nullptr;
     QFrame *m_pendingBar = nullptr;
     QLabel *m_pendingLabel = nullptr;

@@ -30,7 +30,8 @@ BCapabilities::Server serverOf(const BDirector *director)
     const BCapabilities::Connection connection =
         director->transport() == BDirector::Transport::Grpc ? BCapabilities::Connection::Grpc
                                                             : BCapabilities::Connection::Classic;
-    return BCapabilities::describeServer(connection, director->serverIdentity());
+    return BCapabilities::describeServer(connection, director->serverIdentity(),
+                                         director->configCapabilities());
 }
 
 bool check(QWidget *parent, const BDirector *director, BCapabilities::Function function,

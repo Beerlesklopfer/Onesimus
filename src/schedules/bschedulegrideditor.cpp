@@ -244,6 +244,21 @@ void BScheduleGridEditor::setKeepOtherRuns(bool on)
 
 // --- Edits ----------------------------------------------------------------------
 
+bool BScheduleGridEditor::isLocked() const
+{
+    return !m_model->notUnderstood().isEmpty();
+}
+
+bool BScheduleGridEditor::refuseLocked()
+{
+    if (!isLocked())
+        return false;
+    m_lastError = tr("This schedule contains a Run line that is not understood. It is locked: "
+                     "nothing in it can be changed here.");
+    emit editFailed(m_lastError);
+    return true;
+}
+
 bool BScheduleGridEditor::pushChange(const BGridChange &change, const QString &text,
                                      bool inActiveScope)
 {
@@ -274,6 +289,8 @@ QString BScheduleGridEditor::cellCountText(const BGridCellSet &cells) const
 
 bool BScheduleGridEditor::paint(const BGridCellSet &cells, const BGridBrush &brush)
 {
+    if (refuseLocked())
+        return false;
     const BScheduleGridModel::PaintMode mode = m_keepOtherRuns ? BScheduleGridModel::AddRun
                                                                : BScheduleGridModel::ReplaceRuns;
     return pushChange(m_model->applyBrush(cells, brush, mode),
@@ -283,6 +300,8 @@ bool BScheduleGridEditor::paint(const BGridCellSet &cells, const BGridBrush &bru
 
 bool BScheduleGridEditor::paintBeside(const BGridCellSet &cells, const BGridBrush &brush)
 {
+    if (refuseLocked())
+        return false;
     return pushChange(m_model->applyBrush(cells, brush, BScheduleGridModel::AddRun),
                       tr("Add %1 to %2").arg(BScheduleGridText::brushText(brush), cellCountText(cells)),
                       true);
@@ -290,11 +309,15 @@ bool BScheduleGridEditor::paintBeside(const BGridCellSet &cells, const BGridBrus
 
 bool BScheduleGridEditor::erase(const BGridCellSet &cells)
 {
+    if (refuseLocked())
+        return false;
     return pushChange(m_model->erase(cells), tr("Erase %1").arg(cellCountText(cells)), true);
 }
 
 bool BScheduleGridEditor::applyTool(const BGridCellSet &cells)
 {
+    if (refuseLocked())
+        return false;
     if (cells.isEmpty()) {
         m_lastError = tr("No cell is selected.");
         emit editFailed(m_lastError);
@@ -318,6 +341,8 @@ bool BScheduleGridEditor::applyToolToSelection()
 
 bool BScheduleGridEditor::eraseSelection()
 {
+    if (refuseLocked())
+        return false;
     const BGridCellSet cells = m_model->selection().cells();
     if (cells.isEmpty()) {
         m_lastError = tr("No cell is selected.");
@@ -329,6 +354,8 @@ bool BScheduleGridEditor::eraseSelection()
 
 bool BScheduleGridEditor::paintLevel(const QString &level)
 {
+    if (refuseLocked())
+        return false;
     const BGridBrush brush = levelBrush(level);
     setActiveBrush(brush);
     const BGridCellSet cells = m_model->selection().cells();
@@ -341,6 +368,8 @@ bool BScheduleGridEditor::paintLevel(const QString &level)
 
 int BScheduleGridEditor::addScope(const BGridScope &scope)
 {
+    if (refuseLocked())
+        return -1;
     if (!scope.isValid()) {
         m_lastError = tr("A scope needs at least one month, and a week of the month or \"last\".");
         emit editFailed(m_lastError);
@@ -360,6 +389,8 @@ int BScheduleGridEditor::addScope(const BGridScope &scope)
 
 bool BScheduleGridEditor::removeScope(int index)
 {
+    if (refuseLocked())
+        return false;
     const QList<BGridScopeInfo> &scopes = m_model->scopes();
     if (index < 0 || index >= scopes.size())
         return false;
@@ -384,11 +415,15 @@ bool BScheduleGridEditor::removeScope(int index)
 
 bool BScheduleGridEditor::addCalendarRule(const BRunSpec &spec)
 {
+    if (refuseLocked())
+        return false;
     return pushChange(m_model->addCalendarRule(spec), tr("Add a calendar rule"), false);
 }
 
 bool BScheduleGridEditor::changeCalendarRule(int ruleIndex, const BRunSpec &spec)
 {
+    if (refuseLocked())
+        return false;
     const QList<BGridCalendarRule> &rules = m_model->calendarRules();
     if (ruleIndex < 0 || ruleIndex >= rules.size())
         return false;
@@ -399,6 +434,8 @@ bool BScheduleGridEditor::changeCalendarRule(int ruleIndex, const BRunSpec &spec
 
 bool BScheduleGridEditor::removeCalendarRule(int ruleIndex)
 {
+    if (refuseLocked())
+        return false;
     const QList<BGridCalendarRule> &rules = m_model->calendarRules();
     if (ruleIndex < 0 || ruleIndex >= rules.size())
         return false;

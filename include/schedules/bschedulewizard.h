@@ -34,6 +34,7 @@
 #include "models/bresourcemodels.h"
 
 class BScheduleWizard;
+class BSchedulePersistence;
 
 // ============================================================================
 // BScheduleRunDialog — Editor for a single Run entry
@@ -206,6 +207,7 @@ private:
     void executeConfigureCommand();
     void disconnectDirectorSignals();
     void endWaiting();
+    void executeCreateResource();
 
     QTextEdit *m_configEdit = nullptr;
     QTextEdit *m_commandEdit = nullptr;
@@ -247,6 +249,19 @@ public:
 
     BDirector *director() const { return m_director; }
 
+    /**
+     * @brief Create the schedule with CreateResource instead of "configure add"
+     *
+     * Set by the main window when the session of the Onesimus Director lists
+     * CreateResource for schedules (BCapabilities::usesConfigMethod()). The
+     * text of the preview is sent as it is shown; the Director checks it
+     * first and the review asks before anything is written.
+     */
+    void setPersistence(BSchedulePersistence *persistence) { m_persistence = persistence; }
+    BSchedulePersistence *persistence() const { return m_persistence; }
+
+    QString scheduleName() const;
+
     void setReferenceData(const QMap<QString, QStringList> &referenceData);
     QMap<QString, QStringList> referenceData() const { return m_referenceData; }
 
@@ -269,6 +284,7 @@ private:
     void init();
 
     BDirector *m_director = nullptr;
+    BSchedulePersistence *m_persistence = nullptr;
     QMap<QString, QStringList> m_referenceData;
 };
 

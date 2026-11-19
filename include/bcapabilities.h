@@ -7,6 +7,8 @@
 
 #include <functional>
 
+#include "director/bconfigtypes.h"
+
 /**
  * @brief Which functions the connected Director provides, without widgets
  *
@@ -26,9 +28,11 @@ namespace BCapabilities {
 
 /** Functions listed in the capability table. */
 enum class Function {
-    ModifySchedule,     ///< Write a change of an existing Schedule resource (a dropped bar)
+    ModifySchedule,     ///< Write a change of an existing Schedule resource (grid, dropped bar)
     PurgeAllVolumes,    ///< "Prune and purge" over all volumes (cleanup dialog)
     DeployFileSet,      ///< Send a FileSet with nested blocks to the Director
+    DeleteSchedule,     ///< Delete a Schedule resource
+    CreateSchedule,     ///< Create a Schedule resource (wizard)
 };
 
 /** What the Onesimus Director provides. */
@@ -36,6 +40,11 @@ enum class Support {
     No,
     Planned,    ///< Not there yet; the notice says "planned", never more
     Yes,
+    /// Over gRPC, where GetConfigCapabilities of the session lists the
+    /// operation of the entry (Entry::liveType, Entry::liveOperation): the
+    /// Director decides per session, from its version and the ACLs of the
+    /// console. Never over the console protocol.
+    Live,
 };
 
 /**
@@ -52,6 +61,12 @@ struct Entry {
     Support onesimus;       ///< The Onesimus Director provides the function
     const char *reason;     ///< One sentence; %1 is the Director ("This Director (Bareos 25.2)")
     const char *manualWay;  ///< One sentence on the manual way, or nullptr
+
+    /// The configuration method of the Onesimus Director that carries the
+    /// function (Support::Live; for a function with another way as well,
+    /// the preferred way where it is listed: usesConfigMethod())
+    BConfig::ResourceType liveType = BConfig::ResourceType::Unspecified;
+    BConfig::Operation liveOperation = BConfig::Operation::Unspecified;
 };
 
 /** The table row of @p function; nullptr if the function is not listed. */
@@ -82,6 +97,9 @@ struct Server {
     /// Version for display: "25.2" for Bareos, the Onesimus Director's own
     /// version ("0.2.0") if it reports one, otherwise empty
     QString version;
+    Connection connection = Connection::None;
+    /// GetConfigCapabilities of the session (gRPC only; known=false otherwise)
+    BConfig::Capabilities config;
 };
 
 /**
@@ -102,17 +120,31 @@ struct Server {
  *   only the Onesimus Director offers the gRPC service.
  * - Connection::Classic with a version "<a>.<b>.<c>" and no marker: Bareos.
  * - Anything else ("unknown", empty, unreadable): Unknown.
+ *
+ * @param config What GetConfigCapabilities reported; kept for gRPC only
  */
-Server describeServer(Connection connection, const QString &identity);
+Server describeServer(Connection connection, const QString &identity,
+                      const BConfig::Capabilities &config = BConfig::Capabilities());
 
 /**
  * @brief Whether @p server provides the function
  *
  * Bareos and Unknown follow the Bareos column; an Onesimus Director provides
- * a function only if its column says Yes.
+ * a function if its column says Yes, or says Live and the connection is
+ * gRPC and the capabilities of the session list the entry's operation.
  */
 bool isAvailable(const Entry &entry, const Server &server);
 bool isAvailable(Function function, const Server &server);
+
+/**
+ * @brief Whether the function is to be carried out by the configuration
+ *        method of the entry (gRPC, listed in the session's capabilities)
+ *
+ * For a function with another way as well (CreateSchedule: "configure add"),
+ * false means: take the other way.
+ */
+bool usesConfigMethod(const Entry &entry, const Server &server);
+bool usesConfigMethod(Function function, const Server &server);
 
 // ---------------------------------------------------------------------------
 // Notice text
@@ -131,7 +163,11 @@ QString serverLabel(const Server &server);
  *
  * Reason, then the manual way if the table has one, then what the Onesimus
  * Director offers: "supports this" only for Support::Yes, "planned" for
- * Support::Planned, nothing for Support::No.
+ * Support::Planned, nothing for Support::No. Support::Live: elsewhere "The
+ * Onesimus Director supports this over its gRPC interface"; on an Onesimus
+ * Director over the console protocol that gRPC is needed; on one over gRPC
+ * whose capabilities do not list the operation, that this session is not
+ * offered it (ACLs or an older version) in place of the reason.
  */
 Notice notice(const Entry &entry, const Server &server);
 Notice notice(Function function, const Server &server);

@@ -35,6 +35,10 @@ class QUndoStack;
  *
  * Undo and redo also show the scope the step was made in. Adding and
  * removing a scope are steps of their own.
+ *
+ * A schedule with a Run line that is not understood is locked (decision of
+ * the maintainer, 19.11.2026): every edit fails with a message, so that
+ * nothing of such a schedule is changed and nothing of it is written.
  */
 class BScheduleGridEditor : public QObject
 {
@@ -119,6 +123,9 @@ public:
     bool changeCalendarRule(int ruleIndex, const BRunSpec &spec);
     bool removeCalendarRule(int ruleIndex);
 
+    /// The schedule has a Run line that is not understood: no edit is made
+    bool isLocked() const;
+
     /// Why the last edit failed; empty after one that worked
     QString lastError() const { return m_lastError; }
 
@@ -140,6 +147,8 @@ signals:
 
 private:
     bool pushChange(const BGridChange &change, const QString &text, bool inActiveScope);
+    /// isLocked(): says so (editFailed) and returns true
+    bool refuseLocked();
     void onScheduleReset();
     void collectBrushes();
     QString cellCountText(const BGridCellSet &cells) const;

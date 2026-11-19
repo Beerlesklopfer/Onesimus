@@ -47,6 +47,11 @@ Entry sample(Support onesimusSupport, const char *manualWay)
 
 const char ManualWay[] = "Do it by hand.";
 
+QString noticeOf(Function function, const Server &server)
+{
+    return notice(function, server).text;
+}
+
 } // namespace
 
 class BCapabilitiesTest : public QObject
@@ -61,6 +66,7 @@ private slots:
     void lookup_data();
     void lookup();
     void unlistedServerKindsFollowTheColumns();
+    void liveCapabilitiesDecideOverGrpc();
 
     void serverLabels();
     void noticeTextOfTheTable();
@@ -191,7 +197,7 @@ void BCapabilitiesTest::describeServer()
 void BCapabilitiesTest::tableIsComplete()
 {
     const QList<Function> functions = allFunctions();
-    QCOMPARE(functions.size(), 3);
+    QCOMPARE(functions.size(), 5);
 
     QSet<QString> ids;
     for (Function function : functions) {
@@ -204,7 +210,7 @@ void BCapabilitiesTest::tableIsComplete()
         QCOMPARE(QString::fromLatin1(row->reason).count(QStringLiteral("%1")), 1);
         ids.insert(QString::fromLatin1(row->id));
     }
-    QCOMPARE(ids.size(), 3);
+    QCOMPARE(ids.size(), 5);
 
     // The identifiers are settings keys and must not change
     QCOMPARE(QString::fromLatin1(entry(Function::ModifySchedule)->id),
@@ -213,10 +219,22 @@ void BCapabilitiesTest::tableIsComplete()
              QStringLiteral("volumes.purge_all"));
     QCOMPARE(QString::fromLatin1(entry(Function::DeployFileSet)->id),
              QStringLiteral("fileset.deploy"));
+    QCOMPARE(QString::fromLatin1(entry(Function::DeleteSchedule)->id),
+             QStringLiteral("schedule.delete"));
+    QCOMPARE(QString::fromLatin1(entry(Function::CreateSchedule)->id),
+             QStringLiteral("schedule.create"));
 
     // What the two Directors provide
     QCOMPARE(entry(Function::ModifySchedule)->bareos, false);
-    QCOMPARE(entry(Function::ModifySchedule)->onesimus, Support::Planned);
+    QCOMPARE(entry(Function::ModifySchedule)->onesimus, Support::Live);
+    QCOMPARE(entry(Function::ModifySchedule)->liveOperation, BConfig::Operation::UpdateRaw);
+    QCOMPARE(entry(Function::DeleteSchedule)->bareos, false);
+    QCOMPARE(entry(Function::DeleteSchedule)->onesimus, Support::Live);
+    QCOMPARE(entry(Function::DeleteSchedule)->liveOperation, BConfig::Operation::Delete);
+    // "configure add" everywhere; CreateResource where it is listed
+    QCOMPARE(entry(Function::CreateSchedule)->bareos, true);
+    QCOMPARE(entry(Function::CreateSchedule)->onesimus, Support::Yes);
+    QCOMPARE(entry(Function::CreateSchedule)->liveOperation, BConfig::Operation::CreateRaw);
     QCOMPARE(entry(Function::PurgeAllVolumes)->bareos, false);
     QCOMPARE(entry(Function::PurgeAllVolumes)->onesimus, Support::No);
     QCOMPARE(entry(Function::DeployFileSet)->bareos, false);
@@ -230,6 +248,7 @@ void BCapabilitiesTest::lookup_data()
     QTest::newRow("change schedule") << Function::ModifySchedule;
     QTest::newRow("purge all volumes") << Function::PurgeAllVolumes;
     QTest::newRow("deploy fileset") << Function::DeployFileSet;
+    QTest::newRow("delete schedule") << Function::DeleteSchedule;
 }
 
 void BCapabilitiesTest::lookup()
@@ -240,7 +259,8 @@ void BCapabilitiesTest::lookup()
     QCOMPARE(onesimus().kind, ServerKind::OnesimusDirector);
     QCOMPARE(unidentified().kind, ServerKind::Unknown);
 
-    // None of the three is available anywhere today: planned is not yes
+    // None is available without the capabilities of a gRPC session:
+    // planned is not yes, and live needs the Director's word
     QVERIFY(!isAvailable(function, bareos()));
     QVERIFY(!isAvailable(function, onesimus()));
     QVERIFY(!isAvailable(function, unidentified()));
@@ -267,6 +287,57 @@ void BCapabilitiesTest::unlistedServerKindsFollowTheColumns()
 
     // Planned is not available
     QVERIFY(!isAvailable(sample(Support::Planned, nullptr), onesimus()));
+}
+
+void BCapabilitiesTest::liveCapabilitiesDecideOverGrpc()
+{
+    BConfig::Capabilities crud;
+    crud.known = true;
+    crud.interfaceVersion = 1;
+    crud.operations[int(BConfig::ResourceType::Schedule)] = {
+        int(BConfig::Operation::ReadRaw), int(BConfig::Operation::CreateRaw),
+        int(BConfig::Operation::UpdateRaw), int(BConfig::Operation::Delete)};
+
+    const Server grpc = BCapabilities::describeServer(Connection::Grpc,
+                                                      QStringLiteral("25.1.2+onesimus.0.3.0"), crud);
+    QVERIFY(isAvailable(Function::ModifySchedule, grpc));
+    QVERIFY(isAvailable(Function::DeleteSchedule, grpc));
+    QVERIFY(usesConfigMethod(Function::ModifySchedule, grpc));
+    QVERIFY(usesConfigMethod(Function::CreateSchedule, grpc));
+
+    // A session without the Schedule ACL: the type is not listed
+    BConfig::Capabilities jobsOnly = crud;
+    jobsOnly.operations.remove(int(BConfig::ResourceType::Schedule));
+    jobsOnly.operations[int(BConfig::ResourceType::Job)] = {int(BConfig::Operation::UpdateRaw)};
+    const Server noSchedule = BCapabilities::describeServer(Connection::Grpc, QString(), jobsOnly);
+    QVERIFY(!isAvailable(Function::ModifySchedule, noSchedule));
+    QVERIFY(!usesConfigMethod(Function::CreateSchedule, noSchedule));
+    // ... creating still works, with "configure add"
+    QVERIFY(isAvailable(Function::CreateSchedule, noSchedule));
+    QVERIFY(noticeOf(Function::ModifySchedule, noSchedule).contains(QStringLiteral("\"configure\"")));
+
+    // Update listed, delete not
+    BConfig::Capabilities updateOnly;
+    updateOnly.known = true;
+    updateOnly.operations[int(BConfig::ResourceType::Schedule)] = {int(BConfig::Operation::UpdateRaw)};
+    const Server partial = BCapabilities::describeServer(Connection::Grpc, QString(), updateOnly);
+    QVERIFY(isAvailable(Function::ModifySchedule, partial));
+    QVERIFY(!isAvailable(Function::DeleteSchedule, partial));
+
+    // The capabilities count over gRPC only; BNET never, not even with them
+    const Server bnet = BCapabilities::describeServer(Connection::Classic,
+                                                      QStringLiteral("1000 OK: d Version: 25.1.2+onesimus.0.3.0 (x)"), crud);
+    QCOMPARE(bnet.kind, ServerKind::OnesimusDirector);
+    QVERIFY(!bnet.config.known);
+    QVERIFY(!isAvailable(Function::ModifySchedule, bnet));
+    QVERIFY(!isAvailable(Function::DeleteSchedule, bnet));
+    QVERIFY(!usesConfigMethod(Function::CreateSchedule, bnet));
+    QVERIFY(isAvailable(Function::CreateSchedule, bnet));
+    QVERIFY(noticeOf(Function::ModifySchedule, bnet).endsWith(QStringLiteral("Connect to it over gRPC to use this.")));
+    QVERIFY(!isAvailable(Function::ModifySchedule, BCapabilities::describeServer(Connection::Classic, QStringLiteral("25.2.1"), crud)));
+
+    // Not known yet (before the answer): nothing
+    QVERIFY(!isAvailable(Function::ModifySchedule, BCapabilities::describeServer(Connection::Grpc, QString())));
 }
 
 // ---------------------------------------------------------------------------
@@ -298,22 +369,33 @@ void BCapabilitiesTest::noticeTextOfTheTable()
     // connection: it needs the gRPC interface, and nothing was changed.
     // No word about copying a configuration text: no such text is offered.
     QString reason = QStringLiteral(" cannot change an existing schedule on this connection: that "
-                                    "needs the schedule methods of the gRPC interface of "
+                                    "needs the configuration methods of the gRPC interface of "
                                     "the Onesimus Director (onesimus-dird).");
     const QString nothingChanged = QStringLiteral(
-        " Nothing was changed. For now a schedule is changed in its configuration file on "
+        " Nothing was changed. A schedule can also be changed in its configuration file on "
         "the Director.");
+    const QString overGrpc = QStringLiteral(" The Onesimus Director supports this over its gRPC interface.");
     QCOMPARE(notice(Function::ModifySchedule, bareos()).title,
              QStringLiteral("Change an existing schedule"));
     QCOMPARE(notice(Function::ModifySchedule, bareos()).text,
-             QStringLiteral("This Director (Bareos 25.2)") + reason + nothingChanged
-                 + plannedElsewhere);
-    QCOMPARE(notice(Function::ModifySchedule, onesimus()).text,
-             QStringLiteral("This Director (Onesimus Director 0.2.0)") + reason + nothingChanged
-                 + plannedHere);
+             QStringLiteral("This Director (Bareos 25.2)") + reason + nothingChanged + overGrpc);
     QCOMPARE(notice(Function::ModifySchedule, unidentified()).text,
-             QStringLiteral("This Director") + reason + nothingChanged + plannedElsewhere);
-    // Not available anywhere, gRPC included, until the methods exist
+             QStringLiteral("This Director") + reason + nothingChanged + overGrpc);
+    // An Onesimus Director over gRPC whose capabilities are not known (or
+    // do not list the method): this session is not offered it
+    QCOMPARE(notice(Function::ModifySchedule, onesimus()).text,
+             QStringLiteral("This Director (Onesimus Director 0.2.0) does not offer this to this "
+                            "session: its configuration capabilities do not list it. The console "
+                            "needs the command ACL \"configure\" and the ACL of the resource type, "
+                            "or the Director is older than its configuration methods.")
+                 + nothingChanged);
+    // Over the console protocol: gRPC is the way
+    const Server onesimusBnet = BCapabilities::describeServer(
+        Connection::Classic, QStringLiteral("1000 OK: PDC-dir Version: 25.1.2+onesimus.0.2.0 (x)"));
+    QCOMPARE(notice(Function::ModifySchedule, onesimusBnet).text,
+             QStringLiteral("This Director (Onesimus Director 0.2.0)") + reason + nothingChanged
+                 + QStringLiteral(" Connect to it over gRPC to use this."));
+    // Not available without capabilities that list it
     QVERIFY(!isAvailable(Function::ModifySchedule, bareos()));
     QVERIFY(!isAvailable(Function::ModifySchedule, onesimus()));
     QVERIFY(!isAvailable(Function::ModifySchedule, BCapabilities::describeServer(Connection::Grpc, QString())));
@@ -403,9 +485,11 @@ void BCapabilitiesTest::noticeNeverClaimsMoreThanTheTable()
         const Entry *row = entry(function);
         for (const Server &server : servers) {
             const QString text = notice(function, server).text;
-            // "supports this" only for Support::Yes
+            // "supports this" only for Support::Yes and Live, and only
+            // about the Onesimus Director when it is not the one connected
             QCOMPARE(text.contains(QStringLiteral("supports this")),
-                     row->onesimus == Support::Yes);
+                     (row->onesimus == Support::Yes || row->onesimus == Support::Live)
+                         && server.kind != ServerKind::OnesimusDirector);
             QCOMPARE(text.contains(QStringLiteral("planned")), row->onesimus == Support::Planned);
             if (row->onesimus == Support::No) {
                 // Nothing is said about another product

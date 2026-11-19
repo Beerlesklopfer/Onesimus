@@ -7,6 +7,7 @@
  */
 
 #include "schedules/bschedulewizard.h"
+#include "schedules/bschedulepersistence.h"
 #include "buiscale.h"
 #include "config/bdirectiveschema.h"
 #include "blogging.h"
@@ -750,8 +751,14 @@ void BSchedulePreviewPage::generatePreview()
     // blocks the whole schedule: nothing is offered for sending
     QString error;
     const bool writable = wiz->runTexts(nullptr, &error);
-    m_commandEdit->setPlainText(writable ? "configure " + wiz->generateConfigureCommand()
-                                         : QString());
+    if (wiz->persistence()) {
+        // The text above goes as it is, through the configuration methods
+        m_commandEdit->setPlainText(writable ? tr("CreateResource (gRPC) with the configuration text above")
+                                             : QString());
+    } else {
+        m_commandEdit->setPlainText(writable ? "configure " + wiz->generateConfigureCommand()
+                                             : QString());
+    }
     m_copyCommandButton->setEnabled(writable);
     if (writable) {
         m_statusLabel->setStyleSheet(QString());
@@ -773,6 +780,12 @@ bool BSchedulePreviewPage::validatePage()
         QMessageBox::warning(this, tr("Schedule cannot be written"),
             tr("%1\n\nGo back and remove or replace this run, or cancel the wizard.")
                 .arg(runError));
+        return false;
+    }
+
+    if (wiz && wiz->persistence()) {
+        // CreateResource: the Director checks the text, the review asks
+        executeCreateResource();
         return false;
     }
 
@@ -820,6 +833,36 @@ void BSchedulePreviewPage::executeConfigureCommand()
     if (cmd.isEmpty()) return;      // a Run line cannot be written; validatePage() said why
     BLOG_DEBUG() << "BScheduleWizard: Sending configure" << bRedactCommand(cmd).left(200);
     wiz->director()->doSend(BDirector::Command::Configure, cmd);
+}
+
+void BSchedulePreviewPage::executeCreateResource()
+{
+    auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
+    if (!wiz || !wiz->persistence() || m_waiting) return;
+
+    BSchedulePersistence *persistence = wiz->persistence();
+    disconnectDirectorSignals();
+    m_statusLabel->setStyleSheet(QString());
+    m_statusLabel->setText(tr("The Director checks the schedule..."));
+    m_connections.append(connect(persistence, &BSchedulePersistence::finished, this,
+                                 [this](const BScheduleReport &report) {
+        endWaiting();
+        if (report.kind == BScheduleReport::Written) {
+            m_executed = true;
+            m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
+            m_statusLabel->setText(tr("Schedule created successfully! Click Finish to close."));
+        } else if (report.kind == BScheduleReport::Cancelled) {
+            m_statusLabel->setStyleSheet(QString());
+            m_statusLabel->setText(tr("Nothing was written."));
+        } else {
+            m_statusLabel->setStyleSheet("color: red;");
+            m_statusLabel->setText(tr("%1: %2").arg(report.title, report.text).left(600));
+        }
+    }));
+    if (persistence->createSchedule(wiz->scheduleName(), wiz->generateConfigText())) {
+        m_waiting = true;
+        m_progressBar->setVisible(true);
+    }
 }
 
 void BSchedulePreviewPage::endWaiting()
@@ -953,6 +996,12 @@ bool BScheduleWizard::runTexts(QStringList *texts, QString *error) const
         lines.append(entry.toRunLine());
     }
     return BRunWriter::runTexts(lines, texts, error);
+}
+
+QString BScheduleWizard::scheduleName() const
+{
+    auto *basicsPage = qobject_cast<BScheduleBasicsPage*>(page(Page_Basics));
+    return basicsPage ? basicsPage->scheduleName() : QString();
 }
 
 QString BScheduleWizard::generateConfigText() const

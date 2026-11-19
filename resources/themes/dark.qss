@@ -599,6 +599,22 @@ QToolButton#scheduleGridAddScope:focus {
     padding: 3px 9px;
 }
 
+/* A schedule with a Run line that is not understood is locked: the palette
+   and "+" are disabled and look so; the tool in hand is still shown */
+QToolButton[paletteButton="true"]:disabled,
+QToolButton#scheduleGridAddScope:disabled {
+    background-color: #2d2d30;
+    color: #666666;
+    border: 1px solid #3e3e42;
+}
+
+QToolButton[paletteButton="true"]:checked:disabled {
+    background-color: #3e3e42;
+    border: 2px solid #666666;
+    padding: 2px 7px;
+    color: #666666;
+}
+
 QToolButton[maskButton="true"] {
     background-color: #252526;
     border: 1px solid #3e3e42;

@@ -47,6 +47,7 @@
 
 // Debug logging prefixes (using blogging.h macros)
 #include "blogging.h"
+#include "director/bconfigtypes.h"
 #define DIR_DEBUG BLOG_DEBUG()
 #define DIR_WARNING BLOG_WARNING()
 #define DIR_CRITICAL BLOG_ERROR()
@@ -811,7 +812,21 @@ signals:
     void statusMessage(const QString &message);
     void commandError(const QString &command, const QString &error);
 
+    /// Reply to configCall() (configuration CRUD of the Onesimus Director)
+    void configReply(quint64 id, const BConfig::Reply &reply);
+    /// What the Director lets this session do with its configuration;
+    /// known=false when disconnected and on BNET
+    void configCapabilitiesChanged(const BConfig::Capabilities &capabilities);
+
 public slots:
+
+    /**
+     * @brief Runs a configuration request (DirectorApi CRUD, gRPC only)
+     *
+     * Over BNET nothing is sent: the reply is Status::NotAvailable. Always
+     * answered by configReply() with the same id.
+     */
+    void configCall(quint64 id, const BConfig::Request &request);
 
     /**
      * @brief Thread-safe connection to Director

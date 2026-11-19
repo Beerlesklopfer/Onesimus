@@ -428,6 +428,7 @@ set(SOURCES
     src/btranslations.cpp
     src/director/bdirector.cpp
     src/director/bareosdirector.cpp
+    src/director/bdirectorconfigclient.cpp
     src/db/bdatabase.cpp
     src/db/bresourcemodel.cpp
     src/db/bdirectormodel.cpp
@@ -487,6 +488,9 @@ set(SOURCES
     src/schedules/bschedulewizard.cpp
     src/schedules/bjobscheduleindex.cpp
     src/schedules/bscheduledragplan.cpp
+    src/schedules/bschedulepersistence.cpp
+    src/schedules/bschedulereviewdialog.cpp
+    src/schedules/model/bscheduleresource.cpp
     src/schedules/model/brunparser.cpp
     src/schedules/model/brunwriter.cpp
     src/schedules/model/bscheduleoccurrences.cpp
@@ -607,6 +611,12 @@ set(HEADERS
     include/schedules/bschedulewizard.h
     include/schedules/bjobscheduleindex.h
     include/schedules/bscheduledragplan.h
+    include/schedules/bschedulepersistence.h
+    include/schedules/bschedulereviewdialog.h
+    include/schedules/model/bscheduleresource.h
+    include/director/bconfigtypes.h
+    include/director/bconfigclient.h
+    include/director/bdirectorconfigclient.h
     include/schedules/model/brunspec.h
     include/schedules/model/bscheduleoccurrences.h
     include/schedules/model/bjobhistorystats.h
@@ -804,6 +814,8 @@ if(HAVE_GRPC)
         include/director/bgrpctransport.h
         src/director/bgrpcconnect.cpp
         include/director/bgrpcconnect.h
+        src/director/bconfigproto.cpp
+        include/director/bconfigproto.h
     )
     target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_grpc_proto)
 endif()
@@ -1168,6 +1180,8 @@ if(HAVE_GRPC)
         include/director/bgrpctransport.h
         src/director/bgrpcconnect.cpp
         include/director/bgrpcconnect.h
+        src/director/bconfigproto.cpp
+        include/director/bconfigproto.h
     )
     target_link_libraries(bareosdirector_lib PUBLIC onesimus_grpc_proto)
 endif()
@@ -1552,6 +1566,51 @@ if(BUILD_TESTING)
     # The widget's translation unit needs a QApplication; no display is used
     set_tests_properties(bmessagesmodel_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+    # bschedulepersistence_test - writing schedules: the change written into
+    # the raw text of the resource (untouched lines byte for byte, CRLF
+    # kept), the flow over the configuration methods with a fake Director
+    # (check first, review, every status, conflicts never overwritten,
+    # referenced schedules not deleted, locked schedules not written), and
+    # with gRPC the bytes of the requests (no Director)
+    add_executable(bschedulepersistence_test
+        test/bschedulepersistence_test.cpp
+        test/bfakeconfigclient.h
+        test/bfakesaveui.h
+        src/schedules/bschedulepersistence.cpp
+        src/schedules/bscheduledragplan.cpp
+        src/schedules/model/bscheduleresource.cpp
+        src/schedules/model/bschedulegridmodel.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/schedules/bschedulepersistence.h
+        include/schedules/bscheduledragplan.h
+        include/schedules/model/bscheduleresource.h
+        include/schedules/model/bschedulegridmodel.h
+        include/schedules/model/brunspec.h
+        include/director/bconfigclient.h
+        include/director/bconfigtypes.h
+    )
+
+    target_include_directories(bschedulepersistence_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/test
+    )
+
+    target_link_libraries(bschedulepersistence_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    if(HAVE_GRPC)
+        target_sources(bschedulepersistence_test PRIVATE
+            src/director/bconfigproto.cpp
+            include/director/bconfigproto.h
+        )
+        target_link_libraries(bschedulepersistence_test PRIVATE onesimus_grpc_proto)
+    endif()
+
+    add_test(NAME bschedulepersistence_test COMMAND bschedulepersistence_test)
+
     # bgrpcconnect_test - reaching the gRPC port: order of the resolved
     # addresses, the TLS probe per address against sockets on the loopback
     # interface, the texts of failed calls (no Director)
@@ -1845,10 +1904,19 @@ if(BUILD_TESTING)
     # its list is open; waits of seconds (widgets, no Director)
     add_executable(bscheduletimeline_test
         test/bscheduletimeline_test.cpp
+        test/bfakeconfigclient.h
+        test/bfakesaveui.h
         src/buiscale.cpp
         src/config/bsettings.cpp
         src/schedules/bschedulewidget.cpp
         src/schedules/bscheduleganttwidget.cpp
+        src/schedules/bscheduledragplan.cpp
+        src/schedules/bschedulepersistence.cpp
+        include/schedules/bschedulepersistence.h
+        include/schedules/bschedulereviewdialog.h
+        include/director/bconfigclient.h
+        src/schedules/bschedulereviewdialog.cpp
+        src/schedules/model/bscheduleresource.cpp
         src/schedules/bjobscheduleindex.cpp
         src/schedules/bschedulegridaccessible.cpp
         src/schedules/bschedulegriddialogs.cpp
@@ -1896,6 +1964,7 @@ if(BUILD_TESTING)
 
     target_include_directories(bscheduletimeline_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/test
     )
 
     # bareosdirector_lib: the schedule tab names commands by
@@ -1948,6 +2017,7 @@ if(BUILD_TESTING)
     message(STATUS "  bscheduletimeline_test - schedule timeline test: drop without command, unused schedules, offscreen (registered with CTest)")
     message(STATUS "  bscheduleoccurrences_test - schedule run dates and overlap test (registered with CTest)")
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
+    message(STATUS "  bschedulepersistence_test - schedule resource text, save flow and request bytes test (registered with CTest)")
     message(STATUS "  bgrpcconnect_test - gRPC address order, TLS probe and failure text test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")

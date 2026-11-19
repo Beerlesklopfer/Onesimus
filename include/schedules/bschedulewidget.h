@@ -24,6 +24,9 @@
 #include "models/bresourcemodels.h"
 #include "schedules/model/bjobhistorystats.h"
 #include "schedules/model/bschedulewaitmodel.h"
+#include "schedules/bschedulepersistence.h"
+
+class BScheduleSaveDialogs;
 
 /**
  * @brief Widget for displaying and managing backup schedules
@@ -61,18 +64,34 @@
  * the schedules; nothing is written). A limit the Director did not report
  * is not replaced by a default: the runs it matters for are "uncertain".
  *
- * Dragging a bar of the timeline is a what-if and writes nothing, on any
- * connection: no command is sent when it is dropped. The user wanted to
- * change an existing schedule; that needs the gRPC interface of the
- * Onesimus Director, which has no method for it yet. The drop is answered
- * through the gate of setScheduleChangeGate() (the capability notice, as
- * often as that mechanism allows) and always by a line in the status bar.
- * writeScheduleChange() is the one place a later step fills in.
+ * Writing (step 7 of the schedule plan). A schedule is changed, deleted and
+ * created through the configuration methods of the Onesimus Director over
+ * gRPC (BConfigClient, set with setConfigClient()), never with a console
+ * command that changes an existing schedule. Every write goes through
+ * BSchedulePersistence: the Director checks it first (validate_only), the
+ * review shows old and new Run lines and every job that uses the schedule,
+ * and only "Write to the Director" sends it.
  *
- * The grid can be edited. Its changes are kept in the view and not written
- * to the Director yet. A refresh or a choice in the list never replaces
- * them: the schedule is offered to the view (BScheduleGridView::
- * offerSchedule()), which asks whether to keep or to discard the changes.
+ *  - The grid: "Save..." writes the changes of the schedule on display
+ *    (UpdateResource with the SHA-256 read when editing began). After the
+ *    Director wrote it, the schedule is read again and becomes what the
+ *    grid starts from; the undo history ends there.
+ *  - Dragging a bar of the timeline changes the dragged Run line of the
+ *    existing schedule (an update of that schedule, never a new one), on
+ *    the same way. Where the connection cannot do that (BNET, plain Bareos,
+ *    a session whose capabilities do not list it) nothing is sent: the gate
+ *    of setScheduleChangeGate() shows the capability notice and the status
+ *    line says that nothing was changed.
+ *  - "Delete..." deletes the schedule on display (DeleteResource); a
+ *    schedule the Director still finds referenced is not deleted, and the
+ *    references are shown (gate: setScheduleDeleteGate()).
+ *  - A schedule with a Run line that is not understood is locked: the grid
+ *    cannot edit it and a drag of one of its bars is refused.
+ *
+ * The grid keeps changes that are not written. A refresh or a choice in the
+ * list never replaces them: the schedule is offered to the view
+ * (BScheduleGridView::offerSchedule()), which asks whether to keep or to
+ * discard the changes.
  *
  * Job history. How long jobs run and wait is measured from the catalog
  * (BJobHistoryStats). The request (BDirector::Command::LlistJobs, bounded
@@ -106,6 +125,34 @@ public:
      */
     using ScheduleChangeGate = std::function<bool(QWidget *parent)>;
     void setScheduleChangeGate(ScheduleChangeGate gate) { m_scheduleChangeGate = std::move(gate); }
+
+    /// As setScheduleChangeGate(), for "Save..." of the grid (an explicit
+    /// request: the notice is shown every time)
+    void setScheduleSaveGate(ScheduleChangeGate gate) { m_scheduleSaveGate = std::move(gate); }
+
+    /// As setScheduleChangeGate(), for deleting a schedule
+    /// (BCapabilities::Function::DeleteSchedule)
+    void setScheduleDeleteGate(ScheduleChangeGate gate) { m_scheduleDeleteGate = std::move(gate); }
+
+    /**
+     * @brief The configuration methods of the Director
+     *
+     * Without a client nothing can be written (the gates then say why).
+     * The widget does not own it.
+     */
+    void setConfigClient(BConfigClient *client);
+
+    /// The flow that writes schedules (also used by the wizard)
+    BSchedulePersistence *persistence() const { return m_persistence; }
+
+    /// The dialogs of that flow; tests put their own answers in
+    void setSaveUi(BScheduleSaveUi *ui);
+
+    /// The grid on display (tests)
+    BScheduleGridView *gridView() const { return m_gridView; }
+
+    /// Names for the pick lists of pools and storages (.pools, .storages)
+    void setResourceNames(const QStringList &pools, const QStringList &storages);
     void clearData();
 
     BScheduleModel *scheduleModel() { return m_scheduleModel; }
@@ -161,6 +208,10 @@ private slots:
     void onZoomSliderChanged(int value);
     void onJobSelectionChanged();
     void onJobListDoubleClicked(int row, int column);
+    void onGridSaveRequested();
+    void onGridDeleteRequested();
+    void onPersistenceFinished(const BScheduleReport &report);
+    void updateWritable();
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -221,14 +272,19 @@ private:
     void updateJobList();  // Aggregates jobs from all checked schedules
     /**
      * @brief Writes a new time of a Run line of an existing schedule
-     * @return false: nothing was written
+     * @return false: the connection cannot write (the caller says so in the
+     *         status line); true: the update of that schedule was started
+     *         or refused with its own message
      *
-     * Always false today: no Director has a method that updates a
-     * schedule. A later step sends the update through the gRPC interface of
-     * the Onesimus Director here. It must never be replaced by "configure
-     * add": that creates another schedule and leaves this one as it is.
+     * Updates the schedule the entry belongs to (UpdateResource) on the way
+     * of BSchedulePersistence: the Run lines of BScheduleDragPlan::plan(),
+     * only the dragged one written anew. Never "configure add": that would
+     * create another schedule and leave this one as it is.
      */
     bool writeScheduleChange(const BScheduleEntry &entry, int newHour, int newMinute);
+
+    /// The jobs that use a schedule, for the review
+    QStringList jobsUsing(const QString &scheduleName) const;
     /// The text of the counter with the arrow that says whether its list is open
     void updateWaitButtonText();
     void resizeBothGanttWidgets();
@@ -330,6 +386,13 @@ private:
 
     BDirector *m_director;
     ScheduleChangeGate m_scheduleChangeGate;
+    ScheduleChangeGate m_scheduleDeleteGate;
+    ScheduleChangeGate m_scheduleSaveGate;
+    QPointer<BConfigClient> m_configClient;
+    BSchedulePersistence *m_persistence = nullptr;
+    BScheduleSaveDialogs *m_saveDialogs = nullptr;
+    QString m_gridAwaitingReload;     ///< Written from the grid: the next reply is the new baseline
+    QString m_gridSaving;             ///< The grid's schedule whose save is under way
     QDate m_currentDate;              // The day on display; in week views its week
 };
 

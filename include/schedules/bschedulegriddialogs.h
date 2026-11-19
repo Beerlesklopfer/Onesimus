@@ -18,9 +18,11 @@ class QSpinBox;
  * @file bschedulegriddialogs.h
  * @brief The small forms of the schedule grid: overrides, a new brush, a new scope
  *
- * None of them talks to a Director. Names of pools, storages and messages
- * resources are typed; what cannot be written as a Run line is said in the
- * form and cannot be accepted.
+ * None of them talks to a Director. Pools and storages are chosen from the
+ * names the Director reported (".pools", ".storages"; decision of the
+ * maintainer, 19.11.2026: pick lists, no free text); messages resources and
+ * times are typed. What cannot be written as a Run line is said in the form
+ * and cannot be accepted.
  */
 
 /**
@@ -29,6 +31,12 @@ class QSpinBox;
  * Every field is optional. An empty text field, "Level of the job" and
  * "not set" mean that the Run line does not name the setting and the job's
  * own applies.
+ *
+ * The pool fields and the storage field are pick lists of the names set
+ * with setResourceNames(), the names the Director reported. A name a Run
+ * line already has and the Director did not report is kept as an entry of
+ * its own, marked as such, so that opening a line and accepting it changes
+ * nothing.
  */
 class BRunOverridesEditor : public QWidget
 {
@@ -41,20 +49,29 @@ public:
     BRunOverrides overrides() const;
 
     QComboBox *levelCombo() const { return m_level; }
-    QLineEdit *poolEdit() const { return m_pool; }
-    QLineEdit *storageEdit() const { return m_storage; }
+    QComboBox *poolCombo() const { return m_pool; }
+    QComboBox *storageCombo() const { return m_storage; }
+
+    /// The names of the pick lists, for every editor made from now on (the
+    /// names the Director reported with .pools and .storages)
+    static void setResourceNames(const QStringList &pools, const QStringList &storages);
+    static QStringList poolNames();
+    static QStringList storageNames();
+
+    /// Chooses @p name in a pick list (adding it marked if it is not offered); empty: not set
+    static void choose(QComboBox *combo, const QString &name);
 
 signals:
     void changed();
 
 private:
     QComboBox *m_level;
-    QLineEdit *m_pool;
-    QLineEdit *m_fullPool;
-    QLineEdit *m_incrementalPool;
-    QLineEdit *m_differentialPool;
-    QLineEdit *m_nextPool;
-    QLineEdit *m_storage;
+    QComboBox *m_pool;
+    QComboBox *m_fullPool;
+    QComboBox *m_incrementalPool;
+    QComboBox *m_differentialPool;
+    QComboBox *m_nextPool;
+    QComboBox *m_storage;
     QLineEdit *m_messages;
     QLineEdit *m_maxRunSchedTime;
     QCheckBox *m_havePriority;

@@ -17,24 +17,31 @@ const char Context[] = "BCapabilities";
 // - Onesimus Director: `configure update` covers client and job; the typed
 //   configure commands take a flat map of directives; `purge` follows the
 //   Bareos command (no form for all volumes).
-// - Changing a schedule is to come through methods of the gRPC interface
-//   of the Onesimus Director (onesimus-dird) that do not exist yet. Until
-//   then no connection can do it, the console protocol never will, and the
-//   GUI sends nothing: the notice says that nothing was changed.
+// - Changing and deleting a schedule go through the configuration methods
+//   of the gRPC interface DirectorApi of the Onesimus Director
+//   (UpdateResource, DeleteResource; onesimus-dird
+//   docs/plans/CONFIG-CRUD-GRPC.md). Whether a session may use them is what
+//   GetConfigCapabilities says after the login (Support::Live). The console
+//   protocol never can, and over it the GUI sends nothing: the notice says
+//   that nothing was changed.
+// - Creating a schedule works everywhere with "configure add"; where the
+//   capabilities list CreateResource, that is taken instead.
 const Entry Table[] = {
     {
         Function::ModifySchedule,
         "schedule.modify",
         QT_TRANSLATE_NOOP("BCapabilities", "Change an existing schedule"),
         false,
-        Support::Planned,
+        Support::Live,
         QT_TRANSLATE_NOOP("BCapabilities",
                           "%1 cannot change an existing schedule on this connection: that "
-                          "needs the schedule methods of the gRPC interface of the Onesimus "
+                          "needs the configuration methods of the gRPC interface of the Onesimus "
                           "Director (onesimus-dird)."),
         QT_TRANSLATE_NOOP("BCapabilities",
-                          "Nothing was changed. For now a schedule is changed in its "
+                          "Nothing was changed. A schedule can also be changed in its "
                           "configuration file on the Director."),
+        BConfig::ResourceType::Schedule,
+        BConfig::Operation::UpdateRaw,
     },
     {
         Function::PurgeAllVolumes,
@@ -61,6 +68,33 @@ const Entry Table[] = {
         QT_TRANSLATE_NOOP("BCapabilities",
                           "You can copy the configuration text and place it on the Director "
                           "yourself."),
+    },
+    {
+        Function::DeleteSchedule,
+        "schedule.delete",
+        QT_TRANSLATE_NOOP("BCapabilities", "Delete a schedule"),
+        false,
+        Support::Live,
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "%1 cannot delete a schedule on this connection: that needs the "
+                          "configuration methods of the gRPC interface of the Onesimus Director "
+                          "(onesimus-dird)."),
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "Nothing was deleted. A schedule can also be removed from the "
+                          "configuration files on the Director."),
+        BConfig::ResourceType::Schedule,
+        BConfig::Operation::Delete,
+    },
+    {
+        Function::CreateSchedule,
+        "schedule.create",
+        QT_TRANSLATE_NOOP("BCapabilities", "Create a schedule"),
+        true,
+        Support::Yes,
+        QT_TRANSLATE_NOOP("BCapabilities", "%1 cannot create a schedule."),
+        nullptr,
+        BConfig::ResourceType::Schedule,
+        BConfig::Operation::CreateRaw,
     },
 };
 
@@ -90,11 +124,16 @@ QList<Function> allFunctions()
     return functions;
 }
 
-Server describeServer(Connection connection, const QString &identity)
+Server describeServer(Connection connection, const QString &identity,
+                      const BConfig::Capabilities &config)
 {
     Server server;
     if (connection == Connection::None) {
         return server;
+    }
+    server.connection = connection;
+    if (connection == Connection::Grpc) {
+        server.config = config;
     }
 
     // The greeting separates its fields with a record separator or with the
@@ -141,9 +180,25 @@ Server describeServer(Connection connection, const QString &identity)
     return server;
 }
 
+bool usesConfigMethod(const Entry &entry, const Server &server)
+{
+    return entry.liveOperation != BConfig::Operation::Unspecified
+        && server.kind == ServerKind::OnesimusDirector && server.connection == Connection::Grpc
+        && server.config.supports(entry.liveType, entry.liveOperation);
+}
+
+bool usesConfigMethod(Function function, const Server &server)
+{
+    const Entry *row = entry(function);
+    return row && usesConfigMethod(*row, server);
+}
+
 bool isAvailable(const Entry &entry, const Server &server)
 {
     if (server.kind == ServerKind::OnesimusDirector) {
+        if (entry.onesimus == Support::Live) {
+            return usesConfigMethod(entry, server);
+        }
         return entry.onesimus == Support::Yes;
     }
     // Bareos, and every server that was not identified
@@ -184,15 +239,35 @@ Notice notice(const Entry &entry, const Server &server)
     result.title = translated(entry.name);
 
     QStringList sentences;
-    sentences.append(translated(entry.reason).arg(serverLabel(server)));
+    const bool onOnesimus = (server.kind == ServerKind::OnesimusDirector);
+    if (entry.onesimus == Support::Live && onOnesimus && server.connection == Connection::Grpc) {
+        // The interface is there; this session is not offered the method
+        sentences.append(translated(QT_TRANSLATE_NOOP(
+                             "BCapabilities",
+                             "%1 does not offer this to this session: its configuration "
+                             "capabilities do not list it. The console needs the command ACL "
+                             "\"configure\" and the ACL of the resource type, or the Director is "
+                             "older than its configuration methods."))
+                             .arg(serverLabel(server)));
+    } else {
+        sentences.append(translated(entry.reason).arg(serverLabel(server)));
+    }
 
     if (entry.manualWay && entry.manualWay[0] != '\0') {
         sentences.append(translated(entry.manualWay));
     }
 
     // What the Onesimus Director offers: only what the table says
-    const bool onOnesimus = (server.kind == ServerKind::OnesimusDirector);
     switch (entry.onesimus) {
+    case Support::Live:
+        if (!onOnesimus) {
+            sentences.append(translated(QT_TRANSLATE_NOOP(
+                "BCapabilities", "The Onesimus Director supports this over its gRPC interface.")));
+        } else if (server.connection != Connection::Grpc) {
+            sentences.append(translated(QT_TRANSLATE_NOOP(
+                "BCapabilities", "Connect to it over gRPC to use this.")));
+        }
+        break;
     case Support::Yes:
         if (!onOnesimus) {
             sentences.append(translated(

@@ -11,11 +11,17 @@
 #include <chrono>
 #include <memory>
 
+#include "director/bconfigtypes.h"
+
 class QGrpcBidiStream;
+class QGrpcCallReply;
 class QGrpcStatus;
 class BGrpcAddressProbe;
 
 namespace onesimus::director::Director {
+class Client;
+}
+namespace onesimus::director::api::DirectorApi {
 class Client;
 }
 
@@ -42,7 +48,12 @@ class Client;
  *   loggedIn()  +  InteractiveSession (push events)
  * @endcode
  *
- * All later RPCs carry the token in the "x-onesimus-session" header.
+ * All later RPCs carry the token in the "x-onesimus-session" header, also
+ * those of the service DirectorApi (proto/director_api.proto), which runs on
+ * the same channel. Right after the login GetConfigCapabilities is asked
+ * once (configCapabilities()); configCall() carries the configuration CRUD
+ * methods. odir checks the session token of every DirectorApi call the same
+ * way as for Director (grpc/auth.rs, AuthState::identity()).
  * Commands are executed one at a time (FIFO), so responses keep the order
  * BareosDirector's command queue relies on.
  *
@@ -76,6 +87,15 @@ public:
 
     bool isLoggedIn() const { return !m_sessionToken.isEmpty(); }
 
+    /**
+     * @brief Runs a configuration request (DirectorApi CRUD)
+     *
+     * Answered by configReply() with the same id, also when not logged in
+     * (Status::NotAvailable) or on a gRPC error (Status::RpcError with the
+     * code). Independent of the command queue.
+     */
+    void configCall(quint64 id, const BConfig::Request &request);
+
     /// SHA-256 fingerprint (lowercase hex) of a certificate's DER encoding
     static QString certificateFingerprint(const QSslCertificate &cert);
 
@@ -106,6 +126,12 @@ signals:
     /// (also emitted as eventMessage). Push is lossy: no time, no message type.
     void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
 
+    /// Reply to configCall()
+    void configReply(quint64 id, const BConfig::Reply &reply);
+
+    /// What GetConfigCapabilities reported after the login
+    void configCapabilities(const BConfig::Capabilities &capabilities);
+
     /// Connection lost after a successful login
     void connectionLost(const QString &reason);
 
@@ -116,6 +142,8 @@ private:
     void openPushStream();
     void sendNext();
     void fail(const QString &reason);
+    void fetchConfigCapabilities();
+    void finishConfigCall(quint64 id, QGrpcCallReply *reply, BConfig::Request::Kind kind);
 
     QString m_host;
     int m_port = 0;
@@ -125,6 +153,7 @@ private:
 
     QPointer<BGrpcAddressProbe> m_probe;
     std::unique_ptr<onesimus::director::Director::Client> m_client;
+    std::unique_ptr<onesimus::director::api::DirectorApi::Client> m_api;
     std::unique_ptr<QGrpcBidiStream> m_pushStream;
 
     QString m_sessionToken;
