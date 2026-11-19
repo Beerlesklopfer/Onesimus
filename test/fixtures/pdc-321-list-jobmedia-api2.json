@@ -1,0 +1,140 @@
+{
+  "jsonrpc": "2.0",
+  "id": null,
+  "result": {
+    "jobmedia": [
+      {
+        "jobid": "101",
+        "volumename": "Tapir-0021",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "140",
+        "volumename": "Tapir-0021",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "151",
+        "volumename": "Tapir-0021",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "160",
+        "volumename": "Tapir-0021",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "110",
+        "volumename": "Forgejo-0022",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "130",
+        "volumename": "Forgejo-0022",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "150",
+        "volumename": "Forgejo-0022",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "158",
+        "volumename": "Forgejo-0022",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "20",
+        "volumename": "Vol-0001",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "60",
+        "volumename": "Vol-0005",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "120",
+        "volumename": "Vol-0023",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "159",
+        "volumename": "Vol-0023",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "50",
+        "volumename": "CLOUD-0016",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "50",
+        "volumename": "CLOUD-0017",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "122",
+        "volumename": "CLOUD-0024",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "122",
+        "volumename": "CLOUD-0025",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "157",
+        "volumename": "CLOUD-0025",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "135",
+        "volumename": "BGLAGE-0010",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "135",
+        "volumename": "BGLAGE-0011",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "135",
+        "volumename": "BGLAGE-0012",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "145",
+        "volumename": "BGLAGE-0012",
+        "firstindex": "1",
+        "lastindex": "10"
+      },
+      {
+        "jobid": "155",
+        "volumename": "BGLAGE-0012",
+        "firstindex": "1",
+        "lastindex": "10"
+      }
+    ]
+  }
+}

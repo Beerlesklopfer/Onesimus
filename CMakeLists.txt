@@ -450,6 +450,7 @@ set(SOURCES
     src/models/bvolumejson.cpp
     src/storage/model/bvolumelist.cpp
     src/storage/model/brecycleforecast.cpp
+    src/tools/b321verifier.cpp
 
     src/config/bcolumnconfiguration.cpp
     src/config/bsettings.cpp
@@ -547,6 +548,7 @@ set(HEADERS
     include/models/bvolumejson.h
     include/storage/model/bvolumelist.h
     include/storage/model/brecycleforecast.h
+    include/tools/b321verifier.h
     include/bcleanupdialog.h
     include/bcapabilities.h
     include/bcapabilitynotice.h
@@ -2040,6 +2042,38 @@ if(BUILD_TESTING)
 
     add_test(NAME bwaitcalibration_test COMMAND bwaitcalibration_test)
 
+    # b321verifier_test - the 3-2-1 rule per backup job: chain, copies
+    # (whole, partial, copies of copies, Migrate), media types, off site,
+    # the setting for the original data and the worked example on the
+    # production Director's volume list (no widgets, no Director)
+    add_executable(b321verifier_test
+        test/b321verifier_test.cpp
+        src/tools/b321verifier.cpp
+        src/storage/model/bvolumelist.cpp
+        src/models/bvolumejson.cpp
+        src/bbyteformat.cpp
+        include/tools/b321verifier.h
+        include/storage/model/bvolumelist.h
+        include/models/bvolumejson.h
+        include/bbyteformat.h
+    )
+
+    target_include_directories(b321verifier_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(b321verifier_test PRIVATE
+        FIXTURE_DIR="${CMAKE_SOURCE_DIR}/test/fixtures"
+    )
+
+    target_link_libraries(b321verifier_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME b321verifier_test COMMAND b321verifier_test)
+    set_tests_properties(b321verifier_test PROPERTIES ENVIRONMENT "TZ=UTC")
+
     # bschedulegridmodel_test - the model behind the schedule grid: cells and
     # scopes from Run lines, selection, and the edits back to Run lines
     # (no widgets, no Director)
@@ -2428,6 +2462,7 @@ if(BUILD_TESTING)
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
     message(STATUS "  bschedulewaitmodel_test - predicted waiting time of scheduled runs test (registered with CTest)")
     message(STATUS "  bwaitcalibration_test - wait prediction against the catalog test (registered with CTest)")
+    message(STATUS "  b321verifier_test - 3-2-1 rule per backup job test (registered with CTest)")
     message(STATUS "  bschedulegridmodel_test - schedule grid model test (registered with CTest)")
     message(STATUS "  bschedulegridtext_test - schedule grid texts, calendar and geometry test (registered with CTest)")
     message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")

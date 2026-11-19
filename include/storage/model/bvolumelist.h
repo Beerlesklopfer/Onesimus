@@ -45,6 +45,7 @@ struct BVolume
     std::optional<bool> recycle;        ///< Recycle = yes
     std::optional<int> enabled;         ///< 0 disabled, 1 enabled, 2 archived
     std::optional<int> actionOnPurge;   ///< only if a reply ever carries it (Bareos 25 does not)
+    std::optional<qint64> locationId;   ///< Media.LocationId; 0 = no location (llist only)
 
     QDateTime firstWritten;             ///< llist only; invalid = unknown or never written
     QDateTime lastWritten;

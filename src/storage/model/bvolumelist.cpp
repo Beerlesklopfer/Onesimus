@@ -20,7 +20,7 @@ const char *const kShortColumns[] = {
 // BVolume keeps
 const char *const kLongColumns[] = {
     "maxvolbytes", "voljobs", "maxvoljobs", "maxvolfiles", "volerrors",
-    "recyclecount", "voluseduration",
+    "recyclecount", "voluseduration", "locationid",
 };
 
 // Keys only a long listing has; one of them marks a typed record as long
@@ -144,6 +144,7 @@ BVolume BVolumeList::volumeFromJson(const QJsonObject &object)
     v.recycleCount = num("recyclecount");
     v.volRetention = num("volretention");
     v.volUseDuration = num("voluseduration");
+    v.locationId = num("locationid");
     v.recycle = toBool(object.value(QStringLiteral("recycle")));
     if (const std::optional<qint64> enabled = num("enabled")) {
         v.enabled = int(*enabled);
@@ -192,6 +193,7 @@ BVolume BVolumeList::volumeFromJson(const QJsonObject &object)
                 else if (k == QLatin1String("volerrors")) v.volErrors = 0;
                 else if (k == QLatin1String("recyclecount")) v.recycleCount = 0;
                 else if (k == QLatin1String("voluseduration")) v.volUseDuration = 0;
+                else if (k == QLatin1String("locationid")) v.locationId = 0;
             }
         }
     }
