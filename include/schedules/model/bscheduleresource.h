@@ -117,6 +117,25 @@ public:
 
     /// A value as Bareos reads it in a configuration file: quoted, with \ and " escaped
     static QString quoted(const QString &value);
+
+    /**
+     * @brief Why @p name cannot be the name of a new schedule; empty if it can
+     *
+     * Bareos resource names: letters, digits and _ - . : (no blanks, so
+     * that the name needs no quotes on a console command line), at most
+     * 127 characters. @p taken are the names of the schedules there are
+     * (compared without case, as the Director does).
+     */
+    static QString nameProblem(const QString &name, const QStringList &taken);
+
+    /**
+     * @brief The resource text with another Name, everything else byte for byte
+     *
+     * Only the value of the Name directive is replaced (quoted). @return an
+     * empty string if the text is not one Schedule with a Name directive on
+     * a line of its own, or the result does not read back with @p name
+     */
+    static QString withName(const QString &raw, const QString &name);
 };
 
 #endif // BSCHEDULERESOURCE_H

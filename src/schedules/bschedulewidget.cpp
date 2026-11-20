@@ -3,6 +3,8 @@
 #include "schedules/bstaggerconstraintsdialog.h"
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QFontDatabase>
 #include <QPlainTextEdit>
 #include <memory>
@@ -164,6 +166,8 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     });
     connect(m_gridView, &BScheduleGridView::saveRequested, this, &BScheduleWidget::onGridSaveRequested);
     connect(m_gridView, &BScheduleGridView::deleteRequested, this, &BScheduleWidget::onGridDeleteRequested);
+    connect(m_gridView, &BScheduleGridView::copyRequested, this, &BScheduleWidget::onGridCopyRequested);
+    connect(m_gridView, &BScheduleGridView::renameRequested, this, &BScheduleWidget::onGridRenameRequested);
     // The raw text and its SHA-256 are read when editing begins: a change
     // made on the Director after that is a conflict when saving
     connect(m_gridView, &BScheduleGridView::modifiedChanged, this, [this](bool modified) {
@@ -1623,6 +1627,12 @@ QStringList BScheduleWidget::jobsUsing(const QString &scheduleName) const
     return jobs;
 }
 
+namespace {
+// The dialogs of copy, rename and the move of one job (defined further down)
+BScheduleWidget::DragScope askDragScopeDialog(QWidget *parent, const QString &schedule, const QStringList &jobs,
+                                              const QString &job, const QString &copyName, const QString &newTime);
+} // namespace
+
 bool BScheduleWidget::writeScheduleChange(const BScheduleEntry &entry, int newHour, int newMinute)
 {
     if (!m_configClient)
@@ -1632,7 +1642,7 @@ bool BScheduleWidget::writeScheduleChange(const BScheduleEntry &entry, int newHo
                                       .arg(minute, 2, 10, QLatin1Char('0'));
     };
     const QString name = entry.scheduleName;
-    if (m_persistence->isBusy()) {
+    if (m_persistence->isBusy() || m_changeRunning || m_staggerApplying) {
         emit statusMessageChanged(tr("Schedule %1 was not changed: another change is being written.").arg(name));
         return true;
     }
@@ -1673,7 +1683,28 @@ bool BScheduleWidget::writeScheduleChange(const BScheduleEntry &entry, int newHo
     }
 
     const int line = plan.draggedLine;
-    const QString note = tr("Run line %1 of schedule %2 moves from %3 to %4 (dragged in the timeline: %5). "
+
+    // A schedule several jobs use: the change would move all of them. Moving
+    // only the dragged job is the other, explicit choice: a copy of the
+    // schedule with the new time, assigned to that job.
+    const QStringList users = jobsUsing(name);
+    if (users.size() > 1 && !entry.jobName.isEmpty() && canMoveOneJob()) {
+        const QString newTime = clock(newHour, newMinute);
+        const QString copyName = BStaggerPlan::scheduleName(name, QTime(newHour, newMinute), scheduleNames());
+        const DragScopeQuestion ask = m_dragScopeQuestion ? m_dragScopeQuestion : askDragScopeDialog;
+        switch (ask(this, name, users, entry.jobName, copyName, newTime)) {
+        case DragScope::Cancel:
+            emit statusMessageChanged(tr("Schedule %1 was not changed: the move was cancelled.").arg(name));
+            return true;
+        case DragScope::OneJob:
+            moveOneJob(entry, loaded, line, plan.generatedRuns.value(line), copyName, newTime);
+            return true;
+        case DragScope::AllJobs:
+            break;
+        }
+    }
+
+    const QString note =tr("Run line %1 of schedule %2 moves from %3 to %4 (dragged in the timeline: %5). "
                             "Only this line is written anew; the other lines stay as they are in the file.")
                              .arg(line + 1).arg(name, clock(entry.hour, entry.minute),
                                   clock(newHour, newMinute),
@@ -1711,6 +1742,13 @@ void BScheduleWidget::updateWritable()
     const BConfig::Capabilities caps = m_configClient ? m_configClient->capabilities() : BConfig::Capabilities();
     m_gridView->setWritable(caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::UpdateRaw),
                             caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::Delete));
+    QString renameWhyNot;
+    const bool rename = canRename(&renameWhyNot);
+    m_gridView->setCopyRenameAvailable(
+        caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::CreateRaw),
+        tr("Copying a schedule needs the configuration methods of the gRPC interface of the Onesimus Director "
+           "(create schedules), which are not available on this connection"),
+        rename, renameWhyNot);
     // A text read with another session's rights is not kept
     if (!caps.known)
         m_persistence->forget();
@@ -3312,17 +3350,8 @@ void BScheduleWidget::applyStagger()
 
     // The jobs' texts as they are on the Director, then everything at once
     // for the confirmation
-    struct State {
-        QList<Group> groups;
-        QStringList jobs;
-        QHash<QString, BConfig::Reply> read;
-        int pending = 0;
-        QString failure;
-    };
-    auto state = std::make_shared<State>();
-    state->groups = groups;
-    for (const Group &g : groups) state->jobs << g.jobs;
-    state->pending = state->jobs.size();
+    QStringList jobs;
+    for (const Group &g : groups) jobs << g.jobs;
     m_staggerApplying = true;
     updateStaggerApply();
     emit statusMessageChanged(tr("Reading the jobs that start later..."));
@@ -3339,28 +3368,28 @@ void BScheduleWidget::applyStagger()
         }
     };
 
-    auto writeAll = [this, state, finish]() {
+    readResources(BConfig::ResourceType::Job, jobs,
+                  [this, groups, finish](const QHash<QString, BConfig::Reply> &read) {
         // Requests in order: the schedules first, the jobs refer to them
-        QList<BConfig::Request> steps;
-        QStringList what;
+        QList<ConfigStep> steps;
         QString summary;
-        for (const Group &g : state->groups) {
-            steps.append(BConfig::Request::create(BConfig::ResourceType::Schedule, g.text, false));
-            what.append(tr("schedule %1").arg(g.name));
+        for (const Group &g : groups) {
+            steps.append({BConfig::Request::create(BConfig::ResourceType::Schedule, g.text, false),
+                          tr("schedule %1").arg(g.name)});
             summary += tr("New schedule %1 for %2:").arg(g.name, g.jobs.join(QStringLiteral(", ")))
                        + QLatin1Char('\n') + g.text + QLatin1Char('\n');
         }
         summary += tr("Jobs:") + QLatin1Char('\n');
-        for (const Group &g : state->groups) {
+        for (const Group &g : groups) {
             for (const QString &job : g.jobs) {
-                const BConfig::Reply &raw = state->read.value(job);
+                const BConfig::Reply &raw = read.value(job);
                 const QString text = BStaggerPlan::jobWithSchedule(raw.text, g.name);
                 if (text.isEmpty()) {
                     finish(tr("Nothing was written: the text of job %1 has no closing brace.").arg(job), false);
                     return;
                 }
-                steps.append(BConfig::Request::update(BConfig::ResourceType::Job, job, raw.sha256, text, false));
-                what.append(tr("job %1").arg(job));
+                steps.append({BConfig::Request::update(BConfig::ResourceType::Job, job, raw.sha256, text, false),
+                              tr("job %1").arg(job)});
                 const QString before = BStaggerPlan::scheduleLine(raw.text);
                 summary += QStringLiteral("  %1: %2  ->  %3\n").arg(
                     job, before.isEmpty() ? tr("(Schedule from its JobDefs)") : before,
@@ -3372,54 +3401,462 @@ void BScheduleWidget::applyStagger()
             finish(tr("Nothing was written: the later start times were not confirmed."), false);
             return;
         }
+        writeSteps(steps, tr("Written: %1. The jobs start at their new times from now on."), finish);
+    }, finish);
+}
 
-        auto done = std::make_shared<QStringList>();
-        auto next = std::make_shared<std::function<void(int)>>();
-        // The chain holds itself only through the pending call
-        std::weak_ptr<std::function<void(int)>> chain = next;
-        *next = [this, steps, what, done, chain, finish](int index) {
-            const auto next = chain.lock();
-            if (!next) return;
-            if (index >= steps.size()) {
-                finish(tr("Written: %1. The jobs start at their new times from now on.")
-                           .arg(done->join(QStringLiteral(", "))), true);
-                return;
-            }
-            emit statusMessageChanged(tr("Writing %1...").arg(what[index]));
-            m_configClient->call(steps[index], this, [this, index, what, done, next, finish](const BConfig::Reply &reply) {
-                if (!reply.ok()) {
-                    QString why = reply.message.isEmpty() ? reply.rpcMessage : reply.message;
-                    if (reply.problem) why += QStringLiteral(" (%1)").arg(reply.problem->text);
-                    if (reply.status == BConfig::Status::Conflict)
-                        why = tr("it was changed on the Director in the meantime");
-                    else if (reply.status == BConfig::Status::Exists)
-                        why = tr("the name is taken");
-                    const QString written = done->isEmpty() ? tr("nothing")
-                                                            : done->join(QStringLiteral(", "));
-                    finish(tr("Writing %1 failed: %2. Written before: %3. Nothing after it was sent.")
-                               .arg(what[index], why, written), !done->isEmpty());
-                    return;
-                }
-                done->append(what[index]);
-                (*next)(index + 1);
-            });
-        };
-        (*next)(0);
+// ============================================================================
+// Changes of several resources: helpers
+// ============================================================================
+
+void BScheduleWidget::readResources(BConfig::ResourceType type, const QStringList &names,
+                                    std::function<void(const QHash<QString, BConfig::Reply> &)> next,
+                                    ChangeFinish finish)
+{
+    if (names.isEmpty()) {
+        next({});
+        return;
+    }
+    if (!m_configClient) {
+        finish(tr("Nothing was written: there is no connection to the configuration methods of the Director."),
+               false);
+        return;
+    }
+    struct State {
+        QHash<QString, BConfig::Reply> read;
+        int pending = 0;
+        QString failure;
     };
-
-    for (const QString &job : state->jobs) {
-        m_configClient->call(BConfig::Request::read(BConfig::ResourceType::Job, job), this,
-                             [this, state, job, writeAll, finish](const BConfig::Reply &reply) {
-            if (reply.ok()) state->read.insert(job, reply);
+    auto state = std::make_shared<State>();
+    state->pending = names.size();
+    for (const QString &name : names) {
+        m_configClient->call(BConfig::Request::read(type, name), this,
+                             [this, state, type, name, next, finish](const BConfig::Reply &reply) {
+            if (reply.ok())
+                state->read.insert(name, reply);
             else if (state->failure.isEmpty())
-                state->failure = tr("Nothing was written: job %1 could not be read (%2).")
-                                     .arg(job, reply.message.isEmpty() ? reply.rpcMessage : reply.message);
+                state->failure = tr("Nothing was written: %1 %2 could not be read (%3).")
+                                     .arg(BConfig::typeName(type), name,
+                                          reply.message.isEmpty() ? reply.rpcMessage : reply.message);
             if (--state->pending > 0) return;
             if (!state->failure.isEmpty()) {
                 finish(state->failure, false);
                 return;
             }
-            writeAll();
+            next(state->read);
         });
     }
+}
+
+void BScheduleWidget::writeSteps(const QList<ConfigStep> &steps, const QString &doneText, ChangeFinish finish)
+{
+    if (!m_configClient) {
+        finish(tr("Nothing was written: there is no connection to the configuration methods of the Director."),
+               false);
+        return;
+    }
+    auto done = std::make_shared<QStringList>();
+    auto next = std::make_shared<std::function<void(int)>>();
+    // The chain holds itself only through the pending call
+    std::weak_ptr<std::function<void(int)>> chain = next;
+    *next = [this, steps, doneText, done, chain, finish](int index) {
+        const auto next = chain.lock();
+        if (!next) return;
+        if (index >= steps.size()) {
+            finish(QString(doneText).arg(done->join(QStringLiteral(", "))), true);
+            return;
+        }
+        if (!m_configClient) {
+            finish(tr("Writing %1 failed: the connection to the configuration methods is gone. Written "
+                      "before: %2. Nothing after it was sent.")
+                       .arg(steps[index].what, done->isEmpty() ? tr("nothing") : done->join(QStringLiteral(", "))),
+                   !done->isEmpty());
+            return;
+        }
+        emit statusMessageChanged(tr("Writing %1...").arg(steps[index].what));
+        m_configClient->call(steps[index].request, this,
+                             [this, index, steps, done, next, finish](const BConfig::Reply &reply) {
+            if (!reply.ok()) {
+                QString why = reply.message.isEmpty() ? reply.rpcMessage : reply.message;
+                if (reply.problem) why += QStringLiteral(" (%1)").arg(reply.problem->text);
+                if (reply.status == BConfig::Status::Conflict)
+                    why = tr("it was changed on the Director in the meantime");
+                else if (reply.status == BConfig::Status::Exists)
+                    why = tr("the name is taken");
+                else if (reply.status == BConfig::Status::Referenced) {
+                    QStringList who;
+                    for (const BConfig::ResourceRef &ref : reply.referencedBy)
+                        who.append(BConfig::typeName(ref.type) + QLatin1Char(' ') + ref.name);
+                    why = tr("it is still used by %1").arg(who.isEmpty() ? why : who.join(QStringLiteral(", ")));
+                }
+                if (why.isEmpty())
+                    why = BConfig::statusName(reply.status);
+                const QString written = done->isEmpty() ? tr("nothing")
+                                                        : done->join(QStringLiteral(", "));
+                finish(tr("Writing %1 failed: %2. Written before: %3. Nothing after it was sent.")
+                           .arg(steps[index].what, why, written), !done->isEmpty());
+                return;
+            }
+            done->append(steps[index].what);
+            (*next)(index + 1);
+        });
+    };
+    (*next)(0);
+}
+
+namespace {
+
+bool confirmChangeDialog(QWidget *parent, const QString &title, const QString &summary)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(title);
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *intro = new QLabel(BScheduleWidget::tr("These resources are written to the Director, in this "
+                                                 "order. The Director checks each one; the first that it "
+                                                 "refuses stops the rest."), &dialog);
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    auto *text = new QPlainTextEdit(summary, &dialog);
+    text->setReadOnly(true);
+    text->setLineWrapMode(QPlainTextEdit::NoWrap);
+    text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    text->setMinimumSize(BUiScale::px(560), BUiScale::px(320));
+    layout->addWidget(text, 1);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
+    buttons->addButton(BScheduleWidget::tr("Write to the Director"), QDialogButtonBox::AcceptRole);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    return dialog.exec() == QDialog::Accepted;
+}
+
+QString askNameDialog(QWidget *parent, const QString &title, const QString &label, const QString &suggestion,
+                      const std::function<QString(const QString &)> &problem)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(title);
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *caption = new QLabel(label, &dialog);
+    layout->addWidget(caption);
+    auto *edit = new QLineEdit(suggestion, &dialog);
+    edit->selectAll();
+    caption->setBuddy(edit);
+    layout->addWidget(edit);
+    auto *error = new QLabel(&dialog);
+    error->setTextFormat(Qt::PlainText);
+    error->setWordWrap(true);
+    layout->addWidget(error);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    // Said while typing: OK only for a name that can be taken
+    auto check = [&]() {
+        const QString why = problem ? problem(edit->text().trimmed()) : QString();
+        error->setText(why);
+        error->setVisible(!why.isEmpty());
+        buttons->button(QDialogButtonBox::Ok)->setEnabled(why.isEmpty());
+    };
+    QObject::connect(edit, &QLineEdit::textChanged, &dialog, check);
+    check();
+    return dialog.exec() == QDialog::Accepted ? edit->text().trimmed() : QString();
+}
+
+BScheduleWidget::DragScope askDragScopeDialog(QWidget *parent, const QString &schedule, const QStringList &jobs,
+                                              const QString &job, const QString &copyName, const QString &newTime)
+{
+    QMessageBox box(parent);
+    box.setIcon(QMessageBox::Question);
+    box.setWindowTitle(BScheduleWidget::tr("Move a run of schedule %1").arg(schedule));
+    box.setText(BScheduleWidget::tr("Schedule %1 is used by %n job(s): %2. What should change?", "", jobs.size())
+                    .arg(schedule, jobs.join(QStringLiteral(", "))));
+    box.setInformativeText(BScheduleWidget::tr("Changing the schedule moves the run for every job that uses it. "
+                                               "Moving only %1 creates a copy of the schedule named %2 with the "
+                                               "run at %3 and sets the Schedule of %1 to it.")
+                               .arg(job, copyName, newTime));
+    QPushButton *cancel = box.addButton(QMessageBox::Cancel);
+    QPushButton *all = box.addButton(BScheduleWidget::tr("Change schedule %1 for all %n jobs", "", jobs.size())
+                                         .arg(schedule), QMessageBox::AcceptRole);
+    QPushButton *one = box.addButton(BScheduleWidget::tr("Move only job %1").arg(job), QMessageBox::ActionRole);
+    box.setDefaultButton(cancel);
+    box.exec();
+    if (box.clickedButton() == all) return BScheduleWidget::DragScope::AllJobs;
+    if (box.clickedButton() == one) return BScheduleWidget::DragScope::OneJob;
+    return BScheduleWidget::DragScope::Cancel;
+}
+
+} // namespace
+
+bool BScheduleWidget::confirmChange(const QString &title, const QString &summary)
+{
+    const ChangeConfirm confirm = m_changeConfirm ? m_changeConfirm : confirmChangeDialog;
+    return confirm(this, title, summary);
+}
+
+QString BScheduleWidget::copyText(const QString &name, const QString &description, const QStringList &runs,
+                                  bool enabled)
+{
+    QString text = BScheduleResource::createText(name, description, runs);
+    // A disabled schedule stays disabled in its copy: otherwise the copy
+    // would start jobs the original does not
+    if (!enabled)
+        text.insert(text.lastIndexOf(QLatin1Char('}')), QStringLiteral("  Enabled = no\n"));
+    return text;
+}
+
+QStringList BScheduleWidget::scheduleNames() const
+{
+    QStringList names;
+    for (const BSchedule &schedule : m_scheduleModel->schedules())
+        names.append(schedule.name);
+    return names;
+}
+
+QString BScheduleWidget::askScheduleName(const QString &title, const QString &label, const QString &suggestion)
+{
+    const QStringList taken = scheduleNames();
+    const std::function<QString(const QString &)> problem = [taken](const QString &name) {
+        return BScheduleResource::nameProblem(name, taken);
+    };
+    const ScheduleNamePrompt prompt = m_namePrompt ? m_namePrompt : askNameDialog;
+    const QString name = prompt(this, title, label, suggestion, problem).trimmed();
+    if (name.isEmpty())
+        return QString();
+    const QString why = problem(name);
+    if (!why.isEmpty()) {
+        emit statusMessageChanged(tr("Nothing was written: %1").arg(why));
+        return QString();
+    }
+    return name;
+}
+
+bool BScheduleWidget::canRename(QString *whyNot) const
+{
+    const BConfig::Capabilities caps = m_configClient ? m_configClient->capabilities() : BConfig::Capabilities();
+    // The Director has no rename of its own (RenameResource is not
+    // implemented in onesimus-dird and not in BConfigClient): a rename is a
+    // copy, the jobs changed to it, and the old schedule deleted
+    const bool can = caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::ReadRaw)
+                     && caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::CreateRaw)
+                     && caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::Delete)
+                     && caps.supports(BConfig::ResourceType::Job, BConfig::Operation::ReadRaw)
+                     && caps.supports(BConfig::ResourceType::Job, BConfig::Operation::UpdateRaw);
+    if (!can && whyNot)
+        *whyNot = tr("Renaming a schedule needs the configuration methods of the gRPC interface of the Onesimus "
+                     "Director (read, create and delete schedules, read and change jobs), which are not "
+                     "available on this connection");
+    return can;
+}
+
+bool BScheduleWidget::canMoveOneJob() const
+{
+    const BConfig::Capabilities caps = m_configClient ? m_configClient->capabilities() : BConfig::Capabilities();
+    return caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::CreateRaw)
+           && caps.supports(BConfig::ResourceType::Job, BConfig::Operation::ReadRaw)
+           && caps.supports(BConfig::ResourceType::Job, BConfig::Operation::UpdateRaw);
+}
+
+// ============================================================================
+// Copy, rename, move of one job
+// ============================================================================
+
+void BScheduleWidget::onGridCopyRequested()
+{
+    const BSchedule loaded = m_gridView->model()->loadedSchedule();
+    if (loaded.name.isEmpty())
+        return;
+    const BConfig::Capabilities caps = m_configClient ? m_configClient->capabilities() : BConfig::Capabilities();
+    if (!caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::CreateRaw)) {
+        emit statusMessageChanged(tr("Schedule %1 was not copied: creating a schedule needs the configuration "
+                                     "methods of the gRPC interface of the Onesimus Director.").arg(loaded.name));
+        return;
+    }
+    if (m_persistence->isBusy() || m_changeRunning || m_staggerApplying) {
+        emit statusMessageChanged(tr("Another change is being written."));
+        return;
+    }
+    if (loaded.runs.isEmpty()) {
+        emit statusMessageChanged(tr("Schedule %1 was not copied: its Run lines are not loaded.").arg(loaded.name));
+        return;
+    }
+    QString suggestion = loaded.name + QStringLiteral("-copy");
+    const QStringList taken = scheduleNames();
+    for (int n = 2; !BScheduleResource::nameProblem(suggestion, taken).isEmpty() && n < 1000; ++n)
+        suggestion = loaded.name + QStringLiteral("-copy-") + QString::number(n);
+    const QString name = askScheduleName(tr("Copy schedule %1").arg(loaded.name),
+                                         tr("Name of the new schedule:"), suggestion);
+    if (name.isEmpty())
+        return;
+    // The Run lines as the Director reported them, each as it was written
+    QStringList runs;
+    for (const BRunLine &run : loaded.runs)
+        runs.append(run.original);
+    emit statusMessageChanged(tr("The Director checks the copy %1 of schedule %2...").arg(name, loaded.name));
+    m_persistence->createSchedule(name, copyText(name, loaded.description, runs, loaded.enabled));
+}
+
+void BScheduleWidget::onGridRenameRequested()
+{
+    const BSchedule loaded = m_gridView->model()->loadedSchedule();
+    const QString old = loaded.name;
+    if (old.isEmpty())
+        return;
+    QString whyNot;
+    if (!canRename(&whyNot)) {
+        emit statusMessageChanged(tr("Schedule %1 was not renamed: %2.").arg(old, whyNot));
+        return;
+    }
+    if (m_gridView->isModified()) {
+        emit statusMessageChanged(tr("Schedule %1 was not renamed: save or revert its changes first.").arg(old));
+        return;
+    }
+    if (m_persistence->isBusy() || m_changeRunning || m_staggerApplying) {
+        emit statusMessageChanged(tr("Another change is being written."));
+        return;
+    }
+    const QString name = askScheduleName(tr("Rename schedule %1").arg(old), tr("New name:"), old);
+    if (name.isEmpty())
+        return;
+    QStringList jobs = jobsUsing(old);
+    jobs.sort();   // in a stable order in the summary and the status line
+
+    m_changeRunning = true;
+    ChangeFinish finish = [this](const QString &message, bool written) {
+        m_changeRunning = false;
+        emit statusMessageChanged(message);
+        if (written) {
+            emit sendCommand(BDirector::Command::ShowJobs, QString());
+            if (m_connected) onRefreshClicked();
+        }
+    };
+    emit statusMessageChanged(tr("Reading schedule %1 and the jobs that use it...").arg(old));
+    readResources(BConfig::ResourceType::Schedule, {old},
+                  [this, loaded, old, name, jobs, finish](const QHash<QString, BConfig::Reply> &schedules) {
+        const BConfig::Reply raw = schedules.value(old);
+        // The copy is the file's text under the new name: its comments and
+        // every directive stay. It has to say what the GUI loaded.
+        const BScheduleResource::Parsed parsed = BScheduleResource::parse(raw.text);
+        QString error;
+        if (!parsed.ok || !BScheduleResource::matchesLoaded(parsed, loaded.runs, &error)) {
+            finish(tr("Nothing was written: the file of schedule %1 does not say what was loaded (%2). "
+                      "Refresh and try again.").arg(old, parsed.ok ? error : parsed.error), false);
+            return;
+        }
+        const QString newText = BScheduleResource::withName(raw.text, name);
+        if (newText.isEmpty()) {
+            finish(tr("Nothing was written: the Name of schedule %1 could not be found in its file.").arg(old),
+                   false);
+            return;
+        }
+        readResources(BConfig::ResourceType::Job, jobs,
+                      [this, old, name, jobs, raw, newText, finish](const QHash<QString, BConfig::Reply> &read) {
+            QList<ConfigStep> steps;
+            steps.append({BConfig::Request::create(BConfig::ResourceType::Schedule, newText, false),
+                          tr("schedule %1").arg(name)});
+            QString summary = tr("New schedule %1, the text of %2 under the new name:").arg(name, old)
+                              + QLatin1Char('\n') + newText + QLatin1Char('\n');
+            if (!jobs.isEmpty())
+                summary += tr("Jobs:") + QLatin1Char('\n');
+            for (const QString &job : jobs) {
+                const BConfig::Reply &jobRaw = read.value(job);
+                const QString named = BStaggerPlan::scheduleValue(jobRaw.text);
+                // A job that takes its schedule from its JobDefs would get a
+                // Schedule of its own, and the JobDefs would still name the
+                // old schedule: that is for the user to change
+                if (named.isEmpty()) {
+                    finish(tr("Nothing was written: job %1 takes its Schedule from its JobDefs. Change the "
+                              "JobDefs first, or copy the schedule instead.").arg(job), false);
+                    return;
+                }
+                if (named.compare(old, Qt::CaseInsensitive) != 0) {
+                    finish(tr("Nothing was written: on the Director job %1 names schedule %2, not %3. Refresh "
+                              "and try again.").arg(job, named, old), false);
+                    return;
+                }
+                const QString text = BStaggerPlan::jobWithSchedule(jobRaw.text, name);
+                if (text.isEmpty()) {
+                    finish(tr("Nothing was written: the text of job %1 has no closing brace.").arg(job), false);
+                    return;
+                }
+                steps.append({BConfig::Request::update(BConfig::ResourceType::Job, job, jobRaw.sha256, text, false),
+                              tr("job %1").arg(job)});
+                summary += QStringLiteral("  %1: %2  ->  %3\n").arg(job, BStaggerPlan::scheduleLine(jobRaw.text),
+                                                                   BStaggerPlan::scheduleLine(text));
+            }
+            steps.append({BConfig::Request::remove(BConfig::ResourceType::Schedule, old, raw.sha256, false),
+                          tr("deletion of schedule %1").arg(old)});
+            summary += tr("Then schedule %1 is deleted.").arg(old) + QLatin1Char('\n');
+            if (!confirmChange(tr("Rename schedule %1").arg(old), summary)) {
+                finish(tr("Nothing was written: the rename of schedule %1 was not confirmed.").arg(old), false);
+                return;
+            }
+            // The grid shows the schedule under its new name after the refresh
+            m_gridScheduleName = name;
+            writeSteps(steps, tr("Schedule %1 is now named %2. Written: %3.").arg(old, name, QStringLiteral("%1")),
+                       finish);
+        }, finish);
+    }, finish);
+}
+
+void BScheduleWidget::moveOneJob(const BScheduleEntry &entry, const BSchedule &loaded, int line,
+                                 const QString &newRun, const QString &copyName, const QString &newTime)
+{
+    const QString job = entry.jobName;
+    const QString base = loaded.name;
+    QStringList runs;
+    for (const BRunLine &run : loaded.runs)
+        runs.append(run.original);
+    runs[line] = newRun;
+    // Configuration text, not interface text: it stays English in the file
+    const QString text = copyText(copyName,
+                                  QStringLiteral("Copy of %1 for job %2, Run line %3 at %4 (moved with Onesimus)")
+                                      .arg(base, job).arg(line + 1).arg(newTime),
+                                  runs, loaded.enabled);
+
+    m_changeRunning = true;
+    ChangeFinish finish = [this](const QString &message, bool written) {
+        m_changeRunning = false;
+        emit statusMessageChanged(message);
+        if (written) {
+            emit sendCommand(BDirector::Command::ShowJobs, QString());
+            if (m_connected) onRefreshClicked();
+        }
+    };
+    emit statusMessageChanged(tr("Reading job %1...").arg(job));
+    readResources(BConfig::ResourceType::Job, {job},
+                  [this, job, base, copyName, newTime, text, line, finish](const QHash<QString, BConfig::Reply> &read) {
+        const BConfig::Reply raw = read.value(job);
+        const QString named = BStaggerPlan::scheduleValue(raw.text);
+        // Empty: the job takes its schedule from its JobDefs and gets one of
+        // its own, as for a later start (BStaggerPlan)
+        if (!named.isEmpty() && named.compare(base, Qt::CaseInsensitive) != 0) {
+            finish(tr("Nothing was written: on the Director job %1 names schedule %2, not %3. Refresh and try "
+                      "again.").arg(job, named, base), false);
+            return;
+        }
+        const QString jobText = BStaggerPlan::jobWithSchedule(raw.text, copyName);
+        if (jobText.isEmpty()) {
+            finish(tr("Nothing was written: the text of job %1 has no closing brace.").arg(job), false);
+            return;
+        }
+        const QList<ConfigStep> steps = {
+            {BConfig::Request::create(BConfig::ResourceType::Schedule, text, false), tr("schedule %1").arg(copyName)},
+            {BConfig::Request::update(BConfig::ResourceType::Job, job, raw.sha256, jobText, false),
+             tr("job %1").arg(job)},
+        };
+        const QString before = BStaggerPlan::scheduleLine(raw.text);
+        const QString summary =
+            tr("New schedule %1, a copy of %2 with Run line %3 at %4, for job %5 only:")
+                .arg(copyName, base).arg(line + 1).arg(newTime, job)
+            + QLatin1Char('\n') + text + QLatin1Char('\n') + tr("Job:") + QLatin1Char('\n')
+            + QStringLiteral("  %1: %2  ->  %3\n").arg(job, before.isEmpty() ? tr("(Schedule from its JobDefs)") : before,
+                                                       BStaggerPlan::scheduleLine(jobText))
+            + tr("Schedule %1 and its other jobs stay as they are.").arg(base) + QLatin1Char('\n');
+        if (!confirmChange(tr("Move only job %1").arg(job), summary)) {
+            finish(tr("Nothing was written: the move of job %1 was not confirmed.").arg(job), false);
+            return;
+        }
+        writeSteps(steps, tr("Job %1 now runs at %2 on its own schedule %3. Written: %4.")
+                              .arg(job, newTime, copyName, QStringLiteral("%1")), finish);
+    }, finish);
 }

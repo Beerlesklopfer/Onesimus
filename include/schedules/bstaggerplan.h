@@ -62,6 +62,13 @@ QString jobWithSchedule(const QString &jobText, const QString &schedule);
 /// it has none
 QString scheduleLine(const QString &jobText);
 
+/**
+ * @brief The schedule a Job resource's raw text names, without quotes
+ *
+ * Empty if it has no Schedule directive (it may take one from its JobDefs).
+ */
+QString scheduleValue(const QString &jobText);
+
 } // namespace BStaggerPlan
 
 #endif // BSTAGGERPLAN_H

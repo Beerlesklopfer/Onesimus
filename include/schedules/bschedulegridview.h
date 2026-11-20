@@ -162,6 +162,8 @@ public:
     QAbstractButton *removeRuleButton() const;
     QAbstractButton *saveButton() const;
     QAbstractButton *deleteButton() const;
+    QAbstractButton *copyButton() const;
+    QAbstractButton *renameButton() const;
 
     /// The schedule has a Run line that is not understood: nothing can be edited
     bool isLocked() const;
@@ -183,6 +185,17 @@ public:
      * description on a page of its own and writes the schedule itself.
      */
     void setNewScheduleMode();
+
+    /**
+     * @brief Whether "Copy..." and "Rename..." can be used
+     *
+     * Unlike "Save..." and "Delete..." these are disabled where the
+     * connection cannot do them, with @p copyWhyNot / @p renameWhyNot as
+     * their tooltip. "Rename..." is also disabled while the grid has
+     * changes that are not written: the schedule they belong to goes away.
+     */
+    void setCopyRenameAvailable(bool canCopy, const QString &copyWhyNot, bool canRename,
+                                const QString &renameWhyNot);
 
     // --- Scopes and calendar rules: what the buttons and menus do -----------
     //
@@ -220,6 +233,10 @@ signals:
     void saveRequested();
     /// "Delete...": delete the schedule on display
     void deleteRequested();
+    /// "Copy...": create a schedule with the Run lines of the one on display
+    void copyRequested();
+    /// "Rename...": give the schedule on display another name
+    void renameRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -269,9 +286,16 @@ private:
     QPushButton *m_revert = nullptr;
     QPushButton *m_save = nullptr;
     QPushButton *m_delete = nullptr;
+    QPushButton *m_copy = nullptr;
+    QPushButton *m_rename = nullptr;
     bool m_canSave = false;
     bool m_canDelete = false;
+    bool m_canCopy = false;
+    bool m_canRename = false;
+    QString m_copyWhyNot;
+    QString m_renameWhyNot;
     void updateLock();
+    void updateCopyRename();
     QLabel *m_notice = nullptr;
     QFrame *m_pendingBar = nullptr;
     QLabel *m_pendingLabel = nullptr;

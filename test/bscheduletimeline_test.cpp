@@ -57,6 +57,7 @@
 #include "schedules/bschedulereviewdialog.h"
 #include "schedules/bschedulewidget.h"
 #include "schedules/bstaggerconstraintsdialog.h"
+#include "schedules/bstaggerplan.h"
 #include "schedules/model/bscheduleresource.h"
 
 #include "bfakeconfigclient.h"
@@ -196,6 +197,16 @@ private slots:
     void clickOnTheListsAnswers();
     void cancelIsLeftInEveryDialog();
     void deleteOfAScheduleInUseDeletesNothing();
+
+    // --- Copy, rename, move of one job ---
+    void scheduleNamesAndRenamedText();
+    void copyCreatesTheSameRunLines();
+    void copyRefusesBadNamesAndNeedsCreate();
+    void renameMovesJobsAndDeletesTheOld();
+    void renameRefusals();
+    void dropOfASharedScheduleMovesOneJob();
+    void dropOfASharedScheduleForAllOrCancelled();
+    void moveOfOneJobStopsAtTheFirstRefusal();
 
     // --- Schedules no job uses ---
     void unusedSchedulesAreLeftOut();
@@ -748,6 +759,388 @@ void BScheduleTimelineTest::deleteOfAScheduleInUseDeletesNothing()
     QTest::mouseClick(tab.widget.gridView()->deleteButton(), Qt::LeftButton);
     QTest::qWait(50);
     QVERIFY(tab.client.requests.isEmpty());
+}
+
+// ============================================================================
+// Copy, rename, move of one job
+// ============================================================================
+
+namespace {
+
+/// Two jobs on WeeklyCycle, on the same client
+const char *const kTwoJobs = "{\"result\":{\"jobs\":{"
+    "\"BackupA\":{\"name\":\"BackupA\",\"type\":\"Backup\",\"schedule\":\"WeeklyCycle\","
+    "\"client\":\"elela-fd\",\"storage\":[\"File\"]},"
+    "\"BackupB\":{\"name\":\"BackupB\",\"type\":\"Backup\",\"schedule\":\"WeeklyCycle\","
+    "\"client\":\"elela-fd\",\"storage\":[\"File\"]}}}}";
+
+/// The raw texts of the two jobs on the fake Director
+void addTwoJobTexts(GrpcTab &tab)
+{
+    tab.client.allow(BConfig::ResourceType::Job);
+    tab.client.files.insert("BackupA", "Job {\n  Name = \"BackupA\"\n  Schedule = \"WeeklyCycle\"   # nightly\n}\n");
+    tab.client.files.insert("BackupB", "Job {\n  Name = BackupB\n  schedule = WeeklyCycle\n  Level = Full\n}\n");
+}
+
+/// The last line of the status
+QString lastStatus(const QSignalSpy &status)
+{
+    return status.isEmpty() ? QString() : status.last().at(0).toString();
+}
+
+} // namespace
+
+void BScheduleTimelineTest::scheduleNamesAndRenamedText()
+{
+    QVERIFY(BScheduleResource::nameProblem("Weekly-2.copy:1_a", {"WeeklyCycle"}).isEmpty());
+    QVERIFY(!BScheduleResource::nameProblem("", {}).isEmpty());
+    QVERIFY(!BScheduleResource::nameProblem("Weekly Cycle", {}).isEmpty());
+    QVERIFY(!BScheduleResource::nameProblem("Weekly\"x", {}).isEmpty());
+    QVERIFY(!BScheduleResource::nameProblem(QString(128, QLatin1Char('a')), {}).isEmpty());
+    QVERIFY(BScheduleResource::nameProblem("weeklycycle", {"WeeklyCycle"}).contains("WeeklyCycle"));
+
+    // Only the value of Name changes; comments, Run lines and line ends stay
+    QCOMPARE(BScheduleResource::withName(kWeeklyCycleText, "Nightly"),
+             QString(kWeeklyCycleText).replace("\"WeeklyCycle\"", "\"Nightly\""));
+    const QString crlf = "Schedule {\r\n  name=Old  # was\r\n  Run = daily at 01:00\r\n}\r\n";
+    QCOMPARE(BScheduleResource::withName(crlf, "New"),
+             QString("Schedule {\r\n  name=\"New\"  # was\r\n  Run = daily at 01:00\r\n}\r\n"));
+    QCOMPARE(BScheduleResource::withName("Schedule {\n  Run = daily at 01:00\n}\n", "New"), QString());
+}
+
+void BScheduleTimelineTest::copyCreatesTheSameRunLines()
+{
+    GrpcTab tab;
+    tab.feed("{\"result\":{\"schedules\":{\"WeeklyCycle\":{\"name\":\"WeeklyCycle\",\"description\":\"Mornings\","
+             "\"run\":[\"Level=Incremental daily at 08:00\",\"Level=Full sun at 23:05\"]}}}}",
+             kOneJob, kNoJobDefs, kOneClient);
+    BScheduleGridView *grid = tab.widget.gridView();
+    QVERIFY(grid->copyButton()->isEnabled());
+
+    QString suggested;
+    QString takenProblem;
+    tab.widget.setScheduleNamePrompt([&](QWidget *, const QString &, const QString &, const QString &suggestion,
+                                         const std::function<QString(const QString &)> &problem) {
+        suggested = suggestion;
+        takenProblem = problem("WeeklyCycle");
+        return QStringLiteral("Weekly2");
+    });
+    QTest::mouseClick(grid->copyButton(), Qt::LeftButton);
+    QVERIFY(tab.wait());
+    QCOMPARE(suggested, QString("WeeklyCycle-copy"));
+    QVERIFY(!takenProblem.isEmpty());
+    QCOMPARE(tab.report().kind, BScheduleReport::Written);
+
+    // Checked first, shown, then created: the same Run lines and Description
+    QCOMPARE(tab.ui.reviews.size(), 1);
+    QCOMPARE(tab.ui.reviews.first().operation, BScheduleReview::Create);
+    QCOMPARE(tab.client.writes().size(), 1);
+    const BConfig::Request write = tab.client.writes().first();
+    QCOMPARE(write.kind, BConfig::Request::Create);
+    QCOMPARE(write.type, BConfig::ResourceType::Schedule);
+    QCOMPARE(write.text, BScheduleResource::createText("Weekly2", "Mornings",
+                                                       {"Level=Incremental daily at 08:00", "Level=Full sun at 23:05"}));
+    QVERIFY(tab.client.files.contains("Weekly2"));
+    // The original is untouched
+    QCOMPARE(tab.client.files.value("WeeklyCycle"), kWeeklyCycleText);
+}
+
+void BScheduleTimelineTest::copyRefusesBadNamesAndNeedsCreate()
+{
+    GrpcTab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    BScheduleGridView *grid = tab.widget.gridView();
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+    QString answer;
+    tab.widget.setScheduleNamePrompt([&](QWidget *, const QString &, const QString &, const QString &,
+                                         const std::function<QString(const QString &)> &) { return answer; });
+
+    // Cancelled, a blank in the name, a name that is taken: nothing is sent
+    for (const QString &name : {QString(), QString("Weekly Copy"), QString("weeklycycle")}) {
+        answer = name;
+        QTest::mouseClick(grid->copyButton(), Qt::LeftButton);
+        QTest::qWait(20);
+        QVERIFY2(tab.client.requests.isEmpty(), qPrintable(name));
+    }
+    QVERIFY2(lastStatus(status).contains("already a schedule named WeeklyCycle"), qPrintable(lastStatus(status)));
+
+    // The Director refuses the name (taken by another resource): reported, nothing created
+    tab.client.files.insert("Taken", "Job {\n  Name = Taken\n}\n");
+    answer = "Taken";
+    QTest::mouseClick(grid->copyButton(), Qt::LeftButton);
+    QVERIFY(tab.wait());
+    QCOMPARE(tab.report().kind, BScheduleReport::Exists);
+    QVERIFY(tab.client.writes().isEmpty());
+
+    // Without CreateRaw for schedules the button is disabled and says why
+    BConfig::Capabilities caps = tab.client.caps;
+    caps.operations[int(BConfig::ResourceType::Schedule)].remove(int(BConfig::Operation::CreateRaw));
+    tab.client.setCapabilities(caps);
+    QVERIFY(!grid->copyButton()->isEnabled());
+    QVERIFY2(grid->copyButton()->toolTip().contains("not available on this connection"),
+             qPrintable(grid->copyButton()->toolTip()));
+    // Rename needs the jobs as well
+    QVERIFY(!grid->renameButton()->isEnabled());
+    QVERIFY2(grid->renameButton()->toolTip().contains("not available on this connection"),
+             qPrintable(grid->renameButton()->toolTip()));
+}
+
+void BScheduleTimelineTest::renameMovesJobsAndDeletesTheOld()
+{
+    GrpcTab tab;
+    addTwoJobTexts(tab);
+    tab.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    BScheduleGridView *grid = tab.widget.gridView();
+    QVERIFY(grid->renameButton()->isEnabled());
+    tab.widget.setScheduleNamePrompt([](QWidget *, const QString &, const QString &, const QString &,
+                                        const std::function<QString(const QString &)> &) {
+        return QStringLiteral("Nightly");
+    });
+    int asked = 0;
+    QString summary;
+    tab.widget.setChangeConfirm([&](QWidget *, const QString &, const QString &text) {
+        ++asked;
+        summary = text;
+        // Nothing is written before the confirmation
+        return tab.client.writes().isEmpty();
+    });
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+
+    QTest::mouseClick(grid->renameButton(), Qt::LeftButton);
+    QTRY_COMPARE_WITH_TIMEOUT(tab.client.writes().size(), 4, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("is now named Nightly"), 3000);
+    QCOMPARE(asked, 1);
+    QVERIFY2(summary.contains("BackupA") && summary.contains("BackupB")
+             && summary.contains("Then schedule WeeklyCycle is deleted"), qPrintable(summary));
+
+    const QList<BConfig::Request> writes = tab.client.writes();
+    // The copy: the file's text under the new name, comment kept
+    QCOMPARE(writes[0].kind, BConfig::Request::Create);
+    QCOMPARE(writes[0].text, QString(kWeeklyCycleText).replace("\"WeeklyCycle\"", "\"Nightly\""));
+    // The jobs, with the SHA-256 of the text read; only the Schedule line changes
+    QCOMPARE(writes[1].kind, BConfig::Request::Update);
+    QCOMPARE(writes[2].kind, BConfig::Request::Update);
+    QCOMPARE(tab.client.files.value("BackupA"),
+             QString("Job {\n  Name = \"BackupA\"\n  Schedule = \"Nightly\"\n}\n"));
+    QCOMPARE(tab.client.files.value("BackupB"),
+             QString("Job {\n  Name = BackupB\n  Schedule = \"Nightly\"\n  Level = Full\n}\n"));
+    for (int i = 1; i <= 2; ++i)
+        QVERIFY(!writes[i].expectedSha256.isEmpty());
+    // Then the old schedule goes, with the SHA-256 of its text
+    QCOMPARE(writes[3].kind, BConfig::Request::Delete);
+    QCOMPARE(writes[3].name, QString("WeeklyCycle"));
+    QCOMPARE(writes[3].expectedSha256, BConfig::sha256Hex(kWeeklyCycleText));
+    QVERIFY(!tab.client.files.contains("WeeklyCycle"));
+    QVERIFY(tab.client.files.contains("Nightly"));
+}
+
+void BScheduleTimelineTest::renameRefusals()
+{
+    GrpcTab tab;
+    addTwoJobTexts(tab);
+    tab.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    BScheduleGridView *grid = tab.widget.gridView();
+    tab.widget.setScheduleNamePrompt([](QWidget *, const QString &, const QString &, const QString &,
+                                        const std::function<QString(const QString &)> &) {
+        return QStringLiteral("Nightly");
+    });
+    bool confirm = false;
+    tab.widget.setChangeConfirm([&](QWidget *, const QString &, const QString &) { return confirm; });
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+
+    // Not confirmed: read, but nothing written
+    QTest::mouseClick(grid->renameButton(), Qt::LeftButton);
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("was not confirmed"), 3000);
+    QVERIFY(tab.client.writes().isEmpty());
+
+    // A job that takes its Schedule from its JobDefs: refused before anything is written
+    confirm = true;
+    const QString jobB = tab.client.files.value("BackupB");
+    tab.client.files.insert("BackupB", "Job {\n  Name = BackupB\n  JobDefs = \"D\"\n}\n");
+    QTest::mouseClick(grid->renameButton(), Qt::LeftButton);
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("takes its Schedule from its JobDefs"), 3000);
+    QVERIFY(tab.client.writes().isEmpty());
+    tab.client.files.insert("BackupB", jobB);
+
+    // The file says other Run lines than loaded: refused, refresh first
+    const QString weekly = tab.client.files.value("WeeklyCycle");
+    tab.client.files.insert("WeeklyCycle", QString(weekly).replace("08:00", "09:00"));
+    QTest::mouseClick(grid->renameButton(), Qt::LeftButton);
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("does not say what was loaded"), 3000);
+    QVERIFY(tab.client.writes().isEmpty());
+    tab.client.files.insert("WeeklyCycle", weekly);
+
+    // The Director refuses the delete (a JobDefs still names the schedule):
+    // the steps before are written, the status line says which
+    tab.client.refs.insert("WeeklyCycle", {BConfig::ResourceRef{BConfig::ResourceType::JobDefs, "D"}});
+    QTest::mouseClick(grid->renameButton(), Qt::LeftButton);
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("failed"), 3000);
+    const QString message = lastStatus(status);
+    QVERIFY2(message.contains("Writing deletion of schedule WeeklyCycle failed: it is still used by JobDefs D"),
+             qPrintable(message));
+    QVERIFY2(message.contains("Written before: schedule Nightly, job BackupA, job BackupB"), qPrintable(message));
+    QVERIFY(tab.client.files.contains("WeeklyCycle"));
+
+    // Changes in the grid that are not written: no rename
+    GrpcTab other;
+    addTwoJobTexts(other);
+    other.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    BScheduleGridView *otherGrid = other.widget.gridView();
+    QVERIFY(otherGrid->renameButton()->isEnabled());
+    QTest::keyClicks(otherGrid->findChild<QLineEdit *>(QStringLiteral("scheduleDescription")), QStringLiteral("x"));
+    QVERIFY(otherGrid->isModified());
+    QVERIFY(!otherGrid->renameButton()->isEnabled());
+    QVERIFY(otherGrid->copyButton()->isEnabled());
+
+    // Without the jobs' methods: disabled, with the reason
+    GrpcTab bare;
+    bare.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    QVERIFY(!bare.widget.gridView()->renameButton()->isEnabled());
+    QVERIFY(bare.widget.gridView()->renameButton()->toolTip().contains("read and change jobs"));
+}
+
+void BScheduleTimelineTest::dropOfASharedScheduleMovesOneJob()
+{
+    GrpcTab tab;
+    addTwoJobTexts(tab);
+    tab.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    tab.widget.setScheduleChangeGate([](QWidget *) { return true; });
+    QStringList askedJobs;
+    QString askedJob, askedCopy, askedTime;
+    tab.widget.setDragScopeQuestion([&](QWidget *, const QString &, const QStringList &jobs, const QString &job,
+                                        const QString &copyName, const QString &newTime) {
+        askedJobs = jobs;
+        askedJob = job;
+        askedCopy = copyName;
+        askedTime = newTime;
+        return BScheduleWidget::DragScope::OneJob;
+    });
+    QString summary;
+    tab.widget.setChangeConfirm([&](QWidget *, const QString &, const QString &text) {
+        summary = text;
+        return true;
+    });
+    QSignalSpy dropped(tab.timeline(), &BScheduleGanttWidget::dragDropped);
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QCOMPARE(dropped.count(), 1);
+    const QString job = tab.timeline()->entries().value(dropped[0][0].toInt()).jobName;
+    QVERIFY(job == "BackupA" || job == "BackupB");
+    QTRY_COMPARE_WITH_TIMEOUT(tab.client.writes().size(), 2, 3000);
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("on its own schedule"), 3000);
+
+    QCOMPARE(askedJobs.size(), 2);
+    QCOMPARE(askedJob, job);
+    QCOMPARE(askedCopy, QString("WeeklyCycle-1100"));
+    QCOMPARE(askedTime, QString("11:00"));
+    QVERIFY2(summary.contains("WeeklyCycle-1100") && summary.contains(job), qPrintable(summary));
+
+    // A copy with the dragged line at its new time, then the job set to it
+    const QList<BConfig::Request> writes = tab.client.writes();
+    QCOMPARE(writes[0].kind, BConfig::Request::Create);
+    QStringList values;
+    QVERIFY(BScheduleResource::runValues(writes[0].text, &values));
+    QCOMPARE(values.size(), 1);
+    QVERIFY2(values.first().contains("at 11:00"), qPrintable(values.first()));
+    QVERIFY(writes[0].text.contains("Name = \"WeeklyCycle-1100\""));
+    QCOMPARE(writes[1].kind, BConfig::Request::Update);
+    QCOMPARE(writes[1].type, BConfig::ResourceType::Job);
+    QCOMPARE(writes[1].name, job);
+    QCOMPARE(BStaggerPlan::scheduleValue(tab.client.files.value(job)), QString("WeeklyCycle-1100"));
+    // The schedule itself and the other job stay
+    QCOMPARE(tab.client.files.value("WeeklyCycle"), kWeeklyCycleText);
+    const QString otherJob = job == "BackupA" ? "BackupB" : "BackupA";
+    QCOMPARE(BStaggerPlan::scheduleValue(tab.client.files.value(otherJob)), QString("WeeklyCycle"));
+    QVERIFY(tab.ui.reviews.isEmpty());
+}
+
+void BScheduleTimelineTest::dropOfASharedScheduleForAllOrCancelled()
+{
+    GrpcTab tab;
+    addTwoJobTexts(tab);
+    tab.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    tab.widget.setScheduleChangeGate([](QWidget *) { return true; });
+    int asked = 0;
+    BScheduleWidget::DragScope answer = BScheduleWidget::DragScope::Cancel;
+    tab.widget.setDragScopeQuestion([&](QWidget *, const QString &, const QStringList &, const QString &,
+                                        const QString &, const QString &) {
+        ++asked;
+        return answer;
+    });
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+
+    // Cancelled: nothing is sent
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QTest::qWait(50);
+    QCOMPARE(asked, 1);
+    QVERIFY(tab.client.requests.isEmpty());
+    QVERIFY2(lastStatus(status).contains("was not changed"), qPrintable(lastStatus(status)));
+
+    // For all jobs: the schedule itself is updated, as before, with both jobs in the review
+    answer = BScheduleWidget::DragScope::AllJobs;
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QVERIFY(tab.wait());
+    QCOMPARE(asked, 2);
+    QCOMPARE(tab.report().kind, BScheduleReport::Written);
+    QCOMPARE(tab.client.writes().size(), 1);
+    QCOMPARE(tab.client.writes().first().kind, BConfig::Request::Update);
+    QCOMPARE(tab.client.writes().first().name, QString("WeeklyCycle"));
+    QStringList reviewed = tab.ui.reviews.first().jobs;
+    reviewed.sort();
+    QCOMPARE(reviewed, (QStringList{"BackupA", "BackupB"}));
+
+    // Without the methods for jobs, nobody is asked: the schedule changes for all
+    GrpcTab bare;
+    bare.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    bare.widget.setScheduleChangeGate([](QWidget *) { return true; });
+    int bareAsked = 0;
+    bare.widget.setDragScopeQuestion([&](QWidget *, const QString &, const QStringList &, const QString &,
+                                         const QString &, const QString &) {
+        ++bareAsked;
+        return BScheduleWidget::DragScope::Cancel;
+    });
+    dragBar(bare.timeline(), barStart(bare.timeline(), 1, 8, 0), 3 * bare.timeline()->zoomLevel());
+    QVERIFY(bare.wait());
+    QCOMPARE(bareAsked, 0);
+    QCOMPARE(bare.report().kind, BScheduleReport::Written);
+}
+
+void BScheduleTimelineTest::moveOfOneJobStopsAtTheFirstRefusal()
+{
+    GrpcTab tab;
+    addTwoJobTexts(tab);
+    tab.feed(kWeeklyCycle, kTwoJobs, kNoJobDefs, kOneClient);
+    tab.widget.setScheduleChangeGate([](QWidget *) { return true; });
+    tab.widget.setDragScopeQuestion([](QWidget *, const QString &, const QStringList &, const QString &,
+                                       const QString &, const QString &) {
+        return BScheduleWidget::DragScope::OneJob;
+    });
+    int confirmed = 0;
+    tab.widget.setChangeConfirm([&](QWidget *, const QString &, const QString &) { return ++confirmed > 1; });
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+
+    // Not confirmed: nothing written
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("was not confirmed"), 3000);
+    QVERIFY(tab.client.writes().isEmpty());
+
+    // The copy is refused: the job is not changed
+    tab.client.intercept = [](const BConfig::Request &r) -> std::optional<BConfig::Reply> {
+        if (r.kind == BConfig::Request::Create) {
+            BConfig::Reply reply;
+            reply.status = BConfig::Status::Invalid;
+            reply.message = "refused";
+            return reply;
+        }
+        return std::nullopt;
+    };
+    dragBar(tab.timeline(), barStart(tab.timeline(), 1, 8, 0), 3 * tab.timeline()->zoomLevel());
+    QTRY_VERIFY_WITH_TIMEOUT(lastStatus(status).contains("failed"), 3000);
+    QCOMPARE(tab.client.writes().size(), 1);
+    QVERIFY2(lastStatus(status).contains("Written before: nothing"), qPrintable(lastStatus(status)));
+    QCOMPARE(BStaggerPlan::scheduleValue(tab.client.files.value("BackupA")), QString("WeeklyCycle"));
+    QCOMPARE(BStaggerPlan::scheduleValue(tab.client.files.value("BackupB")), QString("WeeklyCycle"));
 }
 
 // ============================================================================

@@ -353,6 +353,17 @@ void BScheduleGridView::buildUi()
     headerRow->addWidget(m_undo);
     headerRow->addWidget(m_redo);
     headerRow->addWidget(m_revert);
+    // Copy and rename: disabled where the connection cannot do them (the
+    // tab says why in the tooltip, setCopyRenameAvailable()); placed on the
+    // description row below
+    m_copy = new QPushButton(top);
+    m_copy->setText(tr("Cop&y..."));
+    m_copy->setObjectName(QStringLiteral("scheduleGridCopy"));
+    m_copy->setEnabled(false);
+    m_rename = new QPushButton(top);
+    m_rename->setText(tr("Re&name..."));
+    m_rename->setObjectName(QStringLiteral("scheduleGridRename"));
+    m_rename->setEnabled(false);
     headerRow->addWidget(m_save);
     headerRow->addWidget(m_delete);
     topLayout->addLayout(headerRow);
@@ -370,6 +381,10 @@ void BScheduleGridView::buildUi()
     m_description->setClearButtonEnabled(true);
     descriptionLabel->setBuddy(m_description);
     descriptionRow->addWidget(m_description, 1);
+    // On this row, not the header: there the buttons would make the view
+    // wider than a small window, the description field can give way
+    descriptionRow->addWidget(m_copy);
+    descriptionRow->addWidget(m_rename);
     topLayout->addLayout(descriptionRow);
     connect(m_description, &QLineEdit::textEdited, this, [this]() {
         updateModified();
@@ -377,6 +392,8 @@ void BScheduleGridView::buildUi()
     });
     connect(m_save, &QPushButton::clicked, this, &BScheduleGridView::saveRequested);
     connect(m_delete, &QPushButton::clicked, this, &BScheduleGridView::deleteRequested);
+    connect(m_copy, &QPushButton::clicked, this, &BScheduleGridView::copyRequested);
+    connect(m_rename, &QPushButton::clicked, this, &BScheduleGridView::renameRequested);
 
     // What stands in the way of writing the schedule; a line of its own,
     // because it can be long
@@ -671,6 +688,8 @@ void BScheduleGridView::clear()
 {
     m_hasSchedule = false;
     m_delete->setEnabled(false);
+    m_copy->setEnabled(false);
+    m_rename->setEnabled(false);
     m_jobs.clear();
     m_jobsKnown = false;
     m_pending.reset();
@@ -775,6 +794,38 @@ QAbstractButton *BScheduleGridView::editRuleButton() const { return m_editRule; 
 QAbstractButton *BScheduleGridView::removeRuleButton() const { return m_removeRule; }
 QAbstractButton *BScheduleGridView::saveButton() const { return m_save; }
 QAbstractButton *BScheduleGridView::deleteButton() const { return m_delete; }
+QAbstractButton *BScheduleGridView::copyButton() const { return m_copy; }
+QAbstractButton *BScheduleGridView::renameButton() const { return m_rename; }
+
+void BScheduleGridView::setCopyRenameAvailable(bool canCopy, const QString &copyWhyNot, bool canRename,
+                                               const QString &renameWhyNot)
+{
+    m_canCopy = canCopy;
+    m_canRename = canRename;
+    m_copyWhyNot = copyWhyNot;
+    m_renameWhyNot = renameWhyNot;
+    updateCopyRename();
+}
+
+void BScheduleGridView::updateCopyRename()
+{
+    if (!m_copy)
+        return;
+    m_copy->setEnabled(m_hasSchedule && m_canCopy);
+    m_copy->setToolTip(m_canCopy
+        ? tr("Creates a new schedule with the Run lines and the Description of this one, as the "
+             "Director reported them (changes not written are not copied); you choose the name and "
+             "see the new resource before anything is written")
+        : m_copyWhyNot);
+    const bool modified = isModified();
+    m_rename->setEnabled(m_hasSchedule && m_canRename && !modified);
+    m_rename->setToolTip(!m_canRename
+        ? m_renameWhyNot
+        : modified ? tr("Save or revert the changes of this schedule first: renaming replaces it")
+                   : tr("Gives this schedule another name: a copy under the new name, every job that "
+                        "names it changed to the copy, then the old one deleted; all shown once for "
+                        "confirmation first"));
+}
 
 bool BScheduleGridView::isLocked() const
 {
@@ -814,6 +865,7 @@ void BScheduleGridView::updateLock()
     m_scopeBar->setProperty("locked", !editable);
     m_save->setEnabled(isModified() && editable);
     m_delete->setEnabled(m_hasSchedule);
+    updateCopyRename();
     updateRuleButtons();
 }
 
@@ -851,6 +903,7 @@ void BScheduleGridView::updateModified()
     m_modified->setText(modifiedText());
     m_modified->setVisible(modified && !m_newScheduleMode);
     m_save->setEnabled(modified && !isLocked());
+    updateCopyRename();
     if (modified != m_wasModified) {
         m_wasModified = modified;
         emit modifiedChanged(modified);
