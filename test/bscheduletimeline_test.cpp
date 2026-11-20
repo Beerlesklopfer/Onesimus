@@ -23,6 +23,10 @@
  */
 
 #include <QtTest>
+#include <QVBoxLayout>
+#include <QDialogButtonBox>
+#include <QWizard>
+#include <QMessageBox>
 #include <QListWidget>
 #include <QLineEdit>
 
@@ -187,6 +191,7 @@ private slots:
     void gridSaveWritesAndStartsAfresh();
     void gridSaveWritesTheDescription();
     void clickOnTheListsAnswers();
+    void cancelIsLeftInEveryDialog();
     void deleteOfAScheduleInUseDeletesNothing();
 
     // --- Schedules no job uses ---
@@ -558,6 +563,45 @@ void BScheduleTimelineTest::gridSaveWritesAndStartsAfresh()
     QVERIFY(!grid->hasPendingSchedule());
     QCOMPARE(grid->model()->loadedSchedule().runs.size(), 2);
     QCOMPARE(grid->editor()->undoStack()->count(), 0);
+}
+
+void BScheduleTimelineTest::cancelIsLeftInEveryDialog()
+{
+    // The application-wide filter comes with the style sheet
+    BUiScale::instance().setApplicationStyleSheet(qApp->styleSheet());
+    // A button box of any style: Cancel leftmost, OK to its right
+    QDialog dialog;
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *box = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(box);
+    dialog.resize(400, 100);
+    dialog.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+    QTRY_VERIFY(box->button(QDialogButtonBox::Cancel)->geometry().x()
+                < box->button(QDialogButtonBox::Ok)->geometry().x());
+    QVERIFY(box->button(QDialogButtonBox::Cancel)->geometry().x() < 40);
+    // A second show keeps it
+    dialog.hide();
+    dialog.show();
+    QTest::qWait(20);
+    QVERIFY(box->button(QDialogButtonBox::Cancel)->geometry().x()
+            < box->button(QDialogButtonBox::Ok)->geometry().x());
+
+    // A message box too
+    QMessageBox message(QMessageBox::Question, "t", "q", QMessageBox::Discard | QMessageBox::Cancel);
+    message.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&message));
+    QTRY_VERIFY(message.button(QMessageBox::Cancel)->mapTo(&message, QPoint()).x()
+                < message.button(QMessageBox::Discard)->mapTo(&message, QPoint()).x());
+    message.hide();
+
+    // A wizard: Cancel first in its button layout
+    QWizard wizard;
+    wizard.addPage(new QWizardPage);
+    wizard.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&wizard));
+    QTRY_VERIFY(wizard.button(QWizard::CancelButton)->mapTo(&wizard, QPoint()).x()
+                < wizard.button(QWizard::FinishButton)->mapTo(&wizard, QPoint()).x());
 }
 
 void BScheduleTimelineTest::clickOnTheListsAnswers()

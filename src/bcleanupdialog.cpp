@@ -230,6 +230,11 @@ void BCleanupDialog::setupUI()
 
     // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    // Cancel on the left, as in every dialog
+    m_closeButton = new QPushButton(tr("Cancel"));
+    connect(m_closeButton, &QPushButton::clicked, this, &BCleanupDialog::onCloseClicked);
+    buttonLayout->addWidget(m_closeButton);
+    buttonLayout->addStretch();
 
     m_analyzeButton = new QPushButton(tr("Analyze"));
     m_analyzeButton->setToolTip(tr("Preview what would be cleaned up"));
@@ -242,11 +247,6 @@ void BCleanupDialog::setupUI()
     connect(m_cleanupButton, &QPushButton::clicked, this, &BCleanupDialog::onCleanupClicked);
     buttonLayout->addWidget(m_cleanupButton);
 
-    buttonLayout->addStretch();
-
-    m_closeButton = new QPushButton(tr("Cancel"));
-    connect(m_closeButton, &QPushButton::clicked, this, &BCleanupDialog::onCloseClicked);
-    buttonLayout->addWidget(m_closeButton);
 
     mainLayout->addLayout(buttonLayout);
 }

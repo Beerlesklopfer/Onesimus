@@ -345,6 +345,11 @@ BAclMatrixDialog::BAclMatrixDialog(QWidget *parent)
     layout->addWidget(m_how);
 
     auto *bottom = new QHBoxLayout;
+    // Cancel on the left, as in every dialog
+    auto *cancel = new QPushButton(tr("Cancel"), this);
+    cancel->setToolTip(tr("Closes the matrix; changes that were not applied are discarded"));
+    connect(cancel, &QPushButton::clicked, this, &BAclMatrixDialog::reject);
+    bottom->addWidget(cancel, 0, Qt::AlignTop);
     m_status = new QLabel(this);
     m_status->setWordWrap(true);
     m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -358,10 +363,6 @@ BAclMatrixDialog::BAclMatrixDialog(QWidget *parent)
                            "confirmation (.acl set / .acl delete)"));
     connect(m_apply, &QPushButton::clicked, this, &BAclMatrixDialog::apply);
     bottom->addWidget(m_apply, 0, Qt::AlignTop);
-    auto *cancel = new QPushButton(tr("Cancel"), this);
-    cancel->setToolTip(tr("Closes the matrix; changes that were not applied are discarded"));
-    connect(cancel, &QPushButton::clicked, this, &BAclMatrixDialog::reject);
-    bottom->addWidget(cancel, 0, Qt::AlignTop);
     layout->addLayout(bottom);
     setView(View::Consoles);
 

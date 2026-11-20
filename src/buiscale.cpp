@@ -6,6 +6,9 @@
 #include <QTimer>
 #include <QStyledItemDelegate>
 #include <QDialog>
+#include <QDialogButtonBox>
+#include <QBoxLayout>
+#include <QWizard>
 #include <QEvent>
 #include <QFontDatabase>
 #include <QGuiApplication>
@@ -450,8 +453,67 @@ void BUiScale::track(QObject *context, const std::function<void()> &apply)
     connect(&instance(), &BUiScale::changed, context, apply);
 }
 
+namespace {
+
+/// Cancel (and Close, every button of the reject role) leftmost in a row of
+/// dialog buttons, in every dialog alike: the styles put it on the right
+/// (Windows, KDE, GNOME) or in the middle (macOS)
+void cancelToTheLeft(QDialogButtonBox *box)
+{
+    auto *layout = qobject_cast<QBoxLayout *>(box->layout());
+    if (!layout || box->orientation() != Qt::Horizontal)
+        return;
+    int position = 0;
+    for (QAbstractButton *button : box->buttons()) {
+        if (box->buttonRole(button) != QDialogButtonBox::RejectRole)
+            continue;
+        layout->removeWidget(button);
+        layout->insertWidget(position++, button);
+    }
+    if (position == 0)
+        return;
+    // The others to the right of a stretch, if the style left none between
+    for (int i = position; i < layout->count(); ++i) {
+        if (layout->itemAt(i)->spacerItem())
+            return;
+        if (layout->itemAt(i)->widget() && layout->itemAt(i)->widget()->isVisible())
+            break;
+    }
+    layout->insertStretch(position, 1);
+}
+
+/// The same in a wizard: Cancel left, the steps right
+void wizardCancelLeft(QWizard *wizard)
+{
+    if (wizard->property("buiscaleCancelLeft").toBool())
+        return;
+    wizard->setProperty("buiscaleCancelLeft", true);
+    QList<QWizard::WizardButton> buttons{QWizard::CancelButton, QWizard::Stretch};
+    if (wizard->options() & QWizard::HaveHelpButton) buttons << QWizard::HelpButton;
+    if (wizard->options() & QWizard::HaveCustomButton1) buttons << QWizard::CustomButton1;
+    if (wizard->options() & QWizard::HaveCustomButton2) buttons << QWizard::CustomButton2;
+    if (wizard->options() & QWizard::HaveCustomButton3) buttons << QWizard::CustomButton3;
+    buttons << QWizard::BackButton << QWizard::NextButton << QWizard::CommitButton << QWizard::FinishButton;
+    wizard->setButtonLayout(buttons);
+}
+
+} // namespace
+
 bool BUiScale::eventFilter(QObject *watched, QEvent *event)
 {
+    // Cancel on the left in every dialog, message box and wizard
+    if (event->type() == QEvent::Show) {
+        if (auto *box = qobject_cast<QDialogButtonBox *>(watched)) {
+            // After the box has laid its buttons out for this show
+            QPointer<QDialogButtonBox> guarded(box);
+            QTimer::singleShot(0, box, [guarded]() {
+                if (guarded) cancelToTheLeft(guarded);
+            });
+        } else if (auto *wizard = qobject_cast<QWizard *>(watched)) {
+            wizardCancelLeft(wizard);
+        }
+    }
+
     // Every table, when it is first shown and when its font changes
     if (event->type() == QEvent::Polish || event->type() == QEvent::FontChange) {
         if (auto *table = qobject_cast<QTableView *>(watched))

@@ -108,9 +108,10 @@ void BSettingsDialog::setupUI()
     m_applyButton->setObjectName("applyButton");
     m_applyButton->setDefault(true);
 
+    // Cancel on the left, as in every dialog
+    buttonLayout->addWidget(m_cancelButton);
     buttonLayout->addWidget(m_resetButton);
     buttonLayout->addStretch();
-    buttonLayout->addWidget(m_cancelButton);
     buttonLayout->addWidget(m_applyButton);
 
     contentLayout->addLayout(buttonLayout);

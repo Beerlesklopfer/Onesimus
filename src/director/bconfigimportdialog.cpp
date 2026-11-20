@@ -132,8 +132,8 @@ void BConfigImportDialog::setupUI()
     mainLayout->addWidget(m_validationLabel);
 
     // Button box
+    // Cancel on the left, as in every dialog
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    buttonLayout->addStretch();
 
     m_importButton = new QPushButton(tr("Import"), this);
     m_importButton->setEnabled(false);
@@ -145,7 +145,8 @@ void BConfigImportDialog::setupUI()
     m_cancelButton = new QPushButton(tr("Cancel"), this);
     connect(m_cancelButton, &QPushButton::clicked,
             this, &QDialog::reject);
-    buttonLayout->addWidget(m_cancelButton);
+    buttonLayout->insertWidget(0, m_cancelButton);
+    buttonLayout->insertStretch(1, 1);
 
     mainLayout->addLayout(buttonLayout);
 }
