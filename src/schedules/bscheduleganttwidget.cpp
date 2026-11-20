@@ -552,6 +552,9 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
                                                 : tr("No runs on this date"));
     }
 
+    // What runs or waits now, over the planned bars
+    drawLiveOverlay(painter);
+
     // Heatmap
     drawHeatmap(painter);
 
@@ -1365,6 +1368,19 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         update();
     }
 
+    // A live band lies over the bars: what it says comes first
+    if (!m_liveJobs.isEmpty()) {
+        const QDateTime now = QDateTime::currentDateTime();
+        for (const LiveBand &band : liveBands(now)) {
+            if (band.bounds().contains(event->pos())) {
+                QToolTip::showText(event->globalPosition().toPoint(),
+                                   liveToolTip(m_liveJobs[band.jobIndex], now), this);
+                QWidget::mouseMoveEvent(event);
+                return;
+            }
+        }
+    }
+
     if (idx >= 0 && m_entries[idx].unused) {
         // Not a run: say so, and nothing about durations or waits
         const BScheduleEntry &e = m_entries[idx];
@@ -1637,6 +1653,154 @@ int BScheduleGanttWidget::dayOffsetAtPos(const QPoint &pos, int entryIdx) const
             return d;
     }
     return 0;
+}
+
+// ============================================================================
+// Live overlay: jobs that run or wait now
+// ============================================================================
+
+void BScheduleGanttWidget::setLiveJobs(const QList<BLiveJobOverlay::Job> &jobs)
+{
+    if (jobs.isEmpty() && m_liveJobs.isEmpty()) return;
+    m_liveJobs = jobs;
+    update();
+}
+
+int BScheduleGanttWidget::liveEntryIndex(const QList<BScheduleEntry> &entries,
+                                         const BLiveJobOverlay::Job &job)
+{
+    if (job.job.isEmpty()) return -1;
+    const QDateTime since = job.since();
+    // The scheduler queues a job at its time; a little later still counts
+    const QDateTime latest = since.isValid() ? since.addSecs(5 * 60) : QDateTime();
+
+    int firstCandidate = -1;
+    int best = -1;              // last start up to "latest"
+    QDateTime bestWhen;
+    int earliest = -1;          // otherwise the first start
+    QDateTime earliestWhen;
+    for (int i = 0; i < entries.size(); ++i) {
+        const BScheduleEntry &e = entries[i];
+        if (e.unused || e.jobName != job.job) continue;
+        if (firstCandidate < 0) firstCandidate = i;
+        for (const QDateTime &when : e.occurrences) {
+            if (latest.isValid() && when <= latest && (best < 0 || when > bestWhen)) {
+                best = i;
+                bestWhen = when;
+            }
+            if (earliest < 0 || when < earliestWhen) {
+                earliest = i;
+                earliestWhen = when;
+            }
+        }
+    }
+    if (best >= 0) return best;
+    if (earliest >= 0) return earliest;
+    return firstCandidate;
+}
+
+QList<BScheduleGanttWidget::LiveBand> BScheduleGanttWidget::liveBands(const QDateTime &now) const
+{
+    QList<LiveBand> bands;
+    if (m_liveJobs.isEmpty()) return bands;
+
+    const int left = m_labelWidth;
+    const int right = m_labelWidth + contentWidth();
+    const int gap = px(2);
+    const int height = qMax(px(5), m_rowHeight / 3);
+    // A span from..to as x positions, cut to the dates on display
+    auto span = [&](const QDateTime &from, const QDateTime &to, int top, int minWidth) {
+        if (!from.isValid() || !to.isValid() || to < from) return QRect();
+        int x1 = xForTime(from);
+        int x2 = qMax(xForTime(to), x1 + minWidth);
+        if (x2 <= left || x1 >= right) return QRect();
+        x1 = qMax(x1, left);
+        x2 = qMin(x2, right);
+        if (x2 <= x1) return QRect();
+        return QRect(x1, top, x2 - x1, height);
+    };
+
+    for (int j = 0; j < m_liveJobs.size(); ++j) {
+        const BLiveJobOverlay::Job &job = m_liveJobs[j];
+        const int entry = liveEntryIndex(m_entries, job);
+        if (entry < 0) continue;
+        const int row = rowForEntry(entry);
+        if (row < 0) continue;
+
+        LiveBand band;
+        band.jobIndex = j;
+        band.row = row;
+        const int top = m_headerHeight + (row + 1) * m_rowHeight - gap - height;
+        const bool running = job.phase == BLiveJobOverlay::Phase::Running;
+        // The wait: hatched, from the queue time to the start or to now
+        band.wait = span(job.queued, running ? job.started : now, top, running ? 0 : 1);
+        // The run: from its start to now, at least a sliver so that a job
+        // that just started is seen
+        if (running) band.run = span(job.started, now, top, px(3));
+        if (band.wait.isEmpty() && band.run.isEmpty()) continue;
+        bands.append(band);
+    }
+    return bands;
+}
+
+void BScheduleGanttWidget::drawLiveOverlay(QPainter &painter)
+{
+    if (m_liveJobs.isEmpty()) return;
+    const QList<LiveBand> bands = liveBands(QDateTime::currentDateTime());
+    if (bands.isEmpty()) return;
+
+    // The colour of the now marker: the band ends there
+    const QColor live(Qt::red);
+    QColor waitColor(230, 140, 0);
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    for (const LiveBand &band : bands) {
+        if (!band.wait.isEmpty()) {
+            QColor fill = waitColor;
+            fill.setAlpha(60);
+            painter.fillRect(band.wait, fill);
+            painter.fillRect(band.wait, QBrush(waitColor, Qt::BDiagPattern));
+            painter.setPen(QPen(waitColor, 1));
+            painter.setBrush(Qt::NoBrush);
+            painter.drawRect(band.wait.adjusted(0, 0, -1, -1));
+        }
+        if (!band.run.isEmpty()) {
+            QColor fill = live;
+            fill.setAlpha(170);
+            painter.fillRect(band.run, fill);
+            painter.setPen(QPen(live.darker(140), 1));
+            painter.setBrush(Qt::NoBrush);
+            painter.drawRect(band.run.adjusted(0, 0, -1, -1));
+        }
+    }
+    painter.restore();
+}
+
+QString BScheduleGanttWidget::liveToolTip(const BLiveJobOverlay::Job &job, const QDateTime &now) const
+{
+    const bool running = job.phase == BLiveJobOverlay::Phase::Running;
+    QString tip = QStringLiteral("<b>%1</b> (%2 %3)<br>%4")
+        .arg(job.job.toHtmlEscaped(), tr("JobId"), QString::number(job.jobId),
+             running ? tr("Running now") : tr("Waiting now"));
+    if (job.queued.isValid()) {
+        tip += QStringLiteral("<br>%1: %2").arg(tr("Queued at"), job.queued.toString(QStringLiteral("HH:mm:ss")));
+    }
+    if (running) {
+        tip += QStringLiteral("<br>%1: %2").arg(tr("Started at"), job.started.toString(QStringLiteral("HH:mm:ss")));
+        tip += QStringLiteral("<br>%1: %2").arg(
+            tr("Running for"), BJobHistoryStats::formatDuration(qMax<qint64>(0, job.started.secsTo(now))));
+    }
+    const qint64 wait = job.waitSecs(now);
+    tip += QStringLiteral("<br>%1: %2").arg(
+        running ? tr("Waited") : tr("Waiting for"),
+        wait < 0 ? tr("unknown") : BJobHistoryStats::formatDuration(wait));
+    if (!job.status.isEmpty()) {
+        tip += QStringLiteral("<br>%1: %2").arg(tr("Status"), job.status.toHtmlEscaped());
+    }
+    tip += QStringLiteral("<br><i>%1</i>").arg(
+        job.seeded ? tr("Known from the job history; the Director reports when it ends.")
+                   : tr("Reported by the Director as it happens."));
+    return tip;
 }
 
 int BScheduleGanttWidget::rowForEntry(int entryIndex) const

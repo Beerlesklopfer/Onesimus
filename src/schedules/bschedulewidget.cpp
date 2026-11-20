@@ -149,6 +149,13 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     m_historyTimer->setInterval(1500);
     connect(m_historyTimer, &QTimer::timeout, this, &BScheduleWidget::requestHistoryIfDue);
 
+    // Push events can come in bursts (a schedule queues many jobs at once):
+    // the timelines are repainted at most every LiveRepaintMs
+    m_liveTimer = new QTimer(this);
+    m_liveTimer->setSingleShot(true);
+    m_liveTimer->setInterval(LiveRepaintMs);
+    connect(m_liveTimer, &QTimer::timeout, this, &BScheduleWidget::flushLiveOverlay);
+
     setupUI();
 
     // Writing schedules: the flow and its dialogs. The configuration
@@ -600,6 +607,9 @@ void BScheduleWidget::clearData()
     m_sdGanttWidget->setEntries({});
     m_scheduleModel->clear();
     resetHistory();     // the history belongs to the connection
+    // and so do the jobs that run now
+    m_liveOverlay.clear();
+    flushLiveOverlay();
     m_limits = BWaitLimits();   // and so do the limits
     m_directorLimitAsked = false;
     updateWaitPrediction();
@@ -1982,6 +1992,50 @@ void BScheduleWidget::onCommandFailed(BDirector::Command cmd, const QString &arg
     updateHistoryViews();
 }
 
+// ============================================================================
+// Live overlay: jobs that run or wait now (push events, gRPC only)
+// ============================================================================
+
+void BScheduleWidget::setLiveOverlayEnabled(bool enabled)
+{
+    if (m_liveEnabled == enabled) return;
+    m_liveEnabled = enabled;
+    if (!enabled) {
+        m_liveOverlay.clear();
+        flushLiveOverlay();
+    }
+}
+
+void BScheduleWidget::onJobStatusEvent(quint64 jobId, const QString &jobName, const QString &status)
+{
+    if (!m_liveEnabled) return;
+    // The signal carries no time; odir stamps the event when it posts it,
+    // so its arrival is as near as the GUI gets
+    if (m_liveOverlay.statusEvent(jobId, jobName, status, QDateTime::currentDateTime()))
+        liveOverlayChanged();
+}
+
+void BScheduleWidget::onJobMessage(quint64 jobId, const QString &jobName, const QString &text)
+{
+    if (!m_liveEnabled) return;
+    if (m_liveOverlay.jobMessage(jobId, jobName, text, QDateTime::currentDateTime()))
+        liveOverlayChanged();
+}
+
+void BScheduleWidget::liveOverlayChanged()
+{
+    if (!m_liveTimer->isActive())
+        m_liveTimer->start();
+}
+
+void BScheduleWidget::flushLiveOverlay()
+{
+    m_liveTimer->stop();
+    const QList<BLiveJobOverlay::Job> jobs = m_liveOverlay.jobs();
+    m_fdGanttWidget->setLiveJobs(jobs);
+    m_sdGanttWidget->setLiveJobs(jobs);
+}
+
 void BScheduleWidget::applyHistoryReply(const BJobHistoryReply &reply, quint64 generation)
 {
     // The connection the reply belongs to is gone
@@ -1989,6 +2043,10 @@ void BScheduleWidget::applyHistoryReply(const BJobHistoryReply &reply, quint64 g
 
     switch (reply.outcome) {
     case BJobHistoryReply::Outcome::Runs: {
+        // Jobs that were already running or waiting when the connection
+        // was made send no event before they end: the history lists them
+        if (m_liveEnabled && m_liveOverlay.seed(reply.runs))
+            liveOverlayChanged();
         m_historyStats.setRuns(reply.runs, m_historyDays, BJobHistoryStats::wallClockNow());
         m_historyRuns = reply.runs;
         m_historyRows = reply.rows;

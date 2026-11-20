@@ -28,6 +28,7 @@
 #include "schedules/model/bschedulewaitmodel.h"
 #include "schedules/model/bwaitcalibration.h"
 #include "schedules/model/bwaitstagger.h"
+#include "schedules/model/bliveoverlay.h"
 #include "schedules/bschedulepersistence.h"
 
 class BScheduleSaveDialogs;
@@ -200,6 +201,26 @@ public:
     /// Nights the back-test of the wait prediction replays
     static constexpr int BacktestNights = 7;
 
+    /**
+     * @brief Turns the live overlay of the timeline on or off
+     *
+     * On for gRPC connections to the Onesimus Director, which pushes job
+     * events; off for BNET, where nothing changes. Off clears it.
+     */
+    void setLiveOverlayEnabled(bool enabled);
+    bool liveOverlayEnabled() const { return m_liveEnabled; }
+    /// The jobs that run or wait now (tests)
+    const BLiveJobOverlay &liveOverlay() const { return m_liveOverlay; }
+    /// Hands pending changes of the live overlay to the timelines at once
+    /// instead of after the throttle (tests)
+    void flushLiveOverlay();
+    /// The timelines (tests)
+    BScheduleGanttWidget *fdTimeline() const { return m_fdGanttWidget; }
+    BScheduleGanttWidget *sdTimeline() const { return m_sdGanttWidget; }
+
+    /// Time between two repaints caused by push events
+    static constexpr int LiveRepaintMs = 500;
+
 public slots:
     void processDotScheduleResponse(const QString &jsonData);
     void processShowSchedulesResponse(const QString &jsonData);
@@ -222,6 +243,11 @@ public slots:
     /// A command got no reply (BDirector::commandFailed); only the job
     /// history request and the limit requests of this widget are looked at
     void onCommandFailed(BDirector::Command cmd, const QString &args, const QString &errorMsg);
+
+    /// Push events of the Director (BDirector::jobStatusEvent, jobMessage);
+    /// looked at only while the live overlay is on
+    void onJobStatusEvent(quint64 jobId, const QString &jobName, const QString &status);
+    void onJobMessage(quint64 jobId, const QString &jobName, const QString &text);
 
 signals:
     void sendCommand(const BDirector::Command cmd, const QString &args);
@@ -380,6 +406,11 @@ private:
     quint64 m_historyGeneration = 0;    ///< Bumped on reset: older replies are dropped
     QPointer<QThread> m_historyParser;
     QTimer *m_historyTimer = nullptr;
+    // --- Live overlay (gRPC only) ---
+    BLiveJobOverlay m_liveOverlay;
+    bool m_liveEnabled = false;
+    QTimer *m_liveTimer = nullptr;      ///< Throttles the repaints of push events
+    void liveOverlayChanged();
     bool m_connected = false;
     BJobConfigModel *m_jobConfigModel = nullptr;  // not owned
 

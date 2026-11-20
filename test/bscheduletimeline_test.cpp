@@ -212,6 +212,13 @@ private slots:
     // --- The legend ---
     void legendExplainsEveryMark();
 
+    // --- Live overlay (push events over gRPC) ---
+    void liveOverlayFollowsTheEvents();
+    void liveOverlayIsThrottled();
+    void liveOverlayOffOnBnet();
+    void liveOverlaySeededFromTheHistory();
+    void liveJobFindsTheRowOfItsRun();
+
 private:
     QTemporaryDir m_config;
 };
@@ -1275,6 +1282,196 @@ void BScheduleTimelineTest::legendExplainsEveryMark()
         legend.adjustSize();
         legend.grab().save(png);
     }
+}
+
+// ============================================================================
+// Live overlay (push events over gRPC)
+// ============================================================================
+
+void BScheduleTimelineTest::liveOverlayFollowsTheEvents()
+{
+    Tab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    tab.widget.setLiveOverlayEnabled(true);
+    BScheduleGanttWidget *timeline = tab.timeline();
+
+    // Queued: a waiting job in the row of its run
+    tab.widget.onJobStatusEvent(42, "BackupEleLa", "Queued");
+    tab.widget.flushLiveOverlay();
+    QCOMPARE(timeline->liveJobs().size(), 1);
+    QCOMPARE(tab.widget.sdTimeline()->liveJobs().size(), 1);
+    QCOMPARE(timeline->liveJobs()[0].phase, BLiveJobOverlay::Phase::Waiting);
+
+    // Ten minutes on, the wait is a band up to now (not checked in the
+    // last minutes of a day: "now" would be tomorrow)
+    const QDateTime later = QDateTime::currentDateTime().addSecs(600);
+    const bool sameDay = later.date() == QDate::currentDate();
+    QList<BScheduleGanttWidget::LiveBand> bands = timeline->liveBands(later);
+    if (sameDay) {
+        QCOMPARE(bands.size(), 1);
+        QCOMPARE(bands[0].row, 1);
+        QVERIFY(!bands[0].wait.isEmpty());
+        QVERIFY(bands[0].run.isEmpty());
+    }
+
+    // It starts: a running job, its band ends at now
+    tab.widget.onJobMessage(42, "BackupEleLa",
+                            "Start Backup JobId 42, Job=BackupEleLa.2026-11-20_08.00.00_01\n");
+    tab.widget.flushLiveOverlay();
+    QCOMPARE(timeline->liveJobs()[0].phase, BLiveJobOverlay::Phase::Running);
+    bands = timeline->liveBands(later);
+    if (sameDay) {
+        QCOMPARE(bands.size(), 1);
+        QVERIFY(!bands[0].run.isEmpty());
+        const BScheduleGanttWidget::Metrics m = timeline->metrics();
+        const int nowX = m.labelWidth + static_cast<int>(
+            QDate::currentDate().startOfDay().secsTo(later) / 3600.0 * timeline->zoomLevel());
+        QVERIFY2(qAbs(bands[0].run.right() + 1 - nowX) <= 1,
+                 qPrintable(QString("%1 vs %2").arg(bands[0].run.right()).arg(nowX)));
+    }
+    // For a look at it: ONESIMUS_LIVE_PNG=/path/live.png (a second job
+    // waits since an hour ago)
+    const QString png = qEnvironmentVariable("ONESIMUS_LIVE_PNG");
+    if (!png.isEmpty()) {
+        BLiveJobOverlay::Job waiting;
+        waiting.jobId = 44;
+        waiting.job = QStringLiteral("BackupEleLa");
+        waiting.queued = QDateTime::currentDateTime().addSecs(-3600);
+        QList<BLiveJobOverlay::Job> shown = timeline->liveJobs();
+        shown[0].queued = QDateTime::currentDateTime().addSecs(-3 * 3600);
+        shown[0].started = QDateTime::currentDateTime().addSecs(-2 * 3600);
+        // A timeline of its own, wide enough to see the bands
+        BScheduleGanttWidget wide;
+        wide.setEntries(timeline->entries());
+        wide.setLiveJobs(shown + QList<BLiveJobOverlay::Job>{waiting});
+        wide.resize(1200, 160);
+        wide.grab().save(png);
+    }
+
+    // It ends: cleared
+    tab.widget.onJobStatusEvent(42, "BackupEleLa", "Success");
+    tab.widget.flushLiveOverlay();
+    QVERIFY(timeline->liveJobs().isEmpty());
+    QVERIFY(timeline->liveBands(later).isEmpty());
+
+    // A job no run of the view belongs to (started by hand) has no row
+    tab.widget.onJobStatusEvent(43, "RestoreFiles", "Queued");
+    tab.widget.flushLiveOverlay();
+    QCOMPARE(timeline->liveJobs().size(), 1);
+    QVERIFY(timeline->liveBands(later).isEmpty());
+
+    // The connection goes: nothing is left
+    tab.widget.setConnectionState(false);
+    QVERIFY(tab.widget.liveOverlay().isEmpty());
+    QVERIFY(timeline->liveJobs().isEmpty());
+}
+
+void BScheduleTimelineTest::liveOverlayIsThrottled()
+{
+    Tab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    tab.widget.setLiveOverlayEnabled(true);
+    BScheduleGanttWidget *timeline = tab.timeline();
+
+    // A burst of events reaches the timeline once, after the throttle
+    for (int id = 1; id <= 50; ++id)
+        tab.widget.onJobStatusEvent(quint64(id), "BackupEleLa", "Queued");
+    QCOMPARE(tab.widget.liveOverlay().jobs().size(), 50);
+    QVERIFY(timeline->liveJobs().isEmpty());
+    QTRY_COMPARE_WITH_TIMEOUT(timeline->liveJobs().size(), 50, 5 * BScheduleWidget::LiveRepaintMs);
+}
+
+void BScheduleTimelineTest::liveOverlayOffOnBnet()
+{
+    Tab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    QVERIFY(!tab.widget.liveOverlayEnabled());
+    tab.widget.onJobStatusEvent(42, "BackupEleLa", "Queued");
+    tab.widget.onJobMessage(42, "BackupEleLa", "Start Backup JobId 42, Job=x\n");
+    QTest::qWait(2 * BScheduleWidget::LiveRepaintMs);
+    QVERIFY(tab.widget.liveOverlay().isEmpty());
+    QVERIFY(tab.timeline()->liveJobs().isEmpty());
+
+    // Turned off: what was there goes
+    tab.widget.setLiveOverlayEnabled(true);
+    tab.widget.onJobStatusEvent(42, "BackupEleLa", "Queued");
+    tab.widget.flushLiveOverlay();
+    QCOMPARE(tab.timeline()->liveJobs().size(), 1);
+    tab.widget.setLiveOverlayEnabled(false);
+    QVERIFY(tab.timeline()->liveJobs().isEmpty());
+}
+
+void BScheduleTimelineTest::liveOverlaySeededFromTheHistory()
+{
+    // A job that was running when the connection was made, and one that
+    // ended before the history's reply arrived
+    Tab tab;
+    tab.widget.setLiveOverlayEnabled(true);
+    const QString f = QStringLiteral("yyyy-MM-dd HH:mm:ss");
+    const QDateTime sched(QDate::currentDate(), QTime(8, 0));
+    QString history = QStringLiteral("{'jsonrpc':'2.0','id':null,'result':{'jobs':["
+        "{'jobid':'7','name':'BackupEleLa','type':'B','level':'I','jobstatus':'R',"
+        "'schedtime':'%1','starttime':'%2','endtime':'','realendtime':''},"
+        "{'jobid':'8','name':'BackupEleLa','type':'B','level':'I','jobstatus':'R',"
+        "'schedtime':'%1','starttime':'%2','endtime':'','realendtime':''}]}}")
+        .arg(sched.toString(f), sched.addSecs(120).toString(f));
+    history.replace(QLatin1Char('\''), QLatin1Char('"'));
+    QObject::connect(&tab.widget, &BScheduleWidget::sendCommand, &tab.widget,
+                     [&tab, history](BDirector::Command cmd, const QString &args) {
+        if (cmd == BDirector::Command::LlistJobs) {
+            QTimer::singleShot(0, &tab.widget, [&tab, args, history]() {
+                // Job 8 ended while the reply was on its way
+                tab.widget.onJobStatusEvent(8, "BackupEleLa", "Success");
+                tab.widget.processJobHistoryReply(args, history);
+            });
+        }
+    });
+    tab.widget.setConnectionState(true);
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+
+    QTRY_VERIFY_WITH_TIMEOUT(tab.widget.liveOverlay().job(7) != nullptr, 10000);
+    QVERIFY(!tab.widget.liveOverlay().job(8));
+    const BLiveJobOverlay::Job *job = tab.widget.liveOverlay().job(7);
+    QCOMPARE(job->phase, BLiveJobOverlay::Phase::Running);
+    QCOMPARE(job->queued, sched);
+    QCOMPARE(job->started, sched.addSecs(120));
+    QVERIFY(job->seeded);
+    QTRY_COMPARE_WITH_TIMEOUT(tab.timeline()->liveJobs().size(), 1, 5 * BScheduleWidget::LiveRepaintMs);
+}
+
+void BScheduleTimelineTest::liveJobFindsTheRowOfItsRun()
+{
+    const QDate today(2026, 11, 20);
+    auto entry = [&](const QString &job, int hour, bool unused = false) {
+        BScheduleEntry e;
+        e.scheduleName = QStringLiteral("S");
+        e.jobName = job;
+        e.hour = hour;
+        e.unused = unused;
+        e.occurrences = {QDateTime(today, QTime(hour, 0))};
+        return e;
+    };
+    const QList<BScheduleEntry> entries = {
+        entry("Other", 21),
+        entry("Nightly", 2),
+        entry("Nightly", 21),
+        entry("Nightly", 23),
+        entry("Nightly", 21, true),
+    };
+    BLiveJobOverlay::Job job;
+    job.job = QStringLiteral("Nightly");
+    // Queued at 21:02: the run of 21:00
+    job.queued = QDateTime(today, QTime(21, 2));
+    QCOMPARE(BScheduleGanttWidget::liveEntryIndex(entries, job), 2);
+    // Queued two minutes early: the run of 23:00
+    job.queued = QDateTime(today, QTime(22, 58));
+    QCOMPARE(BScheduleGanttWidget::liveEntryIndex(entries, job), 3);
+    // Before every run of the day: the first one
+    job.queued = QDateTime(today, QTime(1, 0));
+    QCOMPARE(BScheduleGanttWidget::liveEntryIndex(entries, job), 1);
+    // No run of the job
+    job.job = QStringLiteral("Unknown");
+    QCOMPARE(BScheduleGanttWidget::liveEntryIndex(entries, job), -1);
 }
 
 QTEST_MAIN(BScheduleTimelineTest)
