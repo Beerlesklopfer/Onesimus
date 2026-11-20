@@ -175,7 +175,8 @@ public:
      * @return false if refused at once (busy, locked); a report says why
      */
     bool saveRuns(const BSchedule &loaded, const QList<BScheduleResource::Line> &lines,
-                  const QStringList &jobs, const QString &note = QString());
+                  const QStringList &jobs, const QString &note = QString(),
+                  const std::optional<QString> &description = std::nullopt);
 
     /// Deletes a schedule (DeleteResource), after a check and the review
     bool deleteSchedule(const QString &scheduleName, const QStringList &jobs);
@@ -223,7 +224,8 @@ private:
     void withRaw(const QString &name, const QList<BRunLine> &loaded,
                  std::function<void(const Prepared &raw)> next, BScheduleReview::Operation operation);
     void updateStep(const BSchedule &loaded, const QList<BScheduleResource::Line> &lines,
-                    const QStringList &jobs, const QString &note, const Prepared &raw);
+                    const QStringList &jobs, const QString &note, const Prepared &raw,
+                    const std::optional<QString> &description);
     /// Steps 3 to 5 of an update; again for an edited text
     void checkUpdate(const BScheduleReview &review, const Prepared &raw);
     /// The same for a create

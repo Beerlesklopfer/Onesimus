@@ -1720,7 +1720,9 @@ void BScheduleWidget::onGridSaveRequested()
     m_gridSaving = name;
     m_persistence->saveRuns(model->loadedSchedule(), lines, jobsUsing(name),
                             tr("The changes made in the grid. Lines that were not touched stay as they "
-                               "are in the file."));
+                               "are in the file."),
+                            m_gridView->descriptionChanged() ? std::optional<QString>(m_gridView->description())
+                                                             : std::nullopt);
 }
 
 void BScheduleWidget::onGridDeleteRequested()

@@ -23,6 +23,7 @@
  */
 
 #include <QtTest>
+#include <QLineEdit>
 
 #include <QComboBox>
 #include <QDateEdit>
@@ -183,6 +184,7 @@ private slots:
     void dropOnBnetSendsNothingEvenWithAClient();
     void dropOnALockedScheduleIsRefused();
     void gridSaveWritesAndStartsAfresh();
+    void gridSaveWritesTheDescription();
     void deleteOfAScheduleInUseDeletesNothing();
 
     // --- Schedules no job uses ---
@@ -554,6 +556,48 @@ void BScheduleTimelineTest::gridSaveWritesAndStartsAfresh()
     QVERIFY(!grid->hasPendingSchedule());
     QCOMPARE(grid->model()->loadedSchedule().runs.size(), 2);
     QCOMPARE(grid->editor()->undoStack()->count(), 0);
+}
+
+void BScheduleTimelineTest::gridSaveWritesTheDescription()
+{
+    GrpcTab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    tab.widget.setScheduleSaveGate([](QWidget *) { return true; });
+    BScheduleGridView *grid = tab.widget.gridView();
+    auto *description = grid->findChild<QLineEdit *>(QStringLiteral("scheduleDescription"));
+    QVERIFY(description);
+    QVERIFY(description->text().isEmpty());
+
+    // Only the description: the schedule is modified and can be saved
+    QTest::keyClicks(description, QStringLiteral("Nightly \"core\" backups"));
+    QVERIFY(grid->isModified());
+    QVERIFY(grid->descriptionChanged());
+    QVERIFY(grid->saveButton()->isEnabled());
+    QTRY_COMPARE(tab.widget.persistence()->preparedText(QStringLiteral("WeeklyCycle")), kWeeklyCycleText);
+
+    QTest::mouseClick(grid->saveButton(), Qt::LeftButton);
+    QVERIFY(tab.wait());
+    QCOMPARE(tab.report().kind, BScheduleReport::Written);
+    const QString written = tab.client.writes().value(0).text;
+    QVERIFY2(written.contains(QStringLiteral("Description = \"Nightly \\\"core\\\" backups\"")), qPrintable(written));
+    // The Run line as it was in the file, with its comment
+    QVERIFY2(written.contains(QStringLiteral("Run = Level=Incremental daily at 08:00   # mornings")),
+             qPrintable(written));
+
+    // Read again with the description: nothing is modified any more
+    tab.widget.processShowSchedulesResponse(QStringLiteral(
+        R"({"result":{"schedules":{"WeeklyCycle":{"name":"WeeklyCycle","description":"Nightly \"core\" backups",)"
+        R"("run":["Level=Incremental daily at 08:00"]}}}})"));
+    QCOMPARE(description->text(), QStringLiteral("Nightly \"core\" backups"));
+    QVERIFY(!grid->isModified());
+
+    // Revert all brings the reported description back
+    QTest::keyClicks(description, QStringLiteral("!"));
+    QVERIFY(grid->isModified());
+    QVERIFY(grid->revertButton()->isEnabled());
+    QTest::mouseClick(grid->revertButton(), Qt::LeftButton);
+    QCOMPARE(description->text(), QStringLiteral("Nightly \"core\" backups"));
+    QVERIFY(!grid->isModified());
 }
 
 void BScheduleTimelineTest::deleteOfAScheduleInUseDeletesNothing()

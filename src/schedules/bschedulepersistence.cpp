@@ -7,6 +7,7 @@
 
 #include "schedules/model/bschedulegridmodel.h"
 #include "config/bresourcepersistence.h"
+#include "config/bresourcetext.h"
 
 // A schedule report is a resource report with the schedule's own fields:
 // the kinds and operations are the same, in the same order
@@ -131,7 +132,8 @@ void BSchedulePersistence::withRaw(const QString &name, const QList<BRunLine> &l
 // ============================================================================
 
 bool BSchedulePersistence::saveRuns(const BSchedule &loaded, const QList<BScheduleResource::Line> &lines,
-                                    const QStringList &jobs, const QString &note)
+                                    const QStringList &jobs, const QString &note,
+                                    const std::optional<QString> &description)
 {
     if (m_busy)
         return false;
@@ -157,19 +159,30 @@ bool BSchedulePersistence::saveRuns(const BSchedule &loaded, const QList<BSchedu
         return false;
     }
     setBusy(true);
-    withRaw(loaded.name, loaded.runs, [this, loaded, lines, jobs, note](const Prepared &raw) {
-        updateStep(loaded, lines, jobs, note, raw);
+    withRaw(loaded.name, loaded.runs, [this, loaded, lines, jobs, note, description](const Prepared &raw) {
+        updateStep(loaded, lines, jobs, note, raw, description);
     }, Operation::Update);
     return true;
 }
 
 void BSchedulePersistence::updateStep(const BSchedule &loaded, const QList<BScheduleResource::Line> &lines,
-                                      const QStringList &jobs, const QString &note, const Prepared &raw)
+                                      const QStringList &jobs, const QString &note, const Prepared &raw,
+                                      const std::optional<QString> &description)
 {
     const QString name = loaded.name;
     QString newText;
     QString error;
-    if (!BScheduleResource::rewrite(raw.text, lines, &newText, &error)) {
+    bool written = BScheduleResource::rewrite(raw.text, lines, &newText, &error);
+    // The description: set in place, added after the name, or removed if empty
+    if (written && description) {
+        const BResourceText::Change change = description->isEmpty()
+            ? BResourceText::Change::unset(QStringLiteral("Description"))
+            : BResourceText::Change::set(QStringLiteral("Description"), *description);
+        QString withDescription;
+        written = BResourceText::edit(newText, {change}, &withDescription, &error);
+        if (written) newText = withDescription;
+    }
+    if (!written) {
         BScheduleReport report;
         report.kind = BScheduleReport::Failed;
         report.scheduleName = name;
@@ -183,7 +196,7 @@ void BSchedulePersistence::updateStep(const BSchedule &loaded, const QList<BSche
         report.kind = BScheduleReport::Cancelled;
         report.scheduleName = name;
         report.title = tr("Nothing to write");
-        report.text = tr("The Run lines are the ones the Director has.");
+        report.text = tr("The Run lines and the description are the ones the Director has.");
         finish(report, false);
         return;
     }

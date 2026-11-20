@@ -21,6 +21,7 @@
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QLocale>
 #include <QMenu>
 #include <QPainter>
@@ -249,7 +250,7 @@ BScheduleGridView::BScheduleGridView(QWidget *parent)
     auto updateUndo = [this, stack]() {
         m_undo->setEnabled(stack->canUndo());
         m_redo->setEnabled(stack->canRedo());
-        m_revert->setEnabled(stack->canUndo());
+        m_revert->setEnabled(stack->canUndo() || descriptionChanged());
         m_save->setEnabled(isModified() && !isLocked());
         m_undo->setToolTip(stack->canUndo() ? tr("Undo: %1 (Ctrl+Z)").arg(stack->undoText())
                                             : tr("Nothing to undo (Ctrl+Z)"));
@@ -263,6 +264,10 @@ BScheduleGridView::BScheduleGridView(QWidget *parent)
     connect(m_undo, &QPushButton::clicked, m_editor, &BScheduleGridEditor::undo);
     connect(m_redo, &QPushButton::clicked, m_editor, &BScheduleGridEditor::redo);
     connect(m_revert, &QPushButton::clicked, m_editor, &BScheduleGridEditor::revertAll);
+    connect(m_revert, &QPushButton::clicked, this, [this]() {
+        m_description->setText(m_model->loadedSchedule().description);
+        updateModified();
+    });
 
     connect(m_editor, &BScheduleGridEditor::edited, this, [this](const QString &what) {
         m_editError->clear();
@@ -351,6 +356,24 @@ void BScheduleGridView::buildUi()
     headerRow->addWidget(m_save);
     headerRow->addWidget(m_delete);
     topLayout->addLayout(headerRow);
+
+    // --- Description (written with the Run lines) ---
+    auto *descriptionRow = new QHBoxLayout();
+    auto *descriptionLabel = new QLabel(tr("Descr&iption:"), top);
+    descriptionRow->addWidget(descriptionLabel);
+    m_description = new QLineEdit(top);
+    m_description->setObjectName(QStringLiteral("scheduleDescription"));
+    m_description->setPlaceholderText(tr("No description"));
+    m_description->setToolTip(tr("The Description of the schedule. Saved with the Run lines; empty "
+                                 "removes it from the file."));
+    m_description->setClearButtonEnabled(true);
+    descriptionLabel->setBuddy(m_description);
+    descriptionRow->addWidget(m_description, 1);
+    topLayout->addLayout(descriptionRow);
+    connect(m_description, &QLineEdit::textEdited, this, [this]() {
+        updateModified();
+        m_revert->setEnabled(m_editor->undoStack()->canUndo() || descriptionChanged());
+    });
     connect(m_save, &QPushButton::clicked, this, &BScheduleGridView::saveRequested);
     connect(m_delete, &QPushButton::clicked, this, &BScheduleGridView::deleteRequested);
 
@@ -630,7 +653,17 @@ void BScheduleGridView::discardAndReload()
 
 bool BScheduleGridView::isModified() const
 {
-    return m_hasSchedule && m_model->isModified();
+    return m_hasSchedule && (m_model->isModified() || descriptionChanged());
+}
+
+QString BScheduleGridView::description() const
+{
+    return m_description ? m_description->text().trimmed() : QString();
+}
+
+bool BScheduleGridView::descriptionChanged() const
+{
+    return m_hasSchedule && m_description && description() != m_model->loadedSchedule().description;
 }
 
 void BScheduleGridView::clear()
@@ -684,6 +717,12 @@ QString BScheduleGridView::modifiedText() const
 {
     if (!isModified())
         return QString();
+    if (!m_model->isModified()) {
+        QString text = tr("Modified: the description, not written to the Director.");
+        if (m_declined && m_declined->name == m_model->loadedSchedule().name)
+            text += QLatin1Char(' ') + tr("The Director reports other Run lines since.");
+        return text;
+    }
     int changed = 0;
     int added = 0;
     int removed = 0;
@@ -699,8 +738,11 @@ QString BScheduleGridView::modifiedText() const
         parts.append(tr("%n new", "", added));
     if (removed)
         parts.append(tr("%n removed", "", removed));
-    QString text = tr("Modified: %1 Run line(s), not written to the Director.")
-                       .arg(parts.join(QLatin1String(", ")));
+    QString text = descriptionChanged()
+        ? tr("Modified: %1 Run line(s) and the description, not written to the Director.")
+              .arg(parts.join(QLatin1String(", ")))
+        : tr("Modified: %1 Run line(s), not written to the Director.")
+              .arg(parts.join(QLatin1String(", ")));
     if (m_declined && m_declined->name == m_model->loadedSchedule().name)
         text += QLatin1Char(' ') + tr("The Director reports other Run lines since.");
     return text;
@@ -758,6 +800,7 @@ void BScheduleGridView::updateLock()
     const bool editable = m_hasSchedule && !isLocked();
     m_palette->setEnabled(editable);
     m_addScope->setEnabled(editable);
+    m_description->setReadOnly(!editable);
     m_scopeBar->setProperty("locked", !editable);
     m_save->setEnabled(isModified() && editable);
     m_delete->setEnabled(m_hasSchedule);
@@ -781,6 +824,9 @@ void BScheduleGridView::onScheduleReset()
     rebuildScopeBar();
     rebuildRunLines();
     rebuildRules();
+    // The description as the Director reports it; an edit of it is gone
+    // with the Run lines
+    m_description->setText(m_model->loadedSchedule().description);
     updateHeader();
     updateModified();
     updatePendingNotice();

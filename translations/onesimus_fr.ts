@@ -12174,243 +12174,258 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
 <context>
     <name>BScheduleGridView</name>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="254" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="255" />
         <source>Undo: %1 (Ctrl+Z)</source>
         <translation>Annuler : %1 (Ctrl+Z)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="255" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="256" />
         <source>Nothing to undo (Ctrl+Z)</source>
         <translation>Rien à annuler (Ctrl+Z)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="256" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="257" />
         <source>Redo: %1 (Ctrl+Shift+Z or Ctrl+Y)</source>
         <translation>Rétablir : %1 (Ctrl+Shift+Z ou Ctrl+Y)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="257" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="258" />
         <source>Nothing to redo (Ctrl+Shift+Z or Ctrl+Y)</source>
         <translation>Rien à rétablir (Ctrl+Shift+Z ou Ctrl+Y)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="288" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="293" />
         <source>No schedule chosen. Select a schedule in the list on the left to see it as a grid of weekdays and hours.</source>
         <translation>Aucun Schedule choisi. Sélectionnez un Schedule dans la liste de gauche pour l'afficher sous forme de grille de jours de semaine et d'heures.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="329" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="330" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="334" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="335" />
         <source>Undo</source>
         <translation>Annuler</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="332" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="333" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="337" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="338" />
         <source>Redo</source>
         <translation>Rétablir</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="335" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="340" />
         <source>Revert all</source>
         <translation>Tout annuler</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="336" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="341" />
         <source>Undoes every change of this schedule. Redo brings them back.</source>
         <translation>Annule toutes les modifications de ce Schedule. Rétablir les ramène.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="338" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="343" />
         <source>&amp;Save...</source>
         <translation>&amp;Enregistrer...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="340" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="746" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="345" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="788" />
         <source>Writes the changed Run lines to the Director. The Director checks them first, and you see old and new lines and the jobs that use the schedule before anything is written.</source>
         <translation>Écrit les lignes Run modifiées sur le Director. Le Director les vérifie d'abord, et vous voyez les anciennes et nouvelles lignes ainsi que les Jobs qui utilisent ce Schedule avant que quoi que ce soit ne soit écrit.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="345" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="350" />
         <source>Delete...</source>
         <translation>Supprimer...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="346" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="750" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="351" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="792" />
         <source>Deletes this schedule on the Director, after a check that no job uses it and your confirmation</source>
         <translation>Supprime ce Schedule sur le Director, après avoir vérifié qu'aucun Job ne l'utilise et après votre confirmation</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="376" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="366" />
+        <source>No description</source>
+        <translation>Pas de description</translation>
+    </message>
+    <message>
+        <location filename="../src/schedules/bschedulegridview.cpp" line="367" />
+        <source>The Description of the schedule. Saved with the Run lines; empty removes it from the file.</source>
+        <translation>La Description du Schedule. Enregistrée avec les lignes Run ; vide, elle est retirée du fichier.</translation>
+    </message>
+    <message>
+        <location filename="../src/schedules/bschedulegridview.cpp" line="399" />
         <source>&amp;Keep my changes</source>
         <translation>&amp;Conserver mes modifications</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="377" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="815" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="400" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="861" />
         <source>&amp;Discard and reload</source>
         <translation>&amp;Abandonner et recharger</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="387" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="410" />
         <source>Scopes</source>
         <translation>Portées</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="391" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="414" />
         <source>Scope:</source>
         <translation>Portée :</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="392" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="415" />
         <source>The weeks of the month and the months a Run line is restricted to. The grid shows the runs of the chosen scope; runs of the other scopes are hatched.</source>
         <translation>Les semaines du mois et les mois auxquels une ligne Run est restreinte. La grille affiche les exécutions de la portée choisie ; celles des autres portées sont hachurées.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="399" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="422" />
         <source>Add scope</source>
         <translation>Ajouter une portée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="400" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="423" />
         <source>Add scope: weeks of the month, and months, to paint a grid of their own for</source>
         <translation>Ajouter une portée : des semaines du mois, et des mois, pour lesquels peindre une grille propre</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="425" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="448" />
         <source>Legend</source>
         <translation>Légende</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="446" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="450" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="469" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="473" />
         <source>Run lines</source>
         <translation>Lignes Run</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="455" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="478" />
         <source>No.</source>
         <translation>N°</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="455" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="500" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="478" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="523" />
         <source>Run line</source>
         <translation>Ligne Run</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="455" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="478" />
         <source>Shown in</source>
         <translation>Affiché dans</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="456" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="479" />
         <source>The Run lines of the schedule in their order. Choosing a line outlines its cells in the grid and switches to its scope.</source>
         <translation>Les lignes Run du Schedule dans leur ordre. Choisir une ligne entoure ses cellules dans la grille et passe à sa portée.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="472" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="495" />
         <source>&amp;Add rule...</source>
         <translation>&amp;Ajouter une règle...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="473" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="496" />
         <source>Add calendar rule</source>
         <translation>Ajouter une règle de calendrier</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="474" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="497" />
         <source>Adds a calendar rule: a Run line by day of the month or by week of the year, such as "on 1 at 21:00"</source>
         <translation>Ajoute une règle de calendrier : une ligne Run selon le jour du mois ou la semaine de l'année, par exemple "on 1 at 21:00"</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="476" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="499" />
         <source>&amp;Edit rule...</source>
         <translation>&amp;Modifier la règle...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="477" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="500" />
         <source>Edit calendar rule</source>
         <translation>Modifier la règle de calendrier</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="478" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="501" />
         <source>Opens the form of the calendar rule that is chosen in the list</source>
         <translation>Ouvre le formulaire de la règle de calendrier choisie dans la liste</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="479" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="502" />
         <source>&amp;Remove rule</source>
         <translation>&amp;Supprimer la règle</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="480" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1314" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="503" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1360" />
         <source>Remove calendar rule</source>
         <translation>Supprimer la règle de calendrier</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="481" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="504" />
         <source>Removes the calendar rule that is chosen in the list</source>
         <translation>Supprime la règle de calendrier choisie dans la liste</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="491" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="495" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="514" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="518" />
         <source>Calendar rules</source>
         <translation>Règles de calendrier</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="500" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="523" />
         <source>Mark</source>
         <translation>Marque</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="500" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="523" />
         <source>Runs</source>
         <translation>Exécutions</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="501" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="524" />
         <source>Run lines by day of the month or week of the year. They do not belong to a weekday and are marked in the band below the grid. Enter or a double click opens the form of a rule, Del removes it.</source>
         <translation>Lignes Run selon le jour du mois ou la semaine de l'année. Elles n'appartiennent à aucun jour de semaine et sont marquées dans la bande sous la grille. Entrée ou un double-clic ouvre le formulaire d'une règle, Suppr la supprime.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="519" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="542" />
         <source>Next five weeks</source>
         <translation>Cinq prochaines semaines</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="525" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="548" />
         <source>The levels that run on each date</source>
         <translation>Les niveaux exécutés à chaque date</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="530" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="531" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="553" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="554" />
         <source>Previous month</source>
         <translation>Mois précédent</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="534" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="535" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="557" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="558" />
         <source>Next month</source>
         <translation>Mois suivant</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="537" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="560" />
         <source>Today</source>
         <translation>Aujourd'hui</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="538" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="561" />
         <source>Back to the current week</source>
         <translation>Revenir à la semaine en cours</translation>
     </message>
+    <message>
+        <location filename="../src/schedules/bschedulegridview.cpp" line="721" />
+        <source>Modified: the description, not written to the Director.</source>
+        <translation>Modifié : la description, non écrite sur le Director.</translation>
+    </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="697" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="736" />
         <source>%n changed</source>
         <translation>
             <numerusform>%n modifiée</numerusform>
@@ -12418,7 +12433,7 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="699" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="738" />
         <source>%n new</source>
         <translation>
             <numerusform>%n nouvelle</numerusform>
@@ -12426,7 +12441,7 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="701" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="740" />
         <source>%n removed</source>
         <translation>
             <numerusform>%n supprimée</numerusform>
@@ -12434,57 +12449,68 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="702" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="742" />
+        <source>Modified: %1 Run line(s) and the description, not written to the Director.</source>
+        <translation>Modifié : %1 ligne(s) Run et la description, non écrites sur le Director.</translation>
+    </message>
+    <message>
+        <location filename="../src/schedules/bschedulegridview.cpp" line="744" />
         <source>Modified: %1 Run line(s), not written to the Director.</source>
         <translation>Modifié : %1 ligne(s) Run, non écrite(s) sur le Director.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="705" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="723" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="747" />
         <source>The Director reports other Run lines since.</source>
         <translation>Le Director signale depuis d'autres lignes Run.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="748" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="362" />
+        <source>Descr&amp;iption:</source>
+        <translation>Descr&amp;iption :</translation>
+    </message>
+    <message>
+        <location filename="../src/schedules/bschedulegridview.cpp" line="790" />
         <source>This connection cannot change a schedule; the click says why.</source>
         <translation>Cette connexion ne peut pas modifier un Schedule ; un clic en indique la raison.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="752" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="794" />
         <source>This connection cannot delete a schedule; the click says why.</source>
         <translation>Cette connexion ne peut pas supprimer un Schedule ; un clic en indique la raison.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="812" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="858" />
         <source>The Director now reports other Run lines for this schedule than the ones your changes started from. Your changes are kept and nothing was replaced.</source>
         <translation>Le Director signale maintenant pour ce Schedule d'autres lignes Run que celles dont vos modifications sont parties. Vos modifications sont conservées et rien n'a été remplacé.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="817" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="863" />
         <source>The schedule %1 has changes that are not written. Showing %2 discards them.</source>
         <translation>Le Schedule %1 comporte des modifications non écrites. Afficher %2 les abandonne.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="819" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="865" />
         <source>&amp;Discard and show %1</source>
         <translation>&amp;Abandonner et afficher %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="846" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="892" />
         <source>Schedule %1</source>
         <translation>Schedule %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="851" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="897" />
         <source>(jobs not loaded yet)</source>
         <translation>(Jobs pas encore chargés)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="853" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="899" />
         <source>Not used by any job</source>
         <translation>Utilisé par aucun Job</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="855" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="901" />
         <source>Used by %n job(s)</source>
         <translation>
             <numerusform>Utilisé par %n Job</numerusform>
@@ -12492,12 +12518,12 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="861" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="907" />
         <source>Disabled: the Director does not run it.</source>
         <translation>Désactivé : le Director ne l'exécute pas.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="866" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="912" />
         <source>Contains %n Run line(s) that are not understood. The schedule is locked: it cannot be edited or written here. Change it in its configuration file on the Director.</source>
         <translation>
             <numerusform>Contient %n ligne Run non comprise. Le Schedule est verrouillé : il ne peut être ni modifié ni écrit ici. Modifiez-le dans son fichier de configuration sur le Director.</numerusform>
@@ -12505,23 +12531,23 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="895" />
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1118" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="941" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1164" />
         <source>%1 (%2)</source>
         <translation>%1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="898" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="944" />
         <source>%1: no Run line in this scope. Del or the context menu removes it.</source>
         <translation>%1 : aucune ligne Run dans cette portée. Suppr ou le menu contextuel la supprime.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="899" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="945" />
         <source>%1: no Run line in this scope</source>
         <translation>%1 : aucune ligne Run dans cette portée</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="900" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="946" />
         <source>%1: %n Run line(s) in this scope</source>
         <translation>
             <numerusform>%1 : %n ligne Run dans cette portée</numerusform>
@@ -12529,7 +12555,7 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="906" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="952" />
         <source>Scope %1, %n Run line(s)</source>
         <translation>
             <numerusform>Portée %1, %n ligne Run</numerusform>
@@ -12537,82 +12563,82 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="943" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="989" />
         <source>other scope, may run on the same day</source>
         <translation>autre portée, peut s'exécuter le même jour</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="947" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="993" />
         <source>other scope, never on the same day</source>
         <translation>autre portée, jamais le même jour</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="961" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1007" />
         <source>no time in the Run line: runs every hour at :00</source>
         <translation>aucune heure dans la ligne Run : s'exécute toutes les heures à :00</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="969" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1015" />
         <source>calendar rule, not a cell</source>
         <translation>règle de calendrier, pas une cellule</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="999" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1045" />
         <source>changed</source>
         <translation>modifiée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1002" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1048" />
         <source>new</source>
         <translation>nouvelle</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1005" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1051" />
         <source>removed</source>
         <translation>supprimée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1017" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1063" />
         <source>Reported by the Director as "%1", a spelling it does not read back.</source>
         <translation>Signalée par le Director sous la forme "%1", une écriture qu'il ne relit pas.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1024" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1070" />
         <source>not understood: %1</source>
         <translation>non comprise : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1025" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1071" />
         <source>Not understood and not shown in the grid: %1</source>
         <translation>Non comprise et non affichée dans la grille : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1026" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1072" />
         <source>This schedule cannot be written by the application.</source>
         <translation>Ce Schedule ne peut pas être écrit par l'application.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1035" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1081" />
         <source>calendar rule %1</source>
         <translation>règle de calendrier %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1040" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1086" />
         <source>scope %1</source>
         <translation>portée %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1062" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1108" />
         <source>%1 %2</source>
         <translation>%1 %2</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1091" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1137" />
         <source>Nothing selected. Click a cell or drag over cells; click a day or an hour to select all of it.</source>
         <translation>Rien n'est sélectionné. Cliquez sur une cellule ou faites glisser sur des cellules ; cliquez sur un jour ou une heure pour le sélectionner entièrement.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1126" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1172" />
         <source>%1 in %n cell(s)</source>
         <translation>
             <numerusform>%1 dans %n cellule</numerusform>
@@ -12620,7 +12646,7 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1130" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1176" />
         <source>%n cell(s) selected:</source>
         <translation>
             <numerusform>%n cellule sélectionnée :</numerusform>
@@ -12628,47 +12654,47 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1131" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1177" />
         <source>no run in this scope</source>
         <translation>aucune exécution dans cette portée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1134" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1180" />
         <source>Other scopes: %1</source>
         <translation>Autres portées : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1135" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1181" />
         <source>They stay when this scope is painted or erased</source>
         <translation>Elles restent lorsque cette portée est peinte ou effacée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1240" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1286" />
         <source>Remove the scope "%1"</source>
         <translation>Supprimer la portée "%1"</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1243" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1289" />
         <source>Add scope...</source>
         <translation>Ajouter une portée...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1282" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1328" />
         <source>Calendar rule %1</source>
         <translation>Règle de calendrier %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1285" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1331" />
         <source>New calendar rule</source>
         <translation>Nouvelle règle de calendrier</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1313" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1359" />
         <source>Edit calendar rule...</source>
         <translation>Modifier la règle de calendrier...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulegridview.cpp" line="1318" />
+        <location filename="../src/schedules/bschedulegridview.cpp" line="1364" />
         <source>Add calendar rule...</source>
         <translation>Ajouter une règle de calendrier...</translation>
     </message>
@@ -13108,108 +13134,108 @@ Consultez le journal ci-dessus pour plus de détails.</translation>
 <context>
     <name>BSchedulePersistence</name>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="102" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="103" />
         <source>The text of schedule %1 arrived changed</source>
         <translation>Le texte du Schedule %1 est arrivé modifié</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="103" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="104" />
         <source>The SHA-256 of the text the Director sent does not match the text. Nothing was written.</source>
         <translation>Le SHA-256 du texte envoyé par le Director ne correspond pas au texte. Rien n'a été écrit.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="116" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="117" />
         <source>Schedule %1 has changed on the Director</source>
         <translation>Le Schedule %1 a été modifié sur le Director</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="117" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="118" />
         <source>The configuration file of the schedule does not say what was loaded here, so the change was not sent. Reload the schedule and make the change again. %1</source>
         <translation>Le fichier de configuration du Schedule ne correspond pas à ce qui a été chargé ici ; la modification n'a donc pas été envoyée. Rechargez le Schedule et refaites la modification. %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="144" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="146" />
         <source>Schedule %1 cannot be written</source>
         <translation>Le Schedule %1 ne peut pas être écrit</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="145" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="147" />
         <source>Run line %1 is not understood by this application (%2). A schedule with such a line is not changed here; change it in its configuration file.</source>
         <translation>La ligne Run %1 n'est pas comprise par cette application (%2). Un Schedule contenant une telle ligne n'est pas modifié ici ; modifiez-le dans son fichier de configuration.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="154" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="176" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="263" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="304" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="156" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="189" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="276" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="317" />
         <source>Schedule %1 was not changed</source>
         <translation>Le Schedule %1 n'a pas été modifié</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="155" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="363" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="434" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="157" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="376" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="447" />
         <source>There is no connection to the configuration methods of the Director.</source>
         <translation>Aucune connexion aux méthodes de configuration du Director.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="177" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="190" />
         <source>The change could not be written into the configuration text safely: %1</source>
         <translation>La modification n'a pas pu être écrite de manière sûre dans le texte de configuration : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="185" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="251" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="198" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="264" />
         <source>Nothing to write</source>
         <translation>Rien à écrire</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="186" />
-        <source>The Run lines are the ones the Director has.</source>
-        <translation>Les lignes Run sont celles que possède le Director.</translation>
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="199" />
+        <source>The Run lines and the description are the ones the Director has.</source>
+        <translation>Les lignes Run et la description sont celles du Director.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="252" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="265" />
         <source>The edited text is the one the Director has.</source>
         <translation>Le texte modifié est celui que possède le Director.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="264" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="404" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="480" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="277" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="417" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="493" />
         <source>Nothing was written.</source>
         <translation>Rien n'a été écrit.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="303" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="433" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="479" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="316" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="446" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="492" />
         <source>Schedule %1 was not created</source>
         <translation>Le Schedule %1 n'a pas été créé</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="305" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="318" />
         <source>The edited text was not sent to the Director: %1</source>
         <translation>Le texte modifié n'a pas été envoyé au Director : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="313" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="326" />
         <source>the name of the schedule has to stay %1.</source>
         <translation>le nom du Schedule doit rester %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="325" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="338" />
         <source>The text was edited in the review; the Director checked the edited text.</source>
         <translation>Le texte a été modifié lors de la vérification ; le Director a vérifié le texte modifié.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="362" />
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="403" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="375" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="416" />
         <source>Schedule %1 was not deleted</source>
         <translation>Le Schedule %1 n'a pas été supprimé</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulepersistence.cpp" line="560" />
+        <location filename="../src/schedules/bschedulepersistence.cpp" line="573" />
         <source>Run line %1 cannot be written: %2</source>
         <translation>La ligne Run %1 ne peut pas être écrite : %2</translation>
     </message>
@@ -14274,7 +14300,7 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="125" />
         <location filename="../src/schedules/bschedulewidget.cpp" line="832" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3271" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3273" />
         <source>Jobs:</source>
         <translation>Jobs :</translation>
     </message>
@@ -14361,9 +14387,9 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="342" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1827" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2262" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1829" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2264" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2995" />
         <source>Job</source>
         <translation>Job</translation>
     </message>
@@ -14394,7 +14420,7 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="342" />
         <location filename="../src/schedules/bschedulewidget.cpp" line="1115" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1828" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1830" />
         <source>Median duration</source>
         <translation>Durée médiane</translation>
     </message>
@@ -14523,19 +14549,19 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="1124" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1827" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1829" />
         <source>Runs</source>
         <translation>Exécutions</translation>
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="1130" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1829" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1831" />
         <source>Median wait</source>
         <translation>Attente médiane</translation>
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="1131" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1829" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1831" />
         <source>90% wait</source>
         <translation>Attente à 90 %</translation>
     </message>
@@ -14546,8 +14572,8 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="1138" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1827" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2262" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1829" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2264" />
         <source>Level</source>
         <translation>Niveau</translation>
     </message>
@@ -14558,7 +14584,7 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="1138" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2263" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2265" />
         <source>Wait</source>
         <translation>Attente</translation>
     </message>
@@ -14586,8 +14612,8 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
         <location filename="../src/schedules/bschedulewidget.cpp" line="1318" />
         <location filename="../src/schedules/bschedulewidget.cpp" line="1319" />
         <location filename="../src/schedules/bschedulewidget.cpp" line="1338" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2165" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2872" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2167" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2874" />
         <source>unknown</source>
         <translation>inconnue</translation>
     </message>
@@ -14712,7 +14738,7 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="1710" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1738" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1740" />
         <source>Another change is being written.</source>
         <translation>Une autre modification est en cours d'écriture.</translation>
     </message>
@@ -14732,278 +14758,278 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
         <translation>Les modifications faites dans la grille. Les lignes non touchées restent telles qu'elles sont dans le fichier.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1732" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1734" />
         <source>Schedule %1 was not deleted: deleting a schedule needs the configuration methods of the gRPC interface of the Onesimus Director.</source>
         <translation>Le Schedule %1 n'a pas été supprimé : la suppression d'un Schedule nécessite les méthodes de configuration de l'interface gRPC de l'Onesimus Director.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1741" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1743" />
         <source>The Director checks whether schedule %1 can be deleted...</source>
         <translation>Le Director vérifie si le Schedule %1 peut être supprimé...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1756" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1758" />
         <source>The Director reloaded its configuration.</source>
         <translation>Le Director a rechargé sa configuration.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1758" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1760" />
         <source>Follow-up commands: %1</source>
         <translation>Commandes complémentaires : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1817" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1819" />
         <source>Refresh history</source>
         <translation>Actualiser l'historique</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1820" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1822" />
         <source>Ask the Director again for the jobs of the last days (llist jobs)</source>
         <translation>Redemander au Director les Jobs des derniers jours (llist jobs)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1828" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1830" />
         <source>90% duration</source>
         <translation>Durée à 90 %</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1829" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1831" />
         <source>Last run</source>
         <translation>Dernière exécution</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1831" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1833" />
         <source>Runs in the window that terminated normally or with warnings</source>
         <translation>Exécutions de la période terminées normalement ou avec des avertissements</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1833" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1835" />
         <source>Wait: start of the job minus its scheduled time</source>
         <translation>Attente : début du Job moins son heure planifiée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1835" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1837" />
         <source>Nine of ten runs waited no longer than this</source>
         <translation>Neuf exécutions sur dix n'ont pas attendu plus longtemps que cela</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1951" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1953" />
         <source>the request got no reply (%1)</source>
         <translation>la requête n'a reçu aucune réponse (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1981" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1983" />
         <source>the Director refused the request (%1)</source>
         <translation>le Director a refusé la requête (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1982" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1984" />
         <source>no reason given</source>
         <translation>aucune raison indiquée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="1985" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="1987" />
         <source>the Director's reply could not be read (%1)</source>
         <translation>la réponse du Director n'a pas pu être lue (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2009" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2011" />
         <source>Schedules: no job history, %1</source>
         <translation>Schedules : aucun historique des Jobs, %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2043" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2045" />
         <source>the job history is being loaded</source>
         <translation>l'historique des Jobs est en cours de chargement</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2047" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2049" />
         <source>the job history has not been requested yet</source>
         <translation>l'historique des Jobs n'a pas encore été demandé</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2078" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2080" />
         <source>Not connected.</source>
         <translation>Non connecté.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2080" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2082" />
         <source>The job history has not been requested yet.</source>
         <translation>L'historique des Jobs n'a pas encore été demandé.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2082" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2084" />
         <source>No job history: %1.</source>
         <translation>Aucun historique des Jobs : %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2083" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2085" />
         <source>The schedule views work without it: runs have no duration and waits are unknown.</source>
         <translation>Les vues des Schedules fonctionnent sans lui : les exécutions n'ont pas de durée et les attentes sont inconnues.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2087" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2089" />
         <source>Requesting the jobs of the last %1 days from the Director...</source>
         <translation>Demande au Director des Jobs des %1 derniers jours...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2093" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2095" />
         <source>Jobs scheduled in the last %1 days, fetched %2: %3 rows, of which %4 runs terminated normally or with warnings and were measured.</source>
         <translation>Jobs planifiés au cours des %1 derniers jours, récupérés %2 : %3 lignes, dont %4 exécutions terminées normalement ou avec des avertissements ont été mesurées.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2102" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2104" />
         <source>The row limit (%1) was reached and this Director returned the oldest rows: the newest runs of the window are missing.</source>
         <translation>La limite de lignes (%1) a été atteinte et ce Director a renvoyé les lignes les plus anciennes : les exécutions les plus récentes de la période manquent.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2104" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2106" />
         <source>The row limit (%1) was reached: the oldest runs of the window are missing.</source>
         <translation>La limite de lignes (%1) a été atteinte : les exécutions les plus anciennes de la période manquent.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2108" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2110" />
         <source>This Director did not deliver the scheduled time: all waits are unknown.</source>
         <translation>Ce Director n'a pas fourni l'heure planifiée : toutes les attentes sont inconnues.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2110" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2112" />
         <source>%1 runs came without a scheduled time: their wait is unknown.</source>
         <translation>%1 exécutions sont arrivées sans heure planifiée : leur attente est inconnue.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2114" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2116" />
         <source>%1 rows were left out because they start before their scheduled time: copied, migrated and virtual full jobs carry the times of another job.</source>
         <translation>%1 lignes ont été ignorées car elles démarrent avant leur heure planifiée : les Jobs Copy, Migrate et VirtualFull portent les heures d'un autre Job.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2119" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2121" />
         <source>%1 rows were left out because their start or end time is missing or the end is before the start.</source>
         <translation>%1 lignes ont été ignorées car leur heure de début ou de fin manque, ou la fin précède le début.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2145" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2673" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2147" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2675" />
         <source>(none)</source>
         <translation>(aucune)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2154" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2156" />
         <source>From %1 of %2 runs; the others came without a scheduled time.</source>
         <translation>Sur la base de %1 exécutions sur %2 ; les autres sont arrivées sans heure planifiée.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2163" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2165" />
         <source>The Director delivered no scheduled time for these runs.</source>
         <translation>Le Director n'a fourni aucune heure planifiée pour ces exécutions.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2967" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2969" />
         <source>Jobs that are scheduled for the same moment and share a limit (a storage, a client, the job slots of the Director, the parallel writers of a device) wait for each other. The proposal starts some of them later, on a quarter hour (23:15, 23:30 ...), so that they wait less on the dates on display and have room to spare. A wait for a higher priority is meant to be and is not counted; a job of a lower priority that follows a moved job moves along, so that it still runs after it. Nothing is changed on the Director.</source>
         <translation>Les Jobs planifiés au même moment qui partagent une limite (un Storage, un Client, les places de Job du Director, les écritures parallèles d'un périphérique) s'attendent les uns les autres. La proposition démarre certains d'entre eux plus tard, au quart d'heure (23:15, 23:30 ...), afin qu'ils attendent moins aux dates affichées et aient de la marge. Une attente due à une priorité plus élevée est voulue et n'est pas comptée ; un Job de priorité inférieure qui suit un Job déplacé est déplacé avec lui, pour continuer à s'exécuter après lui. Rien n'est modifié sur le Director.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2978" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2980" />
         <source>Replays the queue with the jobs moved quarter hour by quarter hour and keeps the smallest moves that wait least</source>
         <translation>Rejoue la file avec les Jobs décalés de quart d'heure en quart d'heure et garde les plus petits décalages qui attendent le moins</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3132" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3134" />
         <source>Stays: a Run line of its schedule runs at several hours, is not understood or would move into the next day</source>
         <translation>Reste : une ligne Run de son Schedule s'exécute à plusieurs heures, n'est pas comprise ou passerait au jour suivant</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3135" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3137" />
         <source>Moves along to run after %1, which has a higher priority</source>
         <translation>Est déplacé pour s'exécuter après %1, qui a une priorité plus élevée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2977" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2979" />
         <source>Propose later start times</source>
         <translation>Proposer des heures de début plus tardives</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2986" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2988" />
         <source>Apply...</source>
         <translation>Appliquer...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2995" />
         <source>Schedule</source>
         <translation>Schedule</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2995" />
         <source>Start now</source>
         <translation>Début actuel</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2995" />
         <source>Proposed start</source>
         <translation>Début proposé</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2995" />
         <source>Later by</source>
         <translation>Plus tard de</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2994" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2996" />
         <source>Wait now</source>
         <translation>Attente actuelle</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2994" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2996" />
         <source>Wait then</source>
         <translation>Attente ensuite</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2994" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2996" />
         <source>Note</source>
         <translation>Remarque</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2996" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2998" />
         <source>Time held by a limit or waiting for a device, summed over the job's runs on the dates on display</source>
         <translation>Temps retenu par une limite ou en attente d'un périphérique, additionné sur les exécutions du Job aux dates affichées</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2998" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3000" />
         <source>Proposed later start times</source>
         <translation>Heures de début plus tardives proposées</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3018" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3020" />
         <source>No proposal yet.</source>
         <translation>Pas encore de proposition.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3033" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3035" />
         <source>Creates a schedule of its own for every job that starts later and sets the job's Schedule to it; everything is shown once for confirmation first</source>
         <translation>Crée un Schedule propre pour chaque Job qui démarre plus tard et y règle le Schedule du Job ; tout est d'abord montré une fois pour confirmation</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3035" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3037" />
         <source>Needs the configuration methods of the gRPC interface of the Onesimus Director (create schedules, read and change jobs), which are not available on this connection</source>
         <translation>Nécessite les méthodes de configuration de l'interface gRPC de l'Onesimus Director (créer des Schedules, lire et modifier des Jobs), qui ne sont pas disponibles sur cette connexion</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3071" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3073" />
         <source>Nothing to stagger: the waits are not predicted (the jobs or the history are not loaded yet).</source>
         <translation>Rien à étaler : les attentes ne sont pas prédites (les Jobs ou l'historique ne sont pas encore chargés).</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3088" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3090" />
         <source>Nothing to stagger: no run on the dates on display waits for a limit or a device.</source>
         <translation>Rien à étaler : aucune exécution aux dates affichées n'attend une limite ou un périphérique.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3091" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3093" />
         <source>No later start helps: avoidable wait %1. See the notes of the jobs.</source>
         <translation>Aucun début plus tardif n'aide : attente évitable %1. Voir les remarques des Jobs.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3094" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3096" />
         <source>Avoidable wait on the dates on display: now %1, with the proposal %2. %n job(s) start later.</source>
         <translation>
             <numerusform>Attente évitable aux dates affichées : maintenant %1, avec la proposition %2. %n Job démarre plus tard.</numerusform>
@@ -15011,12 +15037,12 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3137" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3139" />
         <source>A later start does not help</source>
         <translation>Un début plus tardif n'aide pas</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3142" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3144" />
         <source>%n min</source>
         <translation>
             <numerusform>%n min</numerusform>
@@ -15024,87 +15050,87 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3158" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3160" />
         <source>Apply the later start times</source>
         <translation>Appliquer les heures de début plus tardives</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3160" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3162" />
         <source>These resources are written to the Director, in this order. The Director checks each one; the first that it refuses stops the rest.</source>
         <translation>Ces ressources sont écrites sur le Director, dans cet ordre. Le Director vérifie chacune ; la première qu'il refuse arrête le reste.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3172" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3174" />
         <source>Apply</source>
         <translation>Appliquer</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3218" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3220" />
         <source>Nothing was written: %1</source>
         <translation>Rien n'a été écrit : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3246" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3248" />
         <source>Reading the jobs that start later...</source>
         <translation>Lecture des Jobs qui démarrent plus tard...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3267" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3269" />
         <source>schedule %1</source>
         <translation>Schedule %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3268" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3270" />
         <source>New schedule %1 for %2:</source>
         <translation>Nouveau Schedule %1 pour %2 :</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3277" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3279" />
         <source>Nothing was written: the text of job %1 has no closing brace.</source>
         <translation>Rien n'a été écrit : le texte du Job %1 n'a pas d'accolade fermante.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3284" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3286" />
         <source>(Schedule from its JobDefs)</source>
         <translation>(Schedule de ses JobDefs)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3290" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3292" />
         <source>Nothing was written: the later start times were not confirmed.</source>
         <translation>Rien n'a été écrit : les heures de début plus tardives n'ont pas été confirmées.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3302" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3304" />
         <source>Written: %1. The jobs start at their new times from now on.</source>
         <translation>Écrit : %1. Les Jobs démarrent désormais à leurs nouvelles heures.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3306" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3308" />
         <source>Writing %1...</source>
         <translation>Écriture de %1...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3312" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3314" />
         <source>it was changed on the Director in the meantime</source>
         <translation>il a été modifié sur le Director entre-temps</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3314" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3316" />
         <source>the name is taken</source>
         <translation>le nom est déjà pris</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3315" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3317" />
         <source>nothing</source>
         <translation>rien</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3317" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3319" />
         <source>Writing %1 failed: %2. Written before: %3. Nothing after it was sent.</source>
         <translation>L'écriture de %1 a échoué : %2. Écrit avant : %3. Rien n'a été envoyé ensuite.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3333" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3335" />
         <source>Nothing was written: job %1 could not be read (%2).</source>
         <translation>Rien n'a été écrit : le Job %1 n'a pas pu être lu (%2).</translation>
     </message>
@@ -15124,336 +15150,336 @@ Elle est conservée telle quelle. Pour la remplacer, supprimez-la et ajoutez une
         <translation>Fermer les onglets sous la chronologie</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2258" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2260" />
         <source>Reasons shared by several rows</source>
         <translation>Raisons communes à plusieurs lignes</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2262" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2264" />
         <source>Scheduled</source>
         <translation>Planifié</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2262" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2264" />
         <source>Predicted start</source>
         <translation>Début prévu</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2263" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2265" />
         <source>Measured</source>
         <translation>Mesuré</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2263" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2265" />
         <source>Certain</source>
         <translation>Certain</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2263" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2265" />
         <source>Reason</source>
         <translation>Raison</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2265" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2267" />
         <source>What this job waited at this level in the job history (StartTime minus SchedTime): median / maximum. The catalog's start is set after the connections and Client Run Before Job, so that time is part of it.</source>
         <translation>Ce que ce Job a attendu à ce niveau dans l'historique des Jobs (StartTime moins SchedTime) : médiane / maximum. Le début dans le catalogue est fixé après les connexions et le Client Run Before Job ; ce temps en fait donc partie.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2269" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2271" />
         <source>Predicted start minus scheduled time: seconds ("27 s"), minutes:seconds ("1:35 min") or, from ten minutes on, hours:minutes ("0:53 h")</source>
         <translation>Début prévu moins heure planifiée : secondes ("27 s"), minutes:secondes ("1:35 min") ou, à partir de dix minutes, heures:minutes ("0:53 h")</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2272" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2274" />
         <source>No: the prediction depends on a limit the Director did not report or on a duration that was not measured</source>
         <translation>Non : la prévision dépend d'une limite que le Director n'a pas signalée ou d'une durée qui n'a pas été mesurée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2274" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2276" />
         <source>Predicted waits of the dates on display</source>
         <translation>Attentes prévues pour les dates affichées</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2276" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2278" />
         <source>One row per run that is predicted to wait or whose prediction is uncertain. The reason of the current row is below the table.</source>
         <translation>Une ligne par exécution dont l'attente est prévue ou dont la prévision est incertaine. La raison de la ligne courante figure sous le tableau.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2298" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2300" />
         <source>Reason of the selected wait</source>
         <translation>Raison de l'attente sélectionnée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2321" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2323" />
         <source>Parallel writers of the devices</source>
         <translation>Écritures parallèles des périphériques</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2323" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2325" />
         <source>Notes</source>
         <translation>Remarques</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2325" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2327" />
         <source>Basis of the prediction</source>
         <translation>Base de la prévision</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2327" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2329" />
         <source>Back-test</source>
         <translation>Test rétrospectif</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2337" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2339" />
         <source>Back-test of the prediction</source>
         <translation>Test rétrospectif de la prévision</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2353" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2355" />
         <source>Director (%1)</source>
         <translation>Director (%1)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2355" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2357" />
         <source>Storage %1 (%2)</source>
         <translation>Storage %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2357" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2359" />
         <source>Client %1 (%2)</source>
         <translation>Client %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2359" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2361" />
         <source>Job %1 (%2)</source>
         <translation>Job %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2361" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2363" />
         <source>Priority %1</source>
         <translation>Priorité %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2363" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2365" />
         <source>Queue: priority %1 first</source>
         <translation>File : priorité %1 d'abord</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2371" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2373" />
         <source>The prediction has changed: propose again.</source>
         <translation>La prédiction a changé : proposez à nouveau.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2542" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2544" />
         <source>Waiting not predicted</source>
         <translation>Aucune attente prévue</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2546" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2548" />
         <source>The jobs of the Director are not loaded: it is not known which job runs which schedule.</source>
         <translation>Les Jobs du Director ne sont pas chargés : on ne sait pas quel Job utilise quel Schedule.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2549" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2551" />
         <source>Predicted for the dates on display from the limits of the Director (Maximum Concurrent Jobs, priorities) and the measured durations.</source>
         <translation>Prévu pour les dates affichées à partir des limites du Director (Maximum Concurrent Jobs, priorités) et des durées mesurées.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2552" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2554" />
         <source>Uncertain: the prediction depends on a limit the Director did not report or on a duration that was not measured.</source>
         <translation>Incertain : la prévision dépend d'une limite que le Director n'a pas signalée ou d'une durée qui n'a pas été mesurée.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2556" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2768" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2558" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2770" />
         <source>Opens or closes the list of predicted waits below the timeline.</source>
         <translation>Ouvre ou ferme la liste des attentes prévues sous la chronologie.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2572" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2574" />
         <source>Not predicted: the jobs of the Director are not loaded.</source>
         <translation>Non prévu : les Jobs du Director ne sont pas chargés.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2574" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2576" />
         <source>%1 run(s) on display, replayed with the %2 run(s) of all enabled schedules from the day before on.</source>
         <translation>%1 exécution(s) affichée(s), rejouée(s) avec les %2 exécution(s) de tous les Schedules activés à partir de la veille.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2583" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2585" />
         <source>the storage of job %1 (the job names none)</source>
         <translation>le Storage du Job %1 (le Job n'en indique aucun)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2590" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2592" />
         <source>storage %1</source>
         <translation>Storage %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2597" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2599" />
         <source>client %1</source>
         <translation>Client %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2602" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3281" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2604" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3283" />
         <source>job %1</source>
         <translation>Job %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2609" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2611" />
         <source>Director = %1</source>
         <translation>Director = %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2611" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2613" />
         <source>the Director</source>
         <translation>le Director</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2613" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2615" />
         <source>storages: %1</source>
         <translation>Storages : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2615" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2617" />
         <source>clients: %1</source>
         <translation>Clients : %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2617" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2619" />
         <source>Maximum Concurrent Jobs as reported: %1.</source>
         <translation>Maximum Concurrent Jobs signalé : %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2619" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2621" />
         <source>Maximum Concurrent Jobs not reported by this Director for: %1. Runs it matters for are uncertain.</source>
         <translation>Maximum Concurrent Jobs non signalé par ce Director pour : %1. Les exécutions concernées sont incertaines.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2643" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2645" />
         <source>[%1] %2 rows: %3.</source>
         <translation>[%1] %2 lignes : %3.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2687" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3099" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3144" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2689" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3101" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3146" />
         <source>none</source>
         <translation>aucune</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2694" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2696" />
         <source>not measured</source>
         <translation>non mesurée</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2696" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2698" />
         <source>yes</source>
         <translation>oui</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2696" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2698" />
         <source>no</source>
         <translation>non</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2701" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2703" />
         <source>Prediction too low</source>
         <translation>Prévision trop basse</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2702" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2704" />
         <source>Prediction too low; %1</source>
         <translation>Prévision trop basse ; %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2705" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2707" />
         <source>Prediction too high</source>
         <translation>Prévision trop haute</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2706" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2708" />
         <source>Prediction too high; %1</source>
         <translation>Prévision trop haute ; %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2710" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2712" />
         <source>Waits %1 for the device inside the run</source>
         <translation>Attend %1 le périphérique au sein de l'exécution</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2724" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2726" />
         <source>No run on display is predicted to wait.</source>
         <translation>Aucune exécution affichée ne devrait attendre.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2725" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2727" />
         <source>Not predicted.</source>
         <translation>Non prévu.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2765" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2767" />
         <source>Predicted waits: %1. The list is open.</source>
         <translation>Attentes prévues : %1. La liste est ouverte.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2766" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2768" />
         <source>Predicted waits: %1. The list is closed.</source>
         <translation>Attentes prévues : %1. La liste est fermée.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2778" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2780" />
         <source>Select a row to read its reason in full.</source>
         <translation>Sélectionnez une ligne pour lire sa raison en entier.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2786" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2788" />
         <source>%1, scheduled %2:</source>
         <translation>%1, planifié %2 :</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2867" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2869" />
         <source>Storage %1, parallel writers of its device:</source>
         <translation>Storage %1, écritures parallèles de son périphérique :</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2874" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2876" />
         <source>Parallel writers of the device of storage %1</source>
         <translation>Écritures parallèles du périphérique du Storage %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2875" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2877" />
         <source>How many jobs the device(s) of %1 write at a time: Maximum Concurrent Jobs of the Device resource in the storage daemon (several devices: their sum). The Director cannot read it. "unknown": runs that depend on it are uncertain.</source>
         <translation>Combien de Jobs le(s) périphérique(s) de %1 écrivent simultanément : Maximum Concurrent Jobs de la ressource Device dans le Storage Daemon (plusieurs périphériques : leur somme). Le Director ne peut pas le lire. "inconnu" : les exécutions qui en dépendent sont incertaines.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2918" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2920" />
         <source>No job history: no suggestion.</source>
         <translation>Aucun historique des Jobs : aucune suggestion.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2920" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2922" />
         <source>History suggests %1.</source>
         <translation>L'historique suggère %1.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2922" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2924" />
         <source>History gives no suggestion.</source>
         <translation>L'historique ne donne aucune suggestion.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2928" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2930" />
         <source>Use %1</source>
         <translation>Utiliser %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2928" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2930" />
         <source>Use</source>
         <translation>Utiliser</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2949" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2951" />
         <source>Back-test: no job history to replay.</source>
         <translation>Test rétrospectif : aucun historique des Jobs à rejouer.</translation>
     </message>

@@ -16,6 +16,7 @@ class QFrame;
 class QGroupBox;
 class QHBoxLayout;
 class QLabel;
+class QLineEdit;
 class QPushButton;
 class QSplitter;
 class QStackedLayout;
@@ -108,8 +109,12 @@ public:
     /// "Discard and reload": the schedule that was offered is shown
     void discardAndReload();
 
-    /// Have the Run lines been changed?
+    /// Have the Run lines or the description been changed?
     bool isModified() const;
+    /// The description as edited (the field above the grid)
+    QString description() const;
+    /// Does it differ from the one the Director reported?
+    bool descriptionChanged() const;
     /// Shows the note that no schedule is chosen
     void clear();
     bool hasSchedule() const { return m_hasSchedule; }
@@ -246,6 +251,7 @@ private:
     QLabel *m_placeholder = nullptr;
     QLabel *m_title = nullptr;
     QLabel *m_usage = nullptr;
+    QLineEdit *m_description = nullptr;
     QLabel *m_modified = nullptr;
     QPushButton *m_undo = nullptr;
     QPushButton *m_redo = nullptr;
