@@ -61,6 +61,7 @@ public:
            const Options &options)
         : m_runs(runs), m_limits(limits), m_from(from), m_options(options)
     {
+        QHash<QString, int> latestCounted, latestAny;
         for (int i = 0; i < runs.size(); ++i) {
             const BWaitRun &run = runs[i];
             if (run.job.isEmpty()) continue;
@@ -69,10 +70,35 @@ public:
                 m_bound.insert(run.job, qMax(0, qMin(options.maxMinutes,
                                                      options.jobMaxMinutes.value(run.job, options.maxMinutes))));
             }
+            if (!run.scheduled.isValid()) continue;
+            const QTime t = run.scheduled.time();
+            const int minute = t.hour() * 60 + t.minute();
             // The grid is laid at the first counted run of the job
-            if (run.scheduled.isValid() && !m_anchor.contains(run.job) && counted(i)) {
-                const QTime t = run.scheduled.time();
-                m_anchor.insert(run.job, t.hour() * 60 + t.minute());
+            if (!m_anchor.contains(run.job) && counted(i))
+                m_anchor.insert(run.job, minute);
+            // The latest start on the clock, of the counted runs if there are any
+            if (counted(i)) {
+                latestCounted.insert(run.job, qMax(latestCounted.value(run.job, -1), minute));
+            } else {
+                latestAny.insert(run.job, qMax(latestAny.value(run.job, -1), minute));
+            }
+        }
+        // The user's constraints narrow the bounds
+        for (const QString &job : std::as_const(m_jobs)) {
+            if (options.fixedJobs.contains(job)) {
+                m_bound.insert(job, 0);
+                m_fixed.insert(job);
+                continue;
+            }
+            const auto latest = options.latestStartMinutes.constFind(job);
+            if (latest == options.latestStartMinutes.cend()) continue;
+            const int last = latestCounted.value(job, latestAny.value(job, -1));
+            if (last < 0) continue;
+            // Starts after it already: stays (it is never moved earlier)
+            const int room = qMax(0, *latest - last);
+            if (room <= m_bound.value(job)) {
+                m_bound.insert(job, room);
+                m_latestBounded.insert(job, *latest);
             }
         }
         // Who must stay after whom: the smallest gap per pair of jobs
@@ -94,6 +120,8 @@ public:
 
     const QStringList &jobs() const { return m_jobs; }
     int bound(const QString &job) const { return m_bound.value(job); }
+    bool fixed(const QString &job) const { return m_fixed.contains(job); }
+    int latestBounded(const QString &job) const { return m_latestBounded.value(job, -1); }
 
     /// The offsets a job may take, ascending, without 0
     QList<int> candidates(const QString &job) const
@@ -186,6 +214,8 @@ private:
     QStringList m_jobs;
     QHash<QString, int> m_bound;
     QHash<QString, int> m_anchor;   ///< Minute of the day of the job's first counted run
+    QSet<QString> m_fixed;          ///< Options::fixedJobs among the jobs
+    QHash<QString, int> m_latestBounded;    ///< Jobs bounded by their latest start: that minute
     QList<Order> m_orders;
 };
 
@@ -262,6 +292,8 @@ Proposal propose(const QList<BWaitRun> &runs, const BWaitLimits &limits, const Q
         Shift shift;
         shift.job = job;
         shift.boundMinutes = search.bound(job);
+        shift.fixed = search.fixed(job);
+        shift.latestStartMinute = search.latestBounded(job);
         shift.minutes = current.offsets.value(job);
         if (shift.minutes > chosen.value(job)) shift.follows = current.follows.value(job);
         shift.waitBeforeSecs = search.jobWait(job, before);

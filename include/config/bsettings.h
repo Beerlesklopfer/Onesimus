@@ -5,6 +5,8 @@
 #include <QSettings>
 #include <QString>
 #include <QColor>
+#include <QHash>
+#include <QTime>
 #include "bconnectionprofile.h"
 
 /**
@@ -342,6 +344,21 @@ public:
     /// known (the default); 1 to 1000 otherwise.
     int schedulesDeviceWriters(const QString& profileId, const QString& storage) const;
     void setSchedulesDeviceWriters(const QString& profileId, const QString& storage, int writers);
+
+    /// The user's constraint on one job for the stagger proposal
+    /// (BWaitStagger): never moved, and/or not started after a clock time
+    struct StaggerConstraint
+    {
+        bool fixed = false;
+        QTime latestStart;          ///< Invalid: no latest start
+        bool isEmpty() const { return !fixed && !latestStart.isValid(); }
+    };
+    /// Stagger constraints per Director profile, by job name. Kept here and
+    /// not on the Director: they are the user's wishes for the proposal.
+    QHash<QString, StaggerConstraint> schedulesStaggerConstraints(const QString& profileId) const;
+    /// Replaces the constraints of @p profileId; empty ones are dropped
+    void setSchedulesStaggerConstraints(const QString& profileId,
+                                        const QHash<QString, StaggerConstraint>& constraints);
 
     /// 3-2-1 verifier: the data on the client counts as one of the three
     /// copies (default on: production data + 2 backups)

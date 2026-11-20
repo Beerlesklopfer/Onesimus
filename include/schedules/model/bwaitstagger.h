@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QHash>
 #include <QList>
+#include <QSet>
 #include <QString>
 
 #include "schedules/model/bschedulewaitmodel.h"
@@ -51,6 +52,17 @@
  * caller gives (Run lines that would cross midnight, lines that cannot be
  * moved).
  *
+ * The user's constraints (kept per Director profile by the caller):
+ *  - Options::fixedJobs: the job never moves, neither for its own wait nor
+ *    taken along. A move of a higher priority that would have to take it
+ *    along is therefore not tried (as for any job whose bound is 0).
+ *  - Options::latestStartMinutes: no counted run of the job starts later
+ *    than this minute of the day; it bounds the offset. A job that already
+ *    starts after it stays. An "earliest start" is not offered: moves are
+ *    only later, so it could forbid nothing.
+ * Shift::fixed and Shift::latestStartMinute say when one of them bounded
+ * the job, so that the caller can show it.
+ *
  * The prediction is the first replay of BScheduleWaitModel (in favour of
  * the runs): a run that was never measured ends the moment it starts. What
  * is not known is not made up here either.
@@ -67,6 +79,11 @@ struct Options
     /// Per job: the most it may move, in minutes; a job not in the map
     /// has Options::maxMinutes. 0: the job stays.
     QHash<QString, int> jobMaxMinutes;
+    /// The user's constraint: these jobs never move, also not taken along
+    QSet<QString> fixedJobs;
+    /// The user's constraint per job: the latest minute of the day
+    /// (0 to 1439) at which a counted run of the job may start
+    QHash<QString, int> latestStartMinutes;
 };
 
 /** The proposal for one job. */
@@ -80,6 +97,11 @@ struct Shift
     /// Moved only to stay after this job of a higher priority (empty: moved
     /// for its own wait, or not at all)
     QString follows;
+    /// Bound to 0 by Options::fixedJobs
+    bool fixed = false;
+    /// Options::latestStartMinutes bounded it (its bound is no larger than
+    /// the others): that minute of the day; -1 otherwise
+    int latestStartMinute = -1;
 };
 
 struct Proposal

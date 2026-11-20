@@ -73,6 +73,10 @@ private slots:
     void jobThatMayNotMoveStays();
     void runsOfTheDayBeforeAreNotCounted();
     void deviceWaitCounts();
+    void fixedJobIsNotMoved();
+    void fixedLowerPriorityBlocksThePassing();
+    void latestStartBoundsTheOffset();
+    void latestStartAlreadyPassedStays();
 };
 
 void BWaitStaggerTest::twoRunsAtOneStorageAreSpread()
@@ -222,6 +226,82 @@ void BWaitStaggerTest::deviceWaitCounts()
     QVERIFY2(p.totalAfterSecs < p.totalBeforeSecs,
              qPrintable(QStringLiteral("%1 -> %2").arg(p.totalBeforeSecs).arg(p.totalAfterSecs)));
     QCOMPARE(p.moved(), 1);
+}
+
+void BWaitStaggerTest::fixedJobIsNotMoved()
+{
+    // Without the constraint b moves 10 minutes (twoRunsAtOneStorageAreSpread)
+    const QList<BWaitRun> runs = {run("a", at(20, 23, 5), 10), run("b", at(20, 23, 5), 10)};
+    BWaitStagger::Options options;
+    options.fixedJobs.insert(QStringLiteral("b"));
+    const BWaitStagger::Proposal p =
+        BWaitStagger::propose(runs, oneAtTheStorage(runs), at(20, 0, 0), options);
+    QCOMPARE(shiftOf(p, "b")->minutes, 0);
+    QVERIFY(shiftOf(p, "b")->fixed);
+    QCOMPARE(shiftOf(p, "b")->boundMinutes, 0);
+    QVERIFY(!shiftOf(p, "a")->fixed);
+    QCOMPARE(p.moved(), 0);
+    QCOMPARE(p.totalAfterSecs, p.totalBeforeSecs);
+}
+
+void BWaitStaggerTest::fixedLowerPriorityBlocksThePassing()
+{
+    // The catalog at 23:10 is fixed: b may not pass it, since it would have
+    // to take it along; without the constraint b moves 10 and the catalog 5
+    // (catalogStaysLast)
+    const QList<BWaitRun> runs = {run("a", at(20, 23, 5), 10), run("b", at(20, 23, 5), 10),
+                                  run("catalog", at(20, 23, 10), 1, 11)};
+    BWaitStagger::Options options;
+    options.fixedJobs.insert(QStringLiteral("catalog"));
+    const BWaitStagger::Proposal p =
+        BWaitStagger::propose(runs, oneAtTheStorage(runs), at(20, 0, 0), options);
+    QCOMPARE(shiftOf(p, "catalog")->minutes, 0);
+    QVERIFY(shiftOf(p, "catalog")->fixed);
+    QVERIFY(shiftOf(p, "b")->minutes <= 5);
+    QVERIFY(shiftOf(p, "b")->follows.isEmpty());
+    for (const BWaitRun &r : p.runs) {
+        if (r.job != QLatin1String("catalog")) QVERIFY(r.scheduled <= at(20, 23, 10));
+    }
+}
+
+void BWaitStaggerTest::latestStartBoundsTheOffset()
+{
+    // Three of 20 minutes at 23:05 on a quarter hour grid: unbounded, two of
+    // them go to 23:30 and 23:45 (gridOfAQuarterHour). c may not start after
+    // 23:30.
+    const QList<BWaitRun> runs = {run("a", at(20, 23, 5), 20), run("b", at(20, 23, 5), 20),
+                                  run("c", at(20, 23, 5), 20)};
+    BWaitStagger::Options options;
+    options.gridMinutes = 15;
+    options.latestStartMinutes.insert(QStringLiteral("c"), 23 * 60 + 30);
+    const BWaitStagger::Proposal p =
+        BWaitStagger::propose(runs, oneAtTheStorage(runs), at(20, 0, 0), options);
+    const BWaitStagger::Shift *c = shiftOf(p, "c");
+    QCOMPARE(c->boundMinutes, 25);
+    QCOMPARE(c->latestStartMinute, 23 * 60 + 30);
+    QVERIFY(c->minutes <= 25);
+    QVERIFY(p.runs[2].scheduled <= at(20, 23, 30));
+    QCOMPARE(shiftOf(p, "a")->latestStartMinute, -1);
+
+    // Only one place left before 23:30: c alone is bounded to 23:15
+    options.latestStartMinutes.insert(QStringLiteral("c"), 23 * 60 + 20);
+    const BWaitStagger::Proposal q =
+        BWaitStagger::propose(runs, oneAtTheStorage(runs), at(20, 0, 0), options);
+    QCOMPARE(shiftOf(q, "c")->boundMinutes, 15);
+    QVERIFY(q.runs[2].scheduled <= at(20, 23, 20));
+}
+
+void BWaitStaggerTest::latestStartAlreadyPassedStays()
+{
+    const QList<BWaitRun> runs = {run("a", at(20, 23, 5), 10), run("b", at(20, 23, 5), 10)};
+    BWaitStagger::Options options;
+    options.latestStartMinutes.insert(QStringLiteral("b"), 22 * 60);
+    options.latestStartMinutes.insert(QStringLiteral("a"), 22 * 60);
+    const BWaitStagger::Proposal p =
+        BWaitStagger::propose(runs, oneAtTheStorage(runs), at(20, 0, 0), options);
+    QCOMPARE(p.moved(), 0);
+    QCOMPARE(shiftOf(p, "b")->boundMinutes, 0);
+    QCOMPARE(shiftOf(p, "b")->latestStartMinute, 22 * 60);
 }
 
 QTEST_GUILESS_MAIN(BWaitStaggerTest)
