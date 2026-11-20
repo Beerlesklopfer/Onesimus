@@ -16,6 +16,7 @@
 #include <QMap>
 #include <QMultiMap>
 #include <QStringList>
+#include <array>
 #include "models/bresourcemodels.h"
 
 class BJobConfigModel;
@@ -101,6 +102,21 @@ public:
                                      const QDateTime &from, const QDateTime &to) const;
 
     bool isValid() const { return m_valid; }
+
+    /// Per weekday (Bareos numbering: 0 = Sunday) and hour
+    using WeekLoad = std::array<std::array<double, 24>, 7>;
+
+    /**
+     * @brief How many runs start per weekday and hour, on average per week
+     *
+     * Counts the starts of @p entries (as entriesFor() gives them for at
+     * least these dates) from @p first for @p weeks whole weeks, once per
+     * job and date, and divides by @p weeks: a monthly run counts a
+     * fraction. Entries without a job and those of unused schedules start
+     * nothing and are not counted.
+     */
+    static WeekLoad startsPerWeekdayHour(const QList<BScheduleEntry> &entries,
+                                         const QDate &first, int weeks);
 
 private:
     QMultiMap<QString, JobRef> m_scheduleToJobs;

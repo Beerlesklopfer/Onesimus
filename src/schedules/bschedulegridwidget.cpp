@@ -700,7 +700,7 @@ void BScheduleGridWidget::paintCell(QPainter &painter, int row, int column, doub
         painter.drawText(badge, Qt::AlignCenter, more);
     }
 
-    // The load of a later step: a thin bar at the bottom
+    // The load: a thin bar at the bottom
     if (cell.expectedConcurrentRuns) {
         const QRect track(inner.left(), inner.bottom() - m_loadBarHeight + 1, inner.width(), m_loadBarHeight);
         painter.fillRect(track, mix(base, text, 0.22));
@@ -1280,9 +1280,16 @@ QString BScheduleGridWidget::cellToolTip(int row, int column) const
         }
     }
     if (cell.expectedConcurrentRuns) {
+        // Starts per week on average: whole numbers without decimals
+        const double starts = *cell.expectedConcurrentRuns;
+        const bool whole = qAbs(starts - qRound(starts)) < 0.005;
         text += QStringLiteral("<br>")
-                + tr("Expected load: %1 runs at the same time")
-                      .arg(QString::number(*cell.expectedConcurrentRuns, 'f', 1)).toHtmlEscaped();
+                + (starts <= 0.0
+                       ? tr("Load: no run of an enabled schedule starts in this hour")
+                       : tr("Load: %1 run(s) a week of all enabled schedules start in this hour "
+                            "(average of the next weeks)")
+                             .arg(QString::number(starts, 'f', whole ? 0 : 1)))
+                      .toHtmlEscaped();
     }
     return text;
 }

@@ -30,7 +30,7 @@ QList<BScheduleLegend::Mark> BScheduleLegend::marks()
     return {Mark::Full, Mark::Differential, Mark::Incremental, Mark::VirtualFull,
             Mark::Estimated, Mark::Unmeasured, Mark::Percentile90,
             Mark::WaitCertain, Mark::WaitUncertain, Mark::WaitStrip, Mark::MayWait, Mark::StartsLater,
-            Mark::Unused, Mark::Waits, Mark::Now};
+            Mark::Unused, Mark::Waits, Mark::Measured, Mark::MeasuredFailed, Mark::Now};
 }
 
 QString BScheduleLegend::text(Mark mark)
@@ -67,6 +67,12 @@ QString BScheduleLegend::text(Mark mark)
         return tr("Arrow (day view only): the run at the head waits for the run at the tail, from the moment "
                   "that one lets it go. The label names the limit; dotted: priority; dashed: only if "
                   "something unknown turns out against the run. Point at a run to see its arrows.");
+    case Mark::Measured:
+        return tr("Thin track below a bar (past dates and today): the run as the job history measured it, "
+                  "from its start to its end. The dotted line in front of it is the time it waited after "
+                  "its scheduled time. Point at it for the times, level and status.");
+    case Mark::MeasuredFailed:
+        return tr("Hatched with a dashed outline in the track: the measured run failed or was canceled.");
     case Mark::Now:
         return tr("Red line: now.");
     }
@@ -234,6 +240,39 @@ QPixmap BScheduleLegend::picture(Mark mark) const
         p.setPen(Qt::NoPen);
         p.setBrush(ink);
         p.drawPolygon(head);
+        break;
+    }
+    case Mark::Measured:
+    case Mark::MeasuredFailed: {
+        // As BScheduleGanttWidget::drawMeasuredRuns(): the planned bar
+        // above, the measured run in the track below it
+        const QColor fill = BLevelColors::getLevelColor(QStringLiteral("I"));
+        const int trackHeight = BUiScale::px(6);
+        const QRect planned(bar.left(), bar.top(), bar.width(), bar.height() - trackHeight - 1);
+        p.setPen(Qt::NoPen);
+        p.setBrush(fill);
+        p.drawRoundedRect(planned, 3, 3);
+        p.setRenderHint(QPainter::Antialiasing, false);
+        const QRect track(bar.left(), planned.bottom() + 2, bar.width(), trackHeight - 1);
+        const QRect wait(track.left(), track.top(), BUiScale::px(10), track.height());
+        const QRect run(wait.right() + 1, track.top(), BUiScale::px(16), track.height());
+        QColor line = ink;
+        line.setAlpha(190);
+        p.setPen(QPen(line, 1, Qt::DotLine));
+        p.drawLine(wait.left(), wait.center().y(), wait.right(), wait.center().y());
+        p.setPen(QPen(line, 1));
+        p.drawLine(wait.left(), wait.top(), wait.left(), wait.bottom());
+        const bool failed = mark == Mark::MeasuredFailed;
+        QColor pale = fill;
+        pale.setAlpha(130);
+        p.setPen(Qt::NoPen);
+        p.setBrush(failed ? QBrush(fill, Qt::BDiagPattern) : QBrush(pale));
+        p.drawRect(run);
+        p.setBrush(Qt::NoBrush);
+        const QColor edge((fill.red() + ink.red()) / 2, (fill.green() + ink.green()) / 2,
+                          (fill.blue() + ink.blue()) / 2);
+        p.setPen(QPen(failed ? ink : edge, 1, failed ? Qt::DashLine : Qt::SolidLine));
+        p.drawRect(run.adjusted(0, 0, -1, -1));
         break;
     }
     case Mark::Now: {

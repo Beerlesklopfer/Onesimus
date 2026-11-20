@@ -281,6 +281,17 @@ public:
     /// The list of predicted waits below the timeline is open
     bool schedulesWaitListShown() const;
     void setSchedulesWaitListShown(bool shown);
+    /// The timeline draws the measured runs of past dates and today
+    /// beside the planned bars (default on)
+    bool schedulesShowMeasuredRuns() const;
+    void setSchedulesShowMeasuredRuns(bool shown);
+    /// Header of a table of the schedule tab ("waits": predicted waits,
+    /// "stagger": proposed later starts): QHeaderView::saveState() and the
+    /// interface scale the widths were saved at, as for the client table
+    QByteArray schedulesTableHeaderState(const QString& table) const;
+    void setSchedulesTableHeaderState(const QString& table, const QByteArray& state);
+    int schedulesTableHeaderScale(const QString& table) const;
+    void setSchedulesTableHeaderScale(const QString& table, int pixelsPer1000);
 
     /// Header of the client table: column order, widths, hidden columns and
     /// sort column (QHeaderView::saveState()), plus the interface scale the

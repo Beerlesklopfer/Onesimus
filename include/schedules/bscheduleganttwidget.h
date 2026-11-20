@@ -48,6 +48,14 @@
  * - A bar can be dragged to another time of the day as a what-if: the
  *   ghost stays, a preview follows the pointer. Dropping it changes
  *   nothing; the bar goes back and dragDropped() tells whoever listens.
+ * - Measured runs (setMeasuredRuns()): on past dates and today, a start
+ *   that the job history shows as run is drawn a second time in a thin
+ *   track below its planned bar, from the measured start to the measured
+ *   end, with the measured wait (scheduled time to start) as a dotted line
+ *   in front of it. A run that failed or was cancelled is hatched with a
+ *   dashed outline; a run still running reaches to now. setShowMeasured()
+ *   switches the track off; without measured runs on display it takes no
+ *   room.
  * - Heatmap at bottom showing how many runs are running per time slot, in
  *   one neutral colour, with a strip where runs are waiting
  * - Zoom control (15min to 1h blocks)
@@ -97,6 +105,41 @@ public:
      *              loaded
      */
     void setHistoryStats(const BJobHistoryStats &stats, const QString &note = QString());
+
+    /**
+     * @brief Sets the runs of the job history (BJobHistoryReply::runs)
+     *
+     * A run belongs to a start on display if it is a run of the entry's job
+     * whose scheduled time (Job.SchedTime) is the start, to the minute, on
+     * a date that is not in the future. Where two entries of one job start
+     * at the same minute the level decides; otherwise the level is not
+     * looked at (Bareos may have upgraded the run to Full). A run without a
+     * scheduled time, and a run started by hand, belongs to no start.
+     */
+    void setMeasuredRuns(const QList<BJobRun> &runs);
+
+    /// Whether the measured runs are drawn (default on)
+    void setShowMeasured(bool show);
+    bool showMeasured() const { return m_showMeasured; }
+
+    /** A run of the history matched to a start on display. */
+    struct MeasuredRun {
+        int entryIndex = -1;    ///< Into entries()
+        int dayOffset = 0;      ///< 0 = firstDate()
+        BJobRun run;
+    };
+    /// The runs matched to the starts on display (also while not shown)
+    const QList<MeasuredRun> &measuredRuns() const { return m_measured; }
+    /// Where a matched run is drawn: its measured part (start to end), in
+    /// widget coordinates; empty if it is not drawn
+    QRect measuredRunRect(int index) const;
+    /// Where its measured wait is drawn (scheduled time to start); empty
+    /// if it has none
+    QRect measuredWaitRect(int index) const;
+    /// The tooltip of a matched run (rich text)
+    QString measuredToolTip(int index) const;
+    /// The matched run at a position; -1 for none
+    int measuredRunAt(const QPoint &pos) const;
 
     /**
      * @brief Sets the job config model for enriched tooltips (Type, FileSet)
@@ -204,6 +247,7 @@ public:
         int waitMarkWidth = 0;      ///< The hourglass of a run that waits
         int unusedMarkWidth = 0;    ///< The diamond of a schedule no job uses
         int hourLabelWidth = 0;     ///< Width of the text "00:00"
+        int measuredTrackHeight = 0; ///< The track of the measured runs below a bar
     };
     Metrics metrics() const { return m_metrics; }
 
@@ -275,6 +319,23 @@ private:
     /// The colour of what is not active: between text and background
     QColor mutedColor() const;
     void drawHeatmap(QPainter &painter);
+    /// The measured runs of the starts on display, in their tracks
+    void drawMeasuredRuns(QPainter &painter);
+
+    // --- Measured runs ---
+    /// Matches m_historyRuns to the starts on display
+    void rebuildMeasured();
+    /// Room for the track of measured runs in every row: 0 while there is
+    /// nothing to show
+    int measuredTrackSpace() const;
+    /// The track of a row
+    QRect measuredTrackRect(int row) const;
+    /// x of a wall-clock time of the catalog (stored with the UTC spec)
+    int xForWallTime(const QDateTime &wall) const;
+    QList<BJobRun> m_historyRuns;
+    QList<MeasuredRun> m_measured;
+    bool m_showMeasured = true;
+    int m_hoverMeasured = -1;   ///< The matched run under the pointer
 
     // --- Layout calculation ---
     struct RowInfo {

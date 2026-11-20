@@ -2,6 +2,7 @@
 #include "schedules/bstaggerplan.h"
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QCheckBox>
 #include <QFontDatabase>
 #include <QPlainTextEdit>
 #include <memory>
@@ -19,6 +20,7 @@
 #include "bsorttableitem.h"
 #include "bsortvalue.h"
 #include "config/bsettings.h"
+#include "bheaderstate.h"
 #include "blogging.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -297,6 +299,22 @@ void BScheduleWidget::setupUI()
     m_runProblemLabel->setVisible(false);
     m_runProblemLabel->setStyleSheet("color: red; font-weight: bold;");
     toolbarLayout->addWidget(m_runProblemLabel);
+
+    // The runs the job history measured, beside the planned bars of past
+    // dates and today
+    m_measuredCheck = new QCheckBox(tr("Measured runs"), this);
+    m_measuredCheck->setObjectName(QStringLiteral("showMeasuredRuns"));
+    m_measuredCheck->setToolTip(tr("Show the runs of past dates and today as the job history measured "
+                                   "them, in a thin track below the planned bars"));
+    m_measuredCheck->setChecked(BSettings::instance().schedulesShowMeasuredRuns());
+    m_fdGanttWidget->setShowMeasured(m_measuredCheck->isChecked());
+    m_sdGanttWidget->setShowMeasured(m_measuredCheck->isChecked());
+    connect(m_measuredCheck, &QCheckBox::toggled, this, [this](bool on) {
+        m_fdGanttWidget->setShowMeasured(on);
+        m_sdGanttWidget->setShowMeasured(on);
+        BSettings::instance().setSchedulesShowMeasuredRuns(on);
+    });
+    toolbarLayout->addWidget(m_measuredCheck);
 
     // What the marks of the timeline mean
     QPushButton *legendButton = new QPushButton(tr("Legend"), this);
@@ -596,6 +614,7 @@ void BScheduleWidget::clearData()
         m_gridView->clear();
     else
         m_gridView->setUsage({}, false);
+    m_gridView->model()->clearExpectedLoad();
     m_fdGanttWidget->setEntries({});
     m_sdGanttWidget->setEntries({});
     m_scheduleModel->clear();
@@ -946,6 +965,7 @@ void BScheduleWidget::onViewModeChanged(int index)
     updateDateControls();
     // The predicted waits are those of the dates of the timeline
     m_waitButton->setVisible(isGantt);
+    m_measuredCheck->setVisible(isGantt);
     // Waits and history belong to the timeline
     if (!isGantt && m_lowerTabs)
         m_lowerTabs->setVisible(false);
@@ -1518,8 +1538,38 @@ void BScheduleWidget::onScheduleCheckChanged(QListWidgetItem *item)
     updateJobList();
 }
 
+void BScheduleWidget::updateGridLoad()
+{
+    // The bar at the bottom of each cell of the grid: how many runs of all
+    // enabled schedules start in that hour of the weekday, whichever
+    // schedule is on display. Unknown while the jobs are not known: a
+    // schedule starts runs only for the jobs that use it.
+    BScheduleGridModel *model = m_gridView->model();
+    if (!m_jobScheduleIndex->isValid()) {
+        model->clearExpectedLoad();
+        return;
+    }
+    QList<BSchedule> enabled;
+    for (const BSchedule &schedule : m_scheduleModel->schedules()) {
+        if (schedule.enabled) enabled.append(schedule);
+    }
+    // Whole weeks from today, so that every weekday is counted as often;
+    // a run on the first Sunday of the month counts a fraction
+    const QDate first = QDate::currentDate();
+    const QList<BScheduleEntry> entries = m_jobScheduleIndex->entriesFor(
+        enabled, first.startOfDay(), first.addDays(7 * GridLoadWeeks).startOfDay());
+    const BJobScheduleIndex::WeekLoad load =
+        BJobScheduleIndex::startsPerWeekdayHour(entries, first, GridLoadWeeks);
+    for (int weekday = 0; weekday < 7; ++weekday) {
+        for (int hour = 0; hour < 24; ++hour)
+            model->setExpectedLoad(weekday, hour, load[size_t(weekday)][size_t(hour)]);
+    }
+}
+
 void BScheduleWidget::updateGridView(bool namesOnly)
 {
+    updateGridLoad();
+
     // The grid shows one schedule resource: the current row of the list.
     // The list is rebuilt on every refresh, so the choice is kept by name;
     // without one the first schedule is taken.
@@ -2092,6 +2142,8 @@ void BScheduleWidget::updateHistoryViews()
     const QString note = historyNote();
     m_fdGanttWidget->setHistoryStats(m_historyStats, note);
     m_sdGanttWidget->setHistoryStats(m_historyStats, note);
+    m_fdGanttWidget->setMeasuredRuns(m_historyRuns);
+    m_sdGanttWidget->setMeasuredRuns(m_historyRuns);
     updateWaitPrediction();     // other durations, other waits
     updateJobList();
     updateWaitsTable();
@@ -2314,6 +2366,7 @@ void BScheduleWidget::setupWaitPanel()
     m_waitTable->horizontalHeader()->setStretchLastSection(true);
     m_waitTable->setSortingEnabled(true);
     m_waitTable->sortByColumn(WaitDuration, Qt::DescendingOrder);   // longest waits first
+    keepColumnWidths(m_waitTable, QStringLiteral("waits"));
     // As high as the panel allows; it scrolls its rows
     BUiScale::track(m_waitTable, [this]() { m_waitTable->setMinimumHeight(BUiScale::px(90)); });
     tableLayout->addWidget(m_waitTable, 1);
@@ -2759,7 +2812,7 @@ void BScheduleWidget::updateWaitViews()
     }
 
     m_waitTable->setSortingEnabled(true);
-    m_waitTable->resizeColumnsToContents();
+    fitColumns(m_waitTable);
     // The longest wait is explained at once on the right, unless the
     // reader has picked a row already
     if (!rows.isEmpty() && m_waitTable->currentRow() < 0) {
@@ -3033,9 +3086,43 @@ void BScheduleWidget::setupStaggerPanel()
     m_staggerTable->setTabKeyNavigation(false);
     m_staggerTable->verticalHeader()->setVisible(false);
     m_staggerTable->horizontalHeader()->setStretchLastSection(true);
+    keepColumnWidths(m_staggerTable, QStringLiteral("stagger"));
     layout->addWidget(m_staggerTable, 1);
 
     clearStagger(QString());
+}
+
+void BScheduleWidget::keepColumnWidths(QTableWidget *table, const QString &key)
+{
+    // The widths the user left, as the client table keeps them: restored
+    // here, saved whenever the user resizes a column
+    QHeaderView *header = table->horizontalHeader();
+    const BSettings &settings = BSettings::instance();
+    const bool restored = BHeaderState::restore(header, settings.schedulesTableHeaderState(key),
+                                                settings.schedulesTableHeaderScale(key));
+    table->setProperty("userColumnWidths", restored);
+    connect(header, &QHeaderView::sectionResized, this, [table, key](int logicalIndex) {
+        // Not when the table sizes its columns to their contents, and not
+        // the last column: it takes the width that is left whenever the
+        // panel changes its size, which the user did not choose
+        QHeaderView *header = table->horizontalHeader();
+        if (table->property("autoSizingColumns").toBool()
+            || header->visualIndex(logicalIndex) == header->count() - 1)
+            return;
+        table->setProperty("userColumnWidths", true);
+        BSettings::instance().setSchedulesTableHeaderState(key, header->saveState());
+        BSettings::instance().setSchedulesTableHeaderScale(key, BHeaderState::currentScale());
+    });
+}
+
+void BScheduleWidget::fitColumns(QTableWidget *table)
+{
+    // Widths the user chose stay; until then the columns fit their contents
+    if (table->property("userColumnWidths").toBool())
+        return;
+    table->setProperty("autoSizingColumns", true);
+    table->resizeColumnsToContents();
+    table->setProperty("autoSizingColumns", false);
 }
 
 void BScheduleWidget::clearStagger(const QString &why)
@@ -3176,7 +3263,7 @@ void BScheduleWidget::proposeStagger()
         for (int column = 0; column < cells.size(); ++column)
             m_staggerTable->setItem(row, column, new QTableWidgetItem(cells[column]));
     }
-    m_staggerTable->resizeColumnsToContents();
+    fitColumns(m_staggerTable);
     updateStaggerApply();
 }
 

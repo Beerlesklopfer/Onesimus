@@ -804,6 +804,36 @@ void BSettings::setSchedulesWaitListShown(bool shown)
     setValue("Widgets/Schedules/wait_list_shown", shown);
 }
 
+bool BSettings::schedulesShowMeasuredRuns() const
+{
+    return value("Widgets/Schedules/show_measured_runs", true).toBool();
+}
+
+void BSettings::setSchedulesShowMeasuredRuns(bool shown)
+{
+    setValue("Widgets/Schedules/show_measured_runs", shown);
+}
+
+QByteArray BSettings::schedulesTableHeaderState(const QString& table) const
+{
+    return value(QStringLiteral("Widgets/Schedules/%1_header_state").arg(table)).toByteArray();
+}
+
+void BSettings::setSchedulesTableHeaderState(const QString& table, const QByteArray& state)
+{
+    setValue(QStringLiteral("Widgets/Schedules/%1_header_state").arg(table), state);
+}
+
+int BSettings::schedulesTableHeaderScale(const QString& table) const
+{
+    return value(QStringLiteral("Widgets/Schedules/%1_header_scale").arg(table), 0).toInt();
+}
+
+void BSettings::setSchedulesTableHeaderScale(const QString& table, int pixelsPer1000)
+{
+    setValue(QStringLiteral("Widgets/Schedules/%1_header_scale").arg(table), pixelsPer1000);
+}
+
 QByteArray BSettings::clientsHeaderState() const
 {
     return value("Widgets/Clients/header_state").toByteArray();

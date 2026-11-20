@@ -44,7 +44,9 @@ class QFrame;
  *    them; a plain click only selects.
  *  - A run whose line names no time has a warning triangle.
  *  - BGridCell::expectedConcurrentRuns, where set, is a thin bar at the
- *    bottom of the cell, as long as the figure is of the largest in the grid.
+ *    bottom of the cell, as long as the figure is of the largest in the grid:
+ *    how many runs of all enabled schedules start in the hour (the tooltip
+ *    gives the figure). In the colours of the palette, not of a level.
  *
  * Calendar rules (lines by day of the month or week of the year) are not
  * cells. They are marked in a band below the grid, at their hours, drawn
