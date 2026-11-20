@@ -850,7 +850,7 @@ void BScheduleGridView::setNewScheduleMode()
 {
     m_newScheduleMode = true;
     const QList<QWidget *> hidden = {m_title, m_usage, m_modified, m_descriptionLabel,
-                                     m_description, m_save, m_delete};
+                                     m_description, m_save, m_delete, m_copy, m_rename};
     for (QWidget *widget : hidden)
         widget->setVisible(false);
 }

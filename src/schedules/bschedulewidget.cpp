@@ -3596,12 +3596,9 @@ bool BScheduleWidget::confirmChange(const QString &title, const QString &summary
 QString BScheduleWidget::copyText(const QString &name, const QString &description, const QStringList &runs,
                                   bool enabled)
 {
-    QString text = BScheduleResource::createText(name, description, runs);
     // A disabled schedule stays disabled in its copy: otherwise the copy
     // would start jobs the original does not
-    if (!enabled)
-        text.insert(text.lastIndexOf(QLatin1Char('}')), QStringLiteral("  Enabled = no\n"));
-    return text;
+    return BScheduleResource::createText(name, description, enabled, runs);
 }
 
 QStringList BScheduleWidget::scheduleNames() const
