@@ -2195,6 +2195,7 @@ void BScheduleWidget::setupWaitPanel()
     layout->setContentsMargins(8, 8, 8, 8);
     layout->setSpacing(4);
     auto *waitSplitter = new QSplitter(Qt::Horizontal, m_waitPanel);
+    waitSplitter->setObjectName(QStringLiteral("waitSplitter"));
     waitSplitter->setChildrenCollapsible(false);
     layout->addWidget(waitSplitter);
 
@@ -2214,7 +2215,18 @@ void BScheduleWidget::setupWaitPanel()
     notesArea->setWidget(notes);
     waitSplitter->setStretchFactor(0, 3);
     waitSplitter->setStretchFactor(1, 2);
-    waitSplitter->setSizes({3000, 2000});     // scaled to the width: 60 : 40
+    // Scaled to the width: 60 : 40, or the share the user left
+    const int share = BSettings::instance().schedulesWaitSplit();
+    if (share > 0 && share < 1000)
+        waitSplitter->setSizes({share * 10, (1000 - share) * 10});
+    else
+        waitSplitter->setSizes({3000, 2000});
+    connect(waitSplitter, &QSplitter::splitterMoved, this, [waitSplitter]() {
+        const QList<int> sizes = waitSplitter->sizes();
+        const int total = sizes.value(0) + sizes.value(1);
+        if (total > 0)
+            BSettings::instance().setSchedulesWaitSplit(qBound(1, sizes.value(0) * 1000 / total, 999));
+    });
     BUiScale::track(notesArea, [notesArea]() { notesArea->setMinimumWidth(BUiScale::px(240)); });
 
     // What the prediction is based on, and what it does not know

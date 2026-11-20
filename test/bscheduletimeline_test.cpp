@@ -192,6 +192,7 @@ private slots:
     void counterSaysWhetherTheListIsOpen();
     void themedToolbarCutsNoButtonAndWeekHasCalendar();
     void handleBelowTimelineMovesUpAndIsKept();
+    void handleBesideWaitsIsKept();
     void waitsOfSecondsInTheList();
 
     // --- The review ---
@@ -626,6 +627,40 @@ void BScheduleTimelineTest::handleBelowTimelineMovesUpAndIsKept()
     QVERIFY2(qAbs(split->sizes().value(1) - kept) < 20,
              qPrintable(QStringLiteral("%1, kept %2").arg(split->sizes().value(1)).arg(kept)));
     BSettings::instance().setSchedulesLowerHeight(0);
+}
+
+void BScheduleTimelineTest::handleBesideWaitsIsKept()
+{
+    BSettings::instance().setSchedulesWaitSplit(0);
+    {
+        Tab tab;
+        tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+        tab.widget.resize(1400, 900);
+        tab.counter()->setChecked(true);
+        QTest::qWait(50);
+        auto *split = tab.waitPanel()->findChild<QSplitter *>(QStringLiteral("waitSplitter"));
+        QVERIFY(split);
+        const int total = split->sizes().value(0) + split->sizes().value(1);
+        // The table narrower than at first: a quarter of the width
+        split->setSizes({total / 4, total - total / 4});
+        emit split->splitterMoved(total / 4, 1);
+        const int share = BSettings::instance().schedulesWaitSplit();
+        QVERIFY2(share > 150 && share < 350, qPrintable(QString::number(share)));
+    }
+    // Another session: the table and the notes share the width as left
+    const int kept = BSettings::instance().schedulesWaitSplit();
+    Tab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    tab.widget.resize(1400, 900);
+    tab.counter()->setChecked(true);
+    QTest::qWait(50);
+    auto *split = tab.waitPanel()->findChild<QSplitter *>(QStringLiteral("waitSplitter"));
+    QVERIFY(split);
+    const int total = split->sizes().value(0) + split->sizes().value(1);
+    QVERIFY(total > 0);
+    const int share = split->sizes().value(0) * 1000 / total;
+    QVERIFY2(qAbs(share - kept) < 30, qPrintable(QStringLiteral("%1, kept %2").arg(share).arg(kept)));
+    BSettings::instance().setSchedulesWaitSplit(0);
 }
 
 void BScheduleTimelineTest::themedToolbarCutsNoButtonAndWeekHasCalendar()

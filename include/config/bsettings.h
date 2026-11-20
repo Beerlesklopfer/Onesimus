@@ -318,6 +318,10 @@ public:
     /// history) as the user left the handle; 0: not moved yet
     int schedulesLowerHeight() const;
     void setSchedulesLowerHeight(int height);
+    /// Share of the waits' table beside the notes, in per mille, as the
+    /// user left the handle; 0: not moved yet
+    int schedulesWaitSplit() const;
+    void setSchedulesWaitSplit(int perMille);
 
     bool schedulesFilterCheckbox(const QString& key, bool defaultValue = true) const;
     void setSchedulesFilterCheckbox(const QString& key, bool value);

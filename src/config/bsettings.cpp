@@ -904,6 +904,16 @@ void BSettings::setSchedulesLowerHeight(int height)
     setValue("Widgets/Schedules/lower_height", height);
 }
 
+int BSettings::schedulesWaitSplit() const
+{
+    return value("Widgets/Schedules/wait_split", 0).toInt();
+}
+
+void BSettings::setSchedulesWaitSplit(int perMille)
+{
+    setValue("Widgets/Schedules/wait_split", perMille);
+}
+
 bool BSettings::schedulesFilterCheckbox(const QString& key, bool defaultValue) const
 {
     return value(QString("Widgets/Schedules/FilterCheckboxes/%1").arg(key), defaultValue).toBool();
