@@ -12,7 +12,7 @@
  * A popup under the "Legend" button of the schedule view: every mark the
  * timeline draws (level colours, measured and estimated bars, the 90th
  * percentile, hourglass, wait strip, question mark, "»", the open diamond
- * of an unused schedule, the line of now), drawn the way the timeline
+ * of an unused schedule, the measured runs, the line of now), drawn the way the timeline
  * draws it, with one sentence each. The pictures follow the palette and
  * the font size (BUiScale).
  */
@@ -25,7 +25,7 @@ public:
         Full, Differential, Incremental, VirtualFull,
         Estimated, Unmeasured, Percentile90,
         WaitCertain, WaitUncertain, WaitStrip, MayWait, StartsLater,
-        Unused, Waits, Now,
+        Unused, Waits, Measured, MeasuredFailed, Now,
     };
 
     explicit BScheduleLegend(QWidget *parent = nullptr);

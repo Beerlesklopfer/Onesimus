@@ -350,9 +350,10 @@ struct BGridCell
     QList<BGridRun> outOfScope;     ///< Runs of the other scopes on the same weekday and hour
 
     /**
-     * Place for the load figures of a later step: how many runs are expected
-     * to be running at the same time in this hour. Nothing computes it yet;
-     * it is whatever setExpectedLoad() was given, empty by default.
+     * The load of this hour of the weekday, whatever setExpectedLoad() was
+     * given, empty by default. The schedule tab gives how many runs of all
+     * enabled schedules start in it, on average per week
+     * (BJobScheduleIndex::startsPerWeekdayHour()).
      */
     std::optional<double> expectedConcurrentRuns;
 

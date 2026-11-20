@@ -31,6 +31,7 @@
 #include "schedules/bschedulepersistence.h"
 
 class BScheduleSaveDialogs;
+class QCheckBox;
 
 /**
  * @brief Widget for displaying and managing backup schedules
@@ -247,6 +248,8 @@ public:
 
     /// Nights the back-test of the wait prediction replays
     static constexpr int BacktestNights = 7;
+    /// Weeks from today the load bars of the grid average over
+    static constexpr int GridLoadWeeks = 5;
 
 public slots:
     void processDotScheduleResponse(const QString &jsonData);
@@ -316,6 +319,9 @@ private:
      *                  not replaced by it
      */
     void updateGridView(bool namesOnly = false);
+    /// The load bars of the grid: starts of all enabled schedules per
+    /// weekday and hour (BJobScheduleIndex::startsPerWeekdayHour())
+    void updateGridLoad();
 
     // --- Job history ---
     enum HistoryState {
@@ -410,6 +416,11 @@ private:
     void moveOneJob(const BScheduleEntry &entry, const BSchedule &loaded, int line, const QString &newRun,
                     const QString &copyName, const QString &newTime);
     bool m_changeRunning = false;   ///< A rename or a move of one job is under way
+    /// Restores the column widths of @p table from BSettings (@p key) and
+    /// saves them whenever the user resizes a column
+    void keepColumnWidths(QTableWidget *table, const QString &key);
+    /// Sizes the columns to their contents unless the user has set widths
+    void fitColumns(QTableWidget *table);
     /**
      * @brief Replays the Director's queue for the dates on display and
      *        hands the result to the timelines, the counter and the list
@@ -544,6 +555,7 @@ private:
     QSlider *m_zoomSlider;             // Zoom in week mode (px/hour)
     QPushButton *m_waitButton;     ///< Counter of predicted waits; opens their list
     QLabel *m_runProblemLabel;     ///< Run lines that were not understood
+    QCheckBox *m_measuredCheck = nullptr;  ///< Shows the measured runs in the timelines
 
     // Predicted waits of the dates on display (below the timeline)
     QGroupBox *m_waitPanel = nullptr;

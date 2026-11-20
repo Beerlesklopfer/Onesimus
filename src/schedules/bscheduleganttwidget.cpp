@@ -9,6 +9,7 @@
 #include <QToolTip>
 #include <QDateTime>
 #include <QWheelEvent>
+#include <QMultiHash>
 #include <QResizeEvent>
 #include <algorithm>
 
@@ -48,6 +49,7 @@ void BScheduleGanttWidget::setEntries(const QList<BScheduleEntry> &entries)
     m_waits.clear();
 
     rebuildRows();
+    rebuildMeasured();
     recalcHeatmap();
     update();
 }
@@ -119,6 +121,7 @@ void BScheduleGanttWidget::setHistoryStats(const BJobHistoryStats &stats, const 
 void BScheduleGanttWidget::setJobConfigModel(BJobConfigModel *model)
 {
     m_jobConfigModel = model;
+    rebuildMeasured();      // the level of an entry may come from its job
 }
 
 void BScheduleGanttWidget::setViewMode(ViewMode mode)
@@ -126,6 +129,7 @@ void BScheduleGanttWidget::setViewMode(ViewMode mode)
     if (m_viewMode == mode) return;
     m_viewMode = mode;
     updateMinimumSize();
+    rebuildMeasured();
     recalcHeatmap();
     update();
 }
@@ -148,6 +152,7 @@ void BScheduleGanttWidget::setCurrentDate(const QDate &date)
     }
 
     m_currentDate = date;
+    rebuildMeasured();
     recalcHeatmap();
     update();
 }
@@ -237,6 +242,7 @@ void BScheduleGanttWidget::updateMetrics()
     // Odd, so that the hourglass and the diamond have a middle pixel
     m_metrics.waitMarkWidth = px(9) | 1;
     m_metrics.unusedMarkWidth = px(9) | 1;
+    m_metrics.measuredTrackHeight = px(7);
 
     m_rowHeight = m_metrics.rowHeight;
     m_headerRow1Height = m_metrics.headerRow1Height;
@@ -469,7 +475,7 @@ QRect BScheduleGanttWidget::barRect(const BScheduleEntry &entry, int row, int da
         barWidth = qMax(px(6), static_cast<int>(secs / 3600.0 * m_pixelsPerHour));
     }
 
-    return QRect(x, y, barWidth, m_rowHeight - 2 * gap);
+    return QRect(x, y, barWidth, m_rowHeight - 2 * gap - measuredTrackSpace());
 }
 
 QRect BScheduleGanttWidget::waitRect(const BScheduleEntry &entry, int row, int dayOffset) const
@@ -551,6 +557,9 @@ void BScheduleGanttWidget::paintEvent(QPaintEvent *event)
                          m_viewMode == WeekView ? tr("No runs in this week")
                                                 : tr("No runs on this date"));
     }
+
+    // What was measured on past dates and today, below the planned bars
+    drawMeasuredRuns(painter);
 
     // Heatmap
     drawHeatmap(painter);
@@ -1365,7 +1374,14 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
         update();
     }
 
-    if (idx >= 0 && m_entries[idx].unused) {
+    const int measuredIndex = idx < 0 ? measuredRunAt(event->pos()) : -1;
+    if (measuredIndex != m_hoverMeasured) {
+        m_hoverMeasured = measuredIndex;
+        update();
+    }
+    if (measuredIndex >= 0) {
+        QToolTip::showText(event->globalPosition().toPoint(), measuredToolTip(measuredIndex), this);
+    } else if (idx >= 0 && m_entries[idx].unused) {
         // Not a run: say so, and nothing about durations or waits
         const BScheduleEntry &e = m_entries[idx];
         QString tooltip = QString("<b>%1</b><br>%2").arg(
@@ -1598,8 +1614,9 @@ void BScheduleGanttWidget::keyPressEvent(QKeyEvent *event)
 
 void BScheduleGanttWidget::leaveEvent(QEvent *event)
 {
-    if (m_hoverEntryIndex != -1) {
+    if (m_hoverEntryIndex != -1 || m_hoverMeasured != -1) {
         m_hoverEntryIndex = -1;
+        m_hoverMeasured = -1;
         update();
     }
     QWidget::leaveEvent(event);
@@ -1717,4 +1734,280 @@ void BScheduleGanttWidget::drawDragOverlay(QPainter &painter)
     painter.drawLine(snapX, m_headerHeight, snapX, m_headerHeight + m_rows.size() * m_rowHeight);
 
     painter.restore();
+}
+
+// ============================================================================
+// Measured runs
+// ============================================================================
+
+void BScheduleGanttWidget::setMeasuredRuns(const QList<BJobRun> &runs)
+{
+    m_historyRuns = runs;
+    // The bars give the track its room or get their height back
+    if (m_dragState != NoDrag) cancelDrag();
+    rebuildMeasured();
+    update();
+}
+
+void BScheduleGanttWidget::setShowMeasured(bool show)
+{
+    if (m_showMeasured == show) return;
+    m_showMeasured = show;
+    if (m_dragState != NoDrag) cancelDrag();
+    update();
+}
+
+int BScheduleGanttWidget::measuredTrackSpace() const
+{
+    return (m_showMeasured && !m_measured.isEmpty()) ? m_metrics.measuredTrackHeight : 0;
+}
+
+QRect BScheduleGanttWidget::measuredTrackRect(int row) const
+{
+    // Below the bar, inside the row: the bar gave up this height
+    const int gap = px(2);
+    const int track = measuredTrackSpace();
+    const int top = m_headerHeight + row * m_rowHeight + m_rowHeight - gap - track + 1;
+    return QRect(m_labelWidth, top, contentWidth(), qMax(0, track - 1));
+}
+
+int BScheduleGanttWidget::xForWallTime(const QDateTime &wall) const
+{
+    // The catalog's times are the Director's wall-clock time, kept with the
+    // UTC spec so that nothing converts them; the timeline is local time
+    return xForTime(QDateTime(wall.date(), wall.time()));
+}
+
+void BScheduleGanttWidget::rebuildMeasured()
+{
+    m_measured.clear();
+    m_hoverMeasured = -1;
+    if (m_historyRuns.isEmpty() || m_entries.isEmpty()) return;
+
+    // The runs by job and scheduled minute
+    const QChar sep(0x1F);
+    auto key = [sep](const QString &job, const QDate &date, const QTime &time) {
+        return job + sep + date.toString(Qt::ISODate) + sep
+               + QString::number(time.hour() * 60 + time.minute());
+    };
+    QMultiHash<QString, int> byStart;
+    for (int i = 0; i < m_historyRuns.size(); ++i) {
+        const BJobRun &run = m_historyRuns[i];
+        if (!run.scheduled.isValid() || run.name.isEmpty()) continue;
+        byStart.insert(key(run.name, run.scheduled.date(), run.scheduled.time()), i);
+    }
+
+    // The starts on display that can have been run: not in the future
+    struct Start { int entryIndex; int dayOffset; QString key; QString level; };
+    QList<Start> starts;
+    QHash<QString, int> startsPerKey;
+    const QDate today = QDate::currentDate();
+    for (int e = 0; e < m_entries.size(); ++e) {
+        const BScheduleEntry &entry = m_entries[e];
+        if (entry.unused || entry.jobName.isEmpty()) continue;
+        QString level = entry.levelLabel();
+        if (level.isEmpty() && m_jobConfigModel) {
+            level = m_jobConfigModel->jobConfigsRaw().value(entry.jobName)
+                        .value(QLatin1String("level")).toString();
+        }
+        for (int d : dayOffsets(entry)) {
+            const QDateTime when = occurrenceOn(entry, d);
+            if (!when.isValid() || when.date() > today) continue;
+            const QString k = key(entry.jobName, when.date(), when.time());
+            starts.append(Start{e, d, k, level});
+            startsPerKey[k]++;
+        }
+    }
+
+    for (const Start &start : starts) {
+        const QList<int> runs = byStart.values(start.key);
+        for (int i : runs) {
+            const BJobRun &run = m_historyRuns[i];
+            // Two starts of the job at this minute: the level tells them apart
+            if (startsPerKey.value(start.key) > 1
+                && BJobHistoryStats::levelName(run.level).compare(start.level, Qt::CaseInsensitive) != 0)
+                continue;
+            m_measured.append(MeasuredRun{start.entryIndex, start.dayOffset, run});
+        }
+    }
+}
+
+QRect BScheduleGanttWidget::measuredRunRect(int index) const
+{
+    if (index < 0 || index >= m_measured.size() || !m_showMeasured) return QRect();
+    const MeasuredRun &m = m_measured[index];
+    const BJobRun &run = m.run;
+    if (!run.started.isValid()) return QRect();
+    const int row = rowForEntry(m.entryIndex);
+    if (row < 0) return QRect();
+
+    // To its end; a run that has none yet is running: to now
+    const QDateTime end = run.ended.isValid() ? run.ended : run.reallyEnded;
+    const int left = xForWallTime(run.started);
+    int right = left;
+    if (end.isValid() && end >= run.started)
+        right = xForWallTime(end);
+    else if (run.status == QLatin1Char('R'))
+        right = xForTime(QDateTime::currentDateTime());
+    const QRect track = measuredTrackRect(row);
+    // A run of seconds is still seen
+    return QRect(left, track.top(), qMax(px(3), right - left), track.height());
+}
+
+QRect BScheduleGanttWidget::measuredWaitRect(int index) const
+{
+    if (index < 0 || index >= m_measured.size() || !m_showMeasured) return QRect();
+    const MeasuredRun &m = m_measured[index];
+    const int row = rowForEntry(m.entryIndex);
+    if (row < 0 || !m.run.scheduled.isValid()) return QRect();
+    // Until the start; a run that has not started yet waits until now
+    int right = 0;
+    if (m.run.started.isValid())
+        right = xForWallTime(m.run.started);
+    else if (m.run.scheduled.date() == QDate::currentDate())
+        right = xForTime(QDateTime::currentDateTime());
+    else
+        return QRect();
+    const int left = xForWallTime(m.run.scheduled);
+    if (right <= left) return QRect();
+    const QRect track = measuredTrackRect(row);
+    return QRect(left, track.top(), right - left, track.height());
+}
+
+int BScheduleGanttWidget::measuredRunAt(const QPoint &pos) const
+{
+    if (!m_showMeasured) return -1;
+    // A little tolerance around the thin track
+    const int slack = px(2);
+    for (int i = 0; i < m_measured.size(); ++i) {
+        if (measuredRunRect(i).adjusted(0, -slack, 0, slack).contains(pos)
+            || measuredWaitRect(i).adjusted(0, -slack, 0, slack).contains(pos))
+            return i;
+    }
+    return -1;
+}
+
+namespace {
+
+/// The level colour code of a catalog level ('f' is a virtual full)
+QString levelColorCode(QChar level)
+{
+    switch (level.unicode()) {
+    case 'F': return QStringLiteral("F");
+    case 'D': return QStringLiteral("D");
+    case 'I': return QStringLiteral("I");
+    case 'f': return QStringLiteral("V");
+    default: return QString();
+    }
+}
+
+/// Ended, and not well: error, fatal error, canceled, ...
+bool runFailed(QChar status)
+{
+    return !status.isNull() && !BJobHistoryStats::terminatedSuccessfully(status)
+           && status != QLatin1Char('R') && status != QLatin1Char('C');
+}
+
+} // namespace
+
+void BScheduleGanttWidget::drawMeasuredRuns(QPainter &painter)
+{
+    if (!m_showMeasured || m_measured.isEmpty()) return;
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    painter.setClipRect(QRect(m_labelWidth, m_headerHeight, contentWidth() + 1,
+                              m_rows.size() * m_rowHeight));
+    const QColor ink = palette().text().color();
+    const int hovered = m_hoverMeasured;
+
+    for (int i = 0; i < m_measured.size(); ++i) {
+        const BJobRun &run = m_measured[i].run;
+        const QRect wait = measuredWaitRect(i);
+        const QRect body = measuredRunRect(i);
+
+        // The measured wait: a dotted line from the scheduled time, with a
+        // tick there. Not a bar: nothing ran yet.
+        if (!wait.isEmpty()) {
+            QColor line = ink;
+            line.setAlpha(i == hovered ? 255 : 190);
+            const int y = wait.center().y();
+            painter.setPen(QPen(line, 1, Qt::DotLine));
+            painter.drawLine(wait.left(), y, wait.right(), y);
+            painter.setPen(QPen(line, 1));
+            painter.drawLine(wait.left(), wait.top(), wait.left(), wait.bottom());
+        }
+
+        if (body.isEmpty()) continue;
+        QColor colour = BLevelColors::getLevelColor(levelColorCode(run.level));
+        if (!colour.isValid()) colour = palette().color(QPalette::Mid);
+        if (i == hovered) colour = colour.lighter(125);
+        const bool failed = runFailed(run.status);
+        const bool running = run.status == QLatin1Char('R');
+
+        // The level's colour as an outline with a pale filling, so that it
+        // does not read as the planned bar above it. Failed or canceled:
+        // hatched and dashed, so that colour is not the only carrier.
+        QColor fill = colour;
+        fill.setAlpha(running ? 70 : 130);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(failed ? QBrush(colour, Qt::BDiagPattern) : QBrush(fill));
+        painter.drawRect(body);
+        painter.setBrush(Qt::NoBrush);
+        // The outline halfway to the text colour: darker on a light theme,
+        // lighter on a dark one, so that it stands out from the bar above
+        const QColor edge((colour.red() + ink.red()) / 2, (colour.green() + ink.green()) / 2,
+                          (colour.blue() + ink.blue()) / 2);
+        painter.setPen(QPen(failed ? ink : edge, 1, failed ? Qt::DashLine : Qt::SolidLine));
+        painter.drawRect(body.adjusted(0, 0, -1, -1));
+    }
+    painter.restore();
+}
+
+QString BScheduleGanttWidget::measuredToolTip(int index) const
+{
+    if (index < 0 || index >= m_measured.size()) return QString();
+    const MeasuredRun &m = m_measured[index];
+    const BJobRun &run = m.run;
+    const QString format = QStringLiteral("yyyy-MM-dd HH:mm:ss");
+    auto time = [&](const QDateTime &t) {
+        return t.isValid() ? t.toString(format) : tr("not recorded");
+    };
+
+    QString status;
+    switch (run.status.unicode()) {
+    case 'T': status = tr("terminated normally"); break;
+    case 'W': status = tr("terminated with warnings"); break;
+    case 'E': status = tr("terminated in error"); break;
+    case 'e': status = tr("non-fatal error"); break;
+    case 'f': status = tr("fatal error"); break;
+    case 'A': status = tr("canceled"); break;
+    case 'R': status = tr("running"); break;
+    case 'C': status = tr("created, not yet running"); break;
+    default: status = tr("status %1").arg(run.status); break;
+    }
+
+    QString text = QStringLiteral("<b>%1</b>").arg(tr("Measured run of %1").arg(run.name).toHtmlEscaped());
+    if (run.jobId)
+        text += QStringLiteral("<br>%1: %2").arg(tr("JobId")).arg(run.jobId);
+    text += QStringLiteral("<br>%1: %2").arg(tr("Scheduled"), time(run.scheduled));
+    text += QStringLiteral("<br>%1: %2").arg(tr("Started"), time(run.started));
+    QString ended = time(run.ended.isValid() ? run.ended : run.reallyEnded);
+    if (run.status == QLatin1Char('R') && !run.ended.isValid())
+        ended = tr("still running");
+    text += QStringLiteral("<br>%1: %2").arg(tr("Ended"), ended);
+    if (const auto wait = BJobHistoryStats::waitSecs(run))
+        text += QStringLiteral("<br>%1: %2").arg(tr("Waited"), BJobHistoryStats::formatDuration(*wait));
+    if (const auto duration = BJobHistoryStats::durationSecs(run))
+        text += QStringLiteral("<br>%1: %2").arg(tr("Ran"), BJobHistoryStats::formatDuration(*duration));
+    const QString level = BJobHistoryStats::levelName(run.level);
+    text += QStringLiteral("<br>%1: %2").arg(tr("Level"), level.isEmpty() ? tr("none") : level);
+    // Bareos runs an Incremental as Full when it finds no Full to build on
+    if (m.entryIndex >= 0 && m.entryIndex < m_entries.size()) {
+        const QString planned = m_entries[m.entryIndex].levelLabel();
+        if (!planned.isEmpty() && !level.isEmpty() && planned.compare(level, Qt::CaseInsensitive) != 0)
+            text += QStringLiteral(" (%1)").arg(tr("planned: %1").arg(planned).toHtmlEscaped());
+    }
+    text += QStringLiteral("<br>%1: %2 (%3)").arg(tr("Status"), status.toHtmlEscaped(), QString(run.status));
+    return text;
 }

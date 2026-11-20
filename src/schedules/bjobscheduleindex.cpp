@@ -12,6 +12,7 @@
 #include "blogging.h"
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QSet>
 
 BJobScheduleIndex::BJobScheduleIndex(QObject *parent)
     : QObject(parent)
@@ -133,4 +134,27 @@ QList<BScheduleEntry> BJobScheduleIndex::entriesFor(const QList<BSchedule> &sche
     }
 
     return result;
+}
+
+BJobScheduleIndex::WeekLoad BJobScheduleIndex::startsPerWeekdayHour(const QList<BScheduleEntry> &entries,
+                                                                    const QDate &first, int weeks)
+{
+    WeekLoad load{};
+    if (weeks <= 0 || !first.isValid()) return load;
+    const QDate end = first.addDays(7 * weeks);
+    for (const BScheduleEntry &entry : entries) {
+        if (entry.unused || entry.jobName.isEmpty()) continue;
+        // A start that exists twice on a day (end of daylight saving) is one run
+        QSet<QDate> dates;
+        for (const QDateTime &when : entry.occurrences) {
+            const QDate date = when.date();
+            if (date < first || date >= end || dates.contains(date)) continue;
+            dates.insert(date);
+            load[size_t(date.dayOfWeek() % 7)][size_t(when.time().hour())] += 1.0;
+        }
+    }
+    for (auto &day : load)
+        for (double &hour : day)
+            hour /= weeks;
+    return load;
 }

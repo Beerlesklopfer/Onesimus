@@ -115,6 +115,7 @@ private slots:
     void entriesOncePerJobAndRun();
     void disabledJobsStartNothing();
     void jobValuesFromListsAndJobDefs();
+    void startsPerWeekdayHourAveragesWholeWeeks();
 };
 
 // --- Week of the month: hand calendar and the Bareos rule ---
@@ -891,6 +892,51 @@ void BScheduleOccurrencesTest::disabledJobsStartNothing()
     QVERIFY(entries[1].jobName.isEmpty());
     QVERIFY(entries[1].client.isEmpty());
     QVERIFY(entries[1].unused);
+}
+
+// --- The load of the grid: starts per weekday and hour ---
+
+void BScheduleOccurrencesTest::startsPerWeekdayHourAveragesWholeWeeks()
+{
+    // Two weeks from Monday 2026-11-23
+    const QDate first(2026, 11, 23);
+    auto entry = [](const QString &job, int hour) {
+        BScheduleEntry e;
+        e.jobName = job;
+        e.hour = hour;
+        return e;
+    };
+
+    // Daily at 08:00, and the day before and after the window
+    BScheduleEntry daily = entry(QStringLiteral("A"), 8);
+    for (int d = -1; d <= 14; ++d)
+        daily.occurrences << QDateTime(first.addDays(d), QTime(8, 0));
+    // The first Sunday of the month at 21:00: once in two weeks
+    BScheduleEntry monthly = entry(QStringLiteral("B"), 21);
+    monthly.occurrences << QDateTime(QDate(2026, 12, 6), QTime(21, 0));
+    // A start that is there twice on a date counts once
+    BScheduleEntry twice = entry(QStringLiteral("C"), 2);
+    twice.occurrences << QDateTime(first, QTime(2, 30)) << QDateTime(first, QTime(2, 30));
+    // Nothing starts for a schedule no job uses, or without a job
+    BScheduleEntry unused = entry(QString(), 8);
+    unused.unused = true;
+    unused.occurrences << QDateTime(first, QTime(8, 0));
+    BScheduleEntry noJob = entry(QString(), 8);
+    noJob.occurrences << QDateTime(first, QTime(8, 0));
+    // A second job on the daily line counts on its own
+    BScheduleEntry second = daily;
+    second.jobName = QStringLiteral("D");
+
+    const BJobScheduleIndex::WeekLoad load = BJobScheduleIndex::startsPerWeekdayHour(
+        {daily, monthly, twice, unused, noJob, second}, first, 2);
+    for (int weekday = 0; weekday < 7; ++weekday)
+        QCOMPARE(load[size_t(weekday)][8], 2.0);
+    QCOMPARE(load[0][21], 0.5);         // Sunday is 0
+    QCOMPARE(load[1][2], 0.5);          // Monday, once in two weeks
+    QCOMPARE(load[1][9], 0.0);
+
+    // No weeks: nothing
+    QCOMPARE(BJobScheduleIndex::startsPerWeekdayHour({daily}, first, 0)[1][8], 0.0);
 }
 
 QTEST_APPLESS_MAIN(BScheduleOccurrencesTest)

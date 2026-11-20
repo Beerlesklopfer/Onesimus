@@ -1201,7 +1201,7 @@ void BScheduleGridWidgetTest::renderingOfTheLoadBar()
     };
     const BScheduleGridGeometry &geometry = s.grid()->gridGeometry();
 
-    // Nothing sets the load yet: nothing is drawn for it
+    // Without a load (the schedule tab sets it) nothing is drawn for it
     const QImage before = paint();
     QVERIFY(!s.model()->cell(Mon, 3).expectedConcurrentRuns.has_value());
 
@@ -1238,7 +1238,7 @@ void BScheduleGridWidgetTest::renderingOfTheLoadBar()
     QCOMPARE(filled(after, 21), width);
 
     // The tooltip names the figure
-    QVERIFY(s.grid()->toolTipAt(s.cell(Mon, 3)).contains(QStringLiteral("Expected load: 1.0 runs")));
+    QVERIFY(s.grid()->toolTipAt(s.cell(Mon, 3)).contains(QStringLiteral("Load: 1 run(s) a week")));
 
     // Cleared: as before
     s.model()->clearExpectedLoad();

@@ -2525,6 +2525,10 @@ if(BUILD_TESTING)
         test/bfakeconfigclient.h
         test/bfakesaveui.h
         src/buiscale.cpp
+        src/bheaderstate.cpp
+        src/config/bcolumnconfiguration.cpp
+        include/bheaderstate.h
+        include/config/bcolumnconfiguration.h
         src/config/bsettings.cpp
         src/schedules/bschedulewidget.cpp
         src/schedules/bschedulelegend.cpp

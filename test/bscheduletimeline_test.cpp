@@ -30,7 +30,10 @@
 #include <QListWidget>
 #include <QLineEdit>
 
+#include <QCheckBox>
 #include <QComboBox>
+#include <QScrollArea>
+#include <QHeaderView>
 #include <QDateEdit>
 #include <QSplitter>
 #include <QToolButton>
@@ -227,6 +230,11 @@ private slots:
 
     // --- The legend ---
     void legendExplainsEveryMark();
+
+    // --- Measured against planned ---
+    void measuredRunsBesideThePlannedBars();
+    void gridLoadCountsTheStartsOfAllSchedules();
+    void columnWidthsOfTheTablesAreKept();
 
 private:
     QTemporaryDir m_config;
@@ -1759,7 +1767,7 @@ void BScheduleTimelineTest::legendExplainsEveryMark()
     // Every mark the timeline draws has a picture and a sentence
     BScheduleLegend legend;
     const QList<BScheduleLegend::Mark> marks = BScheduleLegend::marks();
-    QCOMPARE(marks.size(), 15);
+    QCOMPARE(marks.size(), 17);
     for (BScheduleLegend::Mark mark : marks) {
         QVERIFY(!BScheduleLegend::text(mark).isEmpty());
         const QImage image = legend.picture(mark).toImage();
@@ -1779,6 +1787,212 @@ void BScheduleTimelineTest::legendExplainsEveryMark()
         legend.adjustSize();
         legend.grab().save(png);
     }
+}
+
+// ============================================================================
+// Measured against planned
+// ============================================================================
+
+namespace {
+
+/// One row of "llist jobs" of BackupEleLa (API mode 2: every value a string)
+QString historyRow(int id, const QDateTime &sched, const QDateTime &start, const QDateTime &end,
+                   const QString &status, const QString &level)
+{
+    const QString f = QStringLiteral("yyyy-MM-dd HH:mm:ss");
+    return QString(R"({"jobid":"%1","name":"BackupEleLa","type":"B","level":"%2","jobstatus":"%3",)"
+                   R"("schedtime":"%4","starttime":"%5","endtime":"%6","realendtime":"%6"})")
+        .arg(id).arg(level, status, sched.toString(f), start.toString(f), end.toString(f));
+}
+
+/// Number of pixels that differ between two pictures inside @p rect
+int pixelsDiffering(const QImage &a, const QImage &b, const QRect &rect)
+{
+    int count = 0;
+    for (int y = rect.top(); y <= rect.bottom(); ++y)
+        for (int x = rect.left(); x <= rect.right(); ++x)
+            if (a.pixel(x, y) != b.pixel(x, y)) ++count;
+    return count;
+}
+
+} // namespace
+
+void BScheduleTimelineTest::measuredRunsBesideThePlannedBars()
+{
+    BSettings::instance().setSchedulesShowMeasuredRuns(true);
+    Tab tab;
+    const QDate today = QDate::currentDate();
+    const QDate yesterday = today.addDays(-1);
+    auto at = [](const QDate &date, int hour, int minute) { return QDateTime(date, QTime(hour, minute)); };
+
+    // Yesterday: scheduled 08:00, waited 5 min, ran 30 min. A run started
+    // by hand at 13:00 belongs to no start. The day before: an error.
+    QString history = R"({"jsonrpc":"2.0","id":null,"result":{"jobs":[)";
+    history += historyRow(1, at(yesterday, 8, 0), at(yesterday, 8, 5), at(yesterday, 8, 35), "T", "I") + ",";
+    history += historyRow(2, at(yesterday, 13, 0), at(yesterday, 13, 0), at(yesterday, 13, 10), "T", "F") + ",";
+    history += historyRow(3, at(yesterday.addDays(-1), 8, 0), at(yesterday.addDays(-1), 8, 0),
+                          at(yesterday.addDays(-1), 8, 20), "E", "F");
+    history += "]}}";
+    QObject::connect(&tab.widget, &BScheduleWidget::sendCommand, &tab.widget,
+                     [&tab, history](BDirector::Command cmd, const QString &args) {
+        if (cmd == BDirector::Command::LlistJobs) {
+            QTimer::singleShot(0, &tab.widget, [&tab, args, history]() {
+                tab.widget.processJobHistoryReply(args, history);
+            });
+        }
+    });
+    tab.widget.setConnectionState(true);
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+
+    QDateEdit *picker = tab.widget.findChild<QDateEdit *>();
+    QVERIFY(picker);
+    picker->setDate(yesterday);
+    BScheduleGanttWidget *timeline = tab.timeline();
+    QTRY_COMPARE_WITH_TIMEOUT(timeline->measuredRuns().size(), 1, 15000);
+    QCOMPARE(timeline->measuredRuns()[0].run.jobId, quint64(1));
+    // The storages' timeline has it as well
+    QCOMPARE(tab.widget.findChildren<BScheduleGanttWidget *>().value(1)->measuredRuns().size(), 1);
+    QCoreApplication::processEvents();
+
+    // The wait from the scheduled time to the start, then the run, to the
+    // minute of the catalog's times
+    const int pph = timeline->zoomLevel();
+    const int x8 = barStart(timeline, 1, 8, 0).x() - 3;
+    const QRect wait = timeline->measuredWaitRect(0);
+    const QRect run = timeline->measuredRunRect(0);
+    QVERIFY2(qAbs(wait.left() - x8) <= 1, qPrintable(QStringLiteral("%1 %2").arg(wait.left()).arg(x8)));
+    QVERIFY(qAbs(wait.width() - pph * 5 / 60) <= 1);
+    QVERIFY(qAbs(run.left() - (x8 + pph * 5 / 60)) <= 1);
+    QVERIFY(qAbs(run.width() - pph / 2) <= 1);
+    // In the run's row, below its planned bar
+    const BScheduleGanttWidget::Metrics m = timeline->metrics();
+    const int rowTop = m.headerHeight + m.rowHeight;
+    QVERIFY(run.top() > rowTop + m.rowHeight / 2);
+    QVERIFY(run.bottom() < rowTop + m.rowHeight);
+    QCOMPARE(timeline->measuredRunAt(run.center()), 0);
+    QCOMPARE(timeline->measuredRunAt(wait.center()), 0);
+    QCOMPARE(timeline->measuredRunAt(barStart(timeline, 1, 8, 0)), -1);   // the planned bar
+
+    const QString tip = timeline->measuredToolTip(0);
+    const QString day = yesterday.toString(Qt::ISODate);
+    for (const QString &part : {QStringLiteral("Scheduled: %1 08:00:00").arg(day),
+                                QStringLiteral("Started: %1 08:05:00").arg(day),
+                                QStringLiteral("Ended: %1 08:35:00").arg(day),
+                                QStringLiteral("Waited: 5m 00s"), QStringLiteral("Level: Incremental"),
+                                QStringLiteral("Status: terminated normally")}) {
+        QVERIFY2(tip.contains(part), qPrintable(part + QStringLiteral(" in ") + tip));
+    }
+
+    // Drawn, and gone when switched off (kept in the settings). The
+    // timeline as wide as a screen: here the scroll area is narrow.
+    auto *area = qobject_cast<QScrollArea *>(timeline->parentWidget()->parentWidget());
+    QVERIFY(area);
+    area->setWidgetResizable(false);
+    timeline->resize(1600, timeline->height());
+    timeline->grab();       // delivers the resize of the hidden tab: the time scale follows
+    const QRect drawn = timeline->measuredRunRect(0);
+    QVERIFY(QRect(QPoint(0, 0), timeline->size()).contains(drawn));
+    const QImage shown = timeline->grab().toImage();
+    QCheckBox *check = tab.widget.findChild<QCheckBox *>(QStringLiteral("showMeasuredRuns"));
+    QVERIFY(check);
+    QVERIFY(check->isChecked());
+    check->setChecked(false);
+    QVERIFY(!BSettings::instance().schedulesShowMeasuredRuns());
+    QVERIFY(timeline->measuredRunRect(0).isEmpty());
+    QCOMPARE(timeline->measuredRunAt(drawn.center()), -1);
+    const QImage hidden = timeline->grab().toImage();
+    if (qEnvironmentVariableIsSet("ONESIMUS_MEASURED_PNG")) {
+        shown.save(qEnvironmentVariable("ONESIMUS_MEASURED_PNG"));
+        hidden.save(qEnvironmentVariable("ONESIMUS_MEASURED_PNG").replace(".png", "-hidden.png"));
+    }
+    QVERIFY2(pixelsDiffering(shown, hidden, drawn) > drawn.width(),
+             qPrintable(QString::number(pixelsDiffering(shown, hidden, drawn))));
+    check->setChecked(true);
+    QVERIFY(BSettings::instance().schedulesShowMeasuredRuns());
+    area->setWidgetResizable(true);
+
+    // The day before: the run that failed; the level differs from the plan
+    picker->setDate(yesterday.addDays(-1));
+    QCOMPARE(timeline->measuredRuns().size(), 1);
+    QCOMPARE(timeline->measuredRuns()[0].run.status, QChar('E'));
+    QVERIFY(timeline->measuredToolTip(0).contains(QStringLiteral("Status: terminated in error")));
+    QVERIFY(timeline->measuredToolTip(0).contains(QStringLiteral("Level: Full (planned: Incremental)")));
+
+    // Tomorrow has not run
+    picker->setDate(today.addDays(1));
+    QVERIFY(timeline->measuredRuns().isEmpty());
+}
+
+void BScheduleTimelineTest::gridLoadCountsTheStartsOfAllSchedules()
+{
+    Tab tab;
+    // Without jobs nobody knows what starts: no load
+    tab.widget.processShowSchedulesResponse(QString::fromLatin1(kWeeklyCycle));
+    QCoreApplication::processEvents();
+    BScheduleGridModel *model = tab.widget.gridView()->model();
+    QVERIFY(!model->cell(0, 8).expectedConcurrentRuns.has_value());
+
+    // Two jobs on WeeklyCycle (daily at 08:00); a disabled schedule and an
+    // unused one start nothing
+    const char *schedules = R"({"result":{"schedules":{
+        "WeeklyCycle":{"name":"WeeklyCycle","run":["Level=Incremental daily at 08:00"]},
+        "Retired":{"name":"Retired","enabled":false,"run":["Level=Full daily at 08:00"]},
+        "Spare":{"name":"Spare","run":["Level=Full daily at 09:00"]}}}})";
+    const char *jobs = R"({"result":{"jobs":{
+        "A":{"name":"A","type":"Backup","schedule":"WeeklyCycle","client":"elela-fd","storage":["File"]},
+        "B":{"name":"B","type":"Backup","schedule":"WeeklyCycle","client":"elela-fd","storage":["File"]},
+        "C":{"name":"C","type":"Backup","schedule":"Retired","client":"elela-fd","storage":["File"]}}}})";
+    tab.feed(schedules, jobs, kNoJobDefs, kOneClient);
+
+    for (int row = 0; row < 7; ++row) {
+        QVERIFY(model->cell(row, 8).expectedConcurrentRuns.has_value());
+        QCOMPARE(*model->cell(row, 8).expectedConcurrentRuns, 2.0);
+        QCOMPARE(*model->cell(row, 9).expectedConcurrentRuns, 0.0);
+    }
+    // The same whichever schedule the grid shows
+    const QString tip = tab.widget.gridView()->grid()->cellToolTip(0, 8);
+    QVERIFY2(tip.contains(QStringLiteral("2 run(s) a week")), qPrintable(tip));
+    QVERIFY(tab.widget.gridView()->grid()->cellToolTip(0, 9).contains(QStringLiteral("no run")));
+}
+
+void BScheduleTimelineTest::columnWidthsOfTheTablesAreKept()
+{
+    for (const QString &key : {QStringLiteral("waits"), QStringLiteral("stagger")}) {
+        BSettings::instance().setSchedulesTableHeaderState(key, QByteArray());
+        BSettings::instance().setSchedulesTableHeaderScale(key, 0);
+    }
+    auto staggerTable = [](Tab &tab) {
+        QWidget *page = tab.widget.findChild<QWidget *>(QStringLiteral("stagger"));
+        return page ? page->findChild<QTableWidget *>() : nullptr;
+    };
+    {
+        Tab tab;
+        tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+        tab.counter()->setChecked(true);
+        QCoreApplication::processEvents();
+        // Fitting the columns to their contents is not the user's choice
+        QVERIFY(BSettings::instance().schedulesTableHeaderState(QStringLiteral("waits")).isEmpty());
+
+        tab.waitTable()->horizontalHeader()->resizeSection(0, 222);
+        QTableWidget *stagger = staggerTable(tab);
+        QVERIFY(stagger);
+        stagger->horizontalHeader()->resizeSection(1, 177);
+        QVERIFY(!BSettings::instance().schedulesTableHeaderState(QStringLiteral("waits")).isEmpty());
+        QVERIFY(!BSettings::instance().schedulesTableHeaderState(QStringLiteral("stagger")).isEmpty());
+
+        // A refresh keeps them
+        tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+        QCOMPARE(tab.waitTable()->columnWidth(0), 222);
+    }
+    // Another session: as the user left them
+    Tab tab;
+    tab.feed(kWeeklyCycle, kOneJob, kNoJobDefs, kOneClient);
+    QCOMPARE(tab.waitTable()->columnWidth(0), 222);
+    QTableWidget *stagger = staggerTable(tab);
+    QVERIFY(stagger);
+    QCOMPARE(stagger->columnWidth(1), 177);
+    for (const QString &key : {QStringLiteral("waits"), QStringLiteral("stagger")})
+        BSettings::instance().setSchedulesTableHeaderState(key, QByteArray());
 }
 
 QTEST_MAIN(BScheduleTimelineTest)
