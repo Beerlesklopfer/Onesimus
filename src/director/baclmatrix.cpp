@@ -235,8 +235,29 @@ QString BAclMatrix::changeCommand(const QString &console, const QString &type, c
     };
     if (entries.isEmpty())
         return QStringLiteral(".acl delete console=%1 %2").arg(quoted(console), type);
-    return QStringLiteral(".acl set console=%1 %2=%3").arg(quoted(console), type,
-                                                          quoted(entries.join(QLatin1Char(','))));
+    // One occurrence of the key per entry (odir 69cd11b): each is exactly
+    // one entry, a comma in it (a{1,3}) is not split
+    QString command = QStringLiteral(".acl set console=%1").arg(quoted(console));
+    for (const QString &entry : entries)
+        command += QStringLiteral(" %1=%2").arg(type, quoted(entry));
+    return command;
+}
+
+bool BAclMatrix::sendable(const QStringList &entries, QString *entry)
+{
+    // A single occurrence is still split at commas outside {} [] ()
+    if (entries.size() != 1)
+        return true;
+    int depth = 0;
+    for (const QChar c : entries.first()) {
+        if (c == QLatin1Char('{') || c == QLatin1Char('[') || c == QLatin1Char('(')) ++depth;
+        else if ((c == QLatin1Char('}') || c == QLatin1Char(']') || c == QLatin1Char(')')) && depth > 0) --depth;
+        else if (c == QLatin1Char(',') && depth == 0) {
+            if (entry) *entry = entries.first();
+            return false;
+        }
+    }
+    return true;
 }
 
 bool BAclMatrix::changeSucceeded(const QString &reply, QString *message)

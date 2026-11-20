@@ -790,12 +790,11 @@ void BAclMatrixDialog::apply()
     std::sort(keys.begin(), keys.end());
     for (const Key &key : keys) {
         const QStringList next = m_pending.value(key);
-        for (const QString &entry : next) {
-            if (entry.contains(QLatin1Char(','))) {
-                m_status->setText(tr("Nothing was sent: the entry \"%1\" contains a comma, which the "
-                                     "Director cannot store in a catalog ACL.").arg(entry));
-                return;
-            }
+        QString commaEntry;
+        if (!BAclMatrix::sendable(next, &commaEntry)) {
+            m_status->setText(tr("Nothing was sent: the only entry \"%1\" has a comma outside brackets, "
+                                 "which the Director would split into two entries.").arg(commaEntry));
+            return;
         }
         QString old;
         for (const BConsoleAcl &console : m_consoles) {

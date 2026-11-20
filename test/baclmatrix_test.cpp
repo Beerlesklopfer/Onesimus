@@ -256,7 +256,15 @@ void BAclMatrixTest::catalogListsAfterAChange()
 void BAclMatrixTest::changeCommandsAndReplies()
 {
     QCOMPARE(BAclMatrix::changeCommand("My Console", "filesetacl", {"Full Set", "!Windows All Drives"}),
-             QString(".acl set console=\"My Console\" filesetacl=\"Full Set,!Windows All Drives\""));
+             QString(".acl set console=\"My Console\" filesetacl=\"Full Set\" filesetacl=\"!Windows All Drives\""));
+    // A comma in an entry: one occurrence per entry keeps it whole
+    QCOMPARE(BAclMatrix::changeCommand("c", "jobacl", {"backup-[a-z]{1,3}", "*all*"}),
+             QString(".acl set console=\"c\" jobacl=\"backup-[a-z]{1,3}\" jobacl=\"*all*\""));
+    QVERIFY(BAclMatrix::sendable({"backup-[a-z]{1,3}"}));
+    QVERIFY(BAclMatrix::sendable({"a,b", "c"}));
+    QString comma;
+    QVERIFY(!BAclMatrix::sendable({"a,b"}, &comma));
+    QCOMPARE(comma, QString("a,b"));
     QCOMPARE(BAclMatrix::changeCommand("mcp", "jobacl", {}), QString(".acl delete console=\"mcp\" jobacl"));
 
     QString message;
@@ -315,10 +323,10 @@ void BAclMatrixTest::dialogSendsTheChangesInOrder()
     QVERIFY2(summary.contains("now: backup-a") && summary.contains("new: backup-b, backup-a"), qPrintable(summary));
     // One at a time: the next only after the reply
     QCOMPARE(sent.size(), 1);
-    QCOMPARE(sent[0], QString(".acl set console=\"admin\" jobacl=\"backup-b,backup-a\""));
+    QCOMPARE(sent[0], QString(".acl set console=\"admin\" jobacl=\"backup-b\" jobacl=\"backup-a\""));
     dialog.setChangeReply("{\"result\":{\"acl\":{\"action\":\"set\"}}}");
     QCOMPARE(sent.size(), 2);
-    QCOMPARE(sent[1], QString(".acl set console=\"operator-mcp\" jobacl=\"!backup-b,*all*\""));
+    QCOMPARE(sent[1], QString(".acl set console=\"operator-mcp\" jobacl=\"!backup-b\" jobacl=\"*all*\""));
     dialog.setChangeReply("{\"result\":{\"acl\":{\"action\":\"set\"}}}");
     QCOMPARE(refreshes, 1);
     QCOMPARE(dialog.pendingCount(), 0);

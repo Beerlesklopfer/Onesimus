@@ -1046,102 +1046,102 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
         <translation>La risposta non contiene un elenco di console (&quot;acl&quot;).</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="309"/>
-        <location filename="../src/director/baclmatrix.cpp" line="381"/>
+        <location filename="../src/director/baclmatrix.cpp" line="330"/>
+        <location filename="../src/director/baclmatrix.cpp" line="402"/>
         <source>%1 (%2)</source>
         <translation>%1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="316"/>
+        <location filename="../src/director/baclmatrix.cpp" line="337"/>
         <source>Locked: the catalog ACL of the console could not be read; it may run status, .status, version and .api only.</source>
         <translation>Bloccata: impossibile leggere l&apos;ACL del catalogo della console; può eseguire solo status, .status, version e .api.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="325"/>
+        <location filename="../src/director/baclmatrix.cpp" line="346"/>
         <source>Allowed (decided by the Director).</source>
         <translation>Consentito (deciso dal Director).</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="325"/>
-        <location filename="../src/director/baclmatrix.cpp" line="338"/>
+        <location filename="../src/director/baclmatrix.cpp" line="346"/>
+        <location filename="../src/director/baclmatrix.cpp" line="359"/>
         <source>Allowed by %1.</source>
         <translation>Consentito da %1.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="328"/>
+        <location filename="../src/director/baclmatrix.cpp" line="349"/>
         <source>The file ACL allows it (%1), the catalog ACL does not.</source>
         <translation>L&apos;ACL del file lo consente (%1), l&apos;ACL del catalogo no.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="330"/>
-        <location filename="../src/director/baclmatrix.cpp" line="339"/>
+        <location filename="../src/director/baclmatrix.cpp" line="351"/>
+        <location filename="../src/director/baclmatrix.cpp" line="360"/>
         <source>Denied by %1.</source>
         <translation>Negato da %1.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="333"/>
-        <location filename="../src/director/baclmatrix.cpp" line="341"/>
+        <location filename="../src/director/baclmatrix.cpp" line="354"/>
+        <location filename="../src/director/baclmatrix.cpp" line="362"/>
         <source>The console has no ACL of this type: nothing is allowed.</source>
         <translation>La console non ha ACL di questo tipo: nulla è consentito.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="334"/>
-        <location filename="../src/director/baclmatrix.cpp" line="342"/>
+        <location filename="../src/director/baclmatrix.cpp" line="355"/>
+        <location filename="../src/director/baclmatrix.cpp" line="363"/>
         <source>No entry of the ACL allows it.</source>
         <translation>Nessuna voce dell&apos;ACL lo consente.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="360"/>
+        <location filename="../src/director/baclmatrix.cpp" line="381"/>
         <source>Console %1</source>
         <translation>Console %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="361"/>
+        <location filename="../src/director/baclmatrix.cpp" line="382"/>
         <source>Profiles: none</source>
         <translation>Profili: nessuno</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="362"/>
+        <location filename="../src/director/baclmatrix.cpp" line="383"/>
         <source>Profiles: %1</source>
         <translation>Profili: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="364"/>
+        <location filename="../src/director/baclmatrix.cpp" line="385"/>
         <source>Locked: its catalog ACL could not be read.</source>
         <translation>Bloccata: impossibile leggere la sua ACL del catalogo.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="367"/>
+        <location filename="../src/director/baclmatrix.cpp" line="388"/>
         <source>loaded</source>
         <translation>caricata</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="368"/>
+        <location filename="../src/director/baclmatrix.cpp" line="389"/>
         <source>off</source>
         <translation>disattivata</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="369"/>
+        <location filename="../src/director/baclmatrix.cpp" line="390"/>
         <source>table missing</source>
         <translation>tabella mancante</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="370"/>
+        <location filename="../src/director/baclmatrix.cpp" line="391"/>
         <source>failed</source>
         <translation>non riuscita</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="371"/>
+        <location filename="../src/director/baclmatrix.cpp" line="392"/>
         <source>Catalog ACL: %1</source>
         <translation>ACL del catalogo: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="372"/>
+        <location filename="../src/director/baclmatrix.cpp" line="393"/>
         <source>Catalog ACL: %1 (%2)</source>
         <translation>ACL del catalogo: %1 (%2)</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrix.cpp" line="377"/>
+        <location filename="../src/director/baclmatrix.cpp" line="398"/>
         <source>%n catalog ACL entry(s) narrow the file ACL.</source>
         <translation>
             <numerusform>%n voce dell&apos;ACL del catalogo restringe l&apos;ACL del file.</numerusform>
@@ -1149,27 +1149,27 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="382"/>
+        <location filename="../src/director/baclmatrix.cpp" line="403"/>
         <source>%1: %2</source>
         <translation>%1: %2</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="382"/>
+        <location filename="../src/director/baclmatrix.cpp" line="403"/>
         <source>none</source>
         <translation>nessuna</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="392"/>
+        <location filename="../src/director/baclmatrix.cpp" line="413"/>
         <source>The Director did not answer with profiles: %1</source>
         <translation>Il Director non ha risposto con dei profili: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="399"/>
+        <location filename="../src/director/baclmatrix.cpp" line="420"/>
         <source>The reply holds no profiles.</source>
         <translation>La risposta non contiene profili.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="415"/>
+        <location filename="../src/director/baclmatrix.cpp" line="436"/>
         <source>Profile %1</source>
         <translation>Profile %1</translation>
     </message>
@@ -1634,68 +1634,68 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
         <translation>Le modifiche sono state scartate.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="795"/>
-        <source>Nothing was sent: the entry &quot;%1&quot; contains a comma, which the Director cannot store in a catalog ACL.</source>
-        <translation>Nulla è stato inviato: la voce &quot;%1&quot; contiene una virgola, che il Director non può memorizzare in un&apos;ACL del catalogo.</translation>
-    </message>
-    <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="805"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="804"/>
         <source>Console %1, %2:</source>
         <translation>Console %1, %2:</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="806"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="805"/>
         <source>  now: %1</source>
         <translation>  ora: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="807"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="806"/>
         <source>  new: %1</source>
         <translation>  nuovo: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="809"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="808"/>
         <source>%1 of %2</source>
         <translation>%1 di %2</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="814"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="813"/>
         <source>Nothing was sent: the changes were not confirmed.</source>
         <translation>Nulla è stato inviato: le modifiche non sono state confermate.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="826"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="825"/>
         <source>Changed: %1.</source>
         <translation>Modificato: %1.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="829"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="828"/>
         <source>Changing %1...</source>
         <translation>Modifica di %1...</translation>
     </message>
     <message>
         <location filename="../src/director/baclmatrixdialog.cpp" line="759"/>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="838"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="837"/>
         <source>refused</source>
         <translation>rifiutato</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="849"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="795"/>
+        <source>Nothing was sent: the only entry &quot;%1&quot; has a comma outside brackets, which the Director would split into two entries.</source>
+        <translation>Nulla è stato inviato: l&apos;unica voce &quot;%1&quot; contiene una virgola fuori dalle parentesi, che il Director dividerebbe in due voci.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="848"/>
         <source>nothing</source>
         <translation>nulla</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="850"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="849"/>
         <source>Changing %1 failed: %2. Changed before: %3. Nothing after it was sent.</source>
         <translation>Modifica di %1 non riuscita: %2. Modificato prima: %3. Dopo non è stato inviato nulla.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="875"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="874"/>
         <source>%1 (new)</source>
         <translation>%1 (nuovo)</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="901"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="900"/>
         <source>%1 (%2)</source>
         <translation>%1 (%2)</translation>
     </message>

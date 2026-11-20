@@ -184,6 +184,10 @@ public:
     /// ".acl set console=... jobacl=..." or ".acl delete console=... jobacl"
     static QString changeCommand(const QString &console, const QString &type, const QStringList &entries);
 
+    /// Can the list be sent as it is? Not a single entry with a comma
+    /// outside brackets: the Director would split it. @p entry: that one
+    static bool sendable(const QStringList &entries, QString *entry = nullptr);
+
     /// Did the Director accept a change? @p message: its words, if any
     static bool changeSucceeded(const QString &reply, QString *message = nullptr);
 };
