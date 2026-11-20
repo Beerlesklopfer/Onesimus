@@ -2587,6 +2587,82 @@ if(BUILD_TESTING)
     # them itself as well).
     set_tests_properties(bscheduletimeline_test PROPERTIES ENVIRONMENT
         "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/bscheduletimeline_test_config")
+
+    # bschedulewizard_test - the wizard for new schedules: name page, grid,
+    # review; created through CreateResource against the fake Director,
+    # names refused, an empty grid refused, the "configure add" command
+    # (widgets, no Director)
+    add_executable(bschedulewizard_test
+        test/bschedulewizard_test.cpp
+        test/bfakeconfigclient.h
+        test/bfakesaveui.h
+        src/schedules/bschedulewizard.cpp
+        include/schedules/bschedulewizard.h
+        src/director/bdirector.cpp
+        include/director/bdirector.h
+        src/config/bresourcetext.cpp
+        src/config/bresourcepersistence.cpp
+        src/config/bresourcereviewdialog.cpp
+        include/config/bresourcetext.h
+        include/config/bresourcepersistence.h
+        include/config/bresourcereviewdialog.h
+        src/buiscale.cpp
+        src/config/bsettings.cpp
+        src/schedules/bschedulelegend.cpp
+        src/schedules/bschedulepersistence.cpp
+        include/schedules/bschedulepersistence.h
+        include/director/bconfigclient.h
+        src/schedules/model/bscheduleresource.cpp
+        src/schedules/bschedulegridaccessible.cpp
+        src/schedules/bschedulegriddialogs.cpp
+        src/schedules/bschedulegrideditor.cpp
+        src/schedules/bschedulegridgeometry.cpp
+        src/schedules/bschedulegridview.cpp
+        src/schedules/bschedulegridwidget.cpp
+        src/schedules/bscheduleminicalendar.cpp
+        src/schedules/bschedulepalette.cpp
+        src/schedules/brunruledialog.cpp
+        src/schedules/model/bschedulegridtext.cpp
+        src/schedules/model/bschedulegridmodel.cpp
+        src/schedules/model/bscheduleoccurrences.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/buiscale.h
+        include/config/bsettings.h
+        include/schedules/bschedulelegend.h
+        include/schedules/bschedulegridaccessible.h
+        include/schedules/bschedulegriddialogs.h
+        include/schedules/bschedulegrideditor.h
+        include/schedules/bschedulegridgeometry.h
+        include/schedules/bschedulegridview.h
+        include/schedules/bschedulegridwidget.h
+        include/schedules/bscheduleminicalendar.h
+        include/schedules/bschedulepalette.h
+        include/schedules/brunruledialog.h
+        include/schedules/model/bschedulegridtext.h
+        include/schedules/model/bschedulegridmodel.h
+        include/schedules/model/bscheduleoccurrences.h
+        include/schedules/model/brunspec.h
+    )
+    target_include_directories(bschedulewizard_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/test
+    )
+    # bareosdirector_lib: the review page sends "configure" through
+    # BDirector when there is no CreateResource; the test passes no Director
+    target_link_libraries(bschedulewizard_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+    add_test(NAME bschedulewizard_test COMMAND bschedulewizard_test)
+    set_tests_properties(bschedulewizard_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/bschedulewizard_test_config")
     # Widgets need a QApplication; no display is used. The settings the test
     # writes go to the build directory, never to those of the user (the
     # test redirects them itself as well).
@@ -2619,6 +2695,7 @@ if(BUILD_TESTING)
     message(STATUS "  bdirectorqueue_test - command queue test without a connection (registered with CTest)")
     message(STATUS "  bscheduledragplan_test - schedule drag Run line comparison test (registered with CTest)")
     message(STATUS "  bscheduletimeline_test - schedule timeline test: drop without command, unused schedules, offscreen (registered with CTest)")
+    message(STATUS "  bschedulewizard_test - new-schedule wizard test: name, grid, review, create, offscreen (registered with CTest)")
     message(STATUS "  bscheduleoccurrences_test - schedule run dates and overlap test (registered with CTest)")
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
     message(STATUS "  bschedulepersistence_test - schedule resource text, save flow and request bytes test (registered with CTest)")

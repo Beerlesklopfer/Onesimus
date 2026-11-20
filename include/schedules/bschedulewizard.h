@@ -2,10 +2,12 @@
  * @file bschedulewizard.h
  * @brief Wizard for creating new Schedule resources
  *
- * Schema-driven from schedule.json metadata sections:
- * - run_directive_syntax: level values, pool/storage formats, priority default
- * - common_schedules: predefined templates (DailyIncremental, WeeklyCycle, etc.)
- * - time_specification_reference: day/week/month/time values
+ * Three pages: the name (with description and Enabled), the grid of
+ * weekdays and hours (BScheduleGridView, the editor of the schedule tab,
+ * on an empty schedule) and the review of the Run lines and the text that
+ * will be written. The schedule is created through CreateResource
+ * (BSchedulePersistence::createSchedule(), checked and reviewed) where the
+ * session offers it, else with "configure add schedule".
  *
  * @author Joerg Bernau <support@onesimus.io>
  * @date 2026
@@ -16,208 +18,119 @@
 
 #include <QWizard>
 #include <QWizardPage>
-#include <QLineEdit>
-#include <QTextEdit>
-#include <QLabel>
-#include <QPushButton>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QGroupBox>
-#include <QProgressBar>
-#include <QTimer>
-#include <QSpinBox>
-#include <QTimeEdit>
-#include <QTableWidget>
-#include <QDialogButtonBox>
+#include <QStringList>
 
 #include "director/bdirector.h"
-#include "models/bresourcemodels.h"
 
-class BScheduleWizard;
+class QCheckBox;
+class QLabel;
+class QLineEdit;
+class QPlainTextEdit;
+class QProgressBar;
+class QPushButton;
+class QTimer;
+class BScheduleGridView;
 class BSchedulePersistence;
-
-// ============================================================================
-// BScheduleRunDialog — Editor for a single Run entry
-// ============================================================================
-
-/**
- * @brief Dialog for editing a single schedule Run directive
- *
- * All dropdown values loaded from schema (run_directive_syntax, time_specification_reference).
- */
-class BScheduleRunDialog : public QDialog
-{
-    Q_OBJECT
-
-public:
-    explicit BScheduleRunDialog(QWidget *parent = nullptr);
-    explicit BScheduleRunDialog(const BScheduleEntry &entry, QWidget *parent = nullptr);
-
-    BScheduleEntry entry() const;
-
-    void setReferenceData(const QMap<QString, QStringList> &referenceData);
-
-private:
-    void setupUi();
-    void populateFromSchema();
-    void populateFromEntry(const BScheduleEntry &entry);
-    void updatePreview();
-
-    // Level
-    QComboBox *m_levelCombo = nullptr;
-
-    // Days
-    QCheckBox *m_dayChecks[7] = {};  // sun=0..sat=6 (Bareos order)
-    QPushButton *m_dailyButton = nullptr;
-    QPushButton *m_weekdaysButton = nullptr;
-
-    // Week of month
-    QComboBox *m_weekCombo = nullptr;
-
-    // Time
-    QTimeEdit *m_timeEdit = nullptr;
-
-    // Optional overrides
-    QComboBox *m_poolCombo = nullptr;
-    QComboBox *m_storageCombo = nullptr;
-    QSpinBox *m_prioritySpin = nullptr;
-
-    // Preview
-    QLabel *m_previewLabel = nullptr;
-
-    QMap<QString, QStringList> m_referenceData;
-};
-
-// ============================================================================
-// BScheduleRunEditor — Widget with list of all Run entries
-// ============================================================================
-
-/**
- * @brief Reusable widget for editing multiple schedule Run directives
- */
-class BScheduleRunEditor : public QWidget
-{
-    Q_OBJECT
-
-public:
-    explicit BScheduleRunEditor(QWidget *parent = nullptr);
-
-    QList<BScheduleEntry> entries() const { return m_entries; }
-    void setEntries(const QList<BScheduleEntry> &entries);
-    bool hasEntries() const { return !m_entries.isEmpty(); }
-
-    void setReferenceData(const QMap<QString, QStringList> &referenceData);
-
-signals:
-    void entriesChanged();
-
-private slots:
-    void onAddRun();
-    void onEditRun();
-    void onRemoveRun();
-    void onDuplicateRun();
-    void onDoubleClicked(int row, int column);
-
-private:
-    void refreshTable();
-
-    QTableWidget *m_table = nullptr;
-    QPushButton *m_addButton = nullptr;
-    QPushButton *m_editButton = nullptr;
-    QPushButton *m_removeButton = nullptr;
-    QPushButton *m_duplicateButton = nullptr;
-    QList<BScheduleEntry> m_entries;
-    QMap<QString, QStringList> m_referenceData;
-};
 
 // ============================================================================
 // Wizard pages
 // ============================================================================
 
 /**
- * @brief Page 1: Schedule name, description, enabled, template selection
+ * @brief Page 1: name, description, enabled
  */
-class BScheduleBasicsPage : public QWizardPage
+class BScheduleNamePage : public QWizardPage
 {
     Q_OBJECT
 
 public:
-    explicit BScheduleBasicsPage(QWidget *parent = nullptr);
+    explicit BScheduleNamePage(QWidget *parent = nullptr);
 
-    void initializePage() override;
     bool isComplete() const override;
 
     QString scheduleName() const;
     QString scheduleDescription() const;
     bool enabled() const;
 
-private slots:
-    void onTemplateSelected(int index);
+    QLineEdit *nameEdit() const { return m_nameEdit; }
+    QLineEdit *descriptionEdit() const { return m_descriptionEdit; }
+    QCheckBox *enabledCheck() const { return m_enabledCheck; }
+    /// Why the name cannot be taken; empty if it can
+    QString nameProblem() const;
 
 private:
+    void updateProblem();
+
     QLineEdit *m_nameEdit = nullptr;
     QLineEdit *m_descriptionEdit = nullptr;
     QCheckBox *m_enabledCheck = nullptr;
-    QComboBox *m_templateCombo = nullptr;
-    QLabel *m_templateDescription = nullptr;
+    QLabel *m_problemLabel = nullptr;
 };
 
 /**
- * @brief Page 2: Run entries editor
+ * @brief Page 2: the grid editor on an empty schedule
  */
-class BScheduleRunsPage : public QWizardPage
+class BScheduleGridPage : public QWizardPage
 {
     Q_OBJECT
 
 public:
-    explicit BScheduleRunsPage(QWidget *parent = nullptr);
+    explicit BScheduleGridPage(QWidget *parent = nullptr);
 
     void initializePage() override;
     bool isComplete() const override;
 
-    QList<BScheduleEntry> runEntries() const;
+    BScheduleGridView *gridView() const { return m_view; }
 
 private:
-    BScheduleRunEditor *m_editor = nullptr;
-    bool m_initialized = false;
+    void updateHint();
+
+    BScheduleGridView *m_view = nullptr;
+    QLabel *m_hint = nullptr;
+    bool m_started = false;
 };
 
 /**
- * @brief Page 3: Preview config + configure add + execute
+ * @brief Page 3: the Run lines and the text that will be written; creates
+ *        the schedule
  */
-class BSchedulePreviewPage : public QWizardPage
+class BScheduleReviewPage : public QWizardPage
 {
     Q_OBJECT
 
 public:
-    explicit BSchedulePreviewPage(QWidget *parent = nullptr);
+    explicit BScheduleReviewPage(QWidget *parent = nullptr);
 
     void initializePage() override;
     bool validatePage() override;
 
+    QString runLinesText() const;
+    QString configText() const;
+    QString commandText() const;
+    QString statusText() const;
+
 private slots:
-    void onCopyConfig();
-    void onCopyCommand();
     void onConfigureResult(bool success, const QString &message);
     void onDirectorDisconnected();
     void onConfigureTimeout();
 
 private:
-    void generatePreview();
     void executeConfigureCommand();
+    void executeCreateResource();
     void disconnectDirectorSignals();
     void endWaiting();
-    void executeCreateResource();
+    void setStatus(const QString &text, const QString &style = QString());
 
-    QTextEdit *m_configEdit = nullptr;
-    QTextEdit *m_commandEdit = nullptr;
+    QPlainTextEdit *m_runsEdit = nullptr;
+    QPlainTextEdit *m_configEdit = nullptr;
+    QLabel *m_commandLabel = nullptr;
+    QPlainTextEdit *m_commandEdit = nullptr;
+    QPushButton *m_copyButton = nullptr;
     QLabel *m_statusLabel = nullptr;
     QProgressBar *m_progressBar = nullptr;
-    QPushButton *m_copyConfigButton = nullptr;
-    QPushButton *m_copyCommandButton = nullptr;
     QTimer *m_timeoutTimer = nullptr;
     bool m_executed = false;
-    bool m_waiting = false;     ///< configure was sent, no result yet
+    bool m_waiting = false;     ///< A command or a create was sent, no result yet
     QList<QMetaObject::Connection> m_connections;
 };
 
@@ -229,9 +142,9 @@ private:
  * @brief Wizard for creating new Schedule resources
  *
  * Pages:
- *   1. Basics: Name, Description, Enabled, Template selection
- *   2. Runs: Schedule Run entries editor
- *   3. Preview: Config text, configure add, execute
+ *   1. Name: name, description, Enabled
+ *   2. Grid: the Run lines, painted on the grid of weekdays and hours
+ *   3. Review: the Run lines and the resource text; Finish creates it
  */
 class BScheduleWizard : public QWizard
 {
@@ -239,9 +152,9 @@ class BScheduleWizard : public QWizard
 
 public:
     enum PageId {
-        Page_Basics,
-        Page_Runs,
-        Page_Preview
+        Page_Name,
+        Page_Grid,
+        Page_Review
     };
 
     explicit BScheduleWizard(BDirector *director, QWidget *parent = nullptr);
@@ -254,38 +167,49 @@ public:
      *
      * Set by the main window when the session of the Onesimus Director lists
      * CreateResource for schedules (BCapabilities::usesConfigMethod()). The
-     * text of the preview is sent as it is shown; the Director checks it
+     * text of the review page is sent as it is shown; the Director checks it
      * first and the review asks before anything is written.
      */
     void setPersistence(BSchedulePersistence *persistence) { m_persistence = persistence; }
     BSchedulePersistence *persistence() const { return m_persistence; }
 
+    /// Names of the schedules the Director has: a new one may not take them
+    void setExistingScheduleNames(const QStringList &names) { m_existingNames = names; }
+    QStringList existingScheduleNames() const { return m_existingNames; }
+
+    BScheduleNamePage *namePage() const;
+    BScheduleGridPage *gridPage() const;
+    BScheduleReviewPage *reviewPage() const;
+    BScheduleGridView *gridView() const;
+
     QString scheduleName() const;
-
-    void setReferenceData(const QMap<QString, QStringList> &referenceData);
-    QMap<QString, QStringList> referenceData() const { return m_referenceData; }
-
-    QString generateConfigText() const;
-    QString generateConfigureCommand() const;
+    QString scheduleDescription() const;
+    bool scheduleEnabled() const;
 
     /**
-     * @brief The Run lines of the schedule as they would be written
-     * @return false with @p error set if one of them is not understood or
-     *         does not read back as intended; then nothing is written
+     * @brief Why a name cannot be the name of a new schedule
+     * @return empty if it can
+     */
+    static QString nameProblem(const QString &name, const QStringList &existing);
+
+    /**
+     * @brief The Run lines of the grid as they would be written
+     * @return false with @p error set if there are none or one cannot be
+     *         written; then nothing is written
      */
     bool runTexts(QStringList *texts, QString *error = nullptr) const;
 
-    /**
-     * @brief Apply a template's runs to the run editor
-     */
-    void applyTemplate(const QStringList &runs);
+    /// The resource text for CreateResource (BScheduleResource::createText())
+    QString generateConfigText() const;
+    /// The arguments of "configure" for a Director without CreateResource
+    QString generateConfigureCommand() const;
 
 private:
     void init();
 
     BDirector *m_director = nullptr;
     BSchedulePersistence *m_persistence = nullptr;
-    QMap<QString, QStringList> m_referenceData;
+    QStringList m_existingNames;
 };
 
 #endif // BSCHEDULEWIZARD_H

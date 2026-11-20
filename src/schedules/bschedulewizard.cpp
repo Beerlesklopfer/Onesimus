@@ -7,791 +7,312 @@
  */
 
 #include "schedules/bschedulewizard.h"
+#include "schedules/bschedulegridview.h"
 #include "schedules/bschedulepersistence.h"
+#include "schedules/model/bschedulegridmodel.h"
+#include "schedules/model/bscheduleresource.h"
+#include "schedules/model/brunspec.h"
+#include "jobs/blevelcolors.h"
 #include "buiscale.h"
-#include "config/bdirectiveschema.h"
 #include "blogging.h"
 #include "blogredact.h"
 
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QFormLayout>
-#include <QScrollArea>
-#include <QHeaderView>
-#include <QClipboard>
 #include <QApplication>
+#include <QCheckBox>
+#include <QClipboard>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
-#include <QJsonObject>
-#include <QJsonArray>
+#include <QPlainTextEdit>
+#include <QProgressBar>
+#include <QPushButton>
+#include <QRegularExpression>
+#include <QTimer>
+#include <QVBoxLayout>
+
+namespace {
+
+/// The wizard a page belongs to (QWizardPage::wizard() is protected)
+BScheduleWizard *scheduleWizard(const QWizardPage *page)
+{
+    for (QObject *o = page->parent(); o; o = o->parent()) {
+        if (auto *wizard = qobject_cast<BScheduleWizard *>(o))
+            return wizard;
+    }
+    return nullptr;
+}
+
+QPlainTextEdit *readOnlyText(QWidget *parent)
+{
+    auto *edit = new QPlainTextEdit(parent);
+    edit->setReadOnly(true);
+    edit->setLineWrapMode(QPlainTextEdit::NoWrap);
+    BUiScale::bind(edit, BUiScale::Normal, BUiScale::Monospace);
+    return edit;
+}
+
+} // namespace
 
 // ============================================================================
-// BScheduleRunDialog
+// BScheduleNamePage
 // ============================================================================
 
-BScheduleRunDialog::BScheduleRunDialog(QWidget *parent)
-    : QDialog(parent)
-{
-    setupUi();
-    populateFromSchema();
-}
-
-BScheduleRunDialog::BScheduleRunDialog(const BScheduleEntry &entry, QWidget *parent)
-    : QDialog(parent)
-{
-    setupUi();
-    populateFromSchema();
-    populateFromEntry(entry);
-}
-
-void BScheduleRunDialog::setupUi()
-{
-    setWindowTitle(tr("Edit Run Directive"));
-    BUiScale::track(this, [this]() { setMinimumWidth(BUiScale::px(500)); });
-
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-
-    // Level
-    QFormLayout *form = new QFormLayout();
-    m_levelCombo = new QComboBox(this);
-    form->addRow(tr("Level:"), m_levelCombo);
-
-    // Time
-    m_timeEdit = new QTimeEdit(QTime(23, 5), this);
-    m_timeEdit->setDisplayFormat("HH:mm");
-    form->addRow(tr("Time:"), m_timeEdit);
-
-    // Week of month
-    m_weekCombo = new QComboBox(this);
-    m_weekCombo->addItem(tr("(every week)"), QString());
-    form->addRow(tr("Week of Month:"), m_weekCombo);
-
-    mainLayout->addLayout(form);
-
-    // Days of week
-    QGroupBox *daysGroup = new QGroupBox(tr("Days of Week"), this);
-    QVBoxLayout *daysLayout = new QVBoxLayout(daysGroup);
-
-    QHBoxLayout *dayChecksLayout = new QHBoxLayout();
-    // Bareos order: sun=0, mon=1, ..., sat=6
-    static const QStringList dayLabels = {
-        tr("Sun"), tr("Mon"), tr("Tue"), tr("Wed"),
-        tr("Thu"), tr("Fri"), tr("Sat")
-    };
-    for (int i = 0; i < 7; ++i) {
-        m_dayChecks[i] = new QCheckBox(dayLabels[i], this);
-        connect(m_dayChecks[i], &QCheckBox::toggled, this, &BScheduleRunDialog::updatePreview);
-        dayChecksLayout->addWidget(m_dayChecks[i]);
-    }
-    daysLayout->addLayout(dayChecksLayout);
-
-    // Quick-select buttons
-    QHBoxLayout *quickLayout = new QHBoxLayout();
-    m_dailyButton = new QPushButton(tr("Daily"), this);
-    connect(m_dailyButton, &QPushButton::clicked, this, [this]() {
-        for (int i = 0; i < 7; ++i) m_dayChecks[i]->setChecked(true);
-    });
-    m_weekdaysButton = new QPushButton(tr("Mon-Fri"), this);
-    connect(m_weekdaysButton, &QPushButton::clicked, this, [this]() {
-        for (int i = 0; i < 7; ++i)
-            m_dayChecks[i]->setChecked(i >= 1 && i <= 5);
-    });
-    QPushButton *clearButton = new QPushButton(tr("Clear"), this);
-    connect(clearButton, &QPushButton::clicked, this, [this]() {
-        for (int i = 0; i < 7; ++i) m_dayChecks[i]->setChecked(false);
-    });
-    quickLayout->addWidget(m_dailyButton);
-    quickLayout->addWidget(m_weekdaysButton);
-    quickLayout->addWidget(clearButton);
-    quickLayout->addStretch();
-    daysLayout->addLayout(quickLayout);
-
-    mainLayout->addWidget(daysGroup);
-
-    // Optional overrides
-    QGroupBox *overridesGroup = new QGroupBox(tr("Optional Overrides"), this);
-    QFormLayout *overForm = new QFormLayout(overridesGroup);
-
-    m_poolCombo = new QComboBox(this);
-    m_poolCombo->setEditable(true);
-    m_poolCombo->addItem(QString());  // empty = no override
-    overForm->addRow(tr("Pool:"), m_poolCombo);
-
-    m_storageCombo = new QComboBox(this);
-    m_storageCombo->setEditable(true);
-    m_storageCombo->addItem(QString());
-    overForm->addRow(tr("Storage:"), m_storageCombo);
-
-    m_prioritySpin = new QSpinBox(this);
-    m_prioritySpin->setRange(1, 99);
-    m_prioritySpin->setValue(10);
-    m_prioritySpin->setSpecialValueText(tr("(default)"));
-    overForm->addRow(tr("Priority:"), m_prioritySpin);
-
-    mainLayout->addWidget(overridesGroup);
-
-    // Preview
-    m_previewLabel = new QLabel(this);
-    m_previewLabel->setStyleSheet(
-        "background-color: #f5f5f5; color: #202020; padding: 6px; border: 1px solid #ccc;");
-    BUiScale::bind(m_previewLabel, BUiScale::Normal, BUiScale::Monospace);
-    m_previewLabel->setWordWrap(true);
-    mainLayout->addWidget(new QLabel(tr("Preview:"), this));
-    mainLayout->addWidget(m_previewLabel);
-
-    // Connect signals for live preview
-    connect(m_levelCombo, &QComboBox::currentTextChanged, this, &BScheduleRunDialog::updatePreview);
-    connect(m_timeEdit, &QTimeEdit::timeChanged, this, &BScheduleRunDialog::updatePreview);
-    connect(m_weekCombo, &QComboBox::currentTextChanged, this, &BScheduleRunDialog::updatePreview);
-    connect(m_poolCombo, &QComboBox::currentTextChanged, this, &BScheduleRunDialog::updatePreview);
-    connect(m_storageCombo, &QComboBox::currentTextChanged, this, &BScheduleRunDialog::updatePreview);
-    connect(m_prioritySpin, &QSpinBox::valueChanged, this, &BScheduleRunDialog::updatePreview);
-
-    // Buttons
-    QDialogButtonBox *buttons = new QDialogButtonBox(
-        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    connect(buttons, &QDialogButtonBox::accepted, this, [this]() {
-        // At least one day must be selected
-        bool anyDay = false;
-        for (int i = 0; i < 7; ++i) {
-            if (m_dayChecks[i]->isChecked()) { anyDay = true; break; }
-        }
-        if (!anyDay) {
-            QMessageBox::warning(this, tr("Validation"),
-                tr("Please select at least one day of the week."));
-            return;
-        }
-        accept();
-    });
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    mainLayout->addWidget(buttons);
-}
-
-void BScheduleRunDialog::populateFromSchema()
-{
-    BDirectiveSchema &schema = BDirectiveSchema::instance();
-
-    // Level values from schema
-    QStringList levels = schema.scheduleLevelValues();
-    if (levels.isEmpty()) {
-        levels = {"Full", "Differential", "Incremental", "VirtualFull"};
-    }
-    // A Run line may name no level; then the job's own level applies
-    m_levelCombo->addItem(tr("(level of the job)"), QString());
-    for (const QString &level : levels) {
-        m_levelCombo->addItem(level, level);
-    }
-    m_levelCombo->setCurrentIndex(qMax(0, m_levelCombo->findData(QStringLiteral("Incremental"))));
-
-    // Week of month values from schema
-    QStringList weeks = schema.weekOfMonthValues();
-    for (const QString &w : weeks) {
-        m_weekCombo->addItem(w, w);
-    }
-
-    // Default: all days selected (daily)
-    for (int i = 0; i < 7; ++i) {
-        m_dayChecks[i]->setChecked(true);
-    }
-
-    updatePreview();
-}
-
-void BScheduleRunDialog::setReferenceData(const QMap<QString, QStringList> &referenceData)
-{
-    m_referenceData = referenceData;
-
-    // Populate pool combo
-    QStringList pools = referenceData.value("Pool");
-    QString currentPool = m_poolCombo->currentText();
-    m_poolCombo->clear();
-    m_poolCombo->addItem(QString());
-    m_poolCombo->addItems(pools);
-    if (!currentPool.isEmpty()) m_poolCombo->setCurrentText(currentPool);
-
-    // Populate storage combo
-    QStringList storages = referenceData.value("Storage");
-    QString currentStorage = m_storageCombo->currentText();
-    m_storageCombo->clear();
-    m_storageCombo->addItem(QString());
-    m_storageCombo->addItems(storages);
-    if (!currentStorage.isEmpty()) m_storageCombo->setCurrentText(currentStorage);
-}
-
-void BScheduleRunDialog::populateFromEntry(const BScheduleEntry &entry)
-{
-    // The entry's own level and week specification are offered even if the
-    // schema does not list them, so that opening the dialog changes nothing
-    const QString level = entry.levelLabel();
-    int levelIndex = m_levelCombo->findData(level);
-    if (levelIndex < 0) {
-        m_levelCombo->addItem(level, level);
-        levelIndex = m_levelCombo->count() - 1;
-    }
-    m_levelCombo->setCurrentIndex(levelIndex);
-    m_timeEdit->setTime(QTime(entry.hour, entry.minute));
-
-    int weekIndex = m_weekCombo->findData(entry.weekSpec);
-    if (weekIndex < 0) {
-        m_weekCombo->addItem(entry.weekSpec, entry.weekSpec);
-        weekIndex = m_weekCombo->count() - 1;
-    }
-    m_weekCombo->setCurrentIndex(weekIndex);
-
-    // Days: BScheduleEntry uses 0=Mon..6=Sun, Bareos uses sun=0..sat=6
-    // Convert: Mon=0 → bareos index 1, Sun=6 → bareos index 0
-    for (int i = 0; i < 7; ++i) m_dayChecks[i]->setChecked(false);
-    for (int d : entry.daysOfWeek) {
-        // d is 0=Mon..6=Sun in BScheduleEntry
-        // Bareos dialog order: 0=Sun, 1=Mon, ..., 6=Sat
-        int bareosIdx = (d + 1) % 7;
-        if (bareosIdx >= 0 && bareosIdx < 7) {
-            m_dayChecks[bareosIdx]->setChecked(true);
-        }
-    }
-
-    if (!entry.pool.isEmpty()) m_poolCombo->setCurrentText(entry.pool);
-    if (!entry.storage.isEmpty()) m_storageCombo->setCurrentText(entry.storage);
-    if (entry.priority != 10) m_prioritySpin->setValue(entry.priority);
-
-    updatePreview();
-}
-
-BScheduleEntry BScheduleRunDialog::entry() const
-{
-    BScheduleEntry e;
-    // No level stays no level; it is never turned into Incremental
-    e.levelName = m_levelCombo->currentData().toString();
-    e.level = BScheduleEntry::levelFromString(e.levelName);
-    e.hour = m_timeEdit->time().hour();
-    e.minute = m_timeEdit->time().minute();
-
-    // Week spec
-    QString week = m_weekCombo->currentData().toString();
-    e.weekSpec = week;
-
-    // Days: dialog uses bareos order (0=Sun..6=Sat), convert to BScheduleEntry (0=Mon..6=Sun)
-    for (int i = 0; i < 7; ++i) {
-        if (m_dayChecks[i]->isChecked()) {
-            // Bareos: 0=Sun, 1=Mon, ..., 6=Sat
-            // BScheduleEntry: 0=Mon, ..., 5=Sat, 6=Sun
-            int entryIdx = (i == 0) ? 6 : (i - 1);
-            e.daysOfWeek.append(entryIdx);
-        }
-    }
-
-    e.pool = m_poolCombo->currentText().trimmed();
-    e.storage = m_storageCombo->currentText().trimmed();
-    e.priority = m_prioritySpin->value();
-
-    return e;
-}
-
-void BScheduleRunDialog::updatePreview()
-{
-    QString error;
-    const QString run = entry().toRunDirective(&error);
-    m_previewLabel->setText(run.isEmpty() ? error : QString("Run = %1").arg(run));
-}
-
-// ============================================================================
-// BScheduleRunEditor
-// ============================================================================
-
-BScheduleRunEditor::BScheduleRunEditor(QWidget *parent)
-    : QWidget(parent)
-{
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-
-    // Table
-    m_table = new QTableWidget(0, 4, this);
-    m_table->setHorizontalHeaderLabels({tr("Level"), tr("Days"), tr("Time"), tr("Pool")});
-    m_table->horizontalHeader()->setStretchLastSection(true);
-    m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_table->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_table->verticalHeader()->setVisible(false);
-    m_table->setAlternatingRowColors(true);
-    connect(m_table, &QTableWidget::cellDoubleClicked, this, &BScheduleRunEditor::onDoubleClicked);
-    layout->addWidget(m_table);
-
-    // Buttons
-    QHBoxLayout *btnLayout = new QHBoxLayout();
-    m_addButton = new QPushButton(tr("+ Add Run"), this);
-    m_editButton = new QPushButton(tr("Edit"), this);
-    m_removeButton = new QPushButton(tr("Remove"), this);
-    m_duplicateButton = new QPushButton(tr("Duplicate"), this);
-    m_editButton->setEnabled(false);
-    m_removeButton->setEnabled(false);
-    m_duplicateButton->setEnabled(false);
-
-    connect(m_addButton, &QPushButton::clicked, this, &BScheduleRunEditor::onAddRun);
-    connect(m_editButton, &QPushButton::clicked, this, &BScheduleRunEditor::onEditRun);
-    connect(m_removeButton, &QPushButton::clicked, this, &BScheduleRunEditor::onRemoveRun);
-    connect(m_duplicateButton, &QPushButton::clicked, this, &BScheduleRunEditor::onDuplicateRun);
-
-    connect(m_table, &QTableWidget::currentCellChanged, this, [this](int row, int, int, int) {
-        bool hasSelection = row >= 0 && row < m_entries.size();
-        m_editButton->setEnabled(hasSelection);
-        m_removeButton->setEnabled(hasSelection);
-        m_duplicateButton->setEnabled(hasSelection);
-    });
-
-    btnLayout->addWidget(m_addButton);
-    btnLayout->addWidget(m_editButton);
-    btnLayout->addWidget(m_duplicateButton);
-    btnLayout->addWidget(m_removeButton);
-    btnLayout->addStretch();
-    layout->addLayout(btnLayout);
-}
-
-void BScheduleRunEditor::setEntries(const QList<BScheduleEntry> &entries)
-{
-    m_entries = entries;
-    refreshTable();
-    emit entriesChanged();
-}
-
-void BScheduleRunEditor::setReferenceData(const QMap<QString, QStringList> &referenceData)
-{
-    m_referenceData = referenceData;
-}
-
-void BScheduleRunEditor::onAddRun()
-{
-    BScheduleRunDialog dlg(this);
-    dlg.setReferenceData(m_referenceData);
-    if (dlg.exec() == QDialog::Accepted) {
-        m_entries.append(dlg.entry());
-        refreshTable();
-        emit entriesChanged();
-    }
-}
-
-void BScheduleRunEditor::onEditRun()
-{
-    int row = m_table->currentRow();
-    if (row < 0 || row >= m_entries.size()) return;
-
-    const BScheduleEntry current = m_entries[row];
-    if (current.notUnderstood()) {
-        QMessageBox::information(this, tr("Edit Run Directive"),
-            tr("This Run line is not understood and cannot be edited:\n%1\n\n%2\n\n"
-               "Remove it to continue.")
-                .arg(current.source.original, current.source.parseError));
-        return;
-    }
-
-    BScheduleRunDialog dlg(current, this);
-    dlg.setReferenceData(m_referenceData);
-
-    // The dialog knows one level, one time, the days of the week, one week
-    // of the month, pool, storage and priority. A line that says more would
-    // lose it here, so it is not opened for editing.
-    const std::optional<BRunSpec> before = current.toRunLine().spec;   // understood: checked above
-    if (!before || dlg.entry().toSpec() != before) {
-        QMessageBox::information(this, tr("Edit Run Directive"),
-            tr("This Run line uses forms that this dialog cannot show, for example months, "
-               "days of the month, several times or other overrides:\n%1\n\n"
-               "It is kept exactly as it is. To replace it, remove it and add a new run.")
-                .arg(current.source.original));
-        return;
-    }
-
-    if (dlg.exec() == QDialog::Accepted) {
-        const BScheduleEntry edited = dlg.entry();
-        // Nothing changed: the line stays as it was written
-        if (edited.toSpec() == before)
-            return;
-        m_entries[row] = edited;
-        refreshTable();
-        emit entriesChanged();
-    }
-}
-
-void BScheduleRunEditor::onRemoveRun()
-{
-    int row = m_table->currentRow();
-    if (row < 0 || row >= m_entries.size()) return;
-
-    m_entries.removeAt(row);
-    refreshTable();
-    emit entriesChanged();
-}
-
-void BScheduleRunEditor::onDuplicateRun()
-{
-    int row = m_table->currentRow();
-    if (row < 0 || row >= m_entries.size()) return;
-
-    m_entries.append(m_entries[row]);
-    refreshTable();
-    emit entriesChanged();
-}
-
-void BScheduleRunEditor::onDoubleClicked(int row, int)
-{
-    if (row >= 0 && row < m_entries.size()) {
-        m_table->setCurrentCell(row, 0);
-        onEditRun();
-    }
-}
-
-void BScheduleRunEditor::refreshTable()
-{
-    m_table->setRowCount(m_entries.size());
-    static const QStringList dayAbbrev = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-
-    for (int i = 0; i < m_entries.size(); ++i) {
-        const BScheduleEntry &e = m_entries[i];
-
-        // A line that is not understood is shown as such, with its text
-        if (e.notUnderstood()) {
-            const QString tip = tr("Not understood: %1").arg(e.source.parseError);
-            auto *mark = new QTableWidgetItem(tr("Not understood"));
-            auto *text = new QTableWidgetItem(e.source.original);
-            mark->setToolTip(tip);
-            text->setToolTip(tip);
-            m_table->setItem(i, 0, mark);
-            m_table->setItem(i, 1, text);
-            m_table->setItem(i, 2, new QTableWidgetItem());
-            m_table->setItem(i, 3, new QTableWidgetItem());
-            continue;
-        }
-
-        // A line the columns cannot express is shown as its own text
-        if (!e.source.original.isEmpty() && !e.matchesSource()) {
-            auto *level = new QTableWidgetItem(e.levelLabel());
-            auto *text = new QTableWidgetItem(e.source.original);
-            text->setToolTip(tr("Kept exactly as written: %1").arg(e.source.original));
-            m_table->setItem(i, 0, level);
-            m_table->setItem(i, 1, text);
-            m_table->setItem(i, 2, new QTableWidgetItem());
-            m_table->setItem(i, 3, new QTableWidgetItem(e.pool));
-            continue;
-        }
-
-        // Level
-        m_table->setItem(i, 0, new QTableWidgetItem(
-            e.levelLabel().isEmpty() ? tr("(level of the job)") : e.levelLabel()));
-
-        // Days
-        QStringList days;
-        if (e.daysOfWeek.size() == 7) {
-            days.append(tr("daily"));
-        } else {
-            for (int d : e.daysOfWeek) {
-                if (d >= 0 && d < 7) days.append(dayAbbrev[d]);
-            }
-        }
-        if (!e.weekSpec.isEmpty()) {
-            days.prepend(e.weekSpec);
-        }
-        m_table->setItem(i, 1, new QTableWidgetItem(days.join(" ")));
-
-        // Time
-        m_table->setItem(i, 2, new QTableWidgetItem(
-            QString("%1:%2").arg(e.hour, 2, 10, QChar('0')).arg(e.minute, 2, 10, QChar('0'))));
-
-        // Pool
-        m_table->setItem(i, 3, new QTableWidgetItem(e.pool));
-    }
-
-    m_editButton->setEnabled(false);
-    m_removeButton->setEnabled(false);
-    m_duplicateButton->setEnabled(false);
-}
-
-
-// ============================================================================
-// BScheduleBasicsPage
-// ============================================================================
-
-BScheduleBasicsPage::BScheduleBasicsPage(QWidget *parent)
+BScheduleNamePage::BScheduleNamePage(QWidget *parent)
     : QWizardPage(parent)
 {
-    setTitle(tr("Schedule Basics"));
-    setSubTitle(tr("Configure the schedule name and select an optional template."));
+    setTitle(tr("New Schedule"));
+    setSubTitle(tr("Name the schedule. On the next page you paint its runs on a grid of weekdays and hours."));
 
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-
-    // Basic settings
-    QGroupBox *basicGroup = new QGroupBox(tr("Basic Settings"), this);
-    QFormLayout *form = new QFormLayout(basicGroup);
+    auto *layout = new QVBoxLayout(this);
+    auto *form = new QFormLayout();
 
     m_nameEdit = new QLineEdit(this);
+    m_nameEdit->setObjectName(QStringLiteral("scheduleWizardName"));
     m_nameEdit->setPlaceholderText(tr("e.g., WeeklyCycle"));
-    form->addRow(tr("Name:"), m_nameEdit);
+    m_nameEdit->setMaxLength(127);
+    form->addRow(tr("&Name:"), m_nameEdit);
 
     m_descriptionEdit = new QLineEdit(this);
+    m_descriptionEdit->setObjectName(QStringLiteral("scheduleWizardDescription"));
     m_descriptionEdit->setPlaceholderText(tr("e.g., Full Sunday, incremental daily"));
-    form->addRow(tr("Description:"), m_descriptionEdit);
+    form->addRow(tr("&Description:"), m_descriptionEdit);
 
-    m_enabledCheck = new QCheckBox(tr("Enabled"), this);
+    m_enabledCheck = new QCheckBox(tr("&Enabled"), this);
+    m_enabledCheck->setToolTip(tr("A schedule that is not enabled starts no job."));
     m_enabledCheck->setChecked(true);
     form->addRow(QString(), m_enabledCheck);
 
-    mainLayout->addWidget(basicGroup);
+    layout->addLayout(form);
 
-    // Template selection
-    QGroupBox *templateGroup = new QGroupBox(tr("Template"), this);
-    QVBoxLayout *templateLayout = new QVBoxLayout(templateGroup);
+    // Why the name cannot be taken; empty while it can
+    m_problemLabel = new QLabel(this);
+    m_problemLabel->setObjectName(QStringLiteral("scheduleWizardNameProblem"));
+    m_problemLabel->setWordWrap(true);
+    m_problemLabel->setStyleSheet(QStringLiteral("color: red;"));
+    layout->addWidget(m_problemLabel);
+    layout->addStretch();
 
-    m_templateCombo = new QComboBox(this);
-    m_templateCombo->addItem(tr("(Empty — build from scratch)"), QString());
-    templateLayout->addWidget(m_templateCombo);
-
-    m_templateDescription = new QLabel(this);
-    m_templateDescription->setStyleSheet("color: gray; font-style: italic;");
-    m_templateDescription->setWordWrap(true);
-    m_templateDescription->setText(tr("Select a template to pre-fill the schedule with common run directives."));
-    templateLayout->addWidget(m_templateDescription);
-
-    mainLayout->addWidget(templateGroup);
-    mainLayout->addStretch();
-
-    // Validation signal
-    connect(m_nameEdit, &QLineEdit::textChanged, this, &QWizardPage::completeChanged);
-    connect(m_templateCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, &BScheduleBasicsPage::onTemplateSelected);
+    connect(m_nameEdit, &QLineEdit::textChanged, this, [this]() {
+        updateProblem();
+        emit completeChanged();
+    });
 }
 
-void BScheduleBasicsPage::initializePage()
+QString BScheduleNamePage::nameProblem() const
 {
-    // Load templates from schema
-    BDirectiveSchema &schema = BDirectiveSchema::instance();
-    QJsonObject templates = schema.commonSchedules();
+    const BScheduleWizard *wiz = scheduleWizard(this);
+    return BScheduleWizard::nameProblem(scheduleName(), wiz ? wiz->existingScheduleNames() : QStringList());
+}
 
-    // Only add templates if not already populated
-    if (m_templateCombo->count() <= 1) {
-        for (auto it = templates.begin(); it != templates.end(); ++it) {
-            QJsonObject tmpl = it.value().toObject();
-            QString name = tmpl["name"].toString();
-            QString desc = tmpl["description"].toString();
-            m_templateCombo->addItem(name, it.key());
-            m_templateCombo->setItemData(m_templateCombo->count() - 1,
-                                         desc, Qt::ToolTipRole);
-        }
+void BScheduleNamePage::updateProblem()
+{
+    // An empty field is not an error yet: the Next button says enough
+    m_problemLabel->setText(scheduleName().isEmpty() ? QString() : nameProblem());
+}
+
+bool BScheduleNamePage::isComplete() const
+{
+    return nameProblem().isEmpty();
+}
+
+QString BScheduleNamePage::scheduleName() const { return m_nameEdit->text().trimmed(); }
+QString BScheduleNamePage::scheduleDescription() const { return m_descriptionEdit->text().trimmed(); }
+bool BScheduleNamePage::enabled() const { return m_enabledCheck->isChecked(); }
+
+// ============================================================================
+// BScheduleGridPage
+// ============================================================================
+
+BScheduleGridPage::BScheduleGridPage(QWidget *parent)
+    : QWizardPage(parent)
+{
+    setTitle(tr("Runs"));
+    setSubTitle(tr("Paint the runs on the grid: choose a level in the palette and drag over the hours. "
+                   "Calendar rules (days of the month, weeks of the year) are added below the grid."));
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    m_view = new BScheduleGridView(this);
+    m_view->setNewScheduleMode();
+    m_view->setLevelColorSource(&BLevelColors::getLevelColor);
+    layout->addWidget(m_view, 1);
+
+    m_hint = new QLabel(this);
+    m_hint->setObjectName(QStringLiteral("scheduleWizardGridHint"));
+    m_hint->setWordWrap(true);
+    layout->addWidget(m_hint);
+
+    connect(m_view->model(), &BScheduleGridModel::runLinesChanged, this, [this]() {
+        updateHint();
+        emit completeChanged();
+    });
+    connect(m_view->model(), &BScheduleGridModel::scheduleReset, this, [this]() {
+        updateHint();
+        emit completeChanged();
+    });
+}
+
+void BScheduleGridPage::initializePage()
+{
+    // The grid starts empty once; going back to the name and on again keeps
+    // what was painted. The name is not shown here, so it need not follow.
+    if (!m_started) {
+        BSchedule schedule;
+        if (const BScheduleWizard *wiz = scheduleWizard(this))
+            schedule.name = wiz->scheduleName();
+        m_view->setSchedule(schedule);
+        m_started = true;
     }
+    updateHint();
 }
 
-bool BScheduleBasicsPage::isComplete() const
+bool BScheduleGridPage::isComplete() const
 {
-    return !m_nameEdit->text().trimmed().isEmpty();
+    const BScheduleWizard *wiz = scheduleWizard(this);
+    return wiz && wiz->runTexts(nullptr);
 }
 
-QString BScheduleBasicsPage::scheduleName() const { return m_nameEdit->text().trimmed(); }
-QString BScheduleBasicsPage::scheduleDescription() const { return m_descriptionEdit->text().trimmed(); }
-bool BScheduleBasicsPage::enabled() const { return m_enabledCheck->isChecked(); }
-
-void BScheduleBasicsPage::onTemplateSelected(int index)
+void BScheduleGridPage::updateHint()
 {
-    QString key = m_templateCombo->itemData(index).toString();
-
-    if (key.isEmpty()) {
-        m_templateDescription->setText(
-            tr("Select a template to pre-fill the schedule with common run directives."));
+    const BScheduleWizard *wiz = scheduleWizard(this);
+    QString error;
+    if (!wiz || wiz->runTexts(nullptr, &error)) {
+        m_hint->clear();
+        m_hint->setVisible(false);
         return;
     }
-
-    BDirectiveSchema &schema = BDirectiveSchema::instance();
-    QJsonObject templates = schema.commonSchedules();
-    QJsonObject tmpl = templates[key].toObject();
-
-    QString desc = tmpl["description"].toString();
-    QString name = tmpl["name"].toString();
-    QJsonArray runsArr = tmpl["runs"].toArray();
-
-    m_templateDescription->setText(
-        tr("<b>%1</b>: %2<br>%3 run directive(s)")
-        .arg(name, desc).arg(runsArr.size()));
-
-    // Auto-fill name if empty
-    if (m_nameEdit->text().trimmed().isEmpty()) {
-        m_nameEdit->setText(name);
-    }
-
-    // Apply template runs to wizard
-    auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
-    if (wiz) {
-        QStringList runs;
-        for (const QJsonValue &v : runsArr) {
-            runs.append(v.toString());
-        }
-        wiz->applyTemplate(runs);
-    }
+    m_hint->setText(error);
+    m_hint->setVisible(true);
 }
 
-
 // ============================================================================
-// BScheduleRunsPage
+// BScheduleReviewPage
 // ============================================================================
 
-BScheduleRunsPage::BScheduleRunsPage(QWidget *parent)
+BScheduleReviewPage::BScheduleReviewPage(QWidget *parent)
     : QWizardPage(parent)
 {
-    setTitle(tr("Run Directives"));
-    setSubTitle(tr("Define when this schedule runs backups. Add one or more Run entries."));
+    setTitle(tr("Review"));
+    setSubTitle(tr("These are the Run lines and the resource that will be written. Finish creates the schedule."));
+    setCommitPage(false);
 
-    QVBoxLayout *layout = new QVBoxLayout(this);
-    m_editor = new BScheduleRunEditor(this);
-    layout->addWidget(m_editor);
+    auto *layout = new QVBoxLayout(this);
 
-    connect(m_editor, &BScheduleRunEditor::entriesChanged,
-            this, &QWizardPage::completeChanged);
-}
+    auto *runsLabel = new QLabel(tr("Run lines:"), this);
+    runsLabel->setStyleSheet(QStringLiteral("font-weight: bold;"));
+    layout->addWidget(runsLabel);
+    m_runsEdit = readOnlyText(this);
+    m_runsEdit->setObjectName(QStringLiteral("scheduleWizardRuns"));
+    layout->addWidget(m_runsEdit, 1);
 
-void BScheduleRunsPage::initializePage()
-{
-    auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
-    if (wiz) {
-        m_editor->setReferenceData(wiz->referenceData());
-    }
-    m_initialized = true;
-}
+    auto *configLabel = new QLabel(tr("Resource:"), this);
+    configLabel->setStyleSheet(QStringLiteral("font-weight: bold;"));
+    layout->addWidget(configLabel);
+    m_configEdit = readOnlyText(this);
+    m_configEdit->setObjectName(QStringLiteral("scheduleWizardConfig"));
+    layout->addWidget(m_configEdit, 1);
 
-bool BScheduleRunsPage::isComplete() const
-{
-    return m_editor->hasEntries();
-}
-
-QList<BScheduleEntry> BScheduleRunsPage::runEntries() const
-{
-    return m_editor->entries();
-}
-
-
-// ============================================================================
-// BSchedulePreviewPage
-// ============================================================================
-
-BSchedulePreviewPage::BSchedulePreviewPage(QWidget *parent)
-    : QWizardPage(parent)
-{
-    setTitle(tr("Preview & Deploy"));
-    setSubTitle(tr("Review the schedule configuration and deploy to the Director."));
-
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-
-    // Config text
-    QLabel *configLabel = new QLabel(tr("Configuration:"), this);
-    configLabel->setStyleSheet("font-weight: bold;");
-    mainLayout->addWidget(configLabel);
-
-    m_configEdit = new QTextEdit(this);
-    m_configEdit->setReadOnly(true);
-    BUiScale::bind(m_configEdit, BUiScale::Normal, BUiScale::Monospace);
-    BUiScale::track(m_configEdit, [this]() { m_configEdit->setMaximumHeight(BUiScale::px(200)); });
-    mainLayout->addWidget(m_configEdit);
-
-    QHBoxLayout *configBtnLayout = new QHBoxLayout();
-    m_copyConfigButton = new QPushButton(tr("Copy Configuration"), this);
-    connect(m_copyConfigButton, &QPushButton::clicked, this, &BSchedulePreviewPage::onCopyConfig);
-    configBtnLayout->addWidget(m_copyConfigButton);
-    configBtnLayout->addStretch();
-    mainLayout->addLayout(configBtnLayout);
-
-    // Console command
-    QLabel *cmdLabel = new QLabel(tr("Director Command:"), this);
-    cmdLabel->setStyleSheet("font-weight: bold;");
-    mainLayout->addWidget(cmdLabel);
-
-    m_commandEdit = new QTextEdit(this);
-    m_commandEdit->setReadOnly(true);
-    BUiScale::bind(m_commandEdit, BUiScale::Normal, BUiScale::Monospace);
+    // Without CreateResource: the "configure" command that is sent
+    m_commandLabel = new QLabel(tr("Director command:"), this);
+    m_commandLabel->setStyleSheet(QStringLiteral("font-weight: bold;"));
+    layout->addWidget(m_commandLabel);
+    m_commandEdit = readOnlyText(this);
+    m_commandEdit->setObjectName(QStringLiteral("scheduleWizardCommand"));
+    m_commandEdit->setLineWrapMode(QPlainTextEdit::WidgetWidth);
     BUiScale::track(m_commandEdit, [this]() { m_commandEdit->setMaximumHeight(BUiScale::px(80)); });
-    mainLayout->addWidget(m_commandEdit);
+    layout->addWidget(m_commandEdit);
 
-    QHBoxLayout *cmdBtnLayout = new QHBoxLayout();
-    m_copyCommandButton = new QPushButton(tr("Copy Command"), this);
-    connect(m_copyCommandButton, &QPushButton::clicked, this, &BSchedulePreviewPage::onCopyCommand);
-    cmdBtnLayout->addWidget(m_copyCommandButton);
-    cmdBtnLayout->addStretch();
-    mainLayout->addLayout(cmdBtnLayout);
+    auto *buttons = new QHBoxLayout();
+    m_copyButton = new QPushButton(tr("Copy Resource"), this);
+    m_copyButton->setToolTip(tr("Copies the resource text to the clipboard"));
+    connect(m_copyButton, &QPushButton::clicked, this, [this]() {
+        QApplication::clipboard()->setText(m_configEdit->toPlainText());
+        setStatus(tr("Resource copied to clipboard."));
+    });
+    buttons->addWidget(m_copyButton);
+    buttons->addStretch();
+    layout->addLayout(buttons);
 
-    // Status
     m_statusLabel = new QLabel(this);
+    m_statusLabel->setObjectName(QStringLiteral("scheduleWizardStatus"));
     m_statusLabel->setWordWrap(true);
-    mainLayout->addWidget(m_statusLabel);
+    layout->addWidget(m_statusLabel);
 
     m_progressBar = new QProgressBar(this);
     m_progressBar->setRange(0, 0);
     m_progressBar->setVisible(false);
-    mainLayout->addWidget(m_progressBar);
+    layout->addWidget(m_progressBar);
 
-    mainLayout->addStretch();
-
-    // Timeout
     m_timeoutTimer = new QTimer(this);
     m_timeoutTimer->setSingleShot(true);
     m_timeoutTimer->setInterval(30000);
-    connect(m_timeoutTimer, &QTimer::timeout, this, &BSchedulePreviewPage::onConfigureTimeout);
+    connect(m_timeoutTimer, &QTimer::timeout, this, &BScheduleReviewPage::onConfigureTimeout);
 }
 
-void BSchedulePreviewPage::initializePage()
+void BScheduleReviewPage::initializePage()
 {
     endWaiting();
     m_executed = false;
-    m_statusLabel->clear();
-    m_progressBar->setVisible(false);
-    generatePreview();
-}
+    setStatus(QString());
 
-void BSchedulePreviewPage::generatePreview()
-{
-    auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
-    if (!wiz) return;
+    BScheduleWizard *wiz = scheduleWizard(this);
+    if (!wiz)
+        return;
 
-    m_configEdit->setPlainText(wiz->generateConfigText());
-
-    // A Run line that is not understood or does not read back as intended
-    // blocks the whole schedule: nothing is offered for sending
+    QStringList runs;
     QString error;
-    const bool writable = wiz->runTexts(nullptr, &error);
-    if (wiz->persistence()) {
-        // The text above goes as it is, through the configuration methods
-        m_commandEdit->setPlainText(writable ? tr("CreateResource (gRPC) with the configuration text above")
-                                             : QString());
-    } else {
-        m_commandEdit->setPlainText(writable ? "configure " + wiz->generateConfigureCommand()
-                                             : QString());
-    }
-    m_copyCommandButton->setEnabled(writable);
-    if (writable) {
-        m_statusLabel->setStyleSheet(QString());
-    } else {
-        m_statusLabel->setStyleSheet("color: red;");
-        m_statusLabel->setText(tr("This schedule cannot be written. %1").arg(error));
-    }
+    const bool writable = wiz->runTexts(&runs, &error);
+    QStringList shown;
+    for (const QString &run : std::as_const(runs))
+        shown.append(QStringLiteral("Run = ") + run);
+    m_runsEdit->setPlainText(shown.join(QLatin1Char('\n')));
+    m_configEdit->setPlainText(writable ? wiz->generateConfigText() : QString());
+
+    const bool viaCreate = wiz->persistence() != nullptr;
+    m_commandLabel->setVisible(!viaCreate);
+    m_commandEdit->setVisible(!viaCreate);
+    m_commandEdit->setPlainText(writable && !viaCreate
+                                    ? QStringLiteral("configure ") + wiz->generateConfigureCommand()
+                                    : QString());
+    m_copyButton->setEnabled(writable);
+    if (!writable)
+        setStatus(tr("This schedule cannot be written. %1").arg(error), QStringLiteral("color: red;"));
 }
 
-bool BSchedulePreviewPage::validatePage()
+QString BScheduleReviewPage::runLinesText() const { return m_runsEdit->toPlainText(); }
+QString BScheduleReviewPage::configText() const { return m_configEdit->toPlainText(); }
+QString BScheduleReviewPage::commandText() const { return m_commandEdit->toPlainText(); }
+QString BScheduleReviewPage::statusText() const { return m_statusLabel->text(); }
+
+void BScheduleReviewPage::setStatus(const QString &text, const QString &style)
 {
-    if (m_waiting) return false;    // the answer to the running command decides
+    m_statusLabel->setStyleSheet(style);
+    m_statusLabel->setText(text);
+}
+
+bool BScheduleReviewPage::validatePage()
+{
+    if (m_waiting) return false;    // the answer to what was sent decides
     if (m_executed) return true;
 
-    auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
-
+    BScheduleWizard *wiz = scheduleWizard(this);
     QString runError;
-    if (wiz && !wiz->runTexts(nullptr, &runError)) {
+    if (!wiz || !wiz->runTexts(nullptr, &runError)) {
         QMessageBox::warning(this, tr("Schedule cannot be written"),
-            tr("%1\n\nGo back and remove or replace this run, or cancel the wizard.")
-                .arg(runError));
+            tr("%1\n\nGo back and paint at least one run, or cancel the wizard.").arg(runError));
         return false;
     }
 
-    if (wiz && wiz->persistence()) {
+    if (wiz->persistence()) {
         // CreateResource: the Director checks the text, the review asks
         executeCreateResource();
         return false;
     }
 
-    if (!wiz || !wiz->director() || !wiz->director()->isConnected()) {
+    if (!wiz->director() || !wiz->director()->isConnected())
         return true;
-    }
 
     int ret = QMessageBox::question(this, tr("Deploy to Director"),
         tr("Send 'configure add' to the Director?\n\n"
@@ -805,67 +326,74 @@ bool BSchedulePreviewPage::validatePage()
     return false;
 }
 
-void BSchedulePreviewPage::executeConfigureCommand()
+void BScheduleReviewPage::executeConfigureCommand()
 {
-    auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
-    if (!wiz || !wiz->director()) return;
+    BScheduleWizard *wiz = scheduleWizard(this);
+    if (!wiz || !wiz->director() || m_waiting)
+        return;
 
-    if (m_waiting) return;
+    const QString cmd = wiz->generateConfigureCommand();
+    if (cmd.isEmpty())
+        return;     // a Run line cannot be written; validatePage() said why
 
     disconnectDirectorSignals();
     m_waiting = true;
     m_progressBar->setVisible(true);
-    m_statusLabel->setStyleSheet(QString());
-    m_statusLabel->setText(tr("Sending configure command..."));
+    setStatus(tr("Sending configure command..."));
 
     // configureResult() is the Director layer's verdict on the reply, in
     // API mode (JSON) and in text mode alike
-    m_connections.append(
-        connect(wiz->director(), &BDirector::configureResult,
-                this, &BSchedulePreviewPage::onConfigureResult));
-    m_connections.append(
-        connect(wiz->director(), &BDirector::disconnected,
-                this, &BSchedulePreviewPage::onDirectorDisconnected));
-
+    m_connections.append(connect(wiz->director(), &BDirector::configureResult,
+                                 this, &BScheduleReviewPage::onConfigureResult));
+    m_connections.append(connect(wiz->director(), &BDirector::disconnected,
+                                 this, &BScheduleReviewPage::onDirectorDisconnected));
     m_timeoutTimer->start();
 
-    QString cmd = wiz->generateConfigureCommand();
-    if (cmd.isEmpty()) return;      // a Run line cannot be written; validatePage() said why
     BLOG_DEBUG() << "BScheduleWizard: Sending configure" << bRedactCommand(cmd).left(200);
     wiz->director()->doSend(BDirector::Command::Configure, cmd);
 }
 
-void BSchedulePreviewPage::executeCreateResource()
+void BScheduleReviewPage::executeCreateResource()
 {
-    auto *wiz = qobject_cast<BScheduleWizard*>(wizard());
-    if (!wiz || !wiz->persistence() || m_waiting) return;
+    BScheduleWizard *wiz = scheduleWizard(this);
+    if (!wiz || !wiz->persistence() || m_waiting)
+        return;
 
     BSchedulePersistence *persistence = wiz->persistence();
+    if (persistence->isBusy()) {
+        setStatus(tr("Another change of a schedule is being written. Try again when it is done."),
+                  QStringLiteral("color: orange;"));
+        return;
+    }
+
     disconnectDirectorSignals();
-    m_statusLabel->setStyleSheet(QString());
-    m_statusLabel->setText(tr("The Director checks the schedule..."));
+    setStatus(tr("The Director checks the schedule..."));
     m_connections.append(connect(persistence, &BSchedulePersistence::finished, this,
                                  [this](const BScheduleReport &report) {
         endWaiting();
         if (report.kind == BScheduleReport::Written) {
+            // The flow has told the user already (its report); the wizard
+            // has nothing more to do
             m_executed = true;
-            m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
-            m_statusLabel->setText(tr("Schedule created successfully! Click Finish to close."));
+            setStatus(tr("Schedule created."), QStringLiteral("color: green; font-weight: bold;"));
+            if (QWizard *wiz = wizard())
+                wiz->accept();
         } else if (report.kind == BScheduleReport::Cancelled) {
-            m_statusLabel->setStyleSheet(QString());
-            m_statusLabel->setText(tr("Nothing was written."));
+            setStatus(tr("Nothing was written."));
         } else {
-            m_statusLabel->setStyleSheet("color: red;");
-            m_statusLabel->setText(tr("%1: %2").arg(report.title, report.text).left(600));
+            setStatus(tr("%1: %2").arg(report.title, report.text).left(600), QStringLiteral("color: red;"));
         }
     }));
-    if (persistence->createSchedule(wiz->scheduleName(), wiz->generateConfigText())) {
-        m_waiting = true;
-        m_progressBar->setVisible(true);
+    m_waiting = true;
+    m_progressBar->setVisible(true);
+    if (!persistence->createSchedule(wiz->scheduleName(), wiz->generateConfigText())) {
+        // Refused at once; the report (if any) came through finished()
+        if (m_waiting)
+            endWaiting();
     }
 }
 
-void BSchedulePreviewPage::endWaiting()
+void BScheduleReviewPage::endWaiting()
 {
     m_timeoutTimer->stop();
     disconnectDirectorSignals();
@@ -873,62 +401,44 @@ void BSchedulePreviewPage::endWaiting()
     m_waiting = false;
 }
 
-void BSchedulePreviewPage::onConfigureResult(bool success, const QString &message)
+void BScheduleReviewPage::onConfigureResult(bool success, const QString &message)
 {
     if (!m_waiting) return;
     endWaiting();
 
     if (success) {
         m_executed = true;
-        m_statusLabel->setStyleSheet("color: green; font-weight: bold;");
-        m_statusLabel->setText(tr("Schedule created successfully! Click Finish to close."));
+        setStatus(tr("Schedule created successfully! Click Finish to close."),
+                  QStringLiteral("color: green; font-weight: bold;"));
     } else {
-        m_statusLabel->setStyleSheet("color: red;");
-        m_statusLabel->setText(tr("Error: %1").arg(message.left(500)));
+        setStatus(tr("Error: %1").arg(message.left(500)), QStringLiteral("color: red;"));
     }
 }
 
-void BSchedulePreviewPage::onDirectorDisconnected()
+void BScheduleReviewPage::onDirectorDisconnected()
 {
     if (!m_waiting) return;
     endWaiting();
-
-    m_statusLabel->setStyleSheet("color: red;");
-    m_statusLabel->setText(tr("The connection to the Director was lost before it answered. "
-                              "Reconnect and check with 'show schedules' whether the schedule exists."));
+    setStatus(tr("The connection to the Director was lost before it answered. "
+                 "Reconnect and check with 'show schedules' whether the schedule exists."),
+              QStringLiteral("color: red;"));
 }
 
-void BSchedulePreviewPage::onConfigureTimeout()
+void BScheduleReviewPage::onConfigureTimeout()
 {
     endWaiting();
-    m_statusLabel->setStyleSheet("color: orange;");
-    m_statusLabel->setText(tr("Timeout waiting for Director response. "
-                              "The schedule may have been created — check with 'show schedules'."));
+    setStatus(tr("Timeout waiting for Director response. "
+                 "The schedule may have been created — check with 'show schedules'."),
+              QStringLiteral("color: orange;"));
     m_executed = true;
 }
 
-void BSchedulePreviewPage::disconnectDirectorSignals()
+void BScheduleReviewPage::disconnectDirectorSignals()
 {
-    for (const auto &conn : m_connections) {
+    for (const auto &conn : std::as_const(m_connections))
         QObject::disconnect(conn);
-    }
     m_connections.clear();
 }
-
-void BSchedulePreviewPage::onCopyConfig()
-{
-    QClipboard *clipboard = QApplication::clipboard();
-    clipboard->setText(m_configEdit->toPlainText());
-    m_statusLabel->setText(tr("Configuration copied to clipboard."));
-}
-
-void BSchedulePreviewPage::onCopyCommand()
-{
-    QClipboard *clipboard = QApplication::clipboard();
-    clipboard->setText(m_commandEdit->toPlainText());
-    m_statusLabel->setText(tr("Command copied to clipboard."));
-}
-
 
 // ============================================================================
 // BScheduleWizard
@@ -948,120 +458,120 @@ BScheduleWizard::~BScheduleWizard()
 void BScheduleWizard::init()
 {
     setWindowTitle(tr("Add Schedule"));
-    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(600), BUiScale::px(500)); });
+    // The grid needs room: seven rows of 24 hours, the palette and the lists
+    BUiScale::track(this, [this]() { setMinimumSize(BUiScale::px(900), BUiScale::px(700)); });
 
-    setPage(Page_Basics, new BScheduleBasicsPage(this));
-    setPage(Page_Runs, new BScheduleRunsPage(this));
-    setPage(Page_Preview, new BSchedulePreviewPage(this));
-
-    setStartId(Page_Basics);
+    setPage(Page_Name, new BScheduleNamePage(this));
+    setPage(Page_Grid, new BScheduleGridPage(this));
+    setPage(Page_Review, new BScheduleReviewPage(this));
+    setStartId(Page_Name);
 }
 
-void BScheduleWizard::setReferenceData(const QMap<QString, QStringList> &referenceData)
+BScheduleNamePage *BScheduleWizard::namePage() const
 {
-    m_referenceData = referenceData;
+    return qobject_cast<BScheduleNamePage *>(page(Page_Name));
 }
 
-void BScheduleWizard::applyTemplate(const QStringList &runs)
+BScheduleGridPage *BScheduleWizard::gridPage() const
 {
-    QList<BScheduleEntry> entries;
-    for (const QString &run : runs) {
-        entries.append(BScheduleEntry::fromRunDirective(run));
-    }
-
-    // Apply to runs page editor
-    auto *runsPage = qobject_cast<BScheduleRunsPage*>(page(Page_Runs));
-    if (runsPage) {
-        // Access the editor through the page's public method
-        // We set entries via a direct method call
-        auto *editor = runsPage->findChild<BScheduleRunEditor*>();
-        if (editor) {
-            editor->setEntries(entries);
-        }
-    }
+    return qobject_cast<BScheduleGridPage *>(page(Page_Grid));
 }
 
-bool BScheduleWizard::runTexts(QStringList *texts, QString *error) const
+BScheduleReviewPage *BScheduleWizard::reviewPage() const
 {
-    auto *runsPage = qobject_cast<BScheduleRunsPage*>(page(Page_Runs));
-    if (!runsPage) {
-        if (texts) texts->clear();
-        return false;
-    }
+    return qobject_cast<BScheduleReviewPage *>(page(Page_Review));
+}
 
-    // Lines taken over from a template go out as they were written; only a
-    // run made or changed in the dialog is generated, and read back
-    QList<BRunLine> lines;
-    for (const BScheduleEntry &entry : runsPage->runEntries()) {
-        lines.append(entry.toRunLine());
-    }
-    return BRunWriter::runTexts(lines, texts, error);
+BScheduleGridView *BScheduleWizard::gridView() const
+{
+    BScheduleGridPage *grid = gridPage();
+    return grid ? grid->gridView() : nullptr;
 }
 
 QString BScheduleWizard::scheduleName() const
 {
-    auto *basicsPage = qobject_cast<BScheduleBasicsPage*>(page(Page_Basics));
-    return basicsPage ? basicsPage->scheduleName() : QString();
+    BScheduleNamePage *name = namePage();
+    return name ? name->scheduleName() : QString();
+}
+
+QString BScheduleWizard::scheduleDescription() const
+{
+    BScheduleNamePage *name = namePage();
+    return name ? name->scheduleDescription() : QString();
+}
+
+bool BScheduleWizard::scheduleEnabled() const
+{
+    BScheduleNamePage *name = namePage();
+    return name ? name->enabled() : true;
+}
+
+QString BScheduleWizard::nameProblem(const QString &name, const QStringList &existing)
+{
+    if (name.isEmpty())
+        return tr("The schedule needs a name.");
+    if (name.size() > 127)
+        return tr("The name is too long: at most 127 characters.");
+    // What Bareos accepts in a resource name
+    static const QRegularExpression allowed(QStringLiteral("^[A-Za-z0-9_.:\\- ]+$"));
+    if (!allowed.match(name).hasMatch())
+        return tr("The name may contain letters, digits, blanks and _ . : - only.");
+    if (existing.contains(name))
+        return tr("A schedule named %1 exists already.").arg(name);
+    return QString();
+}
+
+bool BScheduleWizard::runTexts(QStringList *texts, QString *error) const
+{
+    if (texts)
+        texts->clear();
+    const BScheduleGridView *view = gridView();
+    if (!view || !view->hasSchedule()) {
+        if (error)
+            *error = tr("The schedule has no runs yet.");
+        return false;
+    }
+    // Every line of a new schedule is new: each is written by BRunWriter
+    // and read back (the same lines the tab's "Save..." would write)
+    QList<BScheduleResource::Line> lines;
+    if (!BSchedulePersistence::linesFromModel(*view->model(), &lines, error))
+        return false;
+    if (lines.isEmpty()) {
+        if (error)
+            *error = tr("The schedule has no runs yet. Paint at least one run on the grid.");
+        return false;
+    }
+    if (texts) {
+        for (const BScheduleResource::Line &line : std::as_const(lines))
+            texts->append(line.text);
+    }
+    return true;
 }
 
 QString BScheduleWizard::generateConfigText() const
 {
-    auto *basicsPage = qobject_cast<BScheduleBasicsPage*>(page(Page_Basics));
-    auto *runsPage = qobject_cast<BScheduleRunsPage*>(page(Page_Runs));
-    if (!basicsPage || !runsPage) return QString();
-
     QStringList runs;
-    QString error;
-    if (!runTexts(&runs, &error)) {
-        return tr("# This schedule cannot be written:") + "\n# " + error + "\n";
-    }
-
-    QString config;
-    config += "Schedule {\n";
-    config += QString("  Name = \"%1\"\n").arg(basicsPage->scheduleName());
-
-    if (!basicsPage->scheduleDescription().isEmpty()) {
-        config += QString("  Description = \"%1\"\n").arg(basicsPage->scheduleDescription());
-    }
-
-    if (!basicsPage->enabled()) {
-        config += "  Enabled = no\n";
-    }
-
-    for (const QString &run : runs) {
-        config += QString("  Run = %1\n").arg(run);
-    }
-
-    config += "}\n";
-    return config;
+    if (!runTexts(&runs))
+        return QString();
+    return BScheduleResource::createText(scheduleName(), scheduleDescription(), scheduleEnabled(), runs);
 }
 
 QString BScheduleWizard::generateConfigureCommand() const
 {
-    auto *basicsPage = qobject_cast<BScheduleBasicsPage*>(page(Page_Basics));
-    auto *runsPage = qobject_cast<BScheduleRunsPage*>(page(Page_Runs));
-    if (!basicsPage || !runsPage) return QString();
-
     // No command at all if one Run line cannot be written
     QStringList runs;
-    if (!runTexts(&runs)) return QString();
+    if (!runTexts(&runs))
+        return QString();
 
     QStringList parts;
-    parts.append("add schedule");
-    parts.append(QString("name=\"%1\"").arg(basicsPage->scheduleName()));
-
-    if (!basicsPage->scheduleDescription().isEmpty()) {
-        parts.append(QString("description=\"%1\"").arg(basicsPage->scheduleDescription()));
-    }
-
-    if (!basicsPage->enabled()) {
-        parts.append("enabled=no");
-    }
-
+    parts.append(QStringLiteral("add schedule"));
+    parts.append(QStringLiteral("name=\"%1\"").arg(scheduleName()));
+    if (!scheduleDescription().isEmpty())
+        parts.append(QStringLiteral("description=\"%1\"").arg(scheduleDescription()));
+    if (!scheduleEnabled())
+        parts.append(QStringLiteral("enabled=no"));
     // Run lines may contain quoted names (Pool="Full Pool")
-    for (const QString &run : runs) {
+    for (const QString &run : std::as_const(runs))
         parts.append(QStringLiteral("run=") + BRunWriter::quotedForCommand(run));
-    }
-
-    return parts.join(" ");
+    return parts.join(QLatin1Char(' '));
 }
