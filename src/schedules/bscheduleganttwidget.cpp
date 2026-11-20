@@ -709,6 +709,27 @@ void BScheduleGanttWidget::drawNowMarker(QPainter &painter)
     painter.restore();
 }
 
+void BScheduleGanttWidget::setHighlightedSchedule(const QString &scheduleName)
+{
+    if (m_highlightedSchedule == scheduleName)
+        return;
+    m_highlightedSchedule = scheduleName;
+    update();
+}
+
+int BScheduleGanttWidget::highlightedRowTop() const
+{
+    if (m_highlightedSchedule.isEmpty())
+        return -1;
+    for (int r = 0; r < m_rows.size(); ++r) {
+        const RowInfo &row = m_rows[r];
+        if (!row.isGroupHeader && row.entryIndex >= 0 && row.entryIndex < m_entries.size()
+            && m_entries[row.entryIndex].scheduleName == m_highlightedSchedule)
+            return m_headerHeight + r * m_rowHeight;
+    }
+    return -1;
+}
+
 void BScheduleGanttWidget::drawRows(QPainter &painter)
 {
     painter.save();
@@ -721,6 +742,15 @@ void BScheduleGanttWidget::drawRows(QPainter &painter)
         if (r % 2 == 0) {
             painter.fillRect(m_labelWidth, y, contentWidth(), m_rowHeight,
                              palette().alternateBase());
+        }
+        // The rows of the schedule chosen in the list, label included
+        const bool highlighted = !row.isGroupHeader && !m_highlightedSchedule.isEmpty()
+                                 && row.entryIndex >= 0 && row.entryIndex < m_entries.size()
+                                 && m_entries[row.entryIndex].scheduleName == m_highlightedSchedule;
+        if (highlighted) {
+            QColor tint = palette().highlight().color();
+            tint.setAlpha(60);
+            painter.fillRect(0, y, m_labelWidth + contentWidth(), m_rowHeight, tint);
         }
 
         // Label. What no job uses is written in muted italics: these rows

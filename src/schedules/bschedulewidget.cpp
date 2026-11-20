@@ -325,8 +325,9 @@ void BScheduleWidget::setupUI()
     QLabel *listLabel = new QLabel(tr("Schedules:"), this);
     listLabel->setStyleSheet("font-weight: bold;");
     BUiScale::bind(listLabel, BUiScale::Large);
-    listLabel->setAlignment(Qt::AlignRight);
+    listLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     scheduleLayout->addWidget(listLabel);
+    m_scheduleList->setObjectName(QStringLiteral("scheduleList"));
     m_scheduleList->setAlternatingRowColors(true);
     scheduleLayout->addWidget(m_scheduleList);
 
@@ -338,6 +339,7 @@ void BScheduleWidget::setupUI()
     m_jobListLabel->setStyleSheet("font-weight: bold;");
     jobLayout->addWidget(m_jobListLabel);
 
+    m_jobList->setObjectName(QStringLiteral("scheduleJobList"));
     m_jobList->setColumnCount(6);
     m_jobList->setHorizontalHeaderLabels({tr("Job"), tr("Type"), tr("Client"), tr("Storage"), tr("FileSet"), tr("Median duration")});
     m_jobList->setAlternatingRowColors(true);
@@ -478,12 +480,22 @@ void BScheduleWidget::setupUI()
             this, &BScheduleWidget::onScheduleSelectionChanged);
     connect(m_scheduleList, &QListWidget::currentItemChanged,
             this, [this]() { updateGridView(); });
+    // A click, also on the schedule that is selected already, chooses it:
+    // its jobs in the list below, its rows highlighted in the timelines. A
+    // second click on it goes back to the jobs of every checked schedule.
+    connect(m_scheduleList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        const QString name = item ? item->text() : QString();
+        m_focusSchedule = name == m_focusSchedule ? QString() : name;
+        onScheduleSelectionChanged();
+    });
     connect(m_scheduleList, &QListWidget::itemDoubleClicked,
             this, &BScheduleWidget::onScheduleDoubleClicked);
     connect(m_scheduleList, &QListWidget::itemChanged,
             this, &BScheduleWidget::onScheduleCheckChanged);
     connect(m_jobList, &QTableWidget::itemSelectionChanged,
             this, &BScheduleWidget::onJobSelectionChanged);
+    // A click on the row that is selected already answers as well
+    connect(m_jobList, &QTableWidget::cellClicked, this, [this]() { onJobSelectionChanged(); });
     connect(m_jobList, &QTableWidget::cellDoubleClicked,
             this, &BScheduleWidget::onJobListDoubleClicked);
 
@@ -814,18 +826,34 @@ void BScheduleWidget::processShowClientsResponse(const QString &jsonData)
 void BScheduleWidget::onScheduleSelectionChanged()
 {
     updateJobList();
+    // The rows of the chosen schedule stand out in the timelines, and the
+    // first of them is scrolled into view
+    const QString name = m_scheduleList->findItems(m_focusSchedule, Qt::MatchExactly).isEmpty()
+                             ? QString() : m_focusSchedule;
+    for (auto [timeline, area] : {std::pair{m_fdGanttWidget, m_fdScrollArea},
+                                  std::pair{m_sdGanttWidget, m_sdScrollArea}}) {
+        timeline->setHighlightedSchedule(name);
+        const int top = timeline->highlightedRowTop();
+        if (top >= 0)
+            area->ensureVisible(area->horizontalScrollBar()->value(), top, 0, timeline->height() / 4);
+    }
 }
 
 void BScheduleWidget::updateJobList()
 {
     m_jobList->setRowCount(0);
 
-    // Collect all checked schedule names (same filter as Gantt)
+    // The schedule chosen in the list; without one, every checked one
+    // (the same filter as the timelines)
     QStringList checkedNames;
-    for (int i = 0; i < m_scheduleList->count(); ++i) {
-        QListWidgetItem *item = m_scheduleList->item(i);
-        if (item->checkState() == Qt::Checked)
-            checkedNames.append(item->text());
+    if (!m_focusSchedule.isEmpty() && !m_scheduleList->findItems(m_focusSchedule, Qt::MatchExactly).isEmpty()) {
+        checkedNames.append(m_focusSchedule);
+    } else {
+        for (int i = 0; i < m_scheduleList->count(); ++i) {
+            QListWidgetItem *item = m_scheduleList->item(i);
+            if (item->checkState() == Qt::Checked)
+                checkedNames.append(item->text());
+        }
     }
 
     if (checkedNames.isEmpty()) {

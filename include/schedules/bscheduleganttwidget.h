@@ -81,6 +81,13 @@ public:
      */
     void setEntries(const QList<BScheduleEntry> &entries);
 
+    /// The rows of this schedule are drawn highlighted (the schedule chosen
+    /// in the list); empty: none
+    void setHighlightedSchedule(const QString &scheduleName);
+    QString highlightedSchedule() const { return m_highlightedSchedule; }
+    /// Top of the first row of the highlighted schedule; -1 if it has none
+    int highlightedRowTop() const;
+
     /**
      * @brief Sets the measured job history the bars and the heat map take
      *        their durations from
@@ -277,6 +284,7 @@ private:
         bool unused = false;    ///< The group or the row of schedules no job uses
     };
     void rebuildRows();
+    QString m_highlightedSchedule;
     /// "job · level"; the schedule name stands in for a missing job
     static QString rowLabel(const BScheduleEntry &entry);
     int totalHours() const;

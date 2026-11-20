@@ -23,6 +23,7 @@
  */
 
 #include <QtTest>
+#include <QListWidget>
 #include <QLineEdit>
 
 #include <QComboBox>
@@ -185,6 +186,7 @@ private slots:
     void dropOnALockedScheduleIsRefused();
     void gridSaveWritesAndStartsAfresh();
     void gridSaveWritesTheDescription();
+    void clickOnTheListsAnswers();
     void deleteOfAScheduleInUseDeletesNothing();
 
     // --- Schedules no job uses ---
@@ -556,6 +558,56 @@ void BScheduleTimelineTest::gridSaveWritesAndStartsAfresh()
     QVERIFY(!grid->hasPendingSchedule());
     QCOMPARE(grid->model()->loadedSchedule().runs.size(), 2);
     QCOMPARE(grid->editor()->undoStack()->count(), 0);
+}
+
+void BScheduleTimelineTest::clickOnTheListsAnswers()
+{
+    Tab tab;
+    const char *two = R"({"result":{"schedules":{
+        "WeeklyCycle":{"name":"WeeklyCycle","run":["Level=Incremental daily at 08:00"]},
+        "Nightly":{"name":"Nightly","run":["Level=Full daily at 22:00"]}}}})";
+    const char *jobs = R"({"result":{"jobs":{
+        "BackupEleLa":{"name":"BackupEleLa","type":"Backup","schedule":"WeeklyCycle","client":"elela-fd","storage":["File"]},
+        "BackupMail":{"name":"BackupMail","type":"Backup","schedule":"Nightly","client":"elela-fd","storage":["File"]}}}})";
+    tab.feed(two, jobs, kNoJobDefs, kOneClient);
+    tab.widget.resize(1200, 800);
+    tab.widget.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&tab.widget));
+    auto *schedules = tab.widget.findChild<QListWidget *>(QStringLiteral("scheduleList"));
+    QVERIFY(schedules);
+    auto *jobList = tab.widget.findChild<QTableWidget *>(QStringLiteral("scheduleJobList"));
+    QVERIFY(jobList);
+
+    // A schedule clicked: its jobs, and its rows highlighted in the timeline
+    QListWidgetItem *nightly = schedules->findItems("Nightly", Qt::MatchExactly).value(0);
+    QVERIFY(nightly);
+    QTest::mouseClick(schedules->viewport(), Qt::LeftButton, Qt::NoModifier,
+                      schedules->visualItemRect(nightly).center());
+    QCOMPARE(jobList->rowCount(), 1);
+    QCOMPARE(jobList->item(0, 0)->text(), QString("BackupMail"));
+    QCOMPARE(tab.timeline()->highlightedSchedule(), QString("Nightly"));
+    QVERIFY(tab.timeline()->highlightedRowTop() > 0);
+    // A second click: the jobs of every checked schedule again
+    QTest::mouseClick(schedules->viewport(), Qt::LeftButton, Qt::NoModifier,
+                      schedules->visualItemRect(nightly).center());
+    QCOMPARE(jobList->rowCount(), 2);
+    QVERIFY(tab.timeline()->highlightedSchedule().isEmpty());
+    QTest::mouseClick(schedules->viewport(), Qt::LeftButton, Qt::NoModifier,
+                      schedules->visualItemRect(nightly).center());
+    QCOMPARE(jobList->rowCount(), 1);
+
+    // A job clicked: its measured history opens below the timeline, and
+    // again after the area was closed, with the same row still selected
+    QTest::mouseClick(jobList->viewport(), Qt::LeftButton, Qt::NoModifier,
+                      jobList->visualItemRect(jobList->item(0, 0)).center());
+    QTabWidget *lower = qobject_cast<QTabWidget *>(tab.waitPanel()->parentWidget()->parentWidget());
+    QVERIFY(lower);
+    QVERIFY(lower->isVisible() || !lower->isHidden());
+    QCOMPARE(lower->currentIndex(), 1);
+    lower->setVisible(false);
+    QTest::mouseClick(jobList->viewport(), Qt::LeftButton, Qt::NoModifier,
+                      jobList->visualItemRect(jobList->item(0, 0)).center());
+    QVERIFY(!lower->isHidden());
 }
 
 void BScheduleTimelineTest::gridSaveWritesTheDescription()

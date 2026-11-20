@@ -399,6 +399,8 @@ private:
     QSplitter *m_splitter;
     QSplitter *m_leftSplitter;            // Vertical: schedules top, jobs bottom
     QSplitter *m_rightSplitter = nullptr; // Vertical: views top, the tabs below
+    /// The schedule clicked in the list: its jobs below, its rows highlighted; empty: none
+    QString m_focusSchedule;
     QTabWidget *m_lowerTabs = nullptr;    // Predicted waits, measured history
     QWidget *m_statsPage = nullptr;       // The history's tab: m_statsPanel, scrolling
     bool m_syncingWaitButton = false;     // syncWaitButton() sets the counter
