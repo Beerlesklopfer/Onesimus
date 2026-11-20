@@ -344,25 +344,28 @@ BAclMatrixDialog::BAclMatrixDialog(QWidget *parent)
     m_how->setWordWrap(true);
     layout->addWidget(m_how);
 
+    // The outcome of the last step on a line of its own, above the buttons
+    m_status = new QLabel(this);
+    m_status->setWordWrap(true);
+    m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(m_status);
+
     auto *bottom = new QHBoxLayout;
     // Cancel on the left, as in every dialog
     auto *cancel = new QPushButton(tr("Cancel"), this);
     cancel->setToolTip(tr("Closes the matrix; changes that were not applied are discarded"));
     connect(cancel, &QPushButton::clicked, this, &BAclMatrixDialog::reject);
-    bottom->addWidget(cancel, 0, Qt::AlignTop);
-    m_status = new QLabel(this);
-    m_status->setWordWrap(true);
-    m_status->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    bottom->addWidget(m_status, 1);
+    bottom->addWidget(cancel);
+    bottom->addStretch(1);
     m_discard = new QPushButton(tr("Discard"), this);
     m_discard->setToolTip(tr("Forgets the changes that were not applied"));
     connect(m_discard, &QPushButton::clicked, this, &BAclMatrixDialog::discard);
-    bottom->addWidget(m_discard, 0, Qt::AlignTop);
+    bottom->addWidget(m_discard);
     m_apply = new QPushButton(tr("Apply..."), this);
     m_apply->setToolTip(tr("Shows every change of the catalog ACL once and sends them after your "
                            "confirmation (.acl set / .acl delete)"));
     connect(m_apply, &QPushButton::clicked, this, &BAclMatrixDialog::apply);
-    bottom->addWidget(m_apply, 0, Qt::AlignTop);
+    bottom->addWidget(m_apply);
     layout->addLayout(bottom);
     setView(View::Consoles);
 
