@@ -32,6 +32,7 @@ private slots:
     void scheduleTextReadsBack();
     void jobScheduleReplaced();
     void jobScheduleInserted();
+    void jobScheduleValueRead();
 };
 
 void BStaggerPlanTest::linesMoveLaterKeepingTheirDays()
@@ -111,6 +112,16 @@ void BStaggerPlanTest::jobScheduleInserted()
     QCOMPARE(BStaggerPlan::jobWithSchedule("Job { Name = a }", "X"),
              QString("Job { Name = a\n  Schedule = \"X\"\n }"));   // the blank before the brace stays
     QCOMPARE(BStaggerPlan::jobWithSchedule("Job { Name = a", "X"), QString());
+}
+
+void BStaggerPlanTest::jobScheduleValueRead()
+{
+    // Quoted, with escapes; unquoted, up to a comment or a semicolon; none
+    QCOMPARE(BStaggerPlan::scheduleValue("Job {\n  Name = a\n  Schedule = \"Weekly \\\"A\\\"\"  # x\n}\n"),
+             QString("Weekly \"A\""));
+    QCOMPARE(BStaggerPlan::scheduleValue("Job {\n  schedule=WeeklyCycle# x\n}\n"), QString("WeeklyCycle"));
+    QCOMPARE(BStaggerPlan::scheduleValue("Job {\r\n  Sche dule = Nightly;\r\n}\r\n"), QString("Nightly"));
+    QCOMPARE(BStaggerPlan::scheduleValue("Job {\n  Name = a\n  JobDefs = D\n}\n"), QString());
 }
 
 QTEST_GUILESS_MAIN(BStaggerPlanTest)
