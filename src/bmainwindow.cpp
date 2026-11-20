@@ -449,6 +449,12 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_scheduleWidget, &BScheduleWidget::processJobHistoryReply);
     connect(m_director, &BDirector::commandFailed,
             m_scheduleWidget, &BScheduleWidget::onCommandFailed);
+    // Live overlay of the timeline: what runs or waits now, pushed by the
+    // Onesimus Director over gRPC (BNET pushes nothing)
+    connect(m_director, &BDirector::jobStatusEvent,
+            m_scheduleWidget, &BScheduleWidget::onJobStatusEvent);
+    connect(m_director, &BDirector::jobMessage,
+            m_scheduleWidget, &BScheduleWidget::onJobMessage);
     connect(m_director, &BDirector::listClientsResult,
             m_clientWidget, &BClientsWidget::processJsonResponse);
     connect(m_director, &BDirector::showJobsResult,
@@ -2382,6 +2388,8 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
     // are kept under the profile it was reached with
     if (connected)
         m_scheduleWidget->setDirectorProfileId(BSettings::instance().lastUsedProfileId());
+    m_scheduleWidget->setLiveOverlayEnabled(
+        connected && m_director->transport() == BDirector::Transport::Grpc);
     m_scheduleWidget->setConnectionState(connected);
 
     if (connected) {

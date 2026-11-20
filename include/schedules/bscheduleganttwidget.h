@@ -15,6 +15,7 @@
 #include <QHash>
 #include "models/bresourcemodels.h"
 #include "schedules/model/bjobhistorystats.h"
+#include "schedules/model/bliveoverlay.h"
 
 /**
  * @brief Gantt/Timeline widget for schedule visualization
@@ -60,6 +61,10 @@
  *   one neutral colour, with a strip where runs are waiting
  * - Zoom control (15min to 1h blocks)
  * - Now-marker (red vertical line at current time)
+ * - Live overlay (setLiveJobs(), gRPC connections only): the jobs that run
+ *   or wait now, as a thin band at the bottom of the row of their job,
+ *   over the planned bars: hatched from the moment the job was queued to
+ *   its start (or to now while it waits), solid from its start to now
  * - Tooltips with job details
  */
 class BScheduleGanttWidget : public QWidget
@@ -214,6 +219,39 @@ public:
     static QString waitKey(const QString &entryKey, const QDateTime &when);
 
     /**
+     * @brief Sets the jobs that run or wait now (BLiveJobOverlay)
+     *
+     * Drawn over the bars of the dates on display; empty: nothing. The
+     * widget keeps no other state of them: whoever owns the model sets
+     * them again when they change.
+     */
+    void setLiveJobs(const QList<BLiveJobOverlay::Job> &jobs);
+    const QList<BLiveJobOverlay::Job> &liveJobs() const { return m_liveJobs; }
+
+    /**
+     * @brief The entry whose row a live job is drawn in
+     *
+     * An entry of the job (not of an unused schedule); of several, the one
+     * whose start on the dates on display is the last one up to five
+     * minutes after the job was queued, else the one that starts first.
+     * @return an index into @p entries, -1 if no entry runs that job (a
+     *         job started by hand, or filtered out of the view)
+     */
+    static int liveEntryIndex(const QList<BScheduleEntry> &entries, const BLiveJobOverlay::Job &job);
+
+    /** Where a live job is drawn. */
+    struct LiveBand {
+        int jobIndex = -1;  ///< Into liveJobs()
+        int row = -1;
+        QRect wait;         ///< Queued until started or now; empty if not on display
+        QRect run;          ///< Started until now; empty if waiting or not on display
+        QRect bounds() const { return wait.united(run); }
+    };
+    /// The bands of the live jobs that have a row and fall into the dates
+    /// on display, for @p now
+    QList<LiveBand> liveBands(const QDateTime &now) const;
+
+    /**
      * @brief Returns the current entries list
      */
     const QList<BScheduleEntry>& entries() const { return m_entries; }
@@ -336,6 +374,9 @@ private:
     QList<MeasuredRun> m_measured;
     bool m_showMeasured = true;
     int m_hoverMeasured = -1;   ///< The matched run under the pointer
+    /// The bands of the jobs that run or wait now
+    void drawLiveOverlay(QPainter &painter);
+    QString liveToolTip(const BLiveJobOverlay::Job &job, const QDateTime &now) const;
 
     // --- Layout calculation ---
     struct RowInfo {
@@ -442,6 +483,9 @@ private:
 
     // --- Predicted waits ---
     QHash<QString, RunWait> m_waits;    ///< By waitKey()
+
+    // --- Jobs that run or wait now ---
+    QList<BLiveJobOverlay::Job> m_liveJobs;
 
     // --- Hover state ---
     int m_hoverEntryIndex = -1;
