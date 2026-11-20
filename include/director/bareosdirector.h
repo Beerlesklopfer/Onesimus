@@ -342,6 +342,7 @@ public:
         DotDefaults,        ///< .defaults job=<name> - Get job default values
         DotConsoles,        ///< .consoles - List all console resources
         DotMessages,        ///< .messages - Retrieve pending messages (keepalive)
+        DotAclList,         ///< .acl list - ACLs of every console (Onesimus Director only)
 
         // Show single resource
         ShowFileset,        ///< show fileset=<name> - Show single fileset details
@@ -732,6 +733,8 @@ signals:
     void dotLevelsResult(const QString &jsonData);
     void dotCatalogsResult(const QString &jsonData);
     void dotScheduleResult(const QString &jsonData);
+    /// The reply to Command::DotAclList as it came, also an error reply
+    void dotAclListResult(const QString &reply);
     void listClientsResult(const QString &jsonData);
     void showJobsResult(const QString &jsonData);
     void showJobDefsResult(const QString &jsonData);

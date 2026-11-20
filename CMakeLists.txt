@@ -540,6 +540,8 @@ set(SOURCES
     src/config/beditablelistwidget.cpp
 
     src/director/bresourcewidget.cpp
+    src/director/baclmatrix.cpp
+    src/director/baclmatrixdialog.cpp
     src/director/bresourcewidgets.cpp
     src/director/bresourcedialog.cpp
     src/director/bconfigimportdialog.cpp
@@ -675,6 +677,8 @@ set(HEADERS
     include/config/beditablelistwidget.h
 
     include/director/bresourcewidget.h
+    include/director/baclmatrix.h
+    include/director/baclmatrixdialog.h
     include/director/bresourcewidgets.h
     include/director/bresourcedialog.h
     include/director/bconfigimportdialog.h)
@@ -1784,6 +1788,30 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bstaggerplan_test COMMAND bstaggerplan_test)
+
+    # baclmatrix_test - the ACLs of the consoles as a matrix: the reply of
+    # ".acl list", the effective ACL, the reasons, Bareos' file decision
+    add_executable(baclmatrix_test
+        test/baclmatrix_test.cpp
+        src/director/baclmatrix.cpp
+        src/director/baclmatrixdialog.cpp
+        src/buiscale.cpp
+        include/director/baclmatrix.h
+        include/director/baclmatrixdialog.h
+        include/buiscale.h
+    )
+
+    target_include_directories(baclmatrix_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(baclmatrix_test PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::Test
+    )
+
+    add_test(NAME baclmatrix_test COMMAND baclmatrix_test)
 
     # bscheduleoccurrences_test - when the Run lines of a schedule trigger on
     # concrete dates (weeks of the month and of the year, daylight saving),

@@ -1,6 +1,8 @@
 #include "bmainwindow.h"
 #include "buiscale.h"
 #include "btranslations.h"
+#include "director/baclmatrixdialog.h"
+#include <QPointer>
 #include <QActionGroup>
 #include <QProcess>
 #include <QPushButton>
@@ -1432,6 +1434,11 @@ void BMainWindow::createMenus()
                                    m_jobWidget->jobConfigModel()->jobDefsConfigsRaw(),
                                    m_jobWidget->storageNames(), BSettings::instance().lastUsedProfileId()};
     }));
+    // The ACLs of every console side by side: a window of its own, read only
+    QAction *aclMatrixAction = m_toolsMenu->addAction(tr("ACL matrix of the consoles..."));
+    aclMatrixAction->setToolTip(tr("Which console may use which job, client, storage, schedule, pool, "
+                                   "fileset, catalog and command (Onesimus Director)"));
+    connect(aclMatrixAction, &QAction::triggered, this, &BMainWindow::showAclMatrix);
 
     m_helpMenu = menuBar()->addMenu(tr("Help"));
     m_helpMenu->addAction(m_documentationAction);
@@ -2557,6 +2564,35 @@ void BMainWindow::requestClientBackups()
         QString arg = name.contains(QLatin1Char(' ')) ? QString("\"%1\"").arg(name) : name;
         onSendCommand(BDirector::Command::ListBackupsClient, arg);
     }
+}
+
+void BMainWindow::showAclMatrix()
+{
+    static QPointer<BAclMatrixDialog> dialog;
+    if (!dialog) {
+        dialog = new BAclMatrixDialog(this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        BAclMatrixDialog *d = dialog;
+        connect(d, &BAclMatrixDialog::refreshRequested, this, [this]() {
+            onSendCommand(BDirector::Command::DotAclList, QString());
+        });
+        connect(m_director, &BDirector::dotAclListResult, d, &BAclMatrixDialog::setReply);
+        // A Director without the command may answer with text
+        connect(m_director, &BDirector::textResult, d, [d](BDirector::Command cmd, const QString &response) {
+            if (cmd == BDirector::Command::DotAclList) d->setReply(response);
+        });
+        connect(m_director, &BDirector::commandFailed, d,
+                [d](BDirector::Command cmd, const QString &, const QString &error) {
+            if (cmd == BDirector::Command::DotAclList) d->setFailure(error);
+        });
+    }
+    QHash<QString, QStringList> known;
+    known.insert(QStringLiteral("jobacl"), m_jobWidget->jobConfigModel()->jobConfigsRaw().keys());
+    dialog->setKnownNames(known);
+    dialog->show();
+    dialog->raise();
+    dialog->activateWindow();
+    onSendCommand(BDirector::Command::DotAclList, QString());
 }
 
 void BMainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)

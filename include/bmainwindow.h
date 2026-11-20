@@ -118,6 +118,8 @@ private:
     /// View > Language: the languages under their own names; a choice is
     /// stored and takes effect with a restart, which is offered at once
     void addLanguageMenu(QMenu *menu);
+    /// Tools > ACL matrix: the ACLs of every console (BAclMatrixDialog)
+    void showAclMatrix();
     /// Offers a restart when the language setting names another language
     /// than the one on display
     void offerLanguageRestart();

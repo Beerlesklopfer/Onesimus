@@ -1742,6 +1742,11 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
         emitConfigureResult(jsonData);
         return;
     }
+    // The ACL matrix reads the reply itself, an error reply too
+    if (m_lastCommandEnum == Command::DotAclList) {
+        emit dotAclListResult(jsonData);
+        return;
+    }
 
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
     if (!doc.isObject()) return;
@@ -2174,6 +2179,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::DotDefaults:      command = ".defaults job=\"" + args + "\""; break;
     case Command::DotConsoles:      command = ".consoles"; break;
     case Command::DotMessages:      command = ".messages"; break;
+    case Command::DotAclList:       command = ".acl list"; break;
 
     // Show single resource
     case Command::ShowFileset:      command = QString("show fileset=%1").arg(args); break;
