@@ -499,6 +499,7 @@ set(SOURCES
     src/schedules/bschedulewizard.cpp
     src/schedules/bjobscheduleindex.cpp
     src/schedules/bscheduledragplan.cpp
+    src/schedules/bstaggerplan.cpp
     src/schedules/bschedulepersistence.cpp
     src/schedules/bschedulereviewdialog.cpp
     src/schedules/model/bscheduleresource.cpp
@@ -640,6 +641,7 @@ set(HEADERS
     include/schedules/bschedulewizard.h
     include/schedules/bjobscheduleindex.h
     include/schedules/bscheduledragplan.h
+    include/schedules/bstaggerplan.h
     include/schedules/bschedulepersistence.h
     include/schedules/bschedulereviewdialog.h
     include/schedules/model/bscheduleresource.h
@@ -1733,6 +1735,7 @@ if(BUILD_TESTING)
     add_executable(bscheduledragplan_test
         test/bscheduledragplan_test.cpp
         src/schedules/bscheduledragplan.cpp
+        src/schedules/bstaggerplan.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
         src/schedules/model/bscheduleoccurrences.cpp
@@ -1740,6 +1743,7 @@ if(BUILD_TESTING)
         src/models/bbasemodels.cpp
         src/config/bconfigparser.cpp
         include/schedules/bscheduledragplan.h
+        include/schedules/bstaggerplan.h
         include/schedules/model/brunspec.h
         include/schedules/model/bscheduleoccurrences.h
         include/models/bresourcemodels.h
@@ -1758,6 +1762,28 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bscheduledragplan_test COMMAND bscheduledragplan_test)
+
+    # bstaggerplan_test - the schedules and job texts that make a stagger
+    # proposal real: Run lines later, names, the Schedule directive of a job
+    add_executable(bstaggerplan_test
+        test/bstaggerplan_test.cpp
+        src/schedules/bstaggerplan.cpp
+        src/schedules/model/brunparser.cpp
+        src/schedules/model/brunwriter.cpp
+        include/schedules/bstaggerplan.h
+        include/schedules/model/brunspec.h
+    )
+
+    target_include_directories(bstaggerplan_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bstaggerplan_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bstaggerplan_test COMMAND bstaggerplan_test)
 
     # bscheduleoccurrences_test - when the Run lines of a schedule trigger on
     # concrete dates (weeks of the month and of the year, daylight saving),
@@ -1828,6 +1854,7 @@ if(BUILD_TESTING)
         test/bfakesaveui.h
         src/schedules/bschedulepersistence.cpp
         src/schedules/bscheduledragplan.cpp
+        src/schedules/bstaggerplan.cpp
         src/schedules/model/bscheduleresource.cpp
         src/config/bresourcetext.cpp
         src/config/bresourcepersistence.cpp
@@ -1838,6 +1865,7 @@ if(BUILD_TESTING)
         src/schedules/model/brunwriter.cpp
         include/schedules/bschedulepersistence.h
         include/schedules/bscheduledragplan.h
+        include/schedules/bstaggerplan.h
         include/schedules/model/bscheduleresource.h
         include/schedules/model/bschedulegridmodel.h
         include/schedules/model/brunspec.h
@@ -2443,6 +2471,7 @@ if(BUILD_TESTING)
         src/schedules/bschedulelegend.cpp
         src/schedules/bscheduleganttwidget.cpp
         src/schedules/bscheduledragplan.cpp
+        src/schedules/bstaggerplan.cpp
         src/schedules/bschedulepersistence.cpp
         include/schedules/bschedulepersistence.h
         include/schedules/bschedulereviewdialog.h

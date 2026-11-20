@@ -194,6 +194,8 @@ private slots:
     void handleBelowTimelineMovesUpAndIsKept();
     void handleBesideWaitsIsKept();
     void waitsOfSecondsInTheList();
+    void staggerIsWrittenAfterOneConfirmation();
+    void staggerNotConfirmedWritesNothing();
 
     // --- The review ---
     void reviewTextCanBeEdited();
@@ -378,6 +380,62 @@ struct GrpcTab : Tab
     bool wait() { return !finished.isEmpty() || finished.wait(3000); }
     BScheduleReport report() const { return finished.last().at(0).value<BScheduleReport>(); }
 };
+
+/// Three jobs on one client that takes one job at a time, measured at 35 s
+/// and started 2 s after their time on four days: two of them wait
+void feedThreeWaitingJobs(Tab &tab)
+{
+    const QStringList names = {"JobA", "JobB", "JobC"};
+    QString history = R"({"jsonrpc":"2.0","id":null,"result":{"jobs":[)";
+    int id = 100;
+    for (int day = 1; day <= 4; ++day) {
+        for (const QString &name : names) {
+            const QDateTime sched(QDate::currentDate().addDays(-day), QTime(8, 0));
+            const QDateTime start = sched.addSecs(2);
+            const QString f = QStringLiteral("yyyy-MM-dd HH:mm:ss");
+            history += QString(R"(%1{"jobid":"%2","name":"%3","type":"B","level":"I","jobstatus":"T",)"
+                               R"("schedtime":"%4","starttime":"%5","endtime":"%6","realendtime":"%6"})")
+                           .arg(id == 100 ? "" : ",").arg(id).arg(name)
+                           .arg(sched.toString(f), start.toString(f), start.addSecs(35).toString(f));
+            ++id;
+        }
+    }
+    history += "]}}";
+    QObject::connect(&tab.widget, &BScheduleWidget::sendCommand, &tab.widget,
+                     [&tab, history](BDirector::Command cmd, const QString &args) {
+        if (cmd == BDirector::Command::LlistJobs) {
+            QTimer::singleShot(0, &tab.widget, [&tab, args, history]() {
+                tab.widget.processJobHistoryReply(args, history);
+            });
+        }
+    });
+    tab.widget.setConnectionState(true);
+    QString showJobs = R"({"result":{"jobs":{)";
+    for (int i = 0; i < names.size(); ++i) {
+        showJobs += QString(R"(%1"%2":{"name":"%2","type":"Backup","schedule":"WeeklyCycle",)"
+                            R"("client":"elela-fd","storage":["File"],"maximumconcurrentjobs":1})")
+                        .arg(i ? "," : "", names[i]);
+    }
+    showJobs += "}}}";
+    tab.feed(kWeeklyCycle, showJobs, kNoJobDefs, kOneClient);
+}
+
+/// The stagger tab, proposed: its Apply button
+QPushButton *proposeStagger(Tab &tab)
+{
+    QElapsedTimer waited;
+    waited.start();
+    while (!tab.counter()->accessibleName().contains("2 run(s) wait") && waited.elapsed() < 15000)
+        QTest::qWait(20);
+    QWidget *stagger = tab.widget.findChild<QWidget *>(QStringLiteral("stagger"));
+    if (!stagger) return nullptr;
+    QPushButton *apply = nullptr;
+    for (QPushButton *b : stagger->findChildren<QPushButton *>()) {
+        if (b->text() == QLatin1String("Propose later start times")) b->click();
+        if (b->text() == QLatin1String("Apply...")) apply = b;
+    }
+    return apply;
+}
 
 } // namespace
 
@@ -661,6 +719,98 @@ void BScheduleTimelineTest::handleBesideWaitsIsKept()
     const int share = split->sizes().value(0) * 1000 / total;
     QVERIFY2(qAbs(share - kept) < 30, qPrintable(QStringLiteral("%1, kept %2").arg(share).arg(kept)));
     BSettings::instance().setSchedulesWaitSplit(0);
+}
+
+void BScheduleTimelineTest::staggerIsWrittenAfterOneConfirmation()
+{
+    GrpcTab tab;
+    tab.client.allow(BConfig::ResourceType::Job);
+    // One job names its schedule, the others inherit it (no directive)
+    tab.client.files.insert("JobA", "Job {\n  Name = \"JobA\"\n  Schedule = \"WeeklyCycle\"\n}\n");
+    tab.client.files.insert("JobB", "Job {\n  Name = \"JobB\"\n  JobDefs = \"D\"\n}\n");
+    tab.client.files.insert("JobC", "Job {\n  Name = \"JobC\"\n  Schedule = WeeklyCycle\n}\n");
+    feedThreeWaitingJobs(tab);
+    QString summary;
+    int asked = 0;
+    tab.widget.setStaggerConfirm([&](QWidget *, const QString &text) { ++asked; summary = text; return true; });
+    QSignalSpy commands(&tab.widget, &BScheduleWidget::sendCommand);
+
+    QPushButton *apply = proposeStagger(tab);
+    QVERIFY(apply);
+    QVERIFY(apply->isEnabled());
+    apply->click();
+    QTRY_COMPARE_WITH_TIMEOUT(tab.client.writes().size(), 4, 3000);
+    QCOMPARE(asked, 1);
+    QVERIFY2(summary.contains("New schedule WeeklyCycle-0801"), qPrintable(summary));
+    QVERIFY2(summary.contains("New schedule WeeklyCycle-0802"), qPrintable(summary));
+
+    // The two schedules first, then the two jobs that start later
+    const QList<BConfig::Request> writes = tab.client.writes();
+    QCOMPARE(writes[0].kind, BConfig::Request::Create);
+    QCOMPARE(writes[1].kind, BConfig::Request::Create);
+    QCOMPARE(writes[0].type, BConfig::ResourceType::Schedule);
+    QCOMPARE(writes[2].kind, BConfig::Request::Update);
+    QCOMPARE(writes[3].kind, BConfig::Request::Update);
+    QCOMPARE(writes[2].type, BConfig::ResourceType::Job);
+    QStringList created;
+    for (int i = 0; i < 2; ++i) {
+        const QString text = writes[i].text;
+        QVERIFY2(text.contains("Run = ") && (text.contains("at 08:01") || text.contains("at 08:02")),
+                 qPrintable(text));
+        created << text.section('"', 1, 1);
+    }
+    created.sort();
+    QCOMPARE(created, (QStringList{"WeeklyCycle-0801", "WeeklyCycle-0802"}));
+    for (int i = 2; i < 4; ++i) {
+        QVERIFY2(writes[i].text.contains("Schedule = \"WeeklyCycle-080"), qPrintable(writes[i].text));
+        QCOMPARE(writes[i].text.count("Schedule ="), 1);
+        // Sent with the SHA-256 of the text read: a change in between is a conflict
+        QVERIFY(!writes[i].expectedSha256.isEmpty());
+    }
+    // Afterwards the jobs and schedules are read again
+    QTRY_VERIFY_WITH_TIMEOUT([&]() {
+        for (const QList<QVariant> &c : commands)
+            if (c.at(0).value<BDirector::Command>() == BDirector::Command::ShowJobs) return true;
+        return false;
+    }(), 3000);
+}
+
+void BScheduleTimelineTest::staggerNotConfirmedWritesNothing()
+{
+    GrpcTab tab;
+    tab.client.allow(BConfig::ResourceType::Job);
+    for (const char *job : {"JobA", "JobB", "JobC"})
+        tab.client.files.insert(job, QString("Job {\n  Name = \"%1\"\n}\n").arg(job));
+    feedThreeWaitingJobs(tab);
+    int asked = 0;
+    tab.widget.setStaggerConfirm([&](QWidget *, const QString &) { ++asked; return false; });
+    QPushButton *apply = proposeStagger(tab);
+    QVERIFY(apply);
+    apply->click();
+    QTRY_COMPARE_WITH_TIMEOUT(asked, 1, 3000);
+    QTest::qWait(50);
+    QVERIFY(tab.client.writes().isEmpty());
+    QVERIFY(apply->isEnabled());    // the proposal is still there
+
+    // A refused write stops the rest: the first schedule is taken
+    tab.widget.setStaggerConfirm([](QWidget *, const QString &) { return true; });
+    tab.client.files.insert("WeeklyCycle-0801", "Schedule {\n  Name = \"WeeklyCycle-0801\"\n}\n");
+    int creates = 0;
+    tab.client.intercept = [&](const BConfig::Request &r) -> std::optional<BConfig::Reply> {
+        if (r.kind == BConfig::Request::Create && ++creates == 1) {
+            BConfig::Reply reply;
+            reply.status = BConfig::Status::Invalid;
+            reply.message = "refused";
+            return reply;
+        }
+        return std::nullopt;
+    };
+    QSignalSpy status(&tab.widget, &BScheduleWidget::statusMessageChanged);
+    apply->click();
+    QTRY_VERIFY_WITH_TIMEOUT(!status.isEmpty() && status.last().at(0).toString().contains("failed"), 3000);
+    QCOMPARE(tab.client.writes().size(), 1);    // the refused create, nothing after it
+    QVERIFY2(status.last().at(0).toString().contains("Written before: nothing"),
+             qPrintable(status.last().at(0).toString()));
 }
 
 void BScheduleTimelineTest::themedToolbarCutsNoButtonAndWeekHasCalendar()

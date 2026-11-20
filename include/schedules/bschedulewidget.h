@@ -165,6 +165,10 @@ public:
 
     /// The dialogs of that flow; tests put their own answers in
     void setSaveUi(BScheduleSaveUi *ui);
+    /// Asks the user to confirm the summary of a stagger proposal before
+    /// anything is written; the default shows a dialog (tests answer it)
+    using StaggerConfirm = std::function<bool(QWidget *parent, const QString &summary)>;
+    void setStaggerConfirm(StaggerConfirm confirm) { m_staggerConfirm = std::move(confirm); }
 
     /// The grid on display (tests)
     BScheduleGridView *gridView() const { return m_gridView; }
@@ -295,6 +299,10 @@ private:
     /// Per job: how far its Run lines can move without crossing midnight;
     /// 0 for a job whose lines run at several hours or are not understood
     QHash<QString, int> staggerBounds(QHash<QString, QString> *schedules) const;
+    /// Writes the proposal: the new schedules, then the jobs' Schedule
+    /// directives, after one confirmation of everything
+    void applyStagger();
+    void updateStaggerApply();
     /**
      * @brief Replays the Director's queue for the dates on display and
      *        hands the result to the timelines, the counter and the list
@@ -444,6 +452,9 @@ private:
     QTableWidget *m_staggerTable = nullptr;
     QPushButton *m_staggerButton = nullptr;
     BWaitStagger::Proposal m_staggerProposal;
+    QPushButton *m_staggerApplyButton = nullptr;
+    bool m_staggerApplying = false;
+    StaggerConfirm m_staggerConfirm;
 
     // Stats panel
     QGroupBox *m_statsPanel;

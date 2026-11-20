@@ -1,4 +1,10 @@
 #include "schedules/bschedulewidget.h"
+#include "schedules/bstaggerplan.h"
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFontDatabase>
+#include <QPlainTextEdit>
+#include <memory>
 #include <QApplication>
 #include <QTime>
 #include "schedules/bschedulelegend.h"
@@ -1679,6 +1685,7 @@ void BScheduleWidget::updateWritable()
     // A text read with another session's rights is not kept
     if (!caps.known)
         m_persistence->forget();
+    updateStaggerApply();
 }
 
 void BScheduleWidget::onGridSaveRequested()
@@ -2975,6 +2982,9 @@ void BScheduleWidget::setupStaggerPanel()
     m_staggerSummary->setWordWrap(true);
     m_staggerSummary->setTextInteractionFlags(Qt::TextSelectableByMouse);
     row->addWidget(m_staggerSummary, 1);
+    m_staggerApplyButton = new QPushButton(tr("Apply..."), m_staggerPage);
+    connect(m_staggerApplyButton, &QPushButton::clicked, this, &BScheduleWidget::applyStagger);
+    row->addWidget(m_staggerApplyButton, 0, Qt::AlignTop);
     layout->addLayout(row);
 
     m_staggerTable = new QTableWidget(0, 8, m_staggerPage);
@@ -3006,6 +3016,23 @@ void BScheduleWidget::clearStagger(const QString &why)
     m_staggerSummary->setText(why.isEmpty()
         ? tr("No proposal yet.")
         : why);
+    updateStaggerApply();
+}
+
+void BScheduleWidget::updateStaggerApply()
+{
+    if (!m_staggerApplyButton)
+        return;
+    const BConfig::Capabilities caps = m_configClient ? m_configClient->capabilities() : BConfig::Capabilities();
+    const bool writable = caps.supports(BConfig::ResourceType::Schedule, BConfig::Operation::CreateRaw)
+                          && caps.supports(BConfig::ResourceType::Job, BConfig::Operation::ReadRaw)
+                          && caps.supports(BConfig::ResourceType::Job, BConfig::Operation::UpdateRaw);
+    m_staggerApplyButton->setEnabled(writable && !m_staggerApplying && m_staggerProposal.moved() > 0);
+    m_staggerApplyButton->setToolTip(writable
+        ? tr("Creates a schedule of its own for every job that starts later and sets the job's "
+             "Schedule to it; everything is shown once for confirmation first")
+        : tr("Needs the configuration methods of the gRPC interface of the Onesimus Director "
+             "(create schedules, read and change jobs), which are not available on this connection"));
 }
 
 QHash<QString, int> BScheduleWidget::staggerBounds(QHash<QString, QString> *schedules) const
@@ -3118,4 +3145,197 @@ void BScheduleWidget::proposeStagger()
             m_staggerTable->setItem(row, column, new QTableWidgetItem(cells[column]));
     }
     m_staggerTable->resizeColumnsToContents();
+    updateStaggerApply();
+}
+
+namespace {
+
+bool confirmStaggerDialog(QWidget *parent, const QString &summary)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(BScheduleWidget::tr("Apply the later start times"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *intro = new QLabel(BScheduleWidget::tr("These resources are written to the Director, in this "
+                                                 "order. The Director checks each one; the first that it "
+                                                 "refuses stops the rest."), &dialog);
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    auto *text = new QPlainTextEdit(summary, &dialog);
+    text->setReadOnly(true);
+    text->setLineWrapMode(QPlainTextEdit::NoWrap);
+    text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    text->setMinimumSize(BUiScale::px(560), BUiScale::px(320));
+    layout->addWidget(text, 1);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
+    buttons->addButton(BScheduleWidget::tr("Apply"), QDialogButtonBox::AcceptRole);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    return dialog.exec() == QDialog::Accepted;
+}
+
+} // namespace
+
+void BScheduleWidget::applyStagger()
+{
+    if (m_staggerApplying || m_staggerProposal.moved() == 0 || !m_configClient)
+        return;
+
+    // One schedule per base schedule and number of minutes; the jobs of it
+    struct Group {
+        QString base;
+        int minutes = 0;
+        QString name;
+        QString text;
+        QStringList jobs;
+    };
+    QHash<QString, QString> scheduleOf;
+    staggerBounds(&scheduleOf);
+    QList<Group> groups;
+    QStringList taken;
+    for (const BSchedule &schedule : m_scheduleModel->schedules())
+        taken.append(schedule.name);
+    for (const BWaitStagger::Shift &shift : m_staggerProposal.shifts) {
+        if (shift.minutes <= 0) continue;
+        const QString base = scheduleOf.value(shift.job);
+        auto it = std::find_if(groups.begin(), groups.end(), [&](const Group &g) {
+            return g.base == base && g.minutes == shift.minutes;
+        });
+        if (it != groups.end()) {
+            it->jobs.append(shift.job);
+            continue;
+        }
+        const BSchedule schedule = m_scheduleModel->schedule(base);
+        Group group;
+        group.base = base;
+        group.minutes = shift.minutes;
+        group.jobs.append(shift.job);
+        QStringList lines;
+        QString error;
+        if (!BStaggerPlan::shiftedRunLines(schedule, shift.minutes, &lines, &error)) {
+            emit statusMessageChanged(tr("Nothing was written: %1").arg(error));
+            return;
+        }
+        group.name = BStaggerPlan::scheduleName(base, BStaggerPlan::firstStart(schedule, shift.minutes), taken);
+        taken.append(group.name);
+        // Configuration text, not interface text: it stays English in the file
+        group.text = BStaggerPlan::scheduleText(
+            group.name,
+            QStringLiteral("Copy of %1, %2 min later (staggered with Onesimus)").arg(base).arg(shift.minutes),
+            lines);
+        groups.append(group);
+    }
+
+    // The jobs' texts as they are on the Director, then everything at once
+    // for the confirmation
+    struct State {
+        QList<Group> groups;
+        QStringList jobs;
+        QHash<QString, BConfig::Reply> read;
+        int pending = 0;
+        QString failure;
+    };
+    auto state = std::make_shared<State>();
+    state->groups = groups;
+    for (const Group &g : groups) state->jobs << g.jobs;
+    state->pending = state->jobs.size();
+    m_staggerApplying = true;
+    updateStaggerApply();
+    emit statusMessageChanged(tr("Reading the jobs that start later..."));
+
+    auto finish = [this](const QString &message, bool reload) {
+        m_staggerApplying = false;
+        emit statusMessageChanged(message);
+        if (reload) {
+            clearStagger(message);
+            emit sendCommand(BDirector::Command::ShowJobs, QString());
+            if (m_connected) onRefreshClicked();
+        } else {
+            updateStaggerApply();
+        }
+    };
+
+    auto writeAll = [this, state, finish]() {
+        // Requests in order: the schedules first, the jobs refer to them
+        QList<BConfig::Request> steps;
+        QStringList what;
+        QString summary;
+        for (const Group &g : state->groups) {
+            steps.append(BConfig::Request::create(BConfig::ResourceType::Schedule, g.text, false));
+            what.append(tr("schedule %1").arg(g.name));
+            summary += tr("New schedule %1 for %2:").arg(g.name, g.jobs.join(QStringLiteral(", ")))
+                       + QLatin1Char('\n') + g.text + QLatin1Char('\n');
+        }
+        summary += tr("Jobs:") + QLatin1Char('\n');
+        for (const Group &g : state->groups) {
+            for (const QString &job : g.jobs) {
+                const BConfig::Reply &raw = state->read.value(job);
+                const QString text = BStaggerPlan::jobWithSchedule(raw.text, g.name);
+                if (text.isEmpty()) {
+                    finish(tr("Nothing was written: the text of job %1 has no closing brace.").arg(job), false);
+                    return;
+                }
+                steps.append(BConfig::Request::update(BConfig::ResourceType::Job, job, raw.sha256, text, false));
+                what.append(tr("job %1").arg(job));
+                const QString before = BStaggerPlan::scheduleLine(raw.text);
+                summary += QStringLiteral("  %1: %2  ->  %3\n").arg(
+                    job, before.isEmpty() ? tr("(Schedule from its JobDefs)") : before,
+                    BStaggerPlan::scheduleLine(text));
+            }
+        }
+        const StaggerConfirm confirm = m_staggerConfirm ? m_staggerConfirm : confirmStaggerDialog;
+        if (!confirm(this, summary)) {
+            finish(tr("Nothing was written: the later start times were not confirmed."), false);
+            return;
+        }
+
+        auto done = std::make_shared<QStringList>();
+        auto next = std::make_shared<std::function<void(int)>>();
+        // The chain holds itself only through the pending call
+        std::weak_ptr<std::function<void(int)>> chain = next;
+        *next = [this, steps, what, done, chain, finish](int index) {
+            const auto next = chain.lock();
+            if (!next) return;
+            if (index >= steps.size()) {
+                finish(tr("Written: %1. The jobs start at their new times from now on.")
+                           .arg(done->join(QStringLiteral(", "))), true);
+                return;
+            }
+            emit statusMessageChanged(tr("Writing %1...").arg(what[index]));
+            m_configClient->call(steps[index], this, [this, index, what, done, next, finish](const BConfig::Reply &reply) {
+                if (!reply.ok()) {
+                    QString why = reply.message.isEmpty() ? reply.rpcMessage : reply.message;
+                    if (reply.problem) why += QStringLiteral(" (%1)").arg(reply.problem->text);
+                    if (reply.status == BConfig::Status::Conflict)
+                        why = tr("it was changed on the Director in the meantime");
+                    else if (reply.status == BConfig::Status::Exists)
+                        why = tr("the name is taken");
+                    const QString written = done->isEmpty() ? tr("nothing")
+                                                            : done->join(QStringLiteral(", "));
+                    finish(tr("Writing %1 failed: %2. Written before: %3. Nothing after it was sent.")
+                               .arg(what[index], why, written), !done->isEmpty());
+                    return;
+                }
+                done->append(what[index]);
+                (*next)(index + 1);
+            });
+        };
+        (*next)(0);
+    };
+
+    for (const QString &job : state->jobs) {
+        m_configClient->call(BConfig::Request::read(BConfig::ResourceType::Job, job), this,
+                             [this, state, job, writeAll, finish](const BConfig::Reply &reply) {
+            if (reply.ok()) state->read.insert(job, reply);
+            else if (state->failure.isEmpty())
+                state->failure = tr("Nothing was written: job %1 could not be read (%2).")
+                                     .arg(job, reply.message.isEmpty() ? reply.rpcMessage : reply.message);
+            if (--state->pending > 0) return;
+            if (!state->failure.isEmpty()) {
+                finish(state->failure, false);
+                return;
+            }
+            writeAll();
+        });
+    }
 }
