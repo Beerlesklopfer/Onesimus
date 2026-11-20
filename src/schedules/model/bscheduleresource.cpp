@@ -40,6 +40,45 @@ QString BScheduleResource::quoted(const QString &value)
     return BResourceText::quoted(value);
 }
 
+QString BScheduleResource::nameProblem(const QString &name, const QStringList &taken)
+{
+    if (name.isEmpty())
+        return tr("The name is empty.");
+    if (name.size() > 127)
+        return tr("The name is longer than 127 characters.");
+    static const QRegularExpression valid(QStringLiteral("^[A-Za-z0-9_.:-]+$"));
+    if (!valid.match(name).hasMatch())
+        return tr("A name may contain only letters, digits and the characters _ - . : (no blanks).");
+    for (const QString &other : taken) {
+        if (other.compare(name, Qt::CaseInsensitive) == 0)
+            return tr("There is already a schedule named %1.").arg(other);
+    }
+    return QString();
+}
+
+QString BScheduleResource::withName(const QString &raw, const QString &name)
+{
+    const Parsed parsed = parse(raw);
+    if (!parsed.ok || parsed.name.isEmpty())
+        return QString();
+    // The value of the one Name directive: quoted (with escapes) or a word
+    static const QRegularExpression nameRx(
+        QStringLiteral("^([ \\t]*name[ \\t]*=[ \\t]*)(\"(?:[^\"\\\\\\r\\n]|\\\\.)*\"|[^\\s;#\"]+)"),
+        QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption);
+    QRegularExpressionMatchIterator it = nameRx.globalMatch(raw);
+    if (!it.hasNext())
+        return QString();
+    const QRegularExpressionMatch match = it.next();
+    if (it.hasNext())
+        return QString();
+    QString text = raw;
+    text.replace(match.capturedStart(2), match.capturedLength(2), quoted(name));
+    const Parsed check = parse(text);
+    if (!check.ok || check.name != name || check.runs.size() != parsed.runs.size())
+        return QString();
+    return text;
+}
+
 BScheduleResource::Parsed BScheduleResource::parse(const QString &text)
 {
     Parsed parsed;

@@ -103,6 +103,16 @@ class BScheduleSaveDialogs;
  *  - "Delete..." deletes the schedule on display (DeleteResource); a
  *    schedule the Director still finds referenced is not deleted, and the
  *    references are shown (gate: setScheduleDeleteGate()).
+ *  - "Copy..." creates a schedule with the Run lines and the Description of
+ *    the one on display (CreateResource, the review of a create).
+ *  - "Rename...": the Director has no rename of its own, so it is a copy
+ *    under the new name (the file's text with only its Name changed), every
+ *    job that names the old schedule changed to it (UpdateResource with the
+ *    SHA-256 read), and the old schedule deleted; shown once, then written
+ *    step by step, the first refusal stopping the rest.
+ *  - A drop on a schedule that more than one job uses asks first
+ *    (setDragScopeQuestion()): change the schedule for all its jobs, or move
+ *    only the dragged job, which gets a copy "<name>-HHMM" with the new time.
  *  - A schedule with a Run line that is not understood is locked: the grid
  *    cannot edit it and a drag of one of its bars is refused.
  *
@@ -169,6 +179,44 @@ public:
     /// anything is written; the default shows a dialog (tests answer it)
     using StaggerConfirm = std::function<bool(QWidget *parent, const QString &summary)>;
     void setStaggerConfirm(StaggerConfirm confirm) { m_staggerConfirm = std::move(confirm); }
+
+    /**
+     * @brief Asks for the name of a copy or of a renamed schedule
+     * @param problem Why a name cannot be taken (empty: it can), for the
+     *        dialog to say so while the user types
+     * @return the name; empty if the user cancelled
+     *
+     * The default shows a dialog; tests answer it. The widget checks the
+     * answer again before anything is sent.
+     */
+    using ScheduleNamePrompt = std::function<QString(QWidget *parent, const QString &title, const QString &label,
+                                                     const QString &suggestion,
+                                                     const std::function<QString(const QString &)> &problem)>;
+    void setScheduleNamePrompt(ScheduleNamePrompt prompt) { m_namePrompt = std::move(prompt); }
+
+    /// Confirms a change of several resources (a rename, a move of one
+    /// job) before anything is written; the default shows a dialog
+    using ChangeConfirm = std::function<bool(QWidget *parent, const QString &title, const QString &summary)>;
+    void setChangeConfirm(ChangeConfirm confirm) { m_changeConfirm = std::move(confirm); }
+
+    /// What a drop of a bar of a schedule that several jobs use changes
+    enum class DragScope {
+        Cancel,     ///< Nothing
+        AllJobs,    ///< The schedule itself, for all its jobs
+        OneJob,     ///< A copy with the new time, assigned to the dragged job only
+    };
+    /**
+     * @brief Asked when a bar of a schedule that more than one job uses is
+     *        dropped
+     * @param jobs     The jobs that use the schedule
+     * @param job      The job of the dragged bar
+     * @param copyName The name the copy for that job would get
+     * @param newTime  The new time, "HH:MM"
+     */
+    using DragScopeQuestion = std::function<DragScope(QWidget *parent, const QString &schedule,
+                                                      const QStringList &jobs, const QString &job,
+                                                      const QString &copyName, const QString &newTime)>;
+    void setDragScopeQuestion(DragScopeQuestion question) { m_dragScopeQuestion = std::move(question); }
 
     /// The grid on display (tests)
     BScheduleGridView *gridView() const { return m_gridView; }
@@ -248,6 +296,10 @@ private slots:
     void onJobListDoubleClicked(int row, int column);
     void onGridSaveRequested();
     void onGridDeleteRequested();
+    /// "Copy...": a new schedule with the Run lines of the one on display
+    void onGridCopyRequested();
+    /// "Rename...": copy, jobs to the copy, delete the old one
+    void onGridRenameRequested();
     void onPersistenceFinished(const BScheduleReport &report);
     void updateWritable();
 
@@ -303,6 +355,56 @@ private:
     /// directives, after one confirmation of everything
     void applyStagger();
     void updateStaggerApply();
+
+    // --- Changes of several resources (stagger, rename, move of one job) ---
+
+    /// One write of such a change
+    struct ConfigStep
+    {
+        BConfig::Request request;
+        QString what;       ///< "schedule X", "job Y", for the status line
+    };
+    /// The end of such a change: the status line, and whether something
+    /// was written (the schedules and jobs are then read again)
+    using ChangeFinish = std::function<void(const QString &message, bool written)>;
+    /**
+     * @brief Reads the raw text of resources (ReadResource), all at once
+     *
+     * Calls @p next with the replies by name once all are there; if one
+     * cannot be read, @p finish says so and nothing else happens.
+     */
+    void readResources(BConfig::ResourceType type, const QStringList &names,
+                       std::function<void(const QHash<QString, BConfig::Reply> &)> next, ChangeFinish finish);
+    /**
+     * @brief Sends @p steps one after the other
+     *
+     * The first that the Director refuses stops the rest; the status line
+     * then says what was written before. @p doneText is the message after
+     * the last one, with "%1" for the list of what was written.
+     */
+    void writeSteps(const QList<ConfigStep> &steps, const QString &doneText, ChangeFinish finish);
+    /// Asks the user to confirm a change of several resources
+    bool confirmChange(const QString &title, const QString &summary);
+    /// The text of a new schedule with these Run lines (BScheduleResource::createText),
+    /// "Enabled = no" if the schedule it is copied from is disabled
+    static QString copyText(const QString &name, const QString &description, const QStringList &runs,
+                            bool enabled);
+    /// The names of the schedules there are
+    QStringList scheduleNames() const;
+    /// Asks for a name with the prompt; empty if cancelled or not valid
+    /// (the status line then says why)
+    QString askScheduleName(const QString &title, const QString &label, const QString &suggestion);
+    /// Whether the connection can rename; @p whyNot otherwise
+    bool canRename(QString *whyNot = nullptr) const;
+    /// Whether the connection can give one job a copy of its schedule
+    bool canMoveOneJob() const;
+    /**
+     * @brief A drop that moves one job only: the schedule is copied with
+     *        the dragged line at its new time and assigned to that job
+     */
+    void moveOneJob(const BScheduleEntry &entry, const BSchedule &loaded, int line, const QString &newRun,
+                    const QString &copyName, const QString &newTime);
+    bool m_changeRunning = false;   ///< A rename or a move of one job is under way
     /**
      * @brief Replays the Director's queue for the dates on display and
      *        hands the result to the timelines, the counter and the list
@@ -457,6 +559,9 @@ private:
     QPushButton *m_staggerApplyButton = nullptr;
     bool m_staggerApplying = false;
     StaggerConfirm m_staggerConfirm;
+    ScheduleNamePrompt m_namePrompt;
+    ChangeConfirm m_changeConfirm;
+    DragScopeQuestion m_dragScopeQuestion;
 
     // Stats panel
     QGroupBox *m_statsPanel;

@@ -116,6 +116,34 @@ QString scheduleLine(const QString &jobText)
     return match.hasMatch() ? match.captured(0).trimmed() : QString();
 }
 
+QString scheduleValue(const QString &jobText)
+{
+    const QString line = scheduleLine(jobText);
+    const int eq = line.indexOf(QLatin1Char('='));
+    if (eq < 0)
+        return QString();
+    const QString value = line.mid(eq + 1).trimmed();
+    if (value.startsWith(QLatin1Char('"'))) {
+        // Up to the closing quote; \" and \\ are escapes
+        QString out;
+        for (int i = 1; i < value.size(); ++i) {
+            const QChar c = value[i];
+            if (c == QLatin1Char('\\') && i + 1 < value.size()) {
+                out += value[++i];
+                continue;
+            }
+            if (c == QLatin1Char('"'))
+                break;
+            out += c;
+        }
+        return out;
+    }
+    // Unquoted: up to a blank, a comment or a semicolon
+    static const QRegularExpression end(QStringLiteral("[\\s#;]"));
+    const int stop = value.indexOf(end);
+    return stop < 0 ? value : value.left(stop);
+}
+
 QString jobWithSchedule(const QString &jobText, const QString &schedule)
 {
     const int close = jobText.lastIndexOf(QLatin1Char('}'));
