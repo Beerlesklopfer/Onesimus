@@ -67,6 +67,8 @@ private slots:
     void twoRunsAtOneStorageAreSpread();
     void threeRunsEachGetTheirTurn();
     void catalogStaysLast();
+    void gridOfAQuarterHour();
+    void takenAlongNoFurtherThanItsBound();
     void waitForPriorityIsNotMoved();
     void jobThatMayNotMoveStays();
     void runsOfTheDayBeforeAreNotCounted();
@@ -106,24 +108,69 @@ void BWaitStaggerTest::threeRunsEachGetTheirTurn()
 
 void BWaitStaggerTest::catalogStaysLast()
 {
-    // The catalog backup five minutes later, at a lower priority: the
-    // backups may move up to its moment, not beyond it
+    // The catalog backup five minutes later, at a lower priority: a backup
+    // that moves past it takes it along, so that it still runs last
     const QList<BWaitRun> runs = {run("a", at(20, 23, 5), 10), run("b", at(20, 23, 5), 10),
                                   run("catalog", at(20, 23, 10), 1, 11)};
     const BWaitStagger::Proposal p =
         BWaitStagger::propose(runs, oneAtTheStorage(runs), at(20, 0, 0));
-    const BWaitStagger::Shift *b = shiftOf(p, "b");
-    QVERIFY(b);
-    QCOMPARE(b->boundMinutes, 5);
-    QCOMPARE(b->boundJob, QString("catalog"));
-    QCOMPARE(b->boundAt, at(20, 23, 10));
-    QCOMPARE(b->minutes, 5);
-    QCOMPARE(b->waitAfterSecs, qint64(300));
-    QCOMPARE(shiftOf(p, "catalog")->minutes, 0);
-    // Still in that order: the catalog starts after both backups
+    QCOMPARE(p.totalAfterSecs, qint64(0));
+    QCOMPARE(shiftOf(p, "b")->minutes, 10);
+    QVERIFY(shiftOf(p, "b")->follows.isEmpty());
+    QCOMPARE(shiftOf(p, "catalog")->minutes, 5);           // 23:15, with b
+    QCOMPARE(shiftOf(p, "catalog")->follows, QString("b"));
     const QDateTime catalogStart = p.results[2].start;
     QVERIFY(catalogStart >= p.results[0].end);
     QVERIFY(catalogStart >= p.results[1].end);
+}
+
+void BWaitStaggerTest::gridOfAQuarterHour()
+{
+    BWaitStagger::Options options;
+    options.gridMinutes = 15;
+    // 23:05: the next places are 23:15, 23:30, 23:45
+    const QList<BWaitRun> two = {run("a", at(20, 23, 5), 10), run("b", at(20, 23, 5), 10)};
+    BWaitStagger::Proposal p = BWaitStagger::propose(two, oneAtTheStorage(two), at(20, 0, 0), options);
+    QCOMPARE(p.totalAfterSecs, qint64(0));
+    QCOMPARE(shiftOf(p, "b")->minutes, 10);
+    QCOMPARE(p.runs[1].scheduled, at(20, 23, 15));
+
+    // Three of 20 minutes: one stays, the others go to the next free places
+    const QList<BWaitRun> three = {run("a", at(20, 23, 5), 20), run("b", at(20, 23, 5), 20),
+                                   run("c", at(20, 23, 5), 20)};
+    p = BWaitStagger::propose(three, oneAtTheStorage(three), at(20, 0, 0), options);
+    QCOMPARE(p.totalAfterSecs, qint64(0));
+    for (const BWaitRun &r : p.runs) {
+        QVERIFY2(r.scheduled.time() == QTime(23, 5) || r.scheduled.time().minute() % 15 == 0,
+                 qPrintable(r.scheduled.toString()));
+    }
+    QList<int> minutes;
+    for (const BWaitStagger::Shift &s : p.shifts) minutes.append(s.minutes);
+    std::sort(minutes.begin(), minutes.end());
+    // 23:05 to 23:25, 23:30 to 23:50, then 00:00 (23:45 is taken)
+    QCOMPARE(minutes, (QList<int>{0, 25, 55}));
+
+    // The catalog at 23:10 goes along to the latest of them, on its grid
+    const QList<BWaitRun> withCatalog = {run("a", at(20, 23, 5), 10), run("b", at(20, 23, 5), 10),
+                                         run("catalog", at(20, 23, 10), 1, 11)};
+    p = BWaitStagger::propose(withCatalog, oneAtTheStorage(withCatalog), at(20, 0, 0), options);
+    QCOMPARE(shiftOf(p, "b")->minutes, 10);
+    QCOMPARE(p.runs[2].scheduled, at(20, 23, 15));
+    QVERIFY(p.results[2].start >= p.results[1].end);
+}
+
+void BWaitStaggerTest::takenAlongNoFurtherThanItsBound()
+{
+    // The catalog may not move: b may then not pass it
+    const QList<BWaitRun> runs = {run("a", at(20, 23, 5), 10), run("b", at(20, 23, 5), 10),
+                                  run("catalog", at(20, 23, 10), 1, 11)};
+    BWaitStagger::Options options;
+    options.jobMaxMinutes.insert(QStringLiteral("catalog"), 0);
+    const BWaitStagger::Proposal p =
+        BWaitStagger::propose(runs, oneAtTheStorage(runs), at(20, 0, 0), options);
+    QCOMPARE(shiftOf(p, "catalog")->minutes, 0);
+    QVERIFY(shiftOf(p, "b")->minutes <= 5);
+    QVERIFY(p.runs[1].scheduled <= p.runs[2].scheduled);
 }
 
 void BWaitStaggerTest::waitForPriorityIsNotMoved()

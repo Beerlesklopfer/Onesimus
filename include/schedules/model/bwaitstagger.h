@@ -14,9 +14,9 @@
  *
  * Jobs that are scheduled for the same moment and share a limit (a storage,
  * a client, the slots of the Director, the parallel writers of a device)
- * wait for each other. This file looks for start times, a few minutes later
- * per job, under which the replayed queue (BScheduleWaitModel::predict())
- * waits less. It changes nothing: it proposes.
+ * wait for each other. This file looks for start times, later per job,
+ * under which the replayed queue (BScheduleWaitModel::predict()) waits
+ * less. It changes nothing: it proposes.
  *
  * What counts as waiting ("avoidable"): the time a run is held by a limit
  * (BWaitHold::Reason DirectorLimit, StorageLimit, ClientLimit, JobLimit)
@@ -25,11 +25,21 @@
  * backup behind the backups of the night: that is not counted, and such a
  * run is not moved for it.
  *
+ * Where a job may start: all runs of a job move together by the same number
+ * of minutes (the job gets a schedule of its own, later by that much), only
+ * later, never earlier. With Options::gridMinutes (the GUI: 15) the first
+ * run of the job lands on a multiple of it on the clock (23:05 -> 23:15,
+ * 23:30 ...), which leaves room for a run that lasts longer than measured;
+ * without it the offsets go in steps of Options::stepMinutes.
+ *
+ * The order of priorities is kept: a run stays before (or at) every run of
+ * a lower priority (a higher number) that was scheduled after it on its
+ * day, so that a catalog backup still runs after the backups. A job that
+ * moves past such a run takes that job along to its own new time (on the
+ * grid as well); at the same moment the queue puts the higher priority
+ * first. A move that would push such a job beyond its bound is not tried.
+ *
  * The search, greedy and repeatable:
- *  - All runs of a job move together by the same number of minutes (the
- *    job gets a schedule of its own, later by that much); only later,
- *    never earlier, in steps of Options::stepMinutes (a minute: what a
- *    Run line can say).
  *  - The job that waits longest is tried first. For it every offset up to
  *    its bound is replayed with the others as they are; the smallest offset
  *    with the least avoidable wait of all counted runs wins if it is less
@@ -37,13 +47,9 @@
  *    Options::passes times, until nothing gets better.
  *  - At the end every moved job is tried again with smaller offsets: one
  *    that waits no more for it moves less.
- * A job's bound is the smallest of Options::maxMinutes, the bound the
+ * A job's bound is the smaller of Options::maxMinutes and the bound the
  * caller gives (Run lines that would cross midnight, lines that cannot be
- * moved) and the order of priorities: a run must stay before every run of
- * a lower priority (a higher number) that was scheduled after it on its
- * day, so that a catalog backup still runs after the backups. It may reach
- * the moment of that run: at the same moment the queue puts the higher
- * priority first.
+ * moved).
  *
  * The prediction is the first replay of BScheduleWaitModel (in favour of
  * the runs): a run that was never measured ends the moment it starts. What
@@ -54,6 +60,8 @@ namespace BWaitStagger {
 struct Options
 {
     int stepMinutes = 1;
+    /// > 0: a job's first run lands on a multiple of this on the clock
+    int gridMinutes = 0;
     int maxMinutes = 60;
     int passes = 3;
     /// Per job: the most it may move, in minutes; a job not in the map
@@ -69,10 +77,9 @@ struct Shift
     qint64 waitBeforeSecs = 0;  ///< Avoidable wait of its counted runs, as scheduled now
     qint64 waitAfterSecs = 0;   ///< ... with every proposed shift
     int boundMinutes = 0;       ///< The most it was allowed to move
-    /// The run of a lower priority that bounds it (it must not start
-    /// after it); empty if the bound is another one
-    QString boundJob;
-    QDateTime boundAt;          ///< When that run is scheduled
+    /// Moved only to stay after this job of a higher priority (empty: moved
+    /// for its own wait, or not at all)
+    QString follows;
 };
 
 struct Proposal

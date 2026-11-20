@@ -14315,7 +14315,7 @@ It is kept exactly as it is. To replace it, remove it and add a new run.</source
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="125" />
         <location filename="../src/schedules/bschedulewidget.cpp" line="832" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3269" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3271" />
         <source>Jobs:</source>
         <translation>Jobs:</translation>
     </message>
@@ -14404,7 +14404,7 @@ It is kept exactly as it is. To replace it, remove it and add a new run.</source
         <location filename="../src/schedules/bschedulewidget.cpp" line="342" />
         <location filename="../src/schedules/bschedulewidget.cpp" line="1827" />
         <location filename="../src/schedules/bschedulewidget.cpp" line="2262" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2992" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
         <source>Job</source>
         <translation>Job</translation>
     </message>
@@ -14941,101 +14941,111 @@ It is kept exactly as it is. To replace it, remove it and add a new run.</source
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="2967" />
-        <source>Jobs that are scheduled for the same moment and share a limit (a storage, a client, the job slots of the Director, the parallel writers of a device) wait for each other. The proposal starts some of them a few minutes later, so that they wait less on the dates on display. A wait for a higher priority is meant to be and is not counted; a job stays before every job of a lower priority that follows it. Nothing is changed on the Director.</source>
-        <translation>Job, запланированные на один и тот же момент и делящие общий лимит (Storage, Client, слоты Job у Director, параллельные записи устройства), ждут друг друга. Предложение запускает некоторые из них на несколько минут позже, чтобы в показанные дни они ждали меньше. Ожидание из-за более высокого приоритета предусмотрено и не учитывается; Job остаётся перед каждым следующим за ним Job с более низким приоритетом. На Director ничего не изменяется.</translation>
+        <source>Jobs that are scheduled for the same moment and share a limit (a storage, a client, the job slots of the Director, the parallel writers of a device) wait for each other. The proposal starts some of them later, on a quarter hour (23:15, 23:30 ...), so that they wait less on the dates on display and have room to spare. A wait for a higher priority is meant to be and is not counted; a job of a lower priority that follows a moved job moves along, so that it still runs after it. Nothing is changed on the Director.</source>
+        <translation>Job, запланированные на один и тот же момент и делящие общий лимит (Storage, Client, слоты Job у Director, параллельные записи устройства), ждут друг друга. Предложение запускает некоторые из них позже, в начале четверти часа (23:15, 23:30 ...), чтобы в показанные дни они ждали меньше и имели запас. Ожидание из-за более высокого приоритета предусмотрено и не учитывается; Job с более низким приоритетом, следующий за сдвинутым Job, сдвигается вместе с ним, чтобы по-прежнему выполняться после него. На Director ничего не изменяется.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2976" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2978" />
+        <source>Replays the queue with the jobs moved quarter hour by quarter hour and keeps the smallest moves that wait least</source>
+        <translation>Проигрывает очередь со сдвигом Job по четвертям часа и оставляет наименьшие сдвиги с наименьшим ожиданием</translation>
+    </message>
+    <message>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3132" />
+        <source>Stays: a Run line of its schedule runs at several hours, is not understood or would move into the next day</source>
+        <translation>Остаётся: строка Run его Schedule выполняется в несколько часов, не распознана или перешла бы на следующий день</translation>
+    </message>
+    <message>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3135" />
+        <source>Moves along to run after %1, which has a higher priority</source>
+        <translation>Сдвигается, чтобы выполняться после %1 с более высоким приоритетом</translation>
+    </message>
+    <message>
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2977" />
         <source>Propose later start times</source>
         <translation>Предложить более позднее время запуска</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2977" />
-        <source>Replays the queue with the jobs moved minute by minute and keeps the smallest moves that wait least</source>
-        <translation>Проигрывает очередь со сдвигом Job по минутам и оставляет наименьшие сдвиги с наименьшим ожиданием</translation>
-    </message>
-    <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2985" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2986" />
         <source>Apply...</source>
         <translation>Применить...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2992" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
         <source>Schedule</source>
         <translation>Schedule</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2992" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
         <source>Start now</source>
         <translation>Запуск сейчас</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2992" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
         <source>Proposed start</source>
         <translation>Предлагаемый запуск</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2992" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
         <source>Later by</source>
         <translation>Позже на</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2994" />
         <source>Wait now</source>
         <translation>Ожидание сейчас</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2994" />
         <source>Wait then</source>
         <translation>Ожидание потом</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2993" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2994" />
         <source>Note</source>
         <translation>Примечание</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2995" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2996" />
         <source>Time held by a limit or waiting for a device, summed over the job's runs on the dates on display</source>
         <translation>Время, которое Job удерживается лимитом или ждёт устройство, суммарно по его запускам в показанные дни</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="2997" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="2998" />
         <source>Proposed later start times</source>
         <translation>Предлагаемое более позднее время запуска</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3017" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3018" />
         <source>No proposal yet.</source>
         <translation>Предложения пока нет.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3032" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3033" />
         <source>Creates a schedule of its own for every job that starts later and sets the job's Schedule to it; everything is shown once for confirmation first</source>
         <translation>Создаёт отдельный Schedule для каждого Job, который запускается позже, и переключает Schedule этого Job на него; сначала всё показывается один раз для подтверждения</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3034" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3035" />
         <source>Needs the configuration methods of the gRPC interface of the Onesimus Director (create schedules, read and change jobs), which are not available on this connection</source>
         <translation>Требуются методы конфигурации gRPC-интерфейса Onesimus Director (создание Schedule, чтение и изменение Job), недоступные в этом подключении</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3070" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3071" />
         <source>Nothing to stagger: the waits are not predicted (the jobs or the history are not loaded yet).</source>
         <translation>Нечего распределять: ожидания не предсказаны (Job или история ещё не загружены).</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3085" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3088" />
         <source>Nothing to stagger: no run on the dates on display waits for a limit or a device.</source>
         <translation>Нечего распределять: ни один запуск в показанные дни не ждёт лимит или устройство.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3088" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3091" />
         <source>No later start helps: avoidable wait %1. See the notes of the jobs.</source>
         <translation>Более поздний запуск не помогает: устранимое ожидание %1. См. примечания к Job.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3091" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3094" />
         <source>Avoidable wait on the dates on display: now %1, with the proposal %2. %n job(s) start later.</source>
         <translation>
             <numerusform>Устранимое ожидание в показанные дни: сейчас %1, с предложением %2. %n Job запускается позже.</numerusform>
@@ -15044,22 +15054,12 @@ It is kept exactly as it is. To replace it, remove it and add a new run.</source
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3129" />
-        <source>Stays: a Run line of its schedule runs at several hours or is not understood</source>
-        <translation>Остаётся: строка Run его Schedule выполняется в несколько часов или не распознана</translation>
-    </message>
-    <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3131" />
-        <source>Stays before %1 at %2, a job of a lower priority</source>
-        <translation>Остаётся перед %1 в %2 — Job с более низким приоритетом</translation>
-    </message>
-    <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3135" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3137" />
         <source>A later start does not help</source>
         <translation>Более поздний запуск не помогает</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3140" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3142" />
         <source>%n min</source>
         <translation>
             <numerusform>%n мин</numerusform>
@@ -15068,87 +15068,87 @@ It is kept exactly as it is. To replace it, remove it and add a new run.</source
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3156" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3158" />
         <source>Apply the later start times</source>
         <translation>Применить более позднее время запуска</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3158" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3160" />
         <source>These resources are written to the Director, in this order. The Director checks each one; the first that it refuses stops the rest.</source>
         <translation>Эти ресурсы записываются в Director в указанном порядке. Director проверяет каждый; первый отклонённый останавливает остальные.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3170" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3172" />
         <source>Apply</source>
         <translation>Применить</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3216" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3218" />
         <source>Nothing was written: %1</source>
         <translation>Ничего не записано: %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3244" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3246" />
         <source>Reading the jobs that start later...</source>
         <translation>Чтение Job, которые запускаются позже...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3265" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3267" />
         <source>schedule %1</source>
         <translation>Schedule %1</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3266" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3268" />
         <source>New schedule %1 for %2:</source>
         <translation>Новый Schedule %1 для %2:</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3275" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3277" />
         <source>Nothing was written: the text of job %1 has no closing brace.</source>
         <translation>Ничего не записано: в тексте Job %1 нет закрывающей скобки.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3282" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3284" />
         <source>(Schedule from its JobDefs)</source>
         <translation>(Schedule из его JobDefs)</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3288" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3290" />
         <source>Nothing was written: the later start times were not confirmed.</source>
         <translation>Ничего не записано: более позднее время запуска не подтверждено.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3300" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3302" />
         <source>Written: %1. The jobs start at their new times from now on.</source>
         <translation>Записано: %1. Теперь Job запускаются в новое время.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3304" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3306" />
         <source>Writing %1...</source>
         <translation>Запись %1...</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3310" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3312" />
         <source>it was changed on the Director in the meantime</source>
         <translation>он был изменён в Director за это время</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3312" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3314" />
         <source>the name is taken</source>
         <translation>имя уже занято</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3313" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3315" />
         <source>nothing</source>
         <translation>ничего</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3315" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3317" />
         <source>Writing %1 failed: %2. Written before: %3. Nothing after it was sent.</source>
         <translation>Не удалось записать %1: %2. Записано ранее: %3. Дальше ничего не отправлено.</translation>
     </message>
     <message>
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3331" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3333" />
         <source>Nothing was written: job %1 could not be read (%2).</source>
         <translation>Ничего не записано: не удалось прочитать Job %1 (%2).</translation>
     </message>
@@ -15340,7 +15340,7 @@ It is kept exactly as it is. To replace it, remove it and add a new run.</source
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="2602" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3279" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3281" />
         <source>job %1</source>
         <translation>Job %1</translation>
     </message>
@@ -15381,8 +15381,8 @@ It is kept exactly as it is. To replace it, remove it and add a new run.</source
     </message>
     <message>
         <location filename="../src/schedules/bschedulewidget.cpp" line="2687" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3096" />
-        <location filename="../src/schedules/bschedulewidget.cpp" line="3142" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3099" />
+        <location filename="../src/schedules/bschedulewidget.cpp" line="3144" />
         <source>none</source>
         <translation>нет</translation>
     </message>

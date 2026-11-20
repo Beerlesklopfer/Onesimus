@@ -741,8 +741,8 @@ void BScheduleTimelineTest::staggerIsWrittenAfterOneConfirmation()
     apply->click();
     QTRY_COMPARE_WITH_TIMEOUT(tab.client.writes().size(), 4, 3000);
     QCOMPARE(asked, 1);
-    QVERIFY2(summary.contains("New schedule WeeklyCycle-0801"), qPrintable(summary));
-    QVERIFY2(summary.contains("New schedule WeeklyCycle-0802"), qPrintable(summary));
+    QVERIFY2(summary.contains("New schedule WeeklyCycle-0815"), qPrintable(summary));
+    QVERIFY2(summary.contains("New schedule WeeklyCycle-0830"), qPrintable(summary));
 
     // The two schedules first, then the two jobs that start later
     const QList<BConfig::Request> writes = tab.client.writes();
@@ -755,14 +755,14 @@ void BScheduleTimelineTest::staggerIsWrittenAfterOneConfirmation()
     QStringList created;
     for (int i = 0; i < 2; ++i) {
         const QString text = writes[i].text;
-        QVERIFY2(text.contains("Run = ") && (text.contains("at 08:01") || text.contains("at 08:02")),
+        QVERIFY2(text.contains("Run = ") && (text.contains("at 08:15") || text.contains("at 08:30")),
                  qPrintable(text));
         created << text.section('"', 1, 1);
     }
     created.sort();
-    QCOMPARE(created, (QStringList{"WeeklyCycle-0801", "WeeklyCycle-0802"}));
+    QCOMPARE(created, (QStringList{"WeeklyCycle-0815", "WeeklyCycle-0830"}));
     for (int i = 2; i < 4; ++i) {
-        QVERIFY2(writes[i].text.contains("Schedule = \"WeeklyCycle-080"), qPrintable(writes[i].text));
+        QVERIFY2(writes[i].text.contains("Schedule = \"WeeklyCycle-08"), qPrintable(writes[i].text));
         QCOMPARE(writes[i].text.count("Schedule ="), 1);
         // Sent with the SHA-256 of the text read: a change in between is a conflict
         QVERIFY(!writes[i].expectedSha256.isEmpty());
@@ -794,8 +794,7 @@ void BScheduleTimelineTest::staggerNotConfirmedWritesNothing()
 
     // A refused write stops the rest: the first schedule is taken
     tab.widget.setStaggerConfirm([](QWidget *, const QString &) { return true; });
-    tab.client.files.insert("WeeklyCycle-0801", "Schedule {\n  Name = \"WeeklyCycle-0801\"\n}\n");
-    int creates = 0;
+        int creates = 0;
     tab.client.intercept = [&](const BConfig::Request &r) -> std::optional<BConfig::Reply> {
         if (r.kind == BConfig::Request::Create && ++creates == 1) {
             BConfig::Reply reply;
@@ -971,8 +970,8 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
         tab.widget.grab().save(qEnvironmentVariable("ONESIMUS_WAITS_PNG")
                                    .replace(QLatin1String(".png"), QLatin1String("-history.png")));
     }
-    // Staggered: the two that wait start a minute and two minutes later
-    // and wait no more; the first, which does not wait, stays
+    // Staggered on the quarter hour: the two that wait start at 08:15 and
+    // 08:30 and wait no more; the first, which does not wait, stays
     {
         QWidget *stagger = lower->findChild<QWidget *>(QStringLiteral("stagger"));
         QVERIFY(stagger);
@@ -992,7 +991,7 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
         // (which of them starts first at 08:00 is the order the history shows)
         QStringList moves = later.values();
         moves.sort();
-        QCOMPARE(moves, (QStringList{"1 min", "2 min"}));
+        QCOMPARE(moves, (QStringList{"15 min", "30 min"}));
         QCOMPARE(table->item(0, 6)->text(), QString("none"));
         bool summarised = false;
         for (QLabel *l : stagger->findChildren<QLabel *>()) {

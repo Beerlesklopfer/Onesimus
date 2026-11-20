@@ -2966,16 +2966,17 @@ void BScheduleWidget::setupStaggerPanel()
     intro->setWordWrap(true);
     intro->setText(tr("Jobs that are scheduled for the same moment and share a limit (a storage, "
                       "a client, the job slots of the Director, the parallel writers of a device) "
-                      "wait for each other. The proposal starts some of them a few minutes later, "
-                      "so that they wait less on the dates on display. A wait for a higher priority "
-                      "is meant to be and is not counted; a job stays before every job of a lower "
-                      "priority that follows it. Nothing is changed on the Director."));
+                      "wait for each other. The proposal starts some of them later, on a quarter hour "
+                      "(23:15, 23:30 ...), so that they wait less on the dates on display and have "
+                      "room to spare. A wait for a higher priority is meant to be and is not counted; "
+                      "a job of a lower priority that follows a moved job moves along, so that it "
+                      "still runs after it. Nothing is changed on the Director."));
     layout->addWidget(intro);
 
     auto *row = new QHBoxLayout;
     m_staggerButton = new QPushButton(tr("Propose later start times"), m_staggerPage);
-    m_staggerButton->setToolTip(tr("Replays the queue with the jobs moved minute by minute and "
-                                   "keeps the smallest moves that wait least"));
+    m_staggerButton->setToolTip(tr("Replays the queue with the jobs moved quarter hour by quarter "
+                                   "hour and keeps the smallest moves that wait least"));
     connect(m_staggerButton, &QPushButton::clicked, this, &BScheduleWidget::proposeStagger);
     row->addWidget(m_staggerButton, 0, Qt::AlignTop);
     m_staggerSummary = new QLabel(m_staggerPage);
@@ -3074,6 +3075,8 @@ void BScheduleWidget::proposeStagger()
     QHash<QString, QString> schedules;
     BWaitStagger::Options options;
     options.jobMaxMinutes = staggerBounds(&schedules);
+    // On the quarter hour: room for a run that lasts longer than measured
+    options.gridMinutes = 15;
     const QDateTime from = m_fdGanttWidget->firstDate().startOfDay();
 
     QApplication::setOverrideCursor(Qt::WaitCursor);
@@ -3125,12 +3128,11 @@ void BScheduleWidget::proposeStagger()
     for (int row = 0; row < shown.size(); ++row) {
         const BWaitStagger::Shift &shift = shown[row];
         QString note;
-        if (shift.minutes == 0 && shift.boundMinutes == 0 && shift.boundJob.isEmpty())
-            note = tr("Stays: a Run line of its schedule runs at several hours or is not understood");
-        else if (!shift.boundJob.isEmpty() && shift.minutes >= shift.boundMinutes)
-            note = tr("Stays before %1 at %2, a job of a lower priority")
-                       .arg(shift.boundJob,
-                            QLocale().toString(shift.boundAt, QStringLiteral("ddd HH:mm")));
+        if (shift.minutes == 0 && shift.boundMinutes == 0)
+            note = tr("Stays: a Run line of its schedule runs at several hours, is not understood "
+                      "or would move into the next day");
+        else if (!shift.follows.isEmpty())
+            note = tr("Moves along to run after %1, which has a higher priority").arg(shift.follows);
         else if (shift.minutes == 0)
             note = tr("A later start does not help");
 
