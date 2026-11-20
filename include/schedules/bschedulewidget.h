@@ -27,6 +27,7 @@
 #include "schedules/model/bjobhistorystats.h"
 #include "schedules/model/bschedulewaitmodel.h"
 #include "schedules/model/bwaitcalibration.h"
+#include "schedules/model/bwaitstagger.h"
 #include "schedules/bschedulepersistence.h"
 
 class BScheduleSaveDialogs;
@@ -285,6 +286,15 @@ private:
     QString historyLevel(const BScheduleEntry &entry) const;
     void setupStatsPanel();
     void setupWaitPanel();
+    void setupStaggerPanel();
+    /// Later start times for the jobs that wait (BWaitStagger), for the
+    /// dates on display
+    void proposeStagger();
+    /// The proposal no longer fits the prediction: it is cleared
+    void clearStagger(const QString &why);
+    /// Per job: how far its Run lines can move without crossing midnight;
+    /// 0 for a job whose lines run at several hours or are not understood
+    QHash<QString, int> staggerBounds(QHash<QString, QString> *schedules) const;
     /**
      * @brief Replays the Director's queue for the dates on display and
      *        hands the result to the timelines, the counter and the list
@@ -427,6 +437,13 @@ private:
     QWidget *m_devicePanel = nullptr;     ///< Parallel writers per storage, with suggestions
     QStringList m_deviceStorages;         ///< The storages that have a row there
     QLabel *m_backtestLabel = nullptr;    ///< The prediction replayed over past nights
+
+    // Later start times for the jobs that wait (a tab below the timeline)
+    QWidget *m_staggerPage = nullptr;
+    QLabel *m_staggerSummary = nullptr;
+    QTableWidget *m_staggerTable = nullptr;
+    QPushButton *m_staggerButton = nullptr;
+    BWaitStagger::Proposal m_staggerProposal;
 
     // Stats panel
     QGroupBox *m_statsPanel;

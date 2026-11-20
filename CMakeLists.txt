@@ -514,6 +514,7 @@ set(SOURCES
     src/schedules/model/bjobhistorystats.cpp
     src/schedules/model/bschedulewaitmodel.cpp
     src/schedules/model/bwaitcalibration.cpp
+    src/schedules/model/bwaitstagger.cpp
     src/schedules/model/bschedulegridmodel.cpp
     src/schedules/model/bschedulegridtext.cpp
     src/jobs/bpaginationwidget.cpp
@@ -656,6 +657,7 @@ set(HEADERS
     include/schedules/model/bjobhistorystats.h
     include/schedules/model/bschedulewaitmodel.h
     include/schedules/model/bwaitcalibration.h
+    include/schedules/model/bwaitstagger.h
     include/schedules/model/bschedulegridmodel.h
     include/schedules/model/bschedulegridtext.h
 
@@ -2042,6 +2044,27 @@ if(BUILD_TESTING)
 
     add_test(NAME bschedulewaitmodel_test COMMAND bschedulewaitmodel_test)
 
+    # bwaitstagger_test - later start times for jobs that wait for each
+    # other: the search, its bounds and the order of priorities
+    add_executable(bwaitstagger_test
+        test/bwaitstagger_test.cpp
+        src/schedules/model/bwaitstagger.cpp
+        src/schedules/model/bschedulewaitmodel.cpp
+        include/schedules/model/bwaitstagger.h
+        include/schedules/model/bschedulewaitmodel.h
+    )
+
+    target_include_directories(bwaitstagger_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bwaitstagger_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bwaitstagger_test COMMAND bwaitstagger_test)
+
     # bwaitcalibration_test - the wait prediction measured against the
     # catalog: measured waits, start overhead, pure durations without the
     # wait for the device, the suggestion of parallel writers, the back-test
@@ -2448,6 +2471,7 @@ if(BUILD_TESTING)
         src/schedules/model/bjobhistorystats.cpp
         src/schedules/model/bschedulewaitmodel.cpp
         src/schedules/model/bwaitcalibration.cpp
+        src/schedules/model/bwaitstagger.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
         src/models/bresourcemodels.cpp
@@ -2474,6 +2498,7 @@ if(BUILD_TESTING)
         include/schedules/model/bjobhistorystats.h
         include/schedules/model/bschedulewaitmodel.h
         include/schedules/model/bwaitcalibration.h
+        include/schedules/model/bwaitstagger.h
         include/schedules/model/brunspec.h
         include/models/bresourcemodels.h
         include/models/bbasemodels.h

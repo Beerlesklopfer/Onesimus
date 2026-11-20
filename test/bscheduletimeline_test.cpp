@@ -813,13 +813,46 @@ void BScheduleTimelineTest::waitsOfSecondsInTheList()
     clicked.jobName = QStringLiteral("JobA");
     emit tab.timeline()->entryClicked(clicked);
     QCoreApplication::processEvents();
-    QCOMPARE(lower->count(), 2);
+    QCOMPARE(lower->count(), 3);
     QCOMPARE(lower->currentIndex(), 1);
     QVERIFY(!tab.waitPanel()->isVisible());     // behind the history's tab
     QVERIFY(!tab.counter()->isChecked());       // the list of waits is not on display
     if (qEnvironmentVariableIsSet("ONESIMUS_WAITS_PNG")) {
         tab.widget.grab().save(qEnvironmentVariable("ONESIMUS_WAITS_PNG")
                                    .replace(QLatin1String(".png"), QLatin1String("-history.png")));
+    }
+    // Staggered: the two that wait start a minute and two minutes later
+    // and wait no more; the first, which does not wait, stays
+    {
+        QWidget *stagger = lower->findChild<QWidget *>(QStringLiteral("stagger"));
+        QVERIFY(stagger);
+        lower->setCurrentWidget(stagger);
+        QPushButton *propose = nullptr;
+        for (QPushButton *b : stagger->findChildren<QPushButton *>()) {
+            if (b->text() == QLatin1String("Propose later start times")) propose = b;
+        }
+        QVERIFY(propose);
+        propose->click();
+        auto *table = stagger->findChild<QTableWidget *>();
+        QVERIFY(table);
+        QCOMPARE(table->rowCount(), 2);
+        QMap<QString, QString> later;
+        for (int row = 0; row < table->rowCount(); ++row)
+            later.insert(table->item(row, 0)->text(), table->item(row, 4)->text());
+        // (which of them starts first at 08:00 is the order the history shows)
+        QStringList moves = later.values();
+        moves.sort();
+        QCOMPARE(moves, (QStringList{"1 min", "2 min"}));
+        QCOMPARE(table->item(0, 6)->text(), QString("none"));
+        bool summarised = false;
+        for (QLabel *l : stagger->findChildren<QLabel *>()) {
+            if (l->text().contains("2 job(s) start later")) summarised = true;
+        }
+        QVERIFY(summarised);
+        if (qEnvironmentVariableIsSet("ONESIMUS_WAITS_PNG")) {
+            tab.widget.grab().save(qEnvironmentVariable("ONESIMUS_WAITS_PNG")
+                                       .replace(QLatin1String(".png"), QLatin1String("-stagger.png")));
+        }
     }
     // The counter brings the waits to the front
     tab.counter()->click();

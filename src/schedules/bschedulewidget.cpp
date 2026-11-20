@@ -1,4 +1,6 @@
 #include "schedules/bschedulewidget.h"
+#include <QApplication>
+#include <QTime>
 #include "schedules/bschedulelegend.h"
 #include <QDateEdit>
 #include <QTabWidget>
@@ -428,12 +430,16 @@ void BScheduleWidget::setupUI()
     statsArea->setWidget(m_statsPanel);
     m_statsPage = statsArea;
     m_lowerTabs->addTab(m_statsPage, tr("Measured history"));
+
+    // Later start times for the jobs that wait: a proposal, nothing is written
+    setupStaggerPanel();
+    m_lowerTabs->addTab(m_staggerPage, tr("Stagger"));
     m_lowerTabs->setVisible(false);
 
     auto *closeLower = new QToolButton(m_lowerTabs);
     closeLower->setText(QStringLiteral("\u2715"));    // ✕
     closeLower->setAutoRaise(true);
-    closeLower->setToolTip(tr("Close the predicted waits and the measured history"));
+    closeLower->setToolTip(tr("Close the tabs below the timeline"));
     closeLower->setAccessibleName(tr("Close the area below the timeline"));
     m_lowerTabs->setCornerWidget(closeLower, Qt::TopRightCorner);
     connect(closeLower, &QToolButton::clicked, this, [this]() {
@@ -2354,6 +2360,8 @@ static QString holdLabel(const BWaitHold &hold)
 
 void BScheduleWidget::updateWaitPrediction()
 {
+    if (!m_staggerProposal.shifts.isEmpty())
+        clearStagger(tr("The prediction has changed: propose again."));
     m_waitRuns.clear();
     m_waitResults.clear();
     m_waitShown.clear();
@@ -2933,4 +2941,181 @@ QString BScheduleWidget::backtestText() const
     if (m_calibration.isEmpty())
         return tr("Back-test: no job history to replay.");
     return m_backtest.text();
+}
+
+// ============================================================================
+// Stagger: later start times for the jobs that wait
+// ============================================================================
+
+void BScheduleWidget::setupStaggerPanel()
+{
+    m_staggerPage = new QWidget;
+    m_staggerPage->setObjectName(QStringLiteral("stagger"));
+    auto *layout = new QVBoxLayout(m_staggerPage);
+    layout->setContentsMargins(8, 8, 8, 8);
+    layout->setSpacing(6);
+
+    auto *intro = new QLabel(m_staggerPage);
+    intro->setWordWrap(true);
+    intro->setText(tr("Jobs that are scheduled for the same moment and share a limit (a storage, "
+                      "a client, the job slots of the Director, the parallel writers of a device) "
+                      "wait for each other. The proposal starts some of them a few minutes later, "
+                      "so that they wait less on the dates on display. A wait for a higher priority "
+                      "is meant to be and is not counted; a job stays before every job of a lower "
+                      "priority that follows it. Nothing is changed on the Director."));
+    layout->addWidget(intro);
+
+    auto *row = new QHBoxLayout;
+    m_staggerButton = new QPushButton(tr("Propose later start times"), m_staggerPage);
+    m_staggerButton->setToolTip(tr("Replays the queue with the jobs moved minute by minute and "
+                                   "keeps the smallest moves that wait least"));
+    connect(m_staggerButton, &QPushButton::clicked, this, &BScheduleWidget::proposeStagger);
+    row->addWidget(m_staggerButton, 0, Qt::AlignTop);
+    m_staggerSummary = new QLabel(m_staggerPage);
+    m_staggerSummary->setWordWrap(true);
+    m_staggerSummary->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    row->addWidget(m_staggerSummary, 1);
+    layout->addLayout(row);
+
+    m_staggerTable = new QTableWidget(0, 8, m_staggerPage);
+    m_staggerTable->setHorizontalHeaderLabels({
+        tr("Job"), tr("Schedule"), tr("Start now"), tr("Proposed start"), tr("Later by"),
+        tr("Wait now"), tr("Wait then"), tr("Note")});
+    m_staggerTable->horizontalHeaderItem(5)->setToolTip(
+        tr("Time held by a limit or waiting for a device, summed over the job's runs on the "
+           "dates on display"));
+    m_staggerTable->setAccessibleName(tr("Proposed later start times"));
+    m_staggerTable->setAlternatingRowColors(true);
+    m_staggerTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_staggerTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_staggerTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_staggerTable->setTabKeyNavigation(false);
+    m_staggerTable->verticalHeader()->setVisible(false);
+    m_staggerTable->horizontalHeader()->setStretchLastSection(true);
+    layout->addWidget(m_staggerTable, 1);
+
+    clearStagger(QString());
+}
+
+void BScheduleWidget::clearStagger(const QString &why)
+{
+    m_staggerProposal = BWaitStagger::Proposal();
+    if (!m_staggerTable)
+        return;
+    m_staggerTable->setRowCount(0);
+    m_staggerSummary->setText(why.isEmpty()
+        ? tr("No proposal yet.")
+        : why);
+}
+
+QHash<QString, int> BScheduleWidget::staggerBounds(QHash<QString, QString> *schedules) const
+{
+    QHash<QString, int> bounds;
+    const QChar sep(0x1F);
+    for (const BWaitRun &run : m_waitRuns) {
+        if (bounds.contains(run.job))
+            continue;
+        const QString scheduleName = run.id.section(sep, 0, 0);
+        if (schedules)
+            schedules->insert(run.job, scheduleName);
+        // The latest minute of the day any of its lines starts at: the
+        // move must not reach the next day, which would change its days
+        int bound = 24 * 60 - 1;
+        const BSchedule schedule = m_scheduleModel->schedule(scheduleName);
+        if (schedule.runs.isEmpty())
+            bound = 0;
+        for (const BRunLine &line : schedule.runs) {
+            const QList<int> hours = line.spec ? line.spec->hours() : QList<int>();
+            if (hours.size() != 1) {
+                bound = 0;
+                break;
+            }
+            bound = qMin(bound, 24 * 60 - 1 - (hours.first() * 60 + line.spec->minute));
+        }
+        bounds.insert(run.job, qMax(0, bound));
+    }
+    return bounds;
+}
+
+void BScheduleWidget::proposeStagger()
+{
+    if (m_waitRuns.isEmpty()) {
+        clearStagger(tr("Nothing to stagger: the waits are not predicted (the jobs or the "
+                        "history are not loaded yet)."));
+        return;
+    }
+    QHash<QString, QString> schedules;
+    BWaitStagger::Options options;
+    options.jobMaxMinutes = staggerBounds(&schedules);
+    const QDateTime from = m_fdGanttWidget->firstDate().startOfDay();
+
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    m_staggerProposal = BWaitStagger::propose(m_waitRuns, m_limits, from, options);
+    QApplication::restoreOverrideCursor();
+    const BWaitStagger::Proposal &p = m_staggerProposal;
+
+    if (p.totalBeforeSecs == 0) {
+        m_staggerSummary->setText(tr("Nothing to stagger: no run on the dates on display waits "
+                                     "for a limit or a device."));
+    } else if (p.moved() == 0) {
+        m_staggerSummary->setText(tr("No later start helps: avoidable wait %1. See the notes "
+                                     "of the jobs.").arg(BScheduleWaitModel::formatWait(p.totalBeforeSecs)));
+    } else {
+        m_staggerSummary->setText(tr("Avoidable wait on the dates on display: now %1, with the "
+                                     "proposal %2. %n job(s) start later.", "", p.moved())
+                                      .arg(BScheduleWaitModel::formatWait(p.totalBeforeSecs),
+                                           p.totalAfterSecs > 0
+                                               ? BScheduleWaitModel::formatWait(p.totalAfterSecs)
+                                               : tr("none")));
+    }
+
+    // The times of a job's runs on display, now and as proposed
+    auto times = [&](const QList<BWaitRun> &runs, const QString &job) {
+        QList<QTime> found;
+        for (int i = 0; i < runs.size() && i < m_waitRuns.size(); ++i) {
+            if (runs[i].job != job || m_waitRuns[i].scheduled < from)
+                continue;
+            const QTime t = runs[i].scheduled.time();
+            if (!found.contains(t)) found.append(t);
+        }
+        std::sort(found.begin(), found.end());
+        QStringList text;
+        for (const QTime &t : found) text.append(t.toString(QStringLiteral("HH:mm")));
+        return text.join(QStringLiteral(", "));
+    };
+
+    QList<BWaitStagger::Shift> shown;
+    for (const BWaitStagger::Shift &shift : p.shifts) {
+        if (shift.minutes > 0 || shift.waitBeforeSecs > 0) shown.append(shift);
+    }
+    // The moved ones first, then the ones that still wait
+    std::stable_sort(shown.begin(), shown.end(), [](const auto &a, const auto &b) {
+        return (a.minutes > 0) > (b.minutes > 0);
+    });
+
+    m_staggerTable->setSortingEnabled(false);
+    m_staggerTable->setRowCount(shown.size());
+    for (int row = 0; row < shown.size(); ++row) {
+        const BWaitStagger::Shift &shift = shown[row];
+        QString note;
+        if (shift.minutes == 0 && shift.boundMinutes == 0 && shift.boundJob.isEmpty())
+            note = tr("Stays: a Run line of its schedule runs at several hours or is not understood");
+        else if (!shift.boundJob.isEmpty() && shift.minutes >= shift.boundMinutes)
+            note = tr("Stays before %1 at %2, a job of a lower priority")
+                       .arg(shift.boundJob,
+                            QLocale().toString(shift.boundAt, QStringLiteral("ddd HH:mm")));
+        else if (shift.minutes == 0)
+            note = tr("A later start does not help");
+
+        const QStringList cells = {
+            shift.job, schedules.value(shift.job), times(m_waitRuns, shift.job),
+            shift.minutes > 0 ? times(p.runs, shift.job) : QString(),
+            shift.minutes > 0 ? tr("%n min", "", shift.minutes) : QString(),
+            BScheduleWaitModel::formatWait(shift.waitBeforeSecs),
+            shift.waitAfterSecs > 0 ? BScheduleWaitModel::formatWait(shift.waitAfterSecs) : tr("none"),
+            note};
+        for (int column = 0; column < cells.size(); ++column)
+            m_staggerTable->setItem(row, column, new QTableWidgetItem(cells[column]));
+    }
+    m_staggerTable->resizeColumnsToContents();
 }
