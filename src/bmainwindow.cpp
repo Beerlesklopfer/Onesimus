@@ -2584,6 +2584,15 @@ void BMainWindow::showAclMatrix()
         connect(m_director, &BDirector::commandFailed, d,
                 [d](BDirector::Command cmd, const QString &, const QString &error) {
             if (cmd == BDirector::Command::DotAclList) d->setFailure(error);
+            if (cmd == BDirector::Command::DotAclChange) d->setChangeFailure(error);
+        });
+        // Changes of the catalog ACL: one ".acl set/delete" at a time
+        connect(d, &BAclMatrixDialog::changeRequested, this, [this](const QString &command) {
+            onSendCommand(BDirector::Command::DotAclChange, command);
+        });
+        connect(m_director, &BDirector::dotAclChangeResult, d, &BAclMatrixDialog::setChangeReply);
+        connect(m_director, &BDirector::textResult, d, [d](BDirector::Command cmd, const QString &response) {
+            if (cmd == BDirector::Command::DotAclChange) d->setChangeReply(response);
         });
     }
     QHash<QString, QStringList> known;

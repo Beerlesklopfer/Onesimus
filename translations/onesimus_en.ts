@@ -1044,102 +1044,102 @@ Click Preset to use recommended ciphers.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="209"/>
-        <location filename="../src/director/baclmatrix.cpp" line="281"/>
+        <location filename="../src/director/baclmatrix.cpp" line="309"/>
+        <location filename="../src/director/baclmatrix.cpp" line="381"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="216"/>
+        <location filename="../src/director/baclmatrix.cpp" line="316"/>
         <source>Locked: the catalog ACL of the console could not be read; it may run status, .status, version and .api only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="225"/>
+        <location filename="../src/director/baclmatrix.cpp" line="325"/>
         <source>Allowed (decided by the Director).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="225"/>
-        <location filename="../src/director/baclmatrix.cpp" line="238"/>
+        <location filename="../src/director/baclmatrix.cpp" line="325"/>
+        <location filename="../src/director/baclmatrix.cpp" line="338"/>
         <source>Allowed by %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="228"/>
+        <location filename="../src/director/baclmatrix.cpp" line="328"/>
         <source>The file ACL allows it (%1), the catalog ACL does not.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="230"/>
-        <location filename="../src/director/baclmatrix.cpp" line="239"/>
+        <location filename="../src/director/baclmatrix.cpp" line="330"/>
+        <location filename="../src/director/baclmatrix.cpp" line="339"/>
         <source>Denied by %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="233"/>
-        <location filename="../src/director/baclmatrix.cpp" line="241"/>
+        <location filename="../src/director/baclmatrix.cpp" line="333"/>
+        <location filename="../src/director/baclmatrix.cpp" line="341"/>
         <source>The console has no ACL of this type: nothing is allowed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="234"/>
-        <location filename="../src/director/baclmatrix.cpp" line="242"/>
+        <location filename="../src/director/baclmatrix.cpp" line="334"/>
+        <location filename="../src/director/baclmatrix.cpp" line="342"/>
         <source>No entry of the ACL allows it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="260"/>
+        <location filename="../src/director/baclmatrix.cpp" line="360"/>
         <source>Console %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="261"/>
+        <location filename="../src/director/baclmatrix.cpp" line="361"/>
         <source>Profiles: none</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="262"/>
+        <location filename="../src/director/baclmatrix.cpp" line="362"/>
         <source>Profiles: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="264"/>
+        <location filename="../src/director/baclmatrix.cpp" line="364"/>
         <source>Locked: its catalog ACL could not be read.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="267"/>
+        <location filename="../src/director/baclmatrix.cpp" line="367"/>
         <source>loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="268"/>
+        <location filename="../src/director/baclmatrix.cpp" line="368"/>
         <source>off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="269"/>
+        <location filename="../src/director/baclmatrix.cpp" line="369"/>
         <source>table missing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="270"/>
+        <location filename="../src/director/baclmatrix.cpp" line="370"/>
         <source>failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="271"/>
+        <location filename="../src/director/baclmatrix.cpp" line="371"/>
         <source>Catalog ACL: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="272"/>
+        <location filename="../src/director/baclmatrix.cpp" line="372"/>
         <source>Catalog ACL: %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrix.cpp" line="277"/>
+        <location filename="../src/director/baclmatrix.cpp" line="377"/>
         <source>%n catalog ACL entry(s) narrow the file ACL.</source>
         <translation>
             <numerusform>%n catalog ACL entry narrows the file ACL.</numerusform>
@@ -1147,12 +1147,12 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="282"/>
+        <location filename="../src/director/baclmatrix.cpp" line="382"/>
         <source>%1: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="282"/>
+        <location filename="../src/director/baclmatrix.cpp" line="382"/>
         <source>none</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1160,48 +1160,93 @@ Click Preset to use recommended ciphers.</source>
 <context>
     <name>BAclMatrixDialog</name>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="49"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="56"/>
+        <source>Change the catalog ACL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="58"/>
+        <source>These changes of the catalog ACL are sent to the Director, one after the other. The file ACL is not changed. The first change the Director refuses stops the rest.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="70"/>
+        <source>Apply</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="79"/>
+        <source>(no entries: no restriction)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="107"/>
         <source>ACL matrix of the consoles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="55"/>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="57"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="113"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="115"/>
         <source>Filter resources</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="60"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="118"/>
         <source>Only rows where the consoles differ</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="63"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="121"/>
         <source>Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="64"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="122"/>
         <source>Reads the ACLs of every console again (.acl list)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="66"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="124"/>
         <source>Reading the ACLs of the consoles...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="73"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="131"/>
         <source>ACL matrix: resources by console</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="87"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="147"/>
         <source>✓ allowed   ✗ denied by an entry with &quot;!&quot;   · not allowed   ⊘ allowed by the file ACL, narrowed by the catalog ACL   — console locked. A cell&apos;s tool tip says why; a console&apos;s tool tip has its profiles, its catalog ACL and its Where and Plugin Options ACLs.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="154"/>
+        <source>A double click (or Space) on ✓ denies it through the catalog ACL, on ⊘ allows it again. Changed cells are underlined until they are applied. What the file ACL denies is changed in the editor.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="164"/>
+        <source>Discard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="165"/>
+        <source>Forgets the changes that were not applied</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="168"/>
+        <source>Apply...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="169"/>
+        <source>Shows every change of the catalog ACL once and sends them after your confirmation (.acl set / .acl delete)</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrixdialog.cpp" line="122"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="209"/>
         <source>%n console(s). Allowed is what the Director decided (file ACL and catalog ACL).</source>
         <translation>
             <numerusform>%n console. Allowed is what the Director decided (file ACL and catalog ACL).</numerusform>
@@ -1209,7 +1254,7 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrixdialog.cpp" line="124"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="211"/>
         <source>%n console(s). This Director reports the file ACL only; the GUI decided the cells from its entries.</source>
         <translation>
             <numerusform>%n console. This Director reports the file ACL only; the GUI decided the cells from its entries.</numerusform>
@@ -1217,12 +1262,102 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="130"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="219"/>
         <source>The ACLs could not be read: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="159"/>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="258"/>
+        <source>Not applied yet: allowed again through the catalog ACL.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="259"/>
+        <source>Not applied yet: denied through the catalog ACL.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="262"/>
+        <source>Double click: deny it through the catalog ACL.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="263"/>
+        <source>Double click: allow it again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="277"/>
+        <source>Console %1 is locked: its catalog ACL cannot be changed until it can be read.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="278"/>
+        <source>%1 is not allowed by the file ACL of console %2: that is changed in the editor, not here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="311"/>
+        <source>The changes were discarded.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="325"/>
+        <source>Nothing was sent: the entry &quot;%1&quot; contains a comma, which the Director cannot store in a catalog ACL.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="335"/>
+        <source>Console %1, %2:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="336"/>
+        <source>  now: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="337"/>
+        <source>  new: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="339"/>
+        <source>%1 of %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="344"/>
+        <source>Nothing was sent: the changes were not confirmed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="356"/>
+        <source>Changed: %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="359"/>
+        <source>Changing %1...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="368"/>
+        <source>refused</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="379"/>
+        <source>nothing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="380"/>
+        <source>Changing %1 failed: %2. Changed before: %3. Nothing after it was sent.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="423"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6720,13 +6855,13 @@ Only expired jobs for the affected client(s) will be removed.</source>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="400"/>
-        <location filename="../src/bmainwindow.cpp" line="2866"/>
+        <location filename="../src/bmainwindow.cpp" line="2875"/>
         <source>Auto-refresh enabled (%1s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="404"/>
-        <location filename="../src/bmainwindow.cpp" line="2871"/>
+        <location filename="../src/bmainwindow.cpp" line="2880"/>
         <source>Auto-refresh disabled</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7192,7 +7327,7 @@ Only expired jobs for the affected client(s) will be removed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/bmainwindow.cpp" line="2790"/>
+        <location filename="../src/bmainwindow.cpp" line="2799"/>
         <source>%n row(s) copied</source>
         <translation>
             <numerusform>%n row copied</numerusform>
@@ -7322,7 +7457,7 @@ Please create a connection profile in Settings first.</source>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1680"/>
         <location filename="../src/bmainwindow.cpp" line="2539"/>
-        <location filename="../src/bmainwindow.cpp" line="2752"/>
+        <location filename="../src/bmainwindow.cpp" line="2761"/>
         <source>Connecting to %1...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7444,48 +7579,48 @@ Please create a connection profile in Settings first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2706"/>
+        <location filename="../src/bmainwindow.cpp" line="2715"/>
         <source>Auto-connecting to %1...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2733"/>
+        <location filename="../src/bmainwindow.cpp" line="2742"/>
         <source>Connection cancelled: server certificate not trusted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2796"/>
+        <location filename="../src/bmainwindow.cpp" line="2805"/>
         <source>Copying client data is not implemented yet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2809"/>
+        <location filename="../src/bmainwindow.cpp" line="2818"/>
         <source>All jobs selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2812"/>
+        <location filename="../src/bmainwindow.cpp" line="2821"/>
         <source>Selecting all clients is not implemented yet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2824"/>
+        <location filename="../src/bmainwindow.cpp" line="2833"/>
         <source>Selection cleared</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2827"/>
+        <location filename="../src/bmainwindow.cpp" line="2836"/>
         <source>Clearing the client selection is not implemented yet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2838"/>
-        <location filename="../src/bmainwindow.cpp" line="2848"/>
+        <location filename="../src/bmainwindow.cpp" line="2847"/>
+        <location filename="../src/bmainwindow.cpp" line="2857"/>
         <source>Search</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2839"/>
+        <location filename="../src/bmainwindow.cpp" line="2848"/>
         <source>Use the filter options in the Job view
 to search for specific jobs.
 
@@ -7498,95 +7633,95 @@ Available filters:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2849"/>
+        <location filename="../src/bmainwindow.cpp" line="2858"/>
         <source>Use the filter combo box in the Client view
 to search for specific clients.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2881"/>
+        <location filename="../src/bmainwindow.cpp" line="2890"/>
         <source>Reset Interface Zoom (now %1 %)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2895"/>
+        <location filename="../src/bmainwindow.cpp" line="2904"/>
         <source>Switched to Light Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2899"/>
+        <location filename="../src/bmainwindow.cpp" line="2908"/>
         <source>Switched to Dark Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2912"/>
-        <location filename="../src/bmainwindow.cpp" line="2924"/>
-        <location filename="../src/bmainwindow.cpp" line="2936"/>
+        <location filename="../src/bmainwindow.cpp" line="2921"/>
+        <location filename="../src/bmainwindow.cpp" line="2933"/>
+        <location filename="../src/bmainwindow.cpp" line="2945"/>
         <source>Not Connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2912"/>
-        <location filename="../src/bmainwindow.cpp" line="2924"/>
+        <location filename="../src/bmainwindow.cpp" line="2921"/>
+        <location filename="../src/bmainwindow.cpp" line="2933"/>
         <source>Please connect to the Director first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2918"/>
+        <location filename="../src/bmainwindow.cpp" line="2927"/>
         <source>Jobs exported as JSON</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2930"/>
+        <location filename="../src/bmainwindow.cpp" line="2939"/>
         <source>Jobs exported as CSV</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2937"/>
+        <location filename="../src/bmainwindow.cpp" line="2946"/>
         <source>Please connect to Bareos Director first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2946"/>
+        <location filename="../src/bmainwindow.cpp" line="2955"/>
         <source>Loading job data...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2981"/>
+        <location filename="../src/bmainwindow.cpp" line="2990"/>
         <source>Connection profile &apos;%1&apos; saved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3066"/>
+        <location filename="../src/bmainwindow.cpp" line="3075"/>
         <source>Password Missing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3067"/>
+        <location filename="../src/bmainwindow.cpp" line="3076"/>
         <source>The imported Console &apos;%1&apos; does not contain a password.
 
 You will need to enter the password manually in the connection settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3088"/>
+        <location filename="../src/bmainwindow.cpp" line="3097"/>
         <source>Created connection profile &apos;%1&apos; for Director &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3093"/>
+        <location filename="../src/bmainwindow.cpp" line="3102"/>
         <source>Connect Now?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3094"/>
+        <location filename="../src/bmainwindow.cpp" line="3103"/>
         <source>Connection profile &apos;%1&apos; has been created.
 
 Do you want to connect now?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3110"/>
+        <location filename="../src/bmainwindow.cpp" line="3119"/>
         <source>Imported Director &apos;%1&apos; with Console &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17107,43 +17242,43 @@ Possible causes:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1818"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1822"/>
         <source>Unknown error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1873"/>
-        <location filename="../src/director/bareosdirector.cpp" line="2318"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1877"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2323"/>
         <source>Not ready</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1925"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1929"/>
         <source>Error sending command</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1972"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1976"/>
         <source>The command was not sent: no ready connection to the Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2307"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2312"/>
         <source>This build of Onesimus has no gRPC support</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2398"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2403"/>
         <source>Server certificate not trusted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2414"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2419"/>
         <source>Command failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2442"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2447"/>
         <source>Connection to Director lost: %1</source>
         <translation type="unfinished"></translation>
     </message>

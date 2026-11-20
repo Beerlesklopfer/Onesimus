@@ -149,25 +149,125 @@ bool BAclMatrix::parse(const QString &reply, QList<BConsoleAcl> *consoles, QStri
     return true;
 }
 
+namespace {
+
+/// Does one entry match @p name? @p negated: it is a "!" entry
+bool entryMatches(const QString &value, const QString &name, bool *negated)
+{
+    *negated = value.startsWith(QLatin1Char('!'));
+    const QString pattern = *negated ? value.mid(1) : value;
+    return pattern.compare(QLatin1String("*all*"), Qt::CaseInsensitive) == 0 || matches(pattern, name);
+}
+
+} // namespace
+
 BAclMatrix::Cell BAclMatrix::fileDecision(const QList<BAclEntry> &entries, const QString &name,
                                           const BAclEntry **decidedBy)
 {
-    // Bareos AclAccessOk(): a negation that matches denies first
+    // Bareos AclAccessOk(): the first entry that matches decides
     for (const BAclEntry &entry : entries) {
-        if (entry.value.startsWith(QLatin1Char('!')) && matches(entry.value.mid(1), name)) {
+        bool negated = false;
+        if (entryMatches(entry.value, name, &negated)) {
             if (decidedBy) *decidedBy = &entry;
-            return Cell::Denied;
-        }
-    }
-    for (const BAclEntry &entry : entries) {
-        if (entry.value.startsWith(QLatin1Char('!'))) continue;
-        if (entry.value.compare(QLatin1String("*all*"), Qt::CaseInsensitive) == 0 || matches(entry.value, name)) {
-            if (decidedBy) *decidedBy = &entry;
-            return Cell::Allowed;
+            return negated ? Cell::Denied : Cell::Allowed;
         }
     }
     if (decidedBy) *decidedBy = nullptr;
     return Cell::NotListed;
+}
+
+bool BAclMatrix::listAllows(const QStringList &entries, const QString &name)
+{
+    for (const QString &entry : entries) {
+        bool negated = false;
+        if (entryMatches(entry, name, &negated))
+            return !negated;
+    }
+    return false;
+}
+
+bool BAclMatrix::editable(const BConsoleAcl &console, Cell cell)
+{
+    if (console.locked || console.effective.isEmpty())
+        return false;
+    if (!console.catalogState.isEmpty() && console.catalogState != QLatin1String("loaded"))
+        return false;
+    return cell == Cell::Allowed || cell == Cell::NarrowedByCatalog;
+}
+
+QStringList BAclMatrix::catalogList(const BConsoleAcl &console, const QString &type)
+{
+    QStringList list;
+    for (const BAclCatalogEntry &entry : console.catalog.value(type))
+        list.append(entry.value);
+    return list;
+}
+
+QStringList BAclMatrix::catalogAfter(const QStringList &current, const QString &name, bool allow)
+{
+    const QString negation = QLatin1Char('!') + name;
+    QStringList list = current;
+    if (!allow) {
+        if (!listAllows(list.isEmpty() ? QStringList{QStringLiteral("*all*")} : list, name))
+            return list;    // denied already
+        if (list.isEmpty())
+            return {negation, QStringLiteral("*all*")};
+        list.prepend(negation);
+        return list;
+    }
+    // Allow again: its own negation goes; if the list still denies it, its
+    // name goes in front
+    list.removeAll(negation);
+    if (!list.isEmpty() && !listAllows(list, name))
+        list.prepend(name);
+    // A list that allows everything restricts nothing
+    if (list == QStringList{QStringLiteral("*all*")})
+        list.clear();
+    return list;
+}
+
+QString BAclMatrix::changeCommand(const QString &console, const QString &type, const QStringList &entries)
+{
+    auto quoted = [](const QString &value) {
+        QString escaped = value;
+        escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
+        return QLatin1Char('"') + escaped + QLatin1Char('"');
+    };
+    if (entries.isEmpty())
+        return QStringLiteral(".acl delete console=%1 %2").arg(quoted(console), type);
+    return QStringLiteral(".acl set console=%1 %2=%3").arg(quoted(console), type,
+                                                          quoted(entries.join(QLatin1Char(','))));
+}
+
+bool BAclMatrix::changeSucceeded(const QString &reply, QString *message)
+{
+    const int start = reply.indexOf(QLatin1Char('{'));
+    const QJsonDocument doc = QJsonDocument::fromJson(start >= 0 ? reply.mid(start).toUtf8() : QByteArray());
+    if (doc.isObject()) {
+        QJsonObject root = doc.object();
+        if (root.contains(QStringLiteral("error"))) {
+            // odir: {"error":{"code":1,"message":"failed","data":{"messages":{"error":["..."]}}}}
+            const QJsonObject e = root.value(QStringLiteral("error")).toObject();
+            const QJsonValue data = e.value(QStringLiteral("data"));
+            QStringList lines;
+            for (const QJsonValue &line : data.toObject().value(QStringLiteral("messages")).toObject()
+                                              .value(QStringLiteral("error")).toArray())
+                lines.append(line.toString().trimmed());
+            if (lines.isEmpty() && data.isString()) lines.append(data.toString().trimmed());
+            if (lines.isEmpty()) lines.append(e.value(QStringLiteral("message")).toString());
+            if (message) *message = lines.join(QLatin1Char(' '));
+            return false;
+        }
+        if (root.contains(QStringLiteral("result")) && !root.contains(QStringLiteral("acl")))
+            root = root.value(QStringLiteral("result")).toObject();
+        if (message) message->clear();
+        return root.contains(QStringLiteral("acl"));
+    }
+    // Text mode: odir answers a refusal with ".acl <action>: ..." or "Console ... not found"
+    const QString text = reply.trimmed();
+    if (message) *message = text;
+    return !(text.isEmpty() || text.startsWith(QLatin1String(".acl")) || text.contains(QLatin1String("not found"))
+             || text.contains(QLatin1String("refused")) || text.contains(QLatin1String("denied")));
 }
 
 QList<BAclMatrix::Row> BAclMatrix::rows(const QList<BConsoleAcl> &consoles, const QString &type,

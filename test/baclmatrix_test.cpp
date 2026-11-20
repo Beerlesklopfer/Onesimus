@@ -65,6 +65,9 @@ private slots:
     void errorReplies();
     void resultWrapperAndNoExtraFields();
     void dialogHasAColumnPerConsole();
+    void catalogListsAfterAChange();
+    void changeCommandsAndReplies();
+    void dialogSendsTheChangesInOrder();
 };
 
 void BAclMatrixTest::readsEveryConsole()
@@ -224,6 +227,117 @@ void BAclMatrixTest::dialogHasAColumnPerConsole()
     dialog.setReply(".acl: is an invalid command.");
     QCOMPARE(table->columnCount(), 5);      // what was read stays
     QCOMPARE(asked, 0);
+}
+
+void BAclMatrixTest::catalogListsAfterAChange()
+{
+    // No catalog entries: deny one, the rest stays allowed
+    QCOMPARE(BAclMatrix::catalogAfter({}, "backup-b", false), (QStringList{"!backup-b", "*all*"}));
+    // ... and allowed again: no restriction left
+    QCOMPARE(BAclMatrix::catalogAfter({"!backup-b", "*all*"}, "backup-b", true), QStringList());
+    // A list: the negation goes in front (narrower: odir accepts it on the own console)
+    QCOMPARE(BAclMatrix::catalogAfter({"backup-a", "backup-b"}, "backup-a", false),
+             (QStringList{"!backup-a", "backup-a", "backup-b"}));
+    // A positive list that does not name it: its name in front (wider)
+    QCOMPARE(BAclMatrix::catalogAfter({"backup-a"}, "backup-b", true), (QStringList{"backup-b", "backup-a"}));
+    // Denied already, allowed already: nothing changes
+    QCOMPARE(BAclMatrix::catalogAfter({"backup-a"}, "backup-b", false), QStringList{"backup-a"});
+    QCOMPARE(BAclMatrix::catalogAfter({}, "x", true), QStringList());
+    // First match decides
+    QVERIFY(!BAclMatrix::listAllows({"!b.*", "*all*"}, "backup"));
+    QVERIFY(BAclMatrix::listAllows({"backup", "!b.*"}, "backup"));
+    QVERIFY(!BAclMatrix::listAllows({}, "x"));
+}
+
+void BAclMatrixTest::changeCommandsAndReplies()
+{
+    QCOMPARE(BAclMatrix::changeCommand("My Console", "filesetacl", {"Full Set", "!Windows All Drives"}),
+             QString(".acl set console=\"My Console\" filesetacl=\"Full Set,!Windows All Drives\""));
+    QCOMPARE(BAclMatrix::changeCommand("mcp", "jobacl", {}), QString(".acl delete console=\"mcp\" jobacl"));
+
+    QString message;
+    QVERIFY(BAclMatrix::changeSucceeded(
+        "{\"jsonrpc\":\"2.0\",\"id\":null,\"result\":{\"acl\":{\"action\":\"set\",\"console\":\"mcp\",\"changes\":[]}}}",
+        &message));
+    QVERIFY(!BAclMatrix::changeSucceeded(
+        "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":1,\"message\":\"failed\",\"data\":{\"result\":{},"
+        "\"messages\":{\"error\":[\"Console \\\"x\\\" not found.\\n\"]}}}}", &message));
+    QCOMPARE(message, QString("Console \"x\" not found."));
+    QVERIFY(!BAclMatrix::changeSucceeded(".acl set: permission denied, changing the catalog ACL requires ...", &message));
+    QVERIFY(!BAclMatrix::changeSucceeded("", &message));
+}
+
+void BAclMatrixTest::dialogSendsTheChangesInOrder()
+{
+    BAclMatrixDialog dialog;
+    dialog.setReply(QString::fromUtf8(kReply));
+    QTableWidget *table = dialog.table();
+    auto rowOfName = [table](const QString &name, const QString &afterTitle) {
+        bool inGroup = false;
+        for (int r = 0; r < table->rowCount(); ++r) {
+            const QString text = table->verticalHeaderItem(r)->text();
+            if (!text.startsWith("  ")) inGroup = text.startsWith(afterTitle);
+            else if (inGroup && text.trimmed() == name) return r;
+        }
+        return -1;
+    };
+    const int backupB = rowOfName("backup-b", "Jobs");
+    const int del = rowOfName("delete", "Commands");
+    QVERIFY(backupB > 0 && del > 0);
+
+    // operator-mcp (column 1): backup-b denied; admin (column 0): backup-b allowed again
+    QVERIFY(dialog.toggle(backupB, 1));
+    QCOMPARE(table->item(backupB, 1)->text(), QString("⊘"));
+    QVERIFY(table->item(backupB, 1)->font().underline());
+    QVERIFY(dialog.toggle(backupB, 0));
+    QCOMPARE(table->item(backupB, 0)->text(), QString("✓"));
+    QCOMPARE(dialog.pendingCount(), 2);
+    // What the file denies, and a locked console, cannot be changed here
+    QVERIFY(!dialog.toggle(del, 1));
+    QVERIFY(!dialog.toggle(backupB, 3));
+    QVERIFY(!dialog.toggle(backupB, 2));
+    // Turned twice: nothing pending for it
+    QVERIFY(dialog.toggle(backupB, 1));
+    QVERIFY(dialog.toggle(backupB, 1));
+    QCOMPARE(dialog.pendingCount(), 2);
+
+    QStringList sent;
+    QObject::connect(&dialog, &BAclMatrixDialog::changeRequested, [&](const QString &c) { sent << c; });
+    int refreshes = 0;
+    QObject::connect(&dialog, &BAclMatrixDialog::refreshRequested, [&]() { ++refreshes; });
+    QString summary;
+    dialog.setConfirm([&](QWidget *, const QString &text) { summary = text; return true; });
+    dialog.apply();
+    QVERIFY2(summary.contains("now: backup-a") && summary.contains("new: backup-b, backup-a"), qPrintable(summary));
+    // One at a time: the next only after the reply
+    QCOMPARE(sent.size(), 1);
+    QCOMPARE(sent[0], QString(".acl set console=\"admin\" jobacl=\"backup-b,backup-a\""));
+    dialog.setChangeReply("{\"result\":{\"acl\":{\"action\":\"set\"}}}");
+    QCOMPARE(sent.size(), 2);
+    QCOMPARE(sent[1], QString(".acl set console=\"operator-mcp\" jobacl=\"!backup-b,*all*\""));
+    dialog.setChangeReply("{\"result\":{\"acl\":{\"action\":\"set\"}}}");
+    QCOMPARE(refreshes, 1);
+    QCOMPARE(dialog.pendingCount(), 0);
+
+    // A refusal stops the rest
+    QVERIFY(dialog.toggle(backupB, 1));
+    QVERIFY(dialog.toggle(rowOfName("backup-a", "Jobs"), 1));
+    QCOMPARE(dialog.pendingCount(), 1);     // the same list of operator-mcp
+    QVERIFY(dialog.toggle(rowOfName("status", "Commands"), 1));
+    QCOMPARE(dialog.pendingCount(), 2);
+    sent.clear();
+    dialog.apply();
+    QCOMPARE(sent.size(), 1);
+    dialog.setChangeReply("{\"error\":{\"code\":1,\"message\":\"failed\",\"data\":{\"messages\":{\"error\":[\"refused, may only restrict\"]}}}}");
+    QCOMPARE(sent.size(), 1);
+    QCOMPARE(refreshes, 2);
+    // Not confirmed: nothing is sent
+    QVERIFY(dialog.toggle(backupB, 1));
+    dialog.setConfirm([](QWidget *, const QString &) { return false; });
+    sent.clear();
+    dialog.apply();
+    QVERIFY(sent.isEmpty());
+    QCOMPARE(dialog.pendingCount(), 1);
 }
 
 QTEST_MAIN(BAclMatrixTest)

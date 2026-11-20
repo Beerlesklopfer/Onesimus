@@ -28,9 +28,19 @@
  * where it reports one; the file entries only explain it (the first entry
  * that decides, with its source). Without an effective ACL (an older
  * Director) the file entries decide as Bareos does (core/src/dird/ua_acl.cc
- * AclAccessOk): an entry with "!" that matches denies, then "*all*" or a
- * matching entry allows; entries match the name exactly or as a regular
- * expression, both without regard to case.
+ * AclAccessOk): the first entry that matches decides, "!" denies, "*all*"
+ * or a name allows; no match denies. Entries match the name exactly or as a
+ * regular expression, both without regard to case.
+ *
+ * Editing (odir crates/odir/src/commands/acl.rs): only the catalog ACL can
+ * be changed from here, with ".acl set console=<c> <type>acl=<e1>,<e2>" and
+ * ".acl delete console=<c> <type>acl". A type without catalog entries
+ * restricts nothing; a list is evaluated like a file list (first match).
+ * So a cell that is allowed can be denied (an entry "!<name>" in front, or
+ * "!<name>,*all*" for a type without entries), and a cell the catalog ACL
+ * narrows can be allowed again (its "!<name>" removed, or "<name>" put in
+ * front). What the file ACL denies cannot be allowed here. odir lets a
+ * console change its own catalog ACL only to a narrower one.
  */
 
 /** One entry of a file ACL. */
@@ -126,6 +136,31 @@ public:
 
     /// The column's tool tip: profiles, catalog ACL, locked, the pattern ACLs
     static QString consoleSummary(const BConsoleAcl &console);
+
+    // --- Editing the catalog ACL ----------------------------------------------
+
+    /// Does a list allow @p name (first match decides, no match denies)?
+    static bool listAllows(const QStringList &entries, const QString &name);
+
+    /// Can this cell be changed through the catalog ACL? Allowed or narrowed
+    /// by the catalog, on a console whose catalog ACL is loaded
+    static bool editable(const BConsoleAcl &console, Cell cell);
+
+    /// The catalog list of a type as plain entries
+    static QStringList catalogList(const BConsoleAcl &console, const QString &type);
+
+    /**
+     * @brief The catalog list after one cell is changed
+     * @param allow false: deny @p name; true: allow it again
+     * @return the new list; empty means "no catalog entries" (.acl delete)
+     */
+    static QStringList catalogAfter(const QStringList &current, const QString &name, bool allow);
+
+    /// ".acl set console=... jobacl=..." or ".acl delete console=... jobacl"
+    static QString changeCommand(const QString &console, const QString &type, const QStringList &entries);
+
+    /// Did the Director accept a change? @p message: its words, if any
+    static bool changeSucceeded(const QString &reply, QString *message = nullptr);
 };
 
 #endif // BACLMATRIX_H

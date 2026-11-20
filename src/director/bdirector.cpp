@@ -196,6 +196,8 @@ BDirector::BDirector(QObject *parent)
                      this, &BDirector::dotScheduleResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::dotAclListResult,
                      this, &BDirector::dotAclListResult);
+    QObject::connect(m_director, &DIRECTOR_CLASS::dotAclChangeResult,
+                     this, &BDirector::dotAclChangeResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::listClientsResult,
                      this, &BDirector::listClientsResult);
     QObject::connect(m_director, &DIRECTOR_CLASS::showJobsResult,

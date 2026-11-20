@@ -1747,6 +1747,10 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
         emit dotAclListResult(jsonData);
         return;
     }
+    if (m_lastCommandEnum == Command::DotAclChange) {
+        emit dotAclChangeResult(jsonData);
+        return;
+    }
 
     QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
     if (!doc.isObject()) return;
@@ -2180,6 +2184,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::DotConsoles:      command = ".consoles"; break;
     case Command::DotMessages:      command = ".messages"; break;
     case Command::DotAclList:       command = ".acl list"; break;
+    case Command::DotAclChange:     command = args; break;
 
     // Show single resource
     case Command::ShowFileset:      command = QString("show fileset=%1").arg(args); break;
