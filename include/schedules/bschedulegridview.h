@@ -175,6 +175,15 @@ public:
      */
     void setWritable(bool canSave, bool canDelete);
 
+    /**
+     * @brief The view as the page of the wizard for a new schedule
+     *
+     * Name, use, the modified line, the description and the buttons
+     * "Save..." and "Delete..." are hidden: the wizard asks for name and
+     * description on a page of its own and writes the schedule itself.
+     */
+    void setNewScheduleMode();
+
     // --- Scopes and calendar rules: what the buttons and menus do -----------
     //
     // The forms are window modal and not waited for; accepting one makes
@@ -252,6 +261,8 @@ private:
     QLabel *m_title = nullptr;
     QLabel *m_usage = nullptr;
     QLineEdit *m_description = nullptr;
+    QLabel *m_descriptionLabel = nullptr;
+    bool m_newScheduleMode = false;
     QLabel *m_modified = nullptr;
     QPushButton *m_undo = nullptr;
     QPushButton *m_redo = nullptr;

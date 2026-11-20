@@ -380,10 +380,18 @@ bool BScheduleResource::rewrite(const QString &raw, const QList<Line> &lines, QS
 QString BScheduleResource::createText(const QString &name, const QString &description,
                                       const QStringList &runs, const QString &lineEnd)
 {
+    return createText(name, description, true, runs, lineEnd);
+}
+
+QString BScheduleResource::createText(const QString &name, const QString &description, bool enabled,
+                                      const QStringList &runs, const QString &lineEnd)
+{
     QString text = QStringLiteral("Schedule {") + lineEnd;
     text += QStringLiteral("  Name = ") + quoted(name) + lineEnd;
     if (!description.isEmpty())
         text += QStringLiteral("  Description = ") + quoted(description) + lineEnd;
+    if (!enabled)
+        text += QStringLiteral("  Enabled = no") + lineEnd;
     for (const QString &run : runs)
         text += QStringLiteral("  Run = ") + run + lineEnd;
     text += QStringLiteral("}") + lineEnd;
