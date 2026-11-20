@@ -303,6 +303,11 @@ private:
     /// directives, after one confirmation of everything
     void applyStagger();
     void updateStaggerApply();
+    /// The user's constraints for the proposal (fixed jobs, latest starts),
+    /// kept per Director profile; proposes again if a proposal is shown
+    void editStaggerConstraints();
+    /// The stored constraints of this profile as options of the proposal
+    void staggerConstraintOptions(BWaitStagger::Options *options) const;
     /**
      * @brief Replays the Director's queue for the dates on display and
      *        hands the result to the timelines, the counter and the list
@@ -453,6 +458,7 @@ private:
     QLabel *m_staggerSummary = nullptr;
     QTableWidget *m_staggerTable = nullptr;
     QPushButton *m_staggerButton = nullptr;
+    QPushButton *m_staggerConstraintsButton = nullptr;
     BWaitStagger::Proposal m_staggerProposal;
     QPushButton *m_staggerApplyButton = nullptr;
     bool m_staggerApplying = false;
