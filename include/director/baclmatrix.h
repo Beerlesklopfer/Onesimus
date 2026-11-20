@@ -71,6 +71,7 @@ struct BConsoleAcl
 {
     QString name;
     QString description;    ///< Profiles: their Description
+    bool proposed = false;  ///< Profiles: made in the GUI, not on the Director yet
     QStringList profiles;
     bool locked = false;
     QString catalogState;   ///< "off", "table_missing", "loaded", "failed"; empty: not reported

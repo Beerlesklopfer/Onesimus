@@ -71,6 +71,7 @@ private slots:
     void dialogSendsTheChangesInOrder();
     void newConsoleAndCancel();
     void profilesProposeText();
+    void newProfileIsAProposal();
 };
 
 void BAclMatrixTest::readsEveryConsole()
@@ -466,6 +467,65 @@ void BAclMatrixTest::profilesProposeText()
     applied.replace("\"commandacl\":[\"!delete\",\"*all*\"]", "\"commandacl\":[\"*all*\"]");
     dialog.setProfilesReply(applied);
     QCOMPARE(dialog.pendingCount(), 0);
+}
+
+void BAclMatrixTest::newProfileIsAProposal()
+{
+    const QString profilesReply = QStringLiteral(
+        "{\"profiles\":{\"operator\":{\"name\":\"operator\",\"jobacl\":[\"*all*\"],"
+        "\"commandacl\":[\"!delete\",\"*all*\"]}}}");
+    BAclMatrixDialog dialog;
+    dialog.setReply(QString::fromUtf8(kReply));
+    dialog.setProfilesReply(profilesReply);
+    dialog.setView(BAclMatrixDialog::View::Profiles);
+    dialog.setProfileForm([](QWidget *, const QStringList &profiles, QString *name, QString *description,
+                             QString *copyOf) {
+        if (!profiles.contains("operator")) return false;
+        *name = "restore-only";
+        *description = "Restores, nothing else";
+        *copyOf = "operator";
+        return true;
+    });
+    QString shown;
+    dialog.setTextView([&](QWidget *, const QString &t) { shown = t; });
+
+    dialog.newProfile();
+    QTableWidget *table = dialog.table();
+    QCOMPARE(table->columnCount(), 2);
+    QCOMPARE(table->horizontalHeaderItem(1)->text(), QString("restore-only (new)"));
+    QCOMPARE(dialog.pendingCount(), 1);     // the new profile itself
+    // A console cannot use it before the Director has it
+    QVERIFY(!dialog.knownProfiles().contains("restore-only"));
+
+    // Copied from operator: delete denied; turned, allowed in the proposal
+    int del = -1;
+    for (int r = 0; r < table->rowCount(); ++r) {
+        if (table->verticalHeaderItem(r)->text().trimmed() == "delete") del = r;
+    }
+    QVERIFY(del > 0);
+    QCOMPARE(table->item(del, 1)->text(), QString("✗"));
+    QVERIFY(dialog.toggle(del, 1));
+    dialog.apply();
+    QVERIFY2(shown.contains("# /etc/bareos/bareos-dir.d/profile/restore-only.conf\n"
+                            "Profile {\n  Name = \"restore-only\"\n  Description = \"Restores, nothing else\"\n"
+                            "  JobAcl = \"*all*\"\n  CommandAcl = \"*all*\"\n}\n"), qPrintable(shown));
+    QVERIFY(!shown.contains("profile/operator.conf"));      // operator is unchanged
+
+    // Refreshed before the text is in: the proposal stays
+    dialog.setProfilesReply(profilesReply);
+    QCOMPARE(table->columnCount(), 2);
+    // The Director has it now: an ordinary column
+    dialog.setProfilesReply(QStringLiteral(
+        "{\"profiles\":{\"operator\":{\"name\":\"operator\",\"jobacl\":[\"*all*\"],\"commandacl\":[\"!delete\",\"*all*\"]},"
+        "\"restore-only\":{\"name\":\"restore-only\",\"jobacl\":[\"*all*\"],\"commandacl\":[\"*all*\"]}}}"));
+    QCOMPARE(table->columnCount(), 2);
+    QCOMPARE(table->horizontalHeaderItem(1)->text(), QString("restore-only"));
+    QCOMPARE(dialog.pendingCount(), 0);
+
+    // Discard removes a proposed profile
+    dialog.newProfile();    // the form refuses nothing here: a second one of a new name
+    dialog.discard();
+    QCOMPARE(table->columnCount(), 2);
 }
 
 QTEST_MAIN(BAclMatrixTest)

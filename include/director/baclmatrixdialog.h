@@ -85,6 +85,17 @@ public:
                                            const QStringList &taken, QString *name,
                                            QString *password, QString *profile)>;
     void setConsoleForm(ConsoleForm form) { m_consoleForm = std::move(form); }
+
+    /**
+     * @brief Asks for a new profile: name, description and the profile it
+     *        starts as a copy of (empty: no entries, nothing allowed)
+     * @return false if cancelled; the default shows a dialog (tests answer it)
+     */
+    using ProfileForm = std::function<bool(QWidget *parent, const QStringList &profiles,
+                                           QString *name, QString *description, QString *copyOf)>;
+    void setProfileForm(ProfileForm form) { m_profileForm = std::move(form); }
+    /// "New profile...": a proposed column; its text comes with "Config text..."
+    void newProfile();
     /// "New console...": asks for it and emits createConsoleRequested()
     void newConsole();
     /// The profiles the consoles of the last reply name
@@ -146,6 +157,7 @@ private:
     QString m_afterRefresh;     ///< The outcome of the last change, kept over the refresh
     Confirm m_confirm;
     ConsoleForm m_consoleForm;
+    ProfileForm m_profileForm;
     QString m_creating;         ///< The console being created; empty: none
 
     QComboBox *m_viewCombo = nullptr;
@@ -156,6 +168,7 @@ private:
     QPushButton *m_apply = nullptr;
     QPushButton *m_discard = nullptr;
     QPushButton *m_newConsole = nullptr;
+    QPushButton *m_newProfile = nullptr;
     QLabel *m_status = nullptr;
     QTableWidget *m_table = nullptr;
 };

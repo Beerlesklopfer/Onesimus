@@ -194,6 +194,57 @@ void textDialog(QWidget *parent, const QString &text)
     dialog.exec();
 }
 
+bool profileFormDialog(QWidget *parent, const QStringList &profiles, QString *name,
+                       QString *description, QString *copyOf)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(BAclMatrixDialog::tr("New profile"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *intro = new QLabel(BAclMatrixDialog::tr(
+        "The new profile is a proposal in the matrix: change its cells, then \"Config text...\" shows its "
+        "Profile resource to put into the Director's configuration. Nothing is sent."), &dialog);
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    auto *form = new QFormLayout;
+    auto *nameEdit = new QLineEdit(&dialog);
+    nameEdit->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("[A-Za-z0-9_.:-]{1,127}")), nameEdit));
+    nameEdit->setPlaceholderText(BAclMatrixDialog::tr("e.g. restore-only"));
+    form->addRow(BAclMatrixDialog::tr("&Name:"), nameEdit);
+    auto *descriptionEdit = new QLineEdit(&dialog);
+    form->addRow(BAclMatrixDialog::tr("&Description:"), descriptionEdit);
+    auto *copyCombo = new QComboBox(&dialog);
+    copyCombo->addItem(BAclMatrixDialog::tr("(empty: nothing allowed)"), QString());
+    for (const QString &profile : profiles) copyCombo->addItem(profile, profile);
+    copyCombo->setToolTip(BAclMatrixDialog::tr("The ACL entries the new profile starts with"));
+    form->addRow(BAclMatrixDialog::tr("&Start as a copy of:"), copyCombo);
+    layout->addLayout(form);
+    auto *problem = new QLabel(&dialog);
+    problem->setWordWrap(true);
+    layout->addWidget(problem);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
+    QPushButton *create = buttons->addButton(BAclMatrixDialog::tr("Add to the matrix"), QDialogButtonBox::AcceptRole);
+    auto check = [&]() {
+        const QString n = nameEdit->text().trimmed();
+        QString why;
+        if (n.isEmpty()) why = BAclMatrixDialog::tr("Enter a name.");
+        else if (profiles.contains(n, Qt::CaseInsensitive)) why = BAclMatrixDialog::tr("A profile of this name exists.");
+        problem->setText(why);
+        create->setEnabled(why.isEmpty());
+    };
+    QObject::connect(nameEdit, &QLineEdit::textChanged, &dialog, check);
+    check();
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+    *name = nameEdit->text().trimmed();
+    *description = descriptionEdit->text().trimmed();
+    *copyOf = copyCombo->currentData().toString();
+    return true;
+}
+
 QString listText(const QStringList &list)
 {
     return list.isEmpty() ? BAclMatrixDialog::tr("(no entries: no restriction)") : list.join(QStringLiteral(", "));
@@ -260,6 +311,11 @@ BAclMatrixDialog::BAclMatrixDialog(QWidget *parent)
                                 "(configure add console); it appears as a new column"));
     connect(m_newConsole, &QPushButton::clicked, this, &BAclMatrixDialog::newConsole);
     row->addWidget(m_newConsole);
+    m_newProfile = new QPushButton(tr("New profile..."), this);
+    m_newProfile->setToolTip(tr("Adds a proposed profile as a new column; \"Config text...\" shows its "
+                                "Profile resource to put into the configuration"));
+    connect(m_newProfile, &QPushButton::clicked, this, &BAclMatrixDialog::newProfile);
+    row->addWidget(m_newProfile);
     layout->addLayout(row);
 
     m_table = new QTableWidget(this);
@@ -358,6 +414,13 @@ void BAclMatrixDialog::setProfilesReply(const QString &reply)
         if (m_view == View::Profiles) m_status->setText(tr("The profiles could not be read: %1").arg(error));
         return;
     }
+    // Proposed profiles stay until the Director has one of their name
+    for (const BConsoleAcl &mine : std::as_const(m_profiles)) {
+        if (!mine.proposed) continue;
+        bool there = false;
+        for (const BConsoleAcl &p : profiles) there = there || p.name.compare(mine.name, Qt::CaseInsensitive) == 0;
+        if (!there) profiles.append(mine);
+    }
     m_profiles = profiles;
     // A proposal the Director has now is no longer pending
     for (auto it = m_profilePending.begin(); it != m_profilePending.end();) {
@@ -387,6 +450,7 @@ void BAclMatrixDialog::setView(View view)
     }
     m_view = view;
     m_newConsole->setVisible(view == View::Consoles);
+    m_newProfile->setVisible(view == View::Profiles);
     m_apply->setText(view == View::Profiles ? tr("Config text...") : tr("Apply..."));
     m_apply->setToolTip(view == View::Profiles
         ? tr("Shows the new text of every changed profile, to put into the Director's configuration")
@@ -406,7 +470,38 @@ void BAclMatrixDialog::setView(View view)
 
 int BAclMatrixDialog::pendingCount() const
 {
-    return m_view == View::Profiles ? int(m_profilePending.size()) : int(m_pending.size());
+    if (m_view == View::Consoles) return int(m_pending.size());
+    int n = int(m_profilePending.size());
+    for (const BConsoleAcl &profile : m_profiles) {
+        if (profile.proposed && !m_profilePending.contains(profile.name)) ++n;
+    }
+    return n;
+}
+
+void BAclMatrixDialog::newProfile()
+{
+    QStringList names;
+    for (const BConsoleAcl &profile : m_profiles) names.append(profile.name);
+    QString name, description, copyOf;
+    const ProfileForm form = m_profileForm ? m_profileForm : profileFormDialog;
+    if (!form(this, names, &name, &description, &copyOf))
+        return;
+    BConsoleAcl profile;
+    profile.name = name;
+    profile.description = description;
+    profile.proposed = true;
+    for (const BConsoleAcl &source : std::as_const(m_profiles)) {
+        if (source.name != copyOf) continue;
+        for (auto it = source.file.cbegin(); it != source.file.cend(); ++it) {
+            QList<BAclEntry> entries;
+            for (const BAclEntry &entry : it.value())
+                entries.append(BAclEntry{entry.value, tr("Profile %1").arg(name)});
+            profile.file.insert(it.key(), entries);
+        }
+    }
+    m_profiles.append(profile);
+    rebuild();
+    m_status->setText(tr("Profile %1 is proposed: change its cells, then \"Config text...\" shows it.").arg(name));
 }
 
 QStringList BAclMatrixDialog::currentProfileList(const QString &profile, const QString &type) const
@@ -427,6 +522,7 @@ QString BAclMatrixDialog::profileSummary(const BConsoleAcl &profile) const
     }
     QStringList lines;
     lines.append(tr("Profile %1").arg(profile.name));
+    if (profile.proposed) lines.append(tr("Proposed: not on the Director yet."));
     if (!profile.description.isEmpty()) lines.append(profile.description);
     lines.append(usedBy.isEmpty() ? tr("Used by no console") : tr("Used by: %1").arg(usedBy.join(QStringLiteral(", "))));
     for (const BAclMatrix::Type &type : BAclMatrix::patternTypes()) {
@@ -440,6 +536,9 @@ void BAclMatrixDialog::showProfileTexts()
 {
     QString text;
     QStringList names = m_profilePending.keys();
+    for (const BConsoleAcl &profile : m_profiles) {
+        if (profile.proposed && !names.contains(profile.name)) names.append(profile.name);
+    }
     std::sort(names.begin(), names.end());
     for (const QString &name : names) {
         for (const BConsoleAcl &profile : m_profiles) {
@@ -595,8 +694,22 @@ void BAclMatrixDialog::reject()
         if (answer != QMessageBox::Discard)
             return;
     }
+    const View shown = m_view;
+    m_view = View::Profiles;
+    const int proposals = pendingCount();
+    m_view = shown;
+    if (proposals > 0) {
+        const auto answer = QMessageBox::question(
+            this, tr("Discard the proposals?"),
+            tr("%n profile proposal(s) are only in the matrix. Discard them and close?", "", proposals),
+            QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Cancel);
+        if (answer != QMessageBox::Discard)
+            return;
+    }
     m_pending.clear();
     m_profilePending.clear();
+    m_profiles.erase(std::remove_if(m_profiles.begin(), m_profiles.end(),
+                                    [](const BConsoleAcl &p) { return p.proposed; }), m_profiles.end());
     rebuild();
     QDialog::reject();
 }
@@ -604,7 +717,9 @@ void BAclMatrixDialog::reject()
 QStringList BAclMatrixDialog::knownProfiles() const
 {
     QStringList profiles;
-    for (const BConsoleAcl &profile : m_profiles) profiles.append(profile.name);
+    for (const BConsoleAcl &profile : m_profiles) {
+        if (!profile.proposed) profiles.append(profile.name);   // a console needs one the Director has
+    }
     for (const BConsoleAcl &console : m_consoles) {
         for (const QString &profile : console.profiles) {
             if (!profiles.contains(profile)) profiles.append(profile);
@@ -647,8 +762,13 @@ void BAclMatrixDialog::setCreateResult(bool success, const QString &message)
 
 void BAclMatrixDialog::discard()
 {
-    if (m_view == View::Profiles) m_profilePending.clear();
-    else m_pending.clear();
+    if (m_view == View::Profiles) {
+        m_profilePending.clear();
+        m_profiles.erase(std::remove_if(m_profiles.begin(), m_profiles.end(),
+                                        [](const BConsoleAcl &p) { return p.proposed; }), m_profiles.end());
+    } else {
+        m_pending.clear();
+    }
     rebuild();
     m_status->setText(tr("The changes were discarded."));
 }
@@ -656,7 +776,7 @@ void BAclMatrixDialog::discard()
 void BAclMatrixDialog::apply()
 {
     if (m_view == View::Profiles) {
-        if (!m_profilePending.isEmpty()) showProfileTexts();
+        if (pendingCount() > 0) showProfileTexts();
         return;
     }
     if (m_applying || m_pending.isEmpty()) return;
@@ -748,7 +868,8 @@ void BAclMatrixDialog::rebuild()
     for (int c = 0; c < cols.size(); ++c) {
         const BConsoleAcl &column = cols[c];
         auto *header = new QTableWidgetItem(column.locked ? column.name + QStringLiteral(" —")
-                                                          : column.name);
+                                            : column.proposed ? tr("%1 (new)").arg(column.name)
+                                                              : column.name);
         header->setToolTip(m_view == View::Profiles ? profileSummary(column) : BAclMatrix::consoleSummary(column));
         m_table->setHorizontalHeaderItem(c, header);
     }
