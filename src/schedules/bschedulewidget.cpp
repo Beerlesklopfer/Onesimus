@@ -1,5 +1,6 @@
 #include "schedules/bschedulewidget.h"
 #include "schedules/bstaggerplan.h"
+#include "schedules/bstaggerconstraintsdialog.h"
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFontDatabase>
@@ -3000,7 +3001,8 @@ void BScheduleWidget::setupStaggerPanel()
                       "(23:15, 23:30 ...), so that they wait less on the dates on display and have "
                       "room to spare. A wait for a higher priority is meant to be and is not counted; "
                       "a job of a lower priority that follows a moved job moves along, so that it "
-                      "still runs after it. Nothing is changed on the Director."));
+                      "still runs after it. With \"Constraints...\" a job can be kept where it is "
+                      "or kept from starting after a given time. Nothing is changed on the Director."));
     layout->addWidget(intro);
 
     auto *row = new QHBoxLayout;
@@ -3009,6 +3011,12 @@ void BScheduleWidget::setupStaggerPanel()
                                    "hour and keeps the smallest moves that wait least"));
     connect(m_staggerButton, &QPushButton::clicked, this, &BScheduleWidget::proposeStagger);
     row->addWidget(m_staggerButton, 0, Qt::AlignTop);
+    m_staggerConstraintsButton = new QPushButton(tr("Constraints..."), m_staggerPage);
+    m_staggerConstraintsButton->setToolTip(tr("Jobs that must not move, or must not start after a "
+                                              "given time; kept on this computer for this Director"));
+    connect(m_staggerConstraintsButton, &QPushButton::clicked,
+            this, &BScheduleWidget::editStaggerConstraints);
+    row->addWidget(m_staggerConstraintsButton, 0, Qt::AlignTop);
     m_staggerSummary = new QLabel(m_staggerPage);
     m_staggerSummary->setWordWrap(true);
     m_staggerSummary->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -3107,6 +3115,7 @@ void BScheduleWidget::proposeStagger()
     options.jobMaxMinutes = staggerBounds(&schedules);
     // On the quarter hour: room for a run that lasts longer than measured
     options.gridMinutes = 15;
+    staggerConstraintOptions(&options);
     const QDateTime from = m_fdGanttWidget->firstDate().startOfDay();
 
     QApplication::setOverrideCursor(Qt::WaitCursor);
@@ -3157,14 +3166,27 @@ void BScheduleWidget::proposeStagger()
     m_staggerTable->setRowCount(shown.size());
     for (int row = 0; row < shown.size(); ++row) {
         const BWaitStagger::Shift &shift = shown[row];
-        QString note;
-        if (shift.minutes == 0 && shift.boundMinutes == 0)
-            note = tr("Stays: a Run line of its schedule runs at several hours, is not understood "
-                      "or would move into the next day");
-        else if (!shift.follows.isEmpty())
-            note = tr("Moves along to run after %1, which has a higher priority").arg(shift.follows);
-        else if (shift.minutes == 0)
-            note = tr("A later start does not help");
+        QStringList notes;
+        const QString latest = shift.latestStartMinute >= 0
+            ? QTime(shift.latestStartMinute / 60, shift.latestStartMinute % 60).toString(QStringLiteral("HH:mm"))
+            : QString();
+        if (shift.fixed)
+            notes << tr("Fixed by constraint");
+        else if (shift.minutes == 0 && shift.boundMinutes == 0 && !latest.isEmpty())
+            notes << tr("Stays: latest start %1 by constraint").arg(latest);
+        else if (shift.minutes == 0 && shift.boundMinutes == 0)
+            notes << tr("Stays: a Run line of its schedule runs at several hours, is not understood "
+                        "or would move into the next day");
+        else {
+            if (!shift.follows.isEmpty())
+                notes << tr("Moves along to run after %1, which has a higher priority").arg(shift.follows);
+            else if (shift.minutes == 0)
+                notes << tr("A later start does not help");
+            // The constraint held it back: it might have moved further
+            if (!latest.isEmpty())
+                notes << tr("latest start %1 by constraint").arg(latest);
+        }
+        const QString note = notes.join(QStringLiteral("; "));
 
         const QStringList cells = {
             shift.job, schedules.value(shift.job), times(m_waitRuns, shift.job),
@@ -3178,6 +3200,36 @@ void BScheduleWidget::proposeStagger()
     }
     m_staggerTable->resizeColumnsToContents();
     updateStaggerApply();
+}
+
+void BScheduleWidget::staggerConstraintOptions(BWaitStagger::Options *options) const
+{
+    const QHash<QString, BSettings::StaggerConstraint> constraints =
+        BSettings::instance().schedulesStaggerConstraints(m_profileId);
+    for (auto it = constraints.cbegin(); it != constraints.cend(); ++it) {
+        if (it.value().fixed)
+            options->fixedJobs.insert(it.key());
+        else if (it.value().latestStart.isValid())
+            options->latestStartMinutes.insert(
+                it.key(), it.value().latestStart.hour() * 60 + it.value().latestStart.minute());
+    }
+}
+
+void BScheduleWidget::editStaggerConstraints()
+{
+    // The jobs of the waits on display, in the order of their first run
+    QStringList jobs;
+    for (const BWaitRun &run : std::as_const(m_waitRuns)) {
+        if (!run.job.isEmpty() && !jobs.contains(run.job)) jobs.append(run.job);
+    }
+    BSettings &settings = BSettings::instance();
+    BStaggerConstraintsDialog dialog(jobs, settings.schedulesStaggerConstraints(m_profileId), this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    settings.setSchedulesStaggerConstraints(m_profileId, dialog.constraints());
+    // A proposal on display was made without them
+    if (!m_staggerProposal.shifts.isEmpty())
+        proposeStagger();
 }
 
 namespace {

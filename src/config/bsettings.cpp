@@ -961,6 +961,54 @@ void BSettings::setSchedulesDeviceWriters(const QString& profileId, const QStrin
 }
 
 namespace {
+/// One key per profile with a JSON object, by job: job names may hold any
+/// character, which is simpler in JSON than in QSettings groups
+QString staggerConstraintsKey(const QString& profileId)
+{
+    const QString profile = profileId.isEmpty() ? QStringLiteral("default") : profileId;
+    return QStringLiteral("Widgets/Schedules/stagger_constraints/%1")
+        .arg(QString::fromLatin1(QUrl::toPercentEncoding(profile)));
+}
+} // namespace
+
+QHash<QString, BSettings::StaggerConstraint>
+BSettings::schedulesStaggerConstraints(const QString& profileId) const
+{
+    QHash<QString, StaggerConstraint> constraints;
+    const QJsonObject object =
+        QJsonDocument::fromJson(value(staggerConstraintsKey(profileId)).toByteArray()).object();
+    for (auto it = object.constBegin(); it != object.constEnd(); ++it) {
+        const QJsonObject entry = it.value().toObject();
+        StaggerConstraint constraint;
+        constraint.fixed = entry.value(QStringLiteral("fixed")).toBool();
+        constraint.latestStart = QTime::fromString(entry.value(QStringLiteral("latest_start")).toString(),
+                                                   QStringLiteral("HH:mm"));
+        if (!constraint.isEmpty()) constraints.insert(it.key(), constraint);
+    }
+    return constraints;
+}
+
+void BSettings::setSchedulesStaggerConstraints(const QString& profileId,
+                                               const QHash<QString, StaggerConstraint>& constraints)
+{
+    QJsonObject object;
+    for (auto it = constraints.constBegin(); it != constraints.constEnd(); ++it) {
+        if (it.key().isEmpty() || it.value().isEmpty()) continue;
+        QJsonObject entry;
+        if (it.value().fixed) entry.insert(QStringLiteral("fixed"), true);
+        if (it.value().latestStart.isValid())
+            entry.insert(QStringLiteral("latest_start"),
+                         it.value().latestStart.toString(QStringLiteral("HH:mm")));
+        object.insert(it.key(), entry);
+    }
+    if (object.isEmpty())
+        m_settings.remove(staggerConstraintsKey(profileId));
+    else
+        setValue(staggerConstraintsKey(profileId),
+                 QJsonDocument(object).toJson(QJsonDocument::Compact));
+}
+
+namespace {
 /// Key of a 3-2-1 verifier setting of a profile (and a storage), percent-encoded
 QString verify321Key(const QString& what, const QString& profileId,
                      const QString& storage = QString())

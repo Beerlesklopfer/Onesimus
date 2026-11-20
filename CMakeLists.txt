@@ -500,6 +500,7 @@ set(SOURCES
     src/schedules/bjobscheduleindex.cpp
     src/schedules/bscheduledragplan.cpp
     src/schedules/bstaggerplan.cpp
+    src/schedules/bstaggerconstraintsdialog.cpp
     src/schedules/bschedulepersistence.cpp
     src/schedules/bschedulereviewdialog.cpp
     src/schedules/model/bscheduleresource.cpp
@@ -644,6 +645,7 @@ set(HEADERS
     include/schedules/bjobscheduleindex.h
     include/schedules/bscheduledragplan.h
     include/schedules/bstaggerplan.h
+    include/schedules/bstaggerconstraintsdialog.h
     include/schedules/bschedulepersistence.h
     include/schedules/bschedulereviewdialog.h
     include/schedules/model/bscheduleresource.h
@@ -2500,6 +2502,7 @@ if(BUILD_TESTING)
         src/schedules/bscheduleganttwidget.cpp
         src/schedules/bscheduledragplan.cpp
         src/schedules/bstaggerplan.cpp
+        src/schedules/bstaggerconstraintsdialog.cpp
         src/schedules/bschedulepersistence.cpp
         include/schedules/bschedulepersistence.h
         include/schedules/bschedulereviewdialog.h
@@ -2537,6 +2540,7 @@ if(BUILD_TESTING)
         include/buiscale.h
         include/config/bsettings.h
         include/schedules/bschedulewidget.h
+        include/schedules/bstaggerconstraintsdialog.h
         include/schedules/bschedulelegend.h
         include/schedules/bscheduleganttwidget.h
         include/schedules/bjobscheduleindex.h

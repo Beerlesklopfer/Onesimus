@@ -42,6 +42,8 @@
 #include <QSpinBox>
 #include <QSignalSpy>
 #include <QTableWidget>
+#include <QCheckBox>
+#include <QTimeEdit>
 #include <QTemporaryDir>
 #include <QUndoStack>
 
@@ -54,6 +56,7 @@
 #include "schedules/bschedulelegend.h"
 #include "schedules/bschedulereviewdialog.h"
 #include "schedules/bschedulewidget.h"
+#include "schedules/bstaggerconstraintsdialog.h"
 #include "schedules/model/bscheduleresource.h"
 
 #include "bfakeconfigclient.h"
@@ -205,6 +208,8 @@ private slots:
     void waitsOfSecondsInTheList();
     void staggerIsWrittenAfterOneConfirmation();
     void staggerNotConfirmedWritesNothing();
+    void staggerFollowsTheStoredConstraints();
+    void staggerConstraintsDialogKeepsTheOthers();
 
     // --- The review ---
     void reviewTextCanBeEdited();
@@ -444,6 +449,31 @@ QPushButton *proposeStagger(Tab &tab)
         if (b->text() == QLatin1String("Apply...")) apply = b;
     }
     return apply;
+}
+
+/// Proposes again and returns the rows of the stagger table: job, later
+/// by, note
+QList<QStringList> staggerRows(Tab &tab)
+{
+    QWidget *stagger = tab.widget.findChild<QWidget *>(QStringLiteral("stagger"));
+    QList<QStringList> rows;
+    if (!stagger) return rows;
+    for (QPushButton *b : stagger->findChildren<QPushButton *>()) {
+        if (b->text() == QLatin1String("Propose later start times")) b->click();
+    }
+    QTableWidget *table = stagger->findChild<QTableWidget *>();
+    for (int row = 0; table && row < table->rowCount(); ++row)
+        rows.append({table->item(row, 0)->text(), table->item(row, 4)->text(), table->item(row, 7)->text()});
+    return rows;
+}
+
+int movedRows(const QList<QStringList> &rows)
+{
+    int n = 0;
+    for (const QStringList &row : rows) {
+        if (!row.at(1).isEmpty()) ++n;
+    }
+    return n;
 }
 
 } // namespace
@@ -950,6 +980,87 @@ void BScheduleTimelineTest::staggerNotConfirmedWritesNothing()
     QCOMPARE(tab.client.writes().size(), 1);    // the refused create, nothing after it
     QVERIFY2(status.last().at(0).toString().contains("Written before: nothing"),
              qPrintable(status.last().at(0).toString()));
+}
+
+void BScheduleTimelineTest::staggerFollowsTheStoredConstraints()
+{
+    BSettings &settings = BSettings::instance();
+    BSettings::StaggerConstraint fixed;
+    fixed.fixed = true;
+    BSettings::StaggerConstraint latest;
+    latest.latestStart = QTime(8, 15);
+    settings.setSchedulesStaggerConstraints("p1", {{"JobA", fixed}, {"JobB", fixed}, {"JobC", fixed}});
+
+    GrpcTab tab;
+    tab.widget.setDirectorProfileId("p1");
+    feedThreeWaitingJobs(tab);
+    QPushButton *apply = proposeStagger(tab);
+    QVERIFY(apply);
+
+    // All fixed: nothing moves, and the table says why
+    QList<QStringList> rows = staggerRows(tab);
+    QVERIFY(!rows.isEmpty());
+    QCOMPARE(movedRows(rows), 0);
+    QVERIFY(!apply->isEnabled());
+    for (const QStringList &row : rows)
+        QVERIFY2(row.at(2) == QLatin1String("Fixed by constraint"), qPrintable(row.join(" | ")));
+
+    // Not after 08:15: only one of the two that wait finds a place
+    settings.setSchedulesStaggerConstraints("p1", {{"JobA", latest}, {"JobB", latest}, {"JobC", latest}});
+    rows = staggerRows(tab);
+    QCOMPARE(movedRows(rows), 1);
+    bool noted = false;
+    for (const QStringList &row : rows) {
+        if (!row.at(1).isEmpty()) QCOMPARE(row.at(1), QString("15 min"));
+        noted = noted || row.at(2).contains("latest start 08:15");
+    }
+    QVERIFY2(noted, qPrintable(rows.value(0).join(" | ")));
+
+    // Another Director has its own (none): both move
+    tab.widget.setDirectorProfileId("p2");
+    rows = staggerRows(tab);
+    QCOMPARE(movedRows(rows), 2);
+    for (const QStringList &row : rows) QVERIFY(!row.at(2).contains("constraint"));
+
+    settings.setSchedulesStaggerConstraints("p1", {});
+    QVERIFY(settings.schedulesStaggerConstraints("p1").isEmpty());
+}
+
+void BScheduleTimelineTest::staggerConstraintsDialogKeepsTheOthers()
+{
+    BSettings::StaggerConstraint fixed;
+    fixed.fixed = true;
+    BStaggerConstraintsDialog dialog({"A", "B", "C"}, {{"C", fixed}, {"Other", fixed}});
+    QCheckBox *fixedA = dialog.findChild<QCheckBox *>("fixed:A");
+    QCheckBox *fixedC = dialog.findChild<QCheckBox *>("fixed:C");
+    QCheckBox *latestOnB = dialog.findChild<QCheckBox *>("latestOn:B");
+    QTimeEdit *latestB = dialog.findChild<QTimeEdit *>("latest:B");
+    QVERIFY(fixedA && fixedC && latestOnB && latestB);
+    QVERIFY(fixedC->isChecked());
+    QVERIFY(!latestB->isEnabled());
+    fixedA->setChecked(true);
+    latestOnB->setChecked(true);
+    QVERIFY(latestB->isEnabled());
+    latestB->setTime(QTime(23, 30));
+    fixedC->setChecked(false);
+
+    const QHash<QString, BSettings::StaggerConstraint> out = dialog.constraints();
+    QCOMPARE(out.size(), 3);
+    QVERIFY(out.value("A").fixed);
+    QCOMPARE(out.value("B").latestStart, QTime(23, 30));
+    QVERIFY(!out.value("B").fixed);
+    QVERIFY(!out.contains("C"));        // cleared
+    QVERIFY(out.value("Other").fixed);  // not listed: kept
+
+    // Stored and read back per profile
+    BSettings::instance().setSchedulesStaggerConstraints("dialog", out);
+    const QHash<QString, BSettings::StaggerConstraint> back =
+        BSettings::instance().schedulesStaggerConstraints("dialog");
+    QCOMPARE(back.size(), 3);
+    QCOMPARE(back.value("B").latestStart, QTime(23, 30));
+    QVERIFY(back.value("A").fixed);
+    QVERIFY(BSettings::instance().schedulesStaggerConstraints("elsewhere").isEmpty());
+    BSettings::instance().setSchedulesStaggerConstraints("dialog", {});
 }
 
 void BScheduleTimelineTest::themedToolbarCutsNoButtonAndWeekHasCalendar()
