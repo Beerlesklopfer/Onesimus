@@ -1232,10 +1232,8 @@ void BMainWindow::createActions()
     connect(m_addScheduleAction, &QAction::triggered, this, [this]() {
         BDirectiveSchema::instance().loadSchemas();
         BScheduleWizard wizard(m_director, this);
-        QMap<QString, QStringList> refData;
-        refData["Pool"] = m_jobWidget->poolNames();
-        refData["Storage"] = m_jobWidget->storageNames();
-        wizard.setReferenceData(refData);
+        // A name that is taken is refused on the first page already
+        wizard.setExistingScheduleNames(m_scheduleWidget->scheduleModel()->scheduleNames());
         // Where the session lists CreateResource, the schedule is created
         // through it (checked and reviewed); otherwise with "configure add"
         if (BCapabilities::usesConfigMethod(BCapabilities::Function::CreateSchedule,

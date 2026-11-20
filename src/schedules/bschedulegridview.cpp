@@ -360,6 +360,7 @@ void BScheduleGridView::buildUi()
     // --- Description (written with the Run lines) ---
     auto *descriptionRow = new QHBoxLayout();
     auto *descriptionLabel = new QLabel(tr("Descr&iption:"), top);
+    m_descriptionLabel = descriptionLabel;
     descriptionRow->addWidget(descriptionLabel);
     m_description = new QLineEdit(top);
     m_description->setObjectName(QStringLiteral("scheduleDescription"));
@@ -794,6 +795,15 @@ void BScheduleGridView::setWritable(bool canSave, bool canDelete)
         : tr("This connection cannot delete a schedule; the click says why."));
 }
 
+void BScheduleGridView::setNewScheduleMode()
+{
+    m_newScheduleMode = true;
+    const QList<QWidget *> hidden = {m_title, m_usage, m_modified, m_descriptionLabel,
+                                     m_description, m_save, m_delete};
+    for (QWidget *widget : hidden)
+        widget->setVisible(false);
+}
+
 void BScheduleGridView::updateLock()
 {
     // Locked: nothing that edits is offered
@@ -839,7 +849,7 @@ void BScheduleGridView::updateModified()
 {
     const bool modified = isModified();
     m_modified->setText(modifiedText());
-    m_modified->setVisible(modified);
+    m_modified->setVisible(modified && !m_newScheduleMode);
     m_save->setEnabled(modified && !isLocked());
     if (modified != m_wasModified) {
         m_wasModified = modified;

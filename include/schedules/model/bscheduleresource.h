@@ -110,6 +110,11 @@ public:
     static QString createText(const QString &name, const QString &description, const QStringList &runs,
                               const QString &lineEnd = QStringLiteral("\n"));
 
+    /// As above; a schedule that is not enabled gets "Enabled = no" after
+    /// the description (the wizard for new schedules offers the choice)
+    static QString createText(const QString &name, const QString &description, bool enabled,
+                              const QStringList &runs, const QString &lineEnd = QStringLiteral("\n"));
+
     /// A value as Bareos reads it in a configuration file: quoted, with \ and " escaped
     static QString quoted(const QString &value);
 };

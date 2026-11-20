@@ -366,6 +366,16 @@ void BSchedulePersistenceTest::createText()
     QStringList values;
     QVERIFY(BScheduleResource::runValues(text, &values));
     QCOMPARE(values, QStringList({QStringLiteral("Level=Full sun at 02:00")}));
+
+    // Not enabled: "Enabled = no" after the description, before the Run lines
+    const QString disabled = BScheduleResource::createText(QStringLiteral("Nightly"), QString(), false,
+                                                           {QStringLiteral("Level=Full sun at 02:00")}, QStringLiteral("\r\n"));
+    QCOMPARE(disabled, QStringLiteral("Schedule {\r\n  Name = \"Nightly\"\r\n  Enabled = no\r\n"
+                                      "  Run = Level=Full sun at 02:00\r\n}\r\n"));
+    QCOMPARE(BScheduleResource::createText(QStringLiteral("Nightly"), QString(), true,
+                                           {QStringLiteral("Level=Full sun at 02:00")}),
+             BScheduleResource::createText(QStringLiteral("Nightly"), QString(),
+                                           {QStringLiteral("Level=Full sun at 02:00")}));
 }
 
 // ============================================================================
