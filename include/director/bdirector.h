@@ -335,6 +335,7 @@ signals:
     void dotScheduleResult(const QString &jsonData);
     void dotAclListResult(const QString &reply);
     void dotAclChangeResult(const QString &reply);
+    void volumePurgeResult(const QString &reply);
     void showProfilesResult(const QString &reply);
     void listClientsResult(const QString &jsonData);
     void showJobsResult(const QString &jsonData);

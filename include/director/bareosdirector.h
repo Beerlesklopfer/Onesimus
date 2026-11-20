@@ -353,7 +353,7 @@ public:
 
         // Volume Maintenance (bulk)
         PruneVolumeAll,     ///< prune volume all yes
-        PurgeVolumeAll,     ///< purge volume allpools yes (not a documented Bareos form, do not send)
+        PurgeVolumes,       ///< purge volume all pool=..|allpools volstatus=.. dryrun|yes - the whole line in args (Onesimus Director only)
 
         // BVFS (Virtual File System for restore)
         BvfsGetJobIds,      ///< .bvfs_get_jobids jobid=<id>
@@ -739,6 +739,8 @@ signals:
     void dotAclListResult(const QString &reply);
     /// The reply to Command::DotAclChange as it came, also an error reply
     void dotAclChangeResult(const QString &reply);
+    /// The reply to Command::PurgeVolumes as it came, also an error reply
+    void volumePurgeResult(const QString &reply);
     /// The reply to Command::ShowProfiles as it came
     void showProfilesResult(const QString &reply);
     void listClientsResult(const QString &jsonData);

@@ -441,6 +441,8 @@ set(SOURCES
     src/bheaderstate.cpp
     src/bcleanupplan.cpp
     src/bcleanuprunner.cpp
+    src/bvolumepurge.cpp
+    src/bvolumepurgepanel.cpp
     src/bconnectionwizard.cpp
     src/bmdnsbrowser.cpp
     src/bcertificategenerator.cpp
@@ -568,6 +570,8 @@ set(HEADERS
     include/bheaderstate.h
     include/bcleanupplan.h
     include/bcleanuprunner.h
+    include/bvolumepurge.h
+    include/bvolumepurgepanel.h
     include/bconnectionwizard.h
     include/bmdnsbrowser.h
     include/bcertificategenerator.h
@@ -1541,6 +1545,31 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bcleanup_test COMMAND bcleanup_test)
+
+    # bvolumepurge_test - "purge volume all" of the Onesimus Director: command
+    # line, reply parser, and the panel's preview-before-purge rule (offscreen)
+    add_executable(bvolumepurge_test
+        test/bvolumepurge_test.cpp
+        src/bvolumepurge.cpp
+        src/bvolumepurgepanel.cpp
+        src/bbyteformat.cpp
+        include/bvolumepurge.h
+        include/bvolumepurgepanel.h
+        include/bbyteformat.h
+    )
+
+    target_include_directories(bvolumepurge_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bvolumepurge_test PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::Test
+    )
+
+    add_test(NAME bvolumepurge_test COMMAND bvolumepurge_test)
+    set_tests_properties(bvolumepurge_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     # bdatabase_test - schema creation, migrations and repair on a temporary SQLite file
     # (uses the SQL scripts from the application's resource file)

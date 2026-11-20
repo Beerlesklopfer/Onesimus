@@ -3,6 +3,7 @@
 #include "bcapabilitynotice.h"
 #include "blabelstate.h"
 #include "bcleanuprunner.h"
+#include "bvolumepurgepanel.h"
 #include "director/bdirector.h"
 #include "jobs/bjobmodels.h"
 #include <QVBoxLayout>
@@ -39,6 +40,11 @@ BCleanupDialog::BCleanupDialog(BDirector *director, BJobsModel *jobsModel, QWidg
     setWindowTitle(tr("Database Cleanup"));
     resize(BUiScale::px(800), BUiScale::px(600));
 
+    // "purge volume all ..." exists on the Onesimus Director only; Bareos
+    // purges named volumes only
+    m_purgeAvailable = BCapabilities::isAvailable(BCapabilities::Function::PurgeAllVolumes,
+                                                  BCapabilityNotice::serverOf(m_director));
+
     setupUI();
 
     m_replyTimer->setSingleShot(true);
@@ -74,6 +80,21 @@ BCleanupDialog::BCleanupDialog(BDirector *director, BJobsModel *jobsModel, QWidg
         connect(m_director, &BDirector::textResult, this, onReply);
         connect(m_director, &BDirector::disconnected, this, [this]() {
             m_runner->abort(tr("The connection to the Director was lost"));
+            m_purgePanel->handleFailure(tr("the connection to the Director was lost"));
+        });
+
+        // The purge reply comes as it is, a refusal too; the panel reads it
+        m_purgePanel->setSender([this](const QString &commandLine) {
+            m_director->doSend(BDirector::Command::PurgeVolumes, commandLine);
+        });
+        connect(m_director, &BDirector::volumePurgeResult, m_purgePanel,
+                &BVolumePurgePanel::handleReply);
+        // A Director without the command may answer with text
+        connect(m_director, &BDirector::textResult, this,
+                [this](BDirector::Command cmd, const QString &data) {
+            if (cmd == BDirector::Command::PurgeVolumes) {
+                m_purgePanel->handleReply(data);
+            }
         });
     }
 
@@ -154,10 +175,18 @@ void BCleanupDialog::setupUI()
     m_volumeActionCombo->setToolTip(tr("Prune removes the expired job records of all volumes "
                                        "according to their retention period"));
 
-    // "purge volume allpools yes" is not a documented Bareos command: purge
-    // works on named volumes only and ignores retention periods. The entry
-    // stays visible but cannot be selected and is never sent.
-    if (auto *comboModel = qobject_cast<QStandardItemModel *>(m_volumeActionCombo->model())) {
+    // Bareos has no command that purges all volumes: purge works on named
+    // volumes only and ignores retention periods. There the entry stays
+    // visible but cannot be selected. The Onesimus Director has
+    // "purge volume all ..."; the purge then has its own preview below.
+    auto *comboModel = qobject_cast<QStandardItemModel *>(m_volumeActionCombo->model());
+    if (m_purgeAvailable && comboModel) {
+        if (QStandardItem *purgeItem = comboModel->item(1)) {
+            purgeItem->setToolTip(
+                tr("Prune all volumes with 'Cleanup', and purge the volumes of a pool with a "
+                   "chosen status after a preview. Purge ignores retention periods."));
+        }
+    } else if (comboModel) {
         if (QStandardItem *purgeItem = comboModel->item(1)) {
             purgeItem->setEnabled(false);
             purgeItem->setToolTip(
@@ -193,6 +222,20 @@ void BCleanupDialog::setupUI()
     optionsLayout->addLayout(failedJobsLayout);
 
     mainLayout->addWidget(m_optionsGroup);
+
+    m_purgePanel = new BVolumePurgePanel(this);
+    m_purgePanel->setVisible(false);
+    connect(m_purgePanel, &BVolumePurgePanel::busyChanged, this, [this](bool busy) {
+        m_optionsGroup->setEnabled(!busy);
+        m_analyzeButton->setEnabled(!busy);
+        m_closeButton->setEnabled(!busy);
+        updateCleanupButton();
+    });
+    connect(m_purgePanel, &BVolumePurgePanel::purgeFinished, this, [this]() {
+        logMessage(tr("Volumes were purged. Refresh the job list to see the remaining jobs."),
+                   "warning");
+    });
+    mainLayout->addWidget(m_purgePanel, 1);
 
     // Every option change makes an existing analysis stale
     const QList<QCheckBox *> checks = {m_removeOldFullBackupsCheck, m_removeEmptyJobsCheck,
@@ -285,9 +328,11 @@ BCleanup::Options BCleanupDialog::currentOptions() const
     options.removeEmptyJobs = m_removeEmptyJobsCheck->isChecked();
     options.removeFailedJobs = m_removeFailedJobsCheck->isChecked();
     options.failedAgeDays = m_failedJobsAgeSpin->value();
-    // Only "Prune only" can be executed; see the disabled purge entry in setupUI()
+    // Both actions prune all volumes with "Cleanup"; the purge of "Prune and
+    // purge" has its own preview and button (BVolumePurgePanel)
     options.pruneVolumes = m_pruneVolumesCheck->isChecked()
-                           && m_volumeActionCombo->currentData().toString() == "prune";
+                           && (m_volumeActionCombo->currentData().toString() == "prune"
+                               || m_purgeAvailable);
     return options;
 }
 
@@ -309,7 +354,23 @@ void BCleanupDialog::setStatus(const QString &text, const QString &kind)
 
 void BCleanupDialog::updateCleanupButton()
 {
-    m_cleanupButton->setEnabled(!m_runner->isRunning() && m_analysis.canExecute(currentOptions()));
+    m_cleanupButton->setEnabled(!isBusy() && m_analysis.canExecute(currentOptions()));
+}
+
+bool BCleanupDialog::isBusy() const
+{
+    return m_runner->isRunning() || (m_purgePanel && m_purgePanel->isBusy());
+}
+
+void BCleanupDialog::setPoolNames(const QStringList &pools)
+{
+    m_purgePanel->setPoolNames(pools);
+}
+
+void BCleanupDialog::updatePurgePanel()
+{
+    m_purgePanel->setVisible(m_purgeAvailable && m_pruneVolumesCheck->isChecked()
+                             && m_volumeActionCombo->currentData().toString() == "purge");
 }
 
 void BCleanupDialog::invalidateAnalysis(const QString &statusText)
@@ -327,6 +388,7 @@ void BCleanupDialog::invalidateAnalysis(const QString &statusText)
 
 void BCleanupDialog::onOptionChanged()
 {
+    updatePurgePanel();
     if (m_runner->isRunning()) {
         return;  // Options are locked while a run is in progress
     }
@@ -450,7 +512,7 @@ void BCleanupDialog::onCloseClicked()
 
 void BCleanupDialog::reject()
 {
-    if (m_runner->isRunning()) {
+    if (isBusy()) {
         return;  // Use "Stop"; the dialog stays open until the run has ended
     }
     QDialog::reject();
@@ -458,7 +520,7 @@ void BCleanupDialog::reject()
 
 void BCleanupDialog::closeEvent(QCloseEvent *event)
 {
-    if (m_runner->isRunning()) {
+    if (isBusy()) {
         event->ignore();
         return;
     }
@@ -501,6 +563,10 @@ void BCleanupDialog::analyzeJobs()
     if (plan.pruneVolumes) {
         logMessage(tr("✓ Will prune all volumes (apply each volume's retention period)"), "info");
         logMessage(tr("  Command: %1").arg(QString::fromLatin1(PruneAllVolumesCommand)), "info");
+        if (m_volumeActionCombo->currentData().toString() == "purge") {
+            logMessage(tr("  The purge is not part of 'Cleanup': use 'Preview' and 'Purge' "
+                          "in 'Purge volumes'."), "info");
+        }
     } else if (m_pruneVolumesCheck->isChecked()) {
         logMessage(tr("  'Prune and purge' is not available and will not be sent."), "warning");
     }
@@ -697,6 +763,7 @@ void BCleanupDialog::logFailedJobs(const BCleanup::Plan &plan)
 void BCleanupDialog::setRunning(bool running)
 {
     m_optionsGroup->setEnabled(!running);
+    m_purgePanel->setEnabled(!running);
     m_analyzeButton->setEnabled(!running);
     m_closeButton->setEnabled(true);
     m_closeButton->setText(running ? tr("Stop") : tr("Close"));

@@ -1751,6 +1751,11 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
         emit dotAclChangeResult(jsonData);
         return;
     }
+    // The cleanup dialog reads the purge result itself, a refusal too
+    if (m_lastCommandEnum == Command::PurgeVolumes) {
+        emit volumePurgeResult(jsonData);
+        return;
+    }
     if (m_lastCommandEnum == Command::ShowProfiles) {
         emit showProfilesResult(jsonData);
         return;
@@ -2200,10 +2205,9 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     // Documented form: prune volume [=volume] [pool=<pool>] [all] [yes]
     // ("allpools" is not a prune keyword; without "all" the Director asks for a volume)
     case Command::PruneVolumeAll:   command = "prune volume all yes"; break;
-    // Not a documented Bareos command: purge works on named volumes only
-    // (volume=<volume>); "allpools" belongs to "purge volume action=...".
-    // No caller sends this; see BCleanupDialog.
-    case Command::PurgeVolumeAll:   command = "purge volume allpools yes"; break;
+    // Onesimus Director only: "purge volume all pool=<p>|allpools
+    // volstatus=... dryrun|yes", built and checked by BVolumePurge
+    case Command::PurgeVolumes:     command = args; break;
 
     // BVFS (Virtual File System for restore)
     case Command::BvfsGetJobIds:    command = QString(".bvfs_get_jobids %1").arg(args); break;
