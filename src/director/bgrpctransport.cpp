@@ -278,7 +278,7 @@ void BGrpcTransport::openPushStream()
                 m_jobNames.clear();
             }
             m_jobNames.insert(js.jobId(), js.jobName());
-            emit jobStatusEvent(int(js.jobId()), js.jobName(), js.status());
+            emit jobStatusEvent(int(js.jobId()), js.jobName(), js.status(), js.timestamp(), js.schedTime());
         } else if (ev.hasConsoleText()) {
             const QString text = ev.consoleText().text();
             // Job messages arrive as console text "JobId=<id> <name>: <text>"

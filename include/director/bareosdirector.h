@@ -797,7 +797,10 @@ signals:
     void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
 
     /// Job status push event with the status text as sent (gRPC only)
-    void jobStatusEvent(quint64 jobId, const QString &jobName, const QString &status);
+    /// @param when When the Director posted it; @param scheduled the job's scheduled start
+    /// (both invalid when not known: older Directors send no scheduled time)
+    void jobStatusEvent(quint64 jobId, const QString &jobName, const QString &status,
+                        const QDateTime &when, const QDateTime &scheduled);
 
     /**
      * @brief gRPC server certificate is not pinned yet or does not match the pin
@@ -966,7 +969,8 @@ private slots:
     void onGrpcCertificateNotTrusted(const QString &fingerprint, const QString &pinnedFingerprint);
     void onGrpcCommandFinished(const QString &commandLine, bool success,
                                const QString &text, const QString &error);
-    void onGrpcJobStatus(int jobId, const QString &jobName, const QString &status);
+    void onGrpcJobStatus(int jobId, const QString &jobName, const QString &status,
+                         qint64 timestamp, qint64 schedTime);
     void onGrpcConnectionLost(const QString &reason);
 
 private:

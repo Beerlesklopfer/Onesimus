@@ -48,6 +48,8 @@ class BLiveOverlayTest : public QObject
     Q_OBJECT
 
 private slots:
+    void scheduledStartIsWhereTheWaitBegins();
+    void runningEventAfterAQueueEvent();
     void classifiesBothVocabularies();
     void jobOfUniqueName();
     void recognisesStartMessages();
@@ -279,6 +281,42 @@ void BLiveOverlayTest::waitSoFar()
     BLiveJobOverlay::Job early;
     early.queued = at(21, 0);
     QCOMPARE(early.waitSecs(at(20, 59)), qint64(0));
+}
+
+void BLiveOverlayTest::scheduledStartIsWhereTheWaitBegins()
+{
+    // odir since proto 3302131: the event carries the scheduled start
+    BLiveJobOverlay overlay;
+    QVERIFY(overlay.statusEvent(5, QStringLiteral("BackupMail"), QStringLiteral("Queued"), at(23, 5, 2), at(23, 5)));
+    QCOMPARE(overlay.job(5)->queued, at(23, 5));
+    QVERIFY(overlay.statusEvent(5, QStringLiteral("BackupMail"), QStringLiteral("Running"), at(23, 7)));
+    QCOMPARE(overlay.job(5)->started, at(23, 7));
+    QCOMPARE(overlay.job(5)->waitSecs(at(23, 9)), qint64(120));   // 23:05 to 23:07, as the catalog counts it
+
+    // A Running event without a queue event: the wait comes from the scheduled start
+    QVERIFY(overlay.statusEvent(6, QStringLiteral("forgejo"), QStringLiteral("Running"), at(23, 6), at(23, 5)));
+    QCOMPARE(overlay.job(6)->queued, at(23, 5));
+    QCOMPARE(overlay.job(6)->waitSecs(at(23, 30)), qint64(60));
+    // Without one, as before: the wait is not known
+    QVERIFY(overlay.statusEvent(7, QStringLiteral("tapir"), QStringLiteral("Running"), at(23, 6)));
+    QCOMPARE(overlay.job(7)->waitSecs(at(23, 30)), qint64(-1));
+    // A scheduled time after the event (a clock that is off) is not taken
+    QVERIFY(overlay.statusEvent(8, QStringLiteral("x"), QStringLiteral("Queued"), at(1, 0), at(1, 10)));
+    QCOMPARE(overlay.job(8)->queued, at(1, 0));
+}
+
+void BLiveOverlayTest::runningEventAfterAQueueEvent()
+{
+    // An older odir: Queued without a scheduled time; then a Running event that has one
+    BLiveJobOverlay overlay;
+    overlay.statusEvent(9, QStringLiteral("J"), QStringLiteral("Queued"), at(2, 0, 3));
+    QCOMPARE(overlay.job(9)->queued, at(2, 0, 3));
+    QVERIFY(overlay.statusEvent(9, QStringLiteral("J"), QStringLiteral("Running"), at(2, 1), at(2, 0)));
+    QCOMPARE(overlay.job(9)->queued, at(2, 0));
+    QCOMPARE(overlay.job(9)->phase, BLiveJobOverlay::Phase::Running);
+    // The start message after the Running event changes nothing
+    QVERIFY(!overlay.jobMessage(9, QStringLiteral("J"), QStringLiteral("Start Backup JobId 9, Job=J.2026"), at(2, 1, 5)));
+    QCOMPARE(overlay.job(9)->started, at(2, 1));
 }
 
 QTEST_GUILESS_MAIN(BLiveOverlayTest)

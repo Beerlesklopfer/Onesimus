@@ -390,7 +390,8 @@ signals:
     void jobMessage(quint64 jobId, const QString &jobName, const QString &text);
 
     /// Job status push event with the status text as sent (gRPC only)
-    void jobStatusEvent(quint64 jobId, const QString &jobName, const QString &status);
+    void jobStatusEvent(quint64 jobId, const QString &jobName, const QString &status,
+                        const QDateTime &when, const QDateTime &scheduled);
 
 public slots:
     // ========================================================================

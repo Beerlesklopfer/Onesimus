@@ -28,17 +28,19 @@ struct BJobRun;
  * commands/job.rs, commands/cancel.rs, job_messages.rs):
  * - JobStatusEvent {job_id, job_name, status, timestamp}. job_name is the
  *   name of the Job resource. odir sends "Queued" when a job enters the
- *   queue, "Canceling" when it is cancelled and "Success" or "Error" when
- *   it is complete. It sends no event when a job leaves the queue and
- *   starts. The proto comment names "Running", "OK", "Error" and
- *   "Canceled"; both vocabularies are understood, and the one-letter
- *   catalog codes as well (classify()).
+ *   queue, "Running" when it really starts (since proto 3302131; older
+ *   odir sent no start event), "Canceling" when it is cancelled and
+ *   "Success" or "Error" when it is complete. Both vocabularies of the
+ *   proto are understood, and the one-letter catalog codes as well
+ *   (classify()). Since proto 3302131 the event also carries the job's
+ *   scheduled start: then the wait is counted from there, as the catalog
+ *   counts it (StartTime minus SchedTime), and not from the queue event.
  * - Job messages arrive as console text "JobId=<id> <name>: <text>"
  *   without a time. The first message a running job writes is
  *   "Start Backup JobId ...", "Start Restore Job ...", "Start Verify ..."
  *   and so on: that is taken as the start (isStartMessage()), at the time
  *   the message arrives.
- * - Neither says why a job waits, nor when it was scheduled.
+ * - Neither says why a job waits.
  *
  * Jobs that were already active when the connection was made produce no
  * event until they end. seed() takes them from the job history of the
@@ -70,7 +72,7 @@ public:
         quint64 jobId = 0;
         QString job;            ///< Name of the Job resource
         Phase phase = Phase::Waiting;
-        QDateTime queued;       ///< Waiting since; invalid if not known
+        QDateTime queued;       ///< Waiting since: the scheduled start if known, else the queue event; invalid if not known
         QDateTime started;      ///< Running since; invalid while it waits
         QString status;         ///< Last status text of the Director
         bool seeded = false;    ///< Taken from the job history, not from an event
@@ -84,11 +86,12 @@ public:
 
     /**
      * @brief A JobStatusEvent
-     * @param when The event's timestamp (the Director's clock)
+     * @param when      The event's timestamp (the Director's clock)
+     * @param scheduled The job's scheduled start; invalid if not known
      * @return true if the jobs changed
      */
     bool statusEvent(quint64 jobId, const QString &jobName, const QString &status,
-                     const QDateTime &when);
+                     const QDateTime &when, const QDateTime &scheduled = QDateTime());
 
     /**
      * @brief A job message pushed by the Director

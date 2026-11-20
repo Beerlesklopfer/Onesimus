@@ -2437,10 +2437,15 @@ void BareosDirector::onGrpcCommandFinished(const QString &commandLine, bool succ
     processDirectorMessage(message, false);
 }
 
-void BareosDirector::onGrpcJobStatus(int jobId, const QString &jobName, const QString &status)
+void BareosDirector::onGrpcJobStatus(int jobId, const QString &jobName, const QString &status,
+                                     qint64 timestamp, qint64 schedTime)
 {
+    // Unix times of the Director; 0 is "not known"
+    auto time = [](qint64 secs) {
+        return secs > 0 ? QDateTime::fromSecsSinceEpoch(secs).toLocalTime() : QDateTime();
+    };
     emit jobStatusChanged(jobId, parseJobStatus(status));
-    emit jobStatusEvent(quint64(jobId), jobName, status);
+    emit jobStatusEvent(quint64(jobId), jobName, status, time(timestamp), time(schedTime));
 }
 
 void BareosDirector::onGrpcConnectionLost(const QString &reason)

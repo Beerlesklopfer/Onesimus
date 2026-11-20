@@ -2095,12 +2095,14 @@ void BScheduleWidget::setLiveOverlayEnabled(bool enabled)
     }
 }
 
-void BScheduleWidget::onJobStatusEvent(quint64 jobId, const QString &jobName, const QString &status)
+void BScheduleWidget::onJobStatusEvent(quint64 jobId, const QString &jobName, const QString &status,
+                                       const QDateTime &when, const QDateTime &scheduled)
 {
     if (!m_liveEnabled) return;
-    // The signal carries no time; odir stamps the event when it posts it,
-    // so its arrival is as near as the GUI gets
-    if (m_liveOverlay.statusEvent(jobId, jobName, status, QDateTime::currentDateTime()))
+    // The Director's timestamp of the event; without one (an older
+    // transport) its arrival is as near as the GUI gets
+    const QDateTime at = when.isValid() ? when : QDateTime::currentDateTime();
+    if (m_liveOverlay.statusEvent(jobId, jobName, status, at, scheduled))
         liveOverlayChanged();
 }
 

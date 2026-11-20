@@ -115,7 +115,7 @@ void BLiveJobOverlay::markEnded(quint64 jobId)
 }
 
 bool BLiveJobOverlay::statusEvent(quint64 jobId, const QString &jobName, const QString &status,
-                                  const QDateTime &when)
+                                  const QDateTime &when, const QDateTime &scheduled)
 {
     if (jobId == 0) return false;
     const StatusKind kind = classify(status);
@@ -135,11 +135,13 @@ bool BLiveJobOverlay::statusEvent(quint64 jobId, const QString &jobName, const Q
         job.status = status.trimmed();
         if (kind == StatusKind::Waiting) {
             job.phase = Phase::Waiting;
-            job.queued = when;
+            job.queued = scheduled.isValid() && scheduled <= when ? scheduled : when;
         } else {
-            // Running without a queue event first: the wait is not known
+            // Running without a queue event first: the wait is known only
+            // from the scheduled start
             job.phase = Phase::Running;
             job.started = when;
+            if (scheduled.isValid() && scheduled <= when) job.queued = scheduled;
         }
         m_jobs.insert(jobId, job);
         return true;
@@ -150,6 +152,12 @@ bool BLiveJobOverlay::statusEvent(quint64 jobId, const QString &jobName, const Q
     job.status = status.trimmed();
     if (job.job.isEmpty() && !jobName.isEmpty()) {
         job.job = jobOfName(jobName);
+        changed = true;
+    }
+    // The scheduled start, once the Director says it, is where the wait began
+    if (scheduled.isValid() && scheduled <= when && job.queued != scheduled
+        && (!job.started.isValid() || scheduled <= job.started)) {
+        job.queued = scheduled;
         changed = true;
     }
     if (kind == StatusKind::Running && job.phase == Phase::Waiting) {

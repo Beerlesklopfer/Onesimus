@@ -120,7 +120,10 @@ signals:
                          const QString &text, const QString &error);
 
     /// Push events from the InteractiveSession stream
-    void jobStatusEvent(int jobId, const QString &jobName, const QString &status);
+    /// @param timestamp When the Director posted it (unix time); @param schedTime the job's
+    /// scheduled start (unix time, 0: not known; odir since proto 3302131)
+    void jobStatusEvent(int jobId, const QString &jobName, const QString &status,
+                        qint64 timestamp, qint64 schedTime);
     void eventMessage(const QString &message);
     /// Job message, parsed from a ConsoleTextEvent "JobId=<id> <name>: <text>"
     /// (also emitted as eventMessage). Push is lossy: no time, no message type.

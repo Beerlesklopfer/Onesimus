@@ -297,7 +297,8 @@ public slots:
 
     /// Push events of the Director (BDirector::jobStatusEvent, jobMessage);
     /// looked at only while the live overlay is on
-    void onJobStatusEvent(quint64 jobId, const QString &jobName, const QString &status);
+    void onJobStatusEvent(quint64 jobId, const QString &jobName, const QString &status,
+                          const QDateTime &when = QDateTime(), const QDateTime &scheduled = QDateTime());
     void onJobMessage(quint64 jobId, const QString &jobName, const QString &text);
 
 signals:
