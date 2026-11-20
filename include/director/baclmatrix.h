@@ -66,10 +66,11 @@ struct BAclEffective
     std::optional<int> configured;      ///< Resources of the type in the configuration
 };
 
-/** The ACLs of one console. */
+/** The ACLs of one console, or of one profile (then without catalog ACL). */
 struct BConsoleAcl
 {
     QString name;
+    QString description;    ///< Profiles: their Description
     QStringList profiles;
     bool locked = false;
     QString catalogState;   ///< "off", "table_missing", "loaded", "failed"; empty: not reported
@@ -138,6 +139,29 @@ public:
     static QString consoleSummary(const BConsoleAcl &console);
 
     // --- Editing the catalog ACL ----------------------------------------------
+
+    // --- Profiles (file only: the GUI proposes the text, a person puts it in) --
+
+    /// Reads the reply of "show profiles": one entry per profile, its ACL
+    /// directives as file entries (source "Profile <name>")
+    static bool parseProfiles(const QString &reply, QList<BConsoleAcl> *profiles, QString *error = nullptr);
+
+    /// The entries of a file list after one cell is changed: denied (its
+    /// own entry removed, "!<name>" in front if still allowed) or allowed
+    /// (its negation removed, its name in front if still denied)
+    static QStringList fileListAfter(const QStringList &entries, const QString &name, bool allow);
+
+    /// The entries of a type in a file ACL as plain values
+    static QStringList fileList(const BConsoleAcl &resource, const QString &type);
+
+    /// The directive as Bareos spells it: "jobacl" -> "JobAcl"
+    static QString directiveName(const QString &type);
+
+    /**
+     * @brief The text of a Profile resource with these ACL lists
+     * @param lists By type; a type not in it keeps the profile's entries
+     */
+    static QString profileText(const BConsoleAcl &profile, const QHash<QString, QStringList> &lists);
 
     /// Does a list allow @p name (first match decides, no match denies)?
     static bool listAllows(const QStringList &entries, const QString &name);

@@ -1158,6 +1158,21 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
         <source>none</source>
         <translation>nessuna</translation>
     </message>
+    <message>
+        <location filename="../src/director/baclmatrix.cpp" line="392" />
+        <source>The Director did not answer with profiles: %1</source>
+        <translation>Il Director non ha risposto con dei profili: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrix.cpp" line="399" />
+        <source>The reply holds no profiles.</source>
+        <translation>La risposta non contiene profili.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrix.cpp" line="415" />
+        <source>Profile %1</source>
+        <translation>Profile %1</translation>
+    </message>
 </context>
 <context>
     <name>BAclMatrixDialog</name>
@@ -1208,6 +1223,7 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
     </message>
     <message>
         <location filename="../src/director/baclmatrixdialog.cpp" line="124" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="190" />
         <source>Copy</source>
         <translation>Copia</translation>
     </message>
@@ -1257,98 +1273,150 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
         <translation>Scegli un profilo.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="173" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="174" />
+        <source>Proposed configuration text</source>
+        <translation>Testo di configurazione proposto</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="176" />
+        <source>Profiles are changed in the configuration files of the Director only. Put this text in place of the Profile resource in its file (the path is a suggestion), check it with the Director's test (-t) and reload; then Refresh shows the new state. Comments of the old resource are not in this text.</source>
+        <translation>I profili si modificano solo nei file di configurazione del Director. Metti questo testo al posto della risorsa Profile nel suo file (il percorso è un suggerimento), verificalo con il test del Director (-t) e ricarica; poi Aggiorna mostra il nuovo stato. I commenti della vecchia risorsa non sono in questo testo.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="199" />
         <source>(no entries: no restriction)</source>
         <translation>(nessuna voce: nessuna restrizione)</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="201" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="227" />
         <source>ACL matrix of the consoles</source>
         <translation>Matrice ACL delle console</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="207" />
-        <location filename="../src/director/baclmatrixdialog.cpp" line="209" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="233" />
+        <source>Consoles</source>
+        <translation>Console</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="234" />
+        <source>Profiles</source>
+        <translation>Profili</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="235" />
+        <source>Consoles: what each console may use, the catalog ACL can be changed. Profiles: the ACLs of the Profile resources, changed as proposed configuration text.</source>
+        <translation>Console: ciò che ogni console può usare, l'ACL del catalogo si può modificare. Profili: le ACL delle risorse Profile, modificate come testo di configurazione proposto.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="243" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="245" />
         <source>Filter resources</source>
         <translation>Filtra risorse</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="212" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="248" />
         <source>Only rows where the consoles differ</source>
         <translation>Solo righe in cui le console differiscono</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="215" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="251" />
         <source>Refresh</source>
         <translation>Aggiorna</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="216" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="252" />
         <source>Reads the ACLs of every console again (.acl list)</source>
         <translation>Rilegge le ACL di tutte le console (.acl list)</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="218" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="254" />
         <source>Reading the ACLs of the consoles...</source>
         <translation>Lettura delle ACL delle console...</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="222" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="258" />
         <source>New console...</source>
         <translation>Nuova console...</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="223" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="259" />
         <source>Creates a console on the Director with a password and a profile (configure add console); it appears as a new column</source>
         <translation>Crea sul Director una console con password e profilo (configure add console); appare come nuova colonna</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="230" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="266" />
         <source>ACL matrix: resources by console</source>
         <translation>Matrice ACL: risorse per console</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="246" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="282" />
         <source>✓ allowed   ✗ denied by an entry with "!"   · not allowed   ⊘ allowed by the file ACL, narrowed by the catalog ACL   — console locked. A cell's tool tip says why; a console's tool tip has its profiles, its catalog ACL and its Where and Plugin Options ACLs.</source>
         <translation>✓ consentito   ✗ negato da una voce con "!"   · non consentito   ⊘ consentito dall'ACL del file, ristretto dall'ACL del catalogo   — console bloccata. Il suggerimento di una cella dice perché; quello di una console mostra i suoi profili, la sua ACL del catalogo e le sue ACL Where e Plugin Options.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="253" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="358" />
+        <source>The profiles could not be read: %1</source>
+        <translation>Impossibile leggere i profili: %1</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/director/baclmatrixdialog.cpp" line="376" />
+        <source>%n profile(s). Profiles are changed in the configuration files: "Config text..." proposes the new text.</source>
+        <translation><numerusform>%n profilo. I profili si modificano nei file di configurazione: "Testo di configurazione..." propone il nuovo testo.</numerusform><numerusform>%n profili. I profili si modificano nei file di configurazione: "Testo di configurazione..." propone il nuovo testo.</numerusform></translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="390" />
+        <source>Config text...</source>
+        <translation>Testo di configurazione...</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="392" />
+        <source>Shows the new text of every changed profile, to put into the Director's configuration</source>
+        <translation>Mostra il nuovo testo di ogni profilo modificato, da inserire nella configurazione del Director</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="396" />
+        <source>A double click (or Space) on a cell turns it in the proposal: ✓ becomes denied, · or ✗ allowed. Changed cells are underlined; "Config text..." shows the new Profile resources. Nothing is sent: a person puts the text in.</source>
+        <translation>Un doppio clic (o Spazio) su una cella la cambia nella proposta: ✓ diventa negato, · o ✗ consentito. Le celle modificate sono sottolineate; "Testo di configurazione..." mostra le nuove risorse Profile. Non viene inviato nulla: una persona inserisce il testo.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="399" />
         <source>A double click (or Space) on ✓ denies it through the catalog ACL, on ⊘ allows it again. Changed cells are underlined until they are applied. What the file ACL denies is changed in the editor.</source>
         <translation>Un doppio clic (o Spazio) su ✓ lo nega tramite l'ACL del catalogo, su ⊘ lo consente di nuovo. Le celle modificate restano sottolineate finché non vengono applicate. Ciò che l'ACL del file nega si modifica nell'editor.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="263" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="296" />
         <source>Discard</source>
         <translation>Scarta</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="264" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="297" />
         <source>Forgets the changes that were not applied</source>
         <translation>Dimentica le modifiche non applicate</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="267" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="300" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="390" />
         <source>Apply...</source>
         <translation>Applica...</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="268" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="301" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="393" />
         <source>Shows every change of the catalog ACL once and sends them after your confirmation (.acl set / .acl delete)</source>
         <translation>Mostra ogni modifica dell'ACL del catalogo una volta e le invia dopo la tua conferma (.acl set / .acl delete)</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="272" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="305" />
         <source>Cancel</source>
         <translation>Annulla</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="273" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="306" />
         <source>Closes the matrix; changes that were not applied are discarded</source>
         <translation>Chiude la matrice; le modifiche non applicate vengono scartate</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrixdialog.cpp" line="312" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="345" />
         <source>%n console(s). Allowed is what the Director decided (file ACL and catalog ACL).</source>
         <translation>
             <numerusform>%n console. Consentito è ciò che ha deciso il Director (ACL del file e del catalogo).</numerusform>
@@ -1356,7 +1424,7 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrixdialog.cpp" line="314" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="347" />
         <source>%n console(s). This Director reports the file ACL only; the GUI decided the cells from its entries.</source>
         <translation>
             <numerusform>%n console. Questo Director riporta solo l'ACL del file; la GUI ha determinato le celle dalle sue voci.</numerusform>
@@ -1364,128 +1432,181 @@ Fare clic su Predefiniti per usare i cifrari consigliati.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="322" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="404" />
+        <source>No profiles read yet: Refresh reads them.</source>
+        <translation>Nessun profilo letto: Aggiorna li legge.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="429" />
+        <source>Profile %1</source>
+        <translation>Profilo %1</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="431" />
+        <source>Used by no console</source>
+        <translation>Non usato da nessuna console</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="431" />
+        <source>Used by: %1</source>
+        <translation>Usato da: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="434" />
+        <source>%1: %2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="434" />
+        <source>none</source>
+        <translation>nessuno</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="453" />
+        <source>The proposal stays until the Director has it: after the text is in place and the Director reloaded, Refresh shows it.</source>
+        <translation>La proposta resta finché il Director non la ha: quando il testo è inserito e il Director ricaricato, Aggiorna la mostra.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="459" />
         <source>The ACLs could not be read: %1</source>
         <translation>Impossibile leggere le ACL: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="361" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="496" />
+        <source>In the proposal: allowed.</source>
+        <translation>Nella proposta: consentito.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="497" />
+        <source>In the proposal: denied.</source>
+        <translation>Nella proposta: negato.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="498" />
+        <source>Double click: change it in the proposed configuration text.</source>
+        <translation>Doppio clic: modificarlo nel testo di configurazione proposto.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/baclmatrixdialog.cpp" line="520" />
         <source>Not applied yet: allowed again through the catalog ACL.</source>
         <translation>Non ancora applicato: di nuovo consentito tramite l'ACL del catalogo.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="362" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="521" />
         <source>Not applied yet: denied through the catalog ACL.</source>
         <translation>Non ancora applicato: negato tramite l'ACL del catalogo.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="365" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="524" />
         <source>Double click: deny it through the catalog ACL.</source>
         <translation>Doppio clic: negarlo tramite l'ACL del catalogo.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="366" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="525" />
         <source>Double click: allow it again.</source>
         <translation>Doppio clic: consentirlo di nuovo.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="380" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="557" />
         <source>Console %1 is locked: its catalog ACL cannot be changed until it can be read.</source>
         <translation>La console %1 è bloccata: la sua ACL del catalogo non può essere modificata finché non può essere letta.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="381" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="558" />
         <source>%1 is not allowed by the file ACL of console %2: that is changed in the editor, not here.</source>
         <translation>%1 non è consentito dall'ACL del file della console %2: si modifica nell'editor, non qui.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="414" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="591" />
         <source>Discard the changes?</source>
         <translation>Scartare le modifiche?</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrixdialog.cpp" line="415" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="592" />
         <source>%n change(s) of the catalog ACL were not applied. Discard them and close?</source>
-        <translation><numerusform>%n modifica dell'ACL del catalogo non è stata applicata. Scartarla e chiudere?</numerusform><numerusform>%n modifiche dell'ACL del catalogo non sono state applicate. Scartarle e chiudere?</numerusform></translation>
+        <translation>
+            <numerusform>%n modifica dell'ACL del catalogo non è stata applicata. Scartarla e chiudere?</numerusform>
+            <numerusform>%n modifiche dell'ACL del catalogo non sono state applicate. Scartarle e chiudere?</numerusform>
+        </translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="450" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="629" />
         <source>Creating console %1...</source>
         <translation>Creazione della console %1...</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="461" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="640" />
         <source>Console %1 was not created: %2</source>
         <translation>La console %1 non è stata creata: %2</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="464" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="643" />
         <source>Console %1 was created.</source>
         <translation>La console %1 è stata creata.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="473" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="653" />
         <source>The changes were discarded.</source>
         <translation>Le modifiche sono state scartate.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="487" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="671" />
         <source>Nothing was sent: the entry "%1" contains a comma, which the Director cannot store in a catalog ACL.</source>
         <translation>Nulla è stato inviato: la voce "%1" contiene una virgola, che il Director non può memorizzare in un'ACL del catalogo.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="497" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="681" />
         <source>Console %1, %2:</source>
         <translation>Console %1, %2:</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="498" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="682" />
         <source>  now: %1</source>
         <translation>  ora: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="499" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="683" />
         <source>  new: %1</source>
         <translation>  nuovo: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="501" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="685" />
         <source>%1 of %2</source>
         <translation>%1 di %2</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="506" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="690" />
         <source>Nothing was sent: the changes were not confirmed.</source>
         <translation>Nulla è stato inviato: le modifiche non sono state confermate.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="518" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="702" />
         <source>Changed: %1.</source>
         <translation>Modificato: %1.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="521" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="705" />
         <source>Changing %1...</source>
         <translation>Modifica di %1...</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="461" />
-        <location filename="../src/director/baclmatrixdialog.cpp" line="530" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="640" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="714" />
         <source>refused</source>
         <translation>rifiutato</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="541" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="725" />
         <source>nothing</source>
         <translation>nulla</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="542" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="726" />
         <source>Changing %1 failed: %2. Changed before: %3. Nothing after it was sent.</source>
         <translation>Modifica di %1 non riuscita: %2. Modificato prima: %3. Dopo non è stato inviato nulla.</translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrixdialog.cpp" line="585" />
+        <location filename="../src/director/baclmatrixdialog.cpp" line="776" />
         <source>%1 (%2)</source>
         <translation>%1 (%2)</translation>
     </message>
@@ -7037,13 +7158,13 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="400" />
-        <location filename="../src/bmainwindow.cpp" line="2882" />
+        <location filename="../src/bmainwindow.cpp" line="2885" />
         <source>Auto-refresh enabled (%1s)</source>
         <translation>Aggiornamento automatico attivato (%1s)</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="404" />
-        <location filename="../src/bmainwindow.cpp" line="2887" />
+        <location filename="../src/bmainwindow.cpp" line="2890" />
         <source>Auto-refresh disabled</source>
         <translation>Aggiornamento automatico disattivato</translation>
     </message>
@@ -7509,7 +7630,7 @@ Verranno rimossi solo i job scaduti dei client interessati.</translation>
         <translation>Quale console può usare quale Job, Client, Storage, Schedule, Pool, FileSet, Catalog e comando (Onesimus Director)</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/bmainwindow.cpp" line="2806" />
+        <location filename="../src/bmainwindow.cpp" line="2809" />
         <source>%n row(s) copied</source>
         <translation>
             <numerusform>%n riga copiata</numerusform>
@@ -7641,7 +7762,7 @@ Creare prima un profilo di connessione nelle Impostazioni.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1680" />
         <location filename="../src/bmainwindow.cpp" line="2539" />
-        <location filename="../src/bmainwindow.cpp" line="2768" />
+        <location filename="../src/bmainwindow.cpp" line="2771" />
         <source>Connecting to %1...</source>
         <translation>Connessione a %1...</translation>
     </message>
@@ -7764,48 +7885,48 @@ Creare prima un profilo di connessione nelle Impostazioni.</translation>
         <translation>Nessuna connessione precedente trovata. Usare 'Connetti' per stabilire una nuova connessione.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2722" />
+        <location filename="../src/bmainwindow.cpp" line="2725" />
         <source>Auto-connecting to %1...</source>
         <translation>Connessione automatica a %1...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2749" />
+        <location filename="../src/bmainwindow.cpp" line="2752" />
         <source>Connection cancelled: server certificate not trusted</source>
         <translation>Connessione annullata: certificato del server non attendibile</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2812" />
+        <location filename="../src/bmainwindow.cpp" line="2815" />
         <source>Copying client data is not implemented yet</source>
         <translation>Copia dei dati dei client non ancora implementata</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2825" />
+        <location filename="../src/bmainwindow.cpp" line="2828" />
         <source>All jobs selected</source>
         <translation>Tutti i job selezionati</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2828" />
+        <location filename="../src/bmainwindow.cpp" line="2831" />
         <source>Selecting all clients is not implemented yet</source>
         <translation>Selezione di tutti i client non ancora implementata</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2840" />
+        <location filename="../src/bmainwindow.cpp" line="2843" />
         <source>Selection cleared</source>
         <translation>Selezione annullata</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2843" />
+        <location filename="../src/bmainwindow.cpp" line="2846" />
         <source>Clearing the client selection is not implemented yet</source>
         <translation>Annullamento della selezione per i client non ancora implementato</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2854" />
-        <location filename="../src/bmainwindow.cpp" line="2864" />
+        <location filename="../src/bmainwindow.cpp" line="2857" />
+        <location filename="../src/bmainwindow.cpp" line="2867" />
         <source>Search</source>
         <translation>Cerca</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2855" />
+        <location filename="../src/bmainwindow.cpp" line="2858" />
         <source>Use the filter options in the Job view
 to search for specific jobs.
 
@@ -7826,72 +7947,72 @@ Filtri disponibili:
 • Intervallo di date</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2865" />
+        <location filename="../src/bmainwindow.cpp" line="2868" />
         <source>Use the filter combo box in the Client view
 to search for specific clients.</source>
         <translation>Usare la casella combinata di filtro nella vista Client
 per cercare client specifici.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2897" />
+        <location filename="../src/bmainwindow.cpp" line="2900" />
         <source>Reset Interface Zoom (now %1 %)</source>
         <translation>Ripristina zoom dell'interfaccia (ora %1 %)</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2911" />
+        <location filename="../src/bmainwindow.cpp" line="2914" />
         <source>Switched to Light Theme</source>
         <translation>Passato al tema chiaro</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2915" />
+        <location filename="../src/bmainwindow.cpp" line="2918" />
         <source>Switched to Dark Theme</source>
         <translation>Passato al tema scuro</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2928" />
-        <location filename="../src/bmainwindow.cpp" line="2940" />
-        <location filename="../src/bmainwindow.cpp" line="2952" />
+        <location filename="../src/bmainwindow.cpp" line="2931" />
+        <location filename="../src/bmainwindow.cpp" line="2943" />
+        <location filename="../src/bmainwindow.cpp" line="2955" />
         <source>Not Connected</source>
         <translation>Non connesso</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2928" />
-        <location filename="../src/bmainwindow.cpp" line="2940" />
+        <location filename="../src/bmainwindow.cpp" line="2931" />
+        <location filename="../src/bmainwindow.cpp" line="2943" />
         <source>Please connect to the Director first.</source>
         <translation>Connettersi prima al Director.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2934" />
+        <location filename="../src/bmainwindow.cpp" line="2937" />
         <source>Jobs exported as JSON</source>
         <translation>Job esportati come JSON</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2946" />
+        <location filename="../src/bmainwindow.cpp" line="2949" />
         <source>Jobs exported as CSV</source>
         <translation>Job esportati come CSV</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2953" />
+        <location filename="../src/bmainwindow.cpp" line="2956" />
         <source>Please connect to Bareos Director first.</source>
         <translation>Connettersi prima al Director di Bareos.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2962" />
+        <location filename="../src/bmainwindow.cpp" line="2965" />
         <source>Loading job data...</source>
         <translation>Caricamento dei dati dei job...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2997" />
+        <location filename="../src/bmainwindow.cpp" line="3000" />
         <source>Connection profile '%1' saved</source>
         <translation>Profilo di connessione '%1' salvato</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3082" />
+        <location filename="../src/bmainwindow.cpp" line="3085" />
         <source>Password Missing</source>
         <translation>Password mancante</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3083" />
+        <location filename="../src/bmainwindow.cpp" line="3086" />
         <source>The imported Console '%1' does not contain a password.
 
 You will need to enter the password manually in the connection settings.</source>
@@ -7900,17 +8021,17 @@ You will need to enter the password manually in the connection settings.</source
 Sarà necessario inserire la password manualmente nelle impostazioni di connessione.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3104" />
+        <location filename="../src/bmainwindow.cpp" line="3107" />
         <source>Created connection profile '%1' for Director '%2'</source>
         <translation>Creato il profilo di connessione '%1' per il Director '%2'</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3109" />
+        <location filename="../src/bmainwindow.cpp" line="3112" />
         <source>Connect Now?</source>
         <translation>Connettere ora?</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3110" />
+        <location filename="../src/bmainwindow.cpp" line="3113" />
         <source>Connection profile '%1' has been created.
 
 Do you want to connect now?</source>
@@ -7919,7 +8040,7 @@ Do you want to connect now?</source>
 Connettersi ora?</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3126" />
+        <location filename="../src/bmainwindow.cpp" line="3129" />
         <source>Imported Director '%1' with Console '%2'</source>
         <translation>Importato il Director '%1' con la Console '%2'</translation>
     </message>
@@ -17529,43 +17650,43 @@ Cause possibili:
         <translation>TLS è abilitato per questa connessione, ma la sessione con il Director non è cifrata. La connessione è stata chiusa.</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1822" />
+        <location filename="../src/director/bareosdirector.cpp" line="1826" />
         <source>Unknown error</source>
         <translation>Errore sconosciuto</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1877" />
-        <location filename="../src/director/bareosdirector.cpp" line="2323" />
+        <location filename="../src/director/bareosdirector.cpp" line="1881" />
+        <location filename="../src/director/bareosdirector.cpp" line="2328" />
         <source>Not ready</source>
         <translation>Non pronto</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1929" />
+        <location filename="../src/director/bareosdirector.cpp" line="1933" />
         <source>Error sending command</source>
         <translation>Errore nell'invio del comando</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1976" />
+        <location filename="../src/director/bareosdirector.cpp" line="1980" />
         <source>The command was not sent: no ready connection to the Director</source>
         <translation>Il comando non è stato inviato: nessuna connessione pronta al Director</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2312" />
+        <location filename="../src/director/bareosdirector.cpp" line="2317" />
         <source>This build of Onesimus has no gRPC support</source>
         <translation>Questa build di Onesimus non supporta gRPC</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2403" />
+        <location filename="../src/director/bareosdirector.cpp" line="2408" />
         <source>Server certificate not trusted</source>
         <translation>Certificato del server non attendibile</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2419" />
+        <location filename="../src/director/bareosdirector.cpp" line="2424" />
         <source>Command failed</source>
         <translation>Comando non riuscito</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2447" />
+        <location filename="../src/director/bareosdirector.cpp" line="2452" />
         <source>Connection to Director lost: %1</source>
         <translation>Connessione al Director persa: %1</translation>
     </message>

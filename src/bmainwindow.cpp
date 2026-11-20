@@ -2575,8 +2575,10 @@ void BMainWindow::showAclMatrix()
         BAclMatrixDialog *d = dialog;
         connect(d, &BAclMatrixDialog::refreshRequested, this, [this]() {
             onSendCommand(BDirector::Command::DotAclList, QString());
+            onSendCommand(BDirector::Command::ShowProfiles, QString());
         });
         connect(m_director, &BDirector::dotAclListResult, d, &BAclMatrixDialog::setReply);
+        connect(m_director, &BDirector::showProfilesResult, d, &BAclMatrixDialog::setProfilesReply);
         // A Director without the command may answer with text
         connect(m_director, &BDirector::textResult, d, [d](BDirector::Command cmd, const QString &response) {
             if (cmd == BDirector::Command::DotAclList) d->setReply(response);
@@ -2609,6 +2611,7 @@ void BMainWindow::showAclMatrix()
     dialog->raise();
     dialog->activateWindow();
     onSendCommand(BDirector::Command::DotAclList, QString());
+    onSendCommand(BDirector::Command::ShowProfiles, QString());
 }
 
 void BMainWindow::onSendCommand(const BDirector::Command cmd, const QString &args)

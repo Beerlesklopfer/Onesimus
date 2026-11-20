@@ -344,6 +344,7 @@ public:
         DotMessages,        ///< .messages - Retrieve pending messages (keepalive)
         DotAclList,         ///< .acl list - ACLs of every console (Onesimus Director only)
         DotAclChange,       ///< .acl set|delete ... - the whole command line in args (Onesimus Director only)
+        ShowProfiles,       ///< show profiles - the Profile resources with their ACLs
 
         // Show single resource
         ShowFileset,        ///< show fileset=<name> - Show single fileset details
@@ -738,6 +739,8 @@ signals:
     void dotAclListResult(const QString &reply);
     /// The reply to Command::DotAclChange as it came, also an error reply
     void dotAclChangeResult(const QString &reply);
+    /// The reply to Command::ShowProfiles as it came
+    void showProfilesResult(const QString &reply);
     void listClientsResult(const QString &jsonData);
     void showJobsResult(const QString &jsonData);
     void showJobDefsResult(const QString &jsonData);

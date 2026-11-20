@@ -11,6 +11,7 @@
 #include "director/baclmatrix.h"
 
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QLineEdit;
 class QPushButton;
@@ -55,6 +56,19 @@ public:
     /// ".acl list" did not get a reply
     void setFailure(const QString &message);
 
+    /// The reply of "show profiles"
+    void setProfilesReply(const QString &reply);
+
+    /// Consoles (the catalog ACL can be changed) or profiles (file only:
+    /// "Config text..." proposes the new Profile resources to copy)
+    enum class View { Consoles, Profiles };
+    void setView(View view);
+    View view() const { return m_view; }
+
+    /// Shows proposed configuration text; the default is a dialog with Copy (tests read it)
+    using TextView = std::function<void(QWidget *parent, const QString &text)>;
+    void setTextView(TextView view) { m_textView = std::move(view); }
+
     /// The reply to the change sent last (changeRequested())
     void setChangeReply(const QString &reply);
     /// The change sent last did not get a reply
@@ -82,8 +96,9 @@ public:
 
     /// Turns the cell of a console and a resource; false if it cannot be changed
     bool toggle(int row, int column);
-    /// The catalog lists that differ from the Director's, by (console, type)
-    int pendingCount() const { return int(m_pending.size()); }
+    /// Changes not applied in the current view: catalog lists by (console,
+    /// type), or profiles with changed lists
+    int pendingCount() const;
     /// Shows the changes once and, confirmed, sends them
     void apply();
     void discard();
@@ -112,10 +127,19 @@ private:
     void finishApply(const QString &message, bool reload);
     /// The catalog list of a console and type with the pending changes
     QStringList currentList(const QString &console, const QString &type) const;
+    /// The file list of a profile and type with the pending changes
+    QStringList currentProfileList(const QString &profile, const QString &type) const;
+    const QList<BConsoleAcl> &columns() const { return m_view == View::Profiles ? m_profiles : m_consoles; }
+    void showProfileTexts();
+    QString profileSummary(const BConsoleAcl &profile) const;
 
     QList<BConsoleAcl> m_consoles;
     QHash<QString, QStringList> m_known;
     QHash<Key, QStringList> m_pending;
+    View m_view = View::Consoles;
+    QList<BConsoleAcl> m_profiles;
+    QHash<QString, QHash<QString, QStringList>> m_profilePending;   ///< profile -> type -> entries
+    TextView m_textView;
     QList<QPair<QString, QString>> m_steps;    ///< command, what it changes
     QStringList m_done;
     bool m_applying = false;
@@ -124,6 +148,8 @@ private:
     ConsoleForm m_consoleForm;
     QString m_creating;         ///< The console being created; empty: none
 
+    QComboBox *m_viewCombo = nullptr;
+    QLabel *m_how = nullptr;
     QLineEdit *m_filter = nullptr;
     QCheckBox *m_differing = nullptr;
     QPushButton *m_refresh = nullptr;

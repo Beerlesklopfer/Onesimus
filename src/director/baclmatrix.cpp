@@ -383,3 +383,109 @@ QString BAclMatrix::consoleSummary(const BConsoleAcl &console)
     }
     return lines.join(QLatin1Char('\n'));
 }
+
+bool BAclMatrix::parseProfiles(const QString &reply, QList<BConsoleAcl> *profiles, QString *error)
+{
+    const int start = reply.indexOf(QLatin1Char('{'));
+    const QJsonDocument doc = QJsonDocument::fromJson(start >= 0 ? reply.mid(start).toUtf8() : QByteArray());
+    if (!doc.isObject()) {
+        if (error) *error = tr("The Director did not answer with profiles: %1").arg(reply.trimmed().left(300));
+        return false;
+    }
+    QJsonObject root = doc.object();
+    if (root.contains(QStringLiteral("result")) && !root.contains(QStringLiteral("profiles")))
+        root = root.value(QStringLiteral("result")).toObject();
+    if (!root.value(QStringLiteral("profiles")).isObject()) {
+        if (error) *error = tr("The reply holds no profiles.");
+        return false;
+    }
+    QList<BConsoleAcl> out;
+    const QJsonObject all = root.value(QStringLiteral("profiles")).toObject();
+    for (auto it = all.begin(); it != all.end(); ++it) {
+        const QJsonObject p = it.value().toObject();
+        BConsoleAcl profile;
+        profile.name = p.value(QStringLiteral("name")).toString(it.key());
+        profile.description = p.value(QStringLiteral("description")).toString();
+        for (const Type &type : types() + patternTypes()) {
+            QList<BAclEntry> entries;
+            const QJsonValue value = p.value(type.key);
+            const QJsonArray list = value.isArray() ? value.toArray() : QJsonArray{value};
+            for (const QJsonValue &v : list) {
+                if (v.isString() && !v.toString().isEmpty())
+                    entries.append(BAclEntry{v.toString(), tr("Profile %1").arg(profile.name)});
+            }
+            profile.file.insert(type.key, entries);
+        }
+        out.append(profile);
+    }
+    std::sort(out.begin(), out.end(), [](const BConsoleAcl &a, const BConsoleAcl &b) {
+        return a.name.compare(b.name, Qt::CaseInsensitive) < 0;
+    });
+    if (profiles) *profiles = out;
+    return true;
+}
+
+QStringList BAclMatrix::fileListAfter(const QStringList &entries, const QString &name, bool allow)
+{
+    QStringList list = entries;
+    const QString negation = QLatin1Char('!') + name;
+    auto removeExact = [&list](const QString &value) {
+        for (int i = list.size() - 1; i >= 0; --i) {
+            if (list[i].compare(value, Qt::CaseInsensitive) == 0) list.removeAt(i);
+        }
+    };
+    if (!allow) {
+        removeExact(name);
+        if (listAllows(list, name)) list.prepend(negation);
+    } else {
+        removeExact(negation);
+        if (!listAllows(list, name)) list.prepend(name);
+    }
+    return list;
+}
+
+QStringList BAclMatrix::fileList(const BConsoleAcl &resource, const QString &type)
+{
+    QStringList list;
+    for (const BAclEntry &entry : resource.file.value(type)) list.append(entry.value);
+    return list;
+}
+
+QString BAclMatrix::directiveName(const QString &type)
+{
+    static const QHash<QString, QString> names = {
+        {QStringLiteral("jobacl"), QStringLiteral("JobAcl")},
+        {QStringLiteral("clientacl"), QStringLiteral("ClientAcl")},
+        {QStringLiteral("storageacl"), QStringLiteral("StorageAcl")},
+        {QStringLiteral("scheduleacl"), QStringLiteral("ScheduleAcl")},
+        {QStringLiteral("poolacl"), QStringLiteral("PoolAcl")},
+        {QStringLiteral("commandacl"), QStringLiteral("CommandAcl")},
+        {QStringLiteral("filesetacl"), QStringLiteral("FileSetAcl")},
+        {QStringLiteral("catalogacl"), QStringLiteral("CatalogAcl")},
+        {QStringLiteral("whereacl"), QStringLiteral("WhereAcl")},
+        {QStringLiteral("pluginoptionsacl"), QStringLiteral("PluginOptionsAcl")},
+    };
+    return names.value(type, type);
+}
+
+QString BAclMatrix::profileText(const BConsoleAcl &profile, const QHash<QString, QStringList> &lists)
+{
+    auto quoted = [](const QString &value) {
+        QString escaped = value;
+        escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
+        escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
+        return QLatin1Char('"') + escaped + QLatin1Char('"');
+    };
+    QString text = QStringLiteral("Profile {\n  Name = %1\n").arg(quoted(profile.name));
+    if (!profile.description.isEmpty())
+        text += QStringLiteral("  Description = %1\n").arg(quoted(profile.description));
+    for (const Type &type : types() + patternTypes()) {
+        const QStringList entries = lists.contains(type.key) ? lists.value(type.key) : fileList(profile, type.key);
+        if (entries.isEmpty()) continue;
+        QStringList values;
+        for (const QString &entry : entries) values.append(quoted(entry));
+        text += QStringLiteral("  %1 = %2\n").arg(directiveName(type.key), values.join(QStringLiteral(", ")));
+    }
+    text += QStringLiteral("}\n");
+    return text;
+}

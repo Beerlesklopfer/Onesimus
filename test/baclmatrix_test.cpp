@@ -70,6 +70,7 @@ private slots:
     void changeCommandsAndReplies();
     void dialogSendsTheChangesInOrder();
     void newConsoleAndCancel();
+    void profilesProposeText();
 };
 
 void BAclMatrixTest::readsEveryConsole()
@@ -399,6 +400,72 @@ void BAclMatrixTest::newConsoleAndCancel()
     cancel->click();
     QVERIFY(!dialog.isVisible());
     QCOMPARE(dialog.result(), int(QDialog::Rejected));
+}
+
+void BAclMatrixTest::profilesProposeText()
+{
+    const QString profilesReply = QStringLiteral(
+        "{\"profiles\":{\"operator\":{\"name\":\"operator\",\"description\":\"Normal \\\"ops\\\"\","
+        "\"jobacl\":[\"*all*\"],\"commandacl\":[\"!delete\",\"*all*\"],\"whereacl\":[\"*all*\"]},"
+        "\"readonly\":{\"name\":\"readonly\",\"jobacl\":[\"*all*\"],\"commandacl\":[\"status\",\"list\"]}}}");
+    QList<BConsoleAcl> profiles;
+    QVERIFY(BAclMatrix::parseProfiles(profilesReply, &profiles));
+    QCOMPARE(profiles.size(), 2);
+    QCOMPARE(profiles[0].name, QString("operator"));
+    QCOMPARE(BAclMatrix::fileList(profiles[0], "commandacl"), (QStringList{"!delete", "*all*"}));
+
+    // Lists after a change: own entry removed, negation or name in front
+    QCOMPARE(BAclMatrix::fileListAfter({"!delete", "*all*"}, "delete", true), QStringList{"*all*"});
+    QCOMPARE(BAclMatrix::fileListAfter({"*all*"}, "run", false), (QStringList{"!run", "*all*"}));
+    QCOMPARE(BAclMatrix::fileListAfter({"status", "list"}, "list", false), QStringList{"status"});
+    QCOMPARE(BAclMatrix::fileListAfter({"status"}, "run", true), (QStringList{"run", "status"}));
+
+    // The text: every directive as Bareos spells it, quoted, the changed list new
+    const QString text = BAclMatrix::profileText(profiles[0], {{"commandacl", {"*all*"}}});
+    QCOMPARE(text, QString("Profile {\n"
+                           "  Name = \"operator\"\n"
+                           "  Description = \"Normal \\\"ops\\\"\"\n"
+                           "  JobAcl = \"*all*\"\n"
+                           "  CommandAcl = \"*all*\"\n"
+                           "  WhereAcl = \"*all*\"\n"
+                           "}\n"));
+
+    // In the dialog: profiles as columns, a change proposes the text; nothing is sent
+    BAclMatrixDialog dialog;
+    dialog.setReply(QString::fromUtf8(kReply));
+    dialog.setProfilesReply(profilesReply);
+    QStringList sent;
+    QObject::connect(&dialog, &BAclMatrixDialog::changeRequested, [&](const QString &c) { sent << c; });
+    QString shown;
+    dialog.setTextView([&](QWidget *, const QString &t) { shown = t; });
+    dialog.setView(BAclMatrixDialog::View::Profiles);
+    QTableWidget *table = dialog.table();
+    QCOMPARE(table->columnCount(), 2);
+    QCOMPARE(table->horizontalHeaderItem(0)->text(), QString("operator"));
+    QVERIFY(table->horizontalHeaderItem(0)->toolTip().contains("Used by: operator-mcp"));
+    int del = -1;
+    for (int r = 0; r < table->rowCount(); ++r) {
+        if (table->verticalHeaderItem(r)->text().trimmed() == "delete") del = r;
+    }
+    QVERIFY(del > 0);
+    QCOMPARE(table->item(del, 0)->text(), QString("✗"));
+    QVERIFY(dialog.toggle(del, 0));
+    QCOMPARE(table->item(del, 0)->text(), QString("✓"));
+    QCOMPARE(dialog.pendingCount(), 1);
+    dialog.apply();
+    QVERIFY2(shown.contains("# /etc/bareos/bareos-dir.d/profile/operator.conf"), qPrintable(shown));
+    QVERIFY2(shown.contains("CommandAcl = \"*all*\""), qPrintable(shown));
+    QVERIFY(sent.isEmpty());
+    // Back in the console view: its own pending changes, none
+    dialog.setView(BAclMatrixDialog::View::Consoles);
+    QCOMPARE(table->columnCount(), 4);
+    QCOMPARE(dialog.pendingCount(), 0);
+    // The Director has it now: no longer pending
+    dialog.setView(BAclMatrixDialog::View::Profiles);
+    QString applied = profilesReply;
+    applied.replace("\"commandacl\":[\"!delete\",\"*all*\"]", "\"commandacl\":[\"*all*\"]");
+    dialog.setProfilesReply(applied);
+    QCOMPARE(dialog.pendingCount(), 0);
 }
 
 QTEST_MAIN(BAclMatrixTest)
