@@ -496,6 +496,7 @@ set(SOURCES
     src/schedules/bschedulepalette.cpp
     src/schedules/brunruledialog.cpp
     src/schedules/bscheduleganttwidget.cpp
+    src/schedules/model/bliveoverlay.cpp
     src/schedules/bschedulewizard.cpp
     src/schedules/bjobscheduleindex.cpp
     src/schedules/bscheduledragplan.cpp
@@ -640,6 +641,7 @@ set(HEADERS
     include/schedules/bschedulepalette.h
     include/schedules/brunruledialog.h
     include/schedules/bscheduleganttwidget.h
+    include/schedules/model/bliveoverlay.h
     include/schedules/bschedulewizard.h
     include/schedules/bjobscheduleindex.h
     include/schedules/bscheduledragplan.h
@@ -2121,6 +2123,28 @@ if(BUILD_TESTING)
 
     add_test(NAME bwaitstagger_test COMMAND bwaitstagger_test)
 
+    # bliveoverlay_test - the jobs that run or wait now, from the push
+    # events of the Onesimus Director (queued, started, ended) and from the
+    # job history at connect (no widgets, no Director)
+    add_executable(bliveoverlay_test
+        test/bliveoverlay_test.cpp
+        src/schedules/model/bliveoverlay.cpp
+        src/schedules/model/bjobhistorystats.cpp
+        include/schedules/model/bliveoverlay.h
+        include/schedules/model/bjobhistorystats.h
+    )
+
+    target_include_directories(bliveoverlay_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bliveoverlay_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bliveoverlay_test COMMAND bliveoverlay_test)
+
     # bwaitcalibration_test - the wait prediction measured against the
     # catalog: measured waits, start overhead, pure durations without the
     # wait for the device, the suggestion of parallel writers, the back-test
@@ -2410,6 +2434,7 @@ if(BUILD_TESTING)
         src/buiscale.cpp
         src/config/bsettings.cpp
         src/schedules/bscheduleganttwidget.cpp
+        src/schedules/model/bliveoverlay.cpp
         src/schedules/model/bjobhistorystats.cpp
         src/schedules/model/brunparser.cpp
         src/schedules/model/brunwriter.cpp
@@ -2420,6 +2445,7 @@ if(BUILD_TESTING)
         include/buiscale.h
         include/config/bsettings.h
         include/schedules/bscheduleganttwidget.h
+        include/schedules/model/bliveoverlay.h
         include/schedules/model/bjobhistorystats.h
         include/models/bresourcemodels.h
         include/models/bbasemodels.h
@@ -2498,6 +2524,7 @@ if(BUILD_TESTING)
         src/schedules/bschedulewidget.cpp
         src/schedules/bschedulelegend.cpp
         src/schedules/bscheduleganttwidget.cpp
+        src/schedules/model/bliveoverlay.cpp
         src/schedules/bscheduledragplan.cpp
         src/schedules/bstaggerplan.cpp
         src/schedules/bschedulepersistence.cpp
@@ -2539,6 +2566,7 @@ if(BUILD_TESTING)
         include/schedules/bschedulewidget.h
         include/schedules/bschedulelegend.h
         include/schedules/bscheduleganttwidget.h
+        include/schedules/model/bliveoverlay.h
         include/schedules/bjobscheduleindex.h
         include/schedules/bschedulegridaccessible.h
         include/schedules/bschedulegriddialogs.h
