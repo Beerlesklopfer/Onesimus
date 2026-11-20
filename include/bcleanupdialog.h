@@ -17,6 +17,7 @@
 class BDirector;
 class BJobsModel;
 class BCleanupRunner;
+class BVolumePurgePanel;
 class QTimer;
 class QCloseEvent;
 
@@ -37,6 +38,9 @@ public:
     ~BCleanupDialog();
 
     void reject() override;
+
+    /// The pools offered for "Prune and purge"
+    void setPoolNames(const QStringList &pools);
 
 signals:
     /**
@@ -71,6 +75,8 @@ private:
     void updateCleanupButton();
     void performCleanup();
     void setRunning(bool running);
+    void updatePurgePanel();
+    bool isBusy() const;
     void setStatus(const QString &text, const QString &kind);
     void logMessage(const QString &message, const QString &type = "info");
     QString formatBytes(qint64 bytes);
@@ -104,6 +110,10 @@ private:
     BCleanup::Analysis m_analysis;
 
     BCleanupRunner *m_runner;
+
+    // "Prune and purge": only on the Onesimus Director, with its own preview
+    BVolumePurgePanel *m_purgePanel = nullptr;
+    bool m_purgeAvailable = false;
     QTimer *m_replyTimer;
 };
 

@@ -242,7 +242,15 @@ void BCapabilitiesTest::tableIsComplete()
     QCOMPARE(entry(Function::CreateSchedule)->onesimus, Support::Yes);
     QCOMPARE(entry(Function::CreateSchedule)->liveOperation, BConfig::Operation::CreateRaw);
     QCOMPARE(entry(Function::PurgeAllVolumes)->bareos, false);
-    QCOMPARE(entry(Function::PurgeAllVolumes)->onesimus, Support::No);
+    QCOMPARE(entry(Function::PurgeAllVolumes)->onesimus, Support::Yes);
+    // "purge volume all ..." is a console command of the Onesimus Director:
+    // available on both of its protocols, never on Bareos
+    QVERIFY(isAvailable(Function::PurgeAllVolumes, onesimus()));
+    QVERIFY(isAvailable(Function::PurgeAllVolumes, BCapabilities::describeServer(
+        Connection::Classic, QStringLiteral("1000 OK: PDC-dir Version: 25.1.2+onesimus.0.2.0 (x)"))));
+    QVERIFY(!isAvailable(Function::PurgeAllVolumes, bareos()));
+    QVERIFY(!isAvailable(Function::PurgeAllVolumes, unidentified()));
+    QVERIFY(!isAvailable(Function::PurgeAllVolumes, Server()));
     QCOMPARE(entry(Function::DeployFileSet)->bareos, false);
     QCOMPARE(entry(Function::DeployFileSet)->onesimus, Support::Planned);
     // Job definitions: change and delete over gRPC only, create everywhere
@@ -263,7 +271,6 @@ void BCapabilitiesTest::lookup_data()
     QTest::addColumn<Function>("function");
 
     QTest::newRow("change schedule") << Function::ModifySchedule;
-    QTest::newRow("purge all volumes") << Function::PurgeAllVolumes;
     QTest::newRow("deploy fileset") << Function::DeployFileSet;
     QTest::newRow("delete schedule") << Function::DeleteSchedule;
 }
@@ -428,7 +435,7 @@ void BCapabilitiesTest::noticeTextOfTheTable()
     QVERIFY(!isAvailable(Function::ModifySchedule, onesimus()));
     QVERIFY(!isAvailable(Function::ModifySchedule, BCapabilities::describeServer(Connection::Grpc, QString())));
 
-    // --- Prune and purge: no word about the Onesimus Director ---
+    // --- Prune and purge: elsewhere the Onesimus Director supports it ---
     reason = QStringLiteral(" has no command that purges all volumes at once; purge works on "
                             "named volumes only and ignores retention periods.");
     const QString pruneText = QStringLiteral(
@@ -437,11 +444,13 @@ void BCapabilitiesTest::noticeTextOfTheTable()
     QCOMPARE(notice(Function::PurgeAllVolumes, bareos()).title,
              QStringLiteral("Prune and purge all volumes"));
     QCOMPARE(notice(Function::PurgeAllVolumes, bareos()).text,
-             QStringLiteral("This Director (Bareos 25.2)") + reason + pruneText);
+             QStringLiteral("This Director (Bareos 25.2)") + reason + pruneText
+                 + QStringLiteral(" The Onesimus Director supports this."));
     QCOMPARE(notice(Function::PurgeAllVolumes, onesimus()).text,
              QStringLiteral("This Director (Onesimus Director 0.2.0)") + reason + pruneText);
     QCOMPARE(notice(Function::PurgeAllVolumes, unidentified()).text,
-             QStringLiteral("This Director") + reason + pruneText);
+             QStringLiteral("This Director") + reason + pruneText
+                 + QStringLiteral(" The Onesimus Director supports this."));
 
     // --- FileSet wizard ---
     reason = QStringLiteral(" cannot take a FileSet through the console, because its configure "

@@ -2967,6 +2967,7 @@ void BMainWindow::onCleanupDatabase()
 
     BCleanupDialog *dialog = new BCleanupDialog(m_director, jobsModel, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setPoolNames(m_jobWidget->poolNames());
 
     // Remove deleted jobs directly from model (faster than full refresh)
     connect(dialog, &BCleanupDialog::cleanupCompleted, jobsModel, &BJobsModel::removeJobsByIds);

@@ -15,8 +15,9 @@ const char Context[] = "BCapabilities";
 //   `configure add` takes flat directives (no Include/Options/Exclude);
 //   `purge` works on named jobs, clients and volumes.
 // - Onesimus Director: `configure update` covers client and job; the typed
-//   configure commands take a flat map of directives; `purge` follows the
-//   Bareos command (no form for all volumes).
+//   configure commands take a flat map of directives; besides the Bareos
+//   forms of `purge` it has "purge volume all pool=<p>|allpools
+//   [volstatus=...] dryrun|yes" (odir 69cd11b), on both protocols.
 // - Changing and deleting a schedule go through the configuration methods
 //   of the gRPC interface DirectorApi of the Onesimus Director
 //   (UpdateResource, DeleteResource; onesimus-dird
@@ -48,7 +49,7 @@ const Entry Table[] = {
         "volumes.purge_all",
         QT_TRANSLATE_NOOP("BCapabilities", "Prune and purge all volumes"),
         false,
-        Support::No,
+        Support::Yes,
         QT_TRANSLATE_NOOP("BCapabilities",
                           "%1 has no command that purges all volumes at once; purge works on "
                           "named volumes only and ignores retention periods."),
