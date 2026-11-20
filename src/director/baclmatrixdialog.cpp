@@ -2,7 +2,14 @@
 
 #include "buiscale.h"
 
+#include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
+#include <QComboBox>
+#include <QFormLayout>
+#include <QMessageBox>
+#include <QRandomGenerator>
+#include <QRegularExpressionValidator>
 #include <QDialogButtonBox>
 #include <QFontDatabase>
 #include <QKeyEvent>
@@ -74,6 +81,93 @@ bool confirmDialog(QWidget *parent, const QString &summary)
     return dialog.exec() == QDialog::Accepted;
 }
 
+/// A password for a new console: 24 characters that need no escaping in
+/// a configuration file or on a command line
+QString newPassword()
+{
+    static const QString chars = QStringLiteral("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_.");
+    QString password;
+    for (int i = 0; i < 24; ++i)
+        password.append(chars.at(QRandomGenerator::system()->bounded(int(chars.size()))));
+    return password;
+}
+
+bool consoleFormDialog(QWidget *parent, const QStringList &profiles, const QStringList &taken,
+                       QString *name, QString *password, QString *profile)
+{
+    QDialog dialog(parent);
+    dialog.setWindowTitle(BAclMatrixDialog::tr("New console"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *intro = new QLabel(BAclMatrixDialog::tr(
+        "The Director creates a Console resource with this name, password and profile (configure "
+        "add console). The profile's ACLs are the frame of the console; the matrix can narrow them "
+        "further through the catalog ACL afterwards."), &dialog);
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    auto *form = new QFormLayout;
+    auto *nameEdit = new QLineEdit(&dialog);
+    // Bareos resource names: letters, digits and _ - . : (no blanks: the
+    // command line would need quotes the Director's configure does not take)
+    nameEdit->setValidator(new QRegularExpressionValidator(
+        QRegularExpression(QStringLiteral("[A-Za-z0-9_.:-]{1,127}")), nameEdit));
+    nameEdit->setPlaceholderText(BAclMatrixDialog::tr("e.g. backup-viewer"));
+    form->addRow(BAclMatrixDialog::tr("&Name:"), nameEdit);
+    auto *passwordRow = new QHBoxLayout;
+    auto *passwordEdit = new QLineEdit(newPassword(), &dialog);
+    passwordEdit->setReadOnly(true);
+    passwordEdit->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    passwordRow->addWidget(passwordEdit, 1);
+    auto *again = new QPushButton(BAclMatrixDialog::tr("New"), &dialog);
+    again->setToolTip(BAclMatrixDialog::tr("Generates another password"));
+    QObject::connect(again, &QPushButton::clicked, passwordEdit, [passwordEdit]() { passwordEdit->setText(newPassword()); });
+    passwordRow->addWidget(again);
+    auto *copy = new QPushButton(BAclMatrixDialog::tr("Copy"), &dialog);
+    copy->setToolTip(BAclMatrixDialog::tr("Copies the password to the clipboard"));
+    QObject::connect(copy, &QPushButton::clicked, passwordEdit, [passwordEdit]() {
+        QApplication::clipboard()->setText(passwordEdit->text());
+    });
+    passwordRow->addWidget(copy);
+    form->addRow(BAclMatrixDialog::tr("&Password:"), passwordRow);
+    auto *profileCombo = new QComboBox(&dialog);
+    profileCombo->setEditable(true);
+    profileCombo->addItems(profiles);
+    const int op = profiles.indexOf(QStringLiteral("operator"));
+    if (op >= 0) profileCombo->setCurrentIndex(op);
+    profileCombo->setToolTip(BAclMatrixDialog::tr("The Profile resource whose ACLs the console gets"));
+    form->addRow(BAclMatrixDialog::tr("P&rofile:"), profileCombo);
+    layout->addLayout(form);
+    auto *note = new QLabel(BAclMatrixDialog::tr(
+        "Copy the password now: whoever uses the console needs it, and it cannot be read back here."), &dialog);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *problem = new QLabel(&dialog);
+    problem->setWordWrap(true);
+    layout->addWidget(problem);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Cancel, &dialog);
+    QPushButton *create = buttons->addButton(BAclMatrixDialog::tr("Create"), QDialogButtonBox::AcceptRole);
+    auto check = [&]() {
+        const QString n = nameEdit->text().trimmed();
+        QString why;
+        if (n.isEmpty()) why = BAclMatrixDialog::tr("Enter a name.");
+        else if (taken.contains(n, Qt::CaseInsensitive)) why = BAclMatrixDialog::tr("A console of this name exists.");
+        else if (profileCombo->currentText().trimmed().isEmpty()) why = BAclMatrixDialog::tr("Choose a profile.");
+        problem->setText(why);
+        create->setEnabled(why.isEmpty());
+    };
+    QObject::connect(nameEdit, &QLineEdit::textChanged, &dialog, check);
+    QObject::connect(profileCombo, &QComboBox::currentTextChanged, &dialog, check);
+    check();
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+    *name = nameEdit->text().trimmed();
+    *password = passwordEdit->text();
+    *profile = profileCombo->currentText().trimmed();
+    return true;
+}
+
 QString listText(const QStringList &list)
 {
     return list.isEmpty() ? BAclMatrixDialog::tr("(no entries: no restriction)") : list.join(QStringLiteral(", "));
@@ -125,6 +219,11 @@ BAclMatrixDialog::BAclMatrixDialog(QWidget *parent)
         emit refreshRequested();
     });
     row->addWidget(m_refresh);
+    m_newConsole = new QPushButton(tr("New console..."), this);
+    m_newConsole->setToolTip(tr("Creates a console on the Director with a password and a profile "
+                                "(configure add console); it appears as a new column"));
+    connect(m_newConsole, &QPushButton::clicked, this, &BAclMatrixDialog::newConsole);
+    row->addWidget(m_newConsole);
     layout->addLayout(row);
 
     m_table = new QTableWidget(this);
@@ -170,6 +269,10 @@ BAclMatrixDialog::BAclMatrixDialog(QWidget *parent)
                            "confirmation (.acl set / .acl delete)"));
     connect(m_apply, &QPushButton::clicked, this, &BAclMatrixDialog::apply);
     bottom->addWidget(m_apply, 0, Qt::AlignTop);
+    auto *cancel = new QPushButton(tr("Cancel"), this);
+    cancel->setToolTip(tr("Closes the matrix; changes that were not applied are discarded"));
+    connect(cancel, &QPushButton::clicked, this, &BAclMatrixDialog::reject);
+    bottom->addWidget(cancel, 0, Qt::AlignTop);
     layout->addLayout(bottom);
     updateButtons();
 
@@ -302,6 +405,65 @@ void BAclMatrixDialog::updateButtons()
     m_apply->setEnabled(!m_applying && !m_pending.isEmpty());
     m_discard->setEnabled(!m_applying && !m_pending.isEmpty());
     m_refresh->setEnabled(!m_applying);
+}
+
+void BAclMatrixDialog::reject()
+{
+    if (!m_pending.isEmpty() && !m_applying) {
+        const auto answer = QMessageBox::question(
+            this, tr("Discard the changes?"),
+            tr("%n change(s) of the catalog ACL were not applied. Discard them and close?", "",
+               int(m_pending.size())),
+            QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Cancel);
+        if (answer != QMessageBox::Discard)
+            return;
+    }
+    m_pending.clear();
+    if (!m_consoles.isEmpty()) rebuild();
+    QDialog::reject();
+}
+
+QStringList BAclMatrixDialog::knownProfiles() const
+{
+    QStringList profiles;
+    for (const BConsoleAcl &console : m_consoles) {
+        for (const QString &profile : console.profiles) {
+            if (!profiles.contains(profile)) profiles.append(profile);
+        }
+    }
+    if (!profiles.contains(QStringLiteral("operator"))) profiles.append(QStringLiteral("operator"));
+    std::sort(profiles.begin(), profiles.end());
+    return profiles;
+}
+
+void BAclMatrixDialog::newConsole()
+{
+    if (!m_creating.isEmpty()) return;
+    QStringList taken;
+    for (const BConsoleAcl &console : m_consoles) taken.append(console.name);
+    QString name, password, profile;
+    const ConsoleForm form = m_consoleForm ? m_consoleForm : consoleFormDialog;
+    if (!form(this, knownProfiles(), taken, &name, &password, &profile))
+        return;
+    m_creating = name;
+    m_newConsole->setEnabled(false);
+    m_status->setText(tr("Creating console %1...").arg(name));
+    emit createConsoleRequested(name, password, profile);
+}
+
+void BAclMatrixDialog::setCreateResult(bool success, const QString &message)
+{
+    if (m_creating.isEmpty()) return;
+    const QString name = m_creating;
+    m_creating.clear();
+    m_newConsole->setEnabled(true);
+    if (!success) {
+        m_status->setText(tr("Console %1 was not created: %2").arg(name, message.isEmpty() ? tr("refused") : message));
+        return;
+    }
+    m_afterRefresh = tr("Console %1 was created.").arg(name);
+    m_status->setText(m_afterRefresh);
+    emit refreshRequested();
 }
 
 void BAclMatrixDialog::discard()

@@ -60,6 +60,22 @@ public:
     /// The change sent last did not get a reply
     void setChangeFailure(const QString &message);
 
+    /// The answer to createConsoleRequested()
+    void setCreateResult(bool success, const QString &message);
+
+    /**
+     * @brief Asks for the new console: name, password and profile
+     * @return false if cancelled; the default shows a dialog (tests answer it)
+     */
+    using ConsoleForm = std::function<bool(QWidget *parent, const QStringList &profiles,
+                                           const QStringList &taken, QString *name,
+                                           QString *password, QString *profile)>;
+    void setConsoleForm(ConsoleForm form) { m_consoleForm = std::move(form); }
+    /// "New console...": asks for it and emits createConsoleRequested()
+    void newConsole();
+    /// The profiles the consoles of the last reply name
+    QStringList knownProfiles() const;
+
     /// Asks before anything is written; the default shows a dialog (tests answer it)
     using Confirm = std::function<bool(QWidget *parent, const QString &summary)>;
     void setConfirm(Confirm confirm) { m_confirm = std::move(confirm); }
@@ -71,6 +87,8 @@ public:
     /// Shows the changes once and, confirmed, sends them
     void apply();
     void discard();
+    /// Cancel: closes; changes that were not applied are discarded after a question
+    void reject() override;
 
     /// The consoles of the last reply
     const QList<BConsoleAcl> &consoles() const { return m_consoles; }
@@ -80,6 +98,8 @@ signals:
     void refreshRequested();
     /// Send this ".acl set/delete" line; the answer comes with setChangeReply()
     void changeRequested(const QString &command);
+    /// Create this console (configure add console); the answer comes with setCreateResult()
+    void createConsoleRequested(const QString &name, const QString &password, const QString &profile);
 
 private:
     using Key = QPair<QString, QString>;    ///< console, type
@@ -101,12 +121,15 @@ private:
     bool m_applying = false;
     QString m_afterRefresh;     ///< The outcome of the last change, kept over the refresh
     Confirm m_confirm;
+    ConsoleForm m_consoleForm;
+    QString m_creating;         ///< The console being created; empty: none
 
     QLineEdit *m_filter = nullptr;
     QCheckBox *m_differing = nullptr;
     QPushButton *m_refresh = nullptr;
     QPushButton *m_apply = nullptr;
     QPushButton *m_discard = nullptr;
+    QPushButton *m_newConsole = nullptr;
     QLabel *m_status = nullptr;
     QTableWidget *m_table = nullptr;
 };

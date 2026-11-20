@@ -2591,6 +2591,13 @@ void BMainWindow::showAclMatrix()
             onSendCommand(BDirector::Command::DotAclChange, command);
         });
         connect(m_director, &BDirector::dotAclChangeResult, d, &BAclMatrixDialog::setChangeReply);
+        // A new console: configure add console, one answer per request
+        connect(d, &BAclMatrixDialog::createConsoleRequested, this,
+                [this, d](const QString &name, const QString &password, const QString &profile) {
+            connect(m_director, &BDirector::configureResult, d, &BAclMatrixDialog::setCreateResult,
+                    Qt::SingleShotConnection);
+            m_director->queryConfigureAddConsole(name, password, profile);
+        });
         connect(m_director, &BDirector::textResult, d, [d](BDirector::Command cmd, const QString &response) {
             if (cmd == BDirector::Command::DotAclChange) d->setChangeReply(response);
         });

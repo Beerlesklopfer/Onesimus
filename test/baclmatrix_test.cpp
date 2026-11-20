@@ -15,6 +15,7 @@
 #include "director/baclmatrixdialog.h"
 
 #include <QCheckBox>
+#include <QPushButton>
 #include <QHeaderView>
 #include <QLineEdit>
 #include <QTableWidget>
@@ -68,6 +69,7 @@ private slots:
     void catalogListsAfterAChange();
     void changeCommandsAndReplies();
     void dialogSendsTheChangesInOrder();
+    void newConsoleAndCancel();
 };
 
 void BAclMatrixTest::readsEveryConsole()
@@ -338,6 +340,65 @@ void BAclMatrixTest::dialogSendsTheChangesInOrder()
     dialog.apply();
     QVERIFY(sent.isEmpty());
     QCOMPARE(dialog.pendingCount(), 1);
+}
+
+void BAclMatrixTest::newConsoleAndCancel()
+{
+    BAclMatrixDialog dialog;
+    dialog.setReply(QString::fromUtf8(kReply));
+    QCOMPARE(dialog.knownProfiles(), QStringList{"operator"});
+
+    QStringList offeredProfiles, offeredTaken;
+    dialog.setConsoleForm([&](QWidget *, const QStringList &profiles, const QStringList &taken,
+                              QString *name, QString *password, QString *profile) {
+        offeredProfiles = profiles;
+        offeredTaken = taken;
+        *name = "viewer";
+        *password = "s3cret-pass";
+        *profile = "operator";
+        return true;
+    });
+    QList<QStringList> requested;
+    QObject::connect(&dialog, &BAclMatrixDialog::createConsoleRequested,
+                     [&](const QString &n, const QString &p, const QString &pr) { requested << QStringList{n, p, pr}; });
+    int refreshes = 0;
+    QObject::connect(&dialog, &BAclMatrixDialog::refreshRequested, [&]() { ++refreshes; });
+
+    dialog.newConsole();
+    QCOMPARE(requested.size(), 1);
+    QCOMPARE(requested[0], (QStringList{"viewer", "s3cret-pass", "operator"}));
+    QCOMPARE(offeredTaken.size(), 4);
+    // Only one at a time
+    dialog.newConsole();
+    QCOMPARE(requested.size(), 1);
+    // Refused: said so, nothing read again
+    dialog.setCreateResult(false, "Resource console viewer already exists");
+    QCOMPARE(refreshes, 0);
+    // Created: the ACLs are read again, the new console becomes a column
+    dialog.newConsole();
+    dialog.setCreateResult(true, QString());
+    QCOMPARE(refreshes, 1);
+    // An answer nobody asked for changes nothing
+    dialog.setCreateResult(true, QString());
+    QCOMPARE(refreshes, 1);
+
+    // Cancelled form: nothing requested
+    dialog.setConsoleForm([](QWidget *, const QStringList &, const QStringList &, QString *, QString *, QString *) {
+        return false;
+    });
+    dialog.newConsole();
+    QCOMPARE(requested.size(), 2);
+
+    // Cancel closes the window (nothing pending: no question)
+    dialog.show();
+    QPushButton *cancel = nullptr;
+    for (QPushButton *b : dialog.findChildren<QPushButton *>()) {
+        if (b->text() == QLatin1String("Cancel")) cancel = b;
+    }
+    QVERIFY(cancel);
+    cancel->click();
+    QVERIFY(!dialog.isVisible());
+    QCOMPARE(dialog.result(), int(QDialog::Rejected));
 }
 
 QTEST_MAIN(BAclMatrixTest)
