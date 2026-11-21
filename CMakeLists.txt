@@ -110,7 +110,11 @@ if(USE_STATIC_OPENSSL)
     message(STATUS "========================================")
     
     set(OPENSSL_SUBMODULE_DIR ${CMAKE_SOURCE_DIR}/external/openssl)
-    set(OPENSSL_INSTALL_DIR ${CMAKE_BINARY_DIR}/openssl-install)
+    # Install prefix of the static OpenSSL build. It may lie outside the build
+    # tree (the CI keeps it in a cache keyed on the submodule commit): a prefix
+    # that already holds the libraries is used as it is, without a rebuild.
+    set(OPENSSL_INSTALL_DIR "${OPENSSL_INSTALL_DIR}" CACHE PATH
+        "Install prefix of the static OpenSSL build (reused when it already holds the libraries)")
     
     # Automatischer Download via Git Submodule
     message(STATUS "Checking OpenSSL submodule...")
@@ -277,6 +281,15 @@ if(USE_STATIC_OPENSSL)
     
     message(STATUS "Configuring OpenSSL ExternalProject...")
     
+    if(EXISTS "${OPENSSL_SSL_LIB}" AND EXISTS "${OPENSSL_CRYPTO_LIB}"
+       AND EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/ssl.h")
+        # Already built (earlier build or restored CI cache): an empty target
+        # keeps the add_dependencies() calls below valid.
+        set(OPENSSL_PREBUILT ON)
+        message(STATUS "✓ Reusing the OpenSSL build in ${OPENSSL_INSTALL_DIR}")
+        add_custom_target(openssl_build)
+    else()
+    set(OPENSSL_PREBUILT OFF)
     ExternalProject_Add(openssl_build
         SOURCE_DIR ${OPENSSL_SUBMODULE_DIR}
         CONFIGURE_COMMAND ${OPENSSL_CONFIGURE_COMMAND}
@@ -292,6 +305,7 @@ if(USE_STATIC_OPENSSL)
             ${OPENSSL_SSL_LIB}
             ${OPENSSL_CRYPTO_LIB}
     )
+    endif()
     
     # ========================================================================
     # OpenSSL Interface Libraries
@@ -1033,6 +1047,12 @@ if(USE_STATIC_OPENSSL AND WIN32)
         message(STATUS "  From:     ${OPENSSL_INSTALL_DIR}/bin")
         message(STATUS "  To:       ${QT_BIN_DIR}")
 
+        if(OPENSSL_PREBUILT)
+            # No ExternalProject to hang the step on: copy now.
+            file(COPY "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
+                      "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
+                 DESTINATION "${QT_BIN_DIR}")
+        else()
         # Kopiere nach OpenSSL-Build
         ExternalProject_Add_Step(openssl_build copy_dlls_to_qt
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -1044,6 +1064,7 @@ if(USE_STATIC_OPENSSL AND WIN32)
             DEPENDEES install
             COMMENT "Copying OpenSSL DLLs to Qt bin directory"
         )
+        endif()
 
         message(STATUS "✓ OpenSSL DLLs werden automatisch kopiert")
         message(STATUS "========================================")
@@ -1080,10 +1101,10 @@ if(WIN32)
             COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/deploy/"
             # Copy OpenSSL DLLs first (needed for windeployqt to find them)
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_BINARY_DIR}/openssl-install/bin/libssl-3-x64.dll"
+                "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
                 "${CMAKE_BINARY_DIR}/deploy/"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_BINARY_DIR}/openssl-install/bin/libcrypto-3-x64.dll"
+                "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
                 "${CMAKE_BINARY_DIR}/deploy/"
             COMMAND ${WINDEPLOYQT_EXECUTABLE}
                 $<IF:$<CONFIG:Debug>,--debug,--release>
@@ -1091,7 +1112,7 @@ if(WIN32)
                 --no-system-d3d-compiler
                 --no-opengl-sw
                 --compiler-runtime
-                --openssl-root "${CMAKE_BINARY_DIR}/openssl-install"
+                --openssl-root "${OPENSSL_INSTALL_DIR}"
                 "${CMAKE_BINARY_DIR}/deploy/${PROJECT_NAME}.exe"
             DEPENDS ${PROJECT_NAME}
             COMMENT "Running windeployqt with OpenSSL support..."
