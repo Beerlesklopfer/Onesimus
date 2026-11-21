@@ -48,6 +48,7 @@
 // Debug logging prefixes (using blogging.h macros)
 #include "blogging.h"
 #include "director/bconfigtypes.h"
+#include "director/busage.h"
 #define DIR_DEBUG BLOG_DEBUG()
 #define DIR_WARNING BLOG_WARNING()
 #define DIR_CRITICAL BLOG_ERROR()
@@ -822,6 +823,8 @@ signals:
     /// What the Director lets this session do with its configuration;
     /// known=false when disconnected and on BNET
     void configCapabilitiesChanged(const BConfig::Capabilities &capabilities);
+    /// Free tier usage reported by the Onesimus Director (gRPC only)
+    void usageChanged(const BUsage::Info &usage);
 
 public slots:
 

@@ -4,6 +4,24 @@
 
 namespace BByteFormat {
 
+namespace {
+
+// "50.0" -> "50", "1.50" -> "1.5"
+QString withoutTrailingZeros(QString number)
+{
+    if (number.contains(QLatin1Char('.'))) {
+        while (number.endsWith(QLatin1Char('0'))) {
+            number.chop(1);
+        }
+        if (number.endsWith(QLatin1Char('.'))) {
+            number.chop(1);
+        }
+    }
+    return number;
+}
+
+} // namespace
+
 QString format(qint64 bytes, int decimals)
 {
     static const char *const units[] = {"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"};
@@ -35,16 +53,38 @@ QString format(qint64 bytes, int decimals)
         value = std::round(double(magnitude) / divisor * factor) / factor;
     }
 
-    QString number = QString::number(value, 'f', decimals);
-    if (number.contains(QLatin1Char('.'))) {
-        while (number.endsWith(QLatin1Char('0'))) {
-            number.chop(1);
-        }
-        if (number.endsWith(QLatin1Char('.'))) {
-            number.chop(1);
-        }
-    }
+    const QString number = withoutTrailingZeros(QString::number(value, 'f', decimals));
     return sign + number + QLatin1Char(' ') + QLatin1String(units[unit]);
+}
+
+QString formatDecimal(quint64 bytes, int decimals)
+{
+    static const char *const units[] = {"kB", "MB", "GB", "TB", "PB", "EB"};
+    static constexpr int unitCount = int(sizeof(units) / sizeof(units[0]));
+
+    if (bytes < 1000) {
+        return QString::number(bytes) + QStringLiteral(" B");
+    }
+
+    decimals = qBound(0, decimals, 3);
+    const double factor = std::pow(10.0, decimals);
+
+    int unit = 0;
+    double divisor = 1000.0;
+    while (unit + 1 < unitCount && double(bytes) >= divisor * 1000.0) {
+        divisor *= 1000.0;
+        ++unit;
+    }
+    double value = std::round(double(bytes) / divisor * factor) / factor;
+    // 999999 bytes are 999.999 kB: rounded that is 1000 kB, shown as 1 MB
+    if (value >= 1000.0 && unit + 1 < unitCount) {
+        ++unit;
+        divisor *= 1000.0;
+        value = std::round(double(bytes) / divisor * factor) / factor;
+    }
+
+    const QString number = withoutTrailingZeros(QString::number(value, 'f', decimals));
+    return number + QLatin1Char(' ') + QLatin1String(units[unit]);
 }
 
 bool parseBareosSize(const QString &text, quint64 *bytes)

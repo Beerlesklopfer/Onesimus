@@ -449,6 +449,7 @@ set(SOURCES
     src/bpfxconverter.cpp
     src/storagewidget.cpp
     src/bbyteformat.cpp
+    src/busagestatus.cpp
     src/models/bvolumejson.cpp
     src/storage/model/bvolumelist.cpp
     src/storage/model/brecycleforecast.cpp
@@ -558,6 +559,8 @@ set(HEADERS
     include/clients/bclientwidget.h
     include/storagewidget.h
     include/bbyteformat.h
+    include/busagestatus.h
+    include/director/busage.h
     include/models/bvolumejson.h
     include/storage/model/bvolumelist.h
     include/storage/model/brecycleforecast.h
@@ -872,6 +875,8 @@ if(HAVE_GRPC)
         include/director/bgrpcconnect.h
         src/director/bconfigproto.cpp
         include/director/bconfigproto.h
+        src/director/busageproto.cpp
+        include/director/busageproto.h
     )
     target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_grpc_proto)
 endif()
@@ -1240,6 +1245,8 @@ if(HAVE_GRPC)
         include/director/bgrpcconnect.h
         src/director/bconfigproto.cpp
         include/director/bconfigproto.h
+        src/director/busageproto.cpp
+        include/director/busageproto.h
     )
     target_link_libraries(bareosdirector_lib PUBLIC onesimus_grpc_proto)
 endif()
@@ -1302,6 +1309,28 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bbyteformat_test COMMAND bbyteformat_test)
+
+    # busagestatus_test - the free tier usage in the status bar: text,
+    # tool tip, level and end-of-month projection; with gRPC also the
+    # conversion of usage.proto's UsageInfo (absent zero fields)
+    add_executable(busagestatus_test
+        test/busagestatus_test.cpp
+        src/busagestatus.cpp
+        include/busagestatus.h
+        include/director/busage.h
+        src/bbyteformat.cpp
+        include/bbyteformat.h
+    )
+    target_include_directories(busagestatus_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(busagestatus_test PRIVATE Qt6::Core Qt6::Test)
+    if(HAVE_GRPC)
+        target_sources(busagestatus_test PRIVATE
+            src/director/busageproto.cpp
+            include/director/busageproto.h
+        )
+        target_link_libraries(busagestatus_test PRIVATE onesimus_grpc_proto)
+    endif()
+    add_test(NAME busagestatus_test COMMAND busagestatus_test)
 
     # bvolumelist_test - the volumes of "list volumes" / "llist volumes":
     # grouped, flat and typed replies, missing fields, the real reply of the
@@ -2542,6 +2571,8 @@ if(BUILD_TESTING)
             include/director/bgrpcconnect.h
             src/director/bconfigproto.cpp
             include/director/bconfigproto.h
+            src/director/busageproto.cpp
+            include/director/busageproto.h
         )
     endif()
     target_include_directories(bdialogfonts_test PRIVATE

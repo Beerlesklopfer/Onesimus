@@ -113,6 +113,8 @@ private slots:
 
 private:
     void setupUI();
+    /// Free tier usage in the status bar from m_director->usage(); blank when not reported
+    void updateUsageLabel();
     void createActions();
     void createMenus();
     /// View > Language: the languages under their own names; a choice is
@@ -164,6 +166,7 @@ private:
     // Status
     QLabel *m_statusLabel;
     QLabel *m_connectionLabel;
+    QLabel *m_usageLabel = nullptr;     ///< Free tier usage (Onesimus Director only)
     QString m_directorVersion;  ///< Speichere Director-Version
 
     /// Backups per client from the "list backups client=" replies (merged for enrichment)

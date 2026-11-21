@@ -52,6 +52,7 @@ BDirector::BDirector(QObject *parent)
     // Configuration requests and replies cross the thread boundary
     qRegisterMetaType<BConfig::Request>();
     qRegisterMetaType<BConfig::Reply>();
+    qRegisterMetaType<BUsage::Info>();
     qRegisterMetaType<BConfig::Capabilities>();
 
     // Forward all signals from director to BDirector wrapper
@@ -66,6 +67,7 @@ BDirector::BDirector(QObject *parent)
                      this, [this]() {
                          m_serverIdentity.clear();
                          setConfigCapabilities(BConfig::Capabilities());
+                         setUsage(BUsage::Info());
                      });
     QObject::connect(m_director, &DIRECTOR_CLASS::authentificationSucceeded,
                      this, [this](bool success, const QString &) {
@@ -75,6 +77,7 @@ BDirector::BDirector(QObject *parent)
                          // A new session: what the last one could do is gone
                          // until the Director says it again
                          setConfigCapabilities(BConfig::Capabilities());
+                         setUsage(BUsage::Info());
                      });
 
     QObject::connect(m_director, &DIRECTOR_CLASS::disconnected,
@@ -101,6 +104,7 @@ BDirector::BDirector(QObject *parent)
     QObject::connect(m_director, &DIRECTOR_CLASS::configReply, this, &BDirector::configReply);
     QObject::connect(m_director, &DIRECTOR_CLASS::configCapabilitiesChanged,
                      this, &BDirector::setConfigCapabilities);
+    QObject::connect(m_director, &DIRECTOR_CLASS::usageChanged, this, &BDirector::setUsage);
 
     // Forward enum-based response signals
     QObject::connect(m_director, &DIRECTOR_CLASS::jsonResult,
@@ -467,6 +471,15 @@ void BDirector::setConfigCapabilities(const BConfig::Capabilities &capabilities)
     }
     m_configCapabilities = capabilities;
     emit configCapabilitiesChanged(capabilities);
+}
+
+void BDirector::setUsage(const BUsage::Info &usage)
+{
+    if (usage == m_usage) {
+        return;
+    }
+    m_usage = usage;
+    emit usageChanged(usage);
 }
 
 // ============================================================================

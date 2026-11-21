@@ -17,6 +17,11 @@
  * The decimal separator is always '.', whatever the locale, so that the text
  * is the same in every language and in tests.
  *
+ * One exception, formatDecimal(): the free tier limit of the Onesimus
+ * Director is defined in decimal bytes (1 TB = 10^12 bytes, as the Director
+ * prints it in `status dir`). Shown in binary units it would read
+ * "931.3 GiB", so usage against that limit is shown in decimal units.
+ *
  * @since 2.9
  */
 namespace BByteFormat {
@@ -31,6 +36,16 @@ namespace BByteFormat {
  * Negative values get a leading minus.
  */
 QString format(qint64 bytes, int decimals = 1);
+
+/**
+ * @brief @p bytes in decimal units: "512 B", "73.6 GB", "1 TB", ...
+ *
+ * Powers of 1000, named kB, MB, GB, TB, PB, EB. Otherwise as format():
+ * the largest unit whose value is at least 1, @p decimals digits, trailing
+ * zeros dropped, a value that rounds up to 1000 shown in the next unit.
+ * Only for amounts that are defined in decimal bytes (the free tier limit).
+ */
+QString formatDecimal(quint64 bytes, int decimals = 1);
 
 /**
  * @brief Parses a size as a Bareos resource directive writes it

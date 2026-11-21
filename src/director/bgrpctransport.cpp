@@ -16,6 +16,7 @@
 #include "director_api_client.grpc.qpb.h"
 #include "director/bconfigproto.h"
 #include "director/bjobhistoryproto.h"
+#include "director/busageproto.h"
 
 #include <QGrpcHttp2Channel>
 #include <QGrpcChannelOptions>
@@ -115,6 +116,7 @@ void BGrpcTransport::open(const QString &host, int port, const QString &consoleN
     m_pinnedFingerprint = pinnedFingerprint.trimmed().toLower().remove(':');
     m_typedHistory = true;     // another Director may know more (or less)
     m_untypedOnce = false;
+    m_usagePushed = false;
 
     BLOG_DEBUG() << "gRPC: pre-flight TLS handshake to" << host << ":" << port;
 
@@ -251,6 +253,7 @@ void BGrpcTransport::sendLogin(const QString &nonce)
         openPushStream();
         emit loggedIn(response->directorName(), response->version());
         fetchConfigCapabilities();
+        fetchUsage();
         sendNext();
     });
 }
@@ -312,6 +315,12 @@ void BGrpcTransport::openPushStream()
             const SdStatusEvent &sd = ev.sdStatus();
             emit eventMessage(sd.alive() ? tr("Storage %1 is alive").arg(sd.storageName())
                                          : tr("Storage %1 not reachable").arg(sd.storageName()));
+        } else if (ev.hasUsage()) {
+            // Sent first on the stream and on every change of state, month or licence
+            if (ev.usage().hasUsage()) {
+                m_usagePushed = true;
+                emit usageChanged(BUsageProto::fromMessage(ev.usage().usage()));
+            }
         }
     });
 
@@ -534,6 +543,39 @@ void BGrpcTransport::fetchConfigCapabilities()
         BLOG_DEBUG() << "gRPC: configuration capabilities, interface" << capabilities.interfaceVersion
                      << "types" << capabilities.operations.keys();
         emit configCapabilities(capabilities);
+    });
+}
+
+void BGrpcTransport::fetchUsage()
+{
+    if (!m_api || !isLoggedIn()) {
+        return;
+    }
+    QGrpcCallOptions options;
+    options.setDeadlineTimeout(LoginTimeout);
+    options.setMetadata(QHash<QByteArray, QByteArray>{{SessionHeader, m_sessionToken.toLatin1()}});
+
+    commands::StatusCommand request;
+    request.setDir(true);
+
+    const quint64 gen = m_generation;
+    QGrpcCallReply *reply = m_api->GetDirectorStatus(request, options).release();
+    connect(reply, &QGrpcCallReply::finished, this, [this, reply, gen](const QGrpcStatus &status) {
+        reply->deleteLater();
+        if (gen != m_generation) {
+            return;
+        }
+        if (!status.isOk()) {
+            BLOG_DEBUG() << "gRPC: GetDirectorStatus:" << statusText(status, std::chrono::seconds(0));
+            return;
+        }
+        const auto response = reply->read<api::DirectorStatusResponse>();
+        // No usage field: an odir before proto 4e3ca77, nothing is shown.
+        // A UsageEvent that came first is newer than this reply.
+        if (!response || !response->hasUsage() || m_usagePushed) {
+            return;
+        }
+        emit usageChanged(BUsageProto::fromMessage(response->usage()));
     });
 }
 

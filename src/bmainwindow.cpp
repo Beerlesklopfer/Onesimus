@@ -36,6 +36,7 @@
 #include "config/bsettings.h"
 #include "jobs/blevelcolors.h"
 #include "bstatusdelegate.h"
+#include "busagestatus.h"
 #include "bconnectionprofile.h"
 #include "version.h"
 
@@ -171,6 +172,10 @@ BMainWindow::BMainWindow(QWidget *parent)
     // (siehe onAuthentificationSucceeded), um Auth-Fehler nicht in der Statuszeile anzuzeigen
 
     connect(m_director, &BDirector::authentificationSucceeded,  this, &BMainWindow::onAuthentificationSucceeded);
+
+    // Free tier usage: typed from the Onesimus Director, cleared by BDirector
+    // on disconnect and on a new session
+    connect(m_director, &BDirector::usageChanged, this, &BMainWindow::updateUsageLabel);
 
     connect(m_director, &BDirector::protocolError, this, &BMainWindow::onConnectionError);
 
@@ -578,6 +583,7 @@ void BMainWindow::applyTheme(const QString &themeName)
         themeFile.close();
         // Status colours (chips, log marks) are tokens of the theme
         BStatusPalette::refresh();
+        updateUsageLabel();
 
 #ifdef IS_DEVELOPER
         BLOG_DEBUG() << "Applied theme:" << themeName << "from" << themePath;
@@ -698,7 +704,45 @@ void BMainWindow::setupUI()
     m_connectionLabel->setProperty("connected", false);
     QColor disconnectedColor = BSettings::instance().statusBarDisconnectedColor();
     m_connectionLabel->setStyleSheet(QString("color: %1; font-weight: bold;").arg(disconnectedColor.name()));
+
+    // Free tier usage, left of the connection; blank unless the Director reports it
+    m_usageLabel = new QLabel(this);
+    m_usageLabel->setObjectName("usageLabel");
+    m_usageLabel->setVisible(false);
+    statusBar()->addPermanentWidget(m_usageLabel);
+
     statusBar()->addPermanentWidget(m_connectionLabel);
+}
+
+void BMainWindow::updateUsageLabel()
+{
+    if (!m_usageLabel) {
+        return;
+    }
+    const BUsage::Info usage = m_director ? m_director->usage() : BUsage::Info();
+    const BUsageStatus::Level level = BUsageStatus::level(usage);
+    if (level == BUsageStatus::Level::Hidden) {
+        m_usageLabel->clear();
+        m_usageLabel->setToolTip(QString());
+        m_usageLabel->setStyleSheet(QString());
+        m_usageLabel->setVisible(false);
+        return;
+    }
+    m_usageLabel->setText(BUsageStatus::text(usage));
+    m_usageLabel->setToolTip(BUsageStatus::toolTip(usage, QDateTime::currentDateTime()));
+    // The colours of the theme's status tones; below 80 % no colour
+    QString style;
+    if (level != BUsageStatus::Level::Ok) {
+        const BStatus::Tone tone = level == BUsageStatus::Level::Reached ? BStatus::Tone::Error
+                                                                         : BStatus::Tone::Warning;
+        style = QStringLiteral("QLabel { color: %1; background-color: %2; border: 1px solid %3;"
+                               " border-radius: 3px; padding: 0px 4px; }")
+                    .arg(BStatus::color(tone, BStatus::Part::Foreground).name(),
+                         BStatus::color(tone, BStatus::Part::Background).name(),
+                         BStatus::color(tone, BStatus::Part::Accent).name());
+    }
+    m_usageLabel->setStyleSheet(style);
+    m_usageLabel->setVisible(true);
 }
 
 void BMainWindow::createActions()

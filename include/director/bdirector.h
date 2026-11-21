@@ -167,6 +167,10 @@ public:
      */
     BConfig::Capabilities configCapabilities() const { return m_configCapabilities; }
 
+    /// Free tier usage of the Onesimus Director; present=false over BNET,
+    /// with a classic Bareos Director, before it is reported and when disconnected
+    BUsage::Info usage() const { return m_usage; }
+
     /**
      * @brief Sends a configuration request (thread-safe)
      * @return the id that configReply() carries; over BNET the reply is
@@ -375,6 +379,8 @@ signals:
     void configReply(quint64 id, const BConfig::Reply &reply);
     /// configCapabilities() changed
     void configCapabilitiesChanged(const BConfig::Capabilities &capabilities);
+    /// usage() changed
+    void usageChanged(const BUsage::Info &usage);
 
     /// Job status push event (gRPC only)
     void jobStatusChanged(int jobId, BDirector::JobStatus status);
@@ -526,6 +532,8 @@ private:
     BConfig::Capabilities m_configCapabilities;  ///< Cleared on disconnect
     quint64 m_nextConfigId = 1;
     void setConfigCapabilities(const BConfig::Capabilities &capabilities);
+    BUsage::Info m_usage;        ///< Cleared on disconnect and on a new session
+    void setUsage(const BUsage::Info &usage);
 };
 
 #endif // BDIRECTOR_H

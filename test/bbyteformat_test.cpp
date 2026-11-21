@@ -23,6 +23,8 @@ private slots:
     void format_data();
     void format();
     void formatDecimals();
+    void formatDecimal_data();
+    void formatDecimal();
     void parse_data();
     void parse();
     void parseRejects_data();
@@ -142,6 +144,28 @@ void BByteFormatTest::realVolumeSizes()
     QCOMPARE(BByteFormat::format(51233279615LL), QStringLiteral("47.7 GiB"));
     QCOMPARE(BByteFormat::format(14009488LL), QStringLiteral("13.4 MiB"));
     QCOMPARE(BByteFormat::format(207LL), QStringLiteral("207 B"));
+}
+
+void BByteFormatTest::formatDecimal_data()
+{
+    QTest::addColumn<quint64>("bytes");
+    QTest::addColumn<QString>("text");
+
+    QTest::newRow("zero") << quint64(0) << "0 B";
+    QTest::newRow("largest byte count") << quint64(999) << "999 B";
+    QTest::newRow("one kB") << quint64(1000) << "1 kB";
+    QTest::newRow("just below MB moves up") << quint64(999999) << "1 MB";
+    QTest::newRow("usage of the month") << quint64(73600000000ULL) << "73.6 GB";
+    QTest::newRow("free tier limit") << quint64(1000000000000ULL) << "1 TB";
+    QTest::newRow("binary TiB in decimal") << quint64(1099511627776ULL) << "1.1 TB";
+    QTest::newRow("largest quint64") << std::numeric_limits<quint64>::max() << "18.4 EB";
+}
+
+void BByteFormatTest::formatDecimal()
+{
+    QFETCH(quint64, bytes);
+    QFETCH(QString, text);
+    QCOMPARE(BByteFormat::formatDecimal(bytes), text);
 }
 
 QTEST_GUILESS_MAIN(BByteFormatTest)

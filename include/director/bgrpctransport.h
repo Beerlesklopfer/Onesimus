@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "director/bconfigtypes.h"
+#include "director/busage.h"
 
 class QGrpcBidiStream;
 class QGrpcCallReply;
@@ -58,6 +59,10 @@ class Client;
  * once (configCapabilities()); configCall() carries the configuration CRUD
  * methods. odir checks the session token of every DirectorApi call the same
  * way as for Director (grpc/auth.rs, AuthState::identity()).
+ * The free tier usage (usageChanged()) comes from the push event UsageEvent,
+ * which odir sends first on the push stream and then on every change; the
+ * usage field of GetDirectorStatus, asked once after the login, stands in
+ * until the first push event arrives.
  * Commands are executed one at a time (FIFO), so responses keep the order
  * BareosDirector's command queue relies on.
  *
@@ -142,6 +147,10 @@ signals:
     /// Connection lost after a successful login
     void connectionLost(const QString &reason);
 
+    /// Free tier usage and licence state (UsageEvent push or GetDirectorStatus).
+    /// Not emitted by a Director that does not report it.
+    void usageChanged(const BUsage::Info &usage);
+
 private:
     void preflightDone(const QHostAddress &address, const QSslCertificate &cert);
     void startLogin();
@@ -150,6 +159,8 @@ private:
     void sendNext();
     void fail(const QString &reason);
     void fetchConfigCapabilities();
+    /// GetDirectorStatus once after the login, for its usage field
+    void fetchUsage();
     /// The job history by the typed ListJobs (see BJobHistoryProto)
     void sendTypedHistory(const QString &commandLine, const BJobHistoryProto::Request &history,
                           quint64 gen);
@@ -172,6 +183,7 @@ private:
     bool m_typedHistory = true; ///< false: this Director's ListJobs lacks `reverse` or is unknown
     bool m_untypedOnce = false; ///< The next line goes by the command line (typed call failed)
     quint64 m_generation = 0;   ///< Invalidates replies of a previous connection
+    bool m_usagePushed = false; ///< A UsageEvent arrived: it is newer than any status reply
     QHash<quint64, QString> m_jobNames;  ///< Job names announced by JobStatusEvent (exact message parsing)
 };
 
