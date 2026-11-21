@@ -17758,112 +17758,112 @@ Der Zertifikatspfad wurde im aktuellen Profil aktualisiert.</translation>
     <message>
         <location filename="../src/busagestatus.cpp" line="73"/>
         <source>Usage: %1 of %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Verbrauch: %1 von %2</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="74"/>
         <source>Usage: %1 of %2 (%3)</source>
-        <translation type="unfinished"></translation>
+        <translation>Verbrauch: %1 von %2 (%3)</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="76"/>
         <source>Usage: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Verbrauch: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="76"/>
         <source>Usage: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>Verbrauch: %1 (%2)</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="113"/>
         <source>Licence: free tier</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz: Free-Tier</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="116"/>
         <source>Licence: licensed</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz: lizenziert</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="117"/>
         <source>Licence: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="120"/>
         <source>Licence: licensed, valid until %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz: lizenziert, gültig bis %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="121"/>
         <source>Licence: %1, valid until %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz: %1, gültig bis %2</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="127"/>
         <source>Licence: expired, the free tier applies</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz: abgelaufen, es gilt das Free-Tier</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="130"/>
         <source>Licence: not valid, the free tier applies</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenz: ungültig, es gilt das Free-Tier</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="139"/>
         <source>Limit: %1 per month</source>
-        <translation type="unfinished"></translation>
+        <translation>Limit: %1 pro Monat</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="140"/>
         <source>Limit: none</source>
-        <translation type="unfinished"></translation>
+        <translation>Limit: keins</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="143"/>
         <source>Written by finished jobs: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Geschrieben von beendeten Jobs: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="144"/>
         <source>Written by running jobs so far: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Bisher geschrieben von laufenden Jobs: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="146"/>
         <source>Used: %1 % of the limit</source>
-        <translation type="unfinished"></translation>
+        <translation>Verbraucht: %1 % des Limits</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="150"/>
         <source>Projected by the end of the month: %1, above the limit</source>
-        <translation type="unfinished"></translation>
+        <translation>Hochgerechnet bis Monatsende: %1, über dem Limit</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="151"/>
         <source>Projected by the end of the month: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Hochgerechnet bis Monatsende: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="153"/>
         <source>Backup jobs held this month: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Angehaltene Backup-Jobs in diesem Monat: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="155"/>
         <source>Resets on %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Zurückgesetzt am %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="160"/>
         <source>Limit reached: new backup jobs are held until the reset. Restores are not affected.</source>
-        <translation type="unfinished"></translation>
+        <translation>Limit erreicht: Neue Backup-Jobs werden bis zum Zurücksetzen angehalten. Restores sind nicht betroffen.</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="163"/>
         <source>Close to the limit: at the limit new backup jobs are held.</source>
-        <translation type="unfinished"></translation>
+        <translation>Nahe am Limit: Am Limit werden neue Backup-Jobs angehalten.</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="212"/>
