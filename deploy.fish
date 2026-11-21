@@ -81,7 +81,7 @@ while test $i -le (count $argv)
                 case '*'
                     set -g BUILD_DIR $argv[$i]
             end
-        case '-j[0-9]*'
+        case '-j*'  # -j4 (fish globs have no [0-9])
             set -g JOBS (string sub -s 3 -- $a)
         case -s --system-openssl
             set -g OPENSSL system; set -g OPENSSL_SET 1
@@ -93,6 +93,10 @@ while test $i -le (count $argv)
             set -a positional help
         case --
             set -a positional $argv[(math $i + 1)..-1]
+            break
+        case run configure
+            # Everything after `run`/`configure` belongs to onesimus/cmake.
+            set -a positional $argv[$i..-1]
             break
         case '*'
             set -a positional $a
@@ -211,6 +215,7 @@ end
 
 # ─── Development loop ───────────────────────────────────────────────────────
 function cmd_configure
+    adopt_tree_settings
     validate_settings
     check_prerequisites
     macos_prefix_path
@@ -578,7 +583,8 @@ Development loop (touches the system only with install):
   clean                  Remove the build trees
   help                   This table
 
-Flags (before or after the command; same as the former build.sh):
+Flags (same as the former build.sh; before or after the command, but
+       everything after run/configure goes to onesimus/cmake):
   -t, --type TYPE        Release (default), Debug, RelWithDebInfo, MinSizeRel
   -s, --system-openssl   System OpenSSL instead of the static submodule
   -c, --clean            Remove the build directory before building

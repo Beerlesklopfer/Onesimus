@@ -95,6 +95,8 @@ while [ $# -gt 0 ]; do
         -n|--dry-run)         DRY_RUN=1; shift ;;
         -h|--help)            POSITIONAL_ARGS+=(help); shift ;;
         --)                   shift; POSITIONAL_ARGS+=("$@"); break ;;
+        # Everything after `run`/`configure` belongs to onesimus/cmake.
+        run|configure)        POSITIONAL_ARGS+=("$@"); break ;;
         *)                    POSITIONAL_ARGS+=("$1"); shift ;;
     esac
 done
@@ -219,6 +221,7 @@ stamped_version() {
 
 # ─── Development loop ───────────────────────────────────────────────────────
 cmd_configure() {
+    adopt_tree_settings
     validate_settings
     check_prerequisites
     macos_prefix_path
@@ -590,7 +593,8 @@ Development loop (touches the system only with install):
   clean                  Remove the build trees
   help                   This table
 
-Flags (before or after the command; same as the former build.sh):
+Flags (same as the former build.sh; before or after the command, but
+       everything after run/configure goes to onesimus/cmake):
   -t, --type TYPE        Release (default), Debug, RelWithDebInfo, MinSizeRel
   -s, --system-openssl   System OpenSSL instead of the static submodule
   -c, --clean            Remove the build directory before building
