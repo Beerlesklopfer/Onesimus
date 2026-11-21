@@ -160,7 +160,8 @@ for lang in $LANGS; do
         done
     fi
     if [ -z "$ONLY" ] || [ -n "$main_only" ]; then
-        run_shots "$lang" "$main_only" dark
+        # The Director reports the free tier usage: the label in the status bar
+        run_shots "$lang" "$main_only" dark --usage free
     fi
     for name in $STATUSBAR_SHOTS; do
         wanted "$name" || continue
