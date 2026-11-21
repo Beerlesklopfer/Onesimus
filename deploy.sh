@@ -481,7 +481,11 @@ cmd_appimage() {
     [ -n "$qmake" ] || die "missing tool: qmake6"
     local arch; arch="$(uname -m)"
     [ "$arch" = "x86_64" ] || die "appimage: only x86_64 is prepared (here: ${arch})"
-    local dir="${BUILD_DIR}-appimage" appdir="${BUILD_DIR}-appimage/AppDir"
+    # Absolute: linuxdeploy runs inside dist/appimage, a relative AppDir
+    # (the default BUILD_DIR=build) would point nowhere there.
+    local base="$BUILD_DIR"
+    case "$base" in /*) ;; *) base="${SCRIPT_DIR}/${base}" ;; esac
+    local dir="${base}-appimage" appdir="${base}-appimage/AppDir"
     local out="${SCRIPT_DIR}/dist/appimage"
     local static=ON
     [ "$OPENSSL" = "static" ] || static=OFF

@@ -472,8 +472,12 @@ function cmd_appimage
     test -n "$qmake"; or die "missing tool: qmake6"
     set -l arch (uname -m)
     test "$arch" = x86_64; or die "appimage: only x86_64 is prepared (here: $arch)"
-    set -l dir $BUILD_DIR-appimage
-    set -l appdir $BUILD_DIR-appimage/AppDir
+    # Absolute: linuxdeploy runs inside dist/appimage, a relative AppDir
+    # (the default BUILD_DIR=build) would point nowhere there.
+    set -l base $BUILD_DIR
+    string match -q '/*' -- $base; or set base $SCRIPT_DIR/$base
+    set -l dir $base-appimage
+    set -l appdir $base-appimage/AppDir
     set -l out $SCRIPT_DIR/dist/appimage
     init_submodules
 
