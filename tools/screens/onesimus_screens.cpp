@@ -3,7 +3,7 @@
 // The real main window and dialogs of Onesimus, connected through the normal
 // connection code (a connection profile, gRPC with a pinned certificate) to
 // the simulator onesimus-sim on 127.0.0.1, are grabbed as PNG files: offscreen,
-// at a fixed size, in the dark theme, in English or German. tools/screenshots.sh
+// at a fixed size, in the dark theme (or --theme light), in English or German. tools/screenshots.sh
 // starts the simulator and runs this program once per language.
 //
 // Isolation: before anything else the program points HOME and the XDG
@@ -59,6 +59,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QStackedWidget>
+#include <QStatusBar>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTableWidget>
@@ -192,6 +193,7 @@ public:
         QString password;
         QString fingerprint;
         QDate day;
+        QString theme = QStringLiteral("dark");
     };
 
     explicit BScreensHarness(const Options &o) : m_o(o) {}
@@ -202,6 +204,7 @@ private:
     bool wanted(const QString &name) const { return m_o.only.isEmpty() || m_o.only.contains(name); }
     bool save(QWidget *w, const QString &name);
     void shotMain(const QString &name, int tab, const std::function<void()> &prepare = {});
+    void shotStatusBar(const QString &name);
     /// A window the action opens (modal or not): prepare() gets it, then it is grabbed and closed
     template<class T>
     void shotWindow(const QString &name, const std::function<void()> &open,
@@ -328,6 +331,57 @@ void BScreensHarness::shotMain(const QString &name, int tab, const std::function
     save(m_w, name);
 }
 
+/// The right part of the status bar: the free tier usage, the licence notice
+/// (when shown) and the connection, cut from the main window at its size.
+/// Which usage the labels show is the simulator's choice (--usage), so each
+/// of these shots is a run of its own (tools/screenshots.sh).
+void BScreensHarness::shotStatusBar(const QString &name)
+{
+    // Only when asked for by name: the other runs have no usage to show
+    if (!m_o.only.contains(name))
+        return;
+    m_w->m_tabWidget->setCurrentIndex(0);
+    m_w->resize(m_o.size);
+    // The usage comes with the first push of the session or GetDirectorStatus
+    if (!waitFor([this] { return m_w->m_usageLabel && m_w->m_usageLabel->isVisible()
+                                 && !m_w->m_usageLabel->text().isEmpty(); }, 20000)) {
+        note(QStringLiteral("%1: the Director reported no usage (simulator without --usage?)").arg(name));
+        m_failed << name;
+        return;
+    }
+    // A status message on the left must not reach into the cut
+    m_w->m_statusLabel->setText(QString());
+    settle(800);
+    QStatusBar *bar = m_w->statusBar();
+    QRect labels;
+    for (QLabel *l : {m_w->m_usageLabel, m_w->m_licenceLabel, m_w->m_connectionLabel}) {
+        if (l && l->isVisible())
+            labels |= QRect(l->mapTo(bar, QPoint(0, 0)), l->size());
+    }
+    if (labels.isEmpty()) {
+        note(QStringLiteral("%1: no label in the status bar").arg(name));
+        m_failed << name;
+        return;
+    }
+    // Some room on the left, the bar's whole height, to its right edge (the
+    // window above it would show a cut scroll bar)
+    const int margin = 24;
+    const QRect inBar(qMax(0, labels.left() - margin), 0, bar->width() - qMax(0, labels.left() - margin), bar->height());
+    const QRect area(bar->mapTo(m_w, inBar.topLeft()), inBar.size());
+    settle(400);
+    const QPixmap pm = m_w->grab(area);
+    const QString file = QDir(m_o.outDir).filePath(name + QStringLiteral(".png"));
+    if (pm.isNull() || !pm.save(file, "PNG")) {
+        note(QStringLiteral("%1: could not write %2").arg(name, file));
+        m_failed << name;
+        return;
+    }
+    note(QStringLiteral("%1: %2x%3 -> %4 (usage \"%5\", licence \"%6\")").arg(name).arg(pm.width()).arg(pm.height())
+             .arg(file, m_w->m_usageLabel->text(),
+                  m_w->m_licenceLabel && m_w->m_licenceLabel->isVisible() ? m_w->m_licenceLabel->text() : QString()));
+    m_written << name;
+}
+
 template<class T>
 void BScreensHarness::shotWindow(const QString &name, const std::function<void()> &open,
                                  const std::function<void(T *)> &prepare, const QSize &size)
@@ -377,7 +431,7 @@ int BScreensHarness::run()
     QDir().mkpath(m_o.outDir);
 
     BSettings &s = BSettings::instance();
-    s.setAppearanceTheme(QStringLiteral("dark"));
+    s.setAppearanceTheme(m_o.theme);
     s.setAppearanceLanguage(m_o.lang);
     s.setAppearanceUiZoom(100);
     s.setStatisticsWidgetVisible(true);
@@ -499,6 +553,14 @@ int BScreensHarness::run()
     w.m_statisticsDock->setVisible(true);
     w.m_tabWidget->setCurrentIndex(0);
     settle(500);
+
+    // 14.-16. the status bar with the free tier usage (each in a run of its own,
+    // the simulator decides the usage): free tier, close to the limit, and a
+    // licence that ends in 12 days
+    shotStatusBar(QStringLiteral("statusbar-usage"));
+    shotStatusBar(QStringLiteral("statusbar-near"));
+    shotStatusBar(QStringLiteral("statusbar-licence"));
+    shotStatusBar(QStringLiteral("statusbar-expired"));
 
     // 8. acl-matrix
     shotWindow<BAclMatrixDialog>(QStringLiteral("acl-matrix"), [&]() { w.showAclMatrix(); },
@@ -628,8 +690,9 @@ int main(int argc, char *argv[])
     QCommandLineOption fpOpt("fingerprint", "SHA-256 fingerprint of the simulator's certificate (hex)", "hex");
     QCommandLineOption dayOpt("day", "Day shown in the schedule timeline (yyyy-MM-dd)", "date");
     QCommandLineOption homeOpt("home", "Home of this run (removed and made again)", "dir");
+    QCommandLineOption themeOpt("theme", "Theme: dark or light", "theme", "dark");
     for (const auto &o : {outOpt, langOpt, sizeOpt, onlyOpt, hostOpt, portOpt, grpcOpt, consoleOpt,
-                          directorOpt, fpOpt, dayOpt, homeOpt})
+                          directorOpt, fpOpt, dayOpt, homeOpt, themeOpt})
         parser.addOption(o);
     parser.process(app);
 
@@ -665,6 +728,10 @@ int main(int argc, char *argv[])
         if (!o.day.isValid())
             fail(QStringLiteral("--day must be yyyy-MM-dd"));
     }
+
+    o.theme = parser.value(themeOpt);
+    if (o.theme != QLatin1String("dark") && o.theme != QLatin1String("light"))
+        fail(QStringLiteral("--theme must be dark or light"));
 
     BScreensHarness harness(o);
     return harness.run();

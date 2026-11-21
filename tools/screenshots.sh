@@ -23,7 +23,10 @@
 #   SIM_SEED     history seed (default 7)
 #   SIM_SPEED    virtual seconds per real second (default 1: the GUI's clock runs along)
 #   LANGS        languages (default "en de")
-#   ONLY         comma separated shot names (default all)
+#   ONLY         comma separated shot names (default all); the status bar shots
+#                (statusbar-usage, statusbar-near, statusbar-licence, statusbar-expired)
+#                run each with a simulator of their own (--usage free, near,
+#                licence-ending, expired) in the light theme
 #   WORK_DIR     scratch directory (default /tmp/onesimus-screens; its content is replaced)
 set -euo pipefail
 
@@ -91,17 +94,33 @@ stop_sim() {
 }
 trap stop_sim EXIT
 
-status=0
-for lang in $LANGS; do
-    out="$WORK_DIR/shots/$lang"
-    mkdir -p "$out"
-    simlog="$WORK_DIR/sim-$lang.log"
+# The status bar shots: each a run of its own, the simulator's --usage
+# preset decides what the Director reports; light theme
+statusbar_usage() {
+    case "$1" in
+        statusbar-usage) echo free ;;
+        statusbar-near) echo near ;;
+        statusbar-licence) echo licence-ending ;;
+        statusbar-expired) echo expired ;;
+    esac
+}
+STATUSBAR_SHOTS="statusbar-usage statusbar-near statusbar-licence statusbar-expired"
 
-    # A fresh simulator per language: both see the same moment of the night
+# run_shots LANG ONLY THEME [simulator arguments...]: a fresh simulator, one
+# harness run; ONLY may be empty (all shots but the status bar ones)
+run_shots() {
+    local lang="$1" only="$2" theme="$3"
+    shift 3
+    local out="$WORK_DIR/shots/$lang"
+    local simlog="$WORK_DIR/sim-$lang.log"
+    mkdir -p "$out"
+
+    # A fresh simulator per run: every run sees the same moment of the night
+    local real_start
     real_start="$(date +%s)"
     ( cd "$SIM_DIR" && exec node dist/src/cli/main.js serve --scenario "$SCENARIO" \
         --host 127.0.0.1 --grpc-port "$GRPC_PORT" --bnet-port "$BNET_PORT" \
-        --seed "$SIM_SEED" --start "$SIM_START" --speed "$SIM_SPEED" --cert-dir "$certdir" ) >"$simlog" 2>&1 &
+        --seed "$SIM_SEED" --start "$SIM_START" --speed "$SIM_SPEED" --cert-dir "$certdir" "$@" ) >"$simlog" 2>&1 &
     simpid=$!
     for _ in $(seq 1 100); do
         grep -q "gRPC (TLS) on" "$simlog" 2>/dev/null && break
@@ -111,23 +130,45 @@ for lang in $LANGS; do
     grep -q "$fingerprint" "$simlog" || { cat "$simlog" >&2; die "the simulator uses another certificate"; }
 
     # The GUI's wall clock follows the virtual clock of the simulator
-    offset=$(( start_epoch - real_start ))
-    echo "== $lang: simulator pid $simpid, clock offset ${offset}s"
-    only_arg=()
-    [ -n "$ONLY" ] && only_arg=(--only "$ONLY")
+    local offset=$(( start_epoch - real_start ))
+    echo "== $lang${only:+ ($only)}: simulator pid $simpid, clock offset ${offset}s"
+    local only_arg=()
+    [ -n "$only" ] && only_arg=(--only "$only")
     if ! TZ="$SIM_TZ" LANG=C.UTF-8 LC_ALL=C.UTF-8 \
          ONESIMUS_SCREENS_PASSWORD="$PASSWORD" ONESIMUS_SCREENS_CLOCK_OFFSET="$offset" \
          LD_PRELOAD="$clocklib" \
-         "$harness" --home "$WORK_DIR/home/demo" --out "$out" --lang "$lang" \
+         "$harness" --home "$WORK_DIR/home/demo" --out "$out" --lang "$lang" --theme "$theme" \
              --host 127.0.0.1 --port "$BNET_PORT" --grpc-port "$GRPC_PORT" \
              --console admin --director demo-dir --fingerprint "$fingerprint" "${only_arg[@]}" \
              2> >(grep -v -e '^Mutable view on type' -e 'propagateSizeHints' -e 'does not support raise' >&2); then
-        echo "screenshots.sh: some shots of $lang failed" >&2
+        echo "screenshots.sh: some shots of $lang${only:+ ($only)} failed" >&2
         status=1
     fi
     stop_sim
+}
+
+wanted() { [ -z "$ONLY" ] || [[ ",$ONLY," == *",$1,"* ]]; }
+
+status=0
+for lang in $LANGS; do
+    out="$WORK_DIR/shots/$lang"
+    # The views and dialogs (dark theme); the status bar shots are left out
+    main_only=""
+    if [ -n "$ONLY" ]; then
+        for name in ${ONLY//,/ }; do
+            [ -n "$(statusbar_usage "$name")" ] || main_only="${main_only:+$main_only,}$name"
+        done
+    fi
+    if [ -z "$ONLY" ] || [ -n "$main_only" ]; then
+        run_shots "$lang" "$main_only" dark
+    fi
+    for name in $STATUSBAR_SHOTS; do
+        wanted "$name" || continue
+        run_shots "$lang" "$name" light --usage "$(statusbar_usage "$name")"
+    done
 
     mkdir -p "$TARGET_DIR/$lang"
+    compgen -G "$out/*.png" >/dev/null || { echo "screenshots.sh: no pictures for $lang" >&2; status=1; continue; }
     cp "$out"/*.png "$TARGET_DIR/$lang/"
     echo "== $lang: $(ls "$out" | wc -l) pictures -> $TARGET_DIR/$lang"
 done

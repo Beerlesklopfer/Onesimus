@@ -2795,7 +2795,7 @@ endif()
 # ============================================================================
 # onesimus_screens - the application's main window and dialogs, connected
 # through the normal connection code to the simulator onesimus-sim on
-# 127.0.0.1, grabbed as PNG (offscreen, fixed size, dark theme, en or de).
+# 127.0.0.1, grabbed as PNG (offscreen, fixed size, dark or light theme, en or de).
 # Run it with tools/screenshots.sh, which starts the simulator. It keeps its
 # settings in a temporary directory and never touches those of the user.
 option(ONESIMUS_BUILD_SCREENS "Build the website screenshot harness onesimus_screens" OFF)
@@ -2818,6 +2818,8 @@ if(ONESIMUS_BUILD_SCREENS)
             include/director/bgrpcconnect.h
             src/director/bconfigproto.cpp
             include/director/bconfigproto.h
+            src/director/busageproto.cpp
+            include/director/busageproto.h
         )
         # Directly, for its usage requirements (HAVE_GRPC, generated headers):
         # the screenshots connect over gRPC
