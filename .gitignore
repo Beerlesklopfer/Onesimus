@@ -91,3 +91,6 @@ create-bacula-certs.ps1
 debug.log
 
 *bareos-dir.d*.*
+
+# Package output (AppImage) and package inputs (onesimus-dird Windows zip)
+dist/
