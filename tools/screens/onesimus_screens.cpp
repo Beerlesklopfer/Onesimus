@@ -31,6 +31,7 @@
 #include "schedules/bschedulegridview.h"
 #include "schedules/bscheduleganttwidget.h"
 #include "storagewidget.h"
+#include "bpaginationwidget.h"
 #include "tools/b321dialog.h"
 
 #include <QAbstractButton>
@@ -49,6 +50,9 @@
 #include <QFont>
 #include <QFontInfo>
 #include <QHostAddress>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QRegularExpression>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
@@ -212,6 +216,7 @@ private:
     void connectToSimulator();
     bool loaded() const;
     void selectJob(const std::function<bool(const QJsonObject &)> &pred);
+    void showNewestJobs();
     void closeStrayMessageBoxes();
 
     Options m_o;
@@ -314,6 +319,35 @@ void BScreensHarness::selectJob(const std::function<bool(const QJsonObject &)> &
         }
     }
     note(QStringLiteral("no job matched the selection"));
+}
+
+/// The job list pages by `list jobtotals`, which counts only Backup, Archive
+/// and copied jobs (Type B/A/a/C, as bareos-dir and odir do). With Copy
+/// control jobs (c), restores and waiting jobs in the catalog the newest page
+/// would miss the newest rows; the harness counts all rows with `list jobs
+/// count` and asks for the newest page again.
+void BScreensHarness::showNewestJobs()
+{
+    BDirector *director = m_w->m_director;
+    int total = -1;
+    const QMetaObject::Connection c = QObject::connect(director, &BDirector::jsonResult,
+        [&total](BDirector::Command cmd, const QString &json) {
+            if (cmd != BDirector::Command::Custom)
+                return;
+            const QRegularExpressionMatch m = QRegularExpression(QStringLiteral("\"count\"\\s*:\\s*\"?(\\d+)")).match(json);
+            if (m.hasMatch())
+                total = m.captured(1).toInt();
+        });
+    director->doSend(BDirector::Command::Custom, QStringLiteral("list jobs count"));
+    waitFor([&total] { return total >= 0; }, 15000);
+    QObject::disconnect(c);
+    BPaginationWidget *pages = m_w->m_jobWidget->m_paginationWidget;
+    if (total <= 0)
+        return;
+    note(QStringLiteral("job list: %1 rows (job totals: %2)").arg(total).arg(pages->totalJobCount()));
+    pages->setTotalJobCount(total);
+    m_w->m_jobWidget->onPageRequested(0, pages->pageSize());
+    settle(3000);
 }
 
 void BScreensHarness::shotMain(const QString &name, int tab, const std::function<void()> &prepare)
@@ -470,6 +504,7 @@ int BScreensHarness::run()
     note(QStringLiteral("connected, %1 jobs").arg(w.m_jobWidget->tableView()->jobsModel()->rowCount()));
     // The rest of the replies (resources, volumes, history) after the first rows
     settle(4000);
+    showNewestJobs();
 
     BJobWidget *jobs = w.m_jobWidget;
 
@@ -484,8 +519,11 @@ int BScreensHarness::run()
     shotMain(QStringLiteral("overview"), 0, [&]() {
         w.m_statisticsDock->setVisible(true);
         jobs->setLogViewVisible(true);
+        showNewestJobs();
         selectJob([&](const QJsonObject &j) { return status(j) == QLatin1String("T"); });
         settle(2000);
+        // The newest rows on top (the queued and waiting jobs), not the selection centred
+        jobs->tableView()->scrollToTop();
     });
 
     // 2. job-log: a running job with its live log (the Full to tape, if it runs)
