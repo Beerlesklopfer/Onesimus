@@ -2106,36 +2106,9 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
 
     m_directorTlsTab = tabs->addTab(directorWidget, tr("Director TLS"));
 
-    // Director hint tab for gRPC (Onesimus Director: Enable Grpc)
-    auto *grpcWidget = new QWidget();
-    auto *grpcLayout = new QVBoxLayout(grpcWidget);
-    grpcLayout->setContentsMargins(5, 5, 5, 5);
-
-    auto *grpcLabel = new QLabel(tr("Enable gRPC in the Director resource:"), grpcWidget);
-    grpcLabel->setStyleSheet("font-weight: bold;");
-    grpcLayout->addWidget(grpcLabel);
-
-    auto *grpcPath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"), grpcWidget);
-    grpcPath->setStyleSheet("color: #666;");
-    BUiScale::bind(grpcPath, BUiScale::Tiny);
-    grpcLayout->addWidget(grpcPath);
-
-    m_grpcDirectorEdit = new QTextEdit(grpcWidget);
-    m_grpcDirectorEdit->setReadOnly(true);
-    BUiScale::bind(m_grpcDirectorEdit, BUiScale::Normal, BUiScale::Monospace);
-    BUiScale::track(m_grpcDirectorEdit, [this]() { m_grpcDirectorEdit->setMinimumHeight(BUiScale::px(150)); });
-    grpcLayout->addWidget(m_grpcDirectorEdit);
-
-    auto *grpcButtonLayout = new QHBoxLayout();
-    m_copyGrpcDirectorButton = new QPushButton(tr("Copy to Clipboard"), grpcWidget);
-    m_copyGrpcDirectorButton->setIcon(QIcon::fromTheme("edit-copy"));
-    connect(m_copyGrpcDirectorButton, &QPushButton::clicked, this, &ConfigPreviewPage::onCopyGrpcDirectorConfig);
-    grpcButtonLayout->addWidget(m_copyGrpcDirectorButton);
-    grpcButtonLayout->addStretch();
-    grpcLayout->addLayout(grpcButtonLayout);
-
-    m_grpcDirectorTab = tabs->addTab(grpcWidget, tr("Director (gRPC)"));
-    tabs->setTabVisible(m_grpcDirectorTab, false);
+    // No Director tab for gRPC: the Onesimus Director offers gRPC on the BNET
+    // port + 1000 without any directive, and the configuration keeps Bareos
+    // syntax so that bareos-dir stays a drop-in fallback.
 
     // Client side: configuration for command-line consoles (bconsole / oconsole)
     auto *clientWidget = new QWidget();
@@ -2223,9 +2196,18 @@ void ConfigPreviewPage::updateConfigs()
     BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
     const bool grpc = isGrpc();
     m_tabs->setTabVisible(m_directorTlsTab, !grpc);
-    m_tabs->setTabVisible(m_grpcDirectorTab, grpc);
-    setHint(grpc ? tr("Add the Console resource and enable gRPC in the Director resource, "
-                      "then reload the Director.")
+    QString grpcHint = tr("Add the Console resource, then reload the Director. The Onesimus "
+                          "Director offers gRPC on the BNET port + 1000; nothing else to configure.");
+    if (grpc && wiz && wiz->wizardData()) {
+        const int bnetPort = wiz->wizardData()->port > 0 ? wiz->wizardData()->port : 9101;
+        const int grpcPort = wiz->wizardData()->grpcPort;
+        if (grpcPort > 0 && grpcPort != bnetPort + 1000) {
+            grpcHint = tr("Add the Console resource and \"Grpc Port = %1\" to the Director resource, "
+                          "then restart the Director (the default would be %2).")
+                           .arg(grpcPort).arg(bnetPort + 1000);
+        }
+    }
+    setHint(grpc ? grpcHint
                  : tr("After copying, paste this into your Bareos Director config and restart bareos-dir."));
 
     // Generate Console config
@@ -2308,26 +2290,6 @@ void ConfigPreviewPage::updateConfigs()
     }
 
     if (grpc) {
-        // Director-side hint for gRPC
-        const int bnetPort = wiz->wizardData()->port > 0 ? wiz->wizardData()->port : 9101;
-        const int grpcPort = wiz->wizardData()->grpcPort;
-        QString grpcConfig;
-        grpcConfig += QString("Director {\n");
-        grpcConfig += QString("  # ... other settings ...\n");
-        grpcConfig += QString("  Enable Grpc = yes\n");
-        if (grpcPort > 0 && grpcPort != bnetPort + 1000) {
-            grpcConfig += QString("  Grpc Port = %1\n").arg(grpcPort);
-        } else {
-            grpcConfig += QString("  # Grpc Port = %1\n").arg(bnetPort + 1000);
-        }
-        grpcConfig += QString("}\n");
-        grpcConfig += "\n# " + tr("Default gRPC port: BNET port + 1000 (%1 + 1000 = %2).")
-                                    .arg(bnetPort).arg(bnetPort + 1000) + "\n";
-        grpcConfig += "# " + tr("The Console resource provides name and password for the login.") + "\n";
-        grpcConfig += "\n# " + tr("After adding the Console, reload the Director:") + "\n";
-        grpcConfig += QString("# echo reload | bconsole\n");
-        grpcConfig += "# " + tr("(enabling gRPC for the first time requires a Director restart)") + "\n";
-        m_grpcDirectorEdit->setPlainText(grpcConfig);
         m_directorConfigEdit->clear();
         return;
     }
@@ -2515,17 +2477,6 @@ void ConfigPreviewPage::onCopyDirectorConfig()
     m_copyDirectorButton->setText(tr("Copied!"));
     QTimer::singleShot(2000, this, [this]() {
         m_copyDirectorButton->setText(tr("Copy to Clipboard"));
-    });
-}
-
-void ConfigPreviewPage::onCopyGrpcDirectorConfig()
-{
-    QClipboard *clipboard = QApplication::clipboard();
-    clipboard->setText(m_grpcDirectorEdit->toPlainText());
-
-    m_copyGrpcDirectorButton->setText(tr("Copied!"));
-    QTimer::singleShot(2000, this, [this]() {
-        m_copyGrpcDirectorButton->setText(tr("Copy to Clipboard"));
     });
 }
 
@@ -3050,11 +3001,11 @@ void ConsoleSetupPage::initializePage()
     bool modifyMode = m_modifyExistingRadio->isChecked();
     m_consoleDetails->setVisible(modifyMode);
 
-    // gRPC: the Director must have gRPC enabled; new consoles need a reload
+    // gRPC: the Onesimus Director offers it without a directive; new consoles need a reload
     BConnectionWizard *wiz = qobject_cast<BConnectionWizard*>(wizard());
     const bool grpc = wiz && wiz->wizardData() && wiz->wizardData()->transport == "grpc";
-    setHint(grpc ? tr("gRPC requires 'Enable Grpc = yes' in the Director resource "
-                      "(default port: BNET port + 1000). After adding a console, reload the Director.")
+    setHint(grpc ? tr("The Onesimus Director offers gRPC on the BNET port + 1000. "
+                      "After adding a console, reload the Director.")
                  : tr("Modify an existing console or create a new one on the director."));
 
     // Auto-load consoles when page is shown

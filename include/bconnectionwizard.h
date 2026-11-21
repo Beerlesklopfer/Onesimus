@@ -363,9 +363,6 @@ private:
     QPushButton *m_saveDirectorZipButton;
     QTabWidget *m_tabs;
     int m_directorTlsTab = -1;          // BNET only
-    int m_grpcDirectorTab = -1;         // gRPC only
-    QTextEdit *m_grpcDirectorEdit;
-    QPushButton *m_copyGrpcDirectorButton;
     // Client side: bconsole.conf / oconsole.conf for command-line consoles
     QTabWidget *m_clientTabs;
     QTextEdit *m_bconsoleEdit;
@@ -380,7 +377,6 @@ private:
 private slots:
     void onCopyConsoleConfig();
     void onCopyDirectorConfig();
-    void onCopyGrpcDirectorConfig();
     void onCopyClientConfig();
     void onSaveClientConf();
     void onSaveConsoleConf();
