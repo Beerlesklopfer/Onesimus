@@ -8,7 +8,7 @@
     and the OpenSSL DLLs go next to the executable in build\deploy (the CMake
     target "deploy"). Like deploy.ps1 of forgeiec-studio there is no system
     install by default on Windows: "deploy" means build + make runnable; the
-    installers (NSIS via CPack, MSI via WiX, portable ZIP) are separate verbs.
+    installers (MSI via WiX, portable ZIP) are separate verbs.
 
     The build stamps the version: CMake's increment_build_number target
     increments .build_number and regenerates include\version.h on every build.
@@ -22,9 +22,9 @@
     deploy     windeployqt + OpenSSL DLLs into build\deploy only.
     run        Build + deploy, then start build\deploy\Onesimus.exe.
     test       Build + ctest.
-    installer  NSIS installer via cpack (build\*.exe). Alias: package.
+    installer  MSI installer via package-msi.ps1 (WiX v6). Aliases: msi, package.
     zip        Portable ZIP via package-windows.ps1.
-    msi        MSI installer via package-msi.ps1 (WiX v6).
+    msi        Same as installer.
     install    cmake --install into -Prefix (default build\stage).
     status     Built binary, version, installers.
     clean      Remove the build directory.
@@ -59,6 +59,14 @@
 
 .PARAMETER Version
     Version for "zip". Default: VERSION_FULL from include\version.h.
+
+.PARAMETER DirdZip
+    For "installer": onesimus-dird-<version>-windows-x86_64.zip with
+    bin\oconsole.exe and bin\ofd.exe. Default: newest one in dist\rust\.
+    Without it the MSI holds the GUI only.
+
+.PARAMETER DirdDir
+    For "installer": an unpacked onesimus-dird folder (with bin\) instead of -DirdZip.
 
 .PARAMETER DryRun
     Print every command instead of running it.
@@ -97,6 +105,8 @@ param(
     [string]$Prefix,
     [switch]$Reconfigure,
     [string]$Version,
+    [string]$DirdZip,
+    [string]$DirdDir,
     [switch]$DryRun
 )
 
@@ -388,13 +398,12 @@ function Invoke-Test {
 function Invoke-Installer {
     Invoke-Build
     Invoke-DeployDlls
-    Write-Section "NSIS installer (cpack)"
-    Invoke-Checked 'cpack' 'cpack' @('-G', 'NSIS', '-C', $BuildType, '--config', (Join-Path $BuildDir 'CPackConfig.cmake'), '-B', $BuildDir)
-    if ($DryRun) { return }
-    $setup = Get-ChildItem -Path $BuildDir -Filter '*.exe' -ErrorAction SilentlyContinue |
-             Where-Object { $_.Name -ne $ExeName } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($setup) { Write-Ok "Installer: $($setup.FullName)" }
-    else { Write-Warn "No installer found in $BuildDir - is NSIS (makensis) installed?" }
+    Write-Section "MSI installer (WiX)"
+    $msiArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', (Join-Path $ScriptDir 'package-msi.ps1'), '-BuildDir', $BuildDir)
+    if ($DirdZip) { $msiArgs += @('-DirdZip', $DirdZip) }
+    if ($DirdDir) { $msiArgs += @('-DirdDir', $DirdDir) }
+    Invoke-Checked 'package-msi.ps1' 'powershell.exe' $msiArgs
 }
 
 function Invoke-Zip {
@@ -404,13 +413,6 @@ function Invoke-Zip {
     Write-Section "Portable ZIP"
     Invoke-Checked 'package-windows.ps1' 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', (Join-Path $ScriptDir 'package-windows.ps1'), '-BuildDir', $DeployDir, '-Version', $ver)
-}
-
-function Invoke-Msi {
-    Invoke-Build
-    Write-Section "MSI installer (WiX)"
-    Invoke-Checked 'package-msi.ps1' 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass',
-        '-File', (Join-Path $ScriptDir 'package-msi.ps1'), '-BuildDir', $BuildDir)
 }
 
 function Invoke-Install {
@@ -479,9 +481,8 @@ try {
         'deploy'    { Confirm-Configured; Invoke-DeployDlls }
         'run'       { Invoke-Run }
         'test'      { Invoke-Test }
-        { $_ -in 'installer', 'package' } { Invoke-Installer }
+        { $_ -in 'installer', 'package', 'msi' } { Invoke-Installer }
         'zip'       { Invoke-Zip }
-        'msi'       { Invoke-Msi }
         'install'   { Invoke-Install }
         'status'    { Show-Status }
         'clean'     { Invoke-Clean }

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings of the Onesimus MSI in one place (included by onesimus.wxs).
+
+  The ofd values are a proposal of the onesimus-dird team that the maintainer
+  has not confirmed yet: change them here and nowhere else.
+-->
+<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <!-- Never change the UpgradeCode: major upgrades find the installed
+       version through it (the value of the former package-msi.ps1). -->
+  <?define UpgradeCode = "E4A7B2C1-3F5D-4E8A-9B1C-6D2F0A8E5C37" ?>
+  <?define Manufacturer = "Bernau Family" ?>
+  <?define ProductName = "Onesimus" ?>
+  <?define HelpLink = "https://github.com/Beerlesklopfer/Onesimus" ?>
+
+  <!-- Data directory below C:\ProgramData: configuration and logs of the
+       daemons. Kept on uninstall when it holds files (the configuration
+       contains the Director password and must survive an upgrade). -->
+  <?define DataDirName = "Onesimus" ?>
+
+  <!-- ofd, the Onesimus File Daemon, as a Windows service. -->
+  <?define OfdServiceName = "ofd" ?>
+  <?define OfdDisplayName = "Onesimus File Daemon" ?>
+  <?define OfdDescription = "Onesimus File Daemon (Bareos compatible): backs up and restores the files of this computer for the Director." ?>
+  <!-- auto | demand | disabled. demand until ofd answers the service
+       control manager and a configuration is in place (see README). -->
+  <?define OfdStartMode = "demand" ?>
+  <?define OfdBnetPort = "9102" ?>
+  <?define OfdGrpcPort = "10102" ?>
+  <!-- Directory names below the data directory. -->
+  <?define OfdConfigDirName = "bareos-fd.d" ?>
+  <?define LogDirName = "log" ?>
+  <?define OfdLogFileName = "ofd.log" ?>
+
+</Include>

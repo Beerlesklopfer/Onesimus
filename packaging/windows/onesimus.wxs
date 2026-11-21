@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Onesimus MSI (WiX Toolset v6). Built by package-msi.ps1, which passes:
+
+    -bindpath Gui=<build>\deploy     onesimus.exe with the windeployqt output
+    -d ProductVersion=X.Y.Z          the GUI version (= the MSI version)
+    -d HaveOconsole=0|1              oconsole.exe found in the dird input
+    -d HaveOfd=0|1                   ofd.exe found in the dird input
+    -d DirdBinDir=<dir>              bin\ of onesimus-dird-<ver>-windows-x86_64.zip
+    -d DirdVersion=<ver>|none        version of that zip (recorded, not the MSI version)
+    -d LicenseRtf=<file>             LICENSE as RTF
+    -d RepoDir=<repository root>     for the icon and the branding bitmaps
+
+  Features (select silently with ADDLOCAL, e.g. ADDLOCAL=Gui,Oconsole,Ofd):
+    Gui              required; start menu entry
+      DesktopShortcut  optional, on by default
+    Oconsole         optional, on by default when present
+    Ofd              optional, off by default; Windows service + firewall rules
+  A feature whose binary was not in the input is built with Level 0: it is
+  neither shown nor installed, and naming it in ADDLOCAL has no effect.
+  odir and osd are not offered: they do not build for Windows yet.
+-->
+<?include config.wxi ?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall">
+
+  <Package Name="$(var.ProductName)"
+           Manufacturer="$(var.Manufacturer)"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="$(var.UpgradeCode)"
+           Language="1033"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Compressed="yes">
+
+    <SummaryInformation Description="$(var.ProductName) $(var.ProductVersion) - Bareos management console" />
+
+    <!-- Every build gets a new ProductCode (WiX default), so each version is
+         a major upgrade of the previous one; downgrades are refused. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.RepoDir)\resources\icons\onesimus.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="$(var.HelpLink)" />
+    <Property Id="ARPURLINFOABOUT" Value="$(var.HelpLink)" />
+    <!-- Version of the bundled onesimus-dird binaries (oconsole, ofd). It is
+         independent of the GUI version, which is the MSI version. -->
+    <Property Id="ONESIMUS_DIRD_VERSION" Value="$(var.DirdVersion)" />
+
+    <!-- WixUI with a feature tree, the product artwork and the licence. -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(var.RepoDir)\packaging\windows\branding\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.RepoDir)\packaging\windows\branding\dialog.bmp" />
+
+    <!-- Directories -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="$(var.ProductName)">
+        <!-- Command line tools and daemons in their own folder, so that PATH
+             does not lead other programs to the Qt DLLs of the GUI. -->
+        <Directory Id="BinDir" Name="bin" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="OnesimusDataDir" Name="$(var.DataDirName)">
+        <Directory Id="OfdConfigDir" Name="$(var.OfdConfigDirName)" />
+        <Directory Id="OnesimusLogDir" Name="$(var.LogDirName)" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="OnesimusMenuFolder" Name="$(var.ProductName)" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Features -->
+    <Feature Id="Gui" Title="Onesimus GUI"
+             Description="The Onesimus management console (required)."
+             Level="1" AllowAbsent="no" AllowAdvertise="no" Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="GuiFiles" />
+      <ComponentRef Id="VersionInfoComponent" />
+      <Feature Id="DesktopShortcut" Title="Desktop shortcut"
+               Description="A shortcut to Onesimus on the desktop of all users."
+               Level="1" AllowAdvertise="no">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+    </Feature>
+
+<?if $(var.HaveOconsole) = 1 ?>
+    <Feature Id="Oconsole" Title="oconsole"
+             Description="Command line console for the Director, added to the system PATH."
+             Level="1" AllowAdvertise="no">
+      <ComponentRef Id="OconsoleComponent" />
+    </Feature>
+<?else?>
+    <Feature Id="Oconsole" Title="oconsole" Level="0" AllowAdvertise="no" />
+<?endif?>
+
+<?if $(var.HaveOfd) = 1 ?>
+    <!-- Level 2: off in a default install (INSTALLLEVEL 1), selectable in the
+         dialog and with ADDLOCAL=Ofd. -->
+    <Feature Id="Ofd" Title="ofd (File Daemon service)"
+             Description="The Onesimus File Daemon as the Windows service '$(var.OfdServiceName)', with firewall rules for TCP $(var.OfdBnetPort) and $(var.OfdGrpcPort)."
+             Level="2" AllowAdvertise="no">
+      <ComponentGroupRef Id="OfdComponents" />
+    </Feature>
+<?else?>
+    <Feature Id="Ofd" Title="ofd (File Daemon service)" Level="0" AllowAdvertise="no" />
+<?endif?>
+  </Package>
+
+  <!-- GUI: onesimus.exe with the start menu shortcut, plus everything
+       windeployqt put next to it (Qt DLLs, plugins, OpenSSL, VC runtime). -->
+  <Fragment>
+    <ComponentGroup Id="GuiFiles" Directory="INSTALLFOLDER">
+      <Component Id="OnesimusExeComponent">
+        <File Id="OnesimusExe" Source="!(bindpath.Gui)onesimus.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="OnesimusMenuFolder"
+                    Name="Onesimus" Description="Bareos management console"
+                    WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" Advertise="yes" />
+        </File>
+        <RemoveFolder Id="RemoveMenuFolder" Directory="OnesimusMenuFolder" On="uninstall" />
+      </Component>
+      <Files Include="!(bindpath.Gui)**">
+        <Exclude Files="!(bindpath.Gui)onesimus.exe" />
+      </Files>
+    </ComponentGroup>
+
+    <!-- A non-advertised shortcut in a profile folder needs an HKCU key path
+         (ICE43); the desktop of all users is used because of perMachine. -->
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder">
+      <Shortcut Id="DesktopShortcut" Name="Onesimus" Description="Bareos management console"
+                Target="[#OnesimusExe]" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+      <RegistryValue Root="HKCU" Key="Software\$(var.Manufacturer)\$(var.ProductName)"
+                     Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- The version of the bundled dird binaries, readable after install. -->
+    <Component Id="VersionInfoComponent" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKLM" Key="Software\$(var.Manufacturer)\$(var.ProductName)"
+                     Name="DirdVersion" Type="string" Value="[ONESIMUS_DIRD_VERSION]" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="Software\$(var.Manufacturer)\$(var.ProductName)"
+                     Name="Version" Type="string" Value="$(var.ProductVersion)" />
+    </Component>
+  </Fragment>
+
+<?if $(var.HaveOconsole) = 1 ?>
+  <Fragment>
+    <Component Id="OconsoleComponent" Directory="BinDir">
+      <File Id="OconsoleExe" Source="$(var.DirdBinDir)\oconsole.exe" KeyPath="yes" />
+      <!-- Removed again on uninstall (Permanent="no"). -->
+      <Environment Id="PathBinDir" Name="PATH" Value="[BinDir]" Part="last"
+                   Action="set" System="yes" Permanent="no" />
+    </Component>
+  </Fragment>
+<?endif?>
+
+<?if $(var.HaveOfd) = 1 ?>
+  <Fragment>
+    <ComponentGroup Id="OfdComponents">
+      <!-- The service executable is the key path of the component that
+           installs the service, as Windows Installer requires. -->
+      <Component Id="OfdServiceComponent" Directory="BinDir">
+        <File Id="OfdExe" Source="$(var.DirdBinDir)\ofd.exe" KeyPath="yes" />
+        <ServiceInstall Id="OfdServiceInstall"
+                        Name="$(var.OfdServiceName)"
+                        DisplayName="$(var.OfdDisplayName)"
+                        Description="$(var.OfdDescription)"
+                        Type="ownProcess" Start="$(var.OfdStartMode)"
+                        ErrorControl="normal" Account="LocalSystem" Vital="yes"
+                        Arguments="-f -c &quot;[OnesimusDataDir]$(var.OfdConfigDirName)&quot; --log-file &quot;[OnesimusLogDir]$(var.OfdLogFileName)&quot;" />
+        <!-- Stopped before an upgrade or uninstall, removed on uninstall.
+             Not started by the installer: it needs a configuration first. -->
+        <ServiceControl Id="OfdServiceControl" Name="$(var.OfdServiceName)"
+                        Stop="both" Remove="uninstall" Wait="yes" />
+        <fw:FirewallException Id="OfdFirewallBnet"
+                              Name="$(var.OfdDisplayName) (BNET, TCP $(var.OfdBnetPort))"
+                              Port="$(var.OfdBnetPort)" Protocol="tcp" Scope="any" Profile="all" />
+        <fw:FirewallException Id="OfdFirewallGrpc"
+                              Name="$(var.OfdDisplayName) (gRPC, TCP $(var.OfdGrpcPort))"
+                              Port="$(var.OfdGrpcPort)" Protocol="tcp" Scope="any" Profile="all" />
+      </Component>
+
+      <!-- Configuration and log directories: SYSTEM and Administrators only,
+           the configuration holds the Director password. Removed on
+           uninstall only when empty, so a configuration survives. -->
+      <Component Id="OfdConfigDirComponent" Directory="OfdConfigDir"
+                 Guid="6B0F2C4E-8D51-4A57-9E2B-3C7A1F5D9E04">
+        <CreateFolder>
+          <PermissionEx Sddl="O:BAG:SYD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)" />
+        </CreateFolder>
+      </Component>
+      <Component Id="OnesimusLogDirComponent" Directory="OnesimusLogDir"
+                 Guid="0E3D7A92-5B1C-4F86-A2D9-7C4E8B6F1A35">
+        <CreateFolder>
+          <PermissionEx Sddl="O:BAG:SYD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)" />
+        </CreateFolder>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+<?endif?>
+</Wix>

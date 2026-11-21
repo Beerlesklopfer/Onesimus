@@ -1,448 +1,148 @@
 #Requires -Version 5.1
-# Onesimus Windows MSI Installer Creator
-# Uses WiX v6 (dotnet tool) to create a proper MSI installer
-#
-# Prerequisites:
-#   dotnet tool install --global wix
-#   wix extension add WixToolset.UI.wixext/6.0.0
-#
-# Usage:
-#   .\package-msi.ps1                          # Auto-detect from build dir
-#   .\package-msi.ps1 -BuildDir .\build        # Explicit build dir
-#   .\package-msi.ps1 -SkipDeploy              # Skip windeployqt step
+<#
+.SYNOPSIS
+    Builds the Onesimus MSI (WiX Toolset v6) from packaging\windows\onesimus.wxs.
 
+.DESCRIPTION
+    Input:
+      - <BuildDir>\deploy: onesimus.exe with the windeployqt output
+        (".\deploy.ps1 deploy" or any deploy.ps1 verb that deploys).
+      - optional: the Windows build of onesimus-dird, a zip named
+        onesimus-dird-<version>-windows-x86_64.zip with bin\oconsole.exe and
+        bin\ofd.exe (-DirdZip, or found in dist\rust\), or an unpacked folder
+        that contains bin\ (-DirdDir). Missing binaries are skipped: the
+        feature is then neither shown nor installed.
+
+    Output: <OutDir>\Onesimus-<version>-windows-x86_64.msi and a .sha256 file
+    next to it. The MSI version is the GUI version from CMakeLists.txt; the
+    dird version is recorded in the property ONESIMUS_DIRD_VERSION and in
+    HKLM\Software\Bernau Family\Onesimus\DirdVersion.
+
+    Prerequisites (the release workflow installs them the same way):
+      dotnet tool install --global wix --version 6.0.2
+      wix extension add -g WixToolset.UI.wixext/6.0.2 WixToolset.Firewall.wixext/6.0.2
+
+.EXAMPLE
+    .\package-msi.ps1
+.EXAMPLE
+    .\package-msi.ps1 -DirdZip C:\Downloads\onesimus-dird-0.9.0-windows-x86_64.zip
+.EXAMPLE
+    msiexec /i Onesimus-1.0.0-windows-x86_64.msi ADDLOCAL=Gui,Oconsole,Ofd /qn /l*v install.log
+#>
+[CmdletBinding()]
 param(
-    [string]$BuildDir = "build",
-    [switch]$SkipDeploy
+    [string]$BuildDir = 'build',
+    [string]$DirdZip,
+    [string]$DirdDir,
+    [string]$OutDir
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
+$WixVersion = '6.0.2'
+$Extensions = @("WixToolset.UI.wixext/$WixVersion", "WixToolset.Firewall.wixext/$WixVersion")
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "Onesimus - MSI Installer Creator" -ForegroundColor Magenta
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host ""
+$RepoDir = $PSScriptRoot
+function Write-Info($msg) { Write-Host "[msi] $msg" -ForegroundColor Cyan }
+function Write-Ok($msg)   { Write-Host "[msi] $msg" -ForegroundColor Green }
+function Write-Warn($msg) { Write-Host "[msi] $msg" -ForegroundColor Yellow }
 
-# ============================================================================
-# 1. Prerequisites
-# ============================================================================
+if (-not [System.IO.Path]::IsPathRooted($BuildDir)) { $BuildDir = Join-Path $RepoDir $BuildDir }
+if (-not $OutDir) { $OutDir = $BuildDir }
+if (-not [System.IO.Path]::IsPathRooted($OutDir)) { $OutDir = Join-Path $RepoDir $OutDir }
+New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
-Write-Host "Pruefe Voraussetzungen..." -ForegroundColor Cyan
-Write-Host ""
-
-# WiX CLI
+# --- WiX -------------------------------------------------------------------
 if (-not (Get-Command wix -ErrorAction SilentlyContinue)) {
-    Write-Host "FEHLER: WiX CLI nicht gefunden!" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Installation:" -ForegroundColor Yellow
-    Write-Host "  dotnet tool install --global wix" -ForegroundColor White
-    Write-Host "  wix extension add WixToolset.UI.wixext/6.0.0" -ForegroundColor White
-    exit 1
+    throw "WiX CLI not found. Install: dotnet tool install --global wix --version $WixVersion"
 }
-$wixVersion = (wix --version 2>&1) | Select-Object -First 1
-Write-Host "OK WiX: $wixVersion" -ForegroundColor Green
-
-# Build directory and executable
-$BuildDir = Resolve-Path $BuildDir -ErrorAction SilentlyContinue
-if (-not $BuildDir) {
-    Write-Host "FEHLER: Build-Verzeichnis nicht gefunden!" -ForegroundColor Red
-    Write-Host "  Zuerst bauen: .\deploy.ps1" -ForegroundColor Yellow
-    exit 1
-}
-
-$exePath = Join-Path $BuildDir "Onesimus.exe"
-if (-not (Test-Path $exePath)) {
-    Write-Host "FEHLER: Onesimus.exe nicht gefunden in: $BuildDir" -ForegroundColor Red
-    exit 1
-}
-Write-Host "OK Onesimus.exe gefunden" -ForegroundColor Green
-
-# Version aus CMakeLists.txt lesen (kanonische Quelle)
-$cmakeContent = Get-Content "$PSScriptRoot\CMakeLists.txt" -Raw
-if ($cmakeContent -match 'project\(\s*onesimus\s+VERSION\s+(\d+\.\d+\.\d+)') {
-    $productVersion = $matches[1]
-} else {
-    # Fallback: aus Exe-Metadaten
-    $fileVersionInfo = (Get-Item $exePath).VersionInfo
-    $productVersion = $fileVersionInfo.ProductVersion
-    if (-not $productVersion -or $productVersion -eq "") {
-        $productVersion = "0.2.0"
-    }
-}
-# MSI requires exactly 3 or 4 numeric parts
-$versionParts = $productVersion -split '[.\-~]' | Where-Object { $_ -match '^\d+$' } | Select-Object -First 3
-$msiVersion = ($versionParts -join '.')
-Write-Host "   Version: $msiVersion" -ForegroundColor Cyan
-
-Write-Host ""
-
-# ============================================================================
-# 2. Deploy (windeployqt)
-# ============================================================================
-
-$deployDir = Join-Path $BuildDir "msi-staging"
-
-if (-not $SkipDeploy) {
-    Write-Host "========================================" -ForegroundColor Magenta
-    Write-Host "Deployment (windeployqt)" -ForegroundColor Magenta
-    Write-Host "========================================" -ForegroundColor Magenta
-    Write-Host ""
-
-    # Clean staging dir
-    if (Test-Path $deployDir) {
-        Remove-Item -Path $deployDir -Recurse -Force
-    }
-    New-Item -ItemType Directory -Path $deployDir | Out-Null
-
-    # Copy executable
-    Copy-Item -Path $exePath -Destination $deployDir
-    Write-Host "OK Onesimus.exe kopiert" -ForegroundColor Green
-
-    # Find windeployqt
-    $qtRootDirs = @("C:\Qt", "C:\Qt6")
-    $windeployqt = $null
-
-    foreach ($qtRoot in $qtRootDirs) {
-        if (Test-Path $qtRoot) {
-            $versionDirs = Get-ChildItem -Path $qtRoot -Directory -ErrorAction SilentlyContinue |
-                           Where-Object { $_.Name -match '^\d+\.\d+(\.\d+)?$' } |
-                           Sort-Object { [version]$_.Name } -Descending
-
-            foreach ($versionDir in $versionDirs) {
-                $compilerDir = Get-ChildItem -Path $versionDir.FullName -Directory -ErrorAction SilentlyContinue |
-                               Where-Object { $_.Name -like "msvc*64" -and $_.Name -notlike "*arm*" } |
-                               Select-Object -First 1
-
-                if ($compilerDir) {
-                    $candidate = Join-Path $compilerDir.FullName "bin\windeployqt.exe"
-                    if (Test-Path $candidate) {
-                        $windeployqt = $candidate
-                        break
-                    }
-                }
-            }
-        }
-        if ($windeployqt) { break }
-    }
-
-    if (-not $windeployqt) {
-        Write-Host "FEHLER: windeployqt nicht gefunden!" -ForegroundColor Red
-        exit 1
-    }
-    Write-Host "OK windeployqt: $windeployqt" -ForegroundColor Green
-
-    # Copy OpenSSL DLLs if they exist (shared build)
-    $opensslBinDir = Join-Path $BuildDir "openssl-install\bin"
-    $opensslRootDir = Join-Path $BuildDir "openssl-install"
-    if (Test-Path "$opensslBinDir\libssl-3-x64.dll") {
-        Copy-Item -Path "$opensslBinDir\libssl-3-x64.dll" -Destination $deployDir
-        Copy-Item -Path "$opensslBinDir\libcrypto-3-x64.dll" -Destination $deployDir
-        Write-Host "OK OpenSSL DLLs kopiert" -ForegroundColor Green
-    }
-
-    # Run windeployqt (Warnungen auf stderr ignorieren)
-    # --openssl-root ensures qopensslbackend.dll TLS plugin is deployed (required for PSK)
-    Write-Host "Starte windeployqt..." -ForegroundColor Cyan
-    $deployExe = Join-Path $deployDir "Onesimus.exe"
-    $ErrorActionPreference = "Continue"
-    if (Test-Path $opensslRootDir) {
-        & $windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw --compiler-runtime --openssl-root $opensslRootDir $deployExe 2>&1
-    } else {
-        & $windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw --compiler-runtime $deployExe 2>&1
-    }
-    $ErrorActionPreference = "Stop"
-
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "WARNUNG: windeployqt meldete Fehler (Exit $LASTEXITCODE)" -ForegroundColor Yellow
-    } else {
-        Write-Host "OK windeployqt abgeschlossen" -ForegroundColor Green
-    }
-} else {
-    if (-not (Test-Path $deployDir)) {
-        Write-Host "FEHLER: Staging-Verzeichnis nicht gefunden: $deployDir" -ForegroundColor Red
-        Write-Host "  Zuerst ohne -SkipDeploy ausfuehren" -ForegroundColor Yellow
-        exit 1
-    }
-    Write-Host "   Ueberspringe windeployqt (-SkipDeploy)" -ForegroundColor Cyan
-}
-
-Write-Host ""
-
-# ============================================================================
-# 3. Generate WiX Source (.wxs)
-# ============================================================================
-
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "WiX-Quelldatei generieren" -ForegroundColor Magenta
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host ""
-
-# Stable UpgradeCode (must stay the same across versions!)
-$upgradeCode = "E4A7B2C1-3F5D-4E8A-9B1C-6D2F0A8E5C37"
-
-# Collect all files from deploy directory
-function Get-DeployFiles {
-    param([string]$BaseDir)
-
-    $allFiles = @()
-    $allDirs = @()
-
-    # Get all files recursively
-    Get-ChildItem -Path $BaseDir -Recurse -File | ForEach-Object {
-        $relativePath = $_.FullName.Substring($BaseDir.Length + 1)
-        $relativeDir = if ($_.DirectoryName -eq $BaseDir) { "" } else { $_.DirectoryName.Substring($BaseDir.Length + 1) }
-        $allFiles += @{
-            Name = $_.Name
-            FullPath = $_.FullName
-            RelativePath = $relativePath
-            RelativeDir = $relativeDir
-        }
-
-        if ($relativeDir -and $relativeDir -notin $allDirs) {
-            $allDirs += $relativeDir
-        }
-    }
-
-    return @{ Files = $allFiles; Dirs = $allDirs }
-}
-
-$deployData = Get-DeployFiles -BaseDir $deployDir
-$fileCount = $deployData.Files.Count
-Write-Host "   $fileCount Dateien gefunden" -ForegroundColor Cyan
-
-# Helper: Create a safe WiX ID from a path
-function Get-SafeId {
-    param([string]$Path, [string]$Prefix = "f")
-    $safe = $Path -replace '[^a-zA-Z0-9_.]', '_'
-    return "${Prefix}_${safe}"
-}
-
-# Generate WiX XML
-$iconPath = "$PSScriptRoot\resources\icons\onesimus.ico"
-$licensePath = "$PSScriptRoot\LICENSE"
-
-# Build directory XML fragments
-$directoryXml = ""
-$componentXml = ""
-$componentRefs = ""
-
-# Root-level files first
-$rootFiles = $deployData.Files | Where-Object { $_.RelativeDir -eq "" }
-foreach ($file in $rootFiles) {
-    $id = Get-SafeId -Path $file.Name -Prefix "comp"
-    $fileId = Get-SafeId -Path $file.Name -Prefix "file"
-    $componentXml += @"
-
-    <Component Id="$id" Directory="INSTALLFOLDER" Guid="*">
-      <File Id="$fileId" Source="$($file.FullPath)" KeyPath="yes" />
-    </Component>
-"@
-    $componentRefs += "      <ComponentRef Id=`"$id`" />`n"
-}
-
-# Subdirectory files
-$subDirs = $deployData.Dirs | Sort-Object
-foreach ($dir in $subDirs) {
-    $dirId = Get-SafeId -Path $dir -Prefix "dir"
-    $dirFiles = $deployData.Files | Where-Object { $_.RelativeDir -eq $dir }
-
-    foreach ($file in $dirFiles) {
-        $id = Get-SafeId -Path $file.RelativePath -Prefix "comp"
-        $fileId = Get-SafeId -Path $file.RelativePath -Prefix "file"
-        $componentXml += @"
-
-    <Component Id="$id" Directory="$dirId" Guid="*">
-      <File Id="$fileId" Source="$($file.FullPath)" KeyPath="yes" />
-    </Component>
-"@
-        $componentRefs += "      <ComponentRef Id=`"$id`" />`n"
+Write-Info "WiX $((wix --version) | Select-Object -First 1)"
+$installed = (wix extension list -g) -join "`n"
+foreach ($ext in $Extensions) {
+    $id, $ver = $ext -split '/'
+    if ($installed -notmatch [regex]::Escape($id) + '\s+' + [regex]::Escape($ver)) {
+        Write-Info "Adding WiX extension $ext"
+        wix extension add -g $ext
+        if ($LASTEXITCODE -ne 0) { throw "wix extension add $ext failed" }
     }
 }
 
-# Build directory tree XML
-$directoryTree = ""
-foreach ($dir in $subDirs) {
-    $dirId = Get-SafeId -Path $dir -Prefix "dir"
-    $dirName = Split-Path $dir -Leaf
-    $parentDir = Split-Path $dir -Parent
+# --- GUI -------------------------------------------------------------------
+$GuiDir = Join-Path $BuildDir 'deploy'
+if (-not (Test-Path (Join-Path $GuiDir 'onesimus.exe'))) {
+    throw "$GuiDir\onesimus.exe missing - run .\deploy.ps1 deploy first"
+}
+if (-not (Test-Path (Join-Path $GuiDir 'Qt6Core.dll'))) {
+    throw "$GuiDir has no Qt6Core.dll - windeployqt did not run"
+}
 
-    if ($parentDir -eq "" -or $parentDir -eq $null) {
-        $directoryTree += "        <Directory Id=`"$dirId`" Name=`"$dirName`" />`n"
+# The GUI version (project() in CMakeLists.txt) is the MSI version.
+$cmake = Get-Content (Join-Path $RepoDir 'CMakeLists.txt') -Raw
+if ($cmake -notmatch 'project\(\s*onesimus\s+VERSION\s+(\d+\.\d+\.\d+)') { throw 'No project(onesimus VERSION ...) in CMakeLists.txt' }
+$Version = $matches[1]
+Write-Info "Version: $Version"
+
+# --- onesimus-dird (optional) ---------------------------------------------
+$DirdVersion = 'none'
+$DirdBin = Join-Path $BuildDir 'dird-missing'
+if (-not $DirdDir) {
+    if (-not $DirdZip) {
+        $DirdZip = Get-ChildItem -Path (Join-Path $RepoDir 'dist\rust') -Filter 'onesimus-dird-*-windows-x86_64.zip' -ErrorAction SilentlyContinue |
+                   Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+    }
+    if ($DirdZip) {
+        if (-not (Test-Path $DirdZip)) { throw "dird zip not found: $DirdZip" }
+        $DirdDir = Join-Path $BuildDir 'dird'
+        if (Test-Path $DirdDir) { Remove-Item -Recurse -Force $DirdDir }
+        Write-Info "Unpacking $DirdZip"
+        Expand-Archive -Path $DirdZip -DestinationPath $DirdDir
+        # A zip may wrap everything in one top folder: use the folder with bin\.
+        $binParent = Get-ChildItem -Path $DirdDir -Directory -Recurse -Filter 'bin' | Select-Object -First 1
+        if ($binParent) { $DirdDir = $binParent.Parent.FullName }
+        if ((Split-Path $DirdZip -Leaf) -match '^onesimus-dird-(.+)-windows-x86_64\.zip$') { $DirdVersion = $matches[1] }
     }
 }
-
-# Handle nested directories (only one level deep in most Qt deployments)
-$nestedDirs = $subDirs | Where-Object { $_ -match '\\' }
-foreach ($dir in $nestedDirs) {
-    $dirId = Get-SafeId -Path $dir -Prefix "dir"
-    $dirName = Split-Path $dir -Leaf
-    $parentPath = Split-Path $dir -Parent
-    $parentId = Get-SafeId -Path $parentPath -Prefix "dir"
-
-    # Remove simple entry, add nested
-    $directoryTree = $directoryTree -replace "        <Directory Id=`"$parentId`"([^/]*)/>`n", "        <Directory Id=`"$parentId`"`$1>`n          <Directory Id=`"$dirId`" Name=`"$dirName`" />`n        </Directory>`n"
+if ($DirdDir) {
+    $DirdBin = Join-Path $DirdDir 'bin'
+    if ($DirdVersion -eq 'none' -and (Test-Path (Join-Path $DirdDir 'VERSION'))) {
+        $DirdVersion = (Get-Content (Join-Path $DirdDir 'VERSION') -TotalCount 1).Trim()
+    }
 }
+$HaveOconsole = [int](Test-Path (Join-Path $DirdBin 'oconsole.exe'))
+$HaveOfd      = [int](Test-Path (Join-Path $DirdBin 'ofd.exe'))
+if ($HaveOconsole) { Write-Ok "oconsole: $DirdBin\oconsole.exe (dird $DirdVersion)" } else { Write-Warn 'oconsole.exe not provided - feature Oconsole skipped' }
+if ($HaveOfd)      { Write-Ok "ofd:      $DirdBin\ofd.exe (dird $DirdVersion)" }      else { Write-Warn 'ofd.exe not provided - feature Ofd skipped' }
 
-# Build the .wxs content
-$wxsContent = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+# --- Licence as RTF --------------------------------------------------------
+$licenseText = Get-Content (Join-Path $RepoDir 'LICENSE') -Raw
+$escaped = $licenseText -replace '\\', '\\' -replace '\{', '\{' -replace '\}', '\}' -replace "`r?`n", "\par`r`n"
+$rtf = "{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}\f0\fs16 " + $escaped + '}'
+$LicenseRtf = Join-Path $BuildDir 'license.rtf'
+[System.IO.File]::WriteAllText($LicenseRtf, $rtf, [System.Text.Encoding]::ASCII)
 
-  <Package Name="Onesimus"
-           Manufacturer="Bernau Family"
-           Version="$msiVersion"
-           UpgradeCode="$upgradeCode"
-           Compressed="yes"
-           InstallerVersion="500"
-           Scope="perMachine">
+# --- Build -----------------------------------------------------------------
+$msi = Join-Path $OutDir "Onesimus-$Version-windows-x86_64.msi"
+$wixArgs = @('build', (Join-Path $RepoDir 'packaging\windows\onesimus.wxs'),
+    '-arch', 'x64',
+    '-bindpath', "Gui=$GuiDir",
+    '-d', "ProductVersion=$Version",
+    '-d', "HaveOconsole=$HaveOconsole",
+    '-d', "HaveOfd=$HaveOfd",
+    '-d', "DirdBinDir=$DirdBin",
+    '-d', "DirdVersion=$DirdVersion",
+    '-d', "LicenseRtf=$LicenseRtf",
+    '-d', "RepoDir=$RepoDir",
+    '-o', $msi)
+foreach ($ext in $Extensions) { $wixArgs += @('-ext', $ext) }
+Write-Info "wix $($wixArgs -join ' ')"
+& wix @wixArgs
+if ($LASTEXITCODE -ne 0) { throw "wix build failed (exit code $LASTEXITCODE)" }
 
-    <SummaryInformation Description="Onesimus - Bareos/Bacula Management Tool" />
-
-    <MajorUpgrade DowngradeErrorMessage="Eine neuere Version von Onesimus ist bereits installiert." />
-    <MediaTemplate EmbedCab="yes" />
-
-    <!-- Icon fuer Add/Remove Programs -->
-    <Icon Id="AppIcon" SourceFile="$iconPath" />
-    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/Beerlesklopfer/Onesimus" />
-
-    <!-- Install UI mit Feature-Auswahl (Checkboxen fuer Shortcuts) -->
-    <ui:WixUI Id="WixUI_FeatureTree" />
-
-    <!-- Lizenz -->
-    <WixVariable Id="WixUILicenseRtf" Value="$($BuildDir)\license.rtf" />
-
-    <!-- Features mit Checkboxen -->
-    <Feature Id="MainFeature" Title="Onesimus" Description="Onesimus Programmdateien" Level="1">
-$componentRefs
-    </Feature>
-
-    <Feature Id="DesktopShortcut" Title="Desktop-Verknuepfung" Description="Erstellt eine Verknuepfung auf dem Desktop" Level="1">
-      <ComponentRef Id="comp_DesktopShortcut" />
-    </Feature>
-
-    <Feature Id="StartMenuShortcut" Title="Startmenue-Verknuepfung" Description="Erstellt eine Verknuepfung im Startmenue" Level="1">
-      <ComponentRef Id="comp_StartMenuShortcut" />
-    </Feature>
-
-    <!-- Directory Structure -->
-    <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="Onesimus">
-$directoryTree
-      </Directory>
-    </StandardDirectory>
-
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="OnesimusMenuFolder" Name="Onesimus" />
-    </StandardDirectory>
-
-    <StandardDirectory Id="DesktopFolder" />
-
-    <!-- Components -->
-    <ComponentGroup Id="ProductComponents">
-$componentXml
-
-    <!-- Start Menu Shortcut -->
-    <Component Id="comp_StartMenuShortcut" Directory="OnesimusMenuFolder" Guid="*">
-      <Shortcut Id="StartMenuShortcut"
-                Name="Onesimus"
-                Description="Bareos/Bacula Management Tool"
-                Target="[INSTALLFOLDER]Onesimus.exe"
-                WorkingDirectory="INSTALLFOLDER"
-                Icon="AppIcon" />
-      <RemoveFolder Id="RemoveMenuFolder" On="uninstall" />
-      <RegistryValue Root="HKCU" Key="Software\Onesimus" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
-    </Component>
-
-    <!-- Desktop Shortcut -->
-    <Component Id="comp_DesktopShortcut" Directory="DesktopFolder" Guid="*">
-      <Shortcut Id="DesktopShortcut"
-                Name="Onesimus"
-                Description="Bareos/Bacula Management Tool"
-                Target="[INSTALLFOLDER]Onesimus.exe"
-                WorkingDirectory="INSTALLFOLDER"
-                Icon="AppIcon" />
-      <RegistryValue Root="HKCU" Key="Software\Onesimus" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
-    </Component>
-    </ComponentGroup>
-
-  </Package>
-</Wix>
-"@
-
-# Create license.rtf from LICENSE (WiX requires RTF format)
-if (Test-Path $licensePath) {
-    $licenseText = Get-Content $licensePath -Raw
-    $rtfContent = "{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}\f0\fs18 " + ($licenseText -replace "`r`n", "\par`r`n" -replace "`n", "\par`r`n") + "}"
-    $rtfPath = Join-Path $BuildDir "license.rtf"
-    [System.IO.File]::WriteAllText($rtfPath, $rtfContent, [System.Text.Encoding]::ASCII)
-    Write-Host "OK Lizenz-RTF erstellt" -ForegroundColor Green
-} else {
-    Write-Host "WARNUNG: LICENSE-Datei nicht gefunden, verwende Platzhalter" -ForegroundColor Yellow
-    $rtfContent = "{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Segoe UI;}}\f0\fs18 Onesimus - Bareos/Bacula Management Tool\par\par GNU Affero General Public License v3.0 or later\par\par (C) Bernau Family\par\par This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\par\par See LICENSE file for full text.}"
-    $rtfPath = Join-Path $BuildDir "license.rtf"
-    [System.IO.File]::WriteAllText($rtfPath, $rtfContent, [System.Text.Encoding]::ASCII)
-}
-
-# Write .wxs file
-$wxsPath = Join-Path $BuildDir "onesimus.wxs"
-[System.IO.File]::WriteAllText($wxsPath, $wxsContent, (New-Object System.Text.UTF8Encoding $true))
-Write-Host "OK WiX-Quelldatei erstellt: $wxsPath" -ForegroundColor Green
-
-Write-Host ""
-
-# ============================================================================
-# 4. Build MSI
-# ============================================================================
-
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host "MSI-Installer erstellen" -ForegroundColor Magenta
-Write-Host "========================================" -ForegroundColor Magenta
-Write-Host ""
-
-$msiOutputName = "Onesimus-$msiVersion-Windows.msi"
-$msiOutputPath = Join-Path $BuildDir $msiOutputName
-
-Write-Host "Kompiliere MSI..." -ForegroundColor Cyan
-
-# Run wix build
-& wix build $wxsPath -arch x64 -ext WixToolset.UI.wixext -o $msiOutputPath 2>&1
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host ""
-    Write-Host "FEHLER: MSI-Erstellung fehlgeschlagen!" -ForegroundColor Red
-    Write-Host "  WiX-Quelldatei: $wxsPath" -ForegroundColor Gray
-    Write-Host "  Ueberpruefen Sie die Fehlermeldungen oben." -ForegroundColor Yellow
-    exit 1
-}
-
-Write-Host ""
-
-# ============================================================================
-# 5. Summary
-# ============================================================================
-
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "MSI-Installer erfolgreich erstellt!" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-
-if (Test-Path $msiOutputPath) {
-    $msiInfo = Get-Item $msiOutputPath
-    $msiSizeMB = [math]::Round($msiInfo.Length / 1MB, 2)
-
-    Write-Host "MSI-Datei:  $($msiInfo.Name)" -ForegroundColor Green
-    Write-Host "Groesse:    $msiSizeMB MB" -ForegroundColor Cyan
-    Write-Host "Pfad:       $($msiInfo.FullName)" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Installation:" -ForegroundColor Yellow
-    Write-Host "  Doppelklick auf die MSI-Datei" -ForegroundColor White
-    Write-Host "  Oder: msiexec /i `"$msiOutputName`"" -ForegroundColor White
-    Write-Host ""
-    Write-Host "Stille Installation:" -ForegroundColor Yellow
-    Write-Host "  msiexec /i `"$msiOutputName`" /qn" -ForegroundColor White
-}
-
-Write-Host ""
+$hash = (Get-FileHash -Algorithm SHA256 $msi).Hash.ToLower()
+"$hash  $(Split-Path $msi -Leaf)" | Out-File -Encoding ascii -NoNewline "$msi.sha256"
+Write-Ok "MSI: $msi ($([math]::Round((Get-Item $msi).Length / 1MB, 1)) MB)"
+Write-Ok "sha256: $hash"
+Write-Host ''
+Write-Host 'Silent install examples:'
+Write-Host "  msiexec /i `"$(Split-Path $msi -Leaf)`" /qn                          (GUI + oconsole)"
+Write-Host "  msiexec /i `"$(Split-Path $msi -Leaf)`" ADDLOCAL=Gui,Oconsole,Ofd /qn  (with the ofd service)"
+Write-Host "  msiexec /i `"$(Split-Path $msi -Leaf)`" ADDLOCAL=ALL REMOVE=DesktopShortcut /qn"
