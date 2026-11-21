@@ -37,6 +37,8 @@ class QCheckBox;
 class BMainWindow : public QMainWindow
 {
     Q_OBJECT
+    // The website screenshot harness (tools/screens) opens views and dialogs directly
+    friend class BScreensHarness;
 
 public:
     BMainWindow(QWidget *parent = nullptr);

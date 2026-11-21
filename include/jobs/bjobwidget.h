@@ -46,6 +46,8 @@ class BMessagesWidget;
 class BJobWidget : public QWidget
 {
     Q_OBJECT
+    // The website screenshot harness (tools/screens) opens views and dialogs directly
+    friend class BScreensHarness;
 
 public:
     /**
