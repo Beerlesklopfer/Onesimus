@@ -244,7 +244,7 @@ make -j$(nproc)
 
 | Command | What it does |
 |---|---|
-| `all`, `onesimus`, `gui` (default) | Build, then copy `onesimus` to `/usr/bin`, the desktop entry to `/usr/share/applications`, the icons to `/usr/share/icons/hicolor`, and refresh the icon/desktop caches. Each step runs `sudo` on its own; do not start the script with `sudo`. |
+| `all`, `onesimus`, `gui` (default) | Build, then copy `onesimus` to `/usr/local/bin`, the desktop entry to `/usr/local/share/applications`, the icons to `/usr/local/share/icons/hicolor` (`DEPLOY_PREFIX`, default `/usr/local`, the old destination of `make install`), and refresh the icon/desktop caches. Each step runs `sudo` on its own; do not start the script with `sudo`. |
 | `configure [args]` | Create the build tree; extra arguments go to cmake |
 | `build` / `rebuild` | Build (incremental) / clean rebuild |
 | `run [args]` | Build and start onesimus |
@@ -265,7 +265,7 @@ make -j$(nproc)
 | `-n, --dry-run` | Print every command instead of running it |
 
 Environment: `BUILD_DIR`, `BUILD_TYPE`, `JOBS`, `OPENSSL` (static/system),
-`GENERATOR`, `PREFIX`, `DEPLOY_PREFIX` (default `/usr`), `CMAKE_PREFIX_PATH`,
+`GENERATOR`, `PREFIX`, `DEPLOY_PREFIX` (default `/usr/local`), `CMAKE_PREFIX_PATH`,
 `PACKAGE_GENERATORS`, `APPIMAGE_TOOLS`, `CLEAN`, `DRY_RUN`, `ONESIMUS_ALLOW_ROOT`.
 
 An existing build tree keeps its build type and OpenSSL mode unless `-t`/`-s`

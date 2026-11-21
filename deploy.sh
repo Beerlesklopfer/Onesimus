@@ -64,13 +64,9 @@ BUILD_DIR="${BUILD_DIR:-build}"
 OPENSSL="${OPENSSL:-static}"
 # Target of `install` (cmake --install, sudo only when not writable).
 PREFIX="${PREFIX:-/usr/local}"
-# Target of the deploy step (all/onesimus). /usr like forgeiec on Linux, so the
-# desktop entry and icons land where GNOME/KDE look without configuration.
-if [ "$OS" = "Darwin" ]; then
-    DEPLOY_PREFIX="${DEPLOY_PREFIX:-/usr/local}"
-else
-    DEPLOY_PREFIX="${DEPLOY_PREFIX:-/usr}"
-fi
+# Target of the deploy step (all/onesimus): /usr/local, the old destination of
+# "make install" (the .deb owns /usr). GNOME/KDE also read /usr/local/share.
+DEPLOY_PREFIX="${DEPLOY_PREFIX:-/usr/local}"
 # Generator for a NEW build tree. An existing tree keeps its generator: CMake
 # refuses -G on a tree configured with another one.
 if [ -z "${GENERATOR:-}" ] && command -v ninja >/dev/null 2>&1; then
@@ -326,7 +322,7 @@ cmd_test() {
 #
 # The real deployment, like deploy_forgeiec in forgeiec-studio: the binary and
 # the files the .deb also ships (desktop entry, hicolor icons) are copied with
-# sudo into DEPLOY_PREFIX (default /usr), then the desktop caches are refreshed
+# sudo into DEPLOY_PREFIX (default /usr/local, where the old make install put it), then the desktop caches are refreshed
 # so the launcher and Alt-Tab show the new icon at once.
 # `install` replaces a symlink instead of writing through it. Say so, because
 # a hand-made link (e.g. /usr/bin/onesimus -> /usr/local/bin/onesimus) would

@@ -46,11 +46,8 @@ set -q JOBS; and test -n "$JOBS"; or set -g JOBS (cpu_count)
 set -q BUILD_DIR; and test -n "$BUILD_DIR"; or set -g BUILD_DIR build
 set -q OPENSSL; and test -n "$OPENSSL"; or set -g OPENSSL static
 set -q PREFIX; and test -n "$PREFIX"; or set -g PREFIX /usr/local
-if test "$OS" = Darwin
-    set -q DEPLOY_PREFIX; and test -n "$DEPLOY_PREFIX"; or set -g DEPLOY_PREFIX /usr/local
-else
-    set -q DEPLOY_PREFIX; and test -n "$DEPLOY_PREFIX"; or set -g DEPLOY_PREFIX /usr
-end
+# Target of the deploy step: /usr/local, the old destination of "make install"
+set -q DEPLOY_PREFIX; and test -n "$DEPLOY_PREFIX"; or set -g DEPLOY_PREFIX /usr/local
 if not set -q GENERATOR; or test -z "$GENERATOR"
     if command -q ninja
         set -g GENERATOR Ninja
