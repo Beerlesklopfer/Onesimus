@@ -325,6 +325,17 @@ cmd_test() {
 # the files the .deb also ships (desktop entry, hicolor icons) are copied with
 # sudo into DEPLOY_PREFIX (default /usr), then the desktop caches are refreshed
 # so the launcher and Alt-Tab show the new icon at once.
+# `install` replaces a symlink instead of writing through it. Say so, because
+# a hand-made link (e.g. /usr/bin/onesimus -> /usr/local/bin/onesimus) would
+# leave the link target at the old version.
+warn_symlink() {
+    if [ -L "$1" ]; then
+        warn "  $1 is a symlink to $(readlink "$1") - it will be replaced by the binary."
+        warn "  To update the link target instead: DEPLOY_PREFIX=$(dirname "$(dirname "$(readlink "$1")")") ./deploy.sh"
+    fi
+    return 0
+}
+
 deploy_onesimus() {
     info "=== onesimus ==="
     cmd_build
@@ -343,6 +354,7 @@ deploy_onesimus() {
     fi
 
     local share="${DEPLOY_PREFIX}/share"
+    warn_symlink "${DEPLOY_PREFIX}/bin/onesimus"
     info "  onesimus → ${DEPLOY_PREFIX}/bin/onesimus"
     run_sudo install -d "${DEPLOY_PREFIX}/bin"
     run_sudo install -m 755 "$bin" "${DEPLOY_PREFIX}/bin/onesimus"

@@ -321,6 +321,16 @@ function cmd_test
 end
 
 # ─── Deploy: build + copy into the system paths (see deploy.sh) ─────────────
+# `install` replaces a symlink instead of writing through it (see deploy.sh).
+function warn_symlink --argument-names f
+    if test -L $f
+        set -l target (readlink $f)
+        warn "  $f is a symlink to $target - it will be replaced by the binary."
+        warn "  To update the link target instead: DEPLOY_PREFIX="(dirname (dirname $target))" ./deploy.fish"
+    end
+    return 0
+end
+
 function deploy_onesimus
     info "=== onesimus ==="
     cmd_build
@@ -337,6 +347,7 @@ function deploy_onesimus
     end
 
     set -l share $DEPLOY_PREFIX/share
+    warn_symlink $DEPLOY_PREFIX/bin/onesimus
     info "  onesimus → $DEPLOY_PREFIX/bin/onesimus"
     run_sudo install -d $DEPLOY_PREFIX/bin
     run_sudo install -m 755 $bin $DEPLOY_PREFIX/bin/onesimus
