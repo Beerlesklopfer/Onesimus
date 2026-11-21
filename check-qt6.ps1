@@ -153,8 +153,8 @@ Write-Host "Fuer CMake verwenden Sie:" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  cmake .. -DCMAKE_PREFIX_PATH=`"$selectedQt`"" -ForegroundColor Green
 Write-Host ""
-Write-Host "Oder mit build-windows.ps1:" -ForegroundColor Cyan
-Write-Host "  .\build-windows.ps1" -ForegroundColor Green
+Write-Host "Oder mit deploy.ps1:" -ForegroundColor Cyan
+Write-Host "  .\deploy.ps1" -ForegroundColor Green
 Write-Host ""
 
 # ============================================================================
@@ -230,7 +230,7 @@ if ($foundInstallations.Count -gt 0 -and $allModulesPresent) {
     Write-Host ""
     Write-Host "Zum Bauen verwenden Sie:" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  .\build-windows.ps1" -ForegroundColor Green
+    Write-Host "  .\deploy.ps1" -ForegroundColor Green
     Write-Host ""
     Write-Host "Oder manuell:" -ForegroundColor Cyan
     Write-Host "  cmake .. -DCMAKE_PREFIX_PATH=`"$selectedQt`"" -ForegroundColor Gray

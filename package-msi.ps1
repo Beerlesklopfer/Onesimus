@@ -47,7 +47,7 @@ Write-Host "OK WiX: $wixVersion" -ForegroundColor Green
 $BuildDir = Resolve-Path $BuildDir -ErrorAction SilentlyContinue
 if (-not $BuildDir) {
     Write-Host "FEHLER: Build-Verzeichnis nicht gefunden!" -ForegroundColor Red
-    Write-Host "  Zuerst bauen: .\build-windows.ps1" -ForegroundColor Yellow
+    Write-Host "  Zuerst bauen: .\deploy.ps1" -ForegroundColor Yellow
     exit 1
 }
 
