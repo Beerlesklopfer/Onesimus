@@ -342,7 +342,8 @@ function Confirm-Configured {
 function Invoke-Build {
     Confirm-Configured
     Write-Section "Compilation"
-    if (-not (Test-Path (Join-Path $BuildDir 'openssl-install'))) {
+    $ossl = if ($env:OPENSSL_INSTALL_DIR) { $env:OPENSSL_INSTALL_DIR } else { Join-Path $BuildDir 'openssl-install' }
+    if (-not (Test-Path (Join-Path $ossl 'include\openssl'))) {
         Write-Warn "NOTE: the first build downloads nothing but compiles OpenSSL - this takes 5-10 minutes."
     }
     $start = Get-Date

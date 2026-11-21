@@ -282,7 +282,7 @@ end
 function cmd_build
     need cmake
     ensure_configured
-    if test "$OPENSSL" = static; and not test -d $BUILD_DIR/openssl-install
+    if test "$OPENSSL" = static; and not test -d (test -n "$OPENSSL_INSTALL_DIR"; and echo $OPENSSL_INSTALL_DIR; or echo $BUILD_DIR/openssl-install)/include/openssl
         info "NOTE: OpenSSL is compiled on the first build - this may take 5-10 minutes."
     end
     info "Building onesimus ($JOBS jobs)"

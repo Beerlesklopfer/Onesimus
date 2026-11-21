@@ -285,7 +285,7 @@ adopt_tree_settings() {
 cmd_build() {
     need_tool cmake
     ensure_configured
-    if [ "$OPENSSL" = "static" ] && [ ! -d "${BUILD_DIR}/openssl-install" ]; then
+    if [ "$OPENSSL" = "static" ] && [ ! -d "${OPENSSL_INSTALL_DIR:-${BUILD_DIR}/openssl-install}/include/openssl" ]; then
         info "NOTE: OpenSSL is compiled on the first build - this may take 5-10 minutes."
     fi
     info "Building onesimus (${JOBS} jobs)"
