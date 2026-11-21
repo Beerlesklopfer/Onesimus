@@ -77,6 +77,29 @@ sudo apt-get install -y \
 - **qt6-tools-dev-tools**: Qt6 LinguistTools (lupdate, lrelease) for translations
 - **libqt6network6-dev**: Qt6 Network module development files
 
+### Debian 13 (trixie) with gRPC - the CI environment
+
+The gRPC transport needs QtGrpc/QtProtobuf, which Debian ships from Qt 6.8 on
+(Debian 13; Ubuntu 24.04 has Qt 6.4 only). The CI Linux job
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) installs exactly this list in a
+`debian:trixie` container and then runs `./deploy.sh configure`, `build` and `test`:
+
+```bash
+sudo apt-get install -y --no-install-recommends \
+    ca-certificates git curl file perl make build-essential cmake ninja-build ccache \
+    dpkg-dev librsvg2-bin \
+    qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
+    qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev libgl-dev
+```
+
+`OPENSSL_INSTALL_DIR=<dir>` keeps the static OpenSSL build outside the build tree:
+the first build compiles it into `<dir>`, every later tree (and `./deploy.sh appimage`)
+reuses it. The CI caches that directory per OpenSSL submodule commit.
+
+Release packages (`.deb`, AppImage) are built the same way by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) on a `v*` tag; see
+"CI and Releases" in the README.
+
 ### Fedora/RHEL/CentOS
 
 ```bash
@@ -314,16 +337,13 @@ sudo make install
 ### Create AppImage
 
 ```bash
-# Download linuxdeployqt
-wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-chmod +x linuxdeployqt-continuous-x86_64.AppImage
-
-# Create AppImage
-./linuxdeployqt-continuous-x86_64.AppImage \
-    build/onesimus \
-    -appimage \
-    -qmake=/usr/lib/qt6/bin/qmake
+./deploy.sh appimage     # -> dist/appimage/Onesimus-<version>-x86_64.AppImage
 ```
+
+The script builds a Release tree with `PREFIX=/usr`, installs it into an AppDir and
+runs linuxdeploy with the Qt plugin (pinned versions, checked against SHA-256).
+The AppImage needs a glibc at least as new as the build system's; the release
+workflow builds it on Debian 13.
 
 ### Flatpak (TODO)
 

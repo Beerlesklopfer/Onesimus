@@ -6,6 +6,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/Beerlesklopfer/Onesimus/actions/workflows/ci.yml"><img src="https://github.com/Beerlesklopfer/Onesimus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/Qt-6.8%2B-green?logo=qt" alt="Qt 6.8+">
   <img src="https://img.shields.io/badge/C%2B%2B-17-blue?logo=c%2B%2B" alt="C++ 17">
   <img src="https://img.shields.io/badge/OpenSSL-3.6-orange?logo=openssl" alt="OpenSSL 3.6">
@@ -128,7 +129,7 @@ Onesimus **never accesses the database directly**. No SQL queries, no direct cat
 - **Cross-Platform:** Native builds for Windows, Linux, macOS
 - **AppImage Support:** Linux deployment with linuxdeploy
 - **Debian Package:** `.deb` package generation with automatic dependency detection
-- **Installer:** NSIS-based Windows installer (planned)
+- **Windows Installer:** MSI (WiX) with the GUI, and optionally oconsole and the ofd File Daemon service
 
 ## 🎯 Supported Backup Systems
 
@@ -156,7 +157,7 @@ cmake .. -DBACKUP_SYSTEM=BACULA
 ```powershell
 # Developer PowerShell for VS 2022 (deploy.ps1 loads the VS environment itself if needed)
 .\deploy.ps1            # build + windeployqt into build\deploy
-.\deploy.ps1 msi        # or: installer (NSIS), zip, run, test, status, clean, help
+.\deploy.ps1 installer  # MSI (alias: msi); also zip, run, test, status, clean, help
 ```
 
 `deploy.bat` is the double-click launcher (`deploy.bat rebuild` for a clean rebuild).
@@ -258,6 +259,55 @@ cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DDEBUG_JSON=OFF
 ```
+
+## 🔁 CI and Releases
+
+Every push and pull request runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+| Job | What it does |
+|---|---|
+| Linux | Debian 13 container (distribution Qt 6.8 with QtGrpc): `./deploy.sh configure`, `build`, `test` (ctest offscreen), lupdate check (warning only) |
+| Windows | MSVC 2022, Qt 6.8.3: `deploy.ps1 build`, `test`, `installer` (GUI-only MSI as an artifact) |
+| macOS | Build only, allowed to fail (the app bundle is still open) |
+
+The static OpenSSL build is cached per OpenSSL submodule commit
+(`OPENSSL_INSTALL_DIR`), so only the first run on a new OpenSSL commit compiles it.
+
+### Cutting a release
+
+The first public release through this pipeline is **v1.0.0**.
+
+1. Bump the version in `CMakeLists.txt`: `project(onesimus VERSION 1.0.0 ...)`.
+   Update `CHANGELOG.md`, commit, and push to `development`.
+2. Tag that commit and push the tag:
+   ```bash
+   git tag -a v1.0.0 -m "Onesimus 1.0.0"
+   git push origin v1.0.0
+   ```
+   A tag with a suffix (`v1.0.0-rc.1`) becomes a pre-release.
+3. [`.github/workflows/release.yml`](.github/workflows/release.yml) checks that the
+   tag matches the project version (it stops with an error if not), builds the
+   `.deb`, the AppImage, the MSI and the portable ZIP, writes `SHA256SUMS`, and
+   creates a **draft** GitHub Release for the tag with all files attached.
+4. Review the draft on the Releases page (notes, files, checksums) and publish it by hand.
+
+The MSI contains oconsole and the ofd service only when a Windows build of
+onesimus-dird is given: set the repository variables `DIRD_WINDOWS_ZIP_URL` and
+`DIRD_WINDOWS_ZIP_SHA256` (URL and SHA-256 of `onesimus-dird-<version>-windows-x86_64.zip`),
+or start the workflow by hand (Actions → Release → Run workflow) with the tag and
+those two values. Without them the MSI holds the GUI only.
+
+Silent MSI installation (features `Gui`, `DesktopShortcut`, `Oconsole`, `Ofd`):
+
+```powershell
+msiexec /i Onesimus-1.0.0-windows-x86_64.msi /qn                                    # GUI, shortcuts, oconsole
+msiexec /i Onesimus-1.0.0-windows-x86_64.msi ADDLOCAL=Gui,Oconsole,Ofd /qn /l*v install.log
+```
+
+`ADDLOCAL` installs exactly the listed features (add `DesktopShortcut` for the
+desktop icon). The ofd service is registered with start mode *manual*; it is not
+started by the installer because it needs a configuration in
+`C:\ProgramData\Onesimus\bareos-fd.d\` first.
 
 ## 📚 Documentation
 

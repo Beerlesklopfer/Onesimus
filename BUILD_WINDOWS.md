@@ -42,9 +42,8 @@ Falls gewünscht, können Sie auch direkt eine Developer PowerShell verwenden:
 | `deploy` | Nur windeployqt + OpenSSL-DLLs nach `build\deploy\` |
 | `run` | Bauen, deployen, `build\deploy\onesimus.exe` starten |
 | `test` | Bauen + ctest |
-| `installer` (`package`) | NSIS-Installer über CPack |
+| `installer` (`package`, `msi`) | MSI-Installer über `package-msi.ps1` (WiX v6) |
 | `zip` | Portables ZIP über `package-windows.ps1` |
-| `msi` | MSI-Installer über `package-msi.ps1` (WiX v6) |
 | `install` | `cmake --install` nach `-Prefix` (Standard `build\stage`) |
 | `status` | Gebautes Binary, Version, Installer |
 | `clean` | Build-Verzeichnis löschen |
@@ -337,9 +336,41 @@ Das ZIP-Package enthält alle notwendigen Dateien und kann ohne Installation ver
 
 ```powershell
 .\deploy.ps1 zip         # portables ZIP: build\deploy\Onesimus-x.x.x.x-Windows.zip
-.\deploy.ps1 installer   # NSIS-Installer über CPack (build\*.exe)
-.\deploy.ps1 msi         # MSI-Installer über WiX v6
+.\deploy.ps1 installer   # MSI-Installer über WiX v6 (Alias: msi, package)
 ```
+
+### MSI-Installer
+
+Quelle: `packaging\windows\onesimus.wxs`, Einstellungen (UpgradeCode, Dienstname,
+Ports, Verzeichnisse von ofd) in `packaging\windows\config.wxi`. Voraussetzung:
+
+```powershell
+dotnet tool install --global wix --version 6.0.2
+```
+
+Features (still wählbar mit `ADDLOCAL=...`):
+
+| Feature | Inhalt | Standard |
+|---|---|---|
+| `Gui` | Onesimus mit Qt-DLLs, Startmenü-Eintrag (Pflicht) | an |
+| `DesktopShortcut` | Desktop-Verknüpfung | an |
+| `Oconsole` | `bin\oconsole.exe`, `bin\` im System-PATH | an, wenn vorhanden |
+| `Ofd` | `bin\ofd.exe` als Dienst `ofd` (Start manuell), Firewall TCP 9102/10102, `C:\ProgramData\Onesimus\bareos-fd.d\` und `log\` | aus |
+
+oconsole und ofd stammen aus dem Windows-Build von onesimus-dird
+(`onesimus-dird-<version>-windows-x86_64.zip` mit `bin\oconsole.exe`, `bin\ofd.exe`):
+`.\deploy.ps1 installer -DirdZip <zip>` oder die Datei nach `dist\rust\` legen. Fehlt
+sie, enthält das MSI nur die GUI. Die MSI-Version ist die GUI-Version; die Version
+von onesimus-dird steht in der Property `ONESIMUS_DIRD_VERSION` und unter
+`HKLM\Software\Bernau Family\Onesimus\DirdVersion`.
+
+```powershell
+msiexec /i Onesimus-1.0.0-windows-x86_64.msi ADDLOCAL=Gui,DesktopShortcut,Oconsole,Ofd /qn /l*v install.log
+msiexec /x Onesimus-1.0.0-windows-x86_64.msi /qn    # entfernt auch Dienst und Firewall-Regeln
+```
+
+Die Bitmaps des Installers (`packaging\windows\branding\*.bmp`) erzeugt
+`packaging/windows/make-branding.sh` aus `resources/icons/onesimus.svg`.
 
 ### Package-Inhalt
 
