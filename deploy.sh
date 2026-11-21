@@ -62,6 +62,11 @@ BUILD_DIR="${BUILD_DIR:-build}"
 # static: OpenSSL from the external/openssl submodule, linked statically (the
 # default of the former build.sh). system: the distribution's libssl.
 OPENSSL="${OPENSSL:-static}"
+# OPENSSL_INSTALL_DIR: install prefix of the static OpenSSL build, passed to
+# CMake when set. A prefix that already holds the libraries is reused, so one
+# kept outside the build trees (CI cache, a shared ~/.cache folder) saves the
+# OpenSSL build in every new tree, the AppImage tree included.
+OPENSSL_INSTALL_DIR="${OPENSSL_INSTALL_DIR:-}"
 # Target of `install` (cmake --install, sudo only when not writable).
 PREFIX="${PREFIX:-/usr/local}"
 # Target of the deploy step (all/onesimus): /usr/local, the old destination of
@@ -232,6 +237,7 @@ cmd_configure() {
     run cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" ${gen[@]+"${gen[@]}"} \
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
         -DUSE_STATIC_OPENSSL="$static" \
+        ${OPENSSL_INSTALL_DIR:+-DOPENSSL_INSTALL_DIR="$OPENSSL_INSTALL_DIR"} \
         ${CMAKE_PREFIX_PATH:+-DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH"} \
         "$@" || die "configure failed"
 }
@@ -488,6 +494,7 @@ cmd_appimage() {
     info "Building onesimus for AppImage (Release, PREFIX=/usr, OpenSSL ${OPENSSL})"
     run cmake -S "$SCRIPT_DIR" -B "$dir" ${gen[@]+"${gen[@]}"} -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr -DUSE_STATIC_OPENSSL="$static" -DBUILD_TESTING=OFF \
+        ${OPENSSL_INSTALL_DIR:+-DOPENSSL_INSTALL_DIR="$OPENSSL_INSTALL_DIR"} \
         || die "appimage configure failed"
     run cmake --build "$dir" -j "$JOBS" || die "appimage build failed"
     run env DESTDIR="$appdir" cmake --install "$dir" || die "appimage install failed"
@@ -601,7 +608,7 @@ Flags (same as the former build.sh; before or after the command, but
 
 Env: BUILD_DIR, BUILD_TYPE, JOBS, OPENSSL (static|system), GENERATOR, PREFIX,
      DEPLOY_PREFIX, CMAKE_PREFIX_PATH, PACKAGE_GENERATORS, APPIMAGE_TOOLS,
-     CLEAN, DRY_RUN, ONESIMUS_ALLOW_ROOT
+     OPENSSL_INSTALL_DIR, CLEAN, DRY_RUN, ONESIMUS_ALLOW_ROOT
 
 Every build increments .build_number and regenerates include/version.h.
 

@@ -13,6 +13,9 @@
     The build stamps the version: CMake's increment_build_number target
     increments .build_number and regenerates include\version.h on every build.
 
+    Environment: OPENSSL_INSTALL_DIR names a prefix for the static OpenSSL
+    build that is reused when it already holds the libraries (CI cache).
+
 .PARAMETER Command
     all        Build + windeployqt into build\deploy (default).
     onesimus   Alias of all (also: gui).
@@ -319,6 +322,8 @@ function Invoke-Configure {
     if ($DryRun -or -not (Test-Path (Join-Path $BuildDir 'CMakeCache.txt'))) { $cmakeArgs += @('-G', $genName) }
     $cmakeArgs += @("-DCMAKE_PREFIX_PATH=$qt", "-DCMAKE_BUILD_TYPE=$BuildType",
                     '-DUSE_STATIC_OPENSSL=ON', "-DBACKUP_SYSTEM=$BackupSystem")
+    # Reusable OpenSSL prefix (CI cache), as OPENSSL_INSTALL_DIR in deploy.sh.
+    if ($env:OPENSSL_INSTALL_DIR) { $cmakeArgs += "-DOPENSSL_INSTALL_DIR=$env:OPENSSL_INSTALL_DIR" }
     Invoke-Checked 'cmake configure' 'cmake' $cmakeArgs
 }
 

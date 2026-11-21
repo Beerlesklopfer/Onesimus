@@ -223,6 +223,8 @@ function cmd_configure
     end
     set -l pp
     test -n "$CMAKE_PREFIX_PATH"; and set pp -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH
+    # OPENSSL_INSTALL_DIR: reusable static OpenSSL prefix (see deploy.sh).
+    test -n "$OPENSSL_INSTALL_DIR"; and set -a pp -DOPENSSL_INSTALL_DIR=$OPENSSL_INSTALL_DIR
     set -l g ""
     test -n "$GENERATOR"; and set g ", $GENERATOR"
     info "Configuring $BUILD_DIR ($BUILD_TYPE, OpenSSL $OPENSSL$g)"
@@ -480,9 +482,12 @@ function cmd_appimage
     if not test -f $dir/CMakeCache.txt; and test -n "$GENERATOR"
         set gen -G $GENERATOR
     end
+    set -l ossl
+    test -n "$OPENSSL_INSTALL_DIR"; and set ossl -DOPENSSL_INSTALL_DIR=$OPENSSL_INSTALL_DIR
     info "Building onesimus for AppImage (Release, PREFIX=/usr, OpenSSL $OPENSSL)"
     run cmake -S $SCRIPT_DIR -B $dir $gen -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/usr -DUSE_STATIC_OPENSSL=(static_flag) -DBUILD_TESTING=OFF
+        -DCMAKE_INSTALL_PREFIX=/usr -DUSE_STATIC_OPENSSL=(static_flag) -DBUILD_TESTING=OFF \
+        $ossl
     or die "appimage configure failed"
     run cmake --build $dir -j $JOBS; or die "appimage build failed"
     run env DESTDIR=$appdir cmake --install $dir; or die "appimage install failed"
@@ -592,7 +597,7 @@ Flags (same as the former build.sh; before or after the command, but
 
 Env: BUILD_DIR, BUILD_TYPE, JOBS, OPENSSL (static|system), GENERATOR, PREFIX,
      DEPLOY_PREFIX, CMAKE_PREFIX_PATH, PACKAGE_GENERATORS, APPIMAGE_TOOLS,
-     CLEAN, DRY_RUN, ONESIMUS_ALLOW_ROOT
+     OPENSSL_INSTALL_DIR, CLEAN, DRY_RUN, ONESIMUS_ALLOW_ROOT
 
 Every build increments .build_number and regenerates include/version.h.
 
