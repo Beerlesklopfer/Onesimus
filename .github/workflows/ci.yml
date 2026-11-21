@@ -217,7 +217,7 @@ jobs:
     # Build only and allowed to fail: there is no app bundle yet (backlog
     # P3-22), so nothing here is shipped. It keeps the code compiling on clang.
     name: macOS (build only, allowed to fail)
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
     continue-on-error: true
     env:
