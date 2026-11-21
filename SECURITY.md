@@ -12,7 +12,7 @@ the vulnerability handling required by the EU Cyber Resilience Act
 |---|---|
 | development branch (before v1.0.0) | yes, newest state only |
 | 0.x releases | no, update to the newest state |
-| from v1.0.0 | the support period is stated with each release |
+| from v1.0.0 | 2 years of security fixes from the release date of each version |
 
 ## Reporting a vulnerability
 
