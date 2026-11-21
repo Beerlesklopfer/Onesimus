@@ -5,7 +5,7 @@ BViewPresets* BViewPresets::s_instance = nullptr;
 
 BViewPresets::BViewPresets(QObject *parent)
     : QObject(parent)
-    , m_settings(new QSettings(QCoreApplication::organizationName(), 
+    , m_settings(new QSettings(QSettings::defaultFormat(), QSettings::UserScope, QCoreApplication::organizationName(), 
                                QCoreApplication::applicationName(), this))
 {
     loadFromSettings();

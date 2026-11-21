@@ -28,6 +28,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QFile>
 #include <QGroupBox>
 #include <QJsonObject>
@@ -271,7 +272,10 @@ void BDialogFontsTest::initTestCase()
     qputenv("XDG_DATA_HOME", m_config.path().toUtf8());
     QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, m_config.path());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_config.path());
-    const QSettings probe(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+    // Windows keeps NativeFormat in the registry, where setPath does not reach
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    const QSettings probe(QSettings::defaultFormat(), QSettings::UserScope,
+                         QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
     QVERIFY2(probe.fileName().startsWith(m_config.path()), qPrintable(probe.fileName()));
 
     BUiScale::instance().setBaseFont(testFont());
@@ -474,6 +478,7 @@ void BDialogFontsTest::screenshots()
 int main(int argc, char *argv[])
 {
     QTemporaryDir platformDir;
+    QString previousDir;
     if (platformDir.isValid() && qEnvironmentVariable("QT_QPA_PLATFORM") == QLatin1String("offscreen")) {
         const QString config = platformDir.filePath(QStringLiteral("screens.json"));
         QFile file(config);
@@ -481,10 +486,17 @@ int main(int argc, char *argv[])
             file.write(R"({"screens":[{"name":"test","x":0,"y":0,"width":3200,"height":2400,)"
                        R"("logicalDpi":96,"logicalBaseDpi":96,"dpr":1}]})");
             file.close();
-            qputenv("QT_QPA_PLATFORM", QStringLiteral("offscreen:configfile=%1").arg(config).toUtf8());
+            // The platform arguments are split at ':', so "C:/..." would break
+            // apart on Windows: a name relative to the current directory instead
+            previousDir = QDir::currentPath();
+            QDir::setCurrent(platformDir.path());
+            qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("offscreen:configfile=screens.json"));
         }
     }
     QApplication app(argc, argv);
+    if (!previousDir.isEmpty()) {
+        QDir::setCurrent(previousDir);
+    }
     BDialogFontsTest test;
     QTEST_SET_MAIN_SOURCE_PATH
     return QTest::qExec(&test, argc, argv);

@@ -102,6 +102,8 @@ void BStatusChipTest::initTestCase()
     qputenv("XDG_CONFIG_HOME", m_config.path().toUtf8());
     QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, m_config.path());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_config.path());
+    // Windows keeps NativeFormat in the registry, where setPath does not reach
+    QSettings::setDefaultFormat(QSettings::IniFormat);
     QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
     BUiScale::instance().setBaseFont(QFont(QStringLiteral("DejaVu Sans"), 10));
 }

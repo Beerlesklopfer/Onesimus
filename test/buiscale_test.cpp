@@ -90,7 +90,10 @@ void BUiScaleTest::initTestCase()
     qputenv("XDG_CONFIG_HOME", m_config.path().toUtf8());
     QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, m_config.path());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_config.path());
-    const QSettings probe(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+    // Windows keeps NativeFormat in the registry, where setPath does not reach
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    const QSettings probe(QSettings::defaultFormat(), QSettings::UserScope,
+                         QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
     QVERIFY2(probe.fileName().startsWith(m_config.path()), qPrintable(probe.fileName()));
 
     BUiScale::instance().setBaseFont(testFont());
@@ -308,7 +311,7 @@ void BUiScaleTest::zoomIsStored()
 
     // It is in the file, where the next start reads it
     {
-        const QSettings file(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+        const QSettings file(QSettings::defaultFormat(), QSettings::UserScope, QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
         QVERIFY2(file.fileName().startsWith(m_config.path()), qPrintable(file.fileName()));
         QCOMPARE(file.value(QStringLiteral("Appearance/ui_zoom")).toInt(), 130);
     }
@@ -330,14 +333,14 @@ void BUiScaleTest::storedValueOutOfRange()
     settings.sync();
     {
         // Written by hand or by another version
-        QSettings file(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+        QSettings file(QSettings::defaultFormat(), QSettings::UserScope, QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
         file.setValue(QStringLiteral("Appearance/ui_zoom"), 999);
         file.sync();
     }
     settings.sync();
     QCOMPARE(settings.appearanceUiZoom(), 250);
     {
-        QSettings file(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+        QSettings file(QSettings::defaultFormat(), QSettings::UserScope, QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
         file.setValue(QStringLiteral("Appearance/ui_zoom"), QStringLiteral("nonsense"));
         file.sync();
     }

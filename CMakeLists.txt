@@ -2876,5 +2876,24 @@ elseif(UNIX)
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 endif()
 
+# Windows: the test executables find the Qt and OpenSSL DLLs through PATH,
+# and the offscreen platform the system fonts.
+# Only the application gets the DLLs copied next to it; without this a test
+# fails to start (0xC0000135) or picks up a foreign libcrypto from PATH.
+if(WIN32 AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.22)
+    get_property(_onesimus_tests DIRECTORY PROPERTY TESTS)
+    if(_onesimus_tests)
+        set(_onesimus_test_path "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+        # The offscreen platform looks for fonts in Qt's lib/fonts, which Qt no
+        # longer ships: without fonts text is elided and some tests crash
+        file(TO_CMAKE_PATH "$ENV{WINDIR}/Fonts" _onesimus_font_dir)
+        list(APPEND _onesimus_test_path "QT_QPA_FONTDIR=set:${_onesimus_font_dir}")
+        if(USE_STATIC_OPENSSL AND OPENSSL_INSTALL_DIR)
+            list(APPEND _onesimus_test_path "PATH=path_list_prepend:${OPENSSL_INSTALL_DIR}/bin")
+        endif()
+        set_tests_properties(${_onesimus_tests} PROPERTIES ENVIRONMENT_MODIFICATION "${_onesimus_test_path}")
+    endif()
+endif()
+
 # include(CPack) must come AFTER all CPACK_* variables are set
 include(CPack)

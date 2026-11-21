@@ -182,10 +182,7 @@ jobs:
       - name: Build
         run: .\deploy.ps1 build -QtPath $env:QT_ROOT_DIR -BuildDir $env:BUILD_DIR
 
-      # Never run on Windows CI before; informative until it is green once,
-      # then drop continue-on-error.
       - name: Test (ctest, offscreen)
-        continue-on-error: true
         run: .\deploy.ps1 test -QtPath $env:QT_ROOT_DIR -BuildDir $env:BUILD_DIR
 
       - name: Install WiX

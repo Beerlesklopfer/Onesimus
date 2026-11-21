@@ -202,7 +202,7 @@ function Initialize-VsEnvironment {
 }
 
 # --- 1. Git submodules ------------------------------------------------------
-# external/openssl (Windows always links OpenSSL statically) and proto/ (gRPC).
+# external/openssl (built as DLLs on Windows) and proto/ (gRPC).
 function Initialize-Submodules {
     Write-Section "Git submodules"
     $paths = @()
@@ -441,7 +441,7 @@ function Show-Summary {
         Write-Ok "Executable: $exe"
         Write-Info "  Size: $([math]::Round($fi.Length / 1MB, 2)) MB, built $($fi.LastWriteTime), version $(Get-StampedVersion)"
     }
-    Write-Info "  OpenSSL is linked statically - no OpenSSL DLLs are required."
+    Write-Info "  OpenSSL comes from the submodule build: the program needs libssl-3-x64.dll and libcrypto-3-x64.dll (copied by the deploy step)."
     Write-Host ""
     Write-Info "Next steps:"
     Write-Info "  Run:        .\deploy.ps1 run   (or $exe)"
