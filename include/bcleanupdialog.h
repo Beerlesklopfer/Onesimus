@@ -32,6 +32,8 @@ class QCloseEvent;
 class BCleanupDialog : public QDialog
 {
     Q_OBJECT
+    // The website screenshot harness (tools/screens) opens views and dialogs directly
+    friend class BScreensHarness;
 
 public:
     explicit BCleanupDialog(BDirector *director, BJobsModel *jobsModel, QWidget *parent = nullptr);

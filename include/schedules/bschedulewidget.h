@@ -137,6 +137,8 @@ class QCheckBox;
 class BScheduleWidget : public QWidget
 {
     Q_OBJECT
+    // The website screenshot harness (tools/screens) opens views and dialogs directly
+    friend class BScreensHarness;
 
 public:
     explicit BScheduleWidget(QWidget *parent = nullptr);

@@ -2756,6 +2756,56 @@ if(BUILD_TESTING)
         "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/buiscale_test_config")
 endif()
 
+# ============================================================================
+# Screenshot harness for the website (built only on request)
+# ============================================================================
+# onesimus_screens - the application's main window and dialogs, connected
+# through the normal connection code to the simulator onesimus-sim on
+# 127.0.0.1, grabbed as PNG (offscreen, fixed size, dark theme, en or de).
+# Run it with tools/screenshots.sh, which starts the simulator. It keeps its
+# settings in a temporary directory and never touches those of the user.
+option(ONESIMUS_BUILD_SCREENS "Build the website screenshot harness onesimus_screens" OFF)
+if(ONESIMUS_BUILD_SCREENS)
+    set(ONESIMUS_SCREENS_SOURCES ${SOURCES})
+    list(REMOVE_ITEM ONESIMUS_SCREENS_SOURCES src/main.cpp)
+    add_executable(onesimus_screens
+        tools/screens/onesimus_screens.cpp
+        ${ONESIMUS_SCREENS_SOURCES}
+        ${HEADERS}
+        ${UI_FILES}
+    )
+    if(HAVE_GRPC)
+        target_sources(onesimus_screens PRIVATE
+            src/director/bgrpctransport.cpp
+            src/director/bjobhistoryproto.cpp
+            include/director/bjobhistoryproto.h
+            include/director/bgrpctransport.h
+            src/director/bgrpcconnect.cpp
+            include/director/bgrpcconnect.h
+            src/director/bconfigproto.cpp
+            include/director/bconfigproto.h
+        )
+    endif()
+    target_include_directories(onesimus_screens PRIVATE
+        $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(onesimus_screens PRIVATE -Wno-deprecated-declarations)
+    endif()
+    target_link_libraries(onesimus_screens PRIVATE
+        $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
+    )
+    # The translations: BTranslations looks next to the program when they
+    # are not among its resources
+    add_dependencies(onesimus_screens ${PROJECT_NAME}_lrelease)
+    add_custom_command(TARGET onesimus_screens POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:onesimus_screens>/translations
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_BINARY_DIR}/onesimus_de.qm ${CMAKE_BINARY_DIR}/onesimus_en.qm
+            $<TARGET_FILE_DIR:onesimus_screens>/translations/
+    )
+endif()
+
 message(STATUS "")
 message(STATUS "Test executables:")
 message(STATUS "  bareosauth_test  - BareosAuth class test")
