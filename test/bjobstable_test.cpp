@@ -21,6 +21,7 @@
 #include <QtTest>
 #include <QApplication>
 #include <QJsonArray>
+#include <QSet>
 #include <QJsonObject>
 #include <QSettings>
 #include <QTableView>
@@ -110,6 +111,7 @@ class BJobsTableTest : public QObject
 private slots:
     void initTestCase();
     void init();
+    void runningJobHasNoEndTime();
 
     void sortsByValue_data();
     void sortsByValue();
@@ -168,10 +170,27 @@ void BJobsTableTest::sortsByValue_data()
                               << QStringList{"10", "1", "6", "4", "3", "5", "2"};
     QTest::newRow("start time") << int(BJobsModel::COL_STARTTIME)
                                 << QStringList{"10", "6", "4", "2", "3", "1", "5"};
+    // The running job 6 and the created job 10 have no end yet
     QTest::newRow("end time") << int(BJobsModel::COL_ENDTIME)
-                              << QStringList{"10", "6", "4", "3", "1", "2", "5"};
+                              << QStringList{"6", "10", "4", "3", "1", "2", "5"};
     QTest::newRow("job id") << int(BJobsModel::COL_JOBID)
                             << QStringList{"1", "2", "3", "4", "5", "6", "10"};
+}
+
+void BJobsTableTest::runningJobHasNoEndTime()
+{
+    // odir's duration of a running job runs up to now: start + duration
+    // would show the current time as the end
+    JobsTable table;
+    for (int row = 0; row < table.model.rowCount(); ++row) {
+        const QString status = table.model.jobAt(row)["jobstatus"].toString();
+        const QString end = table.model.index(row, BJobsModel::COL_ENDTIME).data().toString();
+        if (status == QLatin1String("R") || status == QLatin1String("C")) {
+            QVERIFY2(end.isEmpty(), qPrintable(status + QLatin1String(": ") + end));
+        } else if (status == QLatin1String("T")) {
+            QVERIFY(!end.isEmpty());
+        }
+    }
 }
 
 void BJobsTableTest::sortsByValue()
@@ -186,10 +205,19 @@ void BJobsTableTest::sortsByValue()
     QStringList descending = ascending;
     std::reverse(descending.begin(), descending.end());
     table.view.sortByColumn(column, Qt::DescendingOrder);
-    QCOMPARE(table.idsInViewOrder(), descending);
+    if (column == BJobsModel::COL_ENDTIME) {
+        // Jobs 6 and 10 have no end at all: equal, in either order at the end
+        const QStringList actual = table.idsInViewOrder();
+        QCOMPARE(actual.mid(0, 5), descending.mid(0, 5));
+        QCOMPARE(QSet<QString>(actual.cbegin() + 5, actual.cend()), (QSet<QString>{"6", "10"}));
+    } else {
+        QCOMPARE(table.idsInViewOrder(), descending);
+    }
 
-    // The text would have sorted differently: the test means something
-    if (column != BJobsModel::COL_JOBID) {
+    // The text would have sorted differently: the test means something.
+    // Not for the end time: with the running job left out its texts happen to
+    // sort like the values; the start time covers the same time formatting
+    if (column != BJobsModel::COL_JOBID && column != BJobsModel::COL_ENDTIME) {
         QStringList byText = table.idsInViewOrder();
         QSortFilterProxyModel textSort;
         textSort.setSourceModel(&table.model);

@@ -9,6 +9,17 @@
 #include <QLocale>
 #include <QSet>
 
+namespace {
+
+/// Running or waiting (Bareos JobStatus letters whose chip is Running or Waiting)
+bool jobIsActive(const QJsonObject &job)
+{
+    const BStatus::Tone tone = BStatus::jobStatus(job["jobstatus"].toString()).tone;
+    return tone == BStatus::Tone::Running || tone == BStatus::Tone::Waiting;
+}
+
+} // namespace
+
 // ============================================================================
 // BJobsModel Implementation
 // ============================================================================
@@ -86,6 +97,11 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
                 return startTimeStr;
             }
             case COL_ENDTIME: {
+                // A running or waiting job has no end yet: its duration runs up
+                // to now, so start + duration would show the current time
+                if (jobIsActive(job)) {
+                    return QString();
+                }
                 QString startTimeStr = job["starttime"].toString();
                 QString durationStr = job["duration"].toString();
 
@@ -133,6 +149,9 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
             case COL_STARTTIME:
                 return BSortValue::timestamp(job["starttime"].toString());
             case COL_ENDTIME: {
+                if (jobIsActive(job)) {
+                    return BSortValue::Missing;
+                }
                 const qint64 start = BSortValue::timestamp(job["starttime"].toString());
                 const qint64 duration = BSortValue::durationSeconds(job["duration"].toString());
                 if (start == BSortValue::Missing || duration == BSortValue::Missing) {
