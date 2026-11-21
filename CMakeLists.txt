@@ -379,8 +379,10 @@ find_package(Qt6 REQUIRED COMPONENTS
     LinguistTools
 )
 
-# GuiPrivate: Windows has the package, Linux uses private include dirs directly
-if(WIN32)
+# GuiPrivate (QZipWriter/QZipReader): Qt >= 6.9 ships it as a package of its
+# own; up to 6.8 the Qt6::GuiPrivate target comes with Qt6Gui. Linux uses the
+# private include dirs directly.
+if(WIN32 AND Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
     find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
 endif()
 
@@ -888,7 +890,7 @@ if(HAVE_GRPC)
 endif()
 
 # GuiPrivate for QZipWriter/QZipReader
-if(WIN32)
+if(WIN32 AND TARGET Qt6::GuiPrivate)
     target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::GuiPrivate)
 else()
     # On Linux, Qt6GuiPrivate package may not exist; use private include dirs
