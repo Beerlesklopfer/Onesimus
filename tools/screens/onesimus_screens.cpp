@@ -64,6 +64,7 @@
 #include <QTableWidget>
 #include <QThread>
 #include <QTimer>
+#include <QToolBar>
 #include <QWizard>
 
 #include <cstdio>
@@ -397,6 +398,17 @@ int BScreensHarness::run()
     QTimer strays;
     QObject::connect(&strays, &QTimer::timeout, [this]() { closeStrayMessageBoxes(); });
     strays.start(500);
+
+    // The theme button in the corner of the menu bar has a height that
+    // varies by a pixel or two from run to run (its tool bar is laid out
+    // lazily); held to the height of the menu entries, every picture of the
+    // main window starts at the same row
+    if (QWidget *corner = w.menuBar()->cornerWidget(Qt::TopRightCorner)) {
+        settle(500);
+        const QList<QAction *> menus = w.menuBar()->actions();
+        if (!menus.isEmpty())
+            corner->setFixedHeight(w.menuBar()->actionGeometry(menus.first()).height());
+    }
 
     connectToSimulator();
     if (!waitFor([this] { return loaded(); }, 60000))
