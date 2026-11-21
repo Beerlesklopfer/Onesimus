@@ -711,7 +711,19 @@ void BMainWindow::setupUI()
     m_usageLabel->setVisible(false);
     statusBar()->addPermanentWidget(m_usageLabel);
 
+    // End of the annual licence: shown from 30 days before, and once it has expired
+    m_licenceLabel = new QLabel(this);
+    m_licenceLabel->setObjectName("licenceLabel");
+    m_licenceLabel->setVisible(false);
+    statusBar()->addPermanentWidget(m_licenceLabel);
+
     statusBar()->addPermanentWidget(m_connectionLabel);
+
+    // Days left and the month's projection move on without a push from the Director
+    auto *usageClock = new QTimer(this);
+    usageClock->setInterval(15 * 60 * 1000);
+    connect(usageClock, &QTimer::timeout, this, &BMainWindow::updateUsageLabel);
+    usageClock->start();
 }
 
 void BMainWindow::updateUsageLabel()
@@ -720,6 +732,28 @@ void BMainWindow::updateUsageLabel()
         return;
     }
     const BUsage::Info usage = m_director ? m_director->usage() : BUsage::Info();
+    const QDateTime now = QDateTime::currentDateTime();
+    // The colours of the theme's status tones; Ok has no colour
+    const auto toneStyle = [](BUsageStatus::Level level) {
+        if (level != BUsageStatus::Level::Near && level != BUsageStatus::Level::Reached) {
+            return QString();
+        }
+        const BStatus::Tone tone = level == BUsageStatus::Level::Reached ? BStatus::Tone::Error
+                                                                         : BStatus::Tone::Warning;
+        return QStringLiteral("QLabel { color: %1; background-color: %2; border: 1px solid %3;"
+                              " border-radius: 3px; padding: 0px 4px; }")
+            .arg(BStatus::color(tone, BStatus::Part::Foreground).name(),
+                 BStatus::color(tone, BStatus::Part::Background).name(),
+                 BStatus::color(tone, BStatus::Part::Accent).name());
+    };
+    if (m_licenceLabel) {
+        const BUsageStatus::Level licence = BUsageStatus::licenceLevel(usage, now);
+        m_licenceLabel->setText(BUsageStatus::licenceText(usage, now));
+        m_licenceLabel->setToolTip(licence == BUsageStatus::Level::Hidden
+                                       ? QString() : BUsageStatus::toolTip(usage, now));
+        m_licenceLabel->setStyleSheet(toneStyle(licence));
+        m_licenceLabel->setVisible(licence != BUsageStatus::Level::Hidden);
+    }
     const BUsageStatus::Level level = BUsageStatus::level(usage);
     if (level == BUsageStatus::Level::Hidden) {
         m_usageLabel->clear();
@@ -729,19 +763,8 @@ void BMainWindow::updateUsageLabel()
         return;
     }
     m_usageLabel->setText(BUsageStatus::text(usage));
-    m_usageLabel->setToolTip(BUsageStatus::toolTip(usage, QDateTime::currentDateTime()));
-    // The colours of the theme's status tones; below 80 % no colour
-    QString style;
-    if (level != BUsageStatus::Level::Ok) {
-        const BStatus::Tone tone = level == BUsageStatus::Level::Reached ? BStatus::Tone::Error
-                                                                         : BStatus::Tone::Warning;
-        style = QStringLiteral("QLabel { color: %1; background-color: %2; border: 1px solid %3;"
-                               " border-radius: 3px; padding: 0px 4px; }")
-                    .arg(BStatus::color(tone, BStatus::Part::Foreground).name(),
-                         BStatus::color(tone, BStatus::Part::Background).name(),
-                         BStatus::color(tone, BStatus::Part::Accent).name());
-    }
-    m_usageLabel->setStyleSheet(style);
+    m_usageLabel->setToolTip(BUsageStatus::toolTip(usage, now));
+    m_usageLabel->setStyleSheet(toneStyle(level));
     m_usageLabel->setVisible(true);
 }
 

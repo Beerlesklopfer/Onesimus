@@ -60,6 +60,32 @@ public:
 
     /// used() as a share of the limit in whole percent (rounded down); -1 without limit
     static int percent(const BUsage::Info &info);
+
+    /// Days before the annual licence ends at which the status bar starts to show it
+    static constexpr int LicenceNoticeDays = 30;
+    /// Days before the end at which the notice turns from warning to error
+    static constexpr int LicenceUrgentDays = 7;
+
+    /**
+     * @brief Whole days until the licence ends, rounded up; nullopt without an end date
+     *
+     * 1 means it ends within the next 24 hours, 0 or less that it has ended.
+     */
+    static std::optional<int> licenceDaysLeft(const BUsage::Info &info, const QDateTime &now);
+
+    /**
+     * @brief How the licence notice is shown
+     *
+     * Hidden for the free tier, without an end date, and while more than
+     * LicenceNoticeDays are left; Near up to LicenceUrgentDays before the
+     * end, Reached in the last days and once the licence has expired or is
+     * not valid (the free tier applies then).
+     */
+    static Level licenceLevel(const BUsage::Info &info, const QDateTime &now);
+
+    /// "Licence ends in 12 days, on 31.12.2026", "Licence expired: free tier"; empty when hidden
+    static QString licenceText(const BUsage::Info &info, const QDateTime &now,
+                               const QLocale &locale = QLocale());
 };
 
 #endif // BUSAGESTATUS_H

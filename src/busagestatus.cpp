@@ -168,3 +168,56 @@ QString BUsageStatus::toolTip(const BUsage::Info &info, const QDateTime &now, co
     }
     return lines.join(QLatin1Char('\n'));
 }
+
+std::optional<int> BUsageStatus::licenceDaysLeft(const BUsage::Info &info, const QDateTime &now)
+{
+    if (!info.present || info.validUntil <= 0) {
+        return std::nullopt;
+    }
+    const qint64 left = info.validUntil - now.toSecsSinceEpoch();
+    if (left <= 0) {
+        return 0;
+    }
+    return int((left + SecondsPerDay - 1) / SecondsPerDay);
+}
+
+BUsageStatus::Level BUsageStatus::licenceLevel(const BUsage::Info &info, const QDateTime &now)
+{
+    if (!info.present) {
+        return Level::Hidden;
+    }
+    switch (info.licence) {
+    case BUsage::Licence::Expired:
+    case BUsage::Licence::Invalid:
+        return Level::Reached;
+    case BUsage::Licence::Licensed:
+        break;
+    case BUsage::Licence::Free:
+    case BUsage::Licence::Unspecified:
+        return Level::Hidden;
+    }
+    const auto days = licenceDaysLeft(info, now);
+    if (!days || *days > LicenceNoticeDays) {
+        return Level::Hidden;
+    }
+    return *days > LicenceUrgentDays ? Level::Near : Level::Reached;
+}
+
+QString BUsageStatus::licenceText(const BUsage::Info &info, const QDateTime &now, const QLocale &locale)
+{
+    if (licenceLevel(info, now) == Level::Hidden) {
+        return QString();
+    }
+    if (info.licence == BUsage::Licence::Invalid) {
+        return tr("Licence not valid: free tier");
+    }
+    const auto days = licenceDaysLeft(info, now);
+    // The Director says Expired; a Licensed one past its date is shown the same
+    if (info.licence == BUsage::Licence::Expired || !days || *days <= 0) {
+        return tr("Licence expired: free tier");
+    }
+    const QString date = locale.toString(
+        QDateTime::fromSecsSinceEpoch(info.validUntil).toTimeZone(now.timeZone()).date(),
+        QLocale::ShortFormat);
+    return tr("Licence ends in %n day(s), on %1", nullptr, *days).arg(date);
+}

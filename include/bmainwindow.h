@@ -167,6 +167,7 @@ private:
     QLabel *m_statusLabel;
     QLabel *m_connectionLabel;
     QLabel *m_usageLabel = nullptr;     ///< Free tier usage (Onesimus Director only)
+    QLabel *m_licenceLabel = nullptr;   ///< End of the annual licence (Onesimus Director only)
     QString m_directorVersion;  ///< Speichere Director-Version
 
     /// Backups per client from the "list backups client=" replies (merged for enrichment)

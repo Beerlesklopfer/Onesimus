@@ -58,6 +58,9 @@ class BUsageStatusTest : public QObject
     Q_OBJECT
 
 private slots:
+    void licenceHiddenForFreeTierAndFarEnd();
+    void licenceEndsSoon();
+    void licenceExpiredAndInvalid();
     void hiddenWhenNotReported();
     void textWithLimit();
     void textCountsRunningJobs();
@@ -312,6 +315,59 @@ void BUsageStatusTest::protoAbsentZeroFields()
     QCOMPARE(BUsageStatus::level(info), BUsageStatus::Level::Ok);
 }
 #endif
+
+void BUsageStatusTest::licenceHiddenForFreeTierAndFarEnd()
+{
+    BUsage::Info info = freeTier(10 * GB);
+    QCOMPARE(BUsageStatus::licenceLevel(info, utc(16)), BUsageStatus::Level::Hidden);
+    QVERIFY(BUsageStatus::licenceText(info, utc(16), QLocale::c()).isEmpty());
+
+    info.licence = BUsage::Licence::Licensed;
+    QCOMPARE(BUsageStatus::licenceLevel(info, utc(16)), BUsageStatus::Level::Hidden);   // no end date
+    info.validUntil = utc(16).addDays(31).toSecsSinceEpoch();
+    QCOMPARE(BUsageStatus::licenceDaysLeft(info, utc(16)), std::optional<int>(31));
+    QCOMPARE(BUsageStatus::licenceLevel(info, utc(16)), BUsageStatus::Level::Hidden);
+
+    BUsage::Info none;
+    QCOMPARE(BUsageStatus::licenceLevel(none, utc(16)), BUsageStatus::Level::Hidden);
+}
+
+void BUsageStatusTest::licenceEndsSoon()
+{
+    BUsage::Info info = freeTier(10 * GB);
+    info.licence = BUsage::Licence::Licensed;
+    info.validUntil = utc(16).addDays(30).toSecsSinceEpoch();
+    QCOMPARE(BUsageStatus::licenceLevel(info, utc(16)), BUsageStatus::Level::Near);
+    const QString text = BUsageStatus::licenceText(info, utc(16), QLocale::c());
+    QVERIFY2(text.startsWith(QStringLiteral("Licence ends in 30 day")), qPrintable(text));
+
+    info.validUntil = utc(16).addDays(8).toSecsSinceEpoch();
+    QCOMPARE(BUsageStatus::licenceLevel(info, utc(16)), BUsageStatus::Level::Near);
+    info.validUntil = utc(16).addDays(7).toSecsSinceEpoch();
+    QCOMPARE(BUsageStatus::licenceLevel(info, utc(16)), BUsageStatus::Level::Reached);
+
+    // Partial days round up: 2 hours left is still "1 day"
+    info.validUntil = utc(16, 2).toSecsSinceEpoch();
+    QCOMPARE(BUsageStatus::licenceDaysLeft(info, utc(16)), std::optional<int>(1));
+
+    // Past its date before the Director says Expired
+    info.validUntil = utc(15).toSecsSinceEpoch();
+    QCOMPARE(BUsageStatus::licenceDaysLeft(info, utc(16)), std::optional<int>(0));
+    QCOMPARE(BUsageStatus::licenceText(info, utc(16), QLocale::c()),
+             QStringLiteral("Licence expired: free tier"));
+}
+
+void BUsageStatusTest::licenceExpiredAndInvalid()
+{
+    BUsage::Info info = freeTier(10 * GB);
+    info.licence = BUsage::Licence::Expired;
+    QCOMPARE(BUsageStatus::licenceLevel(info, utc(16)), BUsageStatus::Level::Reached);
+    QCOMPARE(BUsageStatus::licenceText(info, utc(16), QLocale::c()),
+             QStringLiteral("Licence expired: free tier"));
+    info.licence = BUsage::Licence::Invalid;
+    QCOMPARE(BUsageStatus::licenceText(info, utc(16), QLocale::c()),
+             QStringLiteral("Licence not valid: free tier"));
+}
 
 QTEST_GUILESS_MAIN(BUsageStatusTest)
 #include "busagestatus_test.moc"
