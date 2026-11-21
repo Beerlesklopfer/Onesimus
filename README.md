@@ -278,7 +278,7 @@ The static OpenSSL build is cached per OpenSSL submodule commit
 The first public release through this pipeline is **v1.0.0**.
 
 1. Bump the version in `CMakeLists.txt`: `project(onesimus VERSION 1.0.0 ...)`.
-   Update `CHANGELOG.md`, commit, and push to `development`.
+   Update `CHANGELOG.md`, commit, push, and wait for a green CI run.
 2. Tag that commit and push the tag:
    ```bash
    git tag -a v1.0.0 -m "Onesimus 1.0.0"
