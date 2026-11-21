@@ -15,6 +15,7 @@
 #include "director_service_client.grpc.qpb.h"
 #include "director_api_client.grpc.qpb.h"
 #include "director/bconfigproto.h"
+#include "director/bjobhistoryproto.h"
 
 #include <QGrpcHttp2Channel>
 #include <QGrpcChannelOptions>
@@ -112,6 +113,8 @@ void BGrpcTransport::open(const QString &host, int port, const QString &consoleN
     m_consoleName = consoleName;
     m_password = password;
     m_pinnedFingerprint = pinnedFingerprint.trimmed().toLower().remove(':');
+    m_typedHistory = true;     // another Director may know more (or less)
+    m_untypedOnce = false;
 
     BLOG_DEBUG() << "gRPC: pre-flight TLS handshake to" << host << ":" << port;
 
@@ -395,6 +398,18 @@ void BGrpcTransport::sendNext()
         return;
     }
 
+    // The job history over the typed ListJobs (rows newest first); a Director
+    // without it, or without `reverse`, is asked by the command line again.
+    const bool untyped = m_untypedOnce;
+    m_untypedOnce = false;
+    if (m_typedHistory && m_api && !untyped) {
+        const BJobHistoryProto::Request history = BJobHistoryProto::parseCommandLine(commandLine);
+        if (history.valid) {
+            sendTypedHistory(commandLine, history, gen);
+            return;
+        }
+    }
+
     CommandRequest request;
     request.setCommandName(commandLine);
     request.setResponseFormat(ResponseFormatGadget::ResponseFormat::RESPONSE_FORMAT_JSON);
@@ -430,6 +445,55 @@ void BGrpcTransport::sendNext()
                 return;
             }
         }
+        sendNext();
+    });
+}
+
+void BGrpcTransport::sendTypedHistory(const QString &commandLine,
+                                      const BJobHistoryProto::Request &history, quint64 gen)
+{
+    QGrpcCallOptions options;
+    options.setDeadlineTimeout(CommandTimeout);
+    options.setMetadata(QHash<QByteArray, QByteArray>{{SessionHeader, m_sessionToken.toLatin1()}});
+
+    BConfigProto::registerTypes();
+    QGrpcCallReply *reply = m_api->ListJobs(BJobHistoryProto::toCommand(history), options).release();
+    connect(reply, &QGrpcCallReply::finished, this,
+            [this, reply, gen, commandLine](const QGrpcStatus &status) {
+        reply->deleteLater();
+        if (gen != m_generation) {
+            return;
+        }
+        m_inFlight = false;
+
+        if (status.isOk()) {
+            const auto response = reply->read<onesimus::director::api::ListJobsResponse>();
+            if (response && BJobHistoryProto::newestFirst(*response)) {
+                emit commandFinished(commandLine, true, BJobHistoryProto::toLlistReply(*response), QString());
+                sendNext();
+                return;
+            }
+            // Oldest first: this Director ignores `reverse`. The command line knows it.
+            BLOG_INFO() << "gRPC: ListJobs without reverse, job history by the command line";
+            m_typedHistory = false;
+        } else if (status.code() == QtGrpc::StatusCode::Unavailable
+                   || status.code() == QtGrpc::StatusCode::Unauthenticated) {
+            const QString reason = statusText(status, CommandTimeout);
+            emit commandFinished(commandLine, false, QString(), reason);
+            close();
+            emit connectionLost(reason);
+            return;
+        } else {
+            // Unimplemented: an older Director. Anything else: the command
+            // line answers with the Director's own words for the user.
+            BLOG_INFO() << "gRPC: ListJobs:" << statusText(status, CommandTimeout)
+                        << "- job history by the command line";
+            if (status.code() == QtGrpc::StatusCode::Unimplemented) {
+                m_typedHistory = false;
+            }
+        }
+        m_pending.prepend(commandLine);
+        m_untypedOnce = true;
         sendNext();
     });
 }

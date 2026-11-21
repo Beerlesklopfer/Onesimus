@@ -18,6 +18,10 @@ class QGrpcCallReply;
 class QGrpcStatus;
 class BGrpcAddressProbe;
 
+namespace BJobHistoryProto {
+struct Request;
+}
+
 namespace onesimus::director::Director {
 class Client;
 }
@@ -146,6 +150,9 @@ private:
     void sendNext();
     void fail(const QString &reason);
     void fetchConfigCapabilities();
+    /// The job history by the typed ListJobs (see BJobHistoryProto)
+    void sendTypedHistory(const QString &commandLine, const BJobHistoryProto::Request &history,
+                          quint64 gen);
     void finishConfigCall(quint64 id, QGrpcCallReply *reply, BConfig::Request::Kind kind);
 
     QString m_host;
@@ -162,6 +169,8 @@ private:
     QString m_sessionToken;
     QQueue<QString> m_pending;
     bool m_inFlight = false;
+    bool m_typedHistory = true; ///< false: this Director's ListJobs lacks `reverse` or is unknown
+    bool m_untypedOnce = false; ///< The next line goes by the command line (typed call failed)
     quint64 m_generation = 0;   ///< Invalidates replies of a previous connection
     QHash<quint64, QString> m_jobNames;  ///< Job names announced by JobStatusEvent (exact message parsing)
 };

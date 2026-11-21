@@ -862,6 +862,8 @@ if(HAVE_GRPC)
     target_compile_definitions(onesimus_grpc_proto PUBLIC HAVE_GRPC)
     target_sources(${PROJECT_NAME} PRIVATE
         src/director/bgrpctransport.cpp
+        src/director/bjobhistoryproto.cpp
+        include/director/bjobhistoryproto.h
         include/director/bgrpctransport.h
         src/director/bgrpcconnect.cpp
         include/director/bgrpcconnect.h
@@ -1228,6 +1230,8 @@ target_link_libraries(bareosdirector_lib PUBLIC
 if(HAVE_GRPC)
     target_sources(bareosdirector_lib PRIVATE
         src/director/bgrpctransport.cpp
+        src/director/bjobhistoryproto.cpp
+        include/director/bjobhistoryproto.h
         include/director/bgrpctransport.h
         src/director/bgrpcconnect.cpp
         include/director/bgrpcconnect.h
@@ -2176,6 +2180,21 @@ if(BUILD_TESTING)
 
     add_test(NAME bliveoverlay_test COMMAND bliveoverlay_test)
 
+    # bjobhistoryproto_test - the job history over the typed ListJobs, read
+    # as the command line's "llist jobs" (only with gRPC)
+    if(HAVE_GRPC)
+        add_executable(bjobhistoryproto_test
+            test/bjobhistoryproto_test.cpp
+            src/director/bjobhistoryproto.cpp
+            include/director/bjobhistoryproto.h
+            src/schedules/model/bjobhistorystats.cpp
+            include/schedules/model/bjobhistorystats.h
+        )
+        target_include_directories(bjobhistoryproto_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+        target_link_libraries(bjobhistoryproto_test PRIVATE Qt6::Core Qt6::Test onesimus_grpc_proto)
+        add_test(NAME bjobhistoryproto_test COMMAND bjobhistoryproto_test)
+    endif()
+
     # bwaitcalibration_test - the wait prediction measured against the
     # catalog: measured waits, start overhead, pure durations without the
     # wait for the device, the suggestion of parallel writers, the back-test
@@ -2513,6 +2532,8 @@ if(BUILD_TESTING)
     if(HAVE_GRPC)
         target_sources(bdialogfonts_test PRIVATE
             src/director/bgrpctransport.cpp
+            src/director/bjobhistoryproto.cpp
+            include/director/bjobhistoryproto.h
             include/director/bgrpctransport.h
             src/director/bgrpcconnect.cpp
             include/director/bgrpcconnect.h
