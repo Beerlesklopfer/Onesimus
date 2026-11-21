@@ -46,7 +46,10 @@
 #include <QDockWidget>
 #include <QElapsedTimer>
 #include <QFileInfo>
+#include <QFont>
+#include <QFontInfo>
 #include <QHostAddress>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
 #include <QMenuBar>
@@ -216,6 +219,9 @@ private:
 
 bool BScreensHarness::save(QWidget *w, const QString &name)
 {
+    // No blinking text cursor: the same picture on every run
+    if (QWidget *focus = QApplication::focusWidget(); focus && qobject_cast<QLineEdit *>(focus))
+        focus->clearFocus();
     settle(400);
     const QPixmap pm = w->grab();
     const QString file = QDir(m_o.outDir).filePath(name + QStringLiteral(".png"));
@@ -315,6 +321,9 @@ void BScreensHarness::shotMain(const QString &name, int tab, const std::function
     if (prepare)
         prepare();
     settle(600);
+    // Showing or hiding the statistics restores an older size later on
+    m_w->resize(m_o.size);
+    settle(300);
     save(m_w, name);
 }
 
@@ -373,6 +382,7 @@ int BScreensHarness::run()
     s.setStatisticsWidgetVisible(true);
     s.setMainWindowActiveTab(0);
     s.setBehaviorAutoRefresh(false);
+    s.setBehaviorJobsNewestFirst(true);
     s.sync();
 
     BTranslations::instance()->setLanguage(BTranslations::resolve(m_o.lang));
@@ -397,18 +407,32 @@ int BScreensHarness::run()
 
     BJobWidget *jobs = w.m_jobWidget;
 
-    // 1. overview: the job list with the statistics dock, a finished job selected
+    // The job list: newest on top, the filters folded away for more columns
+    if (jobs->m_toggleFiltersButton->isCheckable())
+        jobs->m_toggleFiltersButton->setChecked(false);
+    jobs->do_toggleFilters(false);
+    jobs->tableView()->sortByColumn(1, Qt::DescendingOrder);   // Job ID
+    auto status = [](const QJsonObject &j) { return j.value("jobstatus").toString(); };
+
+    // 1. overview: the job list with the statistics dock, the newest finished job selected
     shotMain(QStringLiteral("overview"), 0, [&]() {
         w.m_statisticsDock->setVisible(true);
-        jobs->setLogViewVisible(false);
-        selectJob([](const QJsonObject &j) { return j.value("jobstatus").toString() == QLatin1String("T"); });
+        jobs->setLogViewVisible(true);
+        selectJob([&](const QJsonObject &j) { return status(j) == QLatin1String("T"); });
+        settle(2000);
     });
 
-    // 2. job-log: a running job with its live log
+    // 2. job-log: a running job with its live log (the Full to tape, if it runs)
     shotMain(QStringLiteral("job-log"), 0, [&]() {
         w.m_statisticsDock->setVisible(false);
         jobs->setLogViewVisible(true);
-        selectJob([](const QJsonObject &j) { return j.value("jobstatus").toString() == QLatin1String("R"); });
+        bool tape = false;
+        selectJob([&](const QJsonObject &j) {
+            tape = status(j) == QLatin1String("R") && j.value("name").toString() == QLatin1String("acme-files-offsite");
+            return tape;
+        });
+        if (!tape)
+            selectJob([&](const QJsonObject &j) { return status(j) == QLatin1String("R"); });
         settle(5000);
     });
     w.m_statisticsDock->setVisible(true);
@@ -453,7 +477,12 @@ int BScreensHarness::run()
         openSchedules();
         sched->m_viewModeCombo->setCurrentIndex(0);
         sched->showLowerPage(sched->m_staggerPage, true);
+        waitFor([&] { return !sched->m_waitRuns.isEmpty(); }, 15000);
+        settle(1000);
         sched->proposeStagger();
+        settle(1000);
+        if (sched->m_staggerTable->rowCount() > 0)
+            sched->m_staggerTable->selectRow(0);
     });
     w.m_statisticsDock->setVisible(true);
     w.m_tabWidget->setCurrentIndex(0);
@@ -461,7 +490,7 @@ int BScreensHarness::run()
 
     // 8. acl-matrix
     shotWindow<BAclMatrixDialog>(QStringLiteral("acl-matrix"), [&]() { w.showAclMatrix(); },
-                                 [](BAclMatrixDialog *) { settle(3000); }, QSize(1280, 800));
+                                 [](BAclMatrixDialog *) { settle(3000); }, QSize(900, 760));
 
     // 9. purge: prune & purge with the analysis (a dry run of the cleanup)
     shotWindow<BCleanupDialog>(QStringLiteral("purge"), [&]() { w.onCleanupDatabase(); },
@@ -474,7 +503,7 @@ int BScreensHarness::run()
             settle(500);
             d->onAnalyzeClicked();
             settle(2500);
-        }, QSize(1100, 820));
+        }, QSize(1100, 900));
 
     // 10. restore: the wizard of a finished backup
     shotWindow<BRestoreWizard>(QStringLiteral("restore"), [&]() {
@@ -516,7 +545,14 @@ int BScreensHarness::run()
                 wizard->setStartId(BConnectionWizard::Page_Credentials);
                 wizard->show();
             },
-            [](BConnectionWizard *) { settle(800); }, QSize(900, 680));
+            [&](BConnectionWizard *wz) {
+                // The demo password, so that the page looks filled in (shown as dots)
+                for (auto *edit : wz->currentPage()->findChildren<QLineEdit *>()) {
+                    if (edit->echoMode() == QLineEdit::Password)
+                        edit->setText(m_o.password);
+                }
+                settle(800);
+            }, QSize(780, 520));
     }
 
     // 13. settings: the appearance page (language, theme)
@@ -554,6 +590,11 @@ int main(int argc, char *argv[])
     app.setApplicationVersion(PROJECT_VERSION);
     app.setOrganizationName("bareos");
     app.setOrganizationDomain("bareos.org");
+    // The font of a GNOME desktop, when it is there (offscreen has no desktop font)
+    QFont font(QStringLiteral("Cantarell"));
+    font.setPointSize(10);
+    if (QFontInfo(font).family() == QLatin1String("Cantarell"))
+        QApplication::setFont(font);
     QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, home + "/.config");
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, home + "/.config");
     checkIsolation(home);
@@ -568,7 +609,7 @@ int main(int argc, char *argv[])
     QCommandLineOption sizeOpt("size", "Size of the main window", "WxH", "1440x900");
     QCommandLineOption onlyOpt("only", "Only these shots (comma separated)", "names");
     QCommandLineOption hostOpt("host", "Simulator address (127.0.0.1 only)", "host", "127.0.0.1");
-    QCommandLineOption portOpt("port", "Director (BNET) port of the profile", "port", "10101");
+    QCommandLineOption portOpt("port", "Director (BNET) port of the profile", "port", "11100");
     QCommandLineOption grpcOpt("grpc-port", "gRPC port of the simulator", "port", "11101");
     QCommandLineOption consoleOpt("console", "Console name", "name", "admin");
     QCommandLineOption directorOpt("director", "Director name", "name", "demo-dir");

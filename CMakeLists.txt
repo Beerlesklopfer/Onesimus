@@ -2785,6 +2785,9 @@ if(ONESIMUS_BUILD_SCREENS)
             src/director/bconfigproto.cpp
             include/director/bconfigproto.h
         )
+        # Directly, for its usage requirements (HAVE_GRPC, generated headers):
+        # the screenshots connect over gRPC
+        target_link_libraries(onesimus_screens PRIVATE onesimus_grpc_proto)
     endif()
     target_include_directories(onesimus_screens PRIVATE
         $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
@@ -2804,6 +2807,14 @@ if(ONESIMUS_BUILD_SCREENS)
             ${CMAKE_BINARY_DIR}/onesimus_de.qm ${CMAKE_BINARY_DIR}/onesimus_en.qm
             $<TARGET_FILE_DIR:onesimus_screens>/translations/
     )
+    # The wall clock of the simulator for the harness (LD_PRELOAD, Linux):
+    # relative times in the pictures do not depend on the day of the run
+    if(UNIX AND NOT APPLE)
+        enable_language(C)
+        add_library(onesimus_screens_clock MODULE tools/screens/clockshift.c)
+        target_link_libraries(onesimus_screens_clock PRIVATE ${CMAKE_DL_LIBS})
+        add_dependencies(onesimus_screens onesimus_screens_clock)
+    endif()
 endif()
 
 message(STATUS "")
