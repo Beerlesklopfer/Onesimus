@@ -831,11 +831,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 #    with what it imports: director_commands.proto, onesimus_options.proto
 #    (custom options, see below) and google/protobuf/struct.proto (Qt's
 #    well-known types)
+#  - usage.proto: the free tier usage and licence state, imported by both
+#    (DirectorStatusResponse.usage, PushEvent.usage)
 if(HAVE_GRPC)
     set(ONESIMUS_PROTO_FILES
         ${CMAKE_SOURCE_DIR}/proto/director_service.proto
         ${CMAKE_SOURCE_DIR}/proto/director_api.proto
         ${CMAKE_SOURCE_DIR}/proto/director_commands.proto
+        ${CMAKE_SOURCE_DIR}/proto/usage.proto
     )
     # onesimus_options.proto declares only custom options (extensions of
     # google.protobuf.MessageOptions/FieldOptions) for the generators of the
