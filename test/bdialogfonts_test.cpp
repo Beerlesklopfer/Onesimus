@@ -251,6 +251,7 @@ private slots:
     void cleanup();
 
     void themeCannotSetTheFont();
+    void messageBoxShowsItsWholeText();
     void styleSheetDropsClassFonts();
     void classFontsDoNotReachANewDialog();
 
@@ -290,6 +291,37 @@ void BDialogFontsTest::cleanup()
     QList<QPointer<QWidget>> windows;
     for (QWidget *window : QApplication::topLevelWidgets()) windows.append(window);
     for (const QPointer<QWidget> &window : std::as_const(windows)) delete window.data();
+}
+
+void BDialogFontsTest::messageBoxShowsItsWholeText()
+{
+    // The connection error came cut off ("gRPC login failed:" and no reason,
+    // the title "Connection Erro"): the box had measured itself before the
+    // interface font reached it
+    BUiScale::instance().setZoomPercent(150);
+    auto *box = new QMessageBox(QMessageBox::Critical, QStringLiteral("Connection Error"),
+                                QStringLiteral("gRPC login failed: UNAVAILABLE: the gRPC service of the "
+                                               "Director cannot be reached (connection refused)"),
+                                QMessageBox::Ok);
+    box->setAttribute(Qt::WA_DeleteOnClose);
+    showAndSettle(box);
+    QCoreApplication::processEvents();
+
+    const QLabel *label = box->findChild<QLabel *>(QStringLiteral("qt_msgbox_label"));
+    QVERIFY(label);
+    QCOMPARE(label->font().pointSizeF(), 1.5 * kBasePoints);
+    const int needed = label->wordWrap() ? label->heightForWidth(label->width())
+                                         : label->sizeHint().height();
+    QVERIFY2(label->height() >= needed,
+             qPrintable(QStringLiteral("label %1 px high, text needs %2").arg(label->height()).arg(needed)));
+    if (!label->wordWrap()) {
+        QVERIFY2(label->width() >= label->sizeHint().width(),
+                 qPrintable(QStringLiteral("label %1 px wide, text needs %2")
+                                .arg(label->width()).arg(label->sizeHint().width())));
+    }
+    QVERIFY2(box->width() >= box->sizeHint().width(),
+             qPrintable(QStringLiteral("box %1 px wide, needs %2").arg(box->width()).arg(box->sizeHint().width())));
+    box->close();
 }
 
 void BDialogFontsTest::themeCannotSetTheFont()

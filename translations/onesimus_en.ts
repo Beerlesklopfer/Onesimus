@@ -8081,6 +8081,11 @@ Do you want to connect now?</source>
         <source>Imported Director &apos;%1&apos; with Console &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1944"/>
+        <source>Add Schedule</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>BMdnsBrowser</name>

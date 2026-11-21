@@ -8153,6 +8153,11 @@ Connettersi ora?</translation>
         <source>Imported Director &apos;%1&apos; with Console &apos;%2&apos;</source>
         <translation>Importato il Director &apos;%1&apos; con la Console &apos;%2&apos;</translation>
     </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1944"/>
+        <source>Add Schedule</source>
+        <translation>Aggiungi Schedule</translation>
+    </message>
 </context>
 <context>
     <name>BMdnsBrowser</name>

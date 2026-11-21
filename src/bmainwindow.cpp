@@ -1233,7 +1233,7 @@ void BMainWindow::createActions()
     // Schedule Actions
     m_addScheduleAction = new QAction(tr("Add Schedule..."), this);
     m_addScheduleAction->setIcon(QIcon(":/icons/icons/add.svg"));
-    m_addScheduleAction->setShortcut(QKeySequence("Ctrl+Shift+S"));
+    m_addScheduleAction->setShortcut(QKeySequence("Ctrl+Shift+N"));
     m_addScheduleAction->setEnabled(false);
     connect(m_addScheduleAction, &QAction::triggered, this, [this]() {
         BDirectiveSchema::instance().loadSchemas();
@@ -1941,6 +1941,7 @@ void BMainWindow::onKeyboardShortcutsTriggered()
         "<tr><td><b>" + tr("Refresh Clients") + "</b></td><td>Ctrl+Shift+C</td></tr>"
         "<tr><td><b>" + tr("Refresh Storage") + "</b></td><td>Ctrl+Shift+V</td></tr>"
         "<tr><td><b>" + tr("Refresh Schedules") + "</b></td><td>Ctrl+Shift+D</td></tr>"
+        "<tr><td><b>" + tr("Add Schedule") + "</b></td><td>Ctrl+Shift+N</td></tr>"
         "</table>"
     );
     jobsLayout->addWidget(jobsText);

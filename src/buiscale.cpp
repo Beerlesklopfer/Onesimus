@@ -511,6 +511,24 @@ bool BUiScale::eventFilter(QObject *watched, QEvent *event)
             });
         } else if (auto *wizard = qobject_cast<QWizard *>(watched)) {
             wizardCancelLeft(wizard);
+        } else if (auto *message = qobject_cast<QMessageBox *>(watched)) {
+            // A message box measures itself before the interface font has
+            // reached its label; on a real desktop it then showed only the
+            // first wrapped line in a narrow window ("gRPC login failed:").
+            // Measure again once the fonts are in place, wide enough for a
+            // sentence, and let the text be selected and copied.
+            QPointer<QMessageBox> guarded(message);
+            QTimer::singleShot(0, message, [guarded]() {
+                if (!guarded) return;
+                if (auto *label = guarded->findChild<QLabel *>(QStringLiteral("qt_msgbox_label"))) {
+                    label->setTextInteractionFlags(label->textInteractionFlags()
+                                                   | Qt::TextSelectableByMouse);
+                    const int wanted = qMin(label->fontMetrics().horizontalAdvance(label->text()),
+                                            BUiScale::px(480));
+                    if (label->minimumWidth() < wanted) label->setMinimumWidth(wanted);
+                }
+                guarded->adjustSize();
+            });
         }
     }
 
