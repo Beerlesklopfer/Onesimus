@@ -5,15 +5,19 @@
 ### Automated Build (Recommended)
 
 ```bash
-./build.sh
+./deploy.sh build      # build only
+./deploy.sh            # build + deploy to /usr (sudo per step)
+./deploy.sh -n         # dry run: print the commands a deploy would run
 ```
 
 The script:
-- Automatically initializes Git submodules
-- Checks all prerequisites
-- Prompts for build options
-- Configures CMake
-- Compiles the project
+- Initializes the Git submodules it needs (external/openssl for a static OpenSSL, proto/)
+- Checks the prerequisites
+- Configures CMake (Ninja when installed) and compiles the project
+- Deploys binary, desktop entry and icons into /usr (`all`, the default)
+
+`./deploy.fish` is the same script for the fish shell. See
+[Build Script Options](#-build-script-options) for all commands.
 
 ### Manual Build
 
@@ -235,26 +239,39 @@ make -j$(nproc)
 
 ## 🔧 Build Script Options
 
-The `build.sh` script offers interactive options:
+`deploy.sh` (and its fish twin `deploy.fish`) takes a command and flags.
+`./deploy.sh help` prints the full table.
 
-```bash
-./build.sh
-```
+| Command | What it does |
+|---|---|
+| `all`, `onesimus`, `gui` (default) | Build, then copy `onesimus` to `/usr/bin`, the desktop entry to `/usr/share/applications`, the icons to `/usr/share/icons/hicolor`, and refresh the icon/desktop caches. Each step runs `sudo` on its own; do not start the script with `sudo`. |
+| `configure [args]` | Create the build tree; extra arguments go to cmake |
+| `build` / `rebuild` | Build (incremental) / clean rebuild |
+| `run [args]` | Build and start onesimus |
+| `test` | Build and run ctest (offscreen) |
+| `install` | `cmake --install` into `PREFIX` (default `/usr/local`, sudo only when not writable) |
+| `package` | `.deb` via CPack in the build directory |
+| `appimage` | AppImage in `dist/appimage/` (linuxdeploy in a pinned, checksummed version) |
+| `status` | What is deployed, built (with stamped version) and packaged |
+| `clean` | Remove the build trees |
 
-**Prompts:**
-```
-OpenSSL Build Option:
-1) Static (from submodule) - recommended for deployment
-2) System OpenSSL - faster build
+| Flag | Meaning |
+|---|---|
+| `-t, --type TYPE` | Release (default), Debug, RelWithDebInfo, MinSizeRel |
+| `-s, --system-openssl` | System OpenSSL instead of the static submodule (default: static) |
+| `-c, --clean` | Remove the build directory first |
+| `-j, --jobs N` | Parallel jobs (default: number of CPUs) |
+| `-d, --build-dir DIR` | Build directory (default: `build`) |
+| `-n, --dry-run` | Print every command instead of running it |
 
-Choose [1/2] (Default: 1):
-```
+Environment: `BUILD_DIR`, `BUILD_TYPE`, `JOBS`, `OPENSSL` (static/system),
+`GENERATOR`, `PREFIX`, `DEPLOY_PREFIX` (default `/usr`), `CMAKE_PREFIX_PATH`,
+`PACKAGE_GENERATORS`, `APPIMAGE_TOOLS`, `CLEAN`, `DRY_RUN`, `ONESIMUS_ALLOW_ROOT`.
 
-**With existing build directory:**
-```
-Build directory already exists.
-Do you want to recreate it? (y/n)
-```
+An existing build tree keeps its build type and OpenSSL mode unless `-t`/`-s`
+(or `BUILD_TYPE`/`OPENSSL`) is given. Every build increments `.build_number`
+and regenerates `include/version.h` (both tracked: do not commit the stamped
+values of a development build).
 
 ## ⏱️ Build Times
 
@@ -685,8 +702,9 @@ In case of problems:
 ## ✅ Quick Reference
 
 ```bash
-# Standard build
-./build.sh
+# Standard build / build + deploy to /usr
+./deploy.sh build
+./deploy.sh
 
 # Manual with static OpenSSL
 mkdir build && cd build

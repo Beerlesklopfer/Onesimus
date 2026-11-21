@@ -154,33 +154,47 @@ cmake .. -DBACKUP_SYSTEM=BACULA
 ### Windows
 
 ```powershell
-# Open Developer PowerShell for VS 2022
-.\build-windows.ps1
+# Developer PowerShell for VS 2022 (deploy.ps1 loads the VS environment itself if needed)
+.\deploy.ps1            # build + windeployqt into build\deploy
+.\deploy.ps1 msi        # or: installer (NSIS), zip, run, test, status, clean, help
 ```
+
+`deploy.bat` is the double-click launcher (`deploy.bat rebuild` for a clean rebuild).
 
 ### Linux / macOS
 
 macOS: `brew install qt@6 cmake` (see [Prerequisites](#-prerequisites))
 
 ```bash
-./build.sh [OPTIONS]
+./deploy.sh [flags] [command]
 
-Options:
+Commands:
+  all | onesimus | gui   Build, then copy binary, desktop entry and icons to
+                         /usr (Linux, sudo per step) or /usr/local/bin (macOS) - default
+  build | rebuild        Build only (nothing outside the build tree)
+  run [args] | test      Build and start onesimus / run ctest
+  install                cmake --install into PREFIX (default /usr/local)
+  package | appimage     .deb (Linux) or .dmg (macOS) / AppImage in dist/appimage
+  configure | status | clean | help
+
+Flags:
   -t, --type TYPE        Build type: Release (default), Debug, RelWithDebInfo
   -s, --system-openssl   Use system OpenSSL instead of static submodule
   -c, --clean            Remove build directory before building
   -j, --jobs N           Parallel build jobs (default: nproc)
   -d, --build-dir DIR    Build directory (default: build)
-  -h, --help             Show this help
+  -n, --dry-run          Print every command instead of running it
+  -h, --help             Show the full command table
 
 Examples:
-  ./build.sh                     # Release, static OpenSSL
-  ./build.sh -t Debug            # Debug build
-  ./build.sh -s -c               # System OpenSSL, clean rebuild
-  ./build.sh -j4 -t Debug        # Debug, 4 jobs
+  ./deploy.sh                    # build + deploy to /usr
+  ./deploy.sh -n                 # show exactly what a deploy would run
+  ./deploy.sh build -t Debug     # Debug build, no deploy
+  ./deploy.sh build -s -c        # System OpenSSL, clean rebuild
 ```
 
-Also available as `./build.fish` for Fish shell users (same options).
+`./deploy.fish` has the same commands, flags and environment variables for Fish
+users. Every build increments `.build_number` and regenerates `include/version.h`.
 
 ## 📦 Prerequisites
 
@@ -378,8 +392,8 @@ onesimus/
 ├── external/openssl/                    # OpenSSL 3.x (Git submodule)
 ├── wiki/                                # GitHub Wiki (Git submodule)
 ├── docs/                                # Technical documentation
-├── build.sh / build.fish                # Linux build scripts
-├── build-windows.ps1                    # Windows build script
+├── deploy.sh / deploy.fish              # Linux/macOS build + deploy scripts
+├── deploy.ps1 / deploy.bat              # Windows build + deploy script
 ├── CMakeLists.txt                       # Build configuration
 └── CHANGELOG.md / LICENSE / todo.md     # Project docs
 ```

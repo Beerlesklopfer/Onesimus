@@ -1,4 +1,4 @@
-# Windows Build mit PowerShell
+# Windows Build und Deploy mit PowerShell
 
 ## 🚀 Schnellstart
 
@@ -9,10 +9,16 @@ Das Script richtet die Visual Studio Umgebung **automatisch** ein!
 1. **PowerShell öffnen** (im Projektverzeichnis)
 2. **Script ausführen:**
    ```powershell
-   .\build-windows.ps1
+   .\deploy.ps1
    ```
 
-**Das war's!** ✨ Das Script lädt die VS-Umgebung automatisch.
+**Das war's!** ✨ Das Script lädt die VS-Umgebung automatisch (über
+`Import-VsDevShell.ps1`, falls vorhanden, sonst über `vswhere`), baut
+`onesimus.exe` und legt mit windeployqt alle Qt- und OpenSSL-DLLs daneben in
+`build\deploy\` – von dort ist das Programm lauffähig.
+
+Zum Doppelklicken gibt es `deploy.bat` (dasselbe wie `.\deploy.ps1`;
+`deploy.bat rebuild` baut sauber neu, weitere Befehle werden durchgereicht).
 
 ### Alternative: Developer PowerShell
 
@@ -21,8 +27,30 @@ Falls gewünscht, können Sie auch direkt eine Developer PowerShell verwenden:
 1. **Öffnen Sie:** `Start → Visual Studio 2022 → Developer PowerShell for VS 2022`
 2. **Script ausführen:**
    ```powershell
-   .\build-windows.ps1
+   .\deploy.ps1
    ```
+
+## 🧭 Befehle
+
+`.\deploy.ps1 [Befehl] [Parameter]` – ohne Befehl gilt `all`.
+
+| Befehl | Wirkung |
+|---|---|
+| `all`, `onesimus`, `gui` | Bauen + windeployqt nach `build\deploy\` (Standard) |
+| `configure` | Nur CMake-Konfiguration |
+| `build` / `rebuild` | Bauen / sauber neu bauen |
+| `deploy` | Nur windeployqt + OpenSSL-DLLs nach `build\deploy\` |
+| `run` | Bauen, deployen, `build\deploy\onesimus.exe` starten |
+| `test` | Bauen + ctest |
+| `installer` (`package`) | NSIS-Installer über CPack |
+| `zip` | Portables ZIP über `package-windows.ps1` |
+| `msi` | MSI-Installer über `package-msi.ps1` (WiX v6) |
+| `install` | `cmake --install` nach `-Prefix` (Standard `build\stage`) |
+| `status` | Gebautes Binary, Version, Installer |
+| `clean` | Build-Verzeichnis löschen |
+| `help` | `Get-Help .\deploy.ps1 -Detailed` |
+
+Jeder Build erhöht `.build_number` und erzeugt `include\version.h` neu.
 
 ## 📋 Parameter
 
@@ -30,25 +58,25 @@ Falls gewünscht, können Sie auch direkt eine Developer PowerShell verwenden:
 Löscht das Build-Verzeichnis vor dem Build
 
 ```powershell
-.\build-windows.ps1 -Clean
+.\deploy.ps1 -Clean
 ```
 
 ### -BuildType
-Wählt den Build-Typ: `Release` (Standard), `Debug`, oder `RelWithDebInfo`
+Wählt den Build-Typ: `Release` (Standard), `Debug`, `RelWithDebInfo` oder `MinSizeRel`
 
 ```powershell
-.\build-windows.ps1 -BuildType Debug
-.\build-windows.ps1 -BuildType Release
+.\deploy.ps1 -BuildType Debug
+.\deploy.ps1 -BuildType Release
 ```
 
-**Hinweis**: Release-Builds erstellen automatisch ein ZIP-Package!
+**Hinweis**: Ein ZIP-Package entsteht mit `.\deploy.ps1 zip`.
 
 ### -Generator
 Wählt das Build-System: `Ninja` (Standard, schneller) oder `NMake`
 
 ```powershell
-.\build-windows.ps1 -Generator Ninja   # Standard, empfohlen
-.\build-windows.ps1 -Generator NMake   # Klassisch
+.\deploy.ps1 -Generator Ninja   # Standard, empfohlen
+.\deploy.ps1 -Generator NMake   # Klassisch
 ```
 
 **Ninja** ist deutlich schneller als NMake, besonders bei inkrementellen Builds!
@@ -57,13 +85,21 @@ Wählt das Build-System: `Ninja` (Standard, schneller) oder `NMake`
 Gibt den Qt-Pfad manuell an (überspringt automatische Suche)
 
 ```powershell
-.\build-windows.ps1 -QtPath "C:\Qt\6.10.0\msvc2022_64"
+.\deploy.ps1 -QtPath "C:\Qt\6.10.0\msvc2022_64"
 ```
+
+### -BackupSystem
+Wird als `BACKUP_SYSTEM` an CMake übergeben. Derzeit baut nur `BAREOS` (Standard).
+
+### -BuildDir, -Jobs, -Prefix, -Reconfigure, -Version, -DryRun
+Build-Verzeichnis (Standard `build`), parallele Jobs, Ziel von `install`,
+frische CMake-Konfiguration, Version für `zip` (Standard: aus `version.h`) und
+Probelauf: `-DryRun` zeigt jeden Befehl, ohne ihn auszuführen.
 
 ### Kombiniert
 
 ```powershell
-.\build-windows.ps1 -Clean -BuildType Debug -Generator Ninja -QtPath "C:\Qt\6.9.0\msvc2022_64"
+.\deploy.ps1 -Clean -BuildType Debug -Generator Ninja -QtPath "C:\Qt\6.9.0\msvc2022_64"
 ```
 
 ## ✨ Features
@@ -119,7 +155,7 @@ Sie befinden sich nicht in einer Visual Studio Umgebung, oder der gewählte Gene
 **Lösung 1:** Developer Command Prompt verwenden
 **Lösung 2:** vcvarsall.bat ausführen (siehe Option 3 oben)
 **Lösung 3:** Ninja installieren (schneller): https://github.com/ninja-build/ninja/releases
-**Lösung 4:** Anderen Generator verwenden: `.\build-windows.ps1 -Generator NMake`
+**Lösung 4:** Anderen Generator verwenden: `.\deploy.ps1 -Generator NMake`
 
 ### "Qt nicht gefunden"
 
@@ -230,14 +266,14 @@ Nächste Schritte:
 ✅ **Integrierte Funktionen** - Test-Path, Get-Item, etc.  
 ✅ **Bessere Strings** - Keine Escape-Probleme  
 ✅ **Build-Zeit-Messung** - Automatisch  
-✅ **Help-System** - `Get-Help .\build-windows.ps1`
+✅ **Help-System** - `Get-Help .\deploy.ps1`
 
 ## 📚 Hilfe anzeigen
 
 ```powershell
-Get-Help .\build-windows.ps1
-Get-Help .\build-windows.ps1 -Detailed
-Get-Help .\build-windows.ps1 -Examples
+Get-Help .\deploy.ps1
+Get-Help .\deploy.ps1 -Detailed
+Get-Help .\deploy.ps1 -Examples
 ```
 
 ## 🔧 Erweiterte Verwendung
@@ -273,46 +309,36 @@ nmake
 ### Rebuild (Clean + Build)
 
 ```powershell
-.\build-windows.ps1 -Clean
+.\deploy.ps1 -Clean
 ```
 
 ### Debug-Build für Entwicklung
 
 ```powershell
-.\build-windows.ps1 -Clean -BuildType Debug
+.\deploy.ps1 -Clean -BuildType Debug
 ```
 
-### Release-Build mit Automatischem Package
+### Release-Build mit Package
 
 ```powershell
-.\build-windows.ps1 -BuildType Release
+.\deploy.ps1 zip -BuildType Release
 ```
 
-**Automatisch erstellt**:
-- `build\Onesimus.exe` - Executable
-- `build\*.dll` - Qt DLLs (via windeployqt)
-- `build\Onesimus-x.x.x.x-Windows.zip` - Portable Package
+**Erstellt**:
+- `build\deploy\onesimus.exe` - Executable
+- `build\deploy\*.dll` - Qt- und OpenSSL-DLLs (via windeployqt)
+- `build\deploy\Onesimus-x.x.x.x-Windows.zip` - Portable Package
 
 Das ZIP-Package enthält alle notwendigen Dateien und kann ohne Installation verwendet werden.
 
 ## 📦 Packaging
 
-### Automatisches Packaging (Release-Build)
-
-Release-Builds erstellen automatisch ein ZIP-Package:
+### Packaging
 
 ```powershell
-.\build-windows.ps1 -BuildType Release
-```
-
-Erstellt: `build\Onesimus-x.x.x.x-Windows.zip`
-
-### Manuelles Packaging
-
-```powershell
-# Nach dem Build
-cd build
-nmake package
+.\deploy.ps1 zip         # portables ZIP: build\deploy\Onesimus-x.x.x.x-Windows.zip
+.\deploy.ps1 installer   # NSIS-Installer über CPack (build\*.exe)
+.\deploy.ps1 msi         # MSI-Installer über WiX v6
 ```
 
 ### Package-Inhalt
