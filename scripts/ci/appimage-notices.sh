@@ -15,7 +15,9 @@
 #    the AppDir;
 #  - usr/share/doc/onesimus/bundled-packages.txt names the Debian binary
 #    package, its version, source package and source version of every
-#    bundled library, so that their source code can be found.
+#    bundled library; release.yml downloads exactly these source packages
+#    (debian-sources.sh) and attaches them to the release. A library without
+#    a known Debian package fails the script.
 set -euo pipefail
 
 appdir="${1:?usage: $0 APPDIR}"
@@ -47,7 +49,15 @@ mkdir -p "$(dirname "$list")"
         # installed too), else an Architecture: all package
         dpkg-query -W -f="$fmt" "$pkg:$arch" 2>/dev/null \
             || dpkg-query -W -f="$fmt" "$pkg" 2>/dev/null \
-            || echo "$pkg (not known to dpkg-query)"
+            || { echo "appimage-notices: $pkg is not known to dpkg-query" >&2; echo "$pkg" >> "$list.unknown"; }
     done
 } > "$list"
+# Every bundled library must name its source package: its source code is
+# attached to the release (debian-sources.sh).
+if [ -s "$list.unknown" ]; then
+    echo "appimage-notices: no Debian package for: $(tr '\n' ' ' < "$list.unknown")" >&2
+    rm -f "$list.unknown"
+    exit 1
+fi
+rm -f "$list.unknown"
 echo "appimage-notices: $(grep -vc '^#' "$list") bundled packages listed in usr/share/doc/onesimus/bundled-packages.txt"

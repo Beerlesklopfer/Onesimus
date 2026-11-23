@@ -144,6 +144,12 @@ endgroup
 # THIRD-PARTY-NOTICES.md, LICENSE and LICENSES/ come into Contents/Resources
 # with the build (MACOSX_PACKAGE_LOCATION in CMakeLists.txt); before signing.
 "$SRC_DIR/scripts/ci/check-notices.sh" "$APP" || die "Onesimus.app lacks the third-party notices"
+# release.yml: the Qt modules in the bundle must be those whose source the
+# release attaches (QT_SOURCE_MODULES, qt-sources.sh)
+if [ -n "${QT_SOURCE_MODULES:-}" ]; then
+    # shellcheck disable=SC2086
+    "$SRC_DIR/scripts/ci/check-qt-modules.sh" "$APP" $QT_SOURCE_MODULES || die "Qt modules without attached source"
+fi
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
 [ -n "$VERSION" ] || die "no CFBundleShortVersionString in Info.plist"

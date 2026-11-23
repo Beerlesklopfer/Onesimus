@@ -8,6 +8,8 @@ Comment: Installed by CMake as /usr/share/doc/onesimus/copyright of the .deb.
  /usr/share/doc/onesimus/THIRD-PARTY-NOTICES.md, their licence texts are in
  /usr/share/doc/onesimus/LICENSES/. Which files are AGPL-3.0-only (they follow
  the Bareos source) is listed in LICENSING.md of the source code.
+ The complete corresponding source (Onesimus with OpenSSL) is attached to the
+ GitHub release of this version as onesimus-<version>-src.tar.xz.
 
 Files: *
 Copyright: 2025-2026 Jörg Bernau
