@@ -697,6 +697,8 @@ void BMainWindow::setupUI()
     // Status bar
     m_statusLabel = new QLabel(tr("Ready"), this);
     m_statusLabel->setObjectName("statusLabel");
+    m_statusLabel->setTextFormat(Qt::PlainText);
+    m_statusLabel->setWordWrap(false);
     statusBar()->addWidget(m_statusLabel);
 
     m_connectionLabel = new QLabel(tr("Not connected"), this);
@@ -2464,7 +2466,20 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
         // ✅ Jetzt erst statusMessage Signal verbinden (nach erfolgreicher Auth)
         m_statusMessageConnection = connect(m_director, &BDirector::statusMessage,
                                              this, [this](const QString &msg) {
-            m_statusLabel->setText(msg);
+            // The Director also sends whole job reports here: the status bar
+            // shows only their first line, the tooltip the full text.
+            const QStringList lines = msg.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+            QString first;
+            for (const QString &line : lines) {
+                first = line.trimmed();
+                if (!first.isEmpty())
+                    break;
+            }
+            constexpr int maxChars = 160;
+            if (first.size() > maxChars)
+                first = first.left(maxChars - 1) + QChar(0x2026);
+            m_statusLabel->setText(first);
+            m_statusLabel->setToolTip(lines.size() > 1 || first != msg.trimmed() ? msg.trimmed() : QString());
         });
 
         // Show "Connected to [director] version [version]" in status bar
