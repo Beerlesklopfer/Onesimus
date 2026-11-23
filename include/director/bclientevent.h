@@ -19,4 +19,18 @@ enum class BClientEvent : int {
     Unreachable = 3     ///< FdStatus alive=false: the Director could not reach it
 };
 
+/**
+ * @brief How a client probe ("Check now", status client=<name>) ended
+ *
+ * Carried as int by BareosDirector::clientProbeFinished() and
+ * BDirector::clientProbeFinished(), like BClientEvent.
+ */
+enum class BClientProbeStatus : int {
+    Replied = 0,        ///< The Director answered; the text says what it found
+    Timeout = 1,        ///< No answer within the deadline
+    Error = 2,          ///< The call failed (rights, unknown client, connection)
+    NotAvailable = 3,   ///< This connection cannot carry the probe (console protocol)
+    Busy = 4            ///< Another probe is still running; nothing was sent
+};
+
 #endif // BCLIENTEVENT_H

@@ -19,6 +19,20 @@ BClientsModel::BClientsModel(BDirector *director, QObject *parent)
     m_backupsTimer->setSingleShot(true);
     m_backupsTimer->setInterval(BackupsResetDelayMs);
     connect(m_backupsTimer, &QTimer::timeout, this, &BClientsModel::allClientsChanged);
+
+    m_probeGuard = new QTimer(this);
+    m_probeGuard->setSingleShot(true);
+    m_probeGuard->setInterval(ProbeGuardMs);
+    connect(m_probeGuard, &QTimer::timeout, this, [this]() {
+        if (!m_probeClient.isEmpty())
+            onClientProbeFinished(m_probeId, m_probeClient, int(BClientProbeStatus::Timeout),
+                                  QString(), QString());
+    });
+
+    if (m_director) {
+        connect(m_director, &BDirector::clientProbeFinished,
+                this, &BClientsModel::onClientProbeFinished);
+    }
 }
 
 void BClientsModel::refresh()
@@ -32,6 +46,9 @@ void BClientsModel::refresh()
     CLIENTS_DEBUG << "Requesting client list";
     emit statusMessageChanged(tr("Loading clients..."));
     emit sendCommand(BDirector::Command::ListClients, "");
+    // Client-initiated connections (issue #9): one command answered by the
+    // Director itself, no file daemon is contacted
+    emit sendCommand(BDirector::Command::StatusDirector, "");
 }
 
 int BClientsModel::rowCount(const QModelIndex &parent) const
@@ -57,23 +74,26 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
 
     QString name = client["name"].toString();
 
-    // Status column with a client event of the Director that still holds:
-    // a real Online/Offline, not a guess from the age of the last backup
+    // Status column with a live fact that still holds (client-initiated
+    // connection, client event, probe): a real Connected/Online/Offline,
+    // not a guess from the age of the last backup
     if (index.column() == COL_STATUS) {
         const LiveStatus live = liveStatus(name, QDateTime::currentDateTime());
         if (live.state != LiveStatus::None) {
             const bool online = live.state == LiveStatus::Online;
-            const QString text = online ? tr("Online") : tr("Offline");
-            const QString time = QLocale().toString(live.at, QLocale::ShortFormat);
             switch (role) {
             case Qt::DisplayRole:
             case Qt::AccessibleTextRole:
-                return text;
-            case Qt::ToolTipRole:
-                return online ? tr("The Director reached the client at %1 (client event of the Director).").arg(time)
-                              : tr("The Director could not reach the client at %1 (client event of the Director).").arg(time);
+                return liveLabel(live);
+            case Qt::ToolTipRole: {
+                QString tip = liveToolTip(live);
+                const auto probe = m_probes.value(name);
+                if (probe.second.isValid() && probe.first.result == BClientReachability::Probe::Unknown)
+                    tip += QLatin1Char('\n') + probeText(probe.first, probe.second);
+                return tip;
+            }
             case SortRole:
-                // Before every age: Online first, then Offline
+                // Before every age: Connected and Online first, then Offline
                 return online ? qint64(-2) : qint64(-1);
             case BStatus::ToneRole:
                 return int(online ? BStatus::Tone::Success : BStatus::Tone::Error);
@@ -82,6 +102,15 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             default:
                 break;
             }
+        } else if (role == Qt::ToolTipRole) {
+            // The estimate, and a probe that could not tell
+            QString tip = BClientStatus::toolTip(clientActivity(client), m_staleThresholdHours);
+            const auto probe = m_probes.value(name);
+            if (probe.second.isValid())
+                tip += QLatin1Char('\n') + probeText(probe.first, probe.second);
+            if (m_probeClient == name)
+                tip += QLatin1Char('\n') + tr("Checking the client now...");
+            return tip;
         }
     }
 
@@ -263,8 +292,10 @@ QVariant BClientsModel::headerData(int section, Qt::Orientation orientation, int
         return tr("From \"list backups client=\": all backups of the client in the catalog, "
                   "not only the jobs on the current page.");
     if (orientation == Qt::Horizontal && role == Qt::ToolTipRole && section == COL_STATUS)
-        return tr("Online or Offline when the Director reports client events (Onesimus "
-                  "Director over gRPC); otherwise the age of the last backup or contact.");
+        return tr("Connected while the client holds a connection to the Director (client-initiated "
+                  "connections from \"status director\", or client events of the Onesimus Director); "
+                  "Online or Offline after a client event or \"Check now\"; otherwise the age of the "
+                  "last backup or contact, an estimate.");
     if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
         return QVariant();
 
@@ -323,6 +354,16 @@ void BClientsModel::clear()
     m_addresses.clear();
     m_showClientDetails.clear();
     m_live.clear();
+    m_listedClients.clear();
+    m_lastListAt = QDateTime();
+    m_probes.clear();
+    if (!m_probeClient.isEmpty()) {
+        const QString probing = m_probeClient;
+        m_probeClient.clear();
+        m_probeId = 0;
+        m_probeGuard->stop();
+        emit probeStateChanged(probing, false);
+    }
     m_cachedJobs = QJsonArray();
     m_cachedShowClients = QJsonObject();
     endResetModel();
@@ -338,9 +379,6 @@ void BClientsModel::setAllClients(const QJsonArray &clients)
         enrichWithJobData(m_cachedJobs);
     if (!m_cachedShowClients.isEmpty())
         enrichWithShowClientData(m_cachedShowClients);
-
-    // Probe each client with "status client=<name>" for active online detection
-    requestStatusChecks();
 
     emit allClientsChanged();
 }
@@ -833,50 +871,267 @@ void BClientsModel::setStaleThresholdHours(int hours)
 void BClientsModel::setClientLiveEvent(const QString &clientName, LiveEvent event,
                                       const QDateTime &at)
 {
+    using namespace BClientReachability;
     if (clientName.isEmpty())
         return;
     const QDateTime when = at.isValid() ? at : QDateTime::currentDateTime();
-    LiveRecord &record = m_live[clientName];
+    Inputs &inputs = m_live[clientName];
     switch (event) {
     case LiveEvent::Connected:
-        record = {LiveStatus::Online, when, QDateTime()};
+        inputs.openEvent = {State::Online, Source::Event, when, QDateTime()};
         break;
     case LiveEvent::Alive:
-        record = {LiveStatus::Online, when, when.addSecs(OnlineValidSecs)};
+        inputs.observation = {State::Online, Source::Event, when, when.addSecs(OnlineValidSecs)};
         break;
-    case LiveEvent::Disconnected:
+    case LiveEvent::Disconnected: {
+        const bool wasOpen = inputs.openEvent.state == State::Online;
+        inputs.openEvent = Fact();
         // The end of a connection that worked: reached until then. It says
         // nothing new about a client a check found unreachable.
-        if (record.state == LiveStatus::Offline)
+        if (!wasOpen && inputs.observation.state == State::Offline)
             return;
-        record = {LiveStatus::Online, when, when.addSecs(OnlineValidSecs)};
+        inputs.observation = {State::Online, Source::Event, when, when.addSecs(OnlineValidSecs)};
         break;
+    }
     case LiveEvent::Unreachable:
-        record = {LiveStatus::Offline, when, QDateTime()};
+        inputs.openEvent = Fact();
+        inputs.observation = {State::Offline, Source::Event, when, QDateTime()};
         break;
     }
     notifyClientStatus(clientName);
+    scheduleExpiry(clientName, inputs.observation.validUntil);
+}
 
-    // When Online runs out, the cell falls back to the last backup
-    if (record.validUntil.isValid()) {
-        const qint64 ms = QDateTime::currentDateTime().msecsTo(record.validUntil);
-        if (ms > 0) {
-            QTimer::singleShot(ms + 500, this, [this, clientName]() {
-                notifyClientStatus(clientName);
-            });
-        }
+bool BClientsModel::setStatusDirectorReply(const QString &jsonData, const QDateTime &at)
+{
+    const BClientReachability::ConnectionList list =
+        BClientReachability::parseStatusDirector(jsonData, QTimeZone::systemTimeZone());
+    if (!list.recognized) {
+        CLIENTS_DEBUG << "status director: no client-connection list in the reply, nothing changed";
+        return false;
     }
+    setConnectedClients(list, at);
+    return true;
+}
+
+void BClientsModel::setConnectedClients(const BClientReachability::ConnectionList &list,
+                                        const QDateTime &at)
+{
+    using namespace BClientReachability;
+    if (!list.recognized)
+        return;
+    const QDateTime when = at.isValid() ? at : QDateTime::currentDateTime();
+
+    QSet<QString> listed;
+    for (const ClientConnection &connection : list.clients) {
+        listed.insert(connection.name);
+        Inputs &inputs = m_live[connection.name];
+        const QDateTime since = connection.connectTime.isValid() ? connection.connectTime : when;
+        const bool changed = inputs.listed.state != State::Online || inputs.listed.at != since;
+        inputs.listed = {State::Online, Source::Connection, since, QDateTime()};
+        if (changed)
+            notifyClientStatus(connection.name);
+    }
+
+    // No longer listed: connected until the reply that listed it last
+    const QDateTime lastSeen = m_lastListAt.isValid() ? m_lastListAt : when;
+    for (const QString &name : std::as_const(m_listedClients)) {
+        if (listed.contains(name))
+            continue;
+        Inputs &inputs = m_live[name];
+        inputs.listed = Fact();
+        if (!inputs.observation.at.isValid() || inputs.observation.at <= lastSeen) {
+            inputs.observation = {State::Online, Source::Connection, lastSeen,
+                                  lastSeen.addSecs(OnlineValidSecs)};
+            scheduleExpiry(name, inputs.observation.validUntil);
+        }
+        notifyClientStatus(name);
+    }
+    m_listedClients = listed;
+    m_lastListAt = when;
+}
+
+void BClientsModel::setProbeResult(const QString &clientName,
+                                   const BClientReachability::ProbeOutcome &outcome,
+                                   const QDateTime &at)
+{
+    using namespace BClientReachability;
+    if (clientName.isEmpty())
+        return;
+    const QDateTime when = at.isValid() ? at : QDateTime::currentDateTime();
+    m_probes.insert(clientName, {outcome, when});
+    Inputs &inputs = m_live[clientName];
+    switch (outcome.result) {
+    case Probe::Reachable:
+        inputs.observation = {State::Online, Source::Probe, when, when.addSecs(OnlineValidSecs)};
+        scheduleExpiry(clientName, inputs.observation.validUntil);
+        break;
+    case Probe::Unreachable:
+        inputs.observation = {State::Offline, Source::Probe, when, QDateTime()};
+        break;
+    case Probe::Unknown:
+        // Nothing to conclude: the status stays as it is
+        break;
+    }
+    notifyClientStatus(clientName);
+}
+
+QPair<BClientReachability::ProbeOutcome, QDateTime>
+BClientsModel::probeOutcome(const QString &clientName) const
+{
+    return m_probes.value(clientName);
+}
+
+bool BClientsModel::checkClientNow(const QString &clientName)
+{
+    if (clientName.isEmpty() || !m_probeClient.isEmpty())
+        return false;
+    if (!m_director || !m_director->isConnected())
+        return false;
+    m_probeClient = clientName;
+    m_probeId = m_director->probeClient(clientName);
+    m_probeGuard->start();
+    emit probeStateChanged(clientName, true);
+    emit statusMessageChanged(tr("Checking client %1...").arg(clientName));
+    notifyClientStatus(clientName);
+    return true;
+}
+
+void BClientsModel::onClientProbeFinished(quint64 id, const QString &clientName, int status,
+                                          const QString &text, const QString &error)
+{
+    // Only the probe this model started; the id is the Director's
+    if (m_probeClient.isEmpty() || id != m_probeId)
+        return;
+    const QString probed = m_probeClient;
+    m_probeClient.clear();
+    m_probeId = 0;
+    m_probeGuard->stop();
+    const BClientReachability::ProbeOutcome outcome = BClientReachability::classifyProbe(
+        static_cast<BClientProbeStatus>(status), text, error);
+    if (!clientName.isEmpty() && clientName != probed) {
+        CLIENTS_WARNING << "Probe reply names" << clientName << "instead of" << probed;
+    }
+    setProbeResult(probed, outcome);
+    emit probeStateChanged(probed, false);
+    emit statusMessageChanged(probeText(outcome, QDateTime::currentDateTime()));
+    emit probeFinished(probed, outcome);
 }
 
 BClientsModel::LiveStatus BClientsModel::liveStatus(const QString &clientName,
                                                     const QDateTime &now) const
 {
+    using namespace BClientReachability;
     const auto it = m_live.constFind(clientName);
     if (it == m_live.constEnd())
         return {};
-    if (it->validUntil.isValid() && now >= it->validUntil)
+    // The catalog only matters against an Offline observation
+    const QDateTime catalog = it->observation.state == State::Offline
+                                  ? lastCatalogActivity(clientName) : QDateTime();
+    const Fact fact = resolve(*it, now, catalog);
+    LiveStatus live;
+    switch (fact.state) {
+    case State::None:
         return {};
-    return {it->state, it->at};
+    case State::Online:
+        live.state = LiveStatus::Online;
+        break;
+    case State::Offline:
+        live.state = LiveStatus::Offline;
+        break;
+    }
+    live.at = fact.at;
+    live.source = fact.source;
+    live.connected = fact.state == State::Online && !fact.validUntil.isValid()
+                     && (fact.source == Source::Connection || fact.source == Source::Event);
+    return live;
+}
+
+QString BClientsModel::liveLabel(const LiveStatus &live)
+{
+    if (live.state == LiveStatus::Offline)
+        return tr("Offline");
+    return live.connected ? tr("Connected") : tr("Online");
+}
+
+QString BClientsModel::liveToolTip(const LiveStatus &live)
+{
+    const QString time = QLocale().toString(live.at, QLocale::ShortFormat);
+    const bool online = live.state == LiveStatus::Online;
+    switch (live.source) {
+    case Source::Connection:
+        return live.connected
+            ? tr("The client holds a client-initiated connection to the Director, connected at %1 "
+                 "(\"status director\").").arg(time)
+            : tr("The client held a client-initiated connection to the Director at %1 "
+                 "(\"status director\"). It is no longer in the list, which also happens while it "
+                 "runs a job.").arg(time);
+    case Source::Event:
+        if (live.connected)
+            return tr("The Director has an open connection to the client since %1 (client event of "
+                      "the Director).").arg(time);
+        return online ? tr("The Director reached the client at %1 (client event of the Director).").arg(time)
+                      : tr("The Director could not reach the client at %1 (client event of the Director).").arg(time);
+    case Source::Probe:
+        return online ? tr("The client answered \"Check now\" at %1.").arg(time)
+                      : tr("The Director could not connect to the client at %1 (\"Check now\").").arg(time);
+    case Source::None:
+    case Source::Catalog:
+        break;
+    }
+    return QString();
+}
+
+QString BClientsModel::probeText(const BClientReachability::ProbeOutcome &outcome, const QDateTime &at)
+{
+    using BClientReachability::ProbeReason;
+    const QString time = QLocale().toString(at, QLocale::ShortFormat);
+    switch (outcome.reason) {
+    case ProbeReason::Answered:
+        return tr("Check at %1: the client answered.").arg(time);
+    case ProbeReason::ConnectFailed:
+        return tr("Check at %1: the Director could not connect to the client.").arg(time);
+    case ProbeReason::Disabled:
+        return tr("Check at %1: the client is disabled on the Director, so it was not contacted.").arg(time);
+    case ProbeReason::NoEvidence:
+        return tr("Check at %1: the reply does not tell whether the client answered.").arg(time);
+    case ProbeReason::Timeout:
+        return tr("Check at %1: no answer in time; the state is unknown.").arg(time);
+    case ProbeReason::Error:
+        return outcome.detail.isEmpty()
+            ? tr("Check at %1 failed; the state is unknown.").arg(time)
+            : tr("Check at %1 failed: %2").arg(time, outcome.detail);
+    case ProbeReason::NotAvailable:
+        return outcome.detail.isEmpty()
+            ? tr("Check at %1: not possible on this connection.").arg(time)
+            : tr("Check at %1: %2").arg(time, outcome.detail);
+    }
+    return QString();
+}
+
+QDateTime BClientsModel::lastCatalogActivity(const QString &clientName) const
+{
+    for (const QJsonValue &value : m_allClients) {
+        const QJsonObject client = value.toObject();
+        if (client.value("name").toString() == clientName) {
+            const BClientStatus::Info info = clientActivity(client);
+            return info.timestamp;
+        }
+    }
+    return QDateTime();
+}
+
+void BClientsModel::scheduleExpiry(const QString &clientName, const QDateTime &validUntil)
+{
+    // When Online runs out, the cell falls back to the last backup
+    if (!validUntil.isValid())
+        return;
+    const qint64 ms = QDateTime::currentDateTime().msecsTo(validUntil);
+    if (ms > 0) {
+        QTimer::singleShot(ms + 500, this, [this, clientName]() {
+            notifyClientStatus(clientName);
+        });
+    }
 }
 
 void BClientsModel::notifyClientStatus(const QString &clientName)
@@ -886,21 +1141,6 @@ void BClientsModel::notifyClientStatus(const QString &clientName)
             emit QAbstractItemModel::dataChanged(index(row, COL_STATUS), index(row, COL_STATUS));
         }
     }
+    emit clientStatusChanged(clientName);
     // No allClientsChanged(): that filters and resets the whole table
-}
-
-void BClientsModel::requestStatusChecks()
-{
-    // DISABLED: Bareos status client command doesn't properly support JSON output
-    // (see GitHub issue #2325). The response is unreliable for online/offline detection.
-    // The status column shows the age of the last backup instead (clientActivity()).
-    //
-    // if (!m_director || !m_director->isConnected())
-    //     return;
-    // m_clientOnlineStatus.clear();
-    // for (const QJsonValue &clientVal : m_allClients) {
-    //     QString name = clientVal.toObject()["name"].toString();
-    //     if (!name.isEmpty())
-    //         emit sendCommand(BDirector::Command::StatusClient, name);
-    // }
 }

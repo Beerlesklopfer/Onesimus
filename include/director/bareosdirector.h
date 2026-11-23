@@ -58,6 +58,7 @@
 #include "director/bconfigtypes.h"
 #include "director/busage.h"
 #include "director/bjsonreassembler.h"
+#include "director/bclientevent.h"
 #define DIR_DEBUG BLOG_DEBUG()
 #define DIR_WARNING BLOG_WARNING()
 #define DIR_CRITICAL BLOG_ERROR()
@@ -868,8 +869,24 @@ signals:
     void usageChanged(const BUsage::Info &usage);
     /// Client event of the gRPC push stream (BClientEvent as int)
     void clientStatusEvent(const QString &clientName, int event, qint64 unixTime);
+    /// Reply to probeClient() (BClientProbeStatus as int)
+    void clientProbeFinished(quint64 id, const QString &clientName, int status,
+                             const QString &text, const QString &error);
 
 public slots:
+
+    /**
+     * @brief Probes one client ("Check now")
+     *
+     * Over gRPC the typed GetClientStatus of the Onesimus Director, which has
+     * its own reply object. Over the console protocol nothing is sent: the
+     * reply of "status client" in API mode 2 does not say whether the file
+     * daemon answered (Bareos collects the text in the JSON messages, which
+     * it does not send; bareos/bareos#2325), and replies are matched by
+     * queue position only (backlog P3-1). Always answered by
+     * clientProbeFinished() with the same id.
+     */
+    void probeClient(quint64 id, const QString &clientName);
 
     /**
      * @brief Runs a configuration request (DirectorApi CRUD, gRPC only)

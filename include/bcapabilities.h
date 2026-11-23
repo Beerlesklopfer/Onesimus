@@ -42,6 +42,7 @@ enum class Function {
     ModifyJobDefs,      ///< Write a change of an existing JobDefs resource
     DeleteJobDefs,      ///< Delete a JobDefs resource
     CreateJobDefs,      ///< Create a JobDefs resource (CreateResource, else the wizard)
+    ProbeClient,        ///< "Check now": ask whether one client is reachable (issue #9)
 };
 
 /** What the Onesimus Director provides. */
@@ -54,6 +55,9 @@ enum class Support {
     /// Director decides per session, from its version and the ACLs of the
     /// console. Never over the console protocol.
     Live,
+    /// Over gRPC, by a typed call of DirectorApi that every session has (no
+    /// configuration capability involved). Never over the console protocol.
+    Grpc,
 };
 
 /**
@@ -139,8 +143,9 @@ Server describeServer(Connection connection, const QString &identity,
  * @brief Whether @p server provides the function
  *
  * Bareos and Unknown follow the Bareos column; an Onesimus Director provides
- * a function if its column says Yes, or says Live and the connection is
- * gRPC and the capabilities of the session list the entry's operation.
+ * a function if its column says Yes, or says Grpc and the connection is
+ * gRPC, or says Live and the connection is gRPC and the capabilities of the
+ * session list the entry's operation.
  */
 bool isAvailable(const Entry &entry, const Server &server);
 bool isAvailable(Function function, const Server &server);

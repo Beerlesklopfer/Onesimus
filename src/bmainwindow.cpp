@@ -387,9 +387,17 @@ BMainWindow::BMainWindow(QWidget *parent)
             m_jobWidget->processMessagesResponse(jsonData);
             break;
 
+        case BDirector::Command::StatusDirector:
+            // Client-initiated connections (issue #9). Sent only by the
+            // clients model (BClientsModel::refresh()). The reply is matched by
+            // queue position (backlog P3-1); the parser changes nothing unless
+            // the reply itself carries the "client-connection" list.
+            m_clientWidget->model()->setStatusDirectorReply(jsonData);
+            break;
+
         case BDirector::Command::StatusClient:
-            // StatusClient currently disabled (Bareos JSON API limitation)
-            // When re-enabled, needs command queue (Phase 5) to access client name
+            // Not sent: "Check now" uses BDirector::probeClient() (typed
+            // GetClientStatus over gRPC, its own reply object)
             break;
 
         case BDirector::Command::Configure:
@@ -411,9 +419,9 @@ BMainWindow::BMainWindow(QWidget *parent)
     });
 
     // Client events of the Onesimus Director (gRPC push): the status column
-    // of the clients shows Online/Offline from them. A failed "status
-    // client" is not taken as Offline: it also fails for an unknown client
-    // or a missing ACL.
+    // of the clients shows Connected/Online/Offline from them. A failed probe
+    // is not taken as Offline unless the Director reports that it could not
+    // connect (BClientReachability::classifyProbeReply()).
     connect(m_director, &BDirector::clientStatusEvent, this,
             [this](const QString &clientName, int event, qint64 unixTime) {
         m_clientWidget->model()->setClientLiveEvent(

@@ -1,0 +1,17 @@
+Connecting to Client server-fd at 192.0.2.10:9102
+Probing client protocol... (result will be saved until config reload) Handshake: Immediate TLS, Encryption: TLS_AES_256_GCM_SHA384 TLSv1.3
+
+server-fd Version: 25.1.2~pre49.d5742f640 (16 October 2026) Debian GNU/Linux 13 (trixie)
+Daemon started 16-Nov-26 02:07. Jobs: run=17 running=0, Bareos community binary
+ Sizeof: boffset_t=8 size_t=8 debug=0 trace=0 bwlimit=0kB/s
+
+Running Jobs:
+onesimus-dir (director) connected at: 23-Nov-26 18:31
+No Jobs running.
+====
+
+Terminated Jobs:
+ JobId  Level    Files      Bytes   Status   Finished        Name 
+======================================================================
+  1160  Full          1    204.3 M  OK       20-Nov-26 23:30 BackupCatalog
+====

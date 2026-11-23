@@ -200,7 +200,7 @@ void BCapabilitiesTest::describeServer()
 void BCapabilitiesTest::tableIsComplete()
 {
     const QList<Function> functions = allFunctions();
-    QCOMPARE(functions.size(), 11);
+    QCOMPARE(functions.size(), 12);
 
     QSet<QString> ids;
     for (Function function : functions) {
@@ -213,7 +213,7 @@ void BCapabilitiesTest::tableIsComplete()
         QCOMPARE(QString::fromLatin1(row->reason).count(QStringLiteral("%1")), 1);
         ids.insert(QString::fromLatin1(row->id));
     }
-    QCOMPARE(ids.size(), 11);
+    QCOMPARE(ids.size(), 12);
 
     // The identifiers are settings keys and must not change
     QCOMPARE(QString::fromLatin1(entry(Function::ModifySchedule)->id),
@@ -232,6 +232,7 @@ void BCapabilitiesTest::tableIsComplete()
     QCOMPARE(QString::fromLatin1(entry(Function::ModifyJobDefs)->id), QStringLiteral("jobdefs.modify"));
     QCOMPARE(QString::fromLatin1(entry(Function::DeleteJobDefs)->id), QStringLiteral("jobdefs.delete"));
     QCOMPARE(QString::fromLatin1(entry(Function::CreateJobDefs)->id), QStringLiteral("jobdefs.create"));
+    QCOMPARE(QString::fromLatin1(entry(Function::ProbeClient)->id), QStringLiteral("client.probe"));
 
     // What the two Directors provide
     QCOMPARE(entry(Function::ModifySchedule)->bareos, false);
@@ -267,6 +268,21 @@ void BCapabilitiesTest::tableIsComplete()
     QCOMPARE(entry(Function::DeleteJobDefs)->liveOperation, BConfig::Operation::Delete);
     QCOMPARE(entry(Function::CreateJob)->bareos, true);
     QCOMPARE(entry(Function::CreateJobDefs)->liveOperation, BConfig::Operation::CreateRaw);
+
+    // "Check now" (issue #9): the typed GetClientStatus over gRPC, which every
+    // session has; never over the console protocol, never on Bareos
+    QCOMPARE(entry(Function::ProbeClient)->bareos, false);
+    QCOMPARE(entry(Function::ProbeClient)->onesimus, Support::Grpc);
+    QVERIFY(isAvailable(Function::ProbeClient, onesimus()));
+    const Server onesimusConsole = BCapabilities::describeServer(
+        Connection::Classic, QStringLiteral("1000 OK: PDC-dir Version: 25.1.2+onesimus.0.2.0 (x)"));
+    QVERIFY(!isAvailable(Function::ProbeClient, onesimusConsole));
+    QVERIFY(notice(Function::ProbeClient, onesimusConsole).text.contains(QStringLiteral("over gRPC")));
+    QVERIFY(!isAvailable(Function::ProbeClient, bareos()));
+    QVERIFY(notice(Function::ProbeClient, bareos()).text.contains(
+        QStringLiteral("supports this over its gRPC interface")));
+    QVERIFY(!isAvailable(Function::ProbeClient, unidentified()));
+    QVERIFY(!isAvailable(Function::ProbeClient, Server()));
 }
 
 void BCapabilitiesTest::lookup_data()
@@ -525,10 +541,11 @@ void BCapabilitiesTest::noticeNeverClaimsMoreThanTheTable()
         const Entry *row = entry(function);
         for (const Server &server : servers) {
             const QString text = notice(function, server).text;
-            // "supports this" only for Support::Yes and Live, and only
+            // "supports this" only for Support::Yes, Live and Grpc, and only
             // about the Onesimus Director when it is not the one connected
             QCOMPARE(text.contains(QStringLiteral("supports this")),
-                     (row->onesimus == Support::Yes || row->onesimus == Support::Live)
+                     (row->onesimus == Support::Yes || row->onesimus == Support::Live
+                      || row->onesimus == Support::Grpc)
                          && server.kind != ServerKind::OnesimusDirector);
             QCOMPARE(text.contains(QStringLiteral("planned")), row->onesimus == Support::Planned);
             if (row->onesimus == Support::No) {

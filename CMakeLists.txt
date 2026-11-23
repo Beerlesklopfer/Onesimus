@@ -604,6 +604,7 @@ set(SOURCES
     src/messages/bmessageswidget.cpp
 
     src/clients/bclientsmodel.cpp
+    src/clients/bclientreachability.cpp
     src/clients/bclientstatus.cpp
     src/clients/bclientswidget.cpp
     src/clients/bclientdetailsdialog.cpp
@@ -717,6 +718,7 @@ set(HEADERS
 
     include/clients/bclientsmodel.h
     include/clients/bclientstatus.h
+    include/clients/bclientreachability.h
     include/bsortvalue.h
     include/bsorttableitem.h
     include/blabelstate.h
@@ -1953,6 +1955,31 @@ if(BUILD_TESTING)
 
     add_test(NAME bclientstatus_test COMMAND bclientstatus_test)
 
+    # bclientreachability_test - "status director" client connections, the
+    # reply of "Check now" and the order of the status sources (issue #9);
+    # fixtures from the Bareos and Onesimus Director sources, no Director
+    add_executable(bclientreachability_test
+        test/bclientreachability_test.cpp
+        src/clients/bclientreachability.cpp
+        include/clients/bclientreachability.h
+        include/director/bclientevent.h
+    )
+
+    target_include_directories(bclientreachability_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_compile_definitions(bclientreachability_test PRIVATE
+        FIXTURE_DIR="${CMAKE_SOURCE_DIR}/test/fixtures"
+    )
+
+    target_link_libraries(bclientreachability_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bclientreachability_test COMMAND bclientreachability_test)
+
     # bjobpaging_test - page arithmetic of the job list pagination
     add_executable(bjobpaging_test
         test/bjobpaging_test.cpp
@@ -2708,6 +2735,7 @@ if(BUILD_TESTING)
     add_executable(bclientsmodel_test
         test/bclientsmodel_test.cpp
         src/clients/bclientsmodel.cpp
+        src/clients/bclientreachability.cpp
         src/clients/bclientstatus.cpp
         src/bstatuschip.cpp
         src/director/bdirector.cpp
@@ -2715,6 +2743,7 @@ if(BUILD_TESTING)
         src/bbyteformat.cpp
         include/config/bconfigparser.h
         include/clients/bclientsmodel.h
+        include/clients/bclientreachability.h
         include/bbyteformat.h
         include/clients/bclientstatus.h
         include/bstatuschip.h

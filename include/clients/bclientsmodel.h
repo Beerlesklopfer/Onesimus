@@ -15,6 +15,7 @@
 #include <QPair>
 #include <QTimer>
 #include "blogging.h"
+#include "clients/bclientreachability.h"
 #include "clients/bclientstatus.h"
 #include "config/bconfigparser.h"
 #include "director/bdirector.h"
@@ -213,38 +214,89 @@ public:
 
     /// Client events the Director pushes (gRPC, Onesimus Director)
     using LiveEvent = BClientEvent;
+    using Source = BClientReachability::Source;
 
-    /// What the events say about a client at a time
+    /// What the live sources say about a client at a time (BClientReachability::resolve())
     struct LiveStatus {
         enum State { None, Online, Offline };
         State state = None;
-        QDateTime at;           ///< Time of the event it rests on
+        QDateTime at;           ///< Time of the fact it rests on
+        Source source = Source::None;
+        /// An open connection (client-initiated, or an FdConnected without
+        /// FdDisconnected yet): shown as "Connected"
+        bool connected = false;
     };
 
-    /// Online after an event lasts this long after the connection ended or
-    /// the client answered; then the column shows the last backup again
-    static constexpr int OnlineValidSecs = 10 * 60;
+    /// Online after an event or a probe lasts this long after the connection
+    /// ended or the client answered; then the column shows the last backup again
+    static constexpr int OnlineValidSecs = BClientReachability::OnlineValidSecs;
 
     /**
      * @brief Takes a client event of the Director (push stream)
      *
-     * Feeds the status column with real data: Online while a connection to
-     * the file daemon is open and for OnlineValidSecs after it ended or the
-     * client answered a check; Offline after a failed check, until the next
-     * contact. Only the rows of the client are updated (dataChanged).
+     * Feeds the status column with real data: Connected while a connection
+     * to the file daemon is open, Online for OnlineValidSecs after it ended
+     * or the client answered a check; Offline after a failed check, until
+     * the next contact. Only the rows of the client are updated (dataChanged).
      * @param at When the Director saw it; invalid: now
      */
     void setClientLiveEvent(const QString &clientName, LiveEvent event,
                             const QDateTime &at = QDateTime());
 
-    /// The live state of a client at @p now (None: no event that still holds)
-    LiveStatus liveStatus(const QString &clientName, const QDateTime &now) const;
+    /**
+     * @brief Takes the client-initiated connections of a "status director" reply
+     *
+     * A reply this parser does not know (no "client-connection" list) changes
+     * nothing. Otherwise the listed clients are Connected; a client that was
+     * listed before and is no longer stays Online for OnlineValidSecs from the
+     * reply that last listed it (it may be running a job: Bareos takes the
+     * connection out of the list for the job).
+     * @param at Time of the reply; invalid: now
+     * @return whether the reply carried the list
+     */
+    bool setStatusDirectorReply(const QString &jsonData, const QDateTime &at = QDateTime());
+    /// The same with a parsed list
+    void setConnectedClients(const BClientReachability::ConnectionList &list,
+                             const QDateTime &at = QDateTime());
 
     /**
-     * @brief Sends status client=<name> for all known clients to probe online status
-     * @since 2.10
+     * @brief Takes the result of a probe ("Check now")
+     *
+     * Reachable: Online for OnlineValidSecs. Unreachable: Offline until the
+     * next contact. Unknown: the status stays; the outcome is kept for the
+     * tooltip and the details dialog (probeOutcome()).
      */
-    void requestStatusChecks();
+    void setProbeResult(const QString &clientName, const BClientReachability::ProbeOutcome &outcome,
+                        const QDateTime &at = QDateTime());
+
+    /// The last probe of a client and its time (result Unknown, invalid time: none)
+    QPair<BClientReachability::ProbeOutcome, QDateTime> probeOutcome(const QString &clientName) const;
+
+    /**
+     * @brief Probes one client now ("Check now")
+     *
+     * Sends one probe through the Director (BDirector::probeClient(): the
+     * typed GetClientStatus of the Onesimus Director over gRPC). One probe at
+     * a time: false while one runs, without a Director or connection.
+     * The caller checks the capability (BCapabilities::Function::ProbeClient)
+     * first. The result arrives as probeFinished().
+     */
+    bool checkClientNow(const QString &clientName);
+    /// The client being probed, empty if none
+    QString probingClient() const { return m_probeClient; }
+    /// A probe without a reply after this long ends as a timeout (the gRPC
+    /// deadline of the call is 60 s)
+    static constexpr int ProbeGuardMs = 75000;
+
+    /// The live state of a client at @p now (None: no fact that still holds)
+    LiveStatus liveStatus(const QString &clientName, const QDateTime &now) const;
+
+    /// Tooltip of a live state
+    static QString liveToolTip(const LiveStatus &live);
+    /// Cell text of a live state: "Connected", "Online", "Offline"
+    static QString liveLabel(const LiveStatus &live);
+    /// Sentence for the outcome of a probe ("The client answered at ...")
+    static QString probeText(const BClientReachability::ProbeOutcome &outcome, const QDateTime &at);
 
 signals:
     /**
@@ -273,6 +325,13 @@ signals:
      * @since 2.9
      */
     void statusMessageChanged(const QString &message);
+
+    /// A probe started (checkClientNow()) or ended (probeFinished())
+    void probeStateChanged(const QString &clientName, bool running);
+    /// The outcome of checkClientNow()
+    void probeFinished(const QString &clientName, const BClientReachability::ProbeOutcome &outcome);
+    /// The status of a client changed (event, probe, "status director")
+    void clientStatusChanged(const QString &clientName);
 
 private:
     /**
@@ -311,15 +370,23 @@ private:
     QMap<QString, QPair<QString, int>> m_addresses; ///< Client name → {address, port}
     QMap<QString, QJsonObject> m_showClientDetails; ///< Client name → full "show clients" data
 
-    // Client events of the Director (setClientLiveEvent())
-    struct LiveRecord {
-        LiveStatus::State state = LiveStatus::None;
-        QDateTime at;
-        QDateTime validUntil;   ///< Invalid: until the next event
-    };
-    QHash<QString, LiveRecord> m_live;
+    // Live sources of the status column (BClientReachability)
+    QHash<QString, BClientReachability::Inputs> m_live;
+    QSet<QString> m_listedClients;      ///< Listed by the last "status director"
+    QDateTime m_lastListAt;             ///< Time of that reply
+    QHash<QString, QPair<BClientReachability::ProbeOutcome, QDateTime>> m_probes;
+    QString m_probeClient;              ///< Probe running for this client
+    quint64 m_probeId = 0;              ///< Its id (BDirector::clientProbeFinished())
+    /// Ends a probe whose reply never comes (connection lost): Unknown
+    QTimer *m_probeGuard = nullptr;
+    void onClientProbeFinished(quint64 id, const QString &clientName, int status,
+                               const QString &text, const QString &error);
     /// Tells the views that the status cells of a client changed
     void notifyClientStatus(const QString &clientName);
+    /// Repaints the cell when a fact of the client runs out
+    void scheduleExpiry(const QString &clientName, const QDateTime &validUntil);
+    /// Time of the last backup or contact of a client (invalid if none)
+    QDateTime lastCatalogActivity(const QString &clientName) const;
 
     int m_staleThresholdHours = BClientStatus::DefaultThresholdHours;
 

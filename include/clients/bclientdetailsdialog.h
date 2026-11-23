@@ -94,6 +94,8 @@ private:
     void setupStatisticsTab();
     void loadClientJobs();
     void onTlsModeChanged();
+    /// Reachability row: live fact, last check, button state
+    void updateReachability();
 
 private slots:
     void onJobsReceived(BDirector::Command cmd, const QString &response);
@@ -116,6 +118,8 @@ private:
     QLabel *m_osLabel;
     QLabel *m_statusLabel;
     QLabel *m_lastConnLabel;
+    QLabel *m_reachLabel = nullptr;
+    QPushButton *m_checkNowButton = nullptr;
     QLabel *m_autoprune;
     QLabel *m_fileRetention;
     QLabel *m_jobRetention;

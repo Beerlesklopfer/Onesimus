@@ -143,6 +143,8 @@ void BareosDirector::initialize()
                      this, &BareosDirector::configCapabilitiesChanged);
     QObject::connect(m_grpc, &BGrpcTransport::usageChanged, this, &BareosDirector::usageChanged);
     QObject::connect(m_grpc, &BGrpcTransport::clientStatusEvent, this, &BareosDirector::clientStatusEvent);
+    QObject::connect(m_grpc, &BGrpcTransport::clientProbeFinished,
+                     this, &BareosDirector::clientProbeFinished);
 #endif
 
     m_initialized = true;
@@ -203,6 +205,21 @@ void BareosDirector::configCall(quint64 id, const BConfig::Request &request)
     reply.status = BConfig::Status::NotAvailable;
     reply.rpcMessage = tr("Changing the configuration needs the gRPC interface of the Onesimus Director");
     QTimer::singleShot(0, this, [this, id, reply]() { emit configReply(id, reply); });
+}
+
+void BareosDirector::probeClient(quint64 id, const QString &clientName)
+{
+#ifdef HAVE_GRPC
+    if (m_transport == Transport::Grpc && m_grpc) {
+        m_grpc->probeClient(id, clientName);
+        return;
+    }
+#endif
+    // The console protocol: nothing is sent (see the header)
+    const QString reason = tr("Checking a client needs the gRPC interface of the Onesimus Director");
+    QTimer::singleShot(0, this, [this, id, clientName, reason]() {
+        emit clientProbeFinished(id, clientName, int(BClientProbeStatus::NotAvailable), QString(), reason);
+    });
 }
 
 bool BareosDirector::grpcAvailable()
