@@ -479,6 +479,7 @@ set(SOURCES
     src/director/bdirector.cpp
     src/director/bareosdirector.cpp
     src/director/bjsonreassembler.cpp
+    src/bheadlessrunner.cpp
     src/director/bdirectorconfigclient.cpp
     src/db/bdatabase.cpp
     src/db/bresourcemodel.cpp
@@ -643,6 +644,7 @@ set(HEADERS
     include/director/bareosdirector.h
     include/director/bjsonreassembler.h
     include/jobs/bjobcancel.h
+    include/bheadlessrunner.h
     include/db/bdatabase.h
     include/db/bresourcemodel.h
     include/db/bdirectormodel.h
@@ -2033,6 +2035,41 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bjobcancel_test COMMAND bjobcancel_test)
+
+    # bheadlessrunner_test - headless mode against a fake Director: commands,
+    # script, replies, exit status; on Linux also the onesimus binary (P1-29)
+    add_executable(bheadlessrunner_test
+        test/bheadlessrunner_test.cpp
+        test/bfakebnetdirector.h
+        test/bbnettesthelpers.h
+        src/bheadlessrunner.cpp
+        include/bheadlessrunner.h
+        src/director/bdirector.cpp
+        include/director/bdirector.h
+    )
+
+    target_include_directories(bheadlessrunner_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/test
+    )
+
+    target_link_libraries(bheadlessrunner_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bheadlessrunner_test COMMAND bheadlessrunner_test)
+    if(UNIX AND NOT APPLE)
+        # The binary starts from the build tree only where no deployment is
+        # needed for it
+        add_dependencies(bheadlessrunner_test onesimus)
+        set_tests_properties(bheadlessrunner_test PROPERTIES
+            ENVIRONMENT "ONESIMUS_BINARY=$<TARGET_FILE:onesimus>")
+    endif()
 
     # bdirectorqueue_test - command queue of BareosDirector without a connection
     add_executable(bdirectorqueue_test

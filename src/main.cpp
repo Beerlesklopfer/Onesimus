@@ -6,11 +6,14 @@
 #include "config/bsettings.h"
 #include "blogging.h"
 #include "bcommandlineconnection.h"
+#include "bheadlessrunner.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QIcon>
 #include <QStandardPaths>
 #include <QDir>
+#include <QFile>
+#include <memory>
 #include <QSslSocket>
 #include <version.h>
 
@@ -25,8 +28,8 @@ struct CommandLineOptions {
     QString director;
     QString console;
     QString password;
-    QString configFile;
     QString command;
+    QString scriptFile;
 
     // TLS options (mapped to the Director configuration by bApplyCommandLineTls())
     BCommandLineTlsOptions tls;
@@ -38,14 +41,19 @@ struct CommandLineOptions {
     fprintf(stderr, "%s: %s\n", qPrintable(QCoreApplication::applicationName()), qPrintable(message));
     ::exit(2);
 }
-CommandLineOptions parseCommandLine(QApplication &app)
+CommandLineOptions parseCommandLine(QCoreApplication &app)
 {
     QCommandLineParser parser;
     parser.setApplicationDescription(
         "Onesimus - Bareos Backup Management\n"
         "\n"
         "A modern Qt-based interface for Bareos Director.\n"
-        "Can be used with GUI or in headless/batch mode."
+        "Can be used with GUI or in headless/batch mode.\n"
+        "\n"
+        "Headless mode logs in, sends the command (-e or the arguments) and the\n"
+        "commands of the script (-s) one after the other and prints each reply\n"
+        "(the Director's JSON) on standard output. Exit status: 0 every command\n"
+        "succeeded, 1 a command failed, 2 no session with the Director."
         );
 
     // Standard-Optionen
@@ -131,17 +139,6 @@ CommandLineOptions parseCommandLine(QApplication &app)
     parser.addOption(passwordFileOption);
 
     // ========================================
-    // Config-Optionen
-    // ========================================
-
-    QCommandLineOption configOption(
-        QStringList() << "c" << "config",
-        "Configuration file",
-        "file"
-        );
-    parser.addOption(configOption);
-
-    // ========================================
     // TLS-Optionen (plattformabhängig)
     // ========================================
 
@@ -197,14 +194,14 @@ CommandLineOptions parseCommandLine(QApplication &app)
 
     QCommandLineOption execOption(
         QStringList() << "e" << "exec" << "execute",
-        "Execute bconsole command and exit",
+        "Execute a console command and exit (with --headless)",
         "command"
         );
     parser.addOption(execOption);
 
     QCommandLineOption scriptOption(
         QStringList() << "s" << "script",
-        "Execute commands from script file",
+        "Execute the commands of a script file, one per line; '-' reads standard input (with --headless)",
         "script-file"
         );
     parser.addOption(scriptOption);
@@ -241,7 +238,7 @@ CommandLineOptions parseCommandLine(QApplication &app)
     options.port        = parser.value(portOption).toInt();
     options.director    = parser.value(directorOption);
     options.console     = parser.value(consoleOption);
-    options.configFile  = parser.value(configOption);
+    options.scriptFile  = parser.value(scriptOption);
 
     // Password: -P, --password-file or ONESIMUS_PASSWORD
     QString passwordError;
@@ -304,9 +301,6 @@ void usage()
         "      --password-file <file>  Read the password from the first line of <file>\n"
         "                              (or set the environment variable ONESIMUS_PASSWORD)\n"
         "\n"
-        "Configuration:\n"
-        "  -c, --config <file>         Configuration file\n"
-        "\n"
         "TLS/SSL Options:\n"
         "  --tls                       Connect with TLS (TLS-PSK, or certificates with the\n"
         "                              options below); an unencrypted session is refused\n"
@@ -320,8 +314,8 @@ void usage()
 #endif
         "\n"
         "Command Execution:\n"
-        "  -e, --exec, --execute <cmd> Execute bconsole command and exit\n"
-        "  -s, --script <file>         Execute commands from script file\n"
+        "  -e, --exec, --execute <cmd> Execute a console command and exit\n"
+        "  -s, --script <file>         Execute the commands of <file>, one per line\n"
         "  [command]                   Bconsole command to execute\n"
         "\n"
         "Other Options:\n"
@@ -346,14 +340,36 @@ void usage()
         "\n"
         "  Execute script:\n"
         "    onesimus --headless -H localhost -P secret -s backup-script.txt\n"
-        "\n");
+        "\n"
+        "Headless mode prints each reply (the Director's JSON) on standard output.\n"
+        "Exit status: 0 every command succeeded, 1 a command failed, 2 no session.\n");
 
     exit(1);
 }
 
+// True when the command line asks for headless mode. Looked at before the
+// application object exists: headless mode needs no display, so it runs on
+// a QCoreApplication (the parser decides again afterwards).
+static bool headlessRequested(int argc, char *argv[])
+{
+    for (int i = 1; i < argc; ++i) {
+        const QByteArray arg(argv[i]);
+        if (arg == "--") {
+            break;
+        }
+        if (arg == "-n" || arg == "--no-gui" || arg == "--headless") {
+            return true;
+        }
+    }
+    return false;
+}
+
 int main(int argc, char *argv[])
 {
-    QApplication app(argc, argv);
+    const bool headless = headlessRequested(argc, argv);
+    std::unique_ptr<QCoreApplication> application(
+        headless ? new QCoreApplication(argc, argv) : new QApplication(argc, argv));
+    QCoreApplication &app = *application;
 
     QCoreApplication::addLibraryPath(
         QCoreApplication::applicationDirPath() + "/plugins");
@@ -375,14 +391,20 @@ int main(int argc, char *argv[])
     app.setOrganizationName("bareos");
     app.setOrganizationDomain("bareos.org");
 #endif
-    // Use Onesimus application icon
-    app.setWindowIcon(QIcon(":/icons/icons/onesimus.svg"));
-    // Matches onesimus.desktop: Wayland app_id / X11 WM_CLASS, so GNOME (Shell,
-    // System Monitor) shows the desktop file's icon and name.
-    QGuiApplication::setDesktopFileName(QStringLiteral("onesimus"));
+    if (!headless) {
+        // Use Onesimus application icon
+        QApplication::setWindowIcon(QIcon(":/icons/icons/onesimus.svg"));
+        // Matches onesimus.desktop: Wayland app_id / X11 WM_CLASS, so GNOME (Shell,
+        // System Monitor) shows the desktop file's icon and name.
+        QGuiApplication::setDesktopFileName(QStringLiteral("onesimus"));
+    }
 
     // Command-Line parsen
     CommandLineOptions options = parseCommandLine(app);
+    if (options.headless != headless) {
+        // "-n" taken as the value of another option, or the like
+        commandLineError(QStringLiteral("Give --headless (-n) as an option of its own"));
+    }
 
     // TLS configuration of a connection made from the command line
     // (--headless, or --auto-connect with --host)
@@ -426,60 +448,51 @@ int main(int argc, char *argv[])
         if (options.verbose) {
             BLOG_INFO() << "Running in headless mode";
         }
-
-        // Director-Verbindung ohne GUI
-        BDirector director;
-
-        // Verbinde
-        if (!options.host.isEmpty()) {
-            if (options.verbose) {
-                BLOG_INFO() << "Connecting to" << options.host << ":" << options.port;
-            }
-
-            // Without --tls this is the default configuration (no TLS)
-            director.setTLSConfig(commandLineTls);
-
-            QObject::connect(&director, &BDirector::protocolError, [](const QString &error) {
-                fprintf(stderr, "%s\n", qPrintable(error));
-            });
-
-            director.connect(
-                options.host,
-                options.port,
-                options.director,
-                options.console,
-                options.password
-                );
-
-            // Warte auf Verbindung
-            QEventLoop loop;
-            // QObject::connect(&director, &BDirector::connected, &loop, &QEventLoop::quit);
-            QObject::connect(&director, &BDirector::protocolError, &loop, &QEventLoop::quit);
-            QTimer::singleShot(10000, &loop, &QEventLoop::quit); // Timeout
-            loop.exec();
-
-            if (director.isConnected()) {
-                // Führe Befehl aus
-                if (!options.command.isEmpty()) {
-                    // director.doSend(options.command);
-
-                    // Warte auf Antwort
-                    QObject::connect(&director, &BDirector::textResult,
-                                     [](BDirector::Command, const QString &response) {
-                                         BLOG_DEBUG() << response;
-                                     });
-
-                    QTimer::singleShot(5000, &app, &QCoreApplication::quit);
-                    return app.exec();
-                }
-            } else {
-                BLOG_ERROR() << "Connection failed";
-                BLOG_CLOSE();
-                return 1;
-            }
+        if (options.host.isEmpty()) {
+            commandLineError(QStringLiteral("--headless needs --host"));
         }
 
-        return 0;
+        // The command (-e or the positional arguments) first, then the script
+        QStringList commands;
+        if (!options.command.trimmed().isEmpty()) {
+            commands << options.command.trimmed();
+        }
+        if (!options.scriptFile.isEmpty()) {
+            QFile script;
+            const bool opened = options.scriptFile == QLatin1String("-")
+                                    ? script.open(stdin, QIODevice::ReadOnly)
+                                    : (script.setFileName(options.scriptFile),
+                                       script.open(QIODevice::ReadOnly));
+            if (!opened) {
+                commandLineError(QStringLiteral("Cannot read the script %1: %2")
+                                     .arg(options.scriptFile, script.errorString()));
+            }
+            commands << BHeadlessRunner::scriptCommands(QString::fromUtf8(script.readAll()));
+        }
+
+        QFile out;
+        QFile err;
+        out.open(stdout, QIODevice::WriteOnly | QIODevice::Unbuffered);
+        err.open(stderr, QIODevice::WriteOnly | QIODevice::Unbuffered);
+
+        // Director-Verbindung ohne GUI.
+        // Without --tls this is the default configuration (no TLS)
+        BDirector director;
+        director.setTLSConfig(commandLineTls);
+
+        BHeadlessRunner runner(&director, commands, &out, &err);
+        QObject::connect(&runner, &BHeadlessRunner::finished, &app, [&app](int exitCode) {
+            app.exit(exitCode);
+        });
+
+        if (options.verbose) {
+            BLOG_INFO() << "Connecting to" << options.host << ":" << options.port;
+        }
+        runner.start(options.host, options.port, options.director, options.console,
+                     options.password);
+        const int exitCode = app.exec();
+        BLOG_CLOSE();
+        return exitCode;
     }
 
     // ========================================
