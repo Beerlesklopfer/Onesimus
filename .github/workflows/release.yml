@@ -12,6 +12,12 @@
 #               scripts/ci/macos-package.sh: Onesimus.app with the Qt
 #               frameworks, signed with the hardened runtime, notarised and
 #               stapled - as far as the secrets below are set.
+#   Every job checks that its packages carry THIRD-PARTY-NOTICES.md and the
+#   licence texts (scripts/ci/check-notices.sh/.ps1) before uploading them.
+#   sources: onesimus-<version>-src.tar.xz (with the openssl and proto
+#            submodules) and the Qt source of the Windows/macOS packages;
+#            the linux job adds the Debian sources of the AppImage libraries.
+#            Files over 2 GiB are split (split-asset.sh).
 #   5. release: SHA256SUMS over all files, then a DRAFT GitHub Release for the
 #               tag with everything attached. The maintainer reviews and
 #               publishes it by hand.
@@ -63,7 +69,11 @@ concurrency:
 
 env:
   TAG: ${{ inputs.tag || github.ref_name }}
+  # Qt of the Windows and macOS packages; its source code is attached to the
+  # release (job sources: qt-sources.sh with the modules below, which the
+  # windows and macos jobs check against what they ship).
   QT_VERSION: '6.8.3'
+  QT_SOURCE_MODULES: 'qtbase qtsvg qtgrpc qtimageformats qttranslations'
   OPENSSL_CACHE_REV: '1'
 
 jobs:
@@ -101,7 +111,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             ca-certificates git curl zstd file perl make build-essential cmake ninja-build \
-            dpkg-dev librsvg2-bin \
+            dpkg-dev librsvg2-bin jq debian-archive-keyring \
             qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
             qt6-grpc-dev qt6-grpc-tools qt6-wayland protobuf-compiler libprotobuf-dev libgl-dev libsecret-1-dev pkgconf
 
@@ -130,10 +140,26 @@ jobs:
       - name: AppImage
         run: JOBS="$(nproc)" ./deploy.sh appimage
 
+      - name: Third-party notices in the packages
+        run: scripts/ci/check-notices.sh build/*.deb dist/appimage/*.AppImage
+
       - name: Collect
         run: |
           mkdir -p out
           cp build/*.deb dist/appimage/*.AppImage out/
+          ls -la out
+
+      # The corresponding source of the Debian libraries in the AppImage:
+      # exactly the source packages and versions appimage-notices.sh listed,
+      # from this container's Debian release (THIRD-PARTY-NOTICES.md).
+      - name: Debian sources of the AppImage libraries
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          list=build-appimage/AppDir/usr/share/doc/onesimus/bundled-packages.txt
+          grep -q ' qt6-base ' "$list" || { echo "::error::Qt (qt6-base) missing from $list"; exit 1; }
+          scripts/ci/debian-sources.sh "$list" "out/onesimus-${VERSION}-appimage-debian-sources.tar"
+          scripts/ci/split-asset.sh "out/onesimus-${VERSION}-appimage-debian-sources.tar"
           ls -la out
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -230,10 +256,22 @@ jobs:
       - name: MSI
         run: .\deploy.ps1 installer -QtPath $env:QT_ROOT_DIR -BuildDir $env:BUILD_DIR
 
+      # Every Qt library and plugin in the package must come from a module
+      # whose source the release attaches (QT_SOURCE_MODULES).
+      - name: Qt modules covered by the attached Qt source
+        shell: bash
+        run: scripts/ci/check-qt-modules.sh build/deploy $QT_SOURCE_MODULES
+
       # After the MSI: package-windows.ps1 writes into build\deploy, which
       # the MSI harvests.
       - name: Portable ZIP
         run: .\deploy.ps1 zip -QtPath $env:QT_ROOT_DIR -BuildDir $env:BUILD_DIR -Version '${{ needs.check.outputs.version }}'
+
+      - name: Third-party notices in the packages
+        run: |
+          $pkgs = @(Get-ChildItem build\Onesimus-*-windows-x86_64.msi, build\deploy\Onesimus-*-Windows.zip | ForEach-Object FullName)
+          if ($pkgs.Count -ne 2) { throw "expected one MSI and one ZIP, found: $($pkgs -join ', ')" }
+          scripts\ci\check-notices.ps1 @pkgs
 
       - name: Collect
         run: |
@@ -304,6 +342,47 @@ jobs:
           APPSTORE_API_KEY_P8_BASE64: ${{ secrets.APPSTORE_API_KEY_P8_BASE64 }}
         run: OUT_DIR=out scripts/ci/macos-package.sh build
 
+      - name: Third-party notices in the package
+        run: scripts/ci/check-notices.sh out/*.dmg
+
+  sources:
+    name: Source archives (Onesimus, Qt)
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+
+      # Only the submodules the build uses; wiki/ (SSH URL) and the website
+      # are never fetched and not part of the source archive.
+      - name: Fetch submodules (openssl, proto)
+        run: git submodule update --init --depth 1 external/openssl proto
+
+      - name: Onesimus source with the submodules
+        run: scripts/ci/source-archive.sh "$VERSION" out
+
+      - name: Qt source of the Windows and macOS packages
+        run: |
+          # shellcheck disable=SC2086
+          scripts/ci/qt-sources.sh "$QT_VERSION" "out/onesimus-${VERSION}-qt-${QT_VERSION}-sources.tar" $QT_SOURCE_MODULES
+
+      - name: Split archives over 2 GiB
+        run: |
+          scripts/ci/split-asset.sh out/*.tar out/*.tar.xz
+          ls -la out
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-sources
+          path: out/*
+          if-no-files-found: error
+          retention-days: 7
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages-macos
@@ -313,7 +392,7 @@ jobs:
 
   release:
     name: Draft GitHub Release
-    needs: [check, linux, windows, macos]
+    needs: [check, linux, windows, macos, sources]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # The only job that writes: it creates the release and uploads assets.
@@ -325,6 +404,19 @@ jobs:
           pattern: packages-*
           path: dist
           merge-multiple: true
+
+      # The corresponding source THIRD-PARTY-NOTICES.md promises
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+          path: src
+          sparse-checkout: scripts/ci
+
+      - name: Source archives present
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: src/scripts/ci/check-source-assets.sh dist "$VERSION" "$QT_VERSION"
 
       - name: SHA256SUMS
         working-directory: dist

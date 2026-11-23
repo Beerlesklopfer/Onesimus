@@ -1,0 +1,37 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Onesimus
+Upstream-Contact: Jörg Bernau <support@onesimus.io>
+Source: https://github.com/Onesimus-io/Onesimus
+Comment: Installed by CMake as /usr/share/doc/onesimus/copyright of the .deb.
+ The third-party components of the package (OpenSSL, statically linked; the
+ Feather icons) and of its dependencies (Qt, QtGrpc) are described in
+ /usr/share/doc/onesimus/THIRD-PARTY-NOTICES.md, their licence texts are in
+ /usr/share/doc/onesimus/LICENSES/. Which files are AGPL-3.0-only (they follow
+ the Bareos source) is listed in LICENSING.md of the source code.
+ The complete corresponding source (Onesimus with OpenSSL) is attached to the
+ GitHub release of this version as onesimus-<version>-src.tar.xz.
+
+Files: *
+Copyright: 2025-2026 Jörg Bernau
+License: AGPL-3.0-only AND AGPL-3.0-or-later
+ Onesimus' own code is AGPL-3.0-or-later; files that follow the Bareos source
+ are AGPL-3.0-only. The program as a whole is distributed under AGPL-3.0.
+ On Debian systems the full text of the GNU Affero General Public License
+ version 3 is in /usr/share/common-licenses/AGPL-3.0 and in
+ /usr/share/doc/onesimus/LICENSE.
+
+Files: external/openssl/*
+Copyright: 1998-2025 The OpenSSL Project Authors
+           1995-1998 Eric A. Young, Tim J. Hudson
+License: Apache-2.0
+ Statically linked into /usr/bin/onesimus. On Debian systems the full text
+ of the Apache License 2.0 is in /usr/share/common-licenses/Apache-2.0 and in
+ /usr/share/doc/onesimus/LICENSES/Apache-2.0.txt.
+
+Files: resources/icons/connect.svg resources/icons/disconnect.svg
+ resources/icons/reconnect.svg resources/icons/delete.svg
+ resources/icons/exit.svg resources/icons/moon.svg resources/icons/copy.svg
+Copyright: 2013-present Cole Bemis
+License: MIT
+ Path data from the Feather icons (https://github.com/feathericons/feather).
+ The full licence text is in /usr/share/doc/onesimus/LICENSES/MIT.txt.

@@ -4,32 +4,32 @@
 <context>
     <name>AuthMethodPage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1551"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1556"/>
         <source>How should we authenticate?</source>
         <translation>Wie soll die Anmeldung erfolgen?</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1555"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1560"/>
         <source>TLS-PSK (recommended)</source>
         <translation>TLS-PSK (empfohlen)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1560"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1565"/>
         <source>TLS with certificates</source>
         <translation>TLS mit Zertifikaten</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1577"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1582"/>
         <source>TLS Cipher List (optional):</source>
         <translation>TLS-Cipher-Liste (optional):</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1584"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1589"/>
         <source>e.g., PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256</source>
         <translation>z. B. PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1585"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1590"/>
         <source>Colon-separated list of TLS-PSK ciphers.
 Leave empty for auto-detection.
 Click Preset to use recommended ciphers.</source>
@@ -38,47 +38,47 @@ Leer lassen für automatische Erkennung.
 Auf „Vorgabe“ klicken, um die empfohlenen Ciphers zu verwenden.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1590"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1595"/>
         <source>Preset</source>
         <translation>Vorgabe</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1591"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1596"/>
         <source>Fill with recommended PSK ciphers</source>
         <translation>Mit empfohlenen PSK-Ciphers füllen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1600"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1605"/>
         <source>TLS-PSK is the default for Bareos 18.2+.</source>
         <translation>TLS-PSK ist der Standard ab Bareos 18.2.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1658"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1663"/>
         <source>Server supports TLS encryption.</source>
         <translation>Der Server unterstützt TLS-Verschlüsselung.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1666"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1671"/>
         <source>TLS-PSK - not available on this server</source>
         <translation>TLS-PSK – auf diesem Server nicht verfügbar</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1667"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1672"/>
         <source>This server doesn&apos;t appear to support TLS-PSK. Consider upgrading to Bareos 18.2 or later.</source>
         <translation>Dieser Server scheint TLS-PSK nicht zu unterstützen. Erwägen Sie ein Upgrade auf Bareos 18.2 oder neuer.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1675"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1680"/>
         <source>Server check failed: %1</source>
         <translation>Serverprüfung fehlgeschlagen: %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1692"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1697"/>
         <source>TLS-PSK uses your password to encrypt the connection.</source>
         <translation>TLS-PSK verschlüsselt die Verbindung mit Ihrem Passwort.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1696"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1701"/>
         <source>You&apos;ll need CA, client certificate, and private key.</source>
         <translation>Sie benötigen CA, Client-Zertifikat und privaten Schlüssel.</translation>
     </message>
@@ -1703,42 +1703,42 @@ Auf „Vorgabe“ klicken, um die empfohlenen Ciphers zu verwenden.</translation
 <context>
     <name>BBvfsModel</name>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="294"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="293"/>
         <source>Directory</source>
         <translation>Verzeichnis</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="295"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="294"/>
         <source>Symlink</source>
         <translation>Symlink</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="296"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="295"/>
         <source>File</source>
         <translation>Datei</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="359"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="358"/>
         <source>Name</source>
         <translation>Name</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="360"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="359"/>
         <source>Size</source>
         <translation>Größe</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="361"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="360"/>
         <source>Type</source>
         <translation>Typ</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="362"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="361"/>
         <source>Modified</source>
         <translation>Geändert</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bbvfsmodel.cpp" line="563"/>
+        <location filename="../src/jobs/bbvfsmodel.cpp" line="571"/>
         <source>JSON parse error: %1</source>
         <translation>JSON-Parse-Fehler: %1</translation>
     </message>
@@ -3587,22 +3587,23 @@ Möchten Sie fortfahren?</translation>
         <translation>Verbindungsprofil anlegen</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="315"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="316"/>
         <source>Reading ZIP archive...</source>
         <translation>ZIP-Archiv wird gelesen...</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="319"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="320"/>
         <source>No configuration resources found in the archive.</source>
         <translation>Im Archiv wurden keine Konfigurationsressourcen gefunden.</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="324"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="325"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="341"/>
         <source>Entries not read</source>
         <translation>Nicht gelesene Einträge</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="325"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="326"/>
         <source>These entries of the archive were not read:
 %1</source>
         <translation>Diese Einträge des Archivs wurden nicht gelesen:
@@ -3610,61 +3611,61 @@ Möchten Sie fortfahren?</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="222"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="397"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="409"/>
         <source>Director</source>
         <translation>Director</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="227"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="398"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="410"/>
         <source>Console</source>
         <translation>Console</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="230"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="399"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="411"/>
         <source>Clients</source>
         <translation>Clients</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="233"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="400"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="412"/>
         <source>Jobs</source>
         <translation>Jobs</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="236"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="401"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="413"/>
         <source>Storage</source>
         <translation>Storage</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="239"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="402"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="414"/>
         <source>FileSets</source>
         <translation>FileSets</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="242"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="403"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="415"/>
         <source>Pools</source>
         <translation>Pools</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="245"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="404"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="416"/>
         <source>Schedules</source>
         <translation>Schedules</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="248"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="405"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="417"/>
         <source>Messages</source>
         <translation>Messages</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="251"/>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="406"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="418"/>
         <source>Catalogs</source>
         <translation>Catalogs</translation>
     </message>
@@ -3699,72 +3700,72 @@ Möchten Sie fortfahren?</translation>
         <translation>Lese ein...</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="336"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="348"/>
         <source>Parsed %1: %2</source>
         <translation>%1 eingelesen: %2</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="343"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="355"/>
         <source>Parsing complete: %1 resources found</source>
         <translation>Einlesen abgeschlossen: %1 Ressourcen gefunden</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="373"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="385"/>
         <source>Error: %1</source>
         <translation>Fehler: %1</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="376"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="388"/>
         <source>Parsing Error</source>
         <translation>Fehler beim Einlesen</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="435"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="447"/>
         <source>(multiple addresses)</source>
         <translation>(mehrere Adressen)</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="442"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="454"/>
         <source>Enabled</source>
         <translation>Aktiviert</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="442"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="454"/>
         <source>Disabled</source>
         <translation>Deaktiviert</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="501"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="513"/>
         <source>Invalid Selection</source>
         <translation>Ungültige Auswahl</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="502"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="514"/>
         <source>Please select both a Director and a Console.</source>
         <translation>Bitte wählen Sie sowohl einen Director als auch eine Console.</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="507"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="519"/>
         <source>Invalid Address</source>
         <translation>Ungültige Adresse</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="508"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="520"/>
         <source>Please enter the hostname or IP address of the Director.</source>
         <translation>Bitte geben Sie den Hostnamen oder die IP-Adresse des Directors ein.</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="546"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="558"/>
         <source>%1 &apos;%2&apos;: Missing required field &apos;%3&apos;</source>
         <translation>%1 „%2“: Pflichtfeld „%3“ fehlt</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="567"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="579"/>
         <source>&lt;b&gt;Validation Warnings (%1 total, showing first 10):&lt;/b&gt;&lt;br&gt;</source>
         <translation>&lt;b&gt;Validierungswarnungen (%1 insgesamt, die ersten 10 werden angezeigt):&lt;/b&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/director/bconfigimportdialog.cpp" line="569"/>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="581"/>
         <source>&lt;b&gt;Validation Warnings:&lt;/b&gt;&lt;br&gt;</source>
         <translation>&lt;b&gt;Validierungswarnungen:&lt;/b&gt;&lt;br&gt;</translation>
     </message>
@@ -3780,6 +3781,7 @@ Möchten Sie fortfahren?</translation>
     <name>BConfigParser</name>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="381"/>
+        <location filename="../src/config/bconfigparser.cpp" line="432"/>
         <source>%1: the quoted string has no closing quote</source>
         <translation>%1: dem Text in Anführungszeichen fehlt das schließende Anführungszeichen</translation>
     </message>
@@ -3870,6 +3872,7 @@ Möchten Sie fortfahren?</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="877"/>
+        <location filename="../src/config/bconfigparser.cpp" line="889"/>
         <source>%1: expected a value for %2</source>
         <translation>%1: Wert für %2 erwartet</translation>
     </message>
@@ -4053,37 +4056,37 @@ Anweisung: %2</translation>
 <context>
     <name>BDirectiveSchema</name>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="263"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="283"/>
         <source>Required directive &apos;%1&apos; is missing</source>
         <translation>Pflicht-Direktive „%1“ fehlt</translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="275"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="295"/>
         <source>&apos;%1&apos; must be an integer</source>
         <translation>„%1“ muss eine ganze Zahl sein</translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="278"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="298"/>
         <source>&apos;%1&apos; must be &gt;= %2</source>
         <translation>„%1“ muss &gt;= %2 sein</translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="281"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="301"/>
         <source>&apos;%1&apos; must be &lt;= %2</source>
         <translation>„%1“ muss &lt;= %2 sein</translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="298"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="318"/>
         <source>&apos;%1&apos; must be yes or no</source>
         <translation>„%1“ muss yes oder no sein</translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="304"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="324"/>
         <source>&apos;%1&apos; must be a size such as 500 mb or 2 gb</source>
         <translation>„%1“ muss eine Größe wie 500 mb oder 2 gb sein</translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="310"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="330"/>
         <source>&apos;%1&apos; must be a time such as 30 days or 1 hour 30 min</source>
         <translation>„%1“ muss eine Zeit wie 30 days oder 1 hour 30 min sein</translation>
     </message>
@@ -7059,99 +7062,99 @@ zu einer leeren oder eingeschränkten Tabelle führen, wenn der Zeitraum zu eng 
 <context>
     <name>BJsonJobView</name>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="529"/>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="615"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="530"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="616"/>
         <source>Delete %1 Jobs</source>
         <translation>%1 Jobs löschen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="160"/>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="529"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="161"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="530"/>
         <source>Delete Job</source>
         <translation>Job löschen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="149"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="150"/>
         <source>Show Details...</source>
         <translation>Details anzeigen...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="154"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="155"/>
         <source>Retry Job</source>
         <translation>Job wiederholen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="157"/>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="723"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="158"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="725"/>
         <source>Cancel Job</source>
         <translation>Job abbrechen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="165"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="166"/>
         <source>View Log...</source>
         <translation>Protokoll anzeigen...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="168"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="169"/>
         <source>Restore Files...</source>
         <translation>Dateien wiederherstellen...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="175"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="176"/>
         <source>Export to JSON...</source>
         <translation>Als JSON exportieren...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="179"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="180"/>
         <source>Export to CSV...</source>
         <translation>Als CSV exportieren...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="186"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="187"/>
         <source>Select All</source>
         <translation>Alles auswählen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="190"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="191"/>
         <source>Invert Selection</source>
         <translation>Auswahl umkehren</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="194"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="195"/>
         <source>Clear Selection</source>
         <translation>Auswahl aufheben</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="275"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="276"/>
         <source>Export Selected Jobs to JSON</source>
         <translation>Ausgewählte Jobs als JSON exportieren</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="275"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="276"/>
         <source>Export All Jobs to JSON</source>
         <translation>Alle Jobs als JSON exportieren</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="288"/>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="321"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="289"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="322"/>
         <source>Export Error</source>
         <translation>Exportfehler</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="289"/>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="322"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="290"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="323"/>
         <source>Could not write to file: %1</source>
         <translation>Datei konnte nicht geschrieben werden: %1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="296"/>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="329"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="297"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="330"/>
         <source>Export Successful</source>
         <translation>Export erfolgreich</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/bjsonjobview.cpp" line="297"/>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="330"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="298"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="331"/>
         <source>Exported %n job(s) to %1</source>
         <translation>
             <numerusform>%n Job nach %1 exportiert</numerusform>
@@ -7159,38 +7162,38 @@ zu einer leeren oder eingeschränkten Tabelle führen, wenn der Zeitraum zu eng 
         </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="308"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="309"/>
         <source>Export Selected Jobs to CSV</source>
         <translation>Ausgewählte Jobs als CSV exportieren</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="308"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="309"/>
         <source>Export All Jobs to CSV</source>
         <translation>Alle Jobs als CSV exportieren</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="342"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="343"/>
         <source>Total Jobs: %1
 </source>
         <translation>Jobs gesamt: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="343"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="344"/>
         <source>Successful: %1
 </source>
         <translation>Erfolgreich: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="344"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="345"/>
         <source>Warnings: %1
 </source>
         <translation>Warnungen: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="345"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="346"/>
         <source>Failed: %1
 
 </source>
@@ -7199,14 +7202,14 @@ zu einer leeren oder eingeschränkten Tabelle führen, wenn der Zeitraum zu eng 
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="347"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="348"/>
         <source>Total Files: %1
 </source>
         <translation>Dateien gesamt: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="348"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="349"/>
         <source>Total Size: %1 bytes
 
 </source>
@@ -7215,21 +7218,21 @@ zu einer leeren oder eingeschränkten Tabelle führen, wenn der Zeitraum zu eng 
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="351"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="352"/>
         <source>Date Range:
 </source>
         <translation>Zeitraum:
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="352"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="353"/>
         <source>  From: %1
 </source>
         <translation>  Von: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="353"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="354"/>
         <source>  To: %1
 
 </source>
@@ -7238,111 +7241,111 @@ zu einer leeren oder eingeschränkten Tabelle führen, wenn der Zeitraum zu eng 
 </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="356"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="357"/>
         <source>Selected: %1</source>
         <translation>Ausgewählt: %1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="358"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="359"/>
         <source>Job Statistics</source>
         <translation>Job-Statistik</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="423"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="424"/>
         <source>Export All to JSON...</source>
         <translation>Alle als JSON exportieren...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="424"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="425"/>
         <source>Export All to CSV...</source>
         <translation>Alle als CSV exportieren...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="539"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="540"/>
         <source>ID %1: %2 (%3)</source>
         <translation>ID %1: %2 (%3)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="545"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="546"/>
         <source>&lt;b&gt;%1 jobs selected for deletion:&lt;/b&gt;&lt;br&gt;%2</source>
         <translation>&lt;b&gt;%1 Jobs zum Löschen ausgewählt:&lt;/b&gt;&lt;br&gt;%2</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="554"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="555"/>
         <source>Full</source>
         <translation>Full</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="555"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="556"/>
         <source>Incremental</source>
         <translation>Incremental</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="556"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="557"/>
         <source>Differential</source>
         <translation>Differential</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="558"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="559"/>
         <source>&lt;b&gt;Job:&lt;/b&gt; %1 (ID: %2)&lt;br&gt;&lt;b&gt;Client:&lt;/b&gt; %3&lt;br&gt;&lt;b&gt;Level:&lt;/b&gt; %4&lt;br&gt;&lt;b&gt;Start:&lt;/b&gt; %5</source>
         <translation>&lt;b&gt;Job:&lt;/b&gt; %1 (ID: %2)&lt;br&gt;&lt;b&gt;Client:&lt;/b&gt; %3&lt;br&gt;&lt;b&gt;Level:&lt;/b&gt; %4&lt;br&gt;&lt;b&gt;Start:&lt;/b&gt; %5</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="572"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="573"/>
         <source>&lt;div style=&apos;background-color: #fff3cd; color: #664d03; padding: 10px; border: 1px solid #ffc107; border-radius: 4px;&apos;&gt;&lt;b&gt;⚠ Attention:&lt;/b&gt; %1 dependent Incremental/Differential job(s) found!&lt;br&gt;&lt;br&gt;Deleting Full backups may make dependent backups unusable for restore.&lt;/div&gt;</source>
         <translation>&lt;div style=&apos;background-color: #fff3cd; color: #664d03; padding: 10px; border: 1px solid #ffc107; border-radius: 4px;&apos;&gt;&lt;b&gt;⚠ Achtung:&lt;/b&gt; %1 abhängige(r) Incremental-/Differential-Job(s) gefunden!&lt;br&gt;&lt;br&gt;Das Löschen von Full-Backups kann abhängige Backups für die Wiederherstellung unbrauchbar machen.&lt;/div&gt;</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="583"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="584"/>
         <source>Delete Mode</source>
         <translation>Löschmodus</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="586"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="587"/>
         <source>Delete job record only</source>
         <translation>Nur Job-Eintrag löschen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="587"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="588"/>
         <source>Removes the job entry from the catalog database.
 The backup data on the storage media remains intact.</source>
         <translation>Entfernt den Job-Eintrag aus der Katalogdatenbank.
 Die Backup-Daten auf den Speichermedien bleiben erhalten.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="596"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="597"/>
         <source>Prune (remove expired jobs by retention policy)</source>
         <translation>Prune (abgelaufene Jobs gemäß Aufbewahrungsrichtlinie entfernen)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="597"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="598"/>
         <source>Removes job records that have exceeded their configured retention period.
 Only expired jobs for the affected client(s) will be removed.</source>
         <translation>Entfernt Job-Einträge, deren konfigurierte Aufbewahrungsfrist überschritten ist.
 Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="606"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="607"/>
         <source>&lt;span style=&apos;color: #cc0000;&apos;&gt;&lt;b&gt;Warning:&lt;/b&gt; This action cannot be undone!&lt;/span&gt;</source>
         <translation>&lt;span style=&apos;color: #cc0000;&apos;&gt;&lt;b&gt;Warnung:&lt;/b&gt; Diese Aktion kann nicht rückgängig gemacht werden!&lt;/span&gt;</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="615"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="616"/>
         <source>Delete</source>
         <translation>Löschen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="629"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="630"/>
         <source>  ID %1: %2 (%3)</source>
         <translation>  ID %1: %2 (%3)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="634"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="635"/>
         <source>Confirm Delete</source>
         <translation>Löschen bestätigen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="635"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="636"/>
         <source>Are you sure you want to delete %1 job(s)?
 
 %2
@@ -7355,37 +7358,37 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
 %3 abhängige Incremental-/Differential-Backup(s) können für die Wiederherstellung unbrauchbar werden.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="691"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="693"/>
         <source>Rerun Job</source>
         <translation>Job erneut ausführen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="692"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="694"/>
         <source>Do you want to run job %1 (%2) again?</source>
         <translation>Möchten Sie den Job %1 (%2) erneut ausführen?</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="724"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="726"/>
         <source>Do you really want to cancel the running job %1 (%2)?</source>
         <translation>Möchten Sie den laufenden Job %1 (%2) wirklich abbrechen?</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="753"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="755"/>
         <source>Not connected</source>
         <translation>Keine Verbindung</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="754"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="756"/>
         <source>No connection to the Director.</source>
         <translation>Keine Verbindung zum Director verfügbar.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="775"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="777"/>
         <source>Not Connected</source>
         <translation>Nicht verbunden</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjsonjobview.cpp" line="776"/>
+        <location filename="../src/jobs/bjsonjobview.cpp" line="778"/>
         <source>No director connection available.</source>
         <translation>Keine Director-Verbindung verfügbar.</translation>
     </message>
@@ -7446,19 +7449,19 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="282"/>
         <location filename="../src/bmainwindow.cpp" line="779"/>
-        <location filename="../src/bmainwindow.cpp" line="2677"/>
+        <location filename="../src/bmainwindow.cpp" line="2684"/>
         <source>Ready</source>
         <translation>Bereit</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="443"/>
-        <location filename="../src/bmainwindow.cpp" line="3083"/>
+        <location filename="../src/bmainwindow.cpp" line="3090"/>
         <source>Auto-refresh enabled (%1s)</source>
         <translation>Auto-Refresh aktiviert (%1 s)</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="447"/>
-        <location filename="../src/bmainwindow.cpp" line="3088"/>
+        <location filename="../src/bmainwindow.cpp" line="3095"/>
         <source>Auto-refresh disabled</source>
         <translation>Auto-Refresh deaktiviert</translation>
     </message>
@@ -7471,9 +7474,9 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
         <location filename="../src/bmainwindow.cpp" line="582"/>
         <location filename="../src/bmainwindow.cpp" line="785"/>
         <location filename="../src/bmainwindow.cpp" line="1820"/>
-        <location filename="../src/bmainwindow.cpp" line="2452"/>
-        <location filename="../src/bmainwindow.cpp" line="2593"/>
-        <location filename="../src/bmainwindow.cpp" line="2933"/>
+        <location filename="../src/bmainwindow.cpp" line="2459"/>
+        <location filename="../src/bmainwindow.cpp" line="2600"/>
+        <location filename="../src/bmainwindow.cpp" line="2940"/>
         <source>Not connected</source>
         <translation>Nicht verbunden</translation>
     </message>
@@ -7491,15 +7494,15 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
         <location filename="../src/bmainwindow.cpp" line="856"/>
         <location filename="../src/bmainwindow.cpp" line="873"/>
         <location filename="../src/bmainwindow.cpp" line="1784"/>
-        <location filename="../src/bmainwindow.cpp" line="2012"/>
+        <location filename="../src/bmainwindow.cpp" line="2019"/>
         <source>Connect</source>
         <translation>Verbinden</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="861"/>
         <location filename="../src/bmainwindow.cpp" line="879"/>
-        <location filename="../src/bmainwindow.cpp" line="2013"/>
-        <location filename="../src/bmainwindow.cpp" line="2692"/>
+        <location filename="../src/bmainwindow.cpp" line="2020"/>
+        <location filename="../src/bmainwindow.cpp" line="2699"/>
         <source>Reconnect</source>
         <translation>Neu verbinden</translation>
     </message>
@@ -7511,7 +7514,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="875"/>
         <location filename="../src/bmainwindow.cpp" line="1706"/>
-        <location filename="../src/bmainwindow.cpp" line="2477"/>
+        <location filename="../src/bmainwindow.cpp" line="2484"/>
         <source>Connect to Director</source>
         <translation>Mit Director verbinden</translation>
     </message>
@@ -7522,25 +7525,25 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="885"/>
-        <location filename="../src/bmainwindow.cpp" line="2014"/>
+        <location filename="../src/bmainwindow.cpp" line="2021"/>
         <source>Refresh</source>
         <translation>Aktualisieren</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="891"/>
-        <location filename="../src/bmainwindow.cpp" line="2015"/>
+        <location filename="../src/bmainwindow.cpp" line="2022"/>
         <source>Settings</source>
         <translation>Einstellungen</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="896"/>
-        <location filename="../src/bmainwindow.cpp" line="2016"/>
+        <location filename="../src/bmainwindow.cpp" line="2023"/>
         <source>Exit</source>
         <translation>Beenden</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="901"/>
-        <location filename="../src/bmainwindow.cpp" line="1845"/>
+        <location filename="../src/bmainwindow.cpp" line="1846"/>
         <source>About Onesimus</source>
         <translation>Über Onesimus</translation>
     </message>
@@ -7561,27 +7564,27 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="918"/>
-        <location filename="../src/bmainwindow.cpp" line="1992"/>
-        <location filename="../src/bmainwindow.cpp" line="1998"/>
-        <location filename="../src/bmainwindow.cpp" line="2080"/>
+        <location filename="../src/bmainwindow.cpp" line="1999"/>
+        <location filename="../src/bmainwindow.cpp" line="2005"/>
+        <location filename="../src/bmainwindow.cpp" line="2087"/>
         <source>Keyboard Shortcuts</source>
         <translation>Tastenkürzel</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="923"/>
-        <location filename="../src/bmainwindow.cpp" line="2414"/>
+        <location filename="../src/bmainwindow.cpp" line="2421"/>
         <source>My Permissions</source>
         <translation>Meine Berechtigungen</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="929"/>
-        <location filename="../src/bmainwindow.cpp" line="2029"/>
+        <location filename="../src/bmainwindow.cpp" line="2036"/>
         <source>Copy</source>
         <translation>Kopieren</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="935"/>
-        <location filename="../src/bmainwindow.cpp" line="2030"/>
+        <location filename="../src/bmainwindow.cpp" line="2037"/>
         <source>Select All</source>
         <translation>Alles auswählen</translation>
     </message>
@@ -7597,25 +7600,25 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="953"/>
-        <location filename="../src/bmainwindow.cpp" line="2044"/>
+        <location filename="../src/bmainwindow.cpp" line="2051"/>
         <source>Show Statistics</source>
         <translation>Statistik anzeigen</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="967"/>
-        <location filename="../src/bmainwindow.cpp" line="2045"/>
+        <location filename="../src/bmainwindow.cpp" line="2052"/>
         <source>Show Job Log</source>
         <translation>Job-Protokoll anzeigen</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="982"/>
-        <location filename="../src/bmainwindow.cpp" line="2047"/>
+        <location filename="../src/bmainwindow.cpp" line="2054"/>
         <source>Interface Zoom In</source>
         <translation>Oberfläche vergrößern</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="988"/>
-        <location filename="../src/bmainwindow.cpp" line="2048"/>
+        <location filename="../src/bmainwindow.cpp" line="2055"/>
         <source>Interface Zoom Out</source>
         <translation>Oberfläche verkleinern</translation>
     </message>
@@ -7641,7 +7644,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1030"/>
-        <location filename="../src/bmainwindow.cpp" line="2062"/>
+        <location filename="../src/bmainwindow.cpp" line="2069"/>
         <source>Refresh Jobs</source>
         <translation>Jobs aktualisieren</translation>
     </message>
@@ -7801,7 +7804,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1362"/>
-        <location filename="../src/bmainwindow.cpp" line="2063"/>
+        <location filename="../src/bmainwindow.cpp" line="2070"/>
         <source>Refresh Clients</source>
         <translation>Clients aktualisieren</translation>
     </message>
@@ -7812,7 +7815,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1378"/>
-        <location filename="../src/bmainwindow.cpp" line="2064"/>
+        <location filename="../src/bmainwindow.cpp" line="2071"/>
         <source>Refresh Storage</source>
         <translation>Storage aktualisieren</translation>
     </message>
@@ -7823,7 +7826,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1405"/>
-        <location filename="../src/bmainwindow.cpp" line="2065"/>
+        <location filename="../src/bmainwindow.cpp" line="2072"/>
         <source>Refresh Schedules</source>
         <translation>Schedules aktualisieren</translation>
     </message>
@@ -7901,19 +7904,19 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1501"/>
-        <location filename="../src/bmainwindow.cpp" line="2020"/>
+        <location filename="../src/bmainwindow.cpp" line="2027"/>
         <source>File</source>
         <translation>Datei</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1515"/>
-        <location filename="../src/bmainwindow.cpp" line="2035"/>
+        <location filename="../src/bmainwindow.cpp" line="2042"/>
         <source>Edit</source>
         <translation>Bearbeiten</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1524"/>
-        <location filename="../src/bmainwindow.cpp" line="2053"/>
+        <location filename="../src/bmainwindow.cpp" line="2060"/>
         <source>View</source>
         <translation>Ansicht</translation>
     </message>
@@ -7933,23 +7936,28 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
         <translation>Verbindungsversuch abgebrochen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2693"/>
+        <location filename="../src/bmainwindow.cpp" line="1956"/>
+        <source>Third-party licences...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="2700"/>
         <source>The connection profile &quot;%1&quot; has no saved password or is incomplete. Complete it in Settings, then connect again.</source>
         <translation>Das Verbindungsprofil „%1“ hat kein gespeichertes Passwort oder ist unvollständig. Ergänzen Sie es in den Einstellungen und verbinden Sie sich dann erneut.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2894"/>
+        <location filename="../src/bmainwindow.cpp" line="2901"/>
         <source>Cancel the connection attempt</source>
         <translation>Verbindungsversuch abbrechen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2911"/>
+        <location filename="../src/bmainwindow.cpp" line="2918"/>
         <source>Passwords Not in the Keychain</source>
         <translation>Passwörter nicht im Schlüsselbund</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/bmainwindow.cpp" line="2991"/>
-        <location filename="../src/bmainwindow.cpp" line="3024"/>
+        <location filename="../src/bmainwindow.cpp" line="2998"/>
+        <location filename="../src/bmainwindow.cpp" line="3031"/>
         <source>%n row(s) copied</source>
         <translation>
             <numerusform>%n Zeile kopiert</numerusform>
@@ -7957,17 +7965,17 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2999"/>
+        <location filename="../src/bmainwindow.cpp" line="3006"/>
         <source>No client selected</source>
         <translation>Kein Client ausgewählt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3039"/>
+        <location filename="../src/bmainwindow.cpp" line="3046"/>
         <source>All clients selected</source>
         <translation>Alle Clients ausgewählt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3067"/>
+        <location filename="../src/bmainwindow.cpp" line="3074"/>
         <source>Find works in the Jobs and Clients tabs</source>
         <translation>Suchen funktioniert in den Reitern Jobs und Clients</translation>
     </message>
@@ -8026,7 +8034,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1598"/>
-        <location filename="../src/bmainwindow.cpp" line="2084"/>
+        <location filename="../src/bmainwindow.cpp" line="2091"/>
         <source>Help</source>
         <translation>Hilfe</translation>
     </message>
@@ -8038,7 +8046,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1656"/>
         <location filename="../src/bmainwindow.cpp" line="1670"/>
-        <location filename="../src/bmainwindow.cpp" line="2566"/>
+        <location filename="../src/bmainwindow.cpp" line="2573"/>
         <source>Statistics ▼</source>
         <translation>Statistik ▼</translation>
     </message>
@@ -8049,8 +8057,8 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1670"/>
-        <location filename="../src/bmainwindow.cpp" line="2566"/>
-        <location filename="../src/bmainwindow.cpp" line="2602"/>
+        <location filename="../src/bmainwindow.cpp" line="2573"/>
+        <location filename="../src/bmainwindow.cpp" line="2609"/>
         <source>Statistics ▶</source>
         <translation>Statistik ▶</translation>
     </message>
@@ -8094,210 +8102,210 @@ Bitte legen Sie zuerst in den Einstellungen ein Verbindungsprofil an.</translati
         <translation>Das ausgewählte Profil ist ungültig.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2889"/>
-        <location filename="../src/bmainwindow.cpp" line="2952"/>
+        <location filename="../src/bmainwindow.cpp" line="2896"/>
+        <location filename="../src/bmainwindow.cpp" line="2959"/>
         <source>Connecting to %1...</source>
         <translation>Verbinde mit %1...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1865"/>
+        <location filename="../src/bmainwindow.cpp" line="1866"/>
         <source>&lt;p style=&apos;color:#666; margin:0;&apos;&gt;Version %1 (Build %2)&lt;/p&gt;</source>
         <translation>&lt;p style=&apos;color:#666; margin:0;&apos;&gt;Version %1 (Build %2)&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1871"/>
+        <location filename="../src/bmainwindow.cpp" line="1872"/>
         <source>&lt;p style=&apos;margin:0;&apos;&gt;Modern Qt6 GUI for Bacula Backup&lt;/p&gt;</source>
         <translation>&lt;p style=&apos;margin:0;&apos;&gt;Moderne Qt6-Oberfläche für Bacula-Backups&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1873"/>
+        <location filename="../src/bmainwindow.cpp" line="1874"/>
         <source>&lt;p style=&apos;margin:0;&apos;&gt;Modern Qt6 GUI for Bareos Backup&lt;/p&gt;</source>
         <translation>&lt;p style=&apos;margin:0;&apos;&gt;Moderne Qt6-Oberfläche für Bareos-Backups&lt;/p&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1957"/>
+        <location filename="../src/bmainwindow.cpp" line="1964"/>
         <source>Close</source>
         <translation>Schließen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1973"/>
+        <location filename="../src/bmainwindow.cpp" line="1980"/>
         <source>Documentation</source>
         <translation>Dokumentation</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1974"/>
-        <location filename="../src/bmainwindow.cpp" line="1984"/>
+        <location filename="../src/bmainwindow.cpp" line="1981"/>
+        <location filename="../src/bmainwindow.cpp" line="1991"/>
         <source>Could not open browser. Please visit:
 %1</source>
         <translation>Browser konnte nicht geöffnet werden. Bitte besuchen Sie:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1983"/>
+        <location filename="../src/bmainwindow.cpp" line="1990"/>
         <source>Report Bug</source>
         <translation>Fehler melden</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2031"/>
+        <location filename="../src/bmainwindow.cpp" line="2038"/>
         <source>Find</source>
         <translation>Suchen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2046"/>
+        <location filename="../src/bmainwindow.cpp" line="2053"/>
         <source>Toggle Theme</source>
         <translation>Design umschalten</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2049"/>
+        <location filename="../src/bmainwindow.cpp" line="2056"/>
         <source>Reset Interface Zoom</source>
         <translation>Oberflächenzoom zurücksetzen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2070"/>
+        <location filename="../src/bmainwindow.cpp" line="2077"/>
         <source>Data</source>
         <translation>Daten</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2079"/>
+        <location filename="../src/bmainwindow.cpp" line="2086"/>
         <source>Help Contents</source>
         <translation>Hilfeinhalte</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2415"/>
+        <location filename="../src/bmainwindow.cpp" line="2422"/>
         <source>Not connected to a Director.</source>
         <translation>Nicht mit einem Director verbunden.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2437"/>
+        <location filename="../src/bmainwindow.cpp" line="2444"/>
         <source>Settings saved</source>
         <translation>Einstellungen gespeichert</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2474"/>
+        <location filename="../src/bmainwindow.cpp" line="2481"/>
         <source>Disconnect from Director</source>
         <translation>Vom Director trennen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2552"/>
+        <location filename="../src/bmainwindow.cpp" line="2559"/>
         <source>Connected to %1 version %2</source>
         <translation>Verbunden mit %1 Version %2</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2554"/>
+        <location filename="../src/bmainwindow.cpp" line="2561"/>
         <source>Connected: version %1</source>
         <translation>Verbunden: Version %1</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2560"/>
+        <location filename="../src/bmainwindow.cpp" line="2567"/>
         <source>Connected - Loading data...</source>
         <translation>Verbunden – lade Daten...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2625"/>
+        <location filename="../src/bmainwindow.cpp" line="2632"/>
         <source>Error: </source>
         <translation>Fehler: </translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2632"/>
+        <location filename="../src/bmainwindow.cpp" line="2639"/>
         <source>Connection Error</source>
         <translation>Verbindungsfehler</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2647"/>
+        <location filename="../src/bmainwindow.cpp" line="2654"/>
         <source>Refreshing data...</source>
         <translation>Aktualisiere Daten...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2687"/>
+        <location filename="../src/bmainwindow.cpp" line="2694"/>
         <source>No Saved Connection</source>
         <translation>Keine gespeicherte Verbindung</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2688"/>
+        <location filename="../src/bmainwindow.cpp" line="2695"/>
         <source>No previous connection found. Please use &apos;Connect&apos; to establish a new connection.</source>
         <translation>Keine frühere Verbindung gefunden. Bitte verwenden Sie „Verbinden“, um eine neue Verbindung herzustellen.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2888"/>
+        <location filename="../src/bmainwindow.cpp" line="2895"/>
         <source>Auto-connecting to %1...</source>
         <translation>Automatische Verbindung mit %1...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2932"/>
+        <location filename="../src/bmainwindow.cpp" line="2939"/>
         <source>Connection cancelled: server certificate not trusted</source>
         <translation>Verbindung abgebrochen: Serverzertifikat nicht vertrauenswürdig</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3036"/>
+        <location filename="../src/bmainwindow.cpp" line="3043"/>
         <source>All jobs selected</source>
         <translation>Alle Jobs ausgewählt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3051"/>
-        <location filename="../src/bmainwindow.cpp" line="3054"/>
+        <location filename="../src/bmainwindow.cpp" line="3058"/>
+        <location filename="../src/bmainwindow.cpp" line="3061"/>
         <source>Selection cleared</source>
         <translation>Auswahl aufgehoben</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3098"/>
+        <location filename="../src/bmainwindow.cpp" line="3105"/>
         <source>Reset Interface Zoom (now %1 %)</source>
         <translation>Oberflächenzoom zurücksetzen (derzeit %1 %)</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3109"/>
+        <location filename="../src/bmainwindow.cpp" line="3116"/>
         <source>Switched to Light Theme</source>
         <translation>Zu hellem Design gewechselt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3110"/>
+        <location filename="../src/bmainwindow.cpp" line="3117"/>
         <source>Switched to Dark Theme</source>
         <translation>Zu dunklem Design gewechselt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3119"/>
-        <location filename="../src/bmainwindow.cpp" line="3131"/>
-        <location filename="../src/bmainwindow.cpp" line="3143"/>
+        <location filename="../src/bmainwindow.cpp" line="3126"/>
+        <location filename="../src/bmainwindow.cpp" line="3138"/>
+        <location filename="../src/bmainwindow.cpp" line="3150"/>
         <source>Not Connected</source>
         <translation>Nicht verbunden</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3119"/>
-        <location filename="../src/bmainwindow.cpp" line="3131"/>
+        <location filename="../src/bmainwindow.cpp" line="3126"/>
+        <location filename="../src/bmainwindow.cpp" line="3138"/>
         <source>Please connect to the Director first.</source>
         <translation>Bitte verbinden Sie sich zuerst mit dem Director.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3125"/>
+        <location filename="../src/bmainwindow.cpp" line="3132"/>
         <source>Jobs exported as JSON</source>
         <translation>Jobs als JSON exportiert</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3137"/>
+        <location filename="../src/bmainwindow.cpp" line="3144"/>
         <source>Jobs exported as CSV</source>
         <translation>Jobs als CSV exportiert</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3144"/>
+        <location filename="../src/bmainwindow.cpp" line="3151"/>
         <source>Please connect to Bareos Director first.</source>
         <translation>Bitte verbinden Sie sich zuerst mit dem Bareos Director.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3153"/>
+        <location filename="../src/bmainwindow.cpp" line="3160"/>
         <source>Loading job data...</source>
         <translation>Lade Job-Daten...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3189"/>
+        <location filename="../src/bmainwindow.cpp" line="3196"/>
         <source>Connection profile &apos;%1&apos; saved</source>
         <translation>Verbindungsprofil „%1“ gespeichert</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3239"/>
+        <location filename="../src/bmainwindow.cpp" line="3246"/>
         <source>Password Missing</source>
         <translation>Passwort fehlt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3240"/>
+        <location filename="../src/bmainwindow.cpp" line="3247"/>
         <source>The imported Console &apos;%1&apos; does not contain a password.
 
 You will need to enter the password manually in the connection settings.</source>
@@ -8306,17 +8314,17 @@ You will need to enter the password manually in the connection settings.</source
 Sie müssen das Passwort manuell in den Verbindungseinstellungen eingeben.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3261"/>
+        <location filename="../src/bmainwindow.cpp" line="3268"/>
         <source>Created connection profile &apos;%1&apos; for Director &apos;%2&apos;</source>
         <translation>Verbindungsprofil „%1“ für Director „%2“ angelegt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3266"/>
+        <location filename="../src/bmainwindow.cpp" line="3273"/>
         <source>Connect Now?</source>
         <translation>Jetzt verbinden?</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3267"/>
+        <location filename="../src/bmainwindow.cpp" line="3274"/>
         <source>Connection profile &apos;%1&apos; has been created.
 
 Do you want to connect now?</source>
@@ -8325,12 +8333,12 @@ Do you want to connect now?</source>
 Möchten Sie sich jetzt verbinden?</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3283"/>
+        <location filename="../src/bmainwindow.cpp" line="3290"/>
         <source>Imported Director &apos;%1&apos; with Console &apos;%2&apos;</source>
         <translation>Director „%1“ mit Console „%2“ importiert</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2066"/>
+        <location filename="../src/bmainwindow.cpp" line="2073"/>
         <source>Add Schedule</source>
         <translation>Schedule hinzufügen</translation>
     </message>
@@ -9503,143 +9511,143 @@ Sie können diese Datei jetzt in den Zertifikatseinstellungen verwenden.</transl
 <context>
     <name>BPermissionsDialog</name>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2112"/>
+        <location filename="../src/bmainwindow.cpp" line="2119"/>
         <source>My Permissions</source>
         <translation>Meine Berechtigungen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2125"/>
+        <location filename="../src/bmainwindow.cpp" line="2132"/>
         <source>Connection</source>
         <translation>Verbindung</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2127"/>
+        <location filename="../src/bmainwindow.cpp" line="2134"/>
         <source>Director:</source>
         <translation>Director:</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2128"/>
+        <location filename="../src/bmainwindow.cpp" line="2135"/>
         <source>Host:</source>
         <translation>Host:</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2135"/>
+        <location filename="../src/bmainwindow.cpp" line="2142"/>
         <source>TLS-PSK</source>
         <translation>TLS-PSK</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2137"/>
+        <location filename="../src/bmainwindow.cpp" line="2144"/>
         <source>TLS Certificate</source>
         <translation>TLS-Zertifikat</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2139"/>
+        <location filename="../src/bmainwindow.cpp" line="2146"/>
         <source>None</source>
         <translation>Keine</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2141"/>
+        <location filename="../src/bmainwindow.cpp" line="2148"/>
         <source>Encryption:</source>
         <translation>Verschlüsselung:</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2147"/>
+        <location filename="../src/bmainwindow.cpp" line="2154"/>
         <source>Backup &amp; Restore</source>
         <translation>Backup &amp; Restore</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2148"/>
+        <location filename="../src/bmainwindow.cpp" line="2155"/>
         <source>Job Control</source>
         <translation>Job-Steuerung</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2149"/>
+        <location filename="../src/bmainwindow.cpp" line="2156"/>
         <source>Administration</source>
         <translation>Administration</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2151"/>
+        <location filename="../src/bmainwindow.cpp" line="2158"/>
         <source>Media</source>
         <translation>Medien</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2162"/>
+        <location filename="../src/bmainwindow.cpp" line="2169"/>
         <source>Command Permissions</source>
         <translation>Befehlsberechtigungen</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2169"/>
+        <location filename="../src/bmainwindow.cpp" line="2176"/>
         <source>Checking...</source>
         <translation>Prüfe...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2178"/>
+        <location filename="../src/bmainwindow.cpp" line="2185"/>
         <source>Restore Details</source>
         <translation>Restore-Details</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2180"/>
-        <location filename="../src/bmainwindow.cpp" line="2189"/>
+        <location filename="../src/bmainwindow.cpp" line="2187"/>
+        <location filename="../src/bmainwindow.cpp" line="2196"/>
         <source>Loading...</source>
         <translation>Lade...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2187"/>
+        <location filename="../src/bmainwindow.cpp" line="2194"/>
         <source>Other Available Commands</source>
         <translation>Weitere verfügbare Befehle</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2196"/>
+        <location filename="../src/bmainwindow.cpp" line="2203"/>
         <source>Raw Director Response</source>
         <translation>Rohantwort des Directors</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2214"/>
+        <location filename="../src/bmainwindow.cpp" line="2221"/>
         <source>Querying Director...</source>
         <translation>Frage Director ab...</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2303"/>
+        <location filename="../src/bmainwindow.cpp" line="2310"/>
         <source>N/A</source>
         <translation>k. A.</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2306"/>
+        <location filename="../src/bmainwindow.cpp" line="2313"/>
         <source>Authorized</source>
         <translation>Berechtigt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2309"/>
+        <location filename="../src/bmainwindow.cpp" line="2316"/>
         <source>Not authorized</source>
         <translation>Nicht berechtigt</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2334"/>
+        <location filename="../src/bmainwindow.cpp" line="2341"/>
         <source>&lt;b&gt;Permission:&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;Berechtigung:&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2338"/>
+        <location filename="../src/bmainwindow.cpp" line="2345"/>
         <source>&lt;b&gt;where= (restore path):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;where= (Restore-Pfad):&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2342"/>
+        <location filename="../src/bmainwindow.cpp" line="2349"/>
         <source>&lt;b&gt;client= (target client):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;client= (Ziel-Client):&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2346"/>
+        <location filename="../src/bmainwindow.cpp" line="2353"/>
         <source>&lt;b&gt;replace= (replace policy):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation>&lt;b&gt;replace= (Ersetzungsrichtlinie):&lt;/b&gt; %1&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2352"/>
+        <location filename="../src/bmainwindow.cpp" line="2359"/>
         <source>&lt;br&gt;&lt;b&gt;Available parameters:&lt;/b&gt; %1</source>
         <translation>&lt;br&gt;&lt;b&gt;Verfügbare Parameter:&lt;/b&gt; %1</translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2373"/>
+        <location filename="../src/bmainwindow.cpp" line="2380"/>
         <source>Total: %1 commands (%2 authorized, %3 denied)</source>
         <translation>Gesamt: %1 Befehle (%2 berechtigt, %3 verweigert)</translation>
     </message>
@@ -11142,43 +11150,43 @@ Leer lassen, um alle gültigen Zertifikate zu erlauben.</translation>
 <context>
     <name>BRestoreBrowsePage</name>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="515"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="517"/>
         <source>Select Files</source>
         <translation>Dateien auswählen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="516"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="518"/>
         <source>Browse and select files/directories to restore.</source>
         <translation>Dateien/Verzeichnisse zur Wiederherstellung durchsuchen und auswählen.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="528"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="530"/>
         <source>Loading files...</source>
         <translation>Dateien werden geladen...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="554"/>
-        <location filename="../src/jobs/brestorewizard.cpp" line="755"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="556"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="757"/>
         <source>No files selected</source>
         <translation>Keine Dateien ausgewählt</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="574"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="576"/>
         <source>Step %1 of %2 — Browse and select files/directories to restore.</source>
         <translation>Schritt %1 von %2 — Dateien/Verzeichnisse zur Wiederherstellung durchsuchen und auswählen.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="577"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="579"/>
         <source>Browse files — Client: %1, FileSet: %2</source>
         <translation>Dateien durchsuchen — Client: %1, FileSet: %2</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="748"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="750"/>
         <source>The Director reported an error: %1</source>
         <translation>Der Director meldet einen Fehler: %1</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/brestorewizard.cpp" line="764"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="766"/>
         <source>%n directory(ies)</source>
         <translation>
             <numerusform>%n Verzeichnis</numerusform>
@@ -11186,7 +11194,7 @@ Leer lassen, um alle gültigen Zertifikate zu erlauben.</translation>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/brestorewizard.cpp" line="766"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="768"/>
         <source>%n file(s)</source>
         <translation>
             <numerusform>%n Datei</numerusform>
@@ -11194,12 +11202,12 @@ Leer lassen, um alle gültigen Zertifikate zu erlauben.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="767"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="769"/>
         <source>Selected: %1</source>
         <translation>Ausgewählt: %1</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/brestorewizard.cpp" line="769"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="771"/>
         <source>%n item(s) selected</source>
         <translation>
             <numerusform>%n Element ausgewählt</numerusform>
@@ -11407,67 +11415,67 @@ Details finden Sie im Protokoll oben.</translation>
 <context>
     <name>BRestoreOptionsPage</name>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="782"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="784"/>
         <source>Restore Options</source>
         <translation>Wiederherstellungsoptionen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="783"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="785"/>
         <source>Configure where and how to restore the selected files.</source>
         <translation>Legen Sie fest, wohin und wie die ausgewählten Dateien wiederhergestellt werden.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="789"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="791"/>
         <source>Source:</source>
         <translation>Quelle:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="792"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="794"/>
         <source>Target Client:</source>
         <translation>Ziel-Client:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="797"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="799"/>
         <source>Restore Job:</source>
         <translation>Restore-Job:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="800"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="802"/>
         <source>Restore Where:</source>
         <translation>Wiederherstellen nach:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="803"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="805"/>
         <source>Always</source>
         <translation>Immer</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="804"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="806"/>
         <source>Never</source>
         <translation>Nie</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="805"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="807"/>
         <source>If Newer</source>
         <translation>Wenn neuer</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="806"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="808"/>
         <source>If Older</source>
         <translation>Wenn älter</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="807"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="809"/>
         <source>Replace Policy:</source>
         <translation>Ersetzungsrichtlinie:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="831"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="833"/>
         <source>Step %1 of %2 — Configure where and how to restore the selected files.</source>
         <translation>Schritt %1 von %2 — Legen Sie fest, wohin und wie die ausgewählten Dateien wiederhergestellt werden.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/brestorewizard.cpp" line="836"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="838"/>
         <source>%n directory(ies)</source>
         <translation>
             <numerusform>%n Verzeichnis</numerusform>
@@ -11475,7 +11483,7 @@ Details finden Sie im Protokoll oben.</translation>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/brestorewizard.cpp" line="838"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="840"/>
         <source>%n file(s)</source>
         <translation>
             <numerusform>%n Datei</numerusform>
@@ -11483,52 +11491,52 @@ Details finden Sie im Protokoll oben.</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="840"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="842"/>
         <source>nothing</source>
         <translation>nichts</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="848"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="850"/>
         <source>~%1</source>
         <translation>~%1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="848"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="850"/>
         <source>at least %1</source>
         <translation>mindestens %1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="849"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="851"/>
         <source>unknown</source>
         <translation>unbekannt</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="851"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="853"/>
         <source>Job %1: %2 — %3 selected (estimated size: %4)</source>
         <translation>Job %1: %2 — %3 ausgewählt (geschätzte Größe: %4)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="926"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="928"/>
         <source>Chosen by the Director</source>
         <translation>Vom Director gewählt</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="940"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="942"/>
         <source>Always overwrite existing files on the target, regardless of timestamps.</source>
         <translation>Vorhandene Dateien auf dem Ziel immer überschreiben, unabhängig von Zeitstempeln.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="944"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="946"/>
         <source>Never overwrite. Skip files that already exist on the target.</source>
         <translation>Nie überschreiben. Dateien, die auf dem Ziel bereits existieren, überspringen.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="948"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="950"/>
         <source>Only overwrite if the backed-up file is newer than the existing file.</source>
         <translation>Nur überschreiben, wenn die gesicherte Datei neuer als die vorhandene Datei ist.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="952"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="954"/>
         <source>Only overwrite if the backed-up file is older than the existing file.</source>
         <translation>Nur überschreiben, wenn die gesicherte Datei älter als die vorhandene Datei ist.</translation>
     </message>
@@ -11536,42 +11544,42 @@ Details finden Sie im Protokoll oben.</translation>
 <context>
     <name>BRestorePreviewPage</name>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="991"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="993"/>
         <source>Command Preview</source>
         <translation>Befehlsvorschau</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="992"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="994"/>
         <source>Review the commands that will be sent to the Director.</source>
         <translation>Prüfen Sie die Befehle, die an den Director gesendet werden.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1002"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1004"/>
         <source>Permission Checks</source>
         <translation>Berechtigungsprüfungen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1009"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1011"/>
         <source>Restore command:</source>
         <translation>Restore-Befehl:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1010"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1012"/>
         <source>Target client:</source>
         <translation>Ziel-Client:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1011"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1013"/>
         <source>Where path:</source>
         <translation>Where-Pfad:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1033"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1035"/>
         <source>Click &quot;Commit&quot; to execute these commands on the Director.</source>
         <translation>Klicken Sie auf &quot;Commit&quot;, um diese Befehle auf dem Director auszuführen.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1046"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1048"/>
         <source>Step %1 of %2 — Review the commands that will be sent to the Director.</source>
         <translation>Schritt %1 von %2 — Prüfen Sie die Befehle, die an den Director gesendet werden.</translation>
     </message>
@@ -11713,78 +11721,78 @@ Details finden Sie im Protokoll oben.</translation>
 <context>
     <name>BRestoreSelectJobPage</name>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="165"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="167"/>
         <source>Restore Conditions</source>
         <translation>Wiederherstellungsbedingungen</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="166"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="168"/>
         <source>Configure the restore scope before browsing files.</source>
         <translation>Legen Sie den Umfang der Wiederherstellung fest, bevor Sie Dateien durchsuchen.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="173"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="175"/>
         <source>Source Job:</source>
         <translation>Quell-Job:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="177"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="179"/>
         <source>Client:</source>
         <translation>Client:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="181"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="183"/>
         <source>FileSet:</source>
         <translation>FileSet:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="185"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="187"/>
         <source>All related backups (full restore chain)</source>
         <translation>Alle zugehörigen Backups (vollständige Wiederherstellungskette)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="194"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="196"/>
         <source>Restore Scope:</source>
         <translation>Umfang der Wiederherstellung:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="200"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="202"/>
         <source>Before Date:</source>
         <translation>Vor Datum:</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="236"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="238"/>
         <source>Step %1 of %2 — Configure the restore scope before browsing files.</source>
         <translation>Schritt %1 von %2 — Legen Sie den Umfang der Wiederherstellung fest, bevor Sie Dateien durchsuchen.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="239"/>
-        <location filename="../src/jobs/brestorewizard.cpp" line="447"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="241"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="449"/>
         <source>Job %1: %2 (Client: %3, FileSet: %4)</source>
         <translation>Job %1: %2 (Client: %3, FileSet: %4)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="245"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="247"/>
         <source>Only this specific job (ID: %1)</source>
         <translation>Nur dieser bestimmte Job (ID: %1)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="294"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="296"/>
         <source>Clients</source>
         <translation>Clients</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="295"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="297"/>
         <source>FileSets</source>
         <translation>FileSets</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="298"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="300"/>
         <source>Warning: Failed to load %1 from Director within timeout. The Director may be busy or the connection may be slow.</source>
         <translation>Warnung: %1 konnte nicht innerhalb der Zeitbegrenzung vom Director geladen werden. Der Director ist möglicherweise ausgelastet oder die Verbindung langsam.</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="300"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="302"/>
         <source> and </source>
         <translation> und </translation>
     </message>
@@ -11792,7 +11800,7 @@ Details finden Sie im Protokoll oben.</translation>
 <context>
     <name>BRestoreWizard</name>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="127"/>
+        <location filename="../src/jobs/brestorewizard.cpp" line="128"/>
         <source>Restore Wizard — Job %1: %2</source>
         <translation>Wiederherstellungsassistent — Job %1: %2</translation>
     </message>
@@ -18190,6 +18198,34 @@ Der Zertifikatspfad wurde im aktuellen Profil aktualisiert.</translation>
     </message>
 </context>
 <context>
+    <name>BThirdPartyNoticesDialog</name>
+    <message>
+        <location filename="../src/bthirdpartynotices.cpp" line="61"/>
+        <source>Third-party licences</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bthirdpartynotices.cpp" line="67"/>
+        <source>Document:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bthirdpartynotices.cpp" line="71"/>
+        <source>Third-party notices</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bthirdpartynotices.cpp" line="72"/>
+        <source>Onesimus licence (AGPL-3.0)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bthirdpartynotices.cpp" line="95"/>
+        <source>The third-party notices are missing from this build.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>BUsageStatus</name>
     <message>
         <location filename="../src/busagestatus.cpp" line="76"/>
@@ -18854,17 +18890,17 @@ Bitte versuchen Sie PSK- oder Zertifikatsauthentifizierung.</translation>
         <translation>CRAM-MD5-Antwort erfolgreich gesendet</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1349"/>
+        <location filename="../src/director/bareosauth.cpp" line="1351"/>
         <source>The Director announced a message of %1 bytes during authentication (limit: %2 bytes). Connection closed.</source>
         <translation>Der Director hat während der Authentifizierung eine Nachricht von %1 Bytes angekündigt (Grenze: %2 Bytes). Verbindung geschlossen.</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1565"/>
+        <location filename="../src/director/bareosauth.cpp" line="1567"/>
         <source>Connected</source>
         <translation>Verbunden</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1746"/>
+        <location filename="../src/director/bareosauth.cpp" line="1748"/>
         <source>TLS-PSK authentication failed: %1
 
 This usually means:
@@ -18881,7 +18917,7 @@ Das bedeutet meist:
 • TLS-PSK auf dem Director nicht aktiviert</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1755"/>
+        <location filename="../src/director/bareosauth.cpp" line="1757"/>
         <source>TLS handshake failed: %1
 
 Possible causes:
@@ -18896,7 +18932,7 @@ Mögliche Ursachen:
 • Director unterstützt kein PSK</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1763"/>
+        <location filename="../src/director/bareosauth.cpp" line="1765"/>
         <source>Socket error: %1</source>
         <translation>Socket-Fehler: %1</translation>
     </message>
@@ -18976,27 +19012,27 @@ Mögliche Ursachen:
         <translation>Die CRAM-MD5-Antwort konnte nicht an den Director gesendet werden.</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1482"/>
+        <location filename="../src/director/bareosauth.cpp" line="1484"/>
         <source>Failed to send the CRAM-MD5 challenge to the Director.</source>
         <translation>Die CRAM-MD5-Challenge konnte nicht an den Director gesendet werden.</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1485"/>
+        <location filename="../src/director/bareosauth.cpp" line="1487"/>
         <source>The Director rejected the password of console &quot;%1&quot; (wrong password or console name). Connection refused.</source>
         <translation>Der Director hat das Passwort der Console „%1“ abgelehnt (falsches Passwort oder falscher Console-Name). Verbindung abgelehnt.</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1488"/>
+        <location filename="../src/director/bareosauth.cpp" line="1490"/>
         <source>The server did not complete the CRAM-MD5 handshake (it answered &quot;%1&quot; instead of &quot;1000 OK auth&quot;). It may not be a Bareos or Onesimus Director. Connection refused.</source>
         <translation>Der Server hat den CRAM-MD5-Handshake nicht abgeschlossen (er antwortete „%1“ statt „1000 OK auth“). Möglicherweise ist er kein Bareos- oder Onesimus-Director. Verbindung abgelehnt.</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1512"/>
+        <location filename="../src/director/bareosauth.cpp" line="1514"/>
         <source>The Director could not prove that it knows the console password: its answer to the CRAM-MD5 challenge is wrong. Either the server is not the configured Director, or the password stored on the Director differs from this profile. Connection refused.</source>
         <translation>Der Director konnte nicht nachweisen, dass er das Console-Passwort kennt: Seine Antwort auf die CRAM-MD5-Challenge ist falsch. Entweder ist der Server nicht der konfigurierte Director, oder das auf dem Director hinterlegte Passwort weicht von diesem Profil ab. Verbindung abgelehnt.</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1526"/>
+        <location filename="../src/director/bareosauth.cpp" line="1528"/>
         <source>Failed to send &quot;1000 OK auth&quot; to the Director.</source>
         <translation>„1000 OK auth“ konnte nicht an den Director gesendet werden.</translation>
     </message>
@@ -19060,7 +19096,7 @@ Mögliche Ursachen:
     </message>
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="1923"/>
-        <location filename="../src/director/bareosdirector.cpp" line="2369"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2455"/>
         <source>Not ready</source>
         <translation>Nicht bereit</translation>
     </message>
@@ -19070,27 +19106,27 @@ Mögliche Ursachen:
         <translation>Fehler beim Senden des Befehls</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2021"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2031"/>
         <source>The command was not sent: no ready connection to the Director</source>
         <translation>Der Befehl wurde nicht gesendet: keine bereite Verbindung zum Director</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2358"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2444"/>
         <source>This build of Onesimus has no gRPC support</source>
         <translation>Dieser Build von Onesimus hat keine gRPC-Unterstützung</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2453"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2539"/>
         <source>Server certificate not trusted</source>
         <translation>Serverzertifikat nicht vertrauenswürdig</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2469"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2555"/>
         <source>Command failed</source>
         <translation>Befehl fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2502"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2588"/>
         <source>Connection to Director lost: %1</source>
         <translation>Verbindung zum Director verloren: %1</translation>
     </message>
@@ -19103,7 +19139,7 @@ Mögliche Ursachen:
         </translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1995"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1996"/>
         <source>The command was not sent: one of its values cannot be written in a command line</source>
         <translation>Der Befehl wurde nicht gesendet: einer seiner Werte lässt sich nicht in einer Befehlszeile schreiben</translation>
     </message>
@@ -19124,198 +19160,198 @@ Mögliche Ursachen:
 <context>
     <name>ConfigPreviewPage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1985"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1990"/>
         <source>Server Configuration Preview</source>
         <translation>Vorschau der Serverkonfiguration</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1987"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1992"/>
         <source>Copy this configuration to your Bareos Director</source>
         <translation>Kopieren Sie diese Konfiguration auf Ihren Bareos Director</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1997"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2002"/>
         <source>Console resource for the Director:</source>
         <translation>Console-Ressource für den Director:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2001"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2006"/>
         <source>Path: /etc/bareos/bareos-dir.d/console/&amp;lt;name&amp;gt;.conf</source>
         <translation>Pfad: /etc/bareos/bareos-dir.d/console/&amp;lt;name&amp;gt;.conf</translation>
-    </message>
-    <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2013"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2054"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2117"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2394"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2433"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2444"/>
-        <source>Copy to Clipboard</source>
-        <translation>In die Zwischenablage kopieren</translation>
     </message>
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="2018"/>
         <location filename="../src/bconnectionwizard.cpp" line="2059"/>
         <location filename="../src/bconnectionwizard.cpp" line="2122"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2422"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2471"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2548"/>
-        <source>Save .conf</source>
-        <translation>.conf speichern</translation>
+        <location filename="../src/bconnectionwizard.cpp" line="2399"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2438"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2449"/>
+        <source>Copy to Clipboard</source>
+        <translation>In die Zwischenablage kopieren</translation>
     </message>
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="2023"/>
         <location filename="../src/bconnectionwizard.cpp" line="2064"/>
         <location filename="../src/bconnectionwizard.cpp" line="2127"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2522"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2587"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2427"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2476"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2553"/>
+        <source>Save .conf</source>
+        <translation>.conf speichern</translation>
+    </message>
+    <message>
+        <location filename="../src/bconnectionwizard.cpp" line="2028"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2069"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2132"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2527"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2592"/>
         <source>Save ZIP</source>
         <translation>ZIP speichern</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2031"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2036"/>
         <source>Console Config</source>
         <translation>Console-Konfiguration</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2038"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2043"/>
         <source>Director resource TLS settings (if needed):</source>
         <translation>TLS-Einstellungen der Director-Ressource (falls nötig):</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2042"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2047"/>
         <source>Path: /etc/bareos/bareos-dir.d/director/bareos-dir.conf</source>
         <translation>Pfad: /etc/bareos/bareos-dir.d/director/bareos-dir.conf</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2072"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2077"/>
         <source>Director TLS</source>
         <translation>Director-TLS</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2083"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2088"/>
         <source>Configuration for command-line consoles on the client:</source>
         <translation>Konfiguration für Kommandozeilen-Consoles auf dem Client:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2087"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2092"/>
         <source>Path: /etc/bareos/bconsole.conf (bconsole), /etc/bareos/oconsole.conf or oconsole -c &amp;lt;file&amp;gt; (oconsole)</source>
         <translation>Pfad: /etc/bareos/bconsole.conf (bconsole), /etc/bareos/oconsole.conf oder oconsole -c &amp;lt;file&amp;gt; (oconsole)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2095"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2100"/>
         <source>Contains the console password: restrict the file to mode 0640 root:bareos (or 0600 owned by the user running the console).</source>
         <translation>Enthält das Console-Passwort: Beschränken Sie die Datei auf Modus 0640 root:bareos (oder 0600 im Besitz des Benutzers, der die Console ausführt).</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2135"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2140"/>
         <source>Console client (bconsole / oconsole)</source>
         <translation>Console-Client (bconsole / oconsole)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2139"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2176"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2144"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2181"/>
         <source>After copying, paste this into your Bareos Director config and restart bareos-dir.</source>
         <translation>Fügen Sie dies nach dem Kopieren in Ihre Bareos-Director-Konfiguration ein und starten Sie bareos-dir neu.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2164"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2169"/>
         <source>Add the Console resource, then reload the Director. The Onesimus Director offers gRPC on the BNET port + 1000; nothing else to configure.</source>
         <translation>Fügen Sie die Console-Ressource hinzu und laden Sie den Director neu. Der Onesimus Director bietet gRPC auf dem BNET-Port + 1000 an; sonst ist nichts zu konfigurieren.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2170"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2175"/>
         <source>Add the Console resource and &quot;Grpc Port = %1&quot; to the Director resource, then restart the Director (the default would be %2).</source>
         <translation>Fügen Sie die Console-Ressource und &quot;Grpc Port = %1&quot; zur Director-Ressource hinzu und starten Sie den Director neu (der Standard wäre %2).</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2343"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2348"/>
         <source>Password in &quot;[md5]&lt;hex&gt;&quot; form: accepted by oconsole and by C++ bconsole.</source>
         <translation>Passwort in der Form &quot;[md5]&lt;hex&gt;&quot;: wird von oconsole und vom C++-bconsole akzeptiert.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2353"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2358"/>
         <source>not used when the Console resource below matches</source>
         <translation>nicht verwendet, wenn die Console-Ressource unten passt</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2361"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2366"/>
         <source>Grpc Fingerprint = &lt;SHA-256 of the Director&apos;s gRPC certificate&gt;</source>
         <translation>Grpc Fingerprint = &lt;SHA-256 des gRPC-Zertifikats des Directors&gt;</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2392"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2431"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2442"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2397"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2436"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2447"/>
         <source>Copied!</source>
         <translation>Kopiert!</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2405"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2410"/>
         <source>Save Console Client Configuration</source>
         <translation>Console-Client-Konfiguration speichern</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2406"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2455"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2532"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2411"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2460"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2537"/>
         <source>Configuration Files (*.conf);;All Files (*)</source>
         <translation>Konfigurationsdateien (*.conf);;Alle Dateien (*)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2412"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2461"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2491"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2538"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2567"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2417"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2466"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2496"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2543"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2572"/>
         <source>Save Failed</source>
         <translation>Speichern fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2413"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2462"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2539"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2418"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2467"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2544"/>
         <source>Could not write to %1</source>
         <translation>Konnte nicht nach %1 schreiben</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2420"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2469"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2520"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2546"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2585"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2425"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2474"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2525"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2551"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2590"/>
         <source>Saved!</source>
         <translation>Gespeichert!</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2454"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2459"/>
         <source>Save Console Configuration</source>
         <translation>Console-Konfiguration speichern</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2481"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2486"/>
         <source>Save Console Configuration as ZIP</source>
         <translation>Console-Konfiguration als ZIP speichern</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2482"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2558"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2487"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2563"/>
         <source>ZIP Archives (*.zip);;All Files (*)</source>
         <translation>ZIP-Archive (*.zip);;Alle Dateien (*)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2492"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2568"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2497"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2573"/>
         <source>Could not create ZIP file: %1</source>
         <translation>ZIP-Datei konnte nicht erstellt werden: %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2531"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2536"/>
         <source>Save Director TLS Configuration</source>
         <translation>Director-TLS-Konfiguration speichern</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2557"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2562"/>
         <source>Save Director TLS Configuration as ZIP</source>
         <translation>Director-TLS-Konfiguration als ZIP speichern</translation>
     </message>
@@ -19323,130 +19359,130 @@ Mögliche Ursachen:
 <context>
     <name>ConsoleSetupPage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2864"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2869"/>
         <source>Console configuration</source>
         <translation>Console-Konfiguration</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2872"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2877"/>
         <source>Modify existing console</source>
         <translation>Vorhandene Console ändern</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2885"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2890"/>
         <source>Refresh</source>
         <translation>Aktualisieren</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2895"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2900"/>
         <source>Select a console to view its configuration...</source>
         <translation>Wählen Sie eine Console, um ihre Konfiguration anzuzeigen...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2903"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2908"/>
         <source>Create new console</source>
         <translation>Neue Console anlegen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2914"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2919"/>
         <source>Name:</source>
         <translation>Name:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2921"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2926"/>
         <source>Generate</source>
         <translation>Erzeugen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2925"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2930"/>
         <source>Password:</source>
         <translation>Passwort:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2933"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2938"/>
         <source>Security notice: Consoles with overly wide ACLs (e.g. *all*) grant full access to all backup operations, including deletion. Ask your backup administrator to create a Console resource with restricted ACLs tailored to your needs.</source>
         <translation>Sicherheitshinweis: Consoles mit zu weit gefassten ACLs (z. B. *all*) gewähren vollen Zugriff auf alle Backup-Vorgänge, einschließlich Löschen. Bitten Sie Ihren Backup-Administrator, eine Console-Ressource mit eingeschränkten, auf Ihre Bedürfnisse zugeschnittenen ACLs anzulegen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2949"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2974"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2954"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2979"/>
         <source>Modify an existing console or create a new one on the director.</source>
         <translation>Ändern Sie eine vorhandene Console oder legen Sie eine neue auf dem Director an.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2972"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2977"/>
         <source>The Onesimus Director offers gRPC on the BNET port + 1000. After adding a console, reload the Director.</source>
         <translation>Der Onesimus Director bietet gRPC auf dem BNET-Port + 1000 an. Laden Sie den Director nach dem Hinzufügen einer Console neu.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2984"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2989"/>
         <source>No Console</source>
         <translation>Keine Console</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2984"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2989"/>
         <source>Please select a console.</source>
         <translation>Bitte wählen Sie eine Console.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2992"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2997"/>
         <source>Missing</source>
         <translation>Fehlt</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2992"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2997"/>
         <source>Please enter a name and password for the new console.</source>
         <translation>Bitte geben Sie einen Namen und ein Passwort für die neue Console ein.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3095"/>
-        <location filename="../src/bconnectionwizard.cpp" line="3191"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3100"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3196"/>
         <source>Error: %1</source>
         <translation>Fehler: %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3113"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3118"/>
         <source>Loading details for %1...</source>
         <translation>Details für %1 werden geladen...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3122"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3127"/>
         <source>Waiting for connection...</source>
         <translation>Warte auf Verbindung...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3132"/>
-        <location filename="../src/bconnectionwizard.cpp" line="3173"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3137"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3178"/>
         <source>Loading consoles...</source>
         <translation>Consoles werden geladen...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3138"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3143"/>
         <source>Connecting to Director...</source>
         <translation>Verbinde mit dem Director...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3162"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3167"/>
         <source>Loading resources...</source>
         <translation>Ressourcen werden geladen...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3164"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3169"/>
         <source>Authentication failed: %1</source>
         <translation>Authentifizierung fehlgeschlagen: %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3182"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3187"/>
         <source>Connection lost</source>
         <translation>Verbindung verloren</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3215"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3220"/>
         <source>No named consoles found. Ask your backup administrator to create a personalized Console resource on the Director.</source>
         <translation>Keine benannten Consoles gefunden. Bitten Sie Ihren Backup-Administrator, eine persönliche Console-Ressource auf dem Director anzulegen.</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/bconnectionwizard.cpp" line="3219"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3224"/>
         <source>Found %n console(s)</source>
         <translation>
             <numerusform>%n Console gefunden</numerusform>
@@ -19454,89 +19490,89 @@ Mögliche Ursachen:
         </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3236"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3241"/>
         <source>No details found for %1</source>
         <translation>Keine Details für %1 gefunden</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3241"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3246"/>
         <source>Name: %1
 </source>
         <translation>Name: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3243"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3248"/>
         <source>Description: %1
 </source>
         <translation>Beschreibung: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3245"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3250"/>
         <source>Profile: %1
 </source>
         <translation>Profile: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3250"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3255"/>
         <source>TLS Enabled: %1
 </source>
         <translation>TLS Enabled: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3252"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3257"/>
         <source>TLS Required: %1
 </source>
         <translation>TLS Required: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3254"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3259"/>
         <source>TLS Verify Peer: %1
 </source>
         <translation>TLS Verify Peer: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3256"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3261"/>
         <source>Job ACL: %1
 </source>
         <translation>Job ACL: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3258"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3263"/>
         <source>Client ACL: %1
 </source>
         <translation>Client ACL: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3260"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3265"/>
         <source>Storage ACL: %1
 </source>
         <translation>Storage ACL: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3262"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3267"/>
         <source>Command ACL: %1
 </source>
         <translation>Command ACL: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3264"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3269"/>
         <source>Catalog ACL: %1
 </source>
         <translation>Catalog ACL: %1
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3278"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3283"/>
         <source>
 --- WARNING ---
 This console has full access (*all*). Consider restricting ACLs to prevent accidental deletion of backups or other critical operations.
@@ -19547,17 +19583,17 @@ Diese Console hat vollen Zugriff (*all*). Erwägen Sie, die ACLs einzuschränken
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3313"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3318"/>
         <source>Creating console &apos;%1&apos;...</source>
         <translation>Console &apos;%1&apos; wird angelegt...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3324"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3329"/>
         <source>Console created successfully!</source>
         <translation>Console erfolgreich angelegt!</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3327"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3332"/>
         <source>Failed to create console</source>
         <translation>Console konnte nicht angelegt werden</translation>
     </message>
@@ -19565,60 +19601,60 @@ Diese Console hat vollen Zugriff (*all*). Erwägen Sie, die ACLs einzuschränken
 <context>
     <name>CredentialsPage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1380"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1385"/>
         <source>Enter your credentials</source>
         <translation>Geben Sie Ihre Zugangsdaten ein</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1386"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1391"/>
         <source>Director:</source>
         <translation>Director:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1390"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1395"/>
         <source>Console:</source>
         <translation>Console:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1398"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1403"/>
         <source>Generate</source>
         <translation>Erzeugen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1399"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1404"/>
         <source>Generate a secure random password</source>
         <translation>Ein sicheres Zufallspasswort erzeugen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1404"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1409"/>
         <source>Password:</source>
         <translation>Passwort:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1411"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1417"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1416"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1422"/>
         <source>(password MD5 hash will appear here)</source>
         <translation>(MD5-Hash des Passworts erscheint hier)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1412"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1417"/>
         <source>MD5 Hash:</source>
         <translation>MD5-Hash:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1450"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1455"/>
         <source>Remember password</source>
         <translation>Passwort merken</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1459"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1464"/>
         <source>Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf
 Console config: /etc/bareos/bareos-dir.d/console/&lt;name&gt;.conf</source>
         <translation>Director-Konfiguration: /etc/bareos/bareos-dir.d/director/bareos-dir.conf
 Console-Konfiguration: /etc/bareos/bareos-dir.d/console/&lt;name&gt;.conf</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1465"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1470"/>
         <source>These must match your Bareos Director configuration.</source>
         <translation>Diese müssen mit Ihrer Bareos-Director-Konfiguration übereinstimmen.</translation>
     </message>
@@ -19787,32 +19823,32 @@ Console-Konfiguration: /etc/bareos/bareos-dir.d/console/&lt;name&gt;.conf</trans
 </translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1081"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1086"/>
         <source>Host/Address</source>
         <translation>Host/Adresse</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1082"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1087"/>
         <source>Director Name</source>
         <translation>Director-Name</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1083"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1088"/>
         <source>Console Name</source>
         <translation>Console-Name</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1084"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1089"/>
         <source>Password</source>
         <translation>Passwort</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1087"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1092"/>
         <source>Incomplete Configuration</source>
         <translation>Unvollständige Konfiguration</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1088"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1093"/>
         <source>The imported configuration is missing the following required fields:
 
   %1
@@ -19836,88 +19872,88 @@ Sie können sie auf den folgenden Seiten ausfüllen.</translation>
 <context>
     <name>ProfileNamePage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3338"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3343"/>
         <source>Name this connection</source>
         <translation>Diese Verbindung benennen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3341"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3346"/>
         <source>e.g., Production Server</source>
         <translation>z. B. Produktionsserver</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3344"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3349"/>
         <source>Set as default</source>
         <translation>Als Standard festlegen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3348"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3353"/>
         <source>Connect now</source>
         <translation>Jetzt verbinden</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3358"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3363"/>
         <source>Advanced Settings...</source>
         <translation>Erweiterte Einstellungen...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3359"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3364"/>
         <source>Configure TLS options, ACLs, and other advanced settings</source>
         <translation>TLS-Optionen, ACLs und weitere erweiterte Einstellungen konfigurieren</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3364"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3369"/>
         <source>Export Config...</source>
         <translation>Konfiguration exportieren...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3365"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3370"/>
         <source>Export Bareos configuration files as zip archive</source>
         <translation>Bareos-Konfigurationsdateien als ZIP-Archiv exportieren</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3372"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3377"/>
         <source>This name helps identify the connection.</source>
         <translation>Dieser Name hilft, die Verbindung zu erkennen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3452"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3457"/>
         <source>Console only (for existing Director)</source>
         <translation>Nur Console (für vorhandenen Director)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3453"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3458"/>
         <source>Console + Profile (with ACLs)</source>
         <translation>Console + Profile (mit ACLs)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3454"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3459"/>
         <source>Full configuration (new installation)</source>
         <translation>Vollständige Konfiguration (Neuinstallation)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3458"/>
-        <location filename="../src/bconnectionwizard.cpp" line="3473"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3463"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3478"/>
         <source>Export Configuration</source>
         <translation>Konfiguration exportieren</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3459"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3464"/>
         <source>Select export mode:</source>
         <translation>Exportmodus wählen:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3475"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3480"/>
         <source>Zip Archives (*.zip)</source>
         <translation>ZIP-Archive (*.zip)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3480"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3485"/>
         <source>Export Successful</source>
         <translation>Export erfolgreich</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3481"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3486"/>
         <source>Configuration exported to:
 %1
 
@@ -19928,12 +19964,12 @@ Extract to your Bareos server&apos;s root directory and restart the Director.</s
 Entpacken Sie sie in das Wurzelverzeichnis Ihres Bareos-Servers und starten Sie den Director neu.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3485"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3490"/>
         <source>Export Failed</source>
         <translation>Export fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="3486"/>
+        <location filename="../src/bconnectionwizard.cpp" line="3491"/>
         <source>Failed to export configuration:
 %1</source>
         <translation>Konfiguration konnte nicht exportiert werden:
@@ -20023,135 +20059,135 @@ Entpacken Sie sie in das Wurzelverzeichnis Ihres Bareos-Servers und starten Sie 
 <context>
     <name>ServerPage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1116"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1121"/>
         <source>Where is your Bareos Director?</source>
         <translation>Wo befindet sich Ihr Bareos Director?</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1121"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1126"/>
         <source>Found in the network:</source>
         <translation>Im Netzwerk gefunden:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1123"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1128"/>
         <source>Search again</source>
         <translation>Erneut suchen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1133"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1138"/>
         <source>Onesimus Directors announce themselves in the local network. Select one to fill in the connection data.</source>
         <translation>Onesimus Directors melden sich im lokalen Netzwerk an. Wählen Sie einen aus, um die Verbindungsdaten auszufüllen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1148"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1153"/>
         <source>Searching...</source>
         <translation>Suche...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1159"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1164"/>
         <source>e.g., bareos.example.com or 192.168.1.100</source>
         <translation>z. B. bareos.example.com oder 192.168.1.100</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1160"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1165"/>
         <source>Host:</source>
         <translation>Host:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1166"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1171"/>
         <source>Port:</source>
         <translation>Port:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1169"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1174"/>
         <source>Linux/Unix</source>
         <translation>Linux/Unix</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1170"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1175"/>
         <source>Windows</source>
         <translation>Windows</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1171"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1176"/>
         <source>FreeBSD</source>
         <translation>FreeBSD</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1172"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1177"/>
         <source>macOS</source>
         <translation>macOS</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1173"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1178"/>
         <source>Select the operating system of the Bareos Director server.
 This affects certificate paths in exported configurations.</source>
         <translation>Wählen Sie das Betriebssystem des Bareos-Director-Servers.
 Dies beeinflusst die Zertifikatspfade in exportierten Konfigurationen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1175"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1180"/>
         <source>Server OS:</source>
         <translation>Server-Betriebssystem:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1179"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1184"/>
         <source>BNET (Bareos console protocol)</source>
         <translation>BNET (Bareos-Konsolenprotokoll)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1180"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1185"/>
         <source>gRPC (Onesimus Director)</source>
         <translation>gRPC (Onesimus Director)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1186"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1191"/>
         <source>This build of Onesimus has no gRPC support.</source>
         <translation>Dieser Build von Onesimus hat keine gRPC-Unterstützung.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1188"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1193"/>
         <source>Protocol:</source>
         <translation>Protokoll:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1194"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1199"/>
         <source>gRPC port:</source>
         <translation>gRPC-Port:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1208"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1213"/>
         <source>Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf</source>
         <translation>Director-Konfiguration: /etc/bareos/bareos-dir.d/director/bareos-dir.conf</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1211"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1270"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1216"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1275"/>
         <source>The default port is 9101.</source>
         <translation>Der Standardport ist 9101.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1248"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1253"/>
         <source>Searching for Onesimus Directors in the network...</source>
         <translation>Suche nach Onesimus Directors im Netzwerk...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1254"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1259"/>
         <source>No Onesimus Director found - enter the server manually.</source>
         <translation>Kein Onesimus Director gefunden - geben Sie den Server manuell ein.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1269"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1274"/>
         <source>gRPC is encrypted with TLS; the server certificate is confirmed on first use.</source>
         <translation>gRPC ist mit TLS verschlüsselt; das Serverzertifikat wird bei der ersten Verwendung bestätigt.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1289"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1294"/>
         <source>(gRPC %1)</source>
         <translation>(gRPC %1)</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/bconnectionwizard.cpp" line="1302"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1307"/>
         <source>%n Director(s) found. Select one to use it.</source>
         <translation>
             <numerusform>%n Director gefunden. Wählen Sie ihn aus, um ihn zu verwenden.</numerusform>
@@ -20438,175 +20474,175 @@ Dies beeinflusst die Zertifikatspfade in exportierten Konfigurationen.</translat
 <context>
     <name>TLSPage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1730"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1735"/>
         <source>Where are your TLS certificates?</source>
         <translation>Wo befinden sich Ihre TLS-Zertifikate?</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1736"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1741"/>
         <source>/etc/bareos/ssl/ca.pem</source>
         <translation>/etc/bareos/ssl/ca.pem</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1737"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1748"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1769"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1778"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1742"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1753"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1774"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1783"/>
         <source>...</source>
         <translation>...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1741"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1746"/>
         <source>CA Cert:</source>
         <translation>CA-Zertifikat:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1747"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1752"/>
         <source>Path to PFX certificate file</source>
         <translation>Pfad zur PFX-Zertifikatsdatei</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1752"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1757"/>
         <source>PFX File:</source>
         <translation>PFX-Datei:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1756"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1761"/>
         <source>PFX file password (if encrypted)</source>
         <translation>Passwort der PFX-Datei (falls verschlüsselt)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1757"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1762"/>
         <source>PFX Password:</source>
         <translation>PFX-Passwort:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1768"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1773"/>
         <source>/etc/bareos/ssl/client.pem</source>
         <translation>/etc/bareos/ssl/client.pem</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1773"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1778"/>
         <source>Client Cert:</source>
         <translation>Client-Zertifikat:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1777"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1782"/>
         <source>/etc/bareos/ssl/client.key</source>
         <translation>/etc/bareos/ssl/client.key</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1782"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1787"/>
         <source>Private Key:</source>
         <translation>Privater Schlüssel:</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1792"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1797"/>
         <source>Convert PEM/DER to PFX...</source>
         <translation>PEM/DER in PFX umwandeln...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1793"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1798"/>
         <source>Convert separate PEM/DER certificate and key files into a PFX file</source>
         <translation>Separate PEM/DER-Zertifikat- und Schlüsseldateien in eine PFX-Datei umwandeln</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1798"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1803"/>
         <source>Generate Certificates...</source>
         <translation>Zertifikate erzeugen...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1801"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1806"/>
         <source>No certificates? Click Generate to create them.</source>
         <translation>Keine Zertifikate? Klicken Sie auf Erzeugen, um sie zu erstellen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1837"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1848"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1860"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1842"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1853"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1865"/>
         <source>Missing</source>
         <translation>Fehlt</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1837"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1842"/>
         <source>Please provide a CA certificate file.</source>
         <translation>Bitte geben Sie eine CA-Zertifikatsdatei an.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1841"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1852"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1864"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1846"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1857"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1869"/>
         <source>Not Found</source>
         <translation>Nicht gefunden</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1841"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1846"/>
         <source>CA certificate file not found.</source>
         <translation>CA-Zertifikatsdatei nicht gefunden.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1848"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1853"/>
         <source>Please provide a PFX certificate file.</source>
         <translation>Bitte geben Sie eine PFX-Zertifikatsdatei an.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1852"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1857"/>
         <source>PFX certificate file not found.</source>
         <translation>PFX-Zertifikatsdatei nicht gefunden.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1860"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1865"/>
         <source>Please provide all certificate files.</source>
         <translation>Bitte geben Sie alle Zertifikatsdateien an.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1864"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1869"/>
         <source>One or more certificate files not found.</source>
         <translation>Eine oder mehrere Zertifikatsdateien nicht gefunden.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1898"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1903"/>
         <source>CA Certificate</source>
         <translation>CA-Zertifikat</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1899"/>
-        <location filename="../src/bconnectionwizard.cpp" line="1920"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1904"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1925"/>
         <source>Certificates (*.pem *.crt *.cer);;All Files (*)</source>
         <translation>Zertifikate (*.pem *.crt *.cer);;Alle Dateien (*)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1916"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1921"/>
         <source>Select PFX Certificate</source>
         <translation>PFX-Zertifikat auswählen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1917"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1922"/>
         <source>PFX Files (*.pfx);;Certificates (*.pem *.crt);;All Files (*)</source>
         <translation>PFX-Dateien (*.pfx);;Zertifikate (*.pem *.crt);;Alle Dateien (*)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1919"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1924"/>
         <source>Client Certificate</source>
         <translation>Client-Zertifikat</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1937"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1942"/>
         <source>Private Key</source>
         <translation>Privater Schlüssel</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1938"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1943"/>
         <source>Private Keys (*.pem *.key);;All Files (*)</source>
         <translation>Private Schlüssel (*.pem *.key);;Alle Dateien (*)</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1973"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1978"/>
         <source>PFX File Created</source>
         <translation>PFX-Datei erstellt</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="1974"/>
+        <location filename="../src/bconnectionwizard.cpp" line="1979"/>
         <source>PFX file has been created successfully.
 
 The certificate path has been updated.</source>
@@ -20713,144 +20749,144 @@ Der Zertifikatspfad wurde aktualisiert.</translation>
 <context>
     <name>TestPage</name>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2598"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2615"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2645"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2754"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2603"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2620"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2650"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2759"/>
         <source>Test Connection</source>
         <translation>Verbindung testen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2602"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2607"/>
         <source>Let&apos;s test your connection.</source>
         <translation>Testen wir Ihre Verbindung.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2606"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2642"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2611"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2647"/>
         <source>Click the button to test.</source>
         <translation>Klicken Sie auf die Schaltfläche, um zu testen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2665"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2670"/>
         <source>Connecting...</source>
         <translation>Verbinde...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2668"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2673"/>
         <source>Starting test...</source>
         <translation>Test wird gestartet...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2707"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2712"/>
         <source>Mode: TLS-Cert</source>
         <translation>Modus: TLS-Cert</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2719"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2724"/>
         <source>Mode: TLS-PSK with cipher list: %1</source>
         <translation>Modus: TLS-PSK mit Cipher-Liste: %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2721"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2726"/>
         <source>Mode: TLS-PSK</source>
         <translation>Modus: TLS-PSK</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2734"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2739"/>
         <source>Mode: gRPC (TLS) on port %1</source>
         <translation>Modus: gRPC (TLS) auf Port %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2735"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2737"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2740"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2742"/>
         <source>Connecting to %1:%2...</source>
         <translation>Verbinde mit %1:%2...</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2773"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2778"/>
         <source>Cancelled.</source>
         <translation>Abgebrochen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2781"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2786"/>
         <source>Connecting</source>
         <translation>Verbinden</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2782"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2787"/>
         <source>Authenticating</source>
         <translation>Authentifizieren</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2783"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2788"/>
         <source>Setting API</source>
         <translation>API einstellen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2784"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2789"/>
         <source>Loading</source>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2785"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2790"/>
         <source>Ready</source>
         <translation>Bereit</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2807"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2812"/>
         <source>Server certificate trusted.</source>
         <translation>Serverzertifikat vertrauenswürdig.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2811"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2816"/>
         <source>Server certificate not trusted - connection cancelled.</source>
         <translation>Serverzertifikat nicht vertrauenswürdig - Verbindung abgebrochen.</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2812"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2825"/>
-        <location filename="../src/bconnectionwizard.cpp" line="2831"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2817"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2830"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2836"/>
         <source>Failed</source>
         <translation>Fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2824"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2829"/>
         <source>Auth OK</source>
         <translation>Authentifizierung OK</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2825"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2830"/>
         <source>Auth failed: %1</source>
         <translation>Authentifizierung fehlgeschlagen: %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2830"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2835"/>
         <source>Error: %1</source>
         <translation>Fehler: %1</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2841"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2846"/>
         <source>Success!</source>
         <translation>Erfolg!</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2842"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2847"/>
         <source>Connection successful!</source>
         <translation>Verbindung erfolgreich!</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2845"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2850"/>
         <source>Test Again</source>
         <translation>Erneut testen</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2853"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2858"/>
         <source>Timeout</source>
         <translation>Zeitüberschreitung</translation>
     </message>
     <message>
-        <location filename="../src/bconnectionwizard.cpp" line="2854"/>
+        <location filename="../src/bconnectionwizard.cpp" line="2859"/>
         <source>Timed out</source>
         <translation>Zeitüberschreitung</translation>
     </message>

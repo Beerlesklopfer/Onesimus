@@ -508,6 +508,8 @@ Pull requests are welcome! Please:
 
 Onesimus is licensed under the GNU Affero General Public License, version 3 (see [LICENSE](LICENSE)). Its own code is also available under any later version (AGPL-3.0-or-later); files that follow the Bareos source are AGPL-3.0-only with the Bareos copyright holders, so the program as a whole is distributed under AGPL-3.0. Each file states its licence in an SPDX header; [LICENSING.md](LICENSING.md) lists the Bareos-related files.
 
+Third-party components of the packages (Qt, Qt gRPC, OpenSSL, Feather icons, and the libraries bundled in the AppImage) are listed with their licences in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md); the licence texts are in [LICENSES/](LICENSES/).
+
 ## 🙏 Credits
 
 ### Technologies

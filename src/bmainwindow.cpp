@@ -1837,6 +1837,7 @@ void BMainWindow::onToggleConnectionTriggered()
 #include <QLabel>
 #include <QPushButton>
 #include <QPixmap>
+#include "bthirdpartynotices.h"
 
 void BMainWindow::onAboutTriggered()
 {
@@ -1950,8 +1951,14 @@ void BMainWindow::onAboutTriggered()
 
     mainLayout->addStretch();
 
-    // Close Button
+    // Third-party licences (compiled in from THIRD-PARTY-NOTICES.md and LICENSES/) and Close
     QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QPushButton* noticesButton = new QPushButton(tr("Third-party licences..."));
+    QObject::connect(noticesButton, &QPushButton::clicked, &aboutDialog, [&aboutDialog]() {
+        BThirdPartyNoticesDialog notices(&aboutDialog);
+        notices.exec();
+    });
+    buttonLayout->addWidget(noticesButton);
     buttonLayout->addStretch();
 
     QPushButton* closeButton = new QPushButton(tr("Close"));

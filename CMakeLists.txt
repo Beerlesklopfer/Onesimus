@@ -488,6 +488,7 @@ set(SOURCES
     src/bcapabilities.cpp
     src/bcapabilitynotice.cpp
     src/buiscale.cpp
+    src/bthirdpartynotices.cpp
     src/bstatuschip.cpp
     src/bstatusdelegate.cpp
     src/bheaderstate.cpp
@@ -627,6 +628,7 @@ set(HEADERS
     include/bcapabilities.h
     include/bcapabilitynotice.h
     include/buiscale.h
+    include/bthirdpartynotices.h
     include/bstatuschip.h
     include/bstatusdelegate.h
     include/bheaderstate.h
@@ -786,39 +788,23 @@ set(UI_FILES
 )
 
 # ============================================================================
-# Qt Ressourcen automatisch generieren und einbinden
+# Third-party notices and licence texts
 # ============================================================================
-
-set(RESOURCE_PREFIX_ICONS  icons)
-set(RESOURCE_PREFIX_IMAGES images)
-
-set(RESOURCE_CONTENT 
-    res/img/logo_bareos.png 
-    res/img/logo_bacula.png 
-    )
-
-# Generierte qrc-Datei im Build-Verzeichnis
-set(QT_AUTO_QRC ${CMAKE_BINARY_DIR}/resources_autogen.qrc)
-
-# qrc-Datei schreiben
-file(WRITE ${QT_AUTO_QRC} "<!DOCTYPE RCC><RCC version=\"1.0\">\n")
-file(APPEND ${QT_AUTO_QRC} "<qresource prefix=\"/${RESOURCE_PREFIX_IMAGES}\">\n")
-
-foreach(res_file IN LISTS RESOURCE_CONTENT)
-    # Nur der Dateiname als Alias
-    get_filename_component(res_name ${res_file} NAME)
-    file(APPEND ${QT_AUTO_QRC} "    <file alias=\"${res_name}\">${CMAKE_SOURCE_DIR}/${res_file}</file>\n")
-endforeach()
-
-file(APPEND ${QT_AUTO_QRC} "</qresource>\n</RCC>\n")
-
-# CMake Qt Ressourcen automatisch kompilieren
-qt6_add_resources(QT_RESOURCES
-    ${QT_AUTO_QRC}
+# THIRD-PARTY-NOTICES.md with the licence texts it links (LICENSES/) and the
+# AGPL (LICENSE) go into every package (Linux: share/doc/onesimus, Windows:
+# next to onesimus.exe, macOS: Onesimus.app/Contents/Resources) and into the
+# program as Qt resources under :/legal/ (About -> Third-party licences).
+# scripts/ci/check-notices.sh/.ps1 fail a package that lacks them.
+set(ONESIMUS_LICENSE_TEXTS
+    LICENSES/Apache-2.0.txt
+    LICENSES/GPL-3.0-only.txt
+    LICENSES/LGPL-3.0-only.txt
+    LICENSES/MIT.txt
 )
-
-# Kompilierte Ressourcen zu den Quellen hinzufügen
-list(APPEND SOURCES ${QT_RESOURCES})
+set(ONESIMUS_NOTICE_FILES THIRD-PARTY-NOTICES.md LICENSE)
+# Absolute paths, for custom commands (they run in the build directory)
+list(TRANSFORM ONESIMUS_NOTICE_FILES PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE ONESIMUS_NOTICE_PATHS)
+list(TRANSFORM ONESIMUS_LICENSE_TEXTS PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE ONESIMUS_LICENSE_PATHS)
 
 # Theme Resources
 qt6_add_resources(THEME_RESOURCES
@@ -888,6 +874,12 @@ add_executable(${PROJECT_NAME}
     ${UI_FILES}
 )
 
+qt_add_resources(${PROJECT_NAME} onesimus_legal
+    PREFIX "/legal"
+    BASE "${CMAKE_SOURCE_DIR}"
+    FILES ${ONESIMUS_NOTICE_FILES} ${ONESIMUS_LICENSE_TEXTS}
+)
+
 # macOS: an application bundle Onesimus.app (Contents/MacOS/Onesimus) with
 # its own Info.plist and icon. scripts/ci/macos-package.sh copies the Qt
 # frameworks into it (macdeployqt), signs it and builds the .dmg.
@@ -896,6 +888,16 @@ if(APPLE)
     set(ONESIMUS_ICNS "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.icns")
     set_source_files_properties("${ONESIMUS_ICNS}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     target_sources(${PROJECT_NAME} PRIVATE "${ONESIMUS_ICNS}")
+    # Third-party notices in Contents/Resources (licence texts in
+    # Contents/Resources/LICENSES); macdeployqt and codesign keep them.
+    foreach(_notice IN LISTS ONESIMUS_NOTICE_FILES)
+        set_source_files_properties("${CMAKE_SOURCE_DIR}/${_notice}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+        target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/${_notice}")
+    endforeach()
+    foreach(_text IN LISTS ONESIMUS_LICENSE_TEXTS)
+        set_source_files_properties("${CMAKE_SOURCE_DIR}/${_text}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources/LICENSES)
+        target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/${_text}")
+    endforeach()
     set_target_properties(${PROJECT_NAME} PROPERTIES
         MACOSX_BUNDLE TRUE
         OUTPUT_NAME Onesimus
@@ -1051,6 +1053,12 @@ if(UNIX AND NOT APPLE)
     install(FILES "${CMAKE_BINARY_DIR}/onesimus.desktop"
         DESTINATION share/applications
     )
+
+    # Third-party notices, licence texts and a Debian copyright file
+    # (.deb: /usr/share/doc/onesimus, AppImage: usr/share/doc/onesimus)
+    install(FILES ${ONESIMUS_NOTICE_FILES} DESTINATION share/doc/onesimus)
+    install(FILES ${ONESIMUS_LICENSE_TEXTS} DESTINATION share/doc/onesimus/LICENSES)
+    install(FILES "${CMAKE_SOURCE_DIR}/packaging/debian/copyright" DESTINATION share/doc/onesimus)
 
     # Install the app icon. The SVG goes to hicolor/scalable and is used by
     # GTK/Qt at every size; PNG sizes are rendered in addition for tools that
@@ -1232,6 +1240,11 @@ if(WIN32)
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
                 "${CMAKE_BINARY_DIR}/deploy/"
+            # Third-party notices next to the exe (the MSI harvests deploy\,
+            # package-windows.ps1 copies them into the ZIP)
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ONESIMUS_NOTICE_PATHS} "${CMAKE_BINARY_DIR}/deploy/"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/deploy/LICENSES"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ONESIMUS_LICENSE_PATHS} "${CMAKE_BINARY_DIR}/deploy/LICENSES/"
             COMMAND ${WINDEPLOYQT_EXECUTABLE}
                 $<IF:$<CONFIG:Debug>,--debug,--release>
                 --no-translations
@@ -3111,6 +3124,26 @@ if(BUILD_TESTING)
 
     add_test(NAME buiscale_test COMMAND buiscale_test)
 
+    # bthirdpartynotices_test - the notices and licence texts under :/legal/
+    # (the files every package ships): links and files match, the dialog of
+    # the About box shows them (widgets, offscreen)
+    add_executable(bthirdpartynotices_test
+        test/bthirdpartynotices_test.cpp
+        src/bthirdpartynotices.cpp
+        src/buiscale.cpp
+        include/bthirdpartynotices.h
+        include/buiscale.h
+    )
+    qt_add_resources(bthirdpartynotices_test bthirdpartynotices_test_legal
+        PREFIX "/legal"
+        BASE "${CMAKE_SOURCE_DIR}"
+        FILES ${ONESIMUS_NOTICE_FILES} ${ONESIMUS_LICENSE_TEXTS}
+    )
+    target_include_directories(bthirdpartynotices_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bthirdpartynotices_test PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test)
+    add_test(NAME bthirdpartynotices_test COMMAND bthirdpartynotices_test)
+    set_tests_properties(bthirdpartynotices_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # bsettingsstore_test - the settings store of the connection profiles:
     # secrets in the keychain and out of the profile JSON, their migration,
     # the warning without a keychain, a reset that keeps the profiles and the
@@ -3465,6 +3498,7 @@ if(BUILD_TESTING)
     message(STATUS "  bschedulegridwidget_test - schedule grid widget test, offscreen (registered with CTest)")
     message(STATUS "  bschedulegridedit_test - schedule grid editing test, offscreen (registered with CTest)")
     message(STATUS "  buiscale_test    - font roles, interface zoom and timeline measures test, offscreen (registered with CTest)")
+    message(STATUS "  bthirdpartynotices_test - third-party notices and licence texts in the resources, offscreen (registered with CTest)")
 endif()
 message(STATUS "")
 

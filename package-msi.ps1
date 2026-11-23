@@ -77,6 +77,13 @@ if (-not (Test-Path (Join-Path $GuiDir 'onesimus.exe'))) {
 if (-not (Test-Path (Join-Path $GuiDir 'Qt6Core.dll'))) {
     throw "$GuiDir has no Qt6Core.dll - windeployqt did not run"
 }
+# The MSI installs everything in deploy\ (the Files harvest of onesimus.wxs),
+# the third-party notices included; the CMake target "deploy" copies them.
+foreach ($notice in @('THIRD-PARTY-NOTICES.md', 'LICENSE', 'LICENSES')) {
+    if (-not (Test-Path (Join-Path $GuiDir $notice))) {
+        throw "$GuiDir has no $notice - the CMake target deploy did not copy the third-party notices"
+    }
+}
 
 # The GUI version (project() in CMakeLists.txt) is the MSI version.
 $cmake = Get-Content (Join-Path $RepoDir 'CMakeLists.txt') -Raw

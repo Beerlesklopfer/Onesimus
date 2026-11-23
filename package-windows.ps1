@@ -113,6 +113,18 @@ foreach ($pattern in $qtFiles) {
     }
 }
 
+# Third-party notices and licence texts (copied into the deploy folder by the
+# CMake target "deploy"; scripts/ci/check-notices.ps1 checks the ZIP)
+foreach ($name in @("THIRD-PARTY-NOTICES.md", "LICENSE", "LICENSES")) {
+    $item = Join-Path $BuildDir $name
+    if (-not (Test-Path $item)) {
+        Write-Host "FEHLER: $name fehlt in $BuildDir - CMake-Target deploy ausfuehren" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "   $name" -ForegroundColor Gray
+    Copy-Item -Path $item -Destination $packageDir -Recurse
+}
+
 # Create README for the package
 $readmeContent = @"
 # Onesimus v$Version
@@ -144,7 +156,8 @@ Wiki:   https://github.com/Onesimus-io/Onesimus/wiki
 
 ## License
 
-See LICENSE file
+Onesimus: GNU Affero General Public License v3, see LICENSE.
+Third-party components (Qt, OpenSSL, ...): see THIRD-PARTY-NOTICES.md and LICENSES\.
 
 ---
 
