@@ -191,8 +191,8 @@ function init_submodules
 end
 
 function app_bin
-    if test -x $BUILD_DIR/onesimus.app/Contents/MacOS/onesimus
-        echo $BUILD_DIR/onesimus.app/Contents/MacOS/onesimus
+    if test -x $BUILD_DIR/Onesimus.app/Contents/MacOS/Onesimus
+        echo $BUILD_DIR/Onesimus.app/Contents/MacOS/Onesimus
     else
         echo $BUILD_DIR/onesimus
     end
@@ -344,6 +344,8 @@ function deploy_onesimus
     end
 
     if test "$OS" = Darwin
+        # The binary of the build tree's Onesimus.app (a development install);
+        # the self-contained Onesimus.app comes in the .dmg of `package`.
         info "  onesimus → $DEPLOY_PREFIX/bin/onesimus"
         run_maybe_sudo $DEPLOY_PREFIX/bin install -m 755 $bin $DEPLOY_PREFIX/bin/onesimus
         test "$DRY_RUN" = 1; or ok "onesimus deployed (version "(stamped_version)")."
@@ -411,6 +413,14 @@ function cmd_install
 end
 
 function cmd_package
+    # macOS: the .dmg comes from scripts/ci/macos-package.sh (see deploy.sh)
+    if test "$OS" = Darwin; and test -z "$PACKAGE_GENERATORS"
+        cmd_build
+        info "Packaging (scripts/ci/macos-package.sh)"
+        run scripts/ci/macos-package.sh $BUILD_DIR
+        or die "macos-package.sh failed"
+        return 0
+    end
     need cpack
     cmd_build
     run rm -rf $BUILD_DIR/_CPack_Packages
@@ -584,7 +594,7 @@ Development loop (touches the system only with install):
   run [args]             Build and start onesimus
   test                   Build and run ctest (offscreen)
   install                cmake --install into PREFIX (sudo if not writable)
-  package                CPack: .deb on Linux, .dmg on macOS
+  package                .deb on Linux (CPack), .dmg on macOS (macos-package.sh)
   appimage               AppImage -> dist/appimage/ (Linux x86_64)
   clean                  Remove the build trees
   help                   This table

@@ -6,7 +6,9 @@
 # Windows: MSVC 2022 + Qt from install-qt-action, build, ctest and an MSI
 #          (GUI only) through deploy.ps1, so a broken WiX source shows up here
 #          and not first on a release tag.
-# macOS:   build only, allowed to fail (app bundle deferred, backlog P3-22).
+# macOS:   Onesimus.app and an unsigned (ad-hoc signed) .dmg through
+#          scripts/ci/macos-package.sh (macdeployqt, otool check, start test),
+#          uploaded as an artifact; allowed to fail until it has been green.
 #
 # Submodules: only external/openssl and proto. wiki/ has an SSH URL and is
 # never fetched (no `submodules:` on checkout).
@@ -211,9 +213,9 @@ jobs:
           if-no-files-found: ignore
 
   macos:
-    # Build only and allowed to fail: there is no app bundle yet (backlog
-    # P3-22), so nothing here is shipped. It keeps the code compiling on clang.
-    name: macOS (build only, allowed to fail)
+    # Onesimus.app + unsigned .dmg (the same script as release.yml, without
+    # the signing secrets). Allowed to fail until it has been green once.
+    name: macOS (app bundle and dmg, allowed to fail)
     runs-on: macos-15
     timeout-minutes: 60
     continue-on-error: true
@@ -249,7 +251,20 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/ci-cache/openssl
-          key: openssl-${{ env.OPENSSL_CACHE_REV }}-macos14-${{ steps.sub.outputs.openssl }}
+          # macos-15 runners are arm64; OpenSSL is built for macOS 12 and
+          # later (CMAKE_OSX_DEPLOYMENT_TARGET in CMakeLists.txt).
+          key: openssl-${{ env.OPENSSL_CACHE_REV }}-macos15-arm64-mt12-${{ steps.sub.outputs.openssl }}
 
       - name: Build
         run: CMAKE_PREFIX_PATH="$QT_ROOT_DIR" JOBS="$(sysctl -n hw.ncpu)" ./deploy.sh build
+
+      - name: Package (unsigned dmg)
+        run: scripts/ci/macos-package.sh build
+
+      - name: Upload dmg
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-dmg
+          path: build/Onesimus-*-macos-*.dmg*
+          if-no-files-found: error
+          retention-days: 7

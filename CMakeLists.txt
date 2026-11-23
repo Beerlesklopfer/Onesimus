@@ -1,4 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
+
+# macOS: the oldest release the app runs on. Qt 6.8 supports macOS 12 and
+# later, so nothing older is useful. Before project(), where CMake reads it;
+# MACOSX_DEPLOYMENT_TARGET in the environment or -D overrides it. Ignored on
+# every other platform.
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin" AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET
+   AND NOT DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version")
+endif()
+
 project(onesimus VERSION 0.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -257,6 +267,14 @@ if(USE_STATIC_OPENSSL)
         
         set(OPENSSL_BUILD_COMMAND make -j${N_CORES})
         set(OPENSSL_INSTALL_COMMAND make install_sw install_ssldirs)
+        # macOS: OpenSSL's own compiler calls get the same minimum macOS as
+        # the app, otherwise the linker warns that the objects need a newer one.
+        if(APPLE AND CMAKE_OSX_DEPLOYMENT_TARGET)
+            list(PREPEND OPENSSL_CONFIGURE_COMMAND
+                ${CMAKE_COMMAND} -E env MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
+            list(PREPEND OPENSSL_BUILD_COMMAND
+                ${CMAKE_COMMAND} -E env MACOSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
+        endif()
         
         # Linux System-Bibliotheken
         set(OPENSSL_SYSTEM_LIBS pthread dl)
@@ -797,6 +815,28 @@ add_executable(${PROJECT_NAME}
     ${UI_FILES}
 )
 
+# macOS: an application bundle Onesimus.app (Contents/MacOS/Onesimus) with
+# its own Info.plist and icon. scripts/ci/macos-package.sh copies the Qt
+# frameworks into it (macdeployqt), signs it and builds the .dmg.
+# onesimus.icns is generated from onesimus.svg (all sizes 16-1024 px).
+if(APPLE)
+    set(ONESIMUS_ICNS "${CMAKE_SOURCE_DIR}/resources/icons/onesimus.icns")
+    set_source_files_properties("${ONESIMUS_ICNS}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    target_sources(${PROJECT_NAME} PRIVATE "${ONESIMUS_ICNS}")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        OUTPUT_NAME Onesimus
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/Info.plist.in"
+        MACOSX_BUNDLE_BUNDLE_NAME Onesimus
+        MACOSX_BUNDLE_EXECUTABLE_NAME Onesimus
+        MACOSX_BUNDLE_GUI_IDENTIFIER io.onesimus.Onesimus
+        MACOSX_BUNDLE_ICON_FILE onesimus.icns
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_COPYRIGHT "Copyright (C) Bernau Family. AGPL-3.0-or-later."
+    )
+endif()
+
 # Hide console window on Windows (GUI application)
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -922,6 +962,8 @@ endif()
 
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
+    # macOS only (MACOSX_BUNDLE): Onesimus.app at the top of the prefix
+    BUNDLE DESTINATION .
 )
 
 # Install desktop file and icon for Linux
@@ -1177,23 +1219,26 @@ if(APPLE)
         message(STATUS "  macdeployqt: ${MACDEPLOYQT_EXECUTABLE}")
         message(STATUS "")
         message(STATUS "After building, run:")
-        message(STATUS "  make deploy")
-        message(STATUS "  make dmg (to create DMG)")
+        message(STATUS "  cmake --build . --target deploy   (Qt into Onesimus.app in place)")
+        message(STATUS "  cmake --build . --target dmg      (scripts/ci/macos-package.sh)")
         message(STATUS "========================================")
         message(STATUS "")
 
-        # Custom target for deployment
+        # Qt frameworks and plugins into the bundle of the build tree
         add_custom_target(deploy
-            COMMAND ${MACDEPLOYQT_EXECUTABLE} "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../.." -always-overwrite
+            COMMAND ${MACDEPLOYQT_EXECUTABLE} "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}>" -always-overwrite
             DEPENDS ${PROJECT_NAME}
             COMMENT "Running macdeployqt to collect Qt dependencies..."
         )
 
-        # Custom target for DMG creation
+        # The .dmg of the release: a copy of the bundle with Qt, checked with
+        # otool, signed and notarised when the secrets are set (see the script)
         add_custom_target(dmg
-            COMMAND ${MACDEPLOYQT_EXECUTABLE} "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../.." -dmg
-            DEPENDS deploy
-            COMMENT "Creating DMG installer..."
+            COMMAND ${CMAKE_COMMAND} -E env MACDEPLOYQT=${MACDEPLOYQT_EXECUTABLE}
+                "${CMAKE_SOURCE_DIR}/scripts/ci/macos-package.sh" "${CMAKE_BINARY_DIR}"
+            DEPENDS ${PROJECT_NAME}
+            COMMENT "Creating the DMG with scripts/ci/macos-package.sh..."
+            VERBATIM
         )
     endif()
 endif()
@@ -2883,7 +2928,9 @@ if(WIN32)
     # Install the deployed files
     install(DIRECTORY "${CMAKE_BINARY_DIR}/deploy/" DESTINATION bin)
 elseif(APPLE)
-    # DMG Generator for macOS
+    # DMG Generator for macOS. CPack copies Onesimus.app without the Qt
+    # frameworks; the .dmg that is shipped comes from scripts/ci/macos-package.sh
+    # (./deploy.sh package, cmake --build . --target dmg).
     set(CPACK_GENERATOR "DragNDrop")
     set(CPACK_DMG_VOLUME_NAME "${PROJECT_NAME}")
     set(CPACK_DMG_FORMAT "UDZO")

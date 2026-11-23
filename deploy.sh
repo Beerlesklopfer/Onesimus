@@ -208,8 +208,8 @@ init_submodules() {
 }
 
 app_bin() {
-    if [ -x "${BUILD_DIR}/onesimus.app/Contents/MacOS/onesimus" ]; then
-        echo "${BUILD_DIR}/onesimus.app/Contents/MacOS/onesimus"
+    if [ -x "${BUILD_DIR}/Onesimus.app/Contents/MacOS/Onesimus" ]; then
+        echo "${BUILD_DIR}/Onesimus.app/Contents/MacOS/Onesimus"
     else
         echo "${BUILD_DIR}/onesimus"
     fi
@@ -350,8 +350,9 @@ deploy_onesimus() {
     fi
 
     if [ "$OS" = "Darwin" ]; then
-        # No .app bundle (the target is not MACOSX_BUNDLE): the binary goes to
-        # DEPLOY_PREFIX/bin and finds Homebrew's Qt through its rpath.
+        # The binary of the build tree's Onesimus.app goes to DEPLOY_PREFIX/bin
+        # and finds Qt through its rpath (a development install). The
+        # self-contained Onesimus.app comes in the .dmg of `package`.
         info "  onesimus → ${DEPLOY_PREFIX}/bin/onesimus"
         run_maybe_sudo "${DEPLOY_PREFIX}/bin" install -m 755 "$bin" "${DEPLOY_PREFIX}/bin/onesimus"
         [ "$DRY_RUN" = "1" ] || ok "onesimus deployed (version $(stamped_version))."
@@ -420,9 +421,17 @@ cmd_install() {
     ok "installed to ${PREFIX}."
 }
 
-# CPack with the generator CMakeLists.txt sets per platform: DEB on Linux,
-# DragNDrop (.dmg) on macOS. PACKAGE_GENERATORS overrides it (e.g. "DEB;RPM").
+# CPack with the generator CMakeLists.txt sets per platform (DEB on Linux);
+# PACKAGE_GENERATORS overrides it (e.g. "DEB;RPM"). macOS: the .dmg with the
+# Qt frameworks inside comes from scripts/ci/macos-package.sh, the same
+# script as in CI and release (signed when the MACOS_* secrets are set).
 cmd_package() {
+    if [ "$OS" = "Darwin" ] && [ -z "${PACKAGE_GENERATORS:-}" ]; then
+        cmd_build
+        info "Packaging (scripts/ci/macos-package.sh)"
+        run scripts/ci/macos-package.sh "$BUILD_DIR" || die "macos-package.sh failed"
+        return 0
+    fi
     need_tool cpack
     cmd_build
     # CPack does not clean its staging tree, and a tree left by an aborted run
@@ -606,7 +615,7 @@ Development loop (touches the system only with install):
   run [args]             Build and start onesimus
   test                   Build and run ctest (offscreen)
   install                cmake --install into PREFIX (sudo if not writable)
-  package                CPack: .deb on Linux, .dmg on macOS
+  package                .deb on Linux (CPack), .dmg on macOS (macos-package.sh)
   appimage               AppImage -> dist/appimage/ (Linux x86_64)
   clean                  Remove the build trees
   help                   This table
