@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+// SPDX-FileCopyrightText: 2026 Joerg Steffens
+
 /**
  * @file bconnectionwizard.cpp
  * @brief Director Configuration Wizard (Q&A Style)

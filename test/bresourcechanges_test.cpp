@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bresourcechanges_test.cpp
  * @brief What the resource form changed, as directive changes

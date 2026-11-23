@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 #
 # run_all_tests.sh - Comprehensive test runner for Onesimus
 #

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bschedulewizard_test.cpp
  * @brief The wizard for new schedules: name page, grid, review

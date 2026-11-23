@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bbyteformat_test.cpp
  * @brief Test for BByteFormat: byte counts in binary units with IEC names,

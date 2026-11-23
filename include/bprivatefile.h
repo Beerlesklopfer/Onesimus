@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bprivatefile.h
  * @brief Files that only their owner may read (log file, files with passwords)

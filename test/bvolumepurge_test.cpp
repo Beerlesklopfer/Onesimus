@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 // Tests for "purge volume all" of the Onesimus Director: the command line,
 // the reply parser and the panel of the cleanup dialog. No Director is
 // involved; the panel's sender and confirmation are test functions.

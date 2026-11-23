@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 // The raw text of one resource: reading its directives, writing a change of
 // single directives into it with every other line byte for byte, refusing
 // what cannot be done safely, and the line diff of the review.

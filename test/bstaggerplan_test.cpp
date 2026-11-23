@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bstaggerplan_test.cpp
  * @brief The schedules and job texts of a stagger proposal (BStaggerPlan)

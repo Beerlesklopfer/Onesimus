@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bnetframe_test.cpp
  * @brief Decision on the length header of a BNET telegram (frame length limit)

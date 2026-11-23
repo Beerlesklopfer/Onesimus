@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bdirectorconfigclient.cpp
  * @brief The configuration CRUD methods of the Director over BDirector

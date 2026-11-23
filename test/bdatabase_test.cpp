@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bdatabase_test.cpp
  * @brief Schema creation, migrations and repair of the local SQLite database

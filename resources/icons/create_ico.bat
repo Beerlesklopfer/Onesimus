@@ -1,4 +1,7 @@
 @echo off
+REM SPDX-License-Identifier: AGPL-3.0-or-later
+REM SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 REM Create Windows ICO file from SVG using ImageMagick
 REM Requires ImageMagick to be installed: https://imagemagick.org/
 

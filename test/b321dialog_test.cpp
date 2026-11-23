@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file b321dialog_test.cpp
  * @brief Tools > 3-2-1 Verifier (B321Dialog), offscreen, without a Director

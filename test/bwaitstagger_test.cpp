@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bwaitstagger_test.cpp
  * @brief Later start times for jobs that wait for each other (BWaitStagger)

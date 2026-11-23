@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 #include "bmainwindow.h"
 #include "btranslations.h"
 #include "config/bsettings.h"
@@ -282,7 +285,8 @@ void usage()
     qInfo() << QString(
         "Onesimus - Bareos Backup Management\n"
         "Version: " PROJECT_VERSION "\n"
-        "Copyright (C) 2025\n"
+        "Copyright (C) 2025-2026 Jörg Bernau\n"
+        "Licence: AGPL-3.0-or-later\n"
         "\n"
         "Usage: onesimus [options] [command]\n"
         "\n"

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 cmake_minimum_required(VERSION 3.16)
 
 project(bjobfileswidget_test VERSION 1.0.0 LANGUAGES CXX)

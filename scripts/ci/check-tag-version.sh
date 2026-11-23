@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 # Compare a release tag with the project version in CMakeLists.txt.
 #
 #   scripts/ci/check-tag-version.sh v1.0.0        -> ok, prints "version=1.0.0"

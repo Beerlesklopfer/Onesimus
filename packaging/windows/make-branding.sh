@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 # Generates the WixUI bitmaps of the MSI from the product logo
 # (resources/icons/onesimus.svg). Run it after a change to the logo and
 # commit the results; the Windows build only reads the .bmp files.

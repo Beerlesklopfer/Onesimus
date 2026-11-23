@@ -1,4 +1,7 @@
 @echo off
+REM SPDX-License-Identifier: AGPL-3.0-or-later
+REM SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 REM Double-click launcher for deploy.ps1 (replaces run-build.bat and rebuild.bat).
 REM   deploy.bat            build + windeployqt (deploy.ps1 all)
 REM   deploy.bat rebuild    clean rebuild (the former rebuild.bat)

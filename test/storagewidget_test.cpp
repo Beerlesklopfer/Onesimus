@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file storagewidget_test.cpp
  * @brief The Storage/Volumes tab (view B) on the real reply of the production

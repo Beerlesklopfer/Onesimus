@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bmessagesmodel_test.cpp
  * @brief Row signals of the Director messages list at its history limit

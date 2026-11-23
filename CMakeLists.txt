@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+# SPDX-FileCopyrightText: 2026 Joerg Steffens
+
 cmake_minimum_required(VERSION 3.16)
 
 # macOS: the oldest release the app runs on. Qt 6.8 supports macOS 12 and

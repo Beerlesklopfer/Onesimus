@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bscheduletimeline_test.cpp
  * @brief The timeline of the schedule tab as a whole (BScheduleWidget)

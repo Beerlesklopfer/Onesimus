@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bschedulegriddialogs.cpp
  * @brief The small forms of the schedule grid: overrides, a new brush, a new scope

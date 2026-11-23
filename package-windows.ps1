@@ -1,4 +1,7 @@
 #Requires -Version 5.1
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 # Onesimus Windows ZIP Package Creator
 # Creates a portable ZIP package with all Qt dependencies
 # No additional software required - uses built-in PowerShell

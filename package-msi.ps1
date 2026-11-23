@@ -1,4 +1,7 @@
 #Requires -Version 5.1
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 <#
 .SYNOPSIS
     Builds the Onesimus MSI (WiX Toolset v6) from packaging\windows\onesimus.wxs.

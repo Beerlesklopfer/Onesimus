@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bschedulegridwidget.cpp
  * @brief The schedule grid: painting, selection, editing, tooltips, list of runs

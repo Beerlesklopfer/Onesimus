@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bresourcedialog.cpp
  * @brief Dynamic schema-driven dialog for editing Bareos/Bacula resources

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bmdnsbrowser.cpp
  * @brief Minimal mDNS/DNS-SD browser (RFC 6762 / RFC 6763)

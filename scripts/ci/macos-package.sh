@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 # ─── Onesimus.app → Onesimus-<version>-macos-<arch>.dmg ─────────────────────
 #
 # Used by ci.yml (unsigned), release.yml (signed and notarised when the

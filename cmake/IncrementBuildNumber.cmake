@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 # IncrementBuildNumber.cmake
 # Increments the build number and generates version.h from template
 #

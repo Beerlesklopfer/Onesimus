@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bdirectorreply_test.cpp
  * @brief Verdict on the reply of a "reload" command (used by the job and client wizards)

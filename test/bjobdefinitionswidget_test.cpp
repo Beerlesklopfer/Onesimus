@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 // The Job Definitions tab with a fake Director (BFakeConfigClient): the save
 // flow (read, check, review with diff and affected jobs, write) and every
 // status, the raw text changed only where edited, delete refused while

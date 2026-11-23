@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bjobstable_test.cpp
  * @brief The jobs table: header state, sorting by value, no row colour by level

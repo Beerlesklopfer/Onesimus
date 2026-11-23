@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 # ─── Onesimus deploy script (Linux / macOS) ─────────────────────────────────
 #
 # Builds the Onesimus GUI and deploys it into the system paths, modelled on

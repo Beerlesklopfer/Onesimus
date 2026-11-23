@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 #include "jobs/bjobdetailsdialog.h"
 #include "buiscale.h"
 #include "bstatusdelegate.h"

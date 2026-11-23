@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bschedulepalette.cpp
  * @brief The palette of the schedule grid: brushes, eraser, paint mode

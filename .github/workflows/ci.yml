@@ -81,6 +81,9 @@ jobs:
           git submodule update --init --depth 1 external/openssl proto
           echo "openssl=$(git rev-parse HEAD:external/openssl)" >> "$GITHUB_OUTPUT"
 
+      - name: SPDX licence headers
+        run: sh scripts/ci/check-spdx.sh
+
       - name: Cache static OpenSSL
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

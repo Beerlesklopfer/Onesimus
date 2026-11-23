@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 #ifndef BSCHEDULEWIDGET_H
 #define BSCHEDULEWIDGET_H
 

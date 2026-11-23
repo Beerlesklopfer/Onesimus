@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file busagestatus_test.cpp
  * @brief The free tier usage in the status bar: text, level, projection, tool tip

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 // bgrpcconnect_test - reaching the gRPC port: order of the resolved
 // addresses, the TLS probe per address against local sockets, and the texts
 // of failed calls. No Director, no network beyond the loopback interface.

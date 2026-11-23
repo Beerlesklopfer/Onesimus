@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 // Job and JobDefs: every directive resolved over the JobDefs chain, the raw
 // text as the judge of what is set here, and who uses a JobDefs.
 

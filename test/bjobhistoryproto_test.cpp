@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bjobhistoryproto_test.cpp
  * @brief The typed ListJobs reply read as the command line's "llist jobs"

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file brecycleforecast_test.cpp
  * @brief Test for BRecycleForecast: the "reusable from" rule of the storage plan

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file busageproto.cpp
  * @brief UsageInfo of proto/usage.proto as BUsage::Info

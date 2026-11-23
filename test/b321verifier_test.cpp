@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file b321verifier_test.cpp
  * @brief The 3-2-1 rule per backup job (B321Verifier), without widgets and

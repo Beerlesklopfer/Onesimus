@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bvolumelist_test.cpp
  * @brief Test for BVolumeList: the volumes of "list volumes" / "llist volumes"

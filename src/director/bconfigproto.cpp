@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bconfigproto.cpp
  * @brief BConfig types to and from the generated messages of director_api.proto

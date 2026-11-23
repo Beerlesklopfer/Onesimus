@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bgrpcconnect.cpp
  * @brief Reaching the gRPC port of the Onesimus Director: addresses, probe,

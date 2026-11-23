@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
 /**
  * @file bscheduleoccurrences.cpp
  * @brief When the Run lines of a schedule trigger, on concrete dates
