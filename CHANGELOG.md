@@ -41,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for 2 years.
 
 ### Changed
-- Licence: AGPL-3.0-or-later.
+- Licence: AGPL-3.0; own code also under any later version (AGPL-3.0-or-later), files that follow
+  the Bareos source AGPL-3.0-only (see `LICENSING.md`).
 - Byte counts in the jobs and clients tables, job and client details, job statistics, restore
   wizard and cleanup dialog are shown in binary units with IEC names (KiB, MiB, GiB, TiB) and one
   decimal, like the storage view; before they were labelled KB/MB/GB with two decimals.
@@ -855,7 +856,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Development
 - **Author**: Joerg Bernau <support@onesimus.io>
 - **Project**: Onesimus
-- **License**: AGPL-3.0-or-later
+- **License**: AGPL-3.0 (own code AGPL-3.0-or-later, see `LICENSING.md`)
 
 ### Technologies
 - [Qt Framework](https://www.qt.io/) - Cross-platform UI
