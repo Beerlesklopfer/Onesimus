@@ -51,6 +51,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `status`, `clean`, `help`. All former flags keep their meaning; `--dry-run`/`-DryRun`
   prints every command instead of running it. `./deploy.sh build` is the former `./build.sh`.
 
+### Security
+- **BNET: the Director must prove the password.** The console refuses a Director whose answer to
+  its CRAM-MD5 challenge is wrong, that greets without answering it, or that sends the console's
+  own challenge back; before, these were accepted. Bareos 25 and the Onesimus Director always send
+  this answer (checked in their source and against onesimus-sim).
+- **BNET: TLS requirements are kept.** A profile that requires TLS never falls back to clear text,
+  and a Director that requires TLS is refused before the password proof is sent in clear text.
+  TLS-PSK uses only PSK-* cipher suites, also from a configured cipher list.
+- **Certificate TLS with verification** needs a readable CA file, trusts only that CA (not the
+  system store), and checks that the Director's certificate names the host connected to, or, with
+  TLS Allowed CN set, that its common name is listed. Before, a certificate from any trusted CA was
+  accepted for any host. Windows profiles now pass the CA file and the PKCS#12 client certificate.
+  `--tls` with certificate options needs `--tls-ca`.
+- **gRPC: the certificate pin applies to the connection that carries the login.** Before, it was
+  checked on a separate pre-flight connection and the channel itself ran without verification.
+- Each refused connection says why (wrong password, Director without the password, certificate
+  not matching the pin, host name not in the certificate, CA file unreadable).
+
 ### Fixed
 - The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and
   waits for the job history (measured with the simulator, 80 clients and 120 jobs: a 30 s stall

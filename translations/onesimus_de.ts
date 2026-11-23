@@ -4752,6 +4752,14 @@ Plattform: %2</translation>
     </message>
 </context>
 <context>
+    <name>BGrpcPinnedRelay</name>
+    <message>
+        <location filename="../src/director/bgrpcconnect.cpp" line="410"/>
+        <source>no pinned certificate</source>
+        <translation>kein angeheftetes Zertifikat</translation>
+    </message>
+</context>
+<context>
     <name>BGrpcConnect</name>
     <message>
         <location filename="../src/director/bgrpcconnect.cpp" line="83"/>
@@ -4886,6 +4894,21 @@ Plattform: %2</translation>
         <location filename="../src/director/bgrpctransport.cpp" line="648"/>
         <source>The reply of the Director could not be read</source>
         <translation>Die Antwort des Directors konnte nicht gelesen werden</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bgrpctransport.cpp" line="179"/>
+        <source>The Director&apos;s certificate on the gRPC connection (SHA-256 %1) does not match the pinned certificate (SHA-256 %2). The connection was refused before the login; someone may be intercepting it.</source>
+        <translation>Das Zertifikat des Directors auf der gRPC-Verbindung (SHA-256 %1) stimmt nicht mit dem angehefteten Zertifikat (SHA-256 %2) überein. Die Verbindung wurde vor der Anmeldung abgelehnt; möglicherweise wird sie abgefangen.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bgrpctransport.cpp" line="182"/>
+        <source>none</source>
+        <translation>keine</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bgrpctransport.cpp" line="189"/>
+        <source>Cannot open the local relay for the gRPC connection: %1</source>
+        <translation>Das lokale Relais für die gRPC-Verbindung kann nicht geöffnet werden: %1</translation>
     </message>
 </context>
 <context>
@@ -18397,6 +18420,106 @@ Mögliche Ursachen:
         <location filename="../src/director/bareosauth.cpp" line="1686"/>
         <source>Socket error: %1</source>
         <translation>Socket-Fehler: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="149"/>
+        <source>TLS is required for this connection, but neither TLS-PSK nor certificate TLS is enabled in the profile. Connection refused.</source>
+        <translation>Für diese Verbindung ist TLS erforderlich, aber im Profil ist weder TLS-PSK noch Zertifikats-TLS aktiviert. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="282"/>
+        <source>Certificate verification is on, but no CA certificate file is set in the profile. Set the CA certificate file to the CA that signed the Director&apos;s certificate. Connection refused.</source>
+        <translation>Die Zertifikatsprüfung ist eingeschaltet, aber im Profil ist keine CA-Zertifikatsdatei angegeben. Geben Sie als CA-Zertifikatsdatei die CA an, die das Zertifikat des Directors signiert hat. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="294"/>
+        <source>The CA certificate file &quot;%1&quot; cannot be read or contains no certificate. Connection refused.</source>
+        <translation>Die CA-Zertifikatsdatei „%1“ kann nicht gelesen werden oder enthält kein Zertifikat. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="325"/>
+        <source>The client certificate file &quot;%1&quot; cannot be read (wrong password, or not a PKCS#12 file). Connection refused.</source>
+        <translation>Die Client-Zertifikatsdatei „%1“ kann nicht gelesen werden (falsches Passwort oder keine PKCS#12-Datei). Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="339"/>
+        <source>The client certificate file &quot;%1&quot; cannot be read or contains no certificate. Connection refused.</source>
+        <translation>Die Client-Zertifikatsdatei „%1“ kann nicht gelesen werden oder enthält kein Zertifikat. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="360"/>
+        <source>The private key file &quot;%1&quot; cannot be read (an unencrypted RSA or EC key in PEM format is needed). Connection refused.</source>
+        <translation>Die Datei mit dem privaten Schlüssel „%1“ kann nicht gelesen werden (benötigt wird ein unverschlüsselter RSA- oder EC-Schlüssel im PEM-Format). Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="543"/>
+        <source>The TLS library of this system offers no TLS-PSK cipher suite, so TLS-PSK cannot be used. Connection refused.</source>
+        <translation>Die TLS-Bibliothek dieses Systems bietet keine TLS-PSK-Cipher-Suite an, daher kann TLS-PSK nicht verwendet werden. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="727"/>
+        <source>The Director&apos;s certificate was not accepted: %1. It must be signed by the CA of the profile (&quot;%2&quot;). Connection refused.</source>
+        <translation>Das Zertifikat des Directors wurde nicht akzeptiert: %1. Es muss von der CA des Profils („%2“) signiert sein. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="758"/>
+        <source>The common name of the Director&apos;s certificate (&quot;%1&quot;) is not in the TLS Allowed CN list of the profile (%2). Connection refused.</source>
+        <translation>Der Common Name des Director-Zertifikats („%1“) steht nicht in der Liste TLS Allowed CN des Profils (%2). Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="780"/>
+        <source>The Director&apos;s certificate is not issued for the host name &quot;%1&quot; (the certificate names: %2). Connect with a name the certificate contains, or add its common name to TLS Allowed CN in the profile. Connection refused.</source>
+        <translation>Das Zertifikat des Directors ist nicht für den Hostnamen „%1“ ausgestellt (Namen im Zertifikat: %2). Verbinden Sie sich mit einem Namen aus dem Zertifikat oder tragen Sie seinen Common Name im Profil unter TLS Allowed CN ein. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="783"/>
+        <source>none</source>
+        <translation>keine</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="892"/>
+        <source>The server sent this console&apos;s own challenge back instead of a challenge of the Director (reflection attack). It is not the configured Director. Connection refused.</source>
+        <translation>Der Server hat die eigene Challenge dieser Console zurückgeschickt statt einer Challenge des Directors (Reflexionsangriff). Er ist nicht der konfigurierte Director. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="905"/>
+        <source>TLS is required for this connection, but the session with the Director is not encrypted. Connection refused.</source>
+        <translation>Für diese Verbindung ist TLS erforderlich, aber die Sitzung mit dem Director ist nicht verschlüsselt. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="909"/>
+        <source>The Director requires TLS, but this connection is not encrypted. Use TLS-PSK or certificate TLS in the profile.</source>
+        <translation>Der Director verlangt TLS, aber diese Verbindung ist nicht verschlüsselt. Verwenden Sie im Profil TLS-PSK oder Zertifikats-TLS.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="940"/>
+        <source>Failed to send the CRAM-MD5 response to the Director.</source>
+        <translation>Die CRAM-MD5-Antwort konnte nicht an den Director gesendet werden.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="1478"/>
+        <source>Failed to send the CRAM-MD5 challenge to the Director.</source>
+        <translation>Die CRAM-MD5-Challenge konnte nicht an den Director gesendet werden.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="1481"/>
+        <source>The Director rejected the password of console &quot;%1&quot; (wrong password or console name). Connection refused.</source>
+        <translation>Der Director hat das Passwort der Console „%1“ abgelehnt (falsches Passwort oder falscher Console-Name). Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="1484"/>
+        <source>The server did not complete the CRAM-MD5 handshake (it answered &quot;%1&quot; instead of &quot;1000 OK auth&quot;). It may not be a Bareos or Onesimus Director. Connection refused.</source>
+        <translation>Der Server hat den CRAM-MD5-Handshake nicht abgeschlossen (er antwortete „%1“ statt „1000 OK auth“). Möglicherweise ist er kein Bareos- oder Onesimus-Director. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="1508"/>
+        <source>The Director could not prove that it knows the console password: its answer to the CRAM-MD5 challenge is wrong. Either the server is not the configured Director, or the password stored on the Director differs from this profile. Connection refused.</source>
+        <translation>Der Director konnte nicht nachweisen, dass er das Console-Passwort kennt: Seine Antwort auf die CRAM-MD5-Challenge ist falsch. Entweder ist der Server nicht der konfigurierte Director, oder das auf dem Director hinterlegte Passwort weicht von diesem Profil ab. Verbindung abgelehnt.</translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosauth.cpp" line="1522"/>
+        <source>Failed to send &quot;1000 OK auth&quot; to the Director.</source>
+        <translation>„1000 OK auth“ konnte nicht an den Director gesendet werden.</translation>
     </message>
 </context>
 <context>
