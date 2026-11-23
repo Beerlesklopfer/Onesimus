@@ -396,7 +396,8 @@ void BNewClientSettingsPage::onGeneratePassword()
     const QString chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     QString password;
     for (int i = 0; i < 32; ++i) {
-        int idx = QRandomGenerator::global()->bounded(chars.length());
+        // system(): the operating system's cryptographically secure source
+        int idx = QRandomGenerator::system()->bounded(chars.length());
         password.append(chars.at(idx));
     }
     m_passwordEdit->setText(password);
