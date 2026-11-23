@@ -26,6 +26,8 @@
  */
 
 #include <QtTest>
+#include <QScopeGuard>
+#include <QSemaphore>
 #include <QVBoxLayout>
 #include <QDialogButtonBox>
 #include <QWizard>
@@ -108,6 +110,17 @@ struct Tab
         widget.processShowStoragesResponse(QString::fromLatin1(kStorages));
         widget.processShowDirectorResponse(QString::fromLatin1(kDirector));
         widget.processShowClientsResponse(clients);
+        QCoreApplication::processEvents();
+        settle();
+    }
+
+    /// The wait prediction runs in a worker thread: until its result is in
+    /// and the views have been laid out for it (the counter elides its text
+    /// to the width it had before; the new width comes with the layout)
+    void settle()
+    {
+        QTRY_VERIFY_WITH_TIMEOUT(widget.waitPredictionIdle(), 10000);
+        QCoreApplication::sendPostedEvents();
         QCoreApplication::processEvents();
     }
 
@@ -245,6 +258,10 @@ private slots:
     void liveOverlayOffOnBnet();
     void liveOverlaySeededFromTheHistory();
     void liveJobFindsTheRowOfItsRun();
+
+    // --- The wait prediction in its worker thread ---
+    void waitPredictionDropsResultsOfOlderInputs();
+    void waitsWaitForTheHistoryLoadedAfterTheConnect();
 
 private:
     QTemporaryDir m_config;
@@ -2199,6 +2216,99 @@ void BScheduleTimelineTest::liveJobFindsTheRowOfItsRun()
     // No run of the job
     job.job = QStringLiteral("Unknown");
     QCOMPARE(BScheduleGanttWidget::liveEntryIndex(entries, job), -1);
+}
+
+// ============================================================================
+// The wait prediction in its worker thread
+// ============================================================================
+
+namespace {
+
+const char *const kTwoClientJobs = R"({"result":{"jobs":{
+    "JobA":{"name":"JobA","type":"Backup","schedule":"WeeklyCycle","client":"a-fd","storage":["File"],
+            "maximumconcurrentjobs":1},
+    "JobB":{"name":"JobB","type":"Backup","schedule":"WeeklyCycle","client":"b-fd","storage":["File"],
+            "maximumconcurrentjobs":1}}}})";
+const char *const kTwoClients = R"({"result":{"clients":{
+    "a-fd":{"name":"a-fd","address":"a","maximumconcurrentjobs":10},
+    "b-fd":{"name":"b-fd","address":"b","maximumconcurrentjobs":10}}}})";
+const char *const kDirectorOfOne =
+    R"({"result":{"directors":{"test-dir":{"name":"test-dir","maximumconcurrentjobs":1}}}})";
+
+} // namespace
+
+void BScheduleTimelineTest::waitPredictionDropsResultsOfOlderInputs()
+{
+    // Two jobs at 08:00 on two clients; without a history their length is
+    // not known. With 20 slots of the Director neither waits for the
+    // other; with one slot the second may wait as long as the first runs.
+    Tab tab;
+    tab.feed(kWeeklyCycle, kTwoClientJobs, kNoJobDefs, kTwoClients);
+    const QString withTwenty = tab.counter()->accessibleName() + tab.panelText();
+
+    // The worker is held at its start while newer inputs come in: its
+    // result belongs to the old inputs and must not be taken over
+    QSemaphore go;
+    tab.widget.setWaitWorkerGate([&go]() { go.acquire(); });
+    auto release = qScopeGuard([&go]() { go.release(100); });  // never leave a worker held
+    const int started = tab.widget.waitWorkersStarted();
+    const int dropped = tab.widget.waitResultsDropped();
+
+    tab.widget.processShowDirectorResponse(QString::fromLatin1(kDirector));
+    QTRY_COMPARE(tab.widget.waitWorkersStarted(), started + 1);     // held at the gate
+    tab.widget.processShowDirectorResponse(QString::fromLatin1(kDirectorOfOne));
+    QCoreApplication::processEvents();
+    // One worker at a time: the newer inputs wait for the held one
+    QCOMPARE(tab.widget.waitWorkersStarted(), started + 1);
+    QVERIFY(!tab.widget.waitPredictionIdle());
+
+    go.release(2);
+    QTRY_VERIFY_WITH_TIMEOUT(tab.widget.waitPredictionIdle(), 10000);
+    QCOMPARE(tab.widget.waitWorkersStarted(), started + 2);
+    QCOMPARE(tab.widget.waitResultsDropped(), dropped + 1);
+    const QString threaded = tab.counter()->accessibleName() + tab.panelText();
+    QVERIFY2(threaded.contains("Director = 1"), qPrintable(threaded));
+    QVERIFY(threaded != withTwenty);
+
+    // The worker's answer is the one worked out in this thread
+    tab.widget.setWaitWorkerGate({});
+    tab.widget.flushWaitPrediction();
+    QCOMPARE(tab.counter()->accessibleName() + tab.panelText(), threaded);
+}
+
+void BScheduleTimelineTest::waitsWaitForTheHistoryLoadedAfterTheConnect()
+{
+    // The history is asked for after the connect even while the tab is
+    // not on screen, and until it is in the waits are not predicted
+    Tab tab;
+    tab.widget.hide();
+    QStringList asked;
+    QObject::connect(&tab.widget, &BScheduleWidget::sendCommand, &tab.widget,
+                     [&](BDirector::Command cmd, const QString &args) {
+        if (cmd == BDirector::Command::LlistJobs) asked << args;
+    });
+    tab.widget.setConnectionState(true);
+
+    // On a connect the JobDefs come first: no prediction of their own
+    const int started = tab.widget.waitWorkersStarted();
+    tab.jobs.parseShowJobDefs(QString::fromLatin1(kNoJobDefs));
+    tab.widget.processShowJobDefsResponse(QString());
+    QCoreApplication::processEvents();
+    QVERIFY(tab.widget.waitPredictionIdle());
+    QCOMPARE(tab.widget.waitWorkersStarted(), started);
+
+    tab.feed(kWeeklyCycle, kTwoClientJobs, kNoJobDefs, kTwoClients);
+    QVERIFY2(tab.counter()->accessibleName().contains("Waiting not predicted yet"),
+             qPrintable(tab.counter()->accessibleName()));
+    QVERIFY2(tab.panelText().contains("Not predicted yet: the job history is being loaded."),
+             qPrintable(tab.panelText()));
+
+    QTRY_COMPARE_WITH_TIMEOUT(asked.size(), 1, 5000);
+    tab.widget.processJobHistoryReply(asked.first(),
+                                      R"({"jsonrpc":"2.0","id":null,"result":{"jobs":[]}})");
+    QTRY_VERIFY_WITH_TIMEOUT(!tab.counter()->accessibleName().contains("not predicted"), 10000);
+    tab.settle();
+    QVERIFY2(tab.panelText().contains("run(s) on display"), qPrintable(tab.panelText()));
 }
 
 QTEST_MAIN(BScheduleTimelineTest)

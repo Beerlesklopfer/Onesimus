@@ -249,8 +249,11 @@ BMainWindow::BMainWindow(QWidget *parent)
         m_clientWidget->triggerRefresh();          // ListClients
         m_scheduleWidget->triggerRefresh();        // DotSchedule + ShowSchedules
         onSendCommand(BDirector::Command::ShowClients, "");
-        onSendCommand(BDirector::Command::ShowJobs, "");     // Populate job config model (for Gantt/schedule cross-ref)
+        // The JobDefs first: the reply of "show jobs" then finds what its
+        // jobs inherit, and the schedule view works out its index and its
+        // wait prediction once, for both
         onSendCommand(BDirector::Command::ShowJobDefs, "");  // Populate jobdefs model
+        onSendCommand(BDirector::Command::ShowJobs, "");     // Populate job config model (for Gantt/schedule cross-ref)
         requestClientBackups();                    // ListBackupsClient (one per client)
         onSendCommand(BDirector::Command::Messages, "");
 
@@ -474,7 +477,7 @@ BMainWindow::BMainWindow(QWidget *parent)
     // After the model has read them: a job inherits its schedule, client,
     // storage, priority and limit from its JobDefs
     connect(m_director, &BDirector::showJobDefsResult,
-            m_scheduleWidget, &BScheduleWidget::processShowJobsResponse);
+            m_scheduleWidget, &BScheduleWidget::processShowJobDefsResponse);
 
     // Pass job config model to schedule widget for job→schedule cross-referencing
     m_scheduleWidget->setJobConfigModel(m_jobWidget->jobConfigModel());

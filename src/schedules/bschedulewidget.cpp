@@ -150,8 +150,8 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_director(nullptr)
     , m_currentDate(QDate::currentDate())
 {
-    // The job history is asked for a moment after the view is on screen,
-    // not in the burst of commands of a connect or a refresh
+    // The job history is asked for a moment after the connect (shown or
+    // not), not in the burst of commands of a connect or a refresh
     m_historyTimer = new QTimer(this);
     m_historyTimer->setSingleShot(true);
     m_historyTimer->setInterval(1500);
@@ -163,6 +163,13 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     m_liveTimer->setSingleShot(true);
     m_liveTimer->setInterval(LiveRepaintMs);
     connect(m_liveTimer, &QTimer::timeout, this, &BScheduleWidget::flushLiveOverlay);
+
+    // The wait prediction: the triggers of a burst (the replies of a
+    // connect) are worked out once, in a worker thread
+    m_waitTimer = new QTimer(this);
+    m_waitTimer->setSingleShot(true);
+    m_waitTimer->setInterval(0);
+    connect(m_waitTimer, &QTimer::timeout, this, &BScheduleWidget::startWaitPrediction);
 
     setupUI();
 
@@ -207,6 +214,10 @@ BScheduleWidget::~BScheduleWidget()
     // The reader thread posts its result to this object
     if (m_historyParser) {
         m_historyParser->wait();
+    }
+    // and so does the worker of the wait prediction
+    if (m_waitWorker) {
+        m_waitWorker->wait();
     }
 
     BSettings &s = BSettings::instance();
@@ -612,7 +623,9 @@ void BScheduleWidget::setConnectionState(bool connected)
     if (!connected) {
         clearData();
     } else {
-        // Nothing is asked here: the history follows when the view is shown
+        // Nothing is asked at once: the history follows a moment after the
+        // burst of commands of the connect, whether the view is shown or
+        // not (the wait prediction waits for it)
         updateHistoryInfo();
         scheduleHistoryRequest();
     }
@@ -810,6 +823,15 @@ void BScheduleWidget::processShowJobsResponse(const QString &)
         updateJobList();
         updateGridView();   // how many jobs use the schedule on display
     }
+}
+
+void BScheduleWidget::processShowJobDefsResponse(const QString &jsonData)
+{
+    // On a connect the JobDefs come before the jobs: no index and no
+    // prediction of their own, the jobs bring both
+    if (!m_jobConfigModel || !m_jobConfigModel->hasConfigs())
+        return;
+    processShowJobsResponse(jsonData);
 }
 
 void BScheduleWidget::setJobConfigModel(BJobConfigModel *model)
@@ -1988,7 +2010,7 @@ void BScheduleWidget::showEvent(QShowEvent *event)
 
 void BScheduleWidget::scheduleHistoryRequest()
 {
-    if (!m_connected || !isVisible() || m_historyTimer->isActive()) return;
+    if (!m_connected || m_historyTimer->isActive()) return;
 
     BSettings &s = BSettings::instance();
     const bool windowChanged = m_historyState == HistoryLoaded
@@ -2004,8 +2026,8 @@ void BScheduleWidget::scheduleHistoryRequest()
 
 void BScheduleWidget::requestHistoryIfDue()
 {
-    // The conditions may have gone while the timer ran
-    if (!m_connected || !isVisible()) return;
+    // The connection may have gone while the timer ran
+    if (!m_connected) return;
 
     BSettings &s = BSettings::instance();
     const bool windowChanged = m_historyState == HistoryLoaded
@@ -2048,11 +2070,18 @@ void BScheduleWidget::processJobHistoryReply(const QString &args, const QString 
 
     // The reply can be several megabytes: it is read off the GUI thread and
     // the result comes back as a queued call
+    // The statistics (medians and quantiles per job and level) are worked
+    // out there as well
     const quint64 generation = m_historyGeneration;
-    QThread *reader = QThread::create([this, reply, generation]() {
-        const BJobHistoryReply parsed = BJobHistoryReply::parse(reply);
-        QMetaObject::invokeMethod(this, [this, parsed, generation]() {
-            applyHistoryReply(parsed, generation);
+    const int days = m_historyDays;
+    const QDateTime now = BJobHistoryStats::wallClockNow();
+    QThread *reader = QThread::create([this, reply, generation, days, now]() {
+        HistoryResult result;
+        result.reply = BJobHistoryReply::parse(reply);
+        if (result.reply.outcome == BJobHistoryReply::Outcome::Runs)
+            result.stats.setRuns(result.reply.runs, days, now);
+        QMetaObject::invokeMethod(this, [this, result, generation]() {
+            applyHistoryReply(result, generation);
         }, Qt::QueuedConnection);
     });
     connect(reader, &QThread::finished, reader, &QObject::deleteLater);
@@ -2130,8 +2159,9 @@ void BScheduleWidget::flushLiveOverlay()
     m_sdGanttWidget->setLiveJobs(jobs);
 }
 
-void BScheduleWidget::applyHistoryReply(const BJobHistoryReply &reply, quint64 generation)
+void BScheduleWidget::applyHistoryReply(const HistoryResult &result, quint64 generation)
 {
+    const BJobHistoryReply &reply = result.reply;
     // The connection the reply belongs to is gone
     if (generation != m_historyGeneration || m_historyState != HistoryParsing) return;
 
@@ -2141,7 +2171,7 @@ void BScheduleWidget::applyHistoryReply(const BJobHistoryReply &reply, quint64 g
         // was made send no event before they end: the history lists them
         if (m_liveEnabled && m_liveOverlay.seed(reply.runs))
             liveOverlayChanged();
-        m_historyStats.setRuns(reply.runs, m_historyDays, BJobHistoryStats::wallClockNow());
+        m_historyStats = result.stats;
         m_historyRuns = reply.runs;
         m_historyRows = reply.rows;
         m_historyRowsWithSchedTime = reply.rowsWithScheduledTime;
@@ -2554,144 +2584,179 @@ void BScheduleWidget::updateWaitPrediction()
 {
     if (!m_staggerProposal.shifts.isEmpty())
         clearStagger(tr("The prediction has changed: propose again."));
-    m_waitRuns.clear();
-    m_waitResults.clear();
-    m_waitShown.clear();
-    QHash<QString, BScheduleGanttWidget::RunWait> waits;
+    // A result still being worked out belongs to the old inputs
+    ++m_waitGeneration;
+    // The triggers come in bursts (the replies of a connect): one
+    // prediction for all of them, after the burst
+    m_waitTimer->start();
+}
 
+bool BScheduleWidget::waitsWaitForHistory() const
+{
+    // Without the measured durations every run would be replayed as
+    // lasting as long as its job allows: a guess, and an expensive one.
+    // Once the history has been fetched, or is known to be unavailable,
+    // the prediction goes ahead with what there is.
+    return m_connected && !m_historyFetchedAt.isValid()
+           && (m_historyState == HistoryNotRequested || m_historyState == HistoryLoading
+               || m_historyState == HistoryParsing);
+}
+
+BScheduleWidget::WaitInput BScheduleWidget::waitInput() const
+{
+    WaitInput in;
+    in.gate = m_waitWorkerGate;
+    in.limits = m_limits;
     const QDate first = m_fdGanttWidget->firstDate();
-    const QDateTime from = first.startOfDay();
+    in.from = first.startOfDay();
     const QDateTime to = first.addDays(m_fdGanttWidget->dayCount()).startOfDay();
 
-    if (m_jobConfigModel && m_jobScheduleIndex->isValid()) {
-        const QMap<QString, QJsonObject> &jobs = m_jobConfigModel->jobConfigsRaw();
-        const QMap<QString, QJsonObject> &jobDefs = m_jobConfigModel->jobDefsConfigsRaw();
-        m_limits.readJobs(jobs, jobDefs);
-        // What the Director cannot report: set by the user, per storage
-        m_limits.devices = deviceWriters();
-        // The history as ground truth: measured waits, start overheads and
-        // durations without the wait for the device (BWaitCalibration)
-        m_calibration.setRuns(m_historyRuns, waitJobInfo(), m_limits.devices);
+    if (!m_jobConfigModel || !m_jobScheduleIndex->isValid() || waitsWaitForHistory())
+        return in;
 
-        // The Director's queue holds the runs of every schedule, checked in
-        // the list or not. A schedule that is disabled starts nothing.
-        QList<BSchedule> enabled;
-        for (const BSchedule &schedule : m_scheduleModel->schedules()) {
-            if (schedule.enabled) enabled.append(schedule);
-        }
+    in.predict = true;
+    in.jobs = m_jobConfigModel->jobConfigsRaw();
+    in.jobDefs = m_jobConfigModel->jobDefsConfigsRaw();
+    // What the Director cannot report: set by the user, per storage
+    in.devices = deviceWriters();
+    in.jobInfo = waitJobInfo();
+    in.historyRuns = m_historyRuns;
+    in.historyStats = m_historyStats;
 
-        // With the day before: its runs may still be running or waiting
-        const QList<BScheduleEntry> entries =
-            m_jobScheduleIndex->entriesFor(enabled, from.addDays(-1), to);
-
-        for (const BScheduleEntry &entry : entries) {
-            // A schedule that no enabled job uses starts nothing. (The
-            // entries come once per enabled job: BJobScheduleIndex.)
-            if (entry.unused || entry.jobName.isEmpty()) continue;
-
-            auto directive = [&](const char *key, bool *known) {
-                return BWaitLimits::jobDirective(jobs, jobDefs, entry.jobName,
-                                                 QLatin1String(key), known);
-            };
-            bool known = false;
-
-            BWaitRun run;
-            run.id = BScheduleGanttWidget::entryKey(entry);
-            run.job = entry.jobName;
-            run.client = entry.client;
-            run.storage = entry.storage;
-            run.level = historyLevel(entry);
-            run.priority = entry.priority;
-
-            // Not printed and no JobDefs left to look in: the default, "no"
-            const QJsonValue mixed = directive("allowmixedpriority", &known);
-            if (known)
-                run.allowMixedPriority = mixed.isUndefined() ? std::optional<bool>(false)
-                                                             : BWaitLimits::boolValue(mixed);
-
-            // Bareos jobq.cc AcquireResources(): these types take no place
-            // at a client or a storage. (The jobs they start to do the
-            // copying do use the storage; those are not scheduled runs.)
-            const QString type = directive("type", &known).toString().toLower();
-            if (type == QLatin1String("copy") || type == QLatin1String("migrate")
-                || type == QLatin1String("consolidate")) {
-                run.usesClient = false;
-                run.usesStorage = false;
-            }
-            // An Admin job that names no storage has none. For every other
-            // job an empty storage means "not known" (it may come from the
-            // Pool): the model then treats the storage limit as unknown.
-            if (type == QLatin1String("admin") && run.storage.isEmpty())
-                run.usesStorage = false;
-
-            const BJobHistoryStats::Estimate estimate =
-                m_historyStats.estimate(entry.jobName, run.level);
-            if (estimate.hasHistory()) {
-                run.durationBasis = estimate.isMeasured() ? BWaitRun::Duration::Measured
-                                                          : BWaitRun::Duration::Estimated;
-                run.durationSecs = qMax<qint64>(1, estimate.duration.median);
-            }
-
-            // How long the Director lets a run of this job last: the bound
-            // of a run that was not measured. The Run line may set its own
-            // Max Run Sched Time.
-            const BWaitLimits::RunTimeLimits bounds =
-                BWaitLimits::runTimeLimits(jobs, jobDefs, entry.jobName, run.level);
-            run.maxRunSecs = bounds.maxRunSecs;
-            run.maxRunBound = bounds.maxRunBound;
-            run.maxRunSchedSecs = bounds.maxRunSchedSecs;
-            if (entry.source.spec && entry.source.spec->overrides.maxRunSchedTime) {
-                const std::optional<qint64> ofRun = BWaitLimits::timeValue(
-                    QJsonValue(*entry.source.spec->overrides.maxRunSchedTime));
-                if (ofRun && *ofRun > 0) run.maxRunSchedSecs = *ofRun;
-            }
-
-            if (!m_calibration.isEmpty())
-                m_calibration.apply(&run);
-
-            for (const QDateTime &when : entry.occurrences) {
-                run.scheduled = when;
-                m_waitRuns.append(run);
-            }
-        }
-
-        // Runs due at the same moment in the order the history shows them
-        // to start: the Director's own order is not known
-        BWaitCalibration::orderTies(&m_waitRuns);
-        m_waitResults = BScheduleWaitModel::predict(m_waitRuns, m_limits);
-        m_backtest = m_calibration.backtest(m_limits, BacktestNights);
-    } else {
-        m_backtest = BWaitCalibration::Backtest();
+    // The Director's queue holds the runs of every schedule, checked in
+    // the list or not. A schedule that is disabled starts nothing.
+    QList<BSchedule> enabled;
+    for (const BSchedule &schedule : m_scheduleModel->schedules()) {
+        if (schedule.enabled) enabled.append(schedule);
     }
+    // With the day before: its runs may still be running or waiting
+    in.entries = m_jobScheduleIndex->entriesFor(enabled, in.from.addDays(-1), to);
+
+    // What the timelines show of it: the entries on display
+    for (const BScheduleEntry &entry : m_fdGanttWidget->entries())
+        in.shownEntries.insert(BScheduleGanttWidget::entryKey(entry));
+    return in;
+}
+
+BScheduleWidget::WaitOutput BScheduleWidget::computeWaitPrediction(const WaitInput &in)
+{
+    WaitOutput out;
+    out.limits = in.limits;
+    if (!in.predict)
+        return out;
+
+    const QMap<QString, QJsonObject> &jobs = in.jobs;
+    const QMap<QString, QJsonObject> &jobDefs = in.jobDefs;
+    out.limits.readJobs(jobs, jobDefs);
+    out.limits.devices = in.devices;
+    // The history as ground truth: measured waits, start overheads and
+    // durations without the wait for the device (BWaitCalibration)
+    out.calibration.setRuns(in.historyRuns, in.jobInfo, out.limits.devices);
+
+    for (const BScheduleEntry &entry : in.entries) {
+        // A schedule that no enabled job uses starts nothing. (The
+        // entries come once per enabled job: BJobScheduleIndex.)
+        if (entry.unused || entry.jobName.isEmpty()) continue;
+
+        auto directive = [&](const char *key, bool *known) {
+            return BWaitLimits::jobDirective(jobs, jobDefs, entry.jobName,
+                                             QLatin1String(key), known);
+        };
+        bool known = false;
+
+        BWaitRun run;
+        run.id = BScheduleGanttWidget::entryKey(entry);
+        run.job = entry.jobName;
+        run.client = entry.client;
+        run.storage = entry.storage;
+        // The level of the Run line, else the job's own
+        run.level = entry.levelLabel();
+        if (run.level.isEmpty())
+            run.level = jobs.value(entry.jobName).value(QLatin1String("level")).toString();
+        run.priority = entry.priority;
+
+        // Not printed and no JobDefs left to look in: the default, "no"
+        const QJsonValue mixed = directive("allowmixedpriority", &known);
+        if (known)
+            run.allowMixedPriority = mixed.isUndefined() ? std::optional<bool>(false)
+                                                         : BWaitLimits::boolValue(mixed);
+
+        // Bareos jobq.cc AcquireResources(): these types take no place
+        // at a client or a storage. (The jobs they start to do the
+        // copying do use the storage; those are not scheduled runs.)
+        const QString type = directive("type", &known).toString().toLower();
+        if (type == QLatin1String("copy") || type == QLatin1String("migrate")
+            || type == QLatin1String("consolidate")) {
+            run.usesClient = false;
+            run.usesStorage = false;
+        }
+        // An Admin job that names no storage has none. For every other
+        // job an empty storage means "not known" (it may come from the
+        // Pool): the model then treats the storage limit as unknown.
+        if (type == QLatin1String("admin") && run.storage.isEmpty())
+            run.usesStorage = false;
+
+        const BJobHistoryStats::Estimate estimate = in.historyStats.estimate(entry.jobName, run.level);
+        if (estimate.hasHistory()) {
+            run.durationBasis = estimate.isMeasured() ? BWaitRun::Duration::Measured
+                                                      : BWaitRun::Duration::Estimated;
+            run.durationSecs = qMax<qint64>(1, estimate.duration.median);
+        }
+
+        // How long the Director lets a run of this job last: the bound
+        // of a run that was not measured. The Run line may set its own
+        // Max Run Sched Time.
+        const BWaitLimits::RunTimeLimits bounds =
+            BWaitLimits::runTimeLimits(jobs, jobDefs, entry.jobName, run.level);
+        run.maxRunSecs = bounds.maxRunSecs;
+        run.maxRunBound = bounds.maxRunBound;
+        run.maxRunSchedSecs = bounds.maxRunSchedSecs;
+        if (entry.source.spec && entry.source.spec->overrides.maxRunSchedTime) {
+            const std::optional<qint64> ofRun = BWaitLimits::timeValue(
+                QJsonValue(*entry.source.spec->overrides.maxRunSchedTime));
+            if (ofRun && *ofRun > 0) run.maxRunSchedSecs = *ofRun;
+        }
+
+        if (!out.calibration.isEmpty())
+            out.calibration.apply(&run);
+
+        for (const QDateTime &when : entry.occurrences) {
+            run.scheduled = when;
+            out.runs.append(run);
+        }
+    }
+
+    // Runs due at the same moment in the order the history shows them
+    // to start: the Director's own order is not known
+    BWaitCalibration::orderTies(&out.runs);
+    out.results = BScheduleWaitModel::predict(out.runs, out.limits);
+    out.backtest = out.calibration.backtest(out.limits, BacktestNights);
 
     // What the timelines show of it: the entries on display, on their dates
-    QSet<QString> shownEntries;
-    for (const BScheduleEntry &entry : m_fdGanttWidget->entries()) {
-        shownEntries.insert(BScheduleGanttWidget::entryKey(entry));
-    }
-    for (int i = 0; i < m_waitRuns.size() && i < m_waitResults.size(); ++i) {
-        const BWaitRun &run = m_waitRuns[i];
-        if (run.scheduled < from || !shownEntries.contains(run.id)) continue;
-        m_waitShown.append(i);
+    for (int i = 0; i < out.runs.size() && i < out.results.size(); ++i) {
+        const BWaitRun &run = out.runs[i];
+        if (run.scheduled < in.from || !in.shownEntries.contains(run.id)) continue;
+        out.shown.append(i);
 
+        const BWaitResult &result = out.results[i];
         BScheduleGanttWidget::RunWait wait;
         // Only a held run is drawn as waiting; its start overhead alone is not
-        wait.waitSecs = m_waitResults[i].waits() ? m_waitResults[i].waitSecs : 0;
-        wait.certain = m_waitResults[i].certain;
-        wait.lines = BScheduleWaitModel::describe(i, m_waitRuns, m_waitResults);
-        if (!wait.lines.isEmpty() || m_waitResults[i].deviceWaitSecs > 0
-            || BScheduleWaitModel::discrepancy(run, m_waitResults[i])
+        wait.waitSecs = result.waits() ? result.waitSecs : 0;
+        wait.certain = result.certain;
+        wait.lines = BScheduleWaitModel::describe(i, out.runs, out.results);
+        if (!wait.lines.isEmpty() || result.deviceWaitSecs > 0
+            || BScheduleWaitModel::discrepancy(run, result)
                    != BScheduleWaitModel::Discrepancy::None) {
-            wait.lines << BScheduleWaitModel::describeTiming(i, m_waitRuns, m_waitResults, m_limits);
+            wait.lines << BScheduleWaitModel::describeTiming(i, out.runs, out.results, out.limits);
         }
         // Who it waits for, as arrows in the day view
         QSet<QString> linked;
         auto addLinks = [&](const QList<BWaitHold> &holds, bool possible) {
             for (const BWaitHold &hold : holds) {
                 for (int b : hold.blockers) {
-                    if (b < 0 || b >= m_waitRuns.size())
+                    if (b < 0 || b >= out.runs.size())
                         continue;
-                    const QString key = BScheduleGanttWidget::waitKey(m_waitRuns[b].id, m_waitRuns[b].scheduled);
+                    const QString key = BScheduleGanttWidget::waitKey(out.runs[b].id, out.runs[b].scheduled);
                     if (linked.contains(key))
                         continue;
                     linked.insert(key);
@@ -2707,27 +2772,101 @@ void BScheduleWidget::updateWaitPrediction()
             }
         };
         if (wait.waitSecs > 0)
-            addLinks(m_waitResults[i].holds, false);
-        addLinks(m_waitResults[i].possibleHolds, true);
-        waits.insert(BScheduleGanttWidget::waitKey(run.id, run.scheduled), wait);
+            addLinks(result.holds, false);
+        addLinks(result.possibleHolds, true);
+        out.waits.insert(BScheduleGanttWidget::waitKey(run.id, run.scheduled), wait);
+    }
+    return out;
+}
+
+void BScheduleWidget::startWaitPrediction()
+{
+    // One worker at a time: the one that runs belongs to older inputs and
+    // its result is dropped; the newest inputs follow when it is done
+    if (m_waitWorker) {
+        m_waitPending = true;
+        return;
+    }
+    m_waitPending = false;
+
+    // The inputs are copied here, in the GUI thread; the replay, the
+    // calibration and the back-test run in the worker, and the result
+    // comes back as a queued call (as the history reader does it)
+    const WaitInput input = waitInput();
+    const quint64 generation = m_waitGeneration;
+    QThread *worker = QThread::create([this, input, generation]() {
+        if (input.gate)
+            input.gate();
+        const WaitOutput output = computeWaitPrediction(input);
+        QMetaObject::invokeMethod(this, [this, output, generation]() {
+            applyWaitPrediction(output, generation);
+        }, Qt::QueuedConnection);
+    });
+    connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+    m_waitWorker = worker;
+    ++m_waitWorkersStarted;
+    worker->start();
+}
+
+void BScheduleWidget::applyWaitPrediction(const WaitOutput &output, quint64 generation)
+{
+    // The worker has posted its last word: it no longer touches this object
+    m_waitWorker = nullptr;
+
+    if (generation == m_waitGeneration) {
+        // Only what the prediction itself worked out: the limits the
+        // Director reported are this widget's (they are the same, or the
+        // generation would differ)
+        m_limits.jobs = output.limits.jobs;
+        m_limits.devices = output.limits.devices;
+        m_calibration = output.calibration;
+        m_waitRuns = output.runs;
+        m_waitResults = output.results;
+        m_waitShown = output.shown;
+        m_backtest = output.backtest;
+        m_fdGanttWidget->setWaits(output.waits);
+        m_sdGanttWidget->setWaits(output.waits);
+        updateWaitViews();
+    } else {
+        ++m_waitResultsDropped;
     }
 
-    m_fdGanttWidget->setWaits(waits);
-    m_sdGanttWidget->setWaits(waits);
-    updateWaitViews();
+    if (m_waitPending)
+        startWaitPrediction();
+}
+
+void BScheduleWidget::flushWaitPrediction()
+{
+    m_waitTimer->stop();
+    m_waitPending = false;
+    // A worker that still runs gives a result of an older generation
+    ++m_waitGeneration;
+    QPointer<QThread> running = m_waitWorker;
+    applyWaitPrediction(computeWaitPrediction(waitInput()), m_waitGeneration);
+    // applyWaitPrediction() forgot the worker; it still must not outlive
+    // this object
+    m_waitWorker = running;
 }
 
 void BScheduleWidget::updateWaitViews()
 {
-    const bool predicted = m_jobConfigModel && m_jobScheduleIndex->isValid();
+    const bool jobsLoaded = m_jobConfigModel && m_jobScheduleIndex->isValid();
+    // The jobs are there, the measured durations are not yet
+    const bool forHistory = jobsLoaded && waitsWaitForHistory();
+    const bool predicted = jobsLoaded && !forHistory;
     const BWaitSummary sum = BScheduleWaitModel::summary(m_waitResults, m_waitShown);
 
     // --- The counter ---
     const QString text = predicted ? BScheduleWaitModel::summaryText(sum)
-                                   : tr("Waiting not predicted");
+                       : forHistory ? tr("Waiting not predicted yet")
+                                    : tr("Waiting not predicted");
     m_waitSummary = text;
     QStringList tip;
-    if (!predicted) {
+    if (forHistory) {
+        tip << tr("The job history is being loaded. Without the measured durations every run "
+                  "would count as lasting as long as its job allows, and the waits would be a "
+                  "guess: they are predicted once the history is in.");
+    } else if (!predicted) {
         tip << tr("The jobs of the Director are not loaded: it is not known which job runs "
                   "which schedule.");
     } else {
@@ -2753,7 +2892,9 @@ void BScheduleWidget::updateWaitViews()
 
     // --- What the prediction used ---
     QStringList info;
-    if (!predicted) {
+    if (forHistory) {
+        info << tr("Not predicted yet: the job history is being loaded.");
+    } else if (!predicted) {
         info << tr("Not predicted: the jobs of the Director are not loaded.");
     } else {
         info << tr("%1 run(s) on display, replayed with the %2 run(s) of all enabled schedules "

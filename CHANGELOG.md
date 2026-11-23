@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `status`, `clean`, `help`. All former flags keep their meaning; `--dry-run`/`-DryRun`
   prints every command instead of running it. `./deploy.sh build` is the former `./build.sh`.
 
+### Fixed
+- The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and
+  waits for the job history (measured with the simulator, 80 clients and 120 jobs: a 30 s stall
+  of the GUI thread before, none above 50 ms after connecting).
+
 ## [0.2.0] - 2026-02-21
 
 ### Added

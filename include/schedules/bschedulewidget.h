@@ -19,6 +19,7 @@
 #include <QTableWidget>
 #include <QSlider>
 #include <QPointer>
+#include <QSet>
 #include <QThread>
 #include <QTimer>
 #include <functional>
@@ -250,6 +251,24 @@ public:
     /// The back-test line of the wait panel (tests)
     QString backtestText() const;
 
+    /**
+     * @brief Works out a pending wait prediction at once, in this thread
+     *        (tests)
+     *
+     * The prediction normally runs in a worker thread after a 0 ms timer;
+     * a result of a worker that still runs is dropped afterwards.
+     */
+    void flushWaitPrediction();
+    /// Workers started for the wait prediction, and their results dropped
+    /// because newer inputs had come in meanwhile (tests)
+    int waitWorkersStarted() const { return m_waitWorkersStarted; }
+    int waitResultsDropped() const { return m_waitResultsDropped; }
+    /// No prediction or worker is pending (tests)
+    bool waitPredictionIdle() const { return !m_waitTimer->isActive() && !m_waitWorker && !m_waitPending; }
+    /// Called in the worker thread before it works out a prediction
+    /// (tests: holds a worker back so that newer inputs come in meanwhile)
+    void setWaitWorkerGate(std::function<void()> gate) { m_waitWorkerGate = std::move(gate); }
+
     /// Nights the back-test of the wait prediction replays
     static constexpr int BacktestNights = 7;
     /// Weeks from today the load bars of the grid average over
@@ -279,6 +298,15 @@ public slots:
     void processDotScheduleResponse(const QString &jsonData);
     void processShowSchedulesResponse(const QString &jsonData);
     void processShowJobsResponse(const QString &jsonData);
+    /**
+     * @brief The JobDefs have been read into the job model
+     *
+     * Before any job is loaded (on a connect the JobDefs are asked for
+     * first) nothing happens: the reply of "show jobs" brings the index
+     * and the wait prediction. Later, a change of the JobDefs is taken
+     * like one of the jobs.
+     */
+    void processShowJobDefsResponse(const QString &jsonData);
     /// Replies the limits of the wait prediction are read from
     void processShowStoragesResponse(const QString &jsonData);
     void processShowDirectorResponse(const QString &jsonData);
@@ -361,12 +389,19 @@ private:
         HistoryLoaded,          ///< Statistics are from the Director
         HistoryUnavailable,     ///< Refused, unreadable or not sent
     };
-    /// Starts the timer for a request if one is due and the widget is on
-    /// screen with a connection; cheap, may be called often
+    /// Starts the timer for a request if one is due and there is a
+    /// connection (on screen or not: the wait prediction needs the
+    /// durations); cheap, may be called often
     void scheduleHistoryRequest();
     void requestHistoryIfDue();
     void requestHistory();
-    void applyHistoryReply(const BJobHistoryReply &reply, quint64 generation);
+    /// The reply as read off the GUI thread, with its statistics
+    struct HistoryResult
+    {
+        BJobHistoryReply reply;
+        BJobHistoryStats stats;     ///< From reply.runs; condensed in the reader thread
+    };
+    void applyHistoryReply(const HistoryResult &result, quint64 generation);
     void setHistoryUnavailable(const QString &reason);
     void resetHistory();
     void updateHistoryViews();
@@ -452,13 +487,57 @@ private:
     /// Sizes the columns to their contents unless the user has set widths
     void fitColumns(QTableWidget *table);
     /**
-     * @brief Replays the Director's queue for the dates on display and
-     *        hands the result to the timelines, the counter and the list
+     * @brief Asks for the Director's queue to be replayed for the dates on
+     *        display; the result goes to the timelines, the counter and
+     *        the list
      *
      * Called whenever the entries on display, the job history, the jobs or
-     * a limit have changed.
+     * a limit have changed. Cheap: it bumps the generation of the inputs
+     * and starts a 0 ms timer, so that a burst of changes is predicted
+     * once. The prediction itself runs in a worker thread
+     * (startWaitPrediction()).
      */
     void updateWaitPrediction();
+
+    /// What the prediction is worked out from, copied in the GUI thread
+    struct WaitInput
+    {
+        bool predict = false;       ///< false: nothing to replay (no jobs, or no history yet)
+        BWaitLimits limits;
+        QMap<QString, QJsonObject> jobs;
+        QMap<QString, QJsonObject> jobDefs;
+        QHash<QString, int> devices;
+        QHash<QString, BWaitJobInfo> jobInfo;
+        QList<BJobRun> historyRuns;
+        BJobHistoryStats historyStats;
+        QList<BScheduleEntry> entries;  ///< Of all enabled schedules, from the day before on
+        QSet<QString> shownEntries;     ///< Keys of the entries on display
+        QDateTime from;                 ///< First day on display
+        std::function<void()> gate;     ///< setWaitWorkerGate() (tests)
+    };
+    /// What the worker hands back
+    struct WaitOutput
+    {
+        BWaitLimits limits;
+        BWaitCalibration calibration;
+        QList<BWaitRun> runs;
+        QList<BWaitResult> results;
+        QList<int> shown;
+        BWaitCalibration::Backtest backtest;
+        QHash<QString, BScheduleGanttWidget::RunWait> waits;
+    };
+    WaitInput waitInput() const;
+    /// The replay, the calibration and the back-test; touches no widget
+    static WaitOutput computeWaitPrediction(const WaitInput &input);
+    /// The timer's slot: starts the worker, or marks the newest inputs as
+    /// pending while one runs
+    void startWaitPrediction();
+    /// In the GUI thread: takes over a result of the current generation,
+    /// drops an older one, and starts the pending inputs
+    void applyWaitPrediction(const WaitOutput &output, quint64 generation);
+    /// The job history is still on its way: the waits are not predicted
+    /// until it is in (or known to be unavailable)
+    bool waitsWaitForHistory() const;
     void updateWaitViews();
     void updateStatsPanel(const BScheduleEntry &entry);
     void updateGanttEntries();
@@ -547,6 +626,13 @@ private:
     BWaitCalibration::Backtest m_backtest;
     QString m_profileId;                ///< Director profile of the connection
     QString m_waitSummary;              ///< The counter's text without its arrow
+    QTimer *m_waitTimer = nullptr;      ///< 0 ms: one prediction for a burst of triggers
+    quint64 m_waitGeneration = 0;       ///< Bumped by every trigger: older results are dropped
+    QPointer<QThread> m_waitWorker;     ///< The prediction being worked out
+    bool m_waitPending = false;         ///< Newer inputs wait for the worker to finish
+    int m_waitWorkersStarted = 0;       ///< (tests)
+    int m_waitResultsDropped = 0;       ///< (tests)
+    std::function<void()> m_waitWorkerGate;    ///< (tests)
 
     // --- UI ---
     QSplitter *m_splitter;
