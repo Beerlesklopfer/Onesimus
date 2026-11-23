@@ -177,6 +177,8 @@ BDirector::BDirector(QObject *parent)
                      this, &BDirector::jobStatusEvent);
     QObject::connect(m_director, &DIRECTOR_CLASS::clientStatusEvent,
                      this, &BDirector::clientStatusEvent);
+    QObject::connect(m_director, &DIRECTOR_CLASS::clientProbeFinished,
+                     this, &BDirector::clientProbeFinished);
 
     // Typed query result signals
     QObject::connect(m_director, &DIRECTOR_CLASS::consolesResult,
@@ -486,6 +488,21 @@ quint64 BDirector::configCall(const BConfig::Request &request)
     }
     QMetaObject::invokeMethod(m_director, "configCall", Qt::QueuedConnection,
                               Q_ARG(quint64, id), Q_ARG(BConfig::Request, request));
+    return id;
+}
+
+quint64 BDirector::probeClient(const QString &clientName)
+{
+    const quint64 id = m_nextProbeId++;
+    if (!m_director) {
+        QTimer::singleShot(0, this, [this, id, clientName]() {
+            emit clientProbeFinished(id, clientName, int(BClientProbeStatus::NotAvailable),
+                                     QString(), QString());
+        });
+        return id;
+    }
+    QMetaObject::invokeMethod(m_director, "probeClient", Qt::QueuedConnection,
+                              Q_ARG(quint64, id), Q_ARG(QString, clientName));
     return id;
 }
 

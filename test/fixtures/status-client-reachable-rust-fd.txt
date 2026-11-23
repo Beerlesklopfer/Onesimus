@@ -1,0 +1,12 @@
+Connecting to Client laptop-fd at 192.0.2.20:9102
+ Handshake: gRPC TLS,
+laptop.example.org-fd Version: 25.1.2+onesimus.0.2.0 (23 November 2026) linux
+Daemon started 23-Nov-2026 18:31. Jobs: run=0 running=0, Bareos Rust binary
+ Sizeof: boffset_t=8 size_t=8 debug=0 trace=0 bwlimit=0kB/s
+
+Running Jobs:
+No Jobs running.
+====
+
+Terminated Jobs:
+====

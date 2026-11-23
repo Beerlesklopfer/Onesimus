@@ -5,6 +5,7 @@
 #include "bbyteformat.h"
 #include "buiscale.h"
 #include "clients/bclientsmodel.h"
+#include "bcapabilitynotice.h"
 #include "blogging.h"
 #include "jobs/brunjobcommand.h"
 #include <QDateTime>
@@ -19,6 +20,8 @@
 #include <QLocale>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QStringList>
+#include <QStyle>
 #include <QTableView>
 #include <QTabWidget>
 #include <QTimeZone>
@@ -352,6 +355,34 @@ void BClientDetailsDialog::setupInfoTab()
     connForm->addRow(tr("Last backup:"), m_statusLabel);
     connForm->addRow(tr("Last Connection:"), m_lastConnLabel);
 
+    // Reachability (issue #9): a live fact if one holds (client-initiated
+    // connection, client event, "Check now"), and the button for one probe
+    m_reachLabel = new QLabel;
+    m_reachLabel->setWordWrap(true);
+    m_checkNowButton = new QPushButton(tr("Check Now"));
+    m_checkNowButton->setToolTip(tr("Ask the Director whether it can reach this client now"));
+    QWidget *reachRow = new QWidget;
+    QHBoxLayout *reachLayout = new QHBoxLayout(reachRow);
+    reachLayout->setContentsMargins(0, 0, 0, 0);
+    reachLayout->addWidget(m_reachLabel, 1);
+    reachLayout->addWidget(m_checkNowButton);
+    connForm->addRow(tr("Reachable:"), reachRow);
+
+    connect(m_checkNowButton, &QPushButton::clicked, this, [this]() {
+        if (!BCapabilityNotice::check(this, m_director, BCapabilities::Function::ProbeClient,
+                                      BCapabilities::Request::Explicit))
+            return;
+        m_model->checkClientNow(m_clientName);
+    });
+    connect(m_model, &BClientsModel::clientStatusChanged, this, [this](const QString &name) {
+        if (name == m_clientName)
+            updateReachability();
+    });
+    connect(m_model, &BClientsModel::probeStateChanged, this, [this](const QString &, bool) {
+        updateReachability();
+    });
+    updateReachability();
+
     layout->addWidget(connGroup);
 
     // Retention Information Group
@@ -374,6 +405,38 @@ void BClientDetailsDialog::setupInfoTab()
     layout->addStretch();
 
     m_tabWidget->addTab(infoTab, tr("Information"));
+}
+
+void BClientDetailsDialog::updateReachability()
+{
+    const BClientsModel::LiveStatus live = m_model->liveStatus(m_clientName, QDateTime::currentDateTime());
+    const auto probe = m_model->probeOutcome(m_clientName);
+    const QString probing = m_model->probingClient();
+
+    QStringList lines;
+    if (probing == m_clientName) {
+        lines << tr("Checking...");
+    } else if (live.state != BClientsModel::LiveStatus::None) {
+        lines << BClientsModel::liveLabel(live) + QStringLiteral(": ") + BClientsModel::liveToolTip(live);
+    } else {
+        lines << tr("Not known: no client-initiated connection, client event or check holds now. "
+                    "The last backup above is an estimate, not a check.");
+    }
+    // A check that could not tell is said as well
+    if (probe.second.isValid() && probing != m_clientName
+        && (live.state == BClientsModel::LiveStatus::None
+            || probe.first.result == BClientReachability::Probe::Unknown))
+        lines << BClientsModel::probeText(probe.first, probe.second);
+    m_reachLabel->setText(lines.join(QLatin1Char('\n')));
+    m_reachLabel->setProperty("state", live.state == BClientsModel::LiveStatus::Online ? "active"
+                                       : live.state == BClientsModel::LiveStatus::Offline ? "error"
+                                                                                         : "muted");
+    // The theme styles QLabel[state=...]: apply the new value
+    m_reachLabel->style()->unpolish(m_reachLabel);
+    m_reachLabel->style()->polish(m_reachLabel);
+
+    m_checkNowButton->setEnabled(probing.isEmpty() && m_director && m_director->isConnected());
+    m_checkNowButton->setText(probing == m_clientName ? tr("Checking...") : tr("Check Now"));
 }
 
 void BClientDetailsDialog::setupSettingsTab()

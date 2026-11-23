@@ -189,6 +189,27 @@ const Entry Table[] = {
         BConfig::ResourceType::JobDefs,
         BConfig::Operation::CreateRaw,
     },
+    // "Check now" (issue #9, backlog P3-12): the Onesimus Director answers
+    // the typed GetClientStatus, which has its own reply. Over the console
+    // protocol "status client" in API mode 2 does not say whether the file
+    // daemon answered: Bareos collects the text as JSON messages, which it
+    // does not send (dird/ua_status.cc DoNativeClientStatus() with
+    // UaContext::SendMsg(), lib/output_formatter.cc; bareos/bareos#2325),
+    // and replies are matched by queue position only (backlog P3-1).
+    {
+        Function::ProbeClient,
+        "client.probe",
+        QT_TRANSLATE_NOOP("BCapabilities", "Check whether a client is reachable"),
+        false,
+        Support::Grpc,
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "%1 cannot check a client on this connection: in the API mode the GUI "
+                          "uses, the reply of \"status client\" does not say whether the client "
+                          "answered."),
+        QT_TRANSLATE_NOOP("BCapabilities",
+                          "Nothing was sent. You can run \"status client=<name>\" in a console "
+                          "(bconsole) and read the reply."),
+    },
 };
 
 QString translated(const char *text)
@@ -292,6 +313,9 @@ bool isAvailable(const Entry &entry, const Server &server)
         if (entry.onesimus == Support::Live) {
             return usesConfigMethod(entry, server);
         }
+        if (entry.onesimus == Support::Grpc) {
+            return server.connection == Connection::Grpc;
+        }
         return entry.onesimus == Support::Yes;
     }
     // Bareos, and every server that was not identified
@@ -372,6 +396,7 @@ Notice notice(const Entry &entry, const Server &server)
     // What the Onesimus Director offers: only what the table says
     switch (entry.onesimus) {
     case Support::Live:
+    case Support::Grpc:
         if (!onOnesimus) {
             sentences.append(translated(QT_TRANSLATE_NOOP(
                 "BCapabilities", "The Onesimus Director supports this over its gRPC interface.")));

@@ -8,6 +8,7 @@
 #include "clients/bclientdetailsdialog.h"
 #include "bcheckableheaderview.h"
 #include "bheaderstate.h"
+#include "bcapabilitynotice.h"
 #include "bstatusdelegate.h"
 #include "blogging.h"
 #include "config/bsettings.h"
@@ -545,6 +546,19 @@ void BClientsWidget::onContextMenu(const QPoint &pos)
         dialog.showSettingsTab();
         dialog.exec();
     });
+
+    // "Check now" (issue #9): one probe of this client, on request only
+    const QString name = m_model->clientAt(row).value("name").toString();
+    const QString probing = m_model->probingClient();
+    QAction *checkAction = menu.addAction(probing.isEmpty()
+                                              ? tr("Check Now")
+                                              : tr("Check Now (checking %1...)").arg(probing));
+    checkAction->setToolTip(tr("Ask the Director whether it can reach this client now"));
+    checkAction->setEnabled(!name.isEmpty() && probing.isEmpty() && m_director
+                            && m_director->isConnected());
+    connect(checkAction, &QAction::triggered, this, [this, name]() {
+        checkClientNow(name);
+    });
     menu.exec(m_tableView->viewport()->mapToGlobal(pos));
 }
 
@@ -553,4 +567,13 @@ void BClientsWidget::focusFilter()
     m_clientFilter->setFocus(Qt::ShortcutFocusReason);
     if (m_clientFilter->lineEdit())
         m_clientFilter->lineEdit()->selectAll();
+}
+
+bool BClientsWidget::checkClientNow(const QString &clientName)
+{
+    // On a Director or connection that cannot carry the probe, say so and send nothing
+    if (!BCapabilityNotice::check(this, m_director, BCapabilities::Function::ProbeClient,
+                                  BCapabilities::Request::Explicit))
+        return false;
+    return m_model->checkClientNow(clientName);
 }

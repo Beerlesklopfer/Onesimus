@@ -46,6 +46,9 @@ namespace {
 constexpr auto LoginTimeout = 15s;
 constexpr auto CommandTimeout = 5min;  // restore/estimate can take a while
 constexpr auto ConfigTimeout = 2min;   // write, check and reload of the configuration
+// "Check now": the Director tries a file daemon for about 15 s (Bareos
+// ConnectToFileDaemon(..., max_retry_time 15)) and then reads its status
+constexpr auto ProbeTimeout = 60s;
 
 // The gRPC package of the generated Director client (proto/director_service.proto)
 const QString ServicePackage = QStringLiteral("onesimus.director");
@@ -396,6 +399,7 @@ void BGrpcTransport::close()
     m_sessionToken.clear();
     m_pending.clear();
     m_inFlight = false;
+    m_probeInFlight = false;
 }
 
 void BGrpcTransport::fail(const QString &reason)
@@ -609,6 +613,66 @@ void BGrpcTransport::fetchUsage()
             return;
         }
         emit usageChanged(BUsageProto::fromMessage(response->usage()));
+    });
+}
+
+void BGrpcTransport::probeClient(quint64 id, const QString &clientName)
+{
+    auto finish = [this, id, clientName](BClientProbeStatus status, const QString &error) {
+        QTimer::singleShot(0, this, [this, id, clientName, status, error]() {
+            emit clientProbeFinished(id, clientName, int(status), QString(), error);
+        });
+    };
+    if (!m_api || !isLoggedIn()) {
+        finish(BClientProbeStatus::NotAvailable, tr("Not connected to the gRPC service of the Director"));
+        return;
+    }
+    if (m_probeInFlight) {
+        finish(BClientProbeStatus::Busy, tr("Another client is being checked"));
+        return;
+    }
+    m_probeInFlight = true;
+
+    QGrpcCallOptions options;
+    options.setDeadlineTimeout(ProbeTimeout);
+    options.setMetadata(QHash<QByteArray, QByteArray>{{SessionHeader, m_sessionToken.toLatin1()}});
+
+    // The typed call has its own reply object: it cannot be mixed up with the
+    // replies of the command queue (no request IDs there yet, backlog P3-1)
+    commands::StatusCommand request;
+    request.setClient(clientName);
+
+    const quint64 gen = m_generation;
+    QGrpcCallReply *reply = m_api->GetClientStatus(request, options).release();
+    connect(reply, &QGrpcCallReply::finished, this,
+            [this, reply, gen, id, clientName](const QGrpcStatus &status) {
+        reply->deleteLater();
+        if (gen != m_generation) {
+            return;
+        }
+        m_probeInFlight = false;
+        if (status.isOk()) {
+            const auto response = reply->read<api::ClientStatusResponse>();
+            if (response) {
+                emit clientProbeFinished(id, clientName, int(BClientProbeStatus::Replied),
+                                         response->text(), QString());
+            } else {
+                emit clientProbeFinished(id, clientName, int(BClientProbeStatus::Error), QString(),
+                                         tr("The reply of the Director could not be read"));
+            }
+            return;
+        }
+        const QString reason = statusText(status, ProbeTimeout);
+        BLOG_DEBUG() << "gRPC: GetClientStatus:" << reason;
+        emit clientProbeFinished(id, clientName,
+                                 int(status.code() == QtGrpc::StatusCode::DeadlineExceeded
+                                         ? BClientProbeStatus::Timeout : BClientProbeStatus::Error),
+                                 QString(), reason);
+        if (status.code() == QtGrpc::StatusCode::Unavailable
+            || status.code() == QtGrpc::StatusCode::Unauthenticated) {
+            close();
+            emit connectionLost(reason);
+        }
     });
 }
 

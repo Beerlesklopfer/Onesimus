@@ -184,6 +184,13 @@ public:
      */
     quint64 configCall(const BConfig::Request &request);
 
+    /**
+     * @brief Probes one client ("Check now", thread-safe)
+     * @return the id that clientProbeFinished() carries; over BNET the reply
+     *         is BClientProbeStatus::NotAvailable and nothing is sent
+     */
+    quint64 probeClient(const QString &clientName);
+
     // ========================================================================
     // Resource State Machine
     // ========================================================================
@@ -407,6 +414,9 @@ signals:
 
     /// Client event of the gRPC push stream (BClientEvent as int; unixTime 0: not given)
     void clientStatusEvent(const QString &clientName, int event, qint64 unixTime);
+    /// Reply to probeClient(): @p status is a BClientProbeStatus
+    void clientProbeFinished(quint64 id, const QString &clientName, int status,
+                             const QString &text, const QString &error);
 
 public slots:
     // ========================================================================
@@ -543,6 +553,7 @@ private:
     QString m_serverIdentity;    ///< Last serverIdentified() text, cleared on disconnect
     BConfig::Capabilities m_configCapabilities;  ///< Cleared on disconnect
     quint64 m_nextConfigId = 1;
+    quint64 m_nextProbeId = 1;     ///< Ids of probeClient()
     void setConfigCapabilities(const BConfig::Capabilities &capabilities);
     BUsage::Info m_usage;        ///< Cleared on disconnect and on a new session
     void setUsage(const BUsage::Info &usage);

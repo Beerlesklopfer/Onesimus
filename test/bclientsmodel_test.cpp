@@ -68,6 +68,14 @@ private slots:
     void onlineRunsOutAfterTheConnection();
     void unreachableStaysUntilTheNextContact();
     void withoutEventsNoOnlineIsShown();
+
+    // "status director" and "Check now" (issue #9, P3-12)
+    void clientInitiatedConnectionIsConnected();
+    void droppedFromTheListStaysOnlineForAWhile();
+    void replyWithoutTheListChangesNothing();
+    void probeResultsAndTheirOrder();
+    void unknownProbeKeepsTheStatus();
+    void noProbeWithoutADirector();
 };
 
 void BClientsModelTest::backupsAreNotOverwrittenByTheJobList()
@@ -184,9 +192,10 @@ void BClientsModelTest::clientStatusDrivenByEvents()
 
     model.setClientLiveEvent("a-fd", BClientEvent::Connected, now);
     const QModelIndex a = statusIndex(model, "a-fd");
-    QCOMPARE(a.data().toString(), QStringLiteral("Online"));
+    // An open connection is shown as such
+    QCOMPARE(a.data().toString(), QStringLiteral("Connected"));
     QCOMPARE(a.data(BStatus::ToneRole).toInt(), int(BStatus::Tone::Success));
-    QVERIFY(a.data(Qt::ToolTipRole).toString().contains("reached"));
+    QVERIFY(a.data(Qt::ToolTipRole).toString().contains("open connection"));
 
     model.setClientLiveEvent("b-fd", BClientEvent::Unreachable, now);
     const QModelIndex b = statusIndex(model, "b-fd");
@@ -278,6 +287,138 @@ void BClientsModelTest::withoutEventsNoOnlineIsShown()
     const QString text = statusIndex(model, "a-fd").data().toString();
     QVERIFY2(text != QStringLiteral("Online") && text != QStringLiteral("Offline"), qPrintable(text));
     QCOMPARE(statusIndex(model, "a-fd").data(BStatus::ToneRole).toInt(), int(BStatus::Tone::Info));
+}
+
+namespace {
+const char *BareosReply =
+    R"({"jsonrpc":"2.0","id":null,"result":{"header":{},"scheduled":[],"running":[],"terminated":[],)"
+    R"("client-connection":[{"connecttime":"23-Nov-26 10:15","protocol_version":2,"authenticated":1,"name":"a-fd"}]}})";
+const char *EmptyListReply =
+    R"({"jsonrpc":"2.0","id":null,"result":{"header":{},"scheduled":[],"running":[],"terminated":[],"client-connection":[]}})";
+} // namespace
+
+void BClientsModelTest::clientInitiatedConnectionIsConnected()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    model.setClients(model.allClients());
+    QSignalSpy resets(&model, &QAbstractItemModel::modelReset);
+
+    QVERIFY(model.setStatusDirectorReply(QString::fromLatin1(BareosReply)));
+    const QModelIndex a = statusIndex(model, "a-fd");
+    QCOMPARE(a.data().toString(), QStringLiteral("Connected"));
+    QCOMPARE(a.data(BStatus::ToneRole).toInt(), int(BStatus::Tone::Success));
+    QVERIFY(a.data(Qt::ToolTipRole).toString().contains("client-initiated"));
+    const BClientsModel::LiveStatus live = model.liveStatus("a-fd", QDateTime::currentDateTime());
+    QCOMPARE(live.source, BClientsModel::Source::Connection);
+    QVERIFY(live.connected);
+    QCOMPARE(live.at.time(), QTime(10, 15));
+    // b-fd is not listed: no fact, the estimate stays
+    QCOMPARE(model.liveStatus("b-fd", QDateTime::currentDateTime()).state, BClientsModel::LiveStatus::None);
+    QCOMPARE(resets.count(), 0);
+
+    // The connection wins over a failed check
+    BClientReachability::ProbeOutcome failed;
+    failed.result = BClientReachability::Probe::Unreachable;
+    failed.reason = BClientReachability::ProbeReason::ConnectFailed;
+    model.setProbeResult("a-fd", failed);
+    QCOMPARE(statusIndex(model, "a-fd").data().toString(), QStringLiteral("Connected"));
+}
+
+void BClientsModelTest::droppedFromTheListStaysOnlineForAWhile()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    const QDateTime t0 = QDateTime::currentDateTime().addSecs(-60);
+
+    model.setStatusDirectorReply(QString::fromLatin1(BareosReply), t0);
+    model.setStatusDirectorReply(QString::fromLatin1(EmptyListReply), t0.addSecs(30));
+
+    // Seen connected at t0; Bareos takes the connection out of the list for a job
+    const BClientsModel::LiveStatus live = model.liveStatus("a-fd", t0.addSecs(31));
+    QCOMPARE(live.state, BClientsModel::LiveStatus::Online);
+    QVERIFY(!live.connected);
+    QCOMPARE(live.at, t0);
+    QCOMPARE(model.liveStatus("a-fd", t0.addSecs(BClientsModel::OnlineValidSecs)).state,
+             BClientsModel::LiveStatus::None);
+}
+
+void BClientsModelTest::replyWithoutTheListChangesNothing()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    model.setStatusDirectorReply(QString::fromLatin1(BareosReply));
+
+    // A reply in the wrong place (queue order, backlog P3-1) or of another
+    // shape: the connection stays as it was
+    QVERIFY(!model.setStatusDirectorReply(QStringLiteral(R"({"jsonrpc":"2.0","id":null,"result":{"clients":[]}})")));
+    QVERIFY(!model.setStatusDirectorReply(QStringLiteral("not json")));
+    QVERIFY(model.liveStatus("a-fd", QDateTime::currentDateTime()).connected);
+}
+
+void BClientsModelTest::probeResultsAndTheirOrder()
+{
+    using namespace BClientReachability;
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    model.setClients(model.allClients());
+    const QDateTime t0 = QDateTime::currentDateTime().addSecs(-120);
+
+    ProbeOutcome answered;
+    answered.result = Probe::Reachable;
+    answered.reason = ProbeReason::Answered;
+    ProbeOutcome failed;
+    failed.result = Probe::Unreachable;
+    failed.reason = ProbeReason::ConnectFailed;
+
+    model.setProbeResult("b-fd", failed, t0);
+    QCOMPARE(statusIndex(model, "b-fd").data().toString(), QStringLiteral("Offline"));
+    QVERIFY(statusIndex(model, "b-fd").data(Qt::ToolTipRole).toString().contains("Check now"));
+
+    // A newer client event replaces the probe; a newer probe the event
+    model.setClientLiveEvent("b-fd", BClientEvent::Alive, t0.addSecs(10));
+    QCOMPARE(model.liveStatus("b-fd", t0.addSecs(20)).source, BClientsModel::Source::Event);
+    model.setProbeResult("b-fd", answered, t0.addSecs(20));
+    const BClientsModel::LiveStatus live = model.liveStatus("b-fd", t0.addSecs(30));
+    QCOMPARE(live.state, BClientsModel::LiveStatus::Online);
+    QCOMPARE(live.source, BClientsModel::Source::Probe);
+    QCOMPARE(statusIndex(model, "b-fd").data().toString(), QStringLiteral("Online"));
+    QCOMPARE(model.liveStatus("b-fd", t0.addSecs(20 + BClientsModel::OnlineValidSecs)).state,
+             BClientsModel::LiveStatus::None);
+}
+
+void BClientsModelTest::unknownProbeKeepsTheStatus()
+{
+    using namespace BClientReachability;
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    model.setClients(model.allClients());
+
+    ProbeOutcome failed;
+    failed.result = Probe::Unreachable;
+    failed.reason = ProbeReason::ConnectFailed;
+    model.setProbeResult("a-fd", failed);
+
+    // A timeout says nothing: still Offline, the tooltip tells about the check
+    model.setProbeResult("a-fd", classifyProbe(BClientProbeStatus::Timeout, QString(), QString()));
+    QCOMPARE(statusIndex(model, "a-fd").data().toString(), QStringLiteral("Offline"));
+    QVERIFY(statusIndex(model, "a-fd").data(Qt::ToolTipRole).toString().contains("no answer in time"));
+
+    // On a client without facts the estimate stays, with the check in the tooltip
+    model.setProbeResult("b-fd", classifyProbe(BClientProbeStatus::Error, QString(), QStringLiteral("NOT_FOUND")));
+    QCOMPARE(model.liveStatus("b-fd", QDateTime::currentDateTime()).state, BClientsModel::LiveStatus::None);
+    QVERIFY(statusIndex(model, "b-fd").data(Qt::ToolTipRole).toString().contains("NOT_FOUND"));
+    QCOMPARE(model.probeOutcome("b-fd").first.reason, ProbeReason::Error);
+}
+
+void BClientsModelTest::noProbeWithoutADirector()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    QSignalSpy started(&model, &BClientsModel::probeStateChanged);
+    QVERIFY(!model.checkClientNow("a-fd"));
+    QVERIFY(model.probingClient().isEmpty());
+    QCOMPARE(started.count(), 0);
 }
 
 QTEST_GUILESS_MAIN(BClientsModelTest)

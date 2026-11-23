@@ -73,6 +73,15 @@ public:
      */
     bool hasSelection() const;
 
+    /**
+     * @brief "Check now": probes one client (issue #9)
+     *
+     * Shows the capability notice where the connection cannot carry the probe
+     * (classic Bareos, or the Onesimus Director over the console protocol).
+     * @return whether a probe was started
+     */
+    bool checkClientNow(const QString &clientName);
+
 public slots:
     /**
      * @brief Refreshes client list from Director

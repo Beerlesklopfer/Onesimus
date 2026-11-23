@@ -111,6 +111,15 @@ public:
      */
     void configCall(quint64 id, const BConfig::Request &request);
 
+    /**
+     * @brief Probes one client with the typed GetClientStatus ("Check now")
+     *
+     * Independent of the command queue; answered by clientProbeFinished()
+     * with the same id (BClientProbeStatus as int). One probe at a time: a
+     * second one while the first runs is answered with Busy.
+     */
+    void probeClient(quint64 id, const QString &clientName);
+
     /// SHA-256 fingerprint (lowercase hex) of a certificate's DER encoding
     static QString certificateFingerprint(const QSslCertificate &cert);
 
@@ -149,6 +158,11 @@ signals:
 
     /// Reply to configCall()
     void configReply(quint64 id, const BConfig::Reply &reply);
+
+    /// Reply to probeClient(): @p status is a BClientProbeStatus, @p text the
+    /// status report of the Director (ClientStatusResponse.text)
+    void clientProbeFinished(quint64 id, const QString &clientName, int status,
+                             const QString &text, const QString &error);
 
     /// What GetConfigCapabilities reported after the login
     void configCapabilities(const BConfig::Capabilities &capabilities);
@@ -190,6 +204,7 @@ private:
     QString m_sessionToken;
     QQueue<QString> m_pending;
     bool m_inFlight = false;
+    bool m_probeInFlight = false;   ///< probeClient() waits for its reply
     bool m_typedHistory = true; ///< false: this Director's ListJobs lacks `reverse` or is unknown
     bool m_untypedOnce = false; ///< The next line goes by the command line (typed call failed)
     quint64 m_generation = 0;   ///< Invalidates replies of a previous connection
