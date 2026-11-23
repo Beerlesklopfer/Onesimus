@@ -40,8 +40,8 @@ concurrency:
 env:
   QT_VERSION: '6.8.3'
   # Bump to drop the cached static OpenSSL builds (they are keyed on the
-  # submodule commit already).
-  OPENSSL_CACHE_REV: '1'
+  # submodule commit already). 2: no-shared, libraries in lib/ (not lib64/).
+  OPENSSL_CACHE_REV: '2'
 
 jobs:
   linux:

@@ -187,6 +187,9 @@ sudo zypper install -y \
 
 ### Option 1: Static OpenSSL (Default)
 
+The default of CMake and of `deploy.sh`. OpenSSL is built `no-shared` out of source
+(`build/openssl-build`) and installed into `build/openssl-install/lib`.
+
 ```bash
 mkdir build && cd build
 cmake .. -DUSE_STATIC_OPENSSL=ON
@@ -442,7 +445,7 @@ cat build/openssl_build-prefix/src/openssl_build-stamp/openssl_build-build.log
 **Rebuild OpenSSL:**
 ```bash
 cd build
-rm -rf openssl-install openssl_build-prefix
+rm -rf openssl-install openssl-build openssl_build-prefix
 cmake --build . --target openssl_build
 ```
 

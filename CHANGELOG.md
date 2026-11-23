@@ -74,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   program and the app-wide tests link; `bareosauth.cpp` is compiled once (`bareosauth_lib`).
 - Build: `Qt6::GuiPrivate` is linked on every platform (needed from Qt 6.9 on; Linux and macOS used
   `Qt6Gui_PRIVATE_INCLUDE_DIRS`).
+- Build: the bundled OpenSSL is the default of CMake as in the deploy scripts (before, CMake took a
+  system OpenSSL when it found one); it is built `no-shared` (DLLs on Windows only, for Qt's TLS
+  plugin), out of source, into `lib/`, and its DLLs are no longer copied into the Qt installation.
+  An empty `OPENSSL_INSTALL_DIR` defaults to `<build>/openssl-install` again.
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to

@@ -239,8 +239,14 @@ brew install cmake ninja git qt@6 perl protobuf   # Qt with QtGrpc/QtProtobuf; p
 
 | Option | Description |
 |--------|-------------|
-| `USE_STATIC_OPENSSL=ON` | Static (Git submodule, default) |
-| `USE_STATIC_OPENSSL=OFF` | System OpenSSL |
+| `USE_STATIC_OPENSSL=ON` | Bundled OpenSSL from the `external/openssl` submodule **(default in CMake and in the deploy scripts)**: linked statically on Linux and macOS; DLLs next to `onesimus.exe` on Windows, because Qt's TLS plugin loads them at run time |
+| `USE_STATIC_OPENSSL=OFF` | System OpenSSL (`deploy.sh -s`; the `linux-*` presets choose it for quick development builds) |
+
+The bundled OpenSSL is built out of source in `<build>/openssl-build` and installed into
+`OPENSSL_INSTALL_DIR` (default `<build>/openssl-install`, libraries in `lib/`); nothing is
+written into the submodule or the Qt installation. `OPENSSL_BUILD_JOBS` limits its `make -j`.
+If the submodule still holds the files of an older in-source build, clean it with
+`git -C external/openssl clean -fdx` so that only the generated files of the build tree are used.
 
 ### Build Type
 

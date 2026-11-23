@@ -95,7 +95,6 @@ checked against the code on 2026-11-23; file references are to that state. Repor
 - Compiler warnings left: OpenSSL's deprecated `MD5_*` in `src/director/bareosauth.cpp:1126-1152`
   (CRAM-MD5 of the BNET login), an unused `placementText()` in `src/tools/b321dialog.cpp:110`.
 - Tests still missing for `BJsonStreamReader` and `BConfigExporter`.
-- The bundled OpenSSL is configured `shared` (`CMakeLists.txt:240`, `:272`).
 
 ### Docs/i18n
 - Translations: German is complete. Spanish, French, Italian and Russian each have 245 of 3884

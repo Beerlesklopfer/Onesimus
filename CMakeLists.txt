@@ -113,27 +113,26 @@ endif()
 message(STATUS "========================================")
 message(STATUS "")
 
-set(USE_STATIC_OPENSSL_DEFAULT ON)
-if(APPLE AND USE_STATIC_OPENSSL)
-    # macOS with the static OpenSSL asked for: no find_package(OpenSSL). It
-    # finds Homebrew's OpenSSL (e.g. openssl@4 on the CI runners) and its
-    # imported OpenSSL::SSL target wins over the alias defined below, so the
-    # app linked /opt/homebrew/.../libssl.4.dylib against the headers of
-    # the static build.
-else()
-    find_package(OpenSSL)
-    if(TARGET OpenSSL::SSL)
-        set(USE_STATIC_OPENSSL_DEFAULT OFF)
-    endif()
-endif()
-
 # Compiler warnings for the Onesimus targets (applied at the end of this file
 # to every target but the bundled OpenSSL and the generated gRPC/protobuf
 # code). Warnings only; there is no -Werror.
 option(ONESIMUS_WARNINGS "Compiler warnings for the Onesimus targets (-Wall -Wextra, MSVC /W4)" ON)
 
-# Option für statisches OpenSSL
-option(USE_STATIC_OPENSSL "Use static OpenSSL from git submodule (auto-download)" ${USE_STATIC_OPENSSL_DEFAULT})
+# OpenSSL: the bundled one from the external/openssl submodule by default,
+# on every platform and in deploy.sh/deploy.ps1 alike (one default; before,
+# CMake took the system OpenSSL when it found one). -DUSE_STATIC_OPENSSL=OFF
+# (deploy.sh -s, the linux-* presets) links the system OpenSSL instead.
+#   Linux, macOS: built no-shared and linked statically into the program.
+#   Windows: built as DLLs (libssl-3-x64.dll, libcrypto-3-x64.dll), shipped
+#     next to onesimus.exe. Qt's TLS backend (qopensslbackend, used by
+#     QSslSocket for gRPC over TLS) loads libssl/libcrypto at run time; the
+#     official Qt builds are not linked against OpenSSL, so the DLLs are
+#     needed anyway, and the program uses the same ones.
+# find_package(OpenSSL) is called only for the system OpenSSL: on macOS it
+# found Homebrew's OpenSSL, whose imported OpenSSL::SSL target won over the
+# alias defined below (the app linked libssl.4.dylib against the headers of
+# the bundled build).
+option(USE_STATIC_OPENSSL "Build and link the bundled OpenSSL (external/openssl submodule)" ON)
 
 # ============================================================================
 # OpenSSL Automatischer Download und Build via Git Submodule
@@ -148,8 +147,13 @@ if(USE_STATIC_OPENSSL)
     # Install prefix of the static OpenSSL build. It may lie outside the build
     # tree (the CI keeps it in a cache keyed on the submodule commit): a prefix
     # that already holds the libraries is used as it is, without a rebuild.
+    if(NOT OPENSSL_INSTALL_DIR)
+        set(OPENSSL_INSTALL_DIR "${CMAKE_BINARY_DIR}/openssl-install")
+    endif()
     set(OPENSSL_INSTALL_DIR "${OPENSSL_INSTALL_DIR}" CACHE PATH
-        "Install prefix of the static OpenSSL build (reused when it already holds the libraries)")
+        "Install prefix of the static OpenSSL build (reused when it already holds the libraries)" FORCE)
+    # Out-of-source build: the submodule stays clean
+    set(OPENSSL_BUILD_DIR "${CMAKE_BINARY_DIR}/openssl-build")
     
     # Automatischer Download via Git Submodule
     message(STATUS "Checking OpenSSL submodule...")
@@ -248,14 +252,16 @@ if(USE_STATIC_OPENSSL)
         message(STATUS "Perl: ${PERL_EXECUTABLE}")
         message(STATUS "Build System: NMAKE (Visual Studio)")
         
-        set(OPENSSL_CONFIGURE_COMMAND 
-            ${PERL_EXECUTABLE} Configure VC-WIN64A
+        # shared: Qt's TLS plugin loads the DLLs at run time (see above)
+        set(OPENSSL_CONFIGURE_COMMAND
+            ${PERL_EXECUTABLE} ${OPENSSL_SUBMODULE_DIR}/Configure VC-WIN64A
             shared
             no-tests
             no-apps
             no-docs
             --prefix=${OPENSSL_INSTALL_DIR}
             --openssldir=${OPENSSL_INSTALL_DIR}/ssl
+            --libdir=lib
         )
         
         set(OPENSSL_BUILD_COMMAND nmake)
@@ -264,7 +270,7 @@ if(USE_STATIC_OPENSSL)
         # Windows System-Bibliotheken
         set(OPENSSL_SYSTEM_LIBS ws2_32 crypt32 advapi32 user32)
         
-        # Bibliotheksnamen
+        # Import libraries of the DLLs
         set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.lib)
         set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.lib)
         
@@ -278,19 +284,23 @@ if(USE_STATIC_OPENSSL)
         if(N_CORES EQUAL 0)
             set(N_CORES 1)
         endif()
-        message(STATUS "Parallel Build: ${N_CORES} cores")
-        
-        set(OPENSSL_CONFIGURE_COMMAND 
-            ./config
-            shared
+        set(OPENSSL_BUILD_JOBS "${N_CORES}" CACHE STRING "Parallel jobs of the OpenSSL build (make -j)")
+        message(STATUS "Parallel Build: ${OPENSSL_BUILD_JOBS} jobs")
+
+        # no-shared: static libraries only, linked into the program.
+        # --libdir=lib: lib/ on every platform (64-bit Linux defaulted to lib64).
+        set(OPENSSL_CONFIGURE_COMMAND
+            ${OPENSSL_SUBMODULE_DIR}/config
+            no-shared
             no-tests
             no-apps
             no-docs
             --prefix=${OPENSSL_INSTALL_DIR}
             --openssldir=${OPENSSL_INSTALL_DIR}/ssl
+            --libdir=lib
         )
-        
-        set(OPENSSL_BUILD_COMMAND make -j${N_CORES})
+
+        set(OPENSSL_BUILD_COMMAND make -j${OPENSSL_BUILD_JOBS})
         set(OPENSSL_INSTALL_COMMAND make install_sw install_ssldirs)
         # macOS: OpenSSL's own compiler calls get the same minimum macOS as
         # the app, otherwise the linker warns that the objects need a newer one.
@@ -304,19 +314,8 @@ if(USE_STATIC_OPENSSL)
         # Linux System-Bibliotheken
         set(OPENSSL_SYSTEM_LIBS pthread dl)
         
-        if(APPLE)
-            # OpenSSL's darwin64 targets install into lib/, not lib64/
-            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
-            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib64/libssl.a)
-            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib64/libcrypto.a)
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
-            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
-        else()
-            message(FATAL_ERROR "Unknown architecture")
-        endif()        # Bibliotheksnamen
+        set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
+        set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
     endif()
     
     set(OPENSSL_INCLUDE_DIR ${OPENSSL_INSTALL_DIR}/include)
@@ -339,10 +338,10 @@ if(USE_STATIC_OPENSSL)
     set(OPENSSL_PREBUILT OFF)
     ExternalProject_Add(openssl_build
         SOURCE_DIR ${OPENSSL_SUBMODULE_DIR}
+        BINARY_DIR ${OPENSSL_BUILD_DIR}
         CONFIGURE_COMMAND ${OPENSSL_CONFIGURE_COMMAND}
         BUILD_COMMAND ${OPENSSL_BUILD_COMMAND}
         INSTALL_COMMAND ${OPENSSL_INSTALL_COMMAND}
-        BUILD_IN_SOURCE 1
         BUILD_ALWAYS 0
         LOG_CONFIGURE ON
         LOG_BUILD ON
@@ -395,6 +394,7 @@ else()
     # ========================================================================
     # System OpenSSL verwenden
     # ========================================================================
+    find_package(OpenSSL)
     if(TARGET OpenSSL::SSL)
         message(STATUS "Using system OpenSSL")
         message(STATUS "✓ Found OpenSSL ${OPENSSL_VERSION}")
@@ -1215,45 +1215,26 @@ message(STATUS "========================================")
 message(STATUS "")
 
 # ============================================================================
-# OpenSSL DLLs automatisch zu Qt kopieren
+# Windows: OpenSSL DLLs next to the programs of the build tree
 # ============================================================================
-
+# onesimus.exe and the tests link the import libraries, so they need
+# libssl-3-x64.dll/libcrypto-3-x64.dll at run time; Windows looks in the
+# directory of the .exe first. Nothing is written into the Qt installation
+# (before, the DLLs were copied into Qt's bin directory). The packages get
+# them through the "deploy" target below.
 if(USE_STATIC_OPENSSL AND WIN32)
-    # Prüfe ob wir shared libraries gebaut haben
-    if(EXISTS "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll")
-        # Qt Bin-Verzeichnis
-        get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
-        get_filename_component(QT_BIN_DIR ${QT_QMAKE_EXECUTABLE} DIRECTORY)
-
-        message(STATUS "")
-        message(STATUS "========================================")
-        message(STATUS "Copying OpenSSL DLLs to Qt")
-        message(STATUS "========================================")
-        message(STATUS "  From:     ${OPENSSL_INSTALL_DIR}/bin")
-        message(STATUS "  To:       ${QT_BIN_DIR}")
-
-        if(OPENSSL_PREBUILT)
-            # No ExternalProject to hang the step on: copy now.
-            file(COPY "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
-                      "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
-                 DESTINATION "${QT_BIN_DIR}")
-        else()
-        # Kopiere nach OpenSSL-Build
-        ExternalProject_Add_Step(openssl_build copy_dlls_to_qt
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
-                "${QT_BIN_DIR}/libssl-3-x64.dll"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
-                "${QT_BIN_DIR}/libcrypto-3-x64.dll"
+    set(_openssl_dlls
+        "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
+        "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll")
+    if(OPENSSL_PREBUILT)
+        # No ExternalProject to hang the step on: copy now.
+        file(COPY ${_openssl_dlls} DESTINATION "${CMAKE_BINARY_DIR}")
+    else()
+        ExternalProject_Add_Step(openssl_build copy_dlls_to_build_tree
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_openssl_dlls} "${CMAKE_BINARY_DIR}"
             DEPENDEES install
-            COMMENT "Copying OpenSSL DLLs to Qt bin directory"
+            COMMENT "Copying the OpenSSL DLLs into the build directory"
         )
-        endif()
-
-        message(STATUS "✓ OpenSSL DLLs werden automatisch kopiert")
-        message(STATUS "========================================")
-        message(STATUS "")
     endif()
 endif()
 
