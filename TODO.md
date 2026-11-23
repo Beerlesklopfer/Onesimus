@@ -91,21 +91,14 @@ checked against the code on 2026-11-23; file references are to that state. Repor
 
 ### Build/packaging
 - Every build rewrites the tracked `include/version.h` and `.build_number`
-  (`cmake/IncrementBuildNumber.cmake`, called at `CMakeLists.txt:938`) (#7).
+  (`cmake/IncrementBuildNumber.cmake`, called at `CMakeLists.txt:940`) (#7).
 - No compiler warning flags (`-Wall -Wextra`, `/W4`). No core library: `bareosauth.cpp` is
-  compiled for several targets (`CMakeLists.txt:473`, `:1322`, `:1357`).
-- Tests still missing for `BJsonStreamReader` and `BConfigExporter`. `test/bareosauth_test.cpp`
-  is built but not registered with CTest.
+  compiled for several targets (`CMakeLists.txt:473`, `:1335`, `:1370`).
+- Tests still missing for `BJsonStreamReader` and `BConfigExporter`.
 - The bundled OpenSSL is configured `shared` (`CMakeLists.txt:240`, `:272`).
 - Linux and macOS use `Qt6Gui_PRIVATE_INCLUDE_DIRS` instead of `Qt6::GuiPrivate`
-  (`CMakeLists.txt:1014-1015`).
-- Packages: no install rule for `LICENSE` and no licence field in the .deb.
+  (`CMakeLists.txt:1017`, `:2516`).
 - The CMake minimum is 3.16 (`CMakeLists.txt:5`, `README.md:208`), but `CMakePresets.json` needs 3.21.
-- Test TLS keys and serial files are tracked (`test/bareos-dir.d/tls/*.key`, `ca.srl`,
-  `tls/bareos-ca.srl`).
-- Stale files: `qt6-quickfix.ps1`, `check-qt6.ps1`, `package-windows.ps1`,
-  `examples/example_usage.cpp`, `resources/icons/create_ico.bat`, `external/README.md`, and a
-  `nul` entry at the top of `.gitignore`.
 
 ### Docs/i18n
 - Translations: German is complete. Spanish, French, Italian and Russian each have 245 of 3884
