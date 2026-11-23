@@ -32,8 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   volume table with "reusable from"; resizable, sortable client columns.
 - **Windows**: MSI installer with features for the GUI, oconsole and the ofd service, plus a
   portable ZIP. This release's MSI holds the GUI only.
-- **CI**: Linux and Windows builds with tests, a macOS build; a release workflow for .deb, AppImage,
-  MSI and ZIP.
+- **macOS**: `Onesimus.app` for Apple Silicon (arm64, macOS 12 or later) in
+  `Onesimus-<version>-macos-arm64.dmg`, with the Qt frameworks inside, signed with a Developer ID
+  certificate (hardened runtime), notarised by Apple and stapled.
+- **CI**: Linux and Windows builds with tests, a macOS app bundle and dmg; a release workflow for
+  .deb, AppImage, MSI, ZIP and the macOS dmg.
 - `SECURITY.md`: how to report a vulnerability; from v1.0.0 each version gets security fixes
   for 2 years.
 

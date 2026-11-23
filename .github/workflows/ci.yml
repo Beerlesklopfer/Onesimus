@@ -8,7 +8,7 @@
 #          and not first on a release tag.
 # macOS:   Onesimus.app and an unsigned (ad-hoc signed) .dmg through
 #          scripts/ci/macos-package.sh (macdeployqt, otool check, start test),
-#          uploaded as an artifact; allowed to fail until it has been green.
+#          uploaded as an artifact.
 #          workflow_dispatch with macos_sign=true signs and notarises it with
 #          the secrets listed in release.yml.
 #
@@ -220,12 +220,12 @@ jobs:
           if-no-files-found: ignore
 
   macos:
-    # Onesimus.app + unsigned .dmg (the same script as release.yml, without
-    # the signing secrets). Allowed to fail until it has been green once.
-    name: macOS (app bundle and dmg, allowed to fail)
+    # Onesimus.app + .dmg with the same script as release.yml: unsigned on
+    # push and pull request, signed and notarised on a manual run with
+    # macos_sign=true.
+    name: macOS (app bundle and dmg)
     runs-on: macos-15
     timeout-minutes: 60
-    continue-on-error: true
     env:
       BUILD_DIR: build
       GENERATOR: Ninja
