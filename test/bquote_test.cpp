@@ -192,6 +192,46 @@ private slots:
         QFETCH(bool, valid);
         QCOMPARE(BQuote::isValidName(name), valid);
     }
+
+    // Arguments built with quoted() are well formed, and next_arg() gives
+    // back exactly the tokens they were built from
+    void wellFormedRoundTrip_data()
+    {
+        commandLineRoundTrip_data();
+    }
+
+    void wellFormedRoundTrip()
+    {
+        QFETCH(QString, value);
+        const QString args = QStringLiteral("file=?b2123 client=") + BQuote::quoted(value)
+                           + QStringLiteral(" where=") + BQuote::quoted(value)
+                           + QStringLiteral(" path= ") + BQuote::quoted(value) + QStringLiteral(" yes");
+        QVERIFY(BQuote::isWellFormedArguments(args));
+        const QStringList tokens = bareosArgs(args);
+        QCOMPARE(tokens, QStringList({QStringLiteral("file=?b2123"), QStringLiteral("client=") + value,
+                                      QStringLiteral("where=") + value, QStringLiteral("path="),
+                                      value, QStringLiteral("yes")}));
+    }
+
+    void notWellFormed_data()
+    {
+        QTest::addColumn<QString>("args");
+        QTest::newRow("raw quote in value") << "where=/a\"b";
+        QTest::newRow("raw backslash") << "where=C:\\x";
+        QTest::newRow("unclosed") << "where=\"/tmp yes";
+        QTest::newRow("text after closing quote") << "where=\"/a\"b";
+        QTest::newRow("quote after text") << "where=x\"y z\"";
+        QTest::newRow("escape at end") << "where=\"a\\";
+        QTest::newRow("newline in quotes") << "where=\"a\nb\"";
+        QTest::newRow("tab") << "a\tb";
+        QTest::newRow("escaped newline") << "where=\"a\\\n\"";
+    }
+
+    void notWellFormed()
+    {
+        QFETCH(QString, args);
+        QVERIFY(!BQuote::isWellFormedArguments(args));
+    }
 };
 
 QTEST_GUILESS_MAIN(BQuoteTest)

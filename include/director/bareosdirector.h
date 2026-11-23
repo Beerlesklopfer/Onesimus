@@ -561,6 +561,21 @@ public:
     static QString jobHistoryCommandLine(const QString &args);
 
     /**
+     * @brief The command line for @p cmd and its arguments, or an empty
+     *        string when they cannot be sent
+     *
+     * Resource names are quoted here (BQuote::quoted()). Arguments that
+     * must be numbers (job ids, limits) are refused when they are not.
+     * Commands that take an argument string built by their caller (show,
+     * restore, label, relabel, estimate, configure, export, import, the
+     * .bvfs commands) are refused when the string is not well formed
+     * (BQuote::isWellFormedArguments()): a value pasted in without
+     * quoting. doSend() sends nothing for an empty result, and nothing that
+     * contains a control character.
+     */
+    static QString commandToString(Command cmd, const QString &args = QString());
+
+    /**
      * @brief Get current host name
      * @return Host name or empty string if not connected
      */
@@ -1107,7 +1122,6 @@ private:
     // Protocol Methods
     // ========================================================================
 
-    const QString commandToString(Command cmd, const QString &args = QString());
     void startAuthentication();
     void processResponse(const QByteArray &data);
     QString parseResponse(const QByteArray &data);

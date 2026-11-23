@@ -3,6 +3,7 @@
 
 #include "jobs/bjsonjobview.h"
 #include "buiscale.h"
+#include "bquote.h"
 #include "blogging.h"
 #include "bheaderstate.h"
 #include "config/bsettings.h"
@@ -653,7 +654,8 @@ void BJsonJobView::deleteJob()
             QString client = job["client"].toString();
             if (!client.isEmpty() && !prunedClients.contains(client)) {
                 prunedClients.insert(client);
-                emit jobActionRequested("prune", QString("jobs client=%1 yes").arg(client));
+                // The client name comes from the Director: quoted (BQuote)
+                emit jobActionRequested("prune", QString("jobs client=%1 yes").arg(BQuote::quoted(client)));
             }
         }
     } else {

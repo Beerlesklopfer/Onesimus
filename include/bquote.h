@@ -56,6 +56,68 @@ inline QString quoted(const QString &value, bool *ok = nullptr)
     return out;
 }
 
+/**
+ * @brief true when @p args reads as the blank-separated tokens it was
+ *        built from
+ *
+ * For the commands that take an argument string built by their caller
+ * (restore, show, label, configure, the .bvfs commands). next_arg()
+ * (core/src/lib/scan.cc) ends a token at a blank, lets a double quote
+ * start or end a quoted part anywhere and lets a backslash take the next
+ * character literally. A token is therefore accepted as bare text without
+ * double quote, backslash and control characters, or as `keyword=` (or
+ * nothing) followed by exactly one value written by quoted() and then a
+ * blank or the end. A value pasted in without quoted() that contains a
+ * quote or a backslash, or an unclosed quote, makes this false; so does any
+ * control character.
+ */
+inline bool isWellFormedArguments(const QString &args)
+{
+    auto isControl = [](QChar c) { return c.unicode() < 0x20 || c.unicode() == 0x7f; };
+    const int n = int(args.size());
+    int i = 0;
+    while (i < n) {
+        if (args[i] == QLatin1Char(' ')) {
+            ++i;
+            continue;
+        }
+        const int tokenStart = i;
+        while (i < n && args[i] != QLatin1Char(' ')) {
+            const QChar c = args[i];
+            if (isControl(c) || c == QLatin1Char('\\'))
+                return false;
+            if (c != QLatin1Char('"')) {
+                ++i;
+                continue;
+            }
+            // A quoted value: the whole token, or everything after "keyword="
+            if (i != tokenStart && args[i - 1] != QLatin1Char('='))
+                return false;
+            ++i;
+            bool closed = false;
+            while (i < n) {
+                const QChar q = args[i];
+                if (isControl(q))
+                    return false;
+                if (q == QLatin1Char('\\')) {
+                    if (i + 1 >= n || isControl(args[i + 1]))
+                        return false;
+                    i += 2;
+                    continue;
+                }
+                ++i;
+                if (q == QLatin1Char('"')) {
+                    closed = true;
+                    break;
+                }
+            }
+            if (!closed || (i < n && args[i] != QLatin1Char(' ')))
+                return false;
+        }
+    }
+    return true;
+}
+
 /// The value between the quotes of a quoted value, escapes removed
 inline QString unescape(const QString &quotedBody)
 {

@@ -1986,6 +1986,16 @@ void BareosDirector::doSend(const Command cmd, const QString &args){
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << ">>> doSend() cmd=" << static_cast<int>(cmd) << " args=" << bRedactCommand(args);
 #endif
+    // A value that cannot be written in a command line (commandToString()),
+    // or a control character that would end it early: nothing is sent
+    const QString line = commandToString(cmd, args);
+    if (line.isEmpty() || BQuote::hasControlCharacter(line)) {
+        BLOG_WARNING() << "Command refused, cmd=" << static_cast<int>(cmd)
+                       << " args=" << bRedactCommand(args);
+        emit commandFailed(cmd, args,
+                           tr("The command was not sent: one of its values cannot be written in a command line"));
+        return;
+    }
     CommandEntry entry;
     entry.cmd = cmd;
     entry.args = args;
@@ -2085,8 +2095,84 @@ bool BareosDirector::rollbackLast()
 // ============================================================================
 // Command Helpers
 // ============================================================================
-const QString BareosDirector::commandToString(Command cmd, const QString &args)
+namespace {
+
+/// One or more ASCII digits
+bool isDigits(const QString &text)
 {
+    if (text.isEmpty())
+        return false;
+    for (const QChar c : text) {
+        if (c.unicode() < '0' || c.unicode() > '9')
+            return false;
+    }
+    return true;
+}
+
+/// true when @p args may follow the command word of @p cmd
+bool argumentsAccepted(BareosDirector::Command cmd, const QString &args)
+{
+    using Command = BareosDirector::Command;
+    switch (cmd) {
+    // Numbers only: job ids and limits are never quoted
+    case Command::ListJobs: {
+        if (args.isEmpty())
+            return true;
+        const QStringList parts = args.split(QLatin1Char(','));
+        return parts.size() <= 2 && isDigits(parts.at(0)) && (parts.size() == 1 || isDigits(parts.at(1)));
+    }
+    case Command::ListJobsLast:
+        return args.isEmpty() || isDigits(args);
+    case Command::ListJobId:
+    case Command::ListFiles:
+    case Command::Cancel:
+    case Command::DeleteJob:
+        return isDigits(args);
+    case Command::Rerun:
+        return isDigits(args)
+            || (args.endsWith(QLatin1String(" yes")) && isDigits(args.chopped(4)));
+    case Command::ApiMode:
+        // "", a number or a mode word (on, off, json, json_pretty)
+        for (const QChar c : args) {
+            if (!(c.isDigit() || (c >= QLatin1Char('a') && c <= QLatin1Char('z')) || c == QLatin1Char('_')))
+                return false;
+        }
+        return true;
+    case Command::Trace:
+        return args.isEmpty() || args == QLatin1String("on") || args == QLatin1String("off");
+
+    // Argument strings built by the caller: values must be quoted
+    case Command::Restore:
+    case Command::Label:
+    case Command::Relabel:
+    case Command::Show:
+    case Command::Estimate:
+    case Command::Configure:
+    case Command::Export:
+    case Command::Import:
+    case Command::BvfsGetJobIds:
+    case Command::BvfsUpdate:
+    case Command::BvfsLsDirs:
+    case Command::BvfsLsFiles:
+    case Command::BvfsRestore:
+    case Command::BvfsCleanup:
+        return BQuote::isWellFormedArguments(args);
+
+    default:
+        // Resource names are quoted by commandToString(); Custom, SqlQuery,
+        // Query, DotAclChange and PurgeVolumes are whole lines (checked for
+        // control characters by doSend())
+        return true;
+    }
+}
+
+} // namespace
+
+QString BareosDirector::commandToString(Command cmd, const QString &args)
+{
+    if (!argumentsAccepted(cmd, args))
+        return QString();
+
     QString command;
     // A resource name as the value of one keyword: always quoted, so that a
     // blank, a quote or "yes" in a name stays part of it (BQuote)
@@ -2227,7 +2313,7 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::DotTypes:         command = ".types"; break;
     case Command::DotMedia:         command = ".media"; break;
     case Command::DotHelp:          command = ".help"; break;
-    case Command::DotDefaults:      command = ".defaults job=\"" + args + "\""; break;
+    case Command::DotDefaults:      command = ".defaults job=" + BQuote::quoted(args); break;
     case Command::DotConsoles:      command = ".consoles"; break;
     case Command::DotMessages:      command = ".messages"; break;
     case Command::DotAclList:       command = ".acl list"; break;

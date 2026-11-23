@@ -2189,6 +2189,26 @@ if(BUILD_TESTING)
 
     add_test(NAME bdirectorqueue_test COMMAND bdirectorqueue_test)
 
+    # bcommandline_test - command lines built from values: names quoted,
+    # numbers checked, argument strings of restore/show/label/configure/.bvfs
+    # well formed, doSend() refusing the rest, the .bvfs arguments (P1-24)
+    add_executable(bcommandline_test
+        test/bcommandline_test.cpp
+        include/bquote.h
+        include/jobs/bbvfsargs.h
+    )
+
+    target_link_libraries(bcommandline_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bcommandline_test COMMAND bcommandline_test)
+
     # brunparser_test - the Run line model: parser, writer and round trips
     add_executable(brunparser_test
         test/brunparser_test.cpp
