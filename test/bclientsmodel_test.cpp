@@ -18,6 +18,7 @@
 #include <QSignalSpy>
 
 #include "clients/bclientsmodel.h"
+#include "bstatuschip.h"
 
 namespace {
 
@@ -60,6 +61,13 @@ private slots:
     void backupsAreNotOverwrittenByTheJobList();
     void backupRepliesOfAllClientsResetOnce();
     void backupsOfAnEarlierRoundAreForgotten();
+
+    // Client events of the Director (P1-12)
+    void clientStatusDrivenByEvents();
+    void eventUpdatesTheRowWithoutReset();
+    void onlineRunsOutAfterTheConnection();
+    void unreachableStaysUntilTheNextContact();
+    void withoutEventsNoOnlineIsShown();
 };
 
 void BClientsModelTest::backupsAreNotOverwrittenByTheJobList()
@@ -138,6 +146,122 @@ void BClientsModelTest::backupsOfAnEarlierRoundAreForgotten()
     const QJsonObject b = row(model, QStringLiteral("b-fd"));
     QCOMPARE(b["jobcount"].toInt(), 1);                         // the page again
     QCOMPARE(b["totalbytes"].toString(), QString("600"));
+}
+
+namespace {
+QModelIndex statusIndex(BClientsModel &model, const QString &name)
+{
+    for (int r = 0; r < model.rowCount(); ++r) {
+        if (model.index(r, BClientsModel::COL_NAME).data().toString() == name)
+            return model.index(r, BClientsModel::COL_STATUS);
+    }
+    return QModelIndex();
+}
+} // namespace
+
+void BClientsModelTest::clientStatusDrivenByEvents()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    model.setClients(model.allClients());
+    const QDateTime now = QDateTime::currentDateTime();
+
+    model.setClientLiveEvent("a-fd", BClientEvent::Connected, now);
+    const QModelIndex a = statusIndex(model, "a-fd");
+    QCOMPARE(a.data().toString(), QStringLiteral("Online"));
+    QCOMPARE(a.data(BStatus::ToneRole).toInt(), int(BStatus::Tone::Success));
+    QVERIFY(a.data(Qt::ToolTipRole).toString().contains("reached"));
+
+    model.setClientLiveEvent("b-fd", BClientEvent::Unreachable, now);
+    const QModelIndex b = statusIndex(model, "b-fd");
+    QCOMPARE(b.data().toString(), QStringLiteral("Offline"));
+    QCOMPARE(b.data(BStatus::ToneRole).toInt(), int(BStatus::Tone::Error));
+
+    model.setClientLiveEvent("b-fd", BClientEvent::Alive, now);
+    QCOMPARE(b.data().toString(), QStringLiteral("Online"));
+}
+
+void BClientsModelTest::eventUpdatesTheRowWithoutReset()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    model.setClients(model.allClients());
+    QSignalSpy resets(&model, &QAbstractItemModel::modelReset);
+    QSignalSpy changes(&model, &QAbstractItemModel::dataChanged);
+    QSignalSpy all(&model, &BClientsModel::allClientsChanged);
+
+    model.setClientLiveEvent("b-fd", BClientEvent::Connected);
+
+    QCOMPARE(resets.count(), 0);
+    QCOMPARE(all.count(), 0);
+    QCOMPARE(changes.count(), 1);
+    const QModelIndex changed = changes.at(0).at(0).toModelIndex();
+    QCOMPARE(changed, statusIndex(model, "b-fd"));
+}
+
+void BClientsModelTest::onlineRunsOutAfterTheConnection()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    const QDateTime t0 = QDateTime::currentDateTime().addSecs(-3600);
+
+    model.setClientLiveEvent("a-fd", BClientEvent::Connected, t0);
+    // A job may run for hours: online while the connection is open
+    QCOMPARE(model.liveStatus("a-fd", t0.addSecs(3 * 3600)).state, BClientsModel::LiveStatus::Online);
+
+    model.setClientLiveEvent("a-fd", BClientEvent::Disconnected, t0.addSecs(600));
+    QCOMPARE(model.liveStatus("a-fd", t0.addSecs(600 + BClientsModel::OnlineValidSecs - 1)).state,
+             BClientsModel::LiveStatus::Online);
+    QCOMPARE(model.liveStatus("a-fd", t0.addSecs(600 + BClientsModel::OnlineValidSecs)).state,
+             BClientsModel::LiveStatus::None);
+
+    // An answer to a check holds as long
+    model.setClientLiveEvent("b-fd", BClientEvent::Alive, t0);
+    QCOMPARE(model.liveStatus("b-fd", t0.addSecs(BClientsModel::OnlineValidSecs)).state,
+             BClientsModel::LiveStatus::None);
+
+    // Ran out: the cell shows the last backup again, not "Online"
+    model.setClients(model.allClients());
+    QVERIFY(statusIndex(model, "a-fd").data().toString() != QStringLiteral("Online"));
+}
+
+void BClientsModelTest::unreachableStaysUntilTheNextContact()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    const QDateTime t0 = QDateTime::currentDateTime().addDays(-1);
+
+    model.setClientLiveEvent("a-fd", BClientEvent::Unreachable, t0);
+    QCOMPARE(model.liveStatus("a-fd", t0.addDays(1)).state, BClientsModel::LiveStatus::Offline);
+    QCOMPARE(model.liveStatus("a-fd", t0.addDays(1)).at, t0);
+
+    // The end of a connection says nothing new about an unreachable client
+    model.setClientLiveEvent("a-fd", BClientEvent::Disconnected, t0.addSecs(5));
+    QCOMPARE(model.liveStatus("a-fd", t0.addDays(1)).state, BClientsModel::LiveStatus::Offline);
+
+    model.setClientLiveEvent("a-fd", BClientEvent::Connected, t0.addSecs(60));
+    QCOMPARE(model.liveStatus("a-fd", t0.addDays(1)).state, BClientsModel::LiveStatus::Online);
+
+    // A new connection forgets the events
+    model.clear();
+    QCOMPARE(model.liveStatus("a-fd", t0.addDays(1)).state, BClientsModel::LiveStatus::None);
+}
+
+void BClientsModelTest::withoutEventsNoOnlineIsShown()
+{
+    BClientsModel model(nullptr);
+    QJsonArray clients = twoClients();
+    QJsonObject a = clients.at(0).toObject();
+    a["lastconnection"] = QDateTime::currentDateTime().addSecs(-60)
+                              .toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    clients[0] = a;
+    model.setAllClients(clients);
+    model.setClients(model.allClients());
+
+    // A contact a minute ago is a recent backup or contact, not "Online"
+    const QString text = statusIndex(model, "a-fd").data().toString();
+    QVERIFY2(text != QStringLiteral("Online") && text != QStringLiteral("Offline"), qPrintable(text));
+    QCOMPARE(statusIndex(model, "a-fd").data(BStatus::ToneRole).toInt(), int(BStatus::Tone::Info));
 }
 
 QTEST_GUILESS_MAIN(BClientsModelTest)

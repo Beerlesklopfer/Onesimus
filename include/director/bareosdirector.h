@@ -851,6 +851,8 @@ signals:
     void configCapabilitiesChanged(const BConfig::Capabilities &capabilities);
     /// Free tier usage reported by the Onesimus Director (gRPC only)
     void usageChanged(const BUsage::Info &usage);
+    /// Client event of the gRPC push stream (BClientEvent as int)
+    void clientStatusEvent(const QString &clientName, int event, qint64 unixTime);
 
 public slots:
 

@@ -56,6 +56,34 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
 
     QString name = client["name"].toString();
 
+    // Status column with a client event of the Director that still holds:
+    // a real Online/Offline, not a guess from the age of the last backup
+    if (index.column() == COL_STATUS) {
+        const LiveStatus live = liveStatus(name, QDateTime::currentDateTime());
+        if (live.state != LiveStatus::None) {
+            const bool online = live.state == LiveStatus::Online;
+            const QString text = online ? tr("Online") : tr("Offline");
+            const QString time = QLocale().toString(live.at, QLocale::ShortFormat);
+            switch (role) {
+            case Qt::DisplayRole:
+            case Qt::AccessibleTextRole:
+                return text;
+            case Qt::ToolTipRole:
+                return online ? tr("The Director reached the client at %1 (client event of the Director).").arg(time)
+                              : tr("The Director could not reach the client at %1 (client event of the Director).").arg(time);
+            case SortRole:
+                // Before every age: Online first, then Offline
+                return online ? qint64(-2) : qint64(-1);
+            case BStatus::ToneRole:
+                return int(online ? BStatus::Tone::Success : BStatus::Tone::Error);
+            case BStatus::CodeRole:
+                return online ? QStringLiteral("●") : QStringLiteral("✕");
+            default:
+                break;
+            }
+        }
+    }
+
     // Display role
     if (role == Qt::DisplayRole) {
         switch (index.column()) {
@@ -227,6 +255,9 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
 
 QVariant BClientsModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
+    if (orientation == Qt::Horizontal && role == Qt::ToolTipRole && section == COL_STATUS)
+        return tr("Online or Offline when the Director reports client events (Onesimus "
+                  "Director over gRPC); otherwise the age of the last backup or contact.");
     if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
         return QVariant();
 
@@ -238,7 +269,7 @@ QVariant BClientsModel::headerData(int section, Qt::Orientation orientation, int
     case COL_PORT:
         return tr("Port");
     case COL_STATUS:
-        return tr("Last Backup");
+        return tr("Status");
     case COL_OS:
         return tr("Operating System");
     case COL_VERSION:
@@ -282,7 +313,7 @@ void BClientsModel::clear()
     m_backupsTimer->stop();
     m_addresses.clear();
     m_showClientDetails.clear();
-    m_clientOnlineStatus.clear();
+    m_live.clear();
     m_cachedJobs = QJsonArray();
     m_cachedShowClients = QJsonObject();
     endResetModel();
@@ -797,14 +828,63 @@ void BClientsModel::setStaleThresholdHours(int hours)
     emit allClientsChanged();
 }
 
-void BClientsModel::setClientOnlineStatus(const QString &clientName, Status status)
+void BClientsModel::setClientLiveEvent(const QString &clientName, LiveEvent event,
+                                      const QDateTime &at)
 {
-    m_clientOnlineStatus[clientName] = status;
+    if (clientName.isEmpty())
+        return;
+    const QDateTime when = at.isValid() ? at : QDateTime::currentDateTime();
+    LiveRecord &record = m_live[clientName];
+    switch (event) {
+    case LiveEvent::Connected:
+        record = {LiveStatus::Online, when, QDateTime()};
+        break;
+    case LiveEvent::Alive:
+        record = {LiveStatus::Online, when, when.addSecs(OnlineValidSecs)};
+        break;
+    case LiveEvent::Disconnected:
+        // The end of a connection that worked: reached until then. It says
+        // nothing new about a client a check found unreachable.
+        if (record.state == LiveStatus::Offline)
+            return;
+        record = {LiveStatus::Online, when, when.addSecs(OnlineValidSecs)};
+        break;
+    case LiveEvent::Unreachable:
+        record = {LiveStatus::Offline, when, QDateTime()};
+        break;
+    }
+    notifyClientStatus(clientName);
 
-    // Notify views to refresh the status column
-    beginResetModel();
-    endResetModel();
-    emit allClientsChanged();
+    // When Online runs out, the cell falls back to the last backup
+    if (record.validUntil.isValid()) {
+        const qint64 ms = QDateTime::currentDateTime().msecsTo(record.validUntil);
+        if (ms > 0) {
+            QTimer::singleShot(ms + 500, this, [this, clientName]() {
+                notifyClientStatus(clientName);
+            });
+        }
+    }
+}
+
+BClientsModel::LiveStatus BClientsModel::liveStatus(const QString &clientName,
+                                                    const QDateTime &now) const
+{
+    const auto it = m_live.constFind(clientName);
+    if (it == m_live.constEnd())
+        return {};
+    if (it->validUntil.isValid() && now >= it->validUntil)
+        return {};
+    return {it->state, it->at};
+}
+
+void BClientsModel::notifyClientStatus(const QString &clientName)
+{
+    for (int row = 0; row < m_clients.size(); ++row) {
+        if (m_clients.at(row).toObject().value("name").toString() == clientName) {
+            emit QAbstractItemModel::dataChanged(index(row, COL_STATUS), index(row, COL_STATUS));
+        }
+    }
+    // No allClientsChanged(): that filters and resets the whole table
 }
 
 void BClientsModel::requestStatusChecks()

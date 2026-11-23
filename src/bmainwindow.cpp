@@ -387,13 +387,15 @@ BMainWindow::BMainWindow(QWidget *parent)
         }
     });
 
-    // Handle command errors — mark clients as OFFLINE when "status client" fails
-    connect(m_director, &BDirector::commandError, this, [this](const QString &command, const QString &error) {
-        if (command.startsWith("status client=")) {
-            QString clientName = command.mid(14);
-            CLIENTS_DEBUG << "Client " << clientName << " unreachable → OFFLINE (" << error << ")";
-            m_clientWidget->model()->setClientOnlineStatus(clientName, BClientsModel::STATUS_OFFLINE);
-        }
+    // Client events of the Onesimus Director (gRPC push): the status column
+    // of the clients shows Online/Offline from them. A failed "status
+    // client" is not taken as Offline: it also fails for an unknown client
+    // or a missing ACL.
+    connect(m_director, &BDirector::clientStatusEvent, this,
+            [this](const QString &clientName, int event, qint64 unixTime) {
+        m_clientWidget->model()->setClientLiveEvent(
+            clientName, static_cast<BClientEvent>(event),
+            unixTime > 0 ? QDateTime::fromSecsSinceEpoch(unixTime) : QDateTime());
     });
 
     // Connect Jobwidget signals

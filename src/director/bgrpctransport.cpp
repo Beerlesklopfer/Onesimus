@@ -12,6 +12,7 @@
 #include "director/bgrpctransport.h"
 #include "director/bgrpcconnect.h"
 #include "director/bjobpushmessage.h"
+#include "director/bclientevent.h"
 #include "blogging.h"
 
 #include "director_service.qpb.h"
@@ -320,11 +321,17 @@ void BGrpcTransport::openPushStream()
             }
             emit eventMessage(text);
         } else if (ev.hasFdConnected()) {
-            emit eventMessage(tr("Client %1 connected").arg(ev.fdConnected().clientName()));
+            const FdConnectedEvent &fd = ev.fdConnected();
+            emit clientStatusEvent(fd.clientName(), int(BClientEvent::Connected), fd.connectTime());
+            emit eventMessage(tr("Client %1 connected").arg(fd.clientName()));
         } else if (ev.hasFdDisconnected()) {
+            emit clientStatusEvent(ev.fdDisconnected().clientName(), int(BClientEvent::Disconnected), 0);
             emit eventMessage(tr("Client %1 disconnected").arg(ev.fdDisconnected().clientName()));
         } else if (ev.hasFdStatus()) {
             const FdStatusEvent &fd = ev.fdStatus();
+            emit clientStatusEvent(fd.clientName(),
+                                   int(fd.alive() ? BClientEvent::Alive : BClientEvent::Unreachable),
+                                   fd.checkTime());
             emit eventMessage(fd.alive() ? tr("Client %1 is alive").arg(fd.clientName())
                                          : tr("Client %1 not reachable").arg(fd.clientName()));
         } else if (ev.hasSdConnected()) {

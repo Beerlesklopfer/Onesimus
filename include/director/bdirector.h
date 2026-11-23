@@ -405,6 +405,9 @@ signals:
     void jobStatusEvent(quint64 jobId, const QString &jobName, const QString &status,
                         const QDateTime &when, const QDateTime &scheduled);
 
+    /// Client event of the gRPC push stream (BClientEvent as int; unixTime 0: not given)
+    void clientStatusEvent(const QString &clientName, int event, qint64 unixTime);
+
 public slots:
     // ========================================================================
     // Connection Management (thread-safe)

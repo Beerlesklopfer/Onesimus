@@ -8,6 +8,8 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonDocument>
+#include <QDateTime>
+#include <QHash>
 #include <QMap>
 #include <QPair>
 #include <QTimer>
@@ -15,6 +17,7 @@
 #include "clients/bclientstatus.h"
 #include "config/bconfigparser.h"
 #include "director/bdirector.h"
+#include "director/bclientevent.h"
 
 // Debug logging prefixes for Clients Model
 #define CLIENTS_DEBUG BLOG_DEBUG()
@@ -56,16 +59,6 @@ public:
         COL_JOB_COUNT,      ///< Number of jobs
         COL_TOTAL_BYTES,    ///< Total backed up data
         COL_COUNT           ///< Total column count
-    };
-
-    /**
-     * @brief Client status enum
-     * @since 1.0
-     */
-    enum Status {
-        STATUS_UNKNOWN = 0,
-        STATUS_ONLINE,
-        STATUS_OFFLINE
     };
 
     /**
@@ -209,17 +202,34 @@ public:
     void setStaleThresholdHours(int hours);
     int staleThresholdHours() const { return m_staleThresholdHours; }
 
+    /// Client events the Director pushes (gRPC, Onesimus Director)
+    using LiveEvent = BClientEvent;
+
+    /// What the events say about a client at a time
+    struct LiveStatus {
+        enum State { None, Online, Offline };
+        State state = None;
+        QDateTime at;           ///< Time of the event it rests on
+    };
+
+    /// Online after an event lasts this long after the connection ended or
+    /// the client answered; then the column shows the last backup again
+    static constexpr int OnlineValidSecs = 10 * 60;
+
     /**
-     * @brief Stores the result of a "status client" probe
+     * @brief Takes a client event of the Director (push stream)
      *
-     * The probe is switched off (see requestStatusChecks()), and the stored
-     * result is not shown anywhere: the status column shows the age of the
-     * last backup, not reachability. Kept for the on-demand probe of issue #9.
-     * @param clientName Client name
-     * @param status Online or Offline
-     * @since 2.10
+     * Feeds the status column with real data: Online while a connection to
+     * the file daemon is open and for OnlineValidSecs after it ended or the
+     * client answered a check; Offline after a failed check, until the next
+     * contact. Only the rows of the client are updated (dataChanged).
+     * @param at When the Director saw it; invalid: now
      */
-    void setClientOnlineStatus(const QString &clientName, Status status);
+    void setClientLiveEvent(const QString &clientName, LiveEvent event,
+                            const QDateTime &at = QDateTime());
+
+    /// The live state of a client at @p now (None: no event that still holds)
+    LiveStatus liveStatus(const QString &clientName, const QDateTime &now) const;
 
     /**
      * @brief Sends status client=<name> for all known clients to probe online status
@@ -298,8 +308,15 @@ private:
     QMap<QString, QPair<QString, int>> m_addresses; ///< Client name → {address, port}
     QMap<QString, QJsonObject> m_showClientDetails; ///< Client name → full "show clients" data
 
-    // Results of the "status client=<name>" probe; stored, not displayed (see setClientOnlineStatus())
-    QMap<QString, Status> m_clientOnlineStatus; ///< Client name → probed online/offline status
+    // Client events of the Director (setClientLiveEvent())
+    struct LiveRecord {
+        LiveStatus::State state = LiveStatus::None;
+        QDateTime at;
+        QDateTime validUntil;   ///< Invalid: until the next event
+    };
+    QHash<QString, LiveRecord> m_live;
+    /// Tells the views that the status cells of a client changed
+    void notifyClientStatus(const QString &clientName);
 
     int m_staleThresholdHours = BClientStatus::DefaultThresholdHours;
 

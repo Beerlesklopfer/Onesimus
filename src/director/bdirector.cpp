@@ -175,6 +175,8 @@ BDirector::BDirector(QObject *parent)
                      this, &BDirector::jobMessage);
     QObject::connect(m_director, &DIRECTOR_CLASS::jobStatusEvent,
                      this, &BDirector::jobStatusEvent);
+    QObject::connect(m_director, &DIRECTOR_CLASS::clientStatusEvent,
+                     this, &BDirector::clientStatusEvent);
 
     // Typed query result signals
     QObject::connect(m_director, &DIRECTOR_CLASS::consolesResult,

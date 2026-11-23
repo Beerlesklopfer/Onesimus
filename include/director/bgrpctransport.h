@@ -140,6 +140,9 @@ signals:
     void jobStatusEvent(int jobId, const QString &jobName, const QString &status,
                         qint64 timestamp, qint64 schedTime);
     void eventMessage(const QString &message);
+    /// Client event (FdConnected, FdDisconnected, FdStatus): @p event is a
+    /// BClientEvent, @p unixTime when the Director saw it (0: not given)
+    void clientStatusEvent(const QString &clientName, int event, qint64 unixTime);
     /// Job message, parsed from a ConsoleTextEvent "JobId=<id> <name>: <text>"
     /// (also emitted as eventMessage). Push is lossy: no time, no message type.
     void jobMessage(quint64 jobId, const QString &jobName, const QString &text);

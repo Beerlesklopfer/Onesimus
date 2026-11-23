@@ -143,6 +143,7 @@ void BareosDirector::initialize()
     QObject::connect(m_grpc, &BGrpcTransport::configCapabilities,
                      this, &BareosDirector::configCapabilitiesChanged);
     QObject::connect(m_grpc, &BGrpcTransport::usageChanged, this, &BareosDirector::usageChanged);
+    QObject::connect(m_grpc, &BGrpcTransport::clientStatusEvent, this, &BareosDirector::clientStatusEvent);
 #endif
 
     m_initialized = true;
