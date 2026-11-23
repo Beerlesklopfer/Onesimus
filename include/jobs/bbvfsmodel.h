@@ -6,10 +6,12 @@
 
 #include <QAbstractItemModel>
 #include <QSortFilterProxyModel>
+#include <QPointer>
 #include <QQueue>
 #include <QJsonArray>
 #include <QJsonObject>
 #include "director/bdirector.h"
+#include "jobs/bbvfsreplyrouter.h"
 
 /**
  * @brief Custom QAbstractItemModel for BVFS (Bareos Virtual File System)
@@ -17,6 +19,11 @@
  * Handles async BVFS loading with a command queue. Provides data for both
  * tree view (directories only, via BBvfsDirFilterProxy) and list view
  * (all items via setRootIndex).
+ *
+ * Commands go through a BBvfsReplyRouter, so a reply is taken only for the
+ * request this model is waiting for (P0-15). Directory listings are read in
+ * pages of PageSize rows until a page comes back short (P0-16): the Director
+ * returns at most 2000 rows per listing when no limit is given.
  *
  * Architecture:
  *   BBvfsModel (source) ── tree view uses BBvfsDirFilterProxy (dirs only)
@@ -36,7 +43,32 @@ public:
         SortRole
     };
 
+    /// Rows asked for per .bvfs_lsdirs/.bvfs_lsfiles command (the Bareos WebUI uses the same)
+    static constexpr int PageSize = 1000;
+
+    /**
+     * @brief Arguments of one page of .bvfs_lsdirs or .bvfs_lsfiles
+     * @param jobIds The job chain ("1,2,3")
+     * @param pathId The directory; 0 is the root of the catalog's path tree,
+     *        sent as "path=" with an empty value (Bareos Bvfs::get_root(),
+     *        the path record "" above "/" and "C:/")
+     * @param offset Rows to skip
+     * @param limit Rows to return at most
+     */
+    static QString listArgs(const QString &jobIds, int pathId, int offset, int limit = PageSize);
+
+    /**
+     * @brief Whether a page of this many rows (including "." and "..") is the last one
+     *
+     * A full page means there may be more. A page with more rows than asked
+     * for comes from a Director that ignores the limit and returned everything.
+     */
+    static bool isLastPage(int rows, int limit = PageSize);
+
+    /// Sends through the Director's router (created on first use)
     explicit BBvfsModel(BDirector *director, QObject *parent = nullptr);
+    /// Sends through the given router (tests use one with a recording send function)
+    explicit BBvfsModel(BBvfsReplyRouter *router, QObject *parent = nullptr);
     ~BBvfsModel();
 
     // Checkbox support (disabled by default — existing uses unaffected)
@@ -56,8 +88,16 @@ public:
 
     /**
      * @brief Reset model, clear all nodes and queued commands
+     *
+     * A request already sent is abandoned: its reply is dropped when it comes.
      */
     void resetModel();
+
+    /// A command is sent or queued; the selection may still change with what arrives
+    bool isBusy() const { return m_commandPending || !m_commandQueue.isEmpty(); }
+
+    /// PathId of the root directory as the Director reported it ("." of the root listing), 0 before
+    int rootPathId() const { return m_rootPathId; }
 
     // QAbstractItemModel interface
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
@@ -84,10 +124,11 @@ public:
     QString bvfsJobIds() const { return m_bvfsJobIds; }
 
     /**
-     * @brief Compute total estimated size of all selected items
-     * @return Total size in bytes of selected files and directory subtrees
+     * @brief Total size of the selected files and directories as far as they are loaded
+     * @param complete Set to false when a selected directory is not loaded
+     *        completely, so the real size is larger
      */
-    qint64 computeSelectedSize() const;
+    qint64 computeSelectedSize(bool *complete = nullptr) const;
 
     /**
      * @brief Format byte count as human-readable string (e.g., "1.5 GiB")
@@ -107,12 +148,15 @@ signals:
      */
     void commandQueueIdle();
 
+    /// isBusy() changed
+    void busyChanged(bool busy);
+
     /// Emitted when checkbox selection count changes (only in checkable mode)
     void selectionCountChanged(int count);
 
 private slots:
-    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
-    void onCommandResponse(BDirector::Command cmd, const QString &response);
+    void onRouterReply(quint64 ticket, BDirector::Command cmd, const QString &data, bool isJson);
+    void onRouterFailed(quint64 ticket, BDirector::Command cmd, const QString &reason);
 
 private:
     // Internal tree node
@@ -126,6 +170,9 @@ private:
         QString fileId;         // From bvfs_lsfiles (for future restore)
         bool isDirectory = true;
         Qt::CheckState checkState = Qt::Unchecked;  // For restore wizard checkboxes
+        /// Check state of children that arrive later: a checked directory
+        /// stays selected for everything the user did not uncheck himself
+        bool childrenChecked = false;
 
         enum LoadState { NotLoaded, Loading, Loaded };
         LoadState dirLoadState = NotLoaded;
@@ -146,27 +193,35 @@ private:
     // Command queue entry (Director handles one command at a time)
     struct PendingCommand {
         BDirector::Command cmd = BDirector::Command::Custom;
-        QString args;
+        QString args;           ///< Not used for listings: built from node and offset when sent
         BvfsNode *targetNode = nullptr;
+        int offset = 0;         ///< Listings: rows to skip
     };
 
     QQueue<PendingCommand> m_commandQueue;
     bool m_commandPending = false;
 
+    void connectRouter();
     void enqueueCommand(const PendingCommand &cmd);
+    void enqueueListing(BDirector::Command cmd, BvfsNode *node, int offset = 0);
     void processNextCommand();
+    void setBusy(bool busy);
 
     // Response handlers
-    void handleGetJobIds(const QJsonObject &result);
-    void handleBvfsUpdate(const QString &response);
-    void handleLsDirs(BvfsNode *node, const QJsonArray &dirs);
-    void handleLsFiles(BvfsNode *node, const QJsonArray &files);
+    void handleJsonReply(BDirector::Command cmd, const QString &jsonData);
+    void handleTextReply(BDirector::Command cmd, const QString &text);
+    void handleGetJobIds(const QStringList &jobIds);
+    void handleBvfsUpdate();
+    void handleLsDirs(BvfsNode *node, const QJsonArray &dirs, int offset);
+    void handleLsFiles(BvfsNode *node, const QJsonArray &files, int offset);
+    void finishPendingListing(BDirector::Command cmd, bool retryLater);
 
     // Helpers
     BvfsNode *nodeFromIndex(const QModelIndex &index) const;
     QModelIndex indexFromNode(BvfsNode *node, int column = 0) const;
     qint64 computeSubtreeSize(BvfsNode *node) const;
-    qint64 computeSelectedSizeHelper(BvfsNode *node) const;
+    qint64 computeSelectedSizeHelper(BvfsNode *node, bool *complete) const;
+    bool subtreeLoaded(BvfsNode *node) const;
     void emitSizeChangedUpward(BvfsNode *node);
 
     // Checkbox helpers
@@ -177,13 +232,17 @@ private:
     void enqueueChildLoading(BvfsNode *node);
 
     BvfsNode *m_rootNode = nullptr;
-    BDirector *m_director;
+    QPointer<BBvfsReplyRouter> m_router;
     QString m_bvfsJobIds;
     quint64 m_jobId = 0;
+    int m_rootPathId = 0;
+    bool m_busy = false;
 
     // Track pending command context
     BvfsNode *m_pendingNode = nullptr;
     BDirector::Command m_pendingCmd = BDirector::Command::Custom;
+    int m_pendingOffset = 0;
+    quint64 m_pendingTicket = 0;    ///< Ticket of the sent request; 0 = none
 
     // Checkbox mode
     bool m_checkable = false;

@@ -165,6 +165,7 @@ private slots:
     void onLoadingStarted();
     void onLoadingFinished();
     void onSelectionCountChanged(int count);
+    void onModelError(const QString &message);
 
 private:
     void showDirectoryInList(const QModelIndex &dirProxyIndex);
@@ -175,6 +176,7 @@ private:
     QProgressBar *m_progressBar;
     QLabel *m_infoLabel;
     QLabel *m_selectionLabel;
+    QLabel *m_errorLabel = nullptr;
     BBvfsDirFilterProxy *m_dirProxy = nullptr;
     QSortFilterProxyModel *m_listSortProxy = nullptr;
     bool m_loaded = false;

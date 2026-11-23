@@ -521,6 +521,13 @@ BRestoreBrowsePage::BRestoreBrowsePage(QWidget *parent)
     // Selection count label
     m_selectionLabel = new QLabel(tr("No files selected"), this);
     mainLayout->addWidget(m_selectionLabel);
+
+    // Errors of the Director while listing (shown instead of an endless wait)
+    m_errorLabel = new QLabel(this);
+    m_errorLabel->setWordWrap(true);
+    m_errorLabel->setStyleSheet("QLabel { color: red; }");
+    m_errorLabel->setVisible(false);
+    mainLayout->addWidget(m_errorLabel);
 }
 
 void BRestoreBrowsePage::initializePage()
@@ -578,6 +585,12 @@ void BRestoreBrowsePage::initializePage()
                 this, &BRestoreBrowsePage::onLoadingFinished);
         connect(model, &BBvfsModel::selectionCountChanged,
                 this, &BRestoreBrowsePage::onSelectionCountChanged);
+        connect(model, &BBvfsModel::errorOccurred,
+                this, &BRestoreBrowsePage::onModelError);
+        // Next waits until what is being loaded has arrived: the selection
+        // of a partly selected directory needs all its entries
+        connect(model, &BBvfsModel::busyChanged,
+                this, &BRestoreBrowsePage::completeChanged);
     }
 
     // Load BVFS data if not already loaded or if settings changed
@@ -587,6 +600,7 @@ void BRestoreBrowsePage::initializePage()
         m_loadedAllRelated != data->allRelatedJobs);
 
     if (!m_loaded || settingsChanged) {
+        m_errorLabel->setVisible(false);
         model->resetModel();
         model->loadJob(data->jobId, data->allRelatedJobs);
         m_loaded = true;
@@ -600,7 +614,7 @@ void BRestoreBrowsePage::initializePage()
 bool BRestoreBrowsePage::isComplete() const
 {
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    return wiz && wiz->bvfsModel()->selectedCount() > 0;
+    return wiz && wiz->bvfsModel()->selectedCount() > 0 && !wiz->bvfsModel()->isBusy();
 }
 
 bool BRestoreBrowsePage::validatePage()
@@ -697,6 +711,12 @@ void BRestoreBrowsePage::onLoadingFinished()
     }
 }
 
+void BRestoreBrowsePage::onModelError(const QString &message)
+{
+    m_errorLabel->setText(tr("The Director reported an error: %1").arg(message));
+    m_errorLabel->setVisible(true);
+}
+
 void BRestoreBrowsePage::onSelectionCountChanged(int count)
 {
     if (count == 0) {
@@ -782,11 +802,13 @@ void BRestoreOptionsPage::initializePage()
     if (selParts.isEmpty())
         selParts << tr("nothing");
 
-    // Compute estimated restore size
+    // Compute estimated restore size; selected directories are restored as
+    // a whole but only the loaded part of them is known here
     auto *model = wiz->bvfsModel();
-    qint64 estimatedSize = model->computeSelectedSize();
+    bool sizeComplete = true;
+    qint64 estimatedSize = model->computeSelectedSize(&sizeComplete);
     QString sizeStr = estimatedSize > 0
-        ? tr("~%1").arg(model->formatBytes(estimatedSize))
+        ? (sizeComplete ? tr("~%1") : tr("at least %1")).arg(model->formatBytes(estimatedSize))
         : tr("unknown");
 
     m_sourceLabel->setText(tr("Job %1: %2 — %3 selected (estimated size: %4)")

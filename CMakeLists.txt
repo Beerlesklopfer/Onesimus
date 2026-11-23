@@ -1678,6 +1678,38 @@ if(BUILD_TESTING)
 
     add_test(NAME bbvfsreplyrouter_test COMMAND bbvfsreplyrouter_test)
 
+    # bbvfsmodel_test - the BVFS browser model: paged directory listings, the
+    # root asked for by path (P0-16), replies of abandoned requests dropped
+    # (P0-15); hand-written replies, no Director
+    add_executable(bbvfsmodel_test
+        test/bbvfsmodel_test.cpp
+        src/jobs/bbvfsmodel.cpp
+        src/jobs/bbvfsreplyrouter.cpp
+        include/jobs/bbvfsmodel.h
+        include/jobs/bbvfsreplyrouter.h
+        src/director/bdirector.cpp
+        include/director/bdirector.h
+    )
+
+    target_include_directories(bbvfsmodel_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    # bareosdirector_lib: BDirector wraps a BareosDirector; none is created
+    target_link_libraries(bbvfsmodel_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bbvfsmodel_test COMMAND bbvfsmodel_test)
+    set_tests_properties(bbvfsmodel_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # bcleanup_test - cleanup selection, analysis invalidation and command sequencing
     add_executable(bcleanup_test
         test/bcleanup_test.cpp
