@@ -162,6 +162,8 @@ described in [CONTRIBUTING.md](CONTRIBUTING.md).
 - [CHANGELOG.md](CHANGELOG.md): changes per version
 - [SECURITY.md](SECURITY.md): supported versions and how to report a vulnerability
 - [LICENSING.md](LICENSING.md) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+- User documentation (installation, migration from Bareos):
+  [onesimus.io/docs](https://onesimus.io/docs/)
 - Website: [onesimus.io](https://onesimus.io); editions and pricing:
   [onesimus.io/pricing](https://onesimus.io/pricing/)
 
