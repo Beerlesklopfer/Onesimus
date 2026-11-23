@@ -118,6 +118,12 @@ void BareosDirector::initialize()
     QObject::connect(m_apiModeTimer, &QTimer::timeout,
                      this, &BareosDirector::onApiModeTimeout);
 
+    // Timeout of the oldest command waiting for its reply
+    m_commandTimer = new QTimer(this);
+    m_commandTimer->setSingleShot(true);
+    QObject::connect(m_commandTimer, &QTimer::timeout,
+                     this, &BareosDirector::onCommandTimeout);
+
 #ifdef HAVE_GRPC
     // gRPC transport (Onesimus Director) - lives in this worker thread, too
     m_grpc = new BGrpcTransport(this);
@@ -303,9 +309,15 @@ void BareosDirector::disconnect()
     }
     failPendingCommands(tr("Disconnected from the Director before the reply arrived"));
 
-    // Disconnect socket
+    // Say goodbye, then close. "quit" is written directly, not queued:
+    // nobody waits for a reply, and a queued write would only run after the
+    // socket is closed. disconnectFromHost() writes what is pending first.
+    // During the login the handshake owns the socket; nothing is said then.
     if (m_socket->state() == QAbstractSocket::ConnectedState) {
-        doSend(Command::Quit);
+        if (m_connectionState == SettingApiMode || m_connectionState == LoadingResources
+            || m_connectionState == Ready) {
+            m_socket->write(commandPacket(commandToString(Command::Quit)));
+        }
         m_socket->disconnectFromHost();
     }
 
@@ -935,12 +947,67 @@ void BareosDirector::failPendingCommands(const QString &reason)
     // the failures are reported
     const QQueue<CommandEntry> dropped = m_commandQueue;
     m_commandQueue.clear();
+    if (m_commandTimer) {
+        m_commandTimer->stop();
+    }
 
     for (const CommandEntry &entry : dropped) {
-        if (entry.cmd == Command::Quit) {
-            continue;  // our own farewell, nobody waits for its reply
+        if (entry.cmd == Command::Quit || entry.status == CommandEntry::TimedOut) {
+            // Our own farewell, or already reported when it timed out
+            continue;
         }
         emit commandFailed(entry.cmd, entry.args, reason);
+    }
+}
+
+void BareosDirector::setCommandTimeout(int milliseconds)
+{
+    m_commandTimeoutMs = qMax(1, milliseconds);
+    updateCommandTimer();
+}
+
+void BareosDirector::updateCommandTimer()
+{
+    if (!m_commandTimer) {
+        return;
+    }
+    // The Director answers in order: only the oldest unanswered command is
+    // timed. The API mode switch has its own timeout (onApiModeTimeout()).
+    for (const CommandEntry &entry : std::as_const(m_commandQueue)) {
+        if (entry.status == CommandEntry::TimedOut) {
+            continue;
+        }
+        if (entry.status == CommandEntry::Sent && entry.cmd != Command::ApiMode) {
+            if (!m_commandTimer->isActive() || m_commandTimer->interval() != m_commandTimeoutMs) {
+                m_commandTimer->start(m_commandTimeoutMs);
+            }
+            return;
+        }
+        break;
+    }
+    m_commandTimer->stop();
+}
+
+void BareosDirector::onCommandTimeout()
+{
+    for (CommandEntry &entry : m_commandQueue) {
+        if (entry.status == CommandEntry::TimedOut) {
+            continue;
+        }
+        if (entry.status != CommandEntry::Sent || entry.cmd == Command::ApiMode) {
+            return;
+        }
+        entry.status = CommandEntry::TimedOut;
+        const Command cmd = entry.cmd;
+        const QString args = entry.args;
+        BLOG_WARNING() << "No reply to command" << static_cast<int>(cmd) << "within"
+                       << m_commandTimeoutMs << "ms";
+        // Time the next one before the signal, whose receivers may queue more
+        m_commandTimer->start(m_commandTimeoutMs);
+        emit commandFailed(cmd, args,
+                           tr("The Director did not answer within %n second(s)", nullptr,
+                              qMax(1, m_commandTimeoutMs / 1000)));
+        return;
     }
 }
 
@@ -1184,6 +1251,13 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
     bool hasQueuedCommand = false;
     if (!isSignal) {
         hasQueuedCommand = dequeueCurrentCommand(currentEntry);
+        if (hasQueuedCommand && currentEntry.status == CommandEntry::TimedOut) {
+            // Already reported as failed; the late reply belongs to nobody
+            // and must not be taken for the reply of the next command
+            BLOG_WARNING() << "Dropping the late reply to command"
+                           << static_cast<int>(currentEntry.cmd);
+            return;
+        }
         if (hasQueuedCommand) {
             m_lastCommandEnum = currentEntry.cmd;
             m_lastCommand = commandToString(currentEntry.cmd, currentEntry.args);
@@ -1831,28 +1905,12 @@ bool BareosDirector::sendCommand(const QString &command)
         return false;
     }
 
-    QString msg = command;
-    if (!msg.endsWith('\n')) {
-        msg += '\n';
-    }
-
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << ">>> Sending command:" << bRedactCommand(command);
 #endif
 
-    // ✅ KORREKT: Identisch zu BareosAuth::send()
-    QByteArray packet = msg.toUtf8();
-    qint32 len = packet.size();
-    m_lastSentSize = len + 4;
-
-    // Big-Endian System (SPARC, PowerPC, MIPS BE, etc.)
-    #if Q_BYTE_ORDER == Q_BIG_ENDIAN
-        packet.prepend(reinterpret_cast<const char*>(&len), 4);
-    // Little-Endian System (x86, x86-64, ARM LE, etc.)
-    #else
-        qint32 lenBE = qToBigEndian(len);
-        packet.prepend(reinterpret_cast<const char*>(&lenBE), 4);
-    #endif
+    const QByteArray packet = commandPacket(command);
+    m_lastSentSize = packet.size();
 
 #if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
     BLOG_DEBUG() << "  Packet size:" << packet.size() << "bytes (4 header + " << len << " payload)";
@@ -1865,6 +1923,21 @@ bool BareosDirector::sendCommand(const QString &command)
                               Qt::QueuedConnection,
                               Q_ARG(QByteArray, packet));
     return true;
+}
+
+QByteArray BareosDirector::commandPacket(const QString &command)
+{
+    QString msg = command;
+    if (!msg.endsWith('\n')) {
+        msg += '\n';
+    }
+
+    // Identical to BareosAuth::send(): signed 32-bit big-endian length
+    const QByteArray payload = msg.toUtf8();
+    QByteArray packet(4, '\0');
+    qToBigEndian<qint32>(qint32(payload.size()), reinterpret_cast<uchar *>(packet.data()));
+    packet.append(payload);
+    return packet;
 }
 
 void BareosDirector::writeToSocket(const QByteArray &packet)
@@ -1934,8 +2007,14 @@ void BareosDirector::flushQueue()
 bool BareosDirector::dequeueCurrentCommand(CommandEntry &entry)
 {
     // Find and dequeue the first Sent entry (FIFO — matches Bareos serial processing)
-    if (!m_commandQueue.isEmpty() && m_commandQueue.head().status == CommandEntry::Sent) {
+    if (!m_commandQueue.isEmpty()
+        && (m_commandQueue.head().status == CommandEntry::Sent
+            || m_commandQueue.head().status == CommandEntry::TimedOut)) {
         entry = m_commandQueue.dequeue();
+        if (m_commandTimer) {
+            m_commandTimer->stop();   // timed afresh for the next one
+        }
+        updateCommandTimer();
         return true;
     }
     return false;
@@ -1955,6 +2034,7 @@ void BareosDirector::registerRollback(CommandEntry &entry)
     default:
         break;
     }
+    updateCommandTimer();
 }
 
 bool BareosDirector::detectCommandError(const QString &response) const

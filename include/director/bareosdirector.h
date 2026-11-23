@@ -399,7 +399,10 @@ public:
     struct CommandEntry {
         Command cmd = Command::Custom;
         QString args;
-        enum Status { Pending, Sent, Success, Failed };
+        /// TimedOut: sent, reported failed after the command timeout, and
+        /// kept in the queue so that its late reply is not taken for the
+        /// reply of the next command
+        enum Status { Pending, Sent, Success, Failed, TimedOut };
         Status status = Pending;
         QString response;               ///< Stored response for error/rollback decisions
         Command rollbackCmd = Command::Custom;  ///< Command to undo this one (Custom = none)
@@ -520,6 +523,19 @@ public:
      * @note Not thread-safe: for tests and diagnostics in the Director's thread
      */
     int pendingCommandCount() const { return m_commandQueue.size(); }
+
+    /**
+     * @brief How long a sent command may wait for its reply
+     *
+     * When it runs out the command is reported with commandFailed(); its
+     * reply, if it still comes, is dropped. Default DefaultCommandTimeoutMs.
+     * @note Call in the Director's thread (tests set a short value)
+     */
+    void setCommandTimeout(int milliseconds);
+
+    /// Generous: Bareos waits up to 180 s for an unreachable client
+    /// ("FD Connect Timeout") before "status client" answers
+    static constexpr int DefaultCommandTimeoutMs = 300000;
 
     /// Window and row limit of Command::LlistJobs if the arguments name none
     static constexpr int DefaultJobHistoryDays = 60;
@@ -1053,6 +1069,26 @@ private:
     void onApiModeTimeout();
 
     /**
+     * @brief The oldest command still waiting got no reply in time
+     *
+     * Reports it with commandFailed() and keeps it in the queue as TimedOut
+     * (see CommandEntry::Status), then times the next one.
+     */
+    void onCommandTimeout();
+
+    /**
+     * @brief Times the oldest sent command that has not timed out yet
+     *
+     * Called whenever the queue changes; stops the timer if no command waits.
+     */
+    void updateCommandTimer();
+
+    /**
+     * @brief The BNET telegram of a console command (length header + text)
+     */
+    static QByteArray commandPacket(const QString &command);
+
+    /**
      * @brief Number of required resources currently in state Loaded
      */
     int loadedResourceCount() const;
@@ -1259,6 +1295,12 @@ private:
      * @brief Map of resource type to its current loading state
      */
     QMap<ResourceType, ResourceLoadState> m_resourceStates;
+
+    /**
+     * @brief Timeout of the oldest sent command (see onCommandTimeout())
+     */
+    QTimer *m_commandTimer = nullptr;
+    int m_commandTimeoutMs = DefaultCommandTimeoutMs;
 
     /**
      * @brief Error message if state is Error
