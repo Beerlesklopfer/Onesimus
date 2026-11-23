@@ -50,6 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `run`, `test`, `install`, `package`, `appimage` (Linux), `installer`/`zip`/`msi` (Windows),
   `status`, `clean`, `help`. All former flags keep their meaning; `--dry-run`/`-DryRun`
   prints every command instead of running it. `./deploy.sh build` is the former `./build.sh`.
+- Windows helper scripts moved to `scripts/windows/` (`check-qt6.ps1`, `package-windows.ps1`, which
+  `deploy.ps1 zip` calls); the generated `qt6-quickfix.ps1`, `examples/example_usage.cpp`,
+  `resources/icons/create_ico.bat` and `external/README.md` are removed.
+- CTest also registers the live-Director tests `bareosauth_live_test` and `director_live_test`
+  (label `live-director`); they are skipped unless `ONESIMUS_LIVE_DIRECTOR` names a test Director.
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to
@@ -88,6 +93,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   settings file. At the first start, secrets an earlier version stored there are moved into the
   keychain and removed from the file. Where no keychain can be used they stay in the file, which is
   then made readable by the owner only, and a warning says so at every start (bsettingsstore_test).
+- Test tree: the console password of the test configuration is an obvious dummy, and the sudoers
+  file that gave passwordless root `cp`, `chown` and `kill` to a named user is removed; the
+  live-Director scripts need no root (`test/README.md`).
+- Test tree: the test PKI (CA, server and client keys) is no longer committed; `test/make-test-pki.sh`
+  generates it on first use of the live-Director scripts, and the stray `.srl` serial files are gone.
 
 ### Fixed
 - The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and

@@ -1448,6 +1448,14 @@ if(BUILD_TESTING)
     # volumejson_test is built above; register it so ctest runs it
     add_test(NAME volumejson_test COMMAND volumejson_test)
 
+    # bareosauth_test and director_test (built above) need a live test
+    # Director: without ONESIMUS_LIVE_DIRECTOR they exit 77 and count as
+    # skipped (test/blivedirector.h, test/README.md)
+    add_test(NAME bareosauth_live_test COMMAND bareosauth_test)
+    add_test(NAME director_live_test COMMAND director_test connect)
+    set_tests_properties(bareosauth_live_test director_live_test PROPERTIES
+        SKIP_RETURN_CODE 77 TIMEOUT 60 LABELS "live-director")
+
     # bbyteformat_test - byte counts in binary units with IEC names and the
     # size suffixes of Bareos directives ("50G" is 50 GiB)
     add_executable(bbyteformat_test

@@ -2,6 +2,41 @@
 
 Umfassende Testinfrastruktur für Onesimus - Bareos/Bacula GUI.
 
+## Live-Director tests: bring your own test Director
+
+Everything registered with CTest (`ctest --test-dir <build>`) runs without a
+Director. The tests and scripts that talk to a real `bareos-dir`
+(`test_auth.sh`, `run_all_tests.sh`, `bareos_auth.sh`, `director_test.sh`,
+`director_test`, `bareosauth_test`)
+need a **test Director that you set up yourself**, on a machine and catalog
+you can afford to lose. Never point them at a production Director.
+
+- CTest registers `bareosauth_live_test` and `director_live_test` (label
+  `live-director`). Without `ONESIMUS_LIVE_DIRECTOR` they report "skipped";
+  to run them against your test Director set
+  `ONESIMUS_LIVE_DIRECTOR=host[:port]` and `ONESIMUS_LIVE_PASSWORD`, optionally
+  `ONESIMUS_LIVE_CONSOLE`, `ONESIMUS_LIVE_DIRECTOR_NAME`, `ONESIMUS_LIVE_MODE`
+  (`legacy`, `psk`, `cert`) and, for `cert`, `ONESIMUS_LIVE_CA`,
+  `ONESIMUS_LIVE_CERT`, `ONESIMUS_LIVE_KEY` (`blivedirector.h`), then
+  `ctest -L live-director`.
+- Nothing in this directory needs root, and no sudoers file is shipped or
+  needed. `test_auth.sh` runs `bareos-dir` as you by default; your user then
+  needs read access to the configuration and access to the test catalog.
+  To run the daemon as the `bareos` user instead, set `BAREOS_DIR_USER=bareos`;
+  the script then uses `sudo -u bareos` with your own sudo rights (sudo asks
+  for your password).
+- `test_auth.sh setup` copies base resources from
+  `BAREOS_SYSTEM_CONFIG_DIR` (default `/etc/bareos/bareos-dir.d`); it has to
+  be readable by you, otherwise point the variable at a copy you own.
+- The TLS files in `bareos-dir.d/tls/` are a **test-only PKI** that
+  `make-test-pki.sh` generates on first use (`test_auth.sh` and
+  `run_all_tests.sh` call it); they are not in git. Delete the directory for a
+  fresh one. The keys are written owner-only; when the daemon runs as another
+  user (`BAREOS_DIR_USER`), make `server.key` readable for that user.
+- All passwords in `bareos-dir.d/` and `configs/` (for example
+  `onesimus-test-password-not-secret`) are dummies for such a test Director.
+  Do not reuse them anywhere else.
+
 ## Übersicht
 
 | Datei | Typ | Beschreibung |
@@ -282,10 +317,10 @@ Console {
 }
 ```
 
-**Installation:**
+**Installation (only into your own test Director, see above):**
 ```bash
-sudo cp configs/onesimus-*.conf /etc/bareos/bareos-dir.d/console/
-sudo systemctl reload bareos-dir
+cp configs/onesimus-*.conf <test-director>/bareos-dir.d/console/
+# then reload that test Director
 ```
 
 ---

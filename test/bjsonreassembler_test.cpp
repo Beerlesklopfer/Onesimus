@@ -32,7 +32,7 @@ QByteArray sampleReply()
 {
     return QStringLiteral(
                "{\"jsonrpc\":\"2.0\",\"id\":null,\"result\":{\"files\":["
-               "{\"name\":\"/home/jörg/Bücher \",\"size\":1},"
+               "{\"name\":\"/home/müller/Bücher \",\"size\":1},"
                "{\"name\":\"  two  spaces  \",\"size\":2},"
                "{\"name\":\"price 5 € {not} [an] \\\"array\\\"\",\"size\":3},"
                "{\"name\":\"clef \U0001D11E and \\\\ backslash\",\"size\":4}]}}")
@@ -94,7 +94,7 @@ void BJsonReassemblerTest::splitAtEveryBytePosition()
         const QString text = QString::fromUtf8(doc);
         QVERIFY(!text.contains(QChar::ReplacementCharacter));
         QCOMPARE(text, expected);
-        QCOMPARE(fileName(doc, 0), QStringLiteral("/home/jörg/Bücher "));
+        QCOMPARE(fileName(doc, 0), QStringLiteral("/home/müller/Bücher "));
         QCOMPARE(fileName(doc, 1), QStringLiteral("  two  spaces  "));
         QVERIFY(r.isEmpty());
     }

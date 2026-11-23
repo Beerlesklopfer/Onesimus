@@ -70,7 +70,7 @@ if ($foundInstallations.Count -eq 0) {
     Write-Host ""
     Write-Host "Installation erforderlich:" -ForegroundColor Yellow
     Write-Host "  1. Online Installer: https://www.qt.io/download-qt-installer" -ForegroundColor White
-    Write-Host "  2. Oder: .\check-qt6.ps1 -Install" -ForegroundColor White
+    Write-Host "  2. Oder: .\scripts\windows\check-qt6.ps1 -Install" -ForegroundColor White
     Write-Host ""
     
     if ($Install) {
@@ -251,7 +251,7 @@ if ($foundInstallations.Count -gt 0 -and $allModulesPresent) {
     Write-Host "FEHLER: Qt6 nicht installiert!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Installation starten:" -ForegroundColor Cyan
-    Write-Host "  .\check-qt6.ps1 -Install" -ForegroundColor Green
+    Write-Host "  .\scripts\windows\check-qt6.ps1 -Install" -ForegroundColor Green
     Write-Host ""
 }
 

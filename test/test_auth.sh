@@ -15,7 +15,18 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_DIR/build"
 TEST_CONFIG_DIR="$SCRIPT_DIR/bareos-dir.d"
 TEST_CONFIG_BAREOS_D="$TEST_CONFIG_DIR/bareos-dir.d"
-SYSTEM_CONFIG_DIR="/etc/bareos/bareos-dir.d"
+# Source of the base resources for `setup`; it has to be readable by you.
+SYSTEM_CONFIG_DIR="${BAREOS_SYSTEM_CONFIG_DIR:-/etc/bareos/bareos-dir.d}"
+
+# User the test bareos-dir runs as. Default: you, without sudo. Set
+# BAREOS_DIR_USER=bareos to run it as that user through your own sudo rights
+# (sudo asks for your password; no sudoers entry is needed or shipped).
+BAREOS_DIR_USER="${BAREOS_DIR_USER:-$(id -un)}"
+if [ "$BAREOS_DIR_USER" = "$(id -un)" ]; then
+    RUN_AS=()
+else
+    RUN_AS=(sudo -u "$BAREOS_DIR_USER")
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -47,7 +58,7 @@ TEST_LEGACY_PASSWORD="TestLegacyPassword123"
 
 # Default console
 DEFAULT_CONSOLE="onesimus"
-DEFAULT_PASSWORD="RDZTTAJE5pj5O/C2uOi01o8FRsqucVPolersd3AbXBs"
+DEFAULT_PASSWORD="onesimus-test-password-not-secret"
 
 log_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -86,7 +97,7 @@ setup_test_config() {
         return 0
     fi
 
-    log_warn "Copying base configs from system (requires sudo)..."
+    log_warn "Copying base configs from $SYSTEM_CONFIG_DIR ..."
 
     # Ensure target directory structure exists
     mkdir -p "$TEST_CONFIG_BAREOS_D"
@@ -94,22 +105,52 @@ setup_test_config() {
     # Copy all system config subdirectories (except console/director which we manage)
     for subdir in catalog client fileset job jobdefs messages pool schedule storage; do
         if [ -d "$SYSTEM_CONFIG_DIR/$subdir" ]; then
-            sudo cp -r "$SYSTEM_CONFIG_DIR/$subdir" "$TEST_CONFIG_BAREOS_D/" || {
-                log_error "Failed to copy $subdir"
+            cp -r "$SYSTEM_CONFIG_DIR/$subdir" "$TEST_CONFIG_BAREOS_D/" || {
+                log_error "Failed to copy $subdir (not readable? set BAREOS_SYSTEM_CONFIG_DIR to a copy you own)"
                 return 1
             }
         fi
     done
 
-    # Fix ownership
-    sudo chown -R "$(whoami):$(id -gn)" "$TEST_CONFIG_DIR"
-
     log_info "Base configs copied successfully"
     return 0
 }
 
-# TLS certificate paths
+# TLS certificate paths (test-only PKI, generated on first use, not in git)
 TLS_DIR="$SCRIPT_DIR/bareos-dir.d/tls"
+
+ensure_test_pki() {
+    [ -f "$TLS_DIR/ca.pem" ] && return 0
+    log_info "Generating the test PKI in $TLS_DIR"
+    "$SCRIPT_DIR/make-test-pki.sh" "$TLS_DIR"
+}
+
+# The test-cert console refers to the generated client certificate.
+write_cert_console() {
+    cat > "$TEST_CONFIG_BAREOS_D/console/test-cert.conf" << EOF
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+# Written by test/test_auth.sh; the TLS paths point at the generated test PKI.
+Console {
+  Name = "test-cert"
+  Password = "$TEST_CERT_PASSWORD"
+  TLS Enable = yes
+  TLS Require = yes
+  TLS Verify Peer = yes
+  TLS CA Certificate File = "$TLS_DIR/ca.pem"
+  TLS Certificate = "$TLS_DIR/client.pem"
+  TLS Key = "$TLS_DIR/client.key"
+  CommandACL = *all*
+  ClientAcl = *all*
+  JobAcl = *all*
+  StorageAcl = *all*
+  ScheduleAcl = *all*
+  PoolAcl = *all*
+  FileSetAcl = *all*
+  CatalogAcl = *all*
+}
+EOF
+}
 
 # Update director config for test port
 update_director_port() {
@@ -121,7 +162,15 @@ update_director_port() {
 
     log_info "Updating director config for port $port (TLS Enable=$tls_enable, TLS Require=$tls_require)"
 
+    ensure_test_pki || return 1
+    write_cert_console
+
     cat > "$dir_conf" << EOF
+# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-FileCopyrightText: 2026 Jörg Bernau
+# SPDX-FileCopyrightText: 2012-2026 Bareos GmbH & Co. KG
+# Modelled on the Bareos default configuration (see LICENSING.md).
+# Written by test/test_auth.sh; the TLS paths point at the generated test PKI.
 Director {
   Name = "bareos-dir"
   QueryFile = "/usr/lib/bareos/scripts/query.sql"
@@ -165,11 +214,11 @@ start_bareos_dir() {
     fi
 
     # Update director config with port and TLS settings
-    update_director_port "$port" "$tls_enable" "$tls_require"
+    update_director_port "$port" "$tls_enable" "$tls_require" || return 1
 
     # Test config first
     log_info "Testing configuration..."
-    if ! sudo -u bareos /usr/sbin/bareos-dir -t -c "$TEST_CONFIG_DIR" 2>&1; then
+    if ! "${RUN_AS[@]}" /usr/sbin/bareos-dir -t -c "$TEST_CONFIG_DIR" 2>&1; then
         log_error "Configuration test failed!"
         log_info "Run '$0 setup' to initialize test configs"
         return 1
@@ -178,12 +227,12 @@ start_bareos_dir() {
     log_info "Configuration OK. Starting bareos-dir in foreground..."
     echo ""
     echo -e "${YELLOW}========================================${NC}"
-    echo -e "${YELLOW} sudo bareos-dir -c $TEST_CONFIG_DIR -f -d $debug${NC}"
+    echo -e "${YELLOW} ${RUN_AS[*]} bareos-dir -c $TEST_CONFIG_DIR -f -d $debug${NC}"
     echo -e "${YELLOW}========================================${NC}"
     echo ""
 
     # Start in foreground (user can Ctrl+C to stop)
-    sudo -u bareos /usr/sbin/bareos-dir -c "$TEST_CONFIG_DIR" -f -d "$debug"
+    "${RUN_AS[@]}" /usr/sbin/bareos-dir -c "$TEST_CONFIG_DIR" -f -d "$debug"
 }
 
 # Start bareos-dir in background
@@ -206,16 +255,16 @@ start_bareos_dir_bg() {
     fi
 
     # Update director config
-    update_director_port "$port" "$tls_enable" "$tls_require"
+    update_director_port "$port" "$tls_enable" "$tls_require" || return 1
 
     # Test config
-    if ! sudo -u bareos /usr/sbin/bareos-dir -t -c "$TEST_CONFIG_DIR" 2>&1; then
+    if ! "${RUN_AS[@]}" /usr/sbin/bareos-dir -t -c "$TEST_CONFIG_DIR" 2>&1; then
         log_error "Configuration test failed!"
         return 1
     fi
 
     # Start in background
-    sudo -u bareos /usr/sbin/bareos-dir -c "$TEST_CONFIG_DIR" -f -d "$debug" &
+    "${RUN_AS[@]}" /usr/sbin/bareos-dir -c "$TEST_CONFIG_DIR" -f -d "$debug" &
     local pid=$!
     echo "$pid" > "$PID_FILE"
 
@@ -235,13 +284,20 @@ start_bareos_dir_bg() {
 stop_bareos_dir() {
     if [ -f "$PID_FILE" ]; then
         local pid=$(cat "$PID_FILE")
-        if sudo kill -0 "$pid" 2>/dev/null; then
-            log_info "Stopping bareos-dir (PID $pid)..."
-            sudo kill "$pid" 2>/dev/null
+        if [ ${#RUN_AS[@]} -gt 0 ]; then
+            # The PID is that of sudo; stop the daemon as the user it runs as.
+            log_info "Stopping bareos-dir (as $BAREOS_DIR_USER)..."
+            "${RUN_AS[@]}" pkill -f -- "bareos-dir -c $TEST_CONFIG_DIR" 2>/dev/null
             sleep 1
-            if sudo kill -0 "$pid" 2>/dev/null; then
+            "${RUN_AS[@]}" pkill -9 -f -- "bareos-dir -c $TEST_CONFIG_DIR" 2>/dev/null
+            log_info "bareos-dir stopped"
+        elif kill -0 "$pid" 2>/dev/null; then
+            log_info "Stopping bareos-dir (PID $pid)..."
+            kill "$pid" 2>/dev/null
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
                 log_warn "Sending SIGKILL..."
-                sudo kill -9 "$pid" 2>/dev/null
+                kill -9 "$pid" 2>/dev/null
             fi
             log_info "bareos-dir stopped"
         else
@@ -447,7 +503,7 @@ usage() {
     echo "Usage: $0 [command] [options]"
     echo ""
     echo "Commands:"
-    echo "  setup           Copy system configs to test/bareos-dir.d (requires sudo)"
+    echo "  setup           Copy base configs (BAREOS_SYSTEM_CONFIG_DIR) to test/bareos-dir.d"
     echo "  start           Start bareos-dir with test config (foreground)"
     echo "  start-bg        Start bareos-dir in background"
     echo "  stop            Stop background bareos-dir"

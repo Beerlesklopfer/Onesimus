@@ -27,7 +27,7 @@ TEST_CERT_PASSWORD="TestCertPassword123"
 TEST_LEGACY_CONSOLE="test-legacy"
 TEST_LEGACY_PASSWORD="TestLegacyPassword123"
 ONESIMUS_CONSOLE="onesimus"
-ONESIMUS_PASSWORD="RDZTTAJE5pj5O/C2uOi01o8FRsqucVPolersd3AbXBs"
+ONESIMUS_PASSWORD="onesimus-test-password-not-secret"
 
 # TLS certificate paths
 TLS_DIR="$SCRIPT_DIR/bareos-dir.d/tls"
@@ -128,7 +128,10 @@ check_prerequisites() {
         log_result "bconsole available" "SKIP" "bconsole not installed"
     fi
 
-    # Check TLS certificates
+    # Check TLS certificates (test-only PKI, generated when missing)
+    if [ ! -f "$TLS_DIR/ca.pem" ]; then
+        "$SCRIPT_DIR/make-test-pki.sh" "$TLS_DIR" >> "$OUTPUT_FILE" 2>&1
+    fi
     if [ -f "$TLS_DIR/ca.pem" ] && [ -f "$TLS_DIR/server.pem" ] && [ -f "$TLS_DIR/client.pem" ]; then
         log_result "TLS certificates exist" "PASS"
     else
