@@ -88,6 +88,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   settings file. At the first start, secrets an earlier version stored there are moved into the
   keychain and removed from the file. Where no keychain can be used they stay in the file, which is
   then made readable by the owner only, and a warning says so at every start (bsettingsstore_test).
+- Test tree: the console password of the test configuration is an obvious dummy, and the sudoers
+  file that gave passwordless root `cp`, `chown` and `kill` to a named user is removed; the
+  live-Director scripts need no root (`test/README.md`).
 
 ### Fixed
 - The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and

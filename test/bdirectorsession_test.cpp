@@ -99,7 +99,7 @@ void BDirectorSessionTest::jsonReplyCutInsideCharactersArrivesWhole()
     // ends, repeated so that 7-byte telegrams cut through every one of them
     QJsonArray files;
     const QStringList names = {
-        QStringLiteral("/home/jörg/Bücher "),
+        QStringLiteral("/home/müller/Bücher "),
         QStringLiteral("  two  spaces  "),
         QStringLiteral("price 5 €"),
         QStringLiteral("clef \U0001D11E"),

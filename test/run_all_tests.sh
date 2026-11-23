@@ -27,7 +27,7 @@ TEST_CERT_PASSWORD="TestCertPassword123"
 TEST_LEGACY_CONSOLE="test-legacy"
 TEST_LEGACY_PASSWORD="TestLegacyPassword123"
 ONESIMUS_CONSOLE="onesimus"
-ONESIMUS_PASSWORD="RDZTTAJE5pj5O/C2uOi01o8FRsqucVPolersd3AbXBs"
+ONESIMUS_PASSWORD="onesimus-test-password-not-secret"
 
 # TLS certificate paths
 TLS_DIR="$SCRIPT_DIR/bareos-dir.d/tls"
