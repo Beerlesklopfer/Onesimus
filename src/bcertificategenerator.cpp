@@ -5,13 +5,14 @@
  * @file bcertificategenerator.cpp
  * @brief TLS Certificate Generator Dialog implementation
  *
- * Uses OpenSSL library API directly for certificate generation.
- * Uses BIO API instead of FILE* to avoid applink issues on Windows.
+ * The OpenSSL work is in bpki.cpp: key files are created owner-only, the CA
+ * key is kept only encrypted with a passphrase, the PFX only with a password.
  */
 
 #include "bcertificategenerator.h"
 #include "buiscale.h"
 #include "blabelstate.h"
+#include "bpki.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -23,14 +24,6 @@
 #include <QStandardPaths>
 #include <QMessageBox>
 
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/x509.h>
-#include <openssl/x509v3.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-#include <openssl/pkcs12.h>
-#include <openssl/bio.h>
 
 BCertificateGenerator::BCertificateGenerator(QWidget *parent)
     : QDialog(parent)
@@ -62,7 +55,9 @@ void BCertificateGenerator::setupUI()
     // Output directory
     auto *dirLayout = new QHBoxLayout();
     m_outputDirEdit = new QLineEdit(this);
-    QString defaultDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + "/bareos-certs";
+    // Below the application's data directory, not in the home directory,
+    // where every other user could list it
+    QString defaultDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/certs";
     m_outputDirEdit->setText(defaultDir);
     m_browseButton = new QPushButton(tr("Browse..."), this);
     dirLayout->addWidget(m_outputDirEdit);
@@ -86,6 +81,28 @@ void BCertificateGenerator::setupUI()
     m_validDaysEdit->setText("3650");
     m_validDaysEdit->setPlaceholderText(tr("Days (e.g., 3650 = 10 years)"));
     formLayout->addRow(tr("Valid for (days):"), m_validDaysEdit);
+
+    // CA key: kept only encrypted; without a passphrase it is discarded
+    // after signing (a new CA is made next time)
+    m_caPassphraseEdit = new QLineEdit(this);
+    m_caPassphraseEdit->setEchoMode(QLineEdit::Password);
+    m_caPassphraseEdit->setPlaceholderText(tr("Empty: the CA key is not kept"));
+    m_caPassphraseEdit->setToolTip(tr("With a passphrase the CA key is saved encrypted (ca.key) "
+                                      "to sign more certificates later. Without one it is not saved."));
+    formLayout->addRow(tr("CA key passphrase:"), m_caPassphraseEdit);
+
+    // PFX password: a PFX file is written only with a password
+    m_pfxPasswordEdit = new QLineEdit(this);
+    m_pfxPasswordEdit->setEchoMode(QLineEdit::Password);
+#ifdef Q_OS_WIN
+    m_pfxPasswordEdit->setPlaceholderText(tr("Required: protects client.pfx"));
+#else
+    m_pfxPasswordEdit->setPlaceholderText(tr("Optional: also writes client.pfx"));
+#endif
+    formLayout->addRow(tr("PFX password:"), m_pfxPasswordEdit);
+    m_pfxConfirmEdit = new QLineEdit(this);
+    m_pfxConfirmEdit->setEchoMode(QLineEdit::Password);
+    formLayout->addRow(tr("Confirm PFX password:"), m_pfxConfirmEdit);
 
     // Overwrite
     m_overwriteCheck = new QCheckBox(tr("Overwrite existing files"), this);
@@ -142,268 +159,26 @@ void BCertificateGenerator::appendLog(const QString &msg, bool error)
     m_logEdit->append(QString("<span style='color:%1;'>%2</span>").arg(color, msg));
 }
 
-QString BCertificateGenerator::getOpenSSLError()
-{
-    char buf[256];
-    unsigned long err = ERR_get_error();
-    if (err != 0) {
-        ERR_error_string_n(err, buf, sizeof(buf));
-        return QString::fromLatin1(buf);
-    }
-    return QString();
-}
-
 bool BCertificateGenerator::fileExists(const QString &path) const
 {
     return QFile::exists(path);
 }
 
-EVP_PKEY* BCertificateGenerator::generateRSAKey(int bits)
+void BCertificateGenerator::fail(const QString &message)
 {
-    EVP_PKEY *pkey = nullptr;
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
-
-    if (!ctx) {
-        appendLog(tr("Failed to create key context: %1").arg(getOpenSSLError()), true);
-        return nullptr;
+    if (!message.isEmpty()) {
+        appendLog(message, true);
     }
-
-    if (EVP_PKEY_keygen_init(ctx) <= 0) {
-        appendLog(tr("Failed to init keygen: %1").arg(getOpenSSLError()), true);
-        EVP_PKEY_CTX_free(ctx);
-        return nullptr;
-    }
-
-    if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, bits) <= 0) {
-        appendLog(tr("Failed to set key bits: %1").arg(getOpenSSLError()), true);
-        EVP_PKEY_CTX_free(ctx);
-        return nullptr;
-    }
-
-    if (EVP_PKEY_keygen(ctx, &pkey) <= 0) {
-        appendLog(tr("Failed to generate key: %1").arg(getOpenSSLError()), true);
-        EVP_PKEY_CTX_free(ctx);
-        return nullptr;
-    }
-
-    EVP_PKEY_CTX_free(ctx);
-    return pkey;
-}
-
-X509* BCertificateGenerator::generateCertificate(EVP_PKEY *pkey, const QString &cn,
-                                                  const QString &org, int validDays,
-                                                  bool isCa, X509 *issuerCert,
-                                                  EVP_PKEY *issuerKey)
-{
-    X509 *cert = X509_new();
-    if (!cert) {
-        appendLog(tr("Failed to create X509: %1").arg(getOpenSSLError()), true);
-        return nullptr;
-    }
-
-    // Set version to X509v3
-    if (X509_set_version(cert, 2) != 1) {
-        appendLog(tr("Failed to set X509 version"), true);
-        X509_free(cert);
-        return nullptr;
-    }
-
-    // Generate random serial number
-    ASN1_INTEGER *serial = ASN1_INTEGER_new();
-    if (!serial) {
-        appendLog(tr("Failed to create serial number"), true);
-        X509_free(cert);
-        return nullptr;
-    }
-    ASN1_INTEGER_set(serial, (long)time(nullptr) + (isCa ? 0 : 1));  // Different serial for CA vs client
-    X509_set_serialNumber(cert, serial);
-    ASN1_INTEGER_free(serial);
-
-    // Set validity period
-    X509_gmtime_adj(X509_getm_notBefore(cert), 0);
-    X509_gmtime_adj(X509_getm_notAfter(cert), (long)60 * 60 * 24 * validDays);
-
-    // Set public key
-    if (X509_set_pubkey(cert, pkey) != 1) {
-        appendLog(tr("Failed to set public key"), true);
-        X509_free(cert);
-        return nullptr;
-    }
-
-    // Create and set subject name
-    X509_NAME *name = X509_NAME_new();
-    if (!name) {
-        appendLog(tr("Failed to create X509_NAME"), true);
-        X509_free(cert);
-        return nullptr;
-    }
-
-    QByteArray cnBytes = cn.toUtf8();
-    QByteArray orgBytes = org.toUtf8();
-
-    // Add Organization first, then Common Name (order matters for display)
-    if (X509_NAME_add_entry_by_txt(name, "O", MBSTRING_UTF8,
-            (const unsigned char*)orgBytes.constData(), -1, -1, 0) != 1) {
-        appendLog(tr("Failed to add Organization to subject: %1").arg(getOpenSSLError()), true);
-        X509_NAME_free(name);
-        X509_free(cert);
-        return nullptr;
-    }
-
-    if (X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_UTF8,
-            (const unsigned char*)cnBytes.constData(), -1, -1, 0) != 1) {
-        appendLog(tr("Failed to add Common Name to subject: %1").arg(getOpenSSLError()), true);
-        X509_NAME_free(name);
-        X509_free(cert);
-        return nullptr;
-    }
-
-    // Set subject name on certificate
-    if (X509_set_subject_name(cert, name) != 1) {
-        appendLog(tr("Failed to set subject name: %1").arg(getOpenSSLError()), true);
-        X509_NAME_free(name);
-        X509_free(cert);
-        return nullptr;
-    }
-
-    // Set issuer name
-    if (issuerCert) {
-        // Client cert: issuer is the CA
-        if (X509_set_issuer_name(cert, X509_get_subject_name(issuerCert)) != 1) {
-            appendLog(tr("Failed to set issuer name: %1").arg(getOpenSSLError()), true);
-            X509_NAME_free(name);
-            X509_free(cert);
-            return nullptr;
-        }
-    } else {
-        // Self-signed CA: issuer is same as subject
-        if (X509_set_issuer_name(cert, name) != 1) {
-            appendLog(tr("Failed to set issuer name: %1").arg(getOpenSSLError()), true);
-            X509_NAME_free(name);
-            X509_free(cert);
-            return nullptr;
-        }
-    }
-
-    X509_NAME_free(name);  // Certificate has its own copy now
-
-    // Add extensions for CA certificate
-    if (isCa) {
-        X509V3_CTX ctx;
-        X509V3_set_ctx_nodb(&ctx);
-        X509V3_set_ctx(&ctx, cert, cert, nullptr, nullptr, 0);
-
-        X509_EXTENSION *ext = X509V3_EXT_conf_nid(nullptr, &ctx,
-            NID_basic_constraints, const_cast<char*>("critical,CA:TRUE"));
-        if (ext) {
-            X509_add_ext(cert, ext, -1);
-            X509_EXTENSION_free(ext);
-        }
-
-        ext = X509V3_EXT_conf_nid(nullptr, &ctx,
-            NID_key_usage, const_cast<char*>("critical,keyCertSign,cRLSign"));
-        if (ext) {
-            X509_add_ext(cert, ext, -1);
-            X509_EXTENSION_free(ext);
-        }
-    }
-
-    // Sign the certificate
-    EVP_PKEY *signingKey = issuerKey ? issuerKey : pkey;
-    if (!X509_sign(cert, signingKey, EVP_sha256())) {
-        appendLog(tr("Failed to sign certificate: %1").arg(getOpenSSLError()), true);
-        X509_free(cert);
-        return nullptr;
-    }
-
-    return cert;
-}
-
-bool BCertificateGenerator::savePrivateKey(EVP_PKEY *pkey, const QString &path)
-{
-    // Use BIO API instead of FILE* to avoid applink issues on Windows
-    QByteArray pathBytes = path.toLocal8Bit();
-    BIO *bio = BIO_new_file(pathBytes.constData(), "wb");
-    if (!bio) {
-        appendLog(tr("Cannot open file for writing: %1").arg(path), true);
-        return false;
-    }
-
-    int result = PEM_write_bio_PrivateKey(bio, pkey, nullptr, nullptr, 0, nullptr, nullptr);
-    BIO_free(bio);
-
-    if (!result) {
-        appendLog(tr("Failed to write private key: %1").arg(getOpenSSLError()), true);
-        return false;
-    }
-
-    return true;
-}
-
-bool BCertificateGenerator::saveCertificate(X509 *cert, const QString &path)
-{
-    // Use BIO API instead of FILE* to avoid applink issues on Windows
-    QByteArray pathBytes = path.toLocal8Bit();
-    BIO *bio = BIO_new_file(pathBytes.constData(), "wb");
-    if (!bio) {
-        appendLog(tr("Cannot open file for writing: %1").arg(path), true);
-        return false;
-    }
-
-    int result = PEM_write_bio_X509(bio, cert);
-    BIO_free(bio);
-
-    if (!result) {
-        appendLog(tr("Failed to write certificate: %1").arg(getOpenSSLError()), true);
-        return false;
-    }
-
-    return true;
-}
-
-bool BCertificateGenerator::createPFX(EVP_PKEY *pkey, X509 *cert, X509 *caCert,
-                                       const QString &path, const QString &password)
-{
-    Q_UNUSED(caCert)  // TODO: Add CA to chain if needed
-
-    PKCS12 *p12 = PKCS12_create(
-        password.isEmpty() ? "" : password.toUtf8().constData(),
-        "Onesimus Client Certificate",
-        pkey,
-        cert,
-        nullptr,  // CA stack
-        0, 0, 0, 0, 0
-    );
-
-    if (!p12) {
-        appendLog(tr("Failed to create PKCS12: %1").arg(getOpenSSLError()), true);
-        return false;
-    }
-
-    // Use BIO API instead of FILE* to avoid applink issues on Windows
-    QByteArray pathBytes = path.toLocal8Bit();
-    BIO *bio = BIO_new_file(pathBytes.constData(), "wb");
-    if (!bio) {
-        appendLog(tr("Cannot open file for writing: %1").arg(path), true);
-        PKCS12_free(p12);
-        return false;
-    }
-
-    int result = i2d_PKCS12_bio(bio, p12);
-    BIO_free(bio);
-    PKCS12_free(p12);
-
-    if (!result) {
-        appendLog(tr("Failed to write PFX file: %1").arg(getOpenSSLError()), true);
-        return false;
-    }
-
-    return true;
+    m_generateButton->setEnabled(true);
+    m_statusLabel->setText(tr("Failed"));
+    bSetLabelState(m_statusLabel, "error");
 }
 
 void BCertificateGenerator::onGenerate()
 {
     m_success = false;
+    m_pfxPath.clear();
+    m_pfxPassword.clear();
     m_logEdit->clear();
     m_logEdit->setVisible(true);
     m_progressBar->setVisible(true);
@@ -416,6 +191,8 @@ void BCertificateGenerator::onGenerate()
     QString cn = m_commonNameEdit->text().trimmed();
     QString org = m_organizationEdit->text().trimmed();
     int validDays = m_validDaysEdit->text().toInt();
+    const QByteArray caPassphrase = m_caPassphraseEdit->text().toUtf8();
+    const QString pfxPassword = m_pfxPasswordEdit->text();
 
     if (outputDir.isEmpty() || cn.isEmpty()) {
         appendLog(tr("Please fill in all required fields"), true);
@@ -424,11 +201,28 @@ void BCertificateGenerator::onGenerate()
         bSetLabelState(m_statusLabel, "error");
         return;
     }
+    if (pfxPassword != m_pfxConfirmEdit->text()) {
+        appendLog(tr("The PFX passwords do not match."), true);
+        m_generateButton->setEnabled(true);
+        m_statusLabel->setText(tr("Error"));
+        bSetLabelState(m_statusLabel, "error");
+        return;
+    }
+#ifdef Q_OS_WIN
+    // On Windows the connection uses the PFX file, which needs a password
+    if (pfxPassword.isEmpty()) {
+        appendLog(tr("Please enter a password to protect the PFX file."), true);
+        m_generateButton->setEnabled(true);
+        m_statusLabel->setText(tr("Error"));
+        bSetLabelState(m_statusLabel, "error");
+        return;
+    }
+#endif
 
     if (validDays <= 0) validDays = 3650;
     if (org.isEmpty()) org = "Onesimus";
 
-    // Create output directory
+    // Create output directory; a new one only for its owner
     QDir dir(outputDir);
     if (!dir.exists()) {
         if (!dir.mkpath(".")) {
@@ -438,6 +232,8 @@ void BCertificateGenerator::onGenerate()
             bSetLabelState(m_statusLabel, "error");
             return;
         }
+        QFile::setPermissions(outputDir, QFileDevice::ReadOwner | QFileDevice::WriteOwner
+                                             | QFileDevice::ExeOwner);
     }
 
     // Define paths
@@ -445,11 +241,13 @@ void BCertificateGenerator::onGenerate()
     m_caCertPath = outputDir + "/ca.pem";
     m_clientKeyPath = outputDir + "/client.key";
     m_clientCertPath = outputDir + "/client.pem";
-    m_pfxPath = outputDir + "/client.pfx";
+    const QString pfxPath = outputDir + "/client.pfx";
 
     // Check existing files
     if (!m_overwriteCheck->isChecked()) {
-        if (fileExists(m_caCertPath) || fileExists(m_clientCertPath) || fileExists(m_clientKeyPath)) {
+        if (fileExists(m_caCertPath) || fileExists(m_clientCertPath) || fileExists(m_clientKeyPath)
+            || (!caPassphrase.isEmpty() && fileExists(caKeyPath))
+            || (!pfxPassword.isEmpty() && fileExists(pfxPath))) {
             appendLog(tr("Certificate files already exist. Enable 'Overwrite' to replace."), true);
             m_generateButton->setEnabled(true);
             m_statusLabel->setText(tr("Files exist"));
@@ -459,124 +257,101 @@ void BCertificateGenerator::onGenerate()
     }
 
     m_progressBar->setValue(10);
+    QString error;
 
-    // Step 1: Generate CA private key
+    // Step 1: CA key and self-signed CA certificate
     appendLog(tr("Generating CA private key (4096 bit RSA)..."));
-    EVP_PKEY *caKey = generateRSAKey(4096);
+    BPki::KeyPtr caKey = BPki::generateRsaKey(4096, &error);
     if (!caKey) {
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
+        fail(error);
         return;
     }
     m_progressBar->setValue(25);
 
-    // Step 2: Save CA key
-    appendLog(tr("Saving CA private key..."));
-    if (!savePrivateKey(caKey, caKeyPath)) {
-        EVP_PKEY_free(caKey);
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
-        return;
-    }
-
-    // Step 3: Generate CA certificate (self-signed)
     appendLog(tr("Generating CA certificate..."));
-    X509 *caCert = generateCertificate(caKey, "Onesimus-CA", org, validDays, true, nullptr, nullptr);
-    if (!caCert) {
-        EVP_PKEY_free(caKey);
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
+    BPki::CertificateRequest caRequest;
+    caRequest.commonName = QStringLiteral("Onesimus-CA");
+    caRequest.organization = org;
+    caRequest.validDays = validDays;
+    caRequest.isCa = true;
+    BPki::CertPtr caCert = BPki::makeCertificate(caKey.get(), caRequest, nullptr, nullptr, &error);
+    if (!caCert || !BPki::writeCertificate(caCert.get(), m_caCertPath, &error)) {
+        fail(error);
         return;
     }
 
-    if (!saveCertificate(caCert, m_caCertPath)) {
-        X509_free(caCert);
-        EVP_PKEY_free(caKey);
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
-        return;
+    // Step 2: the CA key only encrypted, or not at all
+    if (!caPassphrase.isEmpty()) {
+        appendLog(tr("Saving CA private key (encrypted with the passphrase)..."));
+        if (!BPki::writePrivateKey(caKey.get(), caKeyPath, caPassphrase, &error)) {
+            fail(error);
+            return;
+        }
+    } else {
+        appendLog(tr("No CA key passphrase: the CA private key is not saved."));
     }
     m_progressBar->setValue(45);
 
-    // Step 4: Generate client private key
+    // Step 3: client key, owner-only and unencrypted (the TLS connection
+    // loads it without asking)
     appendLog(tr("Generating client private key (4096 bit RSA)..."));
-    EVP_PKEY *clientKey = generateRSAKey(4096);
+    BPki::KeyPtr clientKey = BPki::generateRsaKey(4096, &error);
     if (!clientKey) {
-        X509_free(caCert);
-        EVP_PKEY_free(caKey);
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
+        fail(error);
         return;
     }
     m_progressBar->setValue(60);
 
-    // Step 5: Save client key
     appendLog(tr("Saving client private key..."));
-    if (!savePrivateKey(clientKey, m_clientKeyPath)) {
-        EVP_PKEY_free(clientKey);
-        X509_free(caCert);
-        EVP_PKEY_free(caKey);
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
+    if (!BPki::writePrivateKey(clientKey.get(), m_clientKeyPath, QByteArray(), &error)) {
+        fail(error);
         return;
     }
 
-    // Step 6: Generate client certificate (signed by CA)
+    // Step 4: client certificate signed by the CA
     appendLog(tr("Generating client certificate..."));
-    X509 *clientCert = generateCertificate(clientKey, cn, org, validDays, false, caCert, caKey);
-    if (!clientCert) {
-        EVP_PKEY_free(clientKey);
-        X509_free(caCert);
-        EVP_PKEY_free(caKey);
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
-        return;
-    }
-
-    if (!saveCertificate(clientCert, m_clientCertPath)) {
-        X509_free(clientCert);
-        EVP_PKEY_free(clientKey);
-        X509_free(caCert);
-        EVP_PKEY_free(caKey);
-        m_generateButton->setEnabled(true);
-        m_statusLabel->setText(tr("Failed"));
-        bSetLabelState(m_statusLabel, "error");
+    BPki::CertificateRequest request;
+    request.commonName = cn;
+    request.organization = org;
+    request.validDays = validDays;
+    BPki::CertPtr clientCert = BPki::makeCertificate(clientKey.get(), request, caCert.get(),
+                                                     caKey.get(), &error);
+    if (!clientCert || !BPki::writeCertificate(clientCert.get(), m_clientCertPath, &error)) {
+        fail(error);
         return;
     }
     m_progressBar->setValue(80);
 
-    // Step 7: Generate PFX file (Windows)
+    // Step 5: PFX file, only with a password
+    if (!pfxPassword.isEmpty()) {
+        appendLog(tr("Creating PFX file..."));
+        if (!BPki::writePkcs12(clientKey.get(), clientCert.get(), caCert.get(), pfxPath,
+                               pfxPassword.toUtf8(), &error)) {
 #ifdef Q_OS_WIN
-    appendLog(tr("Creating PFX file for Windows..."));
-    if (!createPFX(clientKey, clientCert, caCert, m_pfxPath, QString())) {
-        appendLog(tr("PFX creation failed (non-critical)"), true);
-    }
+            fail(error);
+            return;
+#else
+            appendLog(tr("PFX creation failed: %1").arg(error), true);
 #endif
-
-    // Cleanup OpenSSL objects
-    X509_free(clientCert);
-    EVP_PKEY_free(clientKey);
-    X509_free(caCert);
-    EVP_PKEY_free(caKey);
+        } else {
+            m_pfxPath = pfxPath;
+            m_pfxPassword = pfxPassword;
+        }
+    }
 
     m_progressBar->setValue(100);
     m_success = true;
 
     appendLog(tr("Certificates generated successfully!"));
     appendLog(tr("CA Certificate: %1").arg(m_caCertPath));
+    if (!caPassphrase.isEmpty()) {
+        appendLog(tr("CA Key (encrypted): %1").arg(caKeyPath));
+    }
     appendLog(tr("Client Certificate: %1").arg(m_clientCertPath));
     appendLog(tr("Private Key: %1").arg(m_clientKeyPath));
-#ifdef Q_OS_WIN
-    appendLog(tr("PFX File: %1").arg(m_pfxPath));
-    appendLog(tr("PFX Password: (empty - no password)"));
-#endif
+    if (!m_pfxPath.isEmpty()) {
+        appendLog(tr("PFX File: %1").arg(m_pfxPath));
+    }
 
     m_statusLabel->setText(tr("Success!"));
     bSetLabelState(m_statusLabel, "success");

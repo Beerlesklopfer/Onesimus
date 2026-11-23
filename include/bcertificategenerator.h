@@ -22,9 +22,6 @@
 #include <QCheckBox>
 
 // Forward declarations for OpenSSL types
-typedef struct evp_pkey_st EVP_PKEY;
-typedef struct x509_st X509;
-
 /**
  * @class BCertificateGenerator
  * @brief Dialog for generating TLS certificates using OpenSSL library
@@ -43,7 +40,8 @@ public:
     QString caCertPath() const { return m_caCertPath; }
     QString clientCertPath() const { return m_clientCertPath; }
     QString clientKeyPath() const { return m_clientKeyPath; }
-    QString pfxPath() const { return m_pfxPath; }
+    QString pfxPath() const { return m_pfxPath; }   ///< empty when no PFX was written
+    QString pfxPassword() const { return m_pfxPassword; }
 
     /**
      * @brief Check if generation was successful
@@ -54,17 +52,7 @@ private:
     void setupUI();
     void appendLog(const QString &msg, bool error = false);
     bool fileExists(const QString &path) const;
-
-    // OpenSSL operations
-    QString getOpenSSLError();
-    EVP_PKEY* generateRSAKey(int bits);
-    X509* generateCertificate(EVP_PKEY *pkey, const QString &cn, const QString &org,
-                               int validDays, bool isCa, X509 *issuerCert = nullptr,
-                               EVP_PKEY *issuerKey = nullptr);
-    bool savePrivateKey(EVP_PKEY *pkey, const QString &path);
-    bool saveCertificate(X509 *cert, const QString &path);
-    bool createPFX(EVP_PKEY *pkey, X509 *cert, X509 *caCert,
-                   const QString &path, const QString &password);
+    void fail(const QString &message);
 
 private slots:
     void onBrowseOutput();
@@ -77,6 +65,9 @@ private:
     QLineEdit *m_commonNameEdit;
     QLineEdit *m_organizationEdit;
     QLineEdit *m_validDaysEdit;
+    QLineEdit *m_caPassphraseEdit;
+    QLineEdit *m_pfxPasswordEdit;
+    QLineEdit *m_pfxConfirmEdit;
     QCheckBox *m_overwriteCheck;
     QPushButton *m_generateButton;
     QPushButton *m_closeButton;
@@ -89,6 +80,7 @@ private:
     QString m_clientCertPath;
     QString m_clientKeyPath;
     QString m_pfxPath;
+    QString m_pfxPassword;
     bool m_success;
 };
 

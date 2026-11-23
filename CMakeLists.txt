@@ -497,6 +497,7 @@ set(SOURCES
     src/bmdnsbrowser.cpp
     src/bcertificategenerator.cpp
     src/bpfxconverter.cpp
+    src/bpki.cpp
     src/storagewidget.cpp
     src/bbyteformat.cpp
     src/busagestatus.cpp
@@ -633,6 +634,7 @@ set(HEADERS
     include/bmdnsbrowser.h
     include/bcertificategenerator.h
     include/bpfxconverter.h
+    include/bpki.h
     include/director/bdirector.h
     include/director/bareosdirector.h
     include/db/bdatabase.h
@@ -2209,6 +2211,23 @@ if(BUILD_TESTING)
     target_include_directories(bresourcechanges_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(bresourcechanges_test PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME bresourcechanges_test COMMAND bresourcechanges_test)
+
+    # bpki_test - certificate generator and PFX converter without widgets:
+    # key files owner-only (also an existing file), CA key encrypted,
+    # client certificate extensions and SAN, random serials, PFX with a
+    # password written and read back, errors instead of false success
+    add_executable(bpki_test
+        test/bpki_test.cpp
+        src/bpki.cpp
+        include/bpki.h
+        include/bprivatefile.h
+    )
+    target_include_directories(bpki_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bpki_test PRIVATE Qt6::Core Qt6::Test OpenSSL::SSL OpenSSL::Crypto)
+    if(USE_STATIC_OPENSSL)
+        add_dependencies(bpki_test openssl_build)
+    endif()
+    add_test(NAME bpki_test COMMAND bpki_test)
 
     # bjobdefinitions_test - Job and JobDefs: values resolved over the JobDefs
     # chain (here, inherited from which JobDefs, default, circles, missing

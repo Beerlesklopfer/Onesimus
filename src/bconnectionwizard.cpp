@@ -1987,14 +1987,14 @@ void TLSPage::generateCertificates()
     if (dialog.exec() == QDialog::Accepted && dialog.isSuccessful()) {
         m_caCertEdit->setText(dialog.caCertPath());
 #ifdef Q_OS_WINDOWS
-        // On Windows, use PFX file for client certificate
+        // On Windows the connection uses the PFX file; the second field
+        // is its password there (the key is inside the PFX)
         if (!dialog.pfxPath().isEmpty()) {
             m_clientCertEdit->setText(dialog.pfxPath());
+            m_clientKeyEdit->setText(dialog.pfxPassword());
         } else {
             m_clientCertEdit->setText(dialog.clientCertPath());
         }
-        // Key is embedded in PFX, but also set the path for reference
-        m_clientKeyEdit->setText(dialog.clientKeyPath());
 #else
         m_clientCertEdit->setText(dialog.clientCertPath());
         m_clientKeyEdit->setText(dialog.clientKeyPath());
