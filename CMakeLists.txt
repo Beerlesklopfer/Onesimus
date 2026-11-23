@@ -423,11 +423,15 @@ find_package(Qt6 REQUIRED COMPONENTS
     LinguistTools
 )
 
-# GuiPrivate (QZipWriter/QZipReader): Qt >= 6.9 ships it as a package of its
-# own; up to 6.8 the Qt6::GuiPrivate target comes with Qt6Gui. Linux uses the
-# private include dirs directly.
-if(WIN32 AND Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
+# GuiPrivate (QZipWriter/QZipReader), on every platform: Qt >= 6.9 ships it
+# as a package of its own (find_package(Qt6 COMPONENTS GuiPrivate)); up to 6.8
+# the Qt6::GuiPrivate target comes with Qt6Gui (6.8 has no GuiPrivate
+# package, so find_package would fail there). Debian: qt6-base-private-dev.
+if(Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
     find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
+endif()
+if(NOT TARGET Qt6::GuiPrivate)
+    message(FATAL_ERROR "Qt6::GuiPrivate not found (private Qt headers; Debian: qt6-base-private-dev)")
 endif()
 
 message(STATUS "✓ Found Qt6 ${Qt6_VERSION}")
@@ -1063,12 +1067,7 @@ if(HAVE_GRPC)
 endif()
 
 # GuiPrivate for QZipWriter/QZipReader
-if(WIN32 AND TARGET Qt6::GuiPrivate)
-    target_link_libraries(onesimus_core PRIVATE Qt6::GuiPrivate)
-else()
-    # On Linux, Qt6GuiPrivate package may not exist; use private include dirs
-    target_include_directories(onesimus_core PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
-endif()
+target_link_libraries(onesimus_core PRIVATE Qt6::GuiPrivate)
 
 # OpenSSL Libraries
 target_link_libraries(onesimus_core PUBLIC
@@ -2564,11 +2563,7 @@ if(BUILD_TESTING)
     )
     target_include_directories(bzipimport_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(bzipimport_test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
-    if(WIN32 AND TARGET Qt6::GuiPrivate)
-        target_link_libraries(bzipimport_test PRIVATE Qt6::GuiPrivate)
-    else()
-        target_include_directories(bzipimport_test PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
-    endif()
+    target_link_libraries(bzipimport_test PRIVATE Qt6::GuiPrivate)
     add_test(NAME bzipimport_test COMMAND bzipimport_test)
 
     # bconfigparser_test - configuration text read as Bareos 25 reads it:
