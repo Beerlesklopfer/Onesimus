@@ -27,6 +27,7 @@
 #include "jobs/bjoblogview.h"
 #include "models/bresourcemodels.h"
 #include "director/bdirector.h"
+#include "jobs/bjobcancel.h"
 
 // Forward declaration
 class BMessagesWidget;
@@ -247,6 +248,11 @@ private slots:
      * @since 1.0
      */
     void onCancelJobClicked();
+
+    /**
+     * @brief Reports the toolbar Cancel once the Director answered for every job
+     */
+    void finishCancel();
     
     /**
      * @brief Handles show details button click
@@ -400,6 +406,7 @@ private:
     QString formatJobStatus(const QString &status);
     
     BJsonJobView *m_tableView;            ///< Main table view
+    BJobCancel m_cancel;                  ///< Toolbar Cancel waiting for answers
     BJsonStreamReader *m_streamReader;      ///< JSON stream reader
     BPaginationWidget *m_paginationWidget;  ///< Pagination controls
 

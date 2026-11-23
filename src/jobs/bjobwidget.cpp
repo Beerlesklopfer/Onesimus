@@ -8,6 +8,7 @@
 #include "jobs/bnewjobdialog.h"
 #include "jobs/blevelcolors.h"
 #include "jobs/bjobpaging.h"
+#include "jobs/bjobcancel.h"
 #include "messages/bmessageswidget.h"
 #include "config/bsettings.h"
 #include <QHeaderView>
@@ -129,6 +130,25 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     m_logFilterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
     m_logView->setModel(m_logFilterModel);
     m_logView->attach(m_director, m_logModel);
+
+    // Answers to the toolbar Cancel (see onCancelJobClicked())
+    if (m_director) {
+        auto cancelReply = [this](BDirector::Command cmd, const QString &reply) {
+            if (cmd == BDirector::Command::Cancel && m_cancel.takeReply(reply)) {
+                finishCancel();
+            }
+        };
+        connect(m_director, &BDirector::jsonResult, this, cancelReply);
+        connect(m_director, &BDirector::textResult, this, cancelReply);
+        connect(m_director, &BDirector::commandFailed, this,
+                [this](BDirector::Command cmd, const QString &args, const QString &error) {
+            if (cmd == BDirector::Command::Cancel
+                && m_cancel.takeFailure(args, BDirectorReply::errorText(error).isEmpty()
+                                                  ? error : BDirectorReply::errorText(error))) {
+                finishCancel();
+            }
+        });
+    }
     connect(m_logView, &BJobLogView::logUpdated, this, &BJobWidget::onJobLogUpdated);
     connect(m_logView, &BJobLogView::logFinished, this, &BJobWidget::onJobLogUpdated);
     connect(m_logView, &BJobLogView::logFailed, this, [this](quint64 jobId, const QString &) {
@@ -720,36 +740,72 @@ void BJobWidget::onRunJobClicked()
 
 void BJobWidget::onCancelJobClicked()
 {
-    QSet<QString> selectedJobs = m_tableView->selectedJobIds();
+    // Every selected job, in the order of their job IDs
+    const QStringList jobIds = BJobCancel::orderedJobIds(m_tableView->selectedJobIds());
 
-    if (selectedJobs.isEmpty()) {
+    if (jobIds.isEmpty()) {
         QMessageBox::information(this, tr("No selection"),
             tr("Please select a job to cancel."));
         return;
     }
-
-    QString jobId = *selectedJobs.begin();
+    if (m_cancel.isRunning()) {
+        emit statusMessageChanged(tr("A cancel is still waiting for the Director's answer"));
+        return;
+    }
 
     // Check if confirmation is required
     bool shouldConfirm = BSettings::instance().behaviorConfirmJobCancel();
 
     bool proceed = true;
     if (shouldConfirm) {
-        int ret = QMessageBox::question(this, tr("Cancel Job"),
-            tr("Do you really want to cancel job ID %1?").arg(jobId),
+        const QString question = jobIds.size() == 1
+            ? tr("Do you really want to cancel job ID %1?").arg(jobIds.first())
+            : tr("Do you really want to cancel these %n jobs: %1?", nullptr, int(jobIds.size()))
+                  .arg(jobIds.join(QStringLiteral(", ")));
+        int ret = QMessageBox::question(this, tr("Cancel Job"), question,
             QMessageBox::Yes | QMessageBox::No);
         proceed = (ret == QMessageBox::Yes);
     }
 
     if (proceed) {
-        emit sendCommand(BDirector::Command::Cancel, QString::number(jobId.toULongLong()));
-
-        QMessageBox::information(this, tr("Job Cancelled"),
-            tr("Job %1 was cancelled.").arg(jobId));
-
-        // Refresh after 1 second
-        QTimer::singleShot(1000, this, &BJobWidget::onRefreshClicked);
+        // The result is reported when the Director has answered for every
+        // job (see finishCancel()), not before
+        m_cancel.start(jobIds);
+        emit statusMessageChanged(tr("Cancelling %n job(s)...", nullptr, int(jobIds.size())));
+        for (const QString &jobId : jobIds) {
+            emit sendCommand(BDirector::Command::Cancel, jobId);
+        }
     }
+}
+
+void BJobWidget::finishCancel()
+{
+    if (m_cancel.isRunning()) {
+        return;
+    }
+
+    const QStringList requested = m_cancel.requested();
+    const QList<QPair<QString, QString>> failed = m_cancel.failed();
+
+    if (!requested.isEmpty()) {
+        emit statusMessageChanged(tr("The Director accepted the cancel of %n job(s): %1", nullptr,
+                                     int(requested.size()))
+                                      .arg(requested.join(QStringLiteral(", "))));
+    }
+    if (!failed.isEmpty()) {
+        QStringList lines;
+        for (const auto &failure : failed) {
+            lines << tr("Job %1: %2").arg(failure.first,
+                                          failure.second.isEmpty() ? tr("no reason given")
+                                                                   : failure.second);
+        }
+        QMessageBox::warning(this, tr("Cancel Job"),
+            tr("The Director did not cancel %n job(s):", nullptr, int(failed.size()))
+                + QStringLiteral("\n\n") + lines.join(QLatin1Char('\n')));
+    }
+
+    // Refresh after 1 second
+    QTimer::singleShot(1000, this, &BJobWidget::onRefreshClicked);
 }
 
 void BJobWidget::onShowDetailsClicked()

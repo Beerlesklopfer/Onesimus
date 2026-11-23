@@ -642,6 +642,7 @@ set(HEADERS
     include/director/bdirector.h
     include/director/bareosdirector.h
     include/director/bjsonreassembler.h
+    include/jobs/bjobcancel.h
     include/db/bdatabase.h
     include/db/bresourcemodel.h
     include/db/bdirectormodel.h
@@ -2013,6 +2014,25 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bdirectorsession_test COMMAND bdirectorsession_test)
+
+    # bjobcancel_test - the toolbar Cancel of the job list: every selected
+    # job, the Director's answer for each (P1-20)
+    add_executable(bjobcancel_test
+        test/bjobcancel_test.cpp
+        include/jobs/bjobcancel.h
+        include/director/bdirectorreply.h
+    )
+
+    target_include_directories(bjobcancel_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bjobcancel_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bjobcancel_test COMMAND bjobcancel_test)
 
     # bdirectorqueue_test - command queue of BareosDirector without a connection
     add_executable(bdirectorqueue_test
