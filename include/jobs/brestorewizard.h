@@ -55,16 +55,20 @@ struct BRestoreWizardData {
 
     // Cached resource lists (loaded by SelectJobPage, shared with OptionsPage)
     QStringList clientNames;
+    QStringList restoreJobNames;    ///< Restore Job resources (".jobs type=R", OptionsPage)
+    bool restoreJobsLoaded = false;
 
     // Restore options (set by OptionsPage)
     QString targetClient;
     QString restoreWhere = "/tmp/bareos-restores";
     QString replacePolicy = "always";
+    QString restoreJob;             ///< restorejob=; empty leaves the choice to the Director
 
     // Generated (set by PreviewPage)
     QString restoreTableName;
     QString bvfsRestoreCommand;
     QString restoreCommand;
+    QString restoreCommandError;    ///< Why no restore command could be built; empty if it could
 
     // Execution state
     bool restoreTableCreated = false;
@@ -95,15 +99,27 @@ public:
     BRestoreWizardData *wizardData() { return &m_data; }
     BBvfsModel *bvfsModel() { return m_bvfsModel; }
     BDirector *director() { return m_director; }
+    BBvfsReplyRouter *router() { return m_router; }
     bool restoreSucceeded() const { return m_data.restoreSucceeded; }
 
+    /**
+     * @brief Drop the restore table if one was made and not dropped yet
+     *
+     * Sent on every way out of the wizard, also after a failure or while
+     * the restore command is still unanswered: the Director runs commands
+     * in the order they were sent, so the restore has read the table before
+     * the cleanup removes it.
+     */
+    void sendCleanupIfNeeded();
+
 protected:
-    void reject() override;
+    void done(int result) override;
 
 private:
     BRestoreWizardData m_data;
     BBvfsModel *m_bvfsModel;
     BDirector *m_director;
+    BBvfsReplyRouter *m_router = nullptr;
 };
 
 // ============================================================================
@@ -202,10 +218,15 @@ public:
 
 private slots:
     void updateReplacePolicyHelp(int index);
+    void onRestoreJobsResponse(BDirector::Command cmd, const QString &jsonData);
 
 private:
+    void fillRestoreJobs();
+
     QLabel *m_sourceLabel;
     QComboBox *m_targetClientCombo;
+    QComboBox *m_restoreJobCombo;
+    bool m_restoreJobsRequested = false;
     QLineEdit *m_restoreWhereEdit;
     QComboBox *m_replacePolicyCombo;
     QLabel *m_replacePolicyHelpLabel;
@@ -260,8 +281,8 @@ public:
     bool isComplete() const override;
 
 private slots:
-    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
-    void onCommandResponse(BDirector::Command cmd, const QString &response);
+    void onRouterReply(quint64 ticket, BDirector::Command cmd, const QString &data, bool isJson);
+    void onRouterFailed(quint64 ticket, BDirector::Command cmd, const QString &reason);
     void onTimeout();
 
 private:
@@ -274,7 +295,8 @@ private:
         Failed
     };
 
-    void advanceState();
+    void handleJsonResponse(BDirector::Command cmd, const QString &jsonData);
+    void handleTextResponse(BDirector::Command cmd, const QString &response);
     void sendBvfsRestore();
     void sendRestore();
     void sendCleanup();
@@ -291,6 +313,8 @@ private:
     QTimer *m_timeoutTimer = nullptr;
     ExecutionState m_state = Idle;
     QString m_restoreJobId;
+    quint64 m_ticket = 0;       ///< Request whose reply is awaited (BBvfsReplyRouter)
+    bool m_overdue = false;     ///< No reply within COMMAND_TIMEOUT_MS; still awaited
 };
 
 #endif // BRESTOREWIZARD_H

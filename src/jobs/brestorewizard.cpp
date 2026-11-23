@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: 2026 Joerg Steffens
 
 #include "jobs/brestorewizard.h"
+#include "jobs/brestorecommand.h"
 #include "buiscale.h"
 #include "blogging.h"
 #include "blogredact.h"
@@ -20,7 +21,14 @@
 
 #define RESTORE_DEBUG BLOG_DEBUG()
 
-static const int COMMAND_TIMEOUT_MS = 60000;  // 60 seconds per command
+// After this long without an answer the page says so and lets the user
+// close it; the answer is still awaited (a restore may start late)
+static const int COMMAND_TIMEOUT_MS = 60000;
+
+// Client, FileSet and Before Date on page 1 do not change what BVFS loads:
+// it always takes the chain of the selected job (P0-5, decision D5). They
+// stay hidden until a backend resolves a chain from them (OVFS, P1-32).
+static constexpr bool kShowChainSelection = false;
 
 /**
  * @brief Extract error message from Bareos JSON-RPC error response
@@ -105,6 +113,7 @@ BRestoreWizard::BRestoreWizard(const QJsonObject &job, BDirector *director,
     }
 
     // Create BVFS model with checkable mode
+    m_router = BBvfsReplyRouter::forDirector(m_director);
     m_bvfsModel = new BBvfsModel(m_director, this);
     m_bvfsModel->setCheckable(true);
 
@@ -128,16 +137,22 @@ BRestoreWizard::~BRestoreWizard()
     RESTORE_DEBUG << "Wizard destroyed";
 }
 
-void BRestoreWizard::reject()
+void BRestoreWizard::done(int result)
 {
-    // Send cleanup if a restore table was created
-    if (m_data.restoreTableCreated && m_director && !m_data.restoreTableName.isEmpty()) {
-        RESTORE_DEBUG << "Sending cleanup on cancel: .bvfs_cleanup path="
-                      << m_data.restoreTableName;
-        m_director->doSend(BDirector::Command::BvfsCleanup,
-                           QString("path=%1").arg(m_data.restoreTableName));
-    }
-    QWizard::reject();
+    sendCleanupIfNeeded();
+    QWizard::done(result);
+}
+
+void BRestoreWizard::sendCleanupIfNeeded()
+{
+    if (!m_data.restoreTableCreated || m_data.restoreTableName.isEmpty() || !m_router)
+        return;
+    RESTORE_DEBUG << "Sending cleanup on close: .bvfs_cleanup path="
+                  << m_data.restoreTableName;
+    // Nobody waits for this reply; the router drops it
+    m_router->send(BDirector::Command::BvfsCleanup,
+                   QString("path=%1").arg(m_data.restoreTableName));
+    m_data.restoreTableCreated = false;
 }
 
 // ============================================================================
@@ -398,6 +413,9 @@ void BRestoreSelectJobPage::onJobDetailResponse(BDirector::Command cmd, const QS
     }
 
     QJsonObject job = jobs[0].toObject();
+    if (!job.contains("jobid")) {
+        return;  // a job list of another request (e.g. ".jobs"), not the llist reply
+    }
     QString fileset = job["fileset"].toString();
     if (fileset.isEmpty())
         fileset = job["filesetname"].toString();
@@ -759,6 +777,11 @@ BRestoreOptionsPage::BRestoreOptionsPage(QWidget *parent)
     m_targetClientCombo = new QComboBox(this);
     layout->addRow(tr("Target Client:"), m_targetClientCombo);
 
+    // Without restorejob= the Director asks which Restore Job to use when it
+    // has more than one, and the wizard would wait for an answer forever
+    m_restoreJobCombo = new QComboBox(this);
+    layout->addRow(tr("Restore Job:"), m_restoreJobCombo);
+
     m_restoreWhereEdit = new QLineEdit("/tmp/bareos-restores", this);
     layout->addRow(tr("Restore Where:"), m_restoreWhereEdit);
 
@@ -838,6 +861,61 @@ void BRestoreOptionsPage::initializePage()
 
     int policyIdx = m_replacePolicyCombo->findData(data->replacePolicy);
     if (policyIdx >= 0) m_replacePolicyCombo->setCurrentIndex(policyIdx);
+
+    fillRestoreJobs();
+    if (!data->restoreJobsLoaded && !m_restoreJobsRequested && wiz->director()) {
+        m_restoreJobsRequested = true;
+        connect(wiz->director(), &BDirector::jsonResult,
+                this, &BRestoreOptionsPage::onRestoreJobsResponse);
+        // type= compares the first letter with the job type: R is Restore
+        // (Bareos ua_dotcmds.cc DotJobsCmd). Custom, because DotJobs feeds
+        // the main window's job list and ignores arguments.
+        wiz->director()->doSend(BDirector::Command::Custom, QStringLiteral(".jobs type=R"));
+    }
+}
+
+void BRestoreOptionsPage::onRestoreJobsResponse(BDirector::Command cmd, const QString &jsonData)
+{
+    if (cmd != BDirector::Command::Custom) return;
+
+    const QJsonObject result = QJsonDocument::fromJson(jsonData.toUtf8()).object()["result"].toObject();
+    if (!result.value("jobs").isArray()) return;
+
+    // ".jobs" names resources only; a job list of another request has job IDs
+    QStringList names;
+    for (const QJsonValue &v : result.value("jobs").toArray()) {
+        const QJsonObject job = v.toObject();
+        if (job.contains("jobid") || !job.contains("name")) return;
+        names << job.value("name").toString();
+    }
+
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+    if (!wiz) return;
+    disconnect(wiz->director(), &BDirector::jsonResult,
+               this, &BRestoreOptionsPage::onRestoreJobsResponse);
+    wiz->wizardData()->restoreJobNames = names;
+    wiz->wizardData()->restoreJobsLoaded = true;
+    RESTORE_DEBUG << "Restore jobs: " << names.join(", ");
+    fillRestoreJobs();
+}
+
+void BRestoreOptionsPage::fillRestoreJobs()
+{
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+    if (!wiz) return;
+    auto *data = wiz->wizardData();
+
+    const QString current = m_restoreJobCombo->count() > 0
+        ? m_restoreJobCombo->currentData().toString() : data->restoreJob;
+    m_restoreJobCombo->clear();
+    if (data->restoreJobNames.isEmpty()) {
+        m_restoreJobCombo->addItem(tr("Chosen by the Director"), QString());
+        return;
+    }
+    for (const QString &name : data->restoreJobNames)
+        m_restoreJobCombo->addItem(name, name);
+    const int idx = m_restoreJobCombo->findData(current);
+    m_restoreJobCombo->setCurrentIndex(idx >= 0 ? idx : 0);
 }
 
 void BRestoreOptionsPage::updateReplacePolicyHelp(int index)
@@ -880,6 +958,7 @@ bool BRestoreOptionsPage::validatePage()
     data->targetClient = m_targetClientCombo->currentText();
     data->restoreWhere = m_restoreWhereEdit->text().trimmed();
     data->replacePolicy = m_replacePolicyCombo->currentData().toString();
+    data->restoreJob = m_restoreJobCombo->currentData().toString();
 
     RESTORE_DEBUG << "OptionsPage validated: target=" << data->targetClient
                   << " where=" << data->restoreWhere
@@ -978,15 +1057,20 @@ void BRestorePreviewPage::initializePage()
     }
     data->bvfsRestoreCommand = parts.join(" ");
 
-    // Build restore command
-    // Other useful options:
-    // restorejob=
-    // restoreclient=
-    data->restoreCommand = QString("file=?%1 client=%2 where=%3 replace=%4 yes")
-                               .arg(data->restoreTableName)
-                               .arg(data->targetClient)
-                               .arg(data->restoreWhere)
-                               .arg(data->replacePolicy);
+    // Build restore command: client= is the client of the backup, the
+    // target goes to restoreclient=; every name and the path are quoted
+    BRestoreCommand::Params params;
+    params.table = data->restoreTableName;
+    params.backupClient = data->sourceClient.isEmpty() ? data->targetClient : data->sourceClient;
+    params.restoreClient = data->targetClient;
+    params.restoreJob = data->restoreJob;
+    params.where = data->restoreWhere;
+    params.replace = data->replacePolicy;
+    const BRestoreCommand::Result built = BRestoreCommand::build(params);
+    data->restoreCommand = built.arguments;
+    data->restoreCommandError = built.ok()
+        ? QString()
+        : tr("The restore command cannot be built: the value of %1= is not valid.").arg(built.field);
 
     // Update UI — build selection summary
     QStringList selectionParts;
@@ -1005,22 +1089,30 @@ void BRestorePreviewPage::initializePage()
 
     // Compute estimated restore size
     auto *model = wiz->bvfsModel();
-    qint64 estimatedSize = model->computeSelectedSize();
+    bool sizeComplete = true;
+    qint64 estimatedSize = model->computeSelectedSize(&sizeComplete);
     QString sizeStr = estimatedSize > 0
-        ? tr("~%1").arg(model->formatBytes(estimatedSize))
+        ? (sizeComplete ? tr("~%1") : tr("at least %1")).arg(model->formatBytes(estimatedSize))
         : tr("unknown");
 
-    m_summaryLabel->setText(tr("Restore summary:\n"
-                               "• Selection: %1\n"
-                               "• Estimated size: %2\n"
-                               "• Target client: %3\n"
-                               "• Restore to: %4\n"
-                               "• Replace policy: %5")
-                                .arg(selectionParts.join(", "))
-                                .arg(sizeStr)
-                                .arg(data->targetClient)
-                                .arg(data->restoreWhere)
-                                .arg(data->replacePolicy));
+    QString summary = tr("Restore summary:\n"
+                       "• Selection: %1\n"
+                       "• Estimated size: %2\n"
+                       "• Target client: %3\n"
+                       "• Restore to: %4\n"
+                       "• Replace policy: %5")
+                        .arg(selectionParts.join(", "))
+                        .arg(sizeStr)
+                        .arg(data->targetClient)
+                        .arg(data->restoreWhere)
+                        .arg(data->replacePolicy);
+    if (!data->restoreJob.isEmpty()) {
+        summary += QLatin1Char('\n') + tr("• Restore job: %1").arg(data->restoreJob);
+    }
+    if (!data->restoreCommandError.isEmpty()) {
+        summary += QStringLiteral("\n\n") + data->restoreCommandError;
+    }
+    m_summaryLabel->setText(summary);
 
     QString preview;
     preview += "# Step 1: Create restore table\n";
@@ -1063,7 +1155,8 @@ bool BRestorePreviewPage::isComplete() const
     // This prevents a race condition where auth responses arrive
     // after the Execute page has already sent its own commands,
     // corrupting m_lastCommand tracking.
-    return m_authDone;
+    auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
+    return m_authDone && wiz && wiz->wizardData()->restoreCommandError.isEmpty();
 }
 
 void BRestorePreviewPage::cleanupPage()
@@ -1232,6 +1325,8 @@ void BRestoreExecutePage::initializePage()
                     .arg(step).arg(total));
 
     m_state = Idle;
+    m_ticket = 0;
+    m_overdue = false;
     m_logEdit->clear();
     m_restoreJobId.clear();
     m_hintLabel->setVisible(false);
@@ -1242,12 +1337,13 @@ void BRestoreExecutePage::initializePage()
     // Reset BVFS model to free command queue
     wiz->bvfsModel()->resetModel();
 
-    // Connect to Director responses
-    if (wiz->director()) {
-        connect(wiz->director(), &BDirector::jsonResult,
-                this, &BRestoreExecutePage::onJsonResponse);
-        connect(wiz->director(), &BDirector::textResult,
-                this, &BRestoreExecutePage::onCommandResponse);
+    // Replies come through the router: only the reply to this page's own
+    // request is taken, never a late one of an earlier wizard (P0-15)
+    if (wiz->router()) {
+        connect(wiz->router(), &BBvfsReplyRouter::replied,
+                this, &BRestoreExecutePage::onRouterReply, Qt::UniqueConnection);
+        connect(wiz->router(), &BBvfsReplyRouter::failed,
+                this, &BRestoreExecutePage::onRouterFailed, Qt::UniqueConnection);
     }
 
     // Start execution
@@ -1256,13 +1352,13 @@ void BRestoreExecutePage::initializePage()
 
 bool BRestoreExecutePage::isComplete() const
 {
-    return m_state == Completed || m_state == Failed;
+    return m_state == Completed || m_state == Failed || m_overdue;
 }
 
 void BRestoreExecutePage::sendBvfsRestore()
 {
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (!wiz || !wiz->director()) {
+    if (!wiz || !wiz->router()) {
         markFailed(tr("No director connection"));
         return;
     }
@@ -1274,14 +1370,14 @@ void BRestoreExecutePage::sendBvfsRestore()
     appendLog(tr(">>> .bvfs_restore %1").arg(data->bvfsRestoreCommand));
 
     m_timeoutTimer->start();
-    wiz->director()->doSend(BDirector::Command::BvfsRestore, data->bvfsRestoreCommand);
+    m_ticket = wiz->router()->send(BDirector::Command::BvfsRestore, data->bvfsRestoreCommand);
     data->restoreTableCreated = true;
 }
 
 void BRestoreExecutePage::sendRestore()
 {
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (!wiz || !wiz->director()) {
+    if (!wiz || !wiz->router()) {
         markFailed(tr("No director connection"));
         return;
     }
@@ -1293,13 +1389,13 @@ void BRestoreExecutePage::sendRestore()
     appendLog(tr(">>> restore %1").arg(data->restoreCommand));
 
     m_timeoutTimer->start();
-    wiz->director()->doSend(BDirector::Command::Restore, data->restoreCommand);
+    m_ticket = wiz->router()->send(BDirector::Command::Restore, data->restoreCommand);
 }
 
 void BRestoreExecutePage::sendCleanup()
 {
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (!wiz || !wiz->director()) return;
+    if (!wiz || !wiz->router()) return;
 
     auto *data = wiz->wizardData();
     m_state = SendingCleanup;
@@ -1310,10 +1406,41 @@ void BRestoreExecutePage::sendCleanup()
     appendLog(tr(">>> .bvfs_cleanup %1").arg(cleanupArgs));
 
     m_timeoutTimer->start();
-    wiz->director()->doSend(BDirector::Command::BvfsCleanup, cleanupArgs);
+    m_ticket = wiz->router()->send(BDirector::Command::BvfsCleanup, cleanupArgs);
+    // Sent: closing the wizard must not send it a second time
+    data->restoreTableCreated = false;
 }
 
-void BRestoreExecutePage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
+void BRestoreExecutePage::onRouterReply(quint64 ticket, BDirector::Command cmd,
+                                        const QString &data, bool isJson)
+{
+    if (ticket == 0 || ticket != m_ticket) return;
+    m_ticket = 0;
+    if (m_overdue) {
+        m_overdue = false;
+        appendLog(tr("The Director answered."));
+    }
+    if (isJson) {
+        handleJsonResponse(cmd, data);
+    } else {
+        handleTextResponse(cmd, data);
+    }
+}
+
+void BRestoreExecutePage::onRouterFailed(quint64 ticket, BDirector::Command cmd, const QString &reason)
+{
+    if (ticket == 0 || ticket != m_ticket) return;
+    m_ticket = 0;
+    m_overdue = false;
+    if (cmd == BDirector::Command::BvfsCleanup) {
+        appendLog(tr("Cleanup failed: %1").arg(reason), true);
+        markCompleted();
+        return;
+    }
+    markFailed(reason);
+}
+
+void BRestoreExecutePage::handleJsonResponse(BDirector::Command cmd, const QString &jsonData)
 {
     if (m_state == SendingBvfsRestore && cmd == BDirector::Command::BvfsRestore) {
         m_timeoutTimer->stop();
@@ -1386,7 +1513,7 @@ void BRestoreExecutePage::onJsonResponse(BDirector::Command cmd, const QString &
     }
 }
 
-void BRestoreExecutePage::onCommandResponse(BDirector::Command cmd, const QString &response)
+void BRestoreExecutePage::handleTextResponse(BDirector::Command cmd, const QString &response)
 {
     if (m_state == SendingRestore && cmd == BDirector::Command::Restore) {
         m_timeoutTimer->stop();
@@ -1506,11 +1633,11 @@ void BRestoreExecutePage::markFailed(const QString &reason)
 void BRestoreExecutePage::disconnectDirector()
 {
     auto *wiz = qobject_cast<BRestoreWizard*>(wizard());
-    if (wiz && wiz->director()) {
-        disconnect(wiz->director(), &BDirector::jsonResult,
-                   this, &BRestoreExecutePage::onJsonResponse);
-        disconnect(wiz->director(), &BDirector::textResult,
-                   this, &BRestoreExecutePage::onCommandResponse);
+    if (wiz && wiz->router()) {
+        disconnect(wiz->router(), &BBvfsReplyRouter::replied,
+                   this, &BRestoreExecutePage::onRouterReply);
+        disconnect(wiz->router(), &BBvfsReplyRouter::failed,
+                   this, &BRestoreExecutePage::onRouterFailed);
     }
 }
 
@@ -1523,9 +1650,20 @@ void BRestoreExecutePage::onTimeout()
     };
 
     QString cmdName = stateNames.value(m_state, tr("command"));
-    markFailed(tr("Timeout waiting for %1 response (no response within %2 seconds)")
-                   .arg(cmdName)
-                   .arg(COMMAND_TIMEOUT_MS / 1000));
+
+    // Not a failure: the Director may be busy and still run the command. A
+    // restore started a second time would restore twice, so the page says
+    // to look at the job list instead of offering to try again.
+    m_overdue = true;
+    appendLog(tr("No answer from the Director to %1 within %2 seconds.")
+                  .arg(cmdName)
+                  .arg(COMMAND_TIMEOUT_MS / 1000), true);
+    setStatus(tr("Waiting for the Director..."));
+    m_hintLabel->setText(tr("The restore may still start. Check the job list before you "
+                            "start it again. The answer is still awaited while this "
+                            "window is open."));
+    m_hintLabel->setVisible(true);
+    emit completeChanged();
 }
 
 void BRestoreExecutePage::appendLog(const QString &msg, bool isError)

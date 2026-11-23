@@ -532,6 +532,7 @@ set(SOURCES
     src/jobs/bjsonjobview.cpp
     src/jobs/bnewjobdialog.cpp
     src/jobs/brunjobcommand.cpp
+    src/jobs/brestorecommand.cpp
     src/jobs/bfilesetwizard.cpp
     src/jobs/bjobwizard.cpp
     src/jobs/fileset/bfilesetdocument.cpp
@@ -672,6 +673,7 @@ set(HEADERS
     include/jobs/blevelcolors.h
     include/jobs/bnewjobdialog.h
     include/jobs/brunjobcommand.h
+    include/jobs/brestorecommand.h
     include/jobs/bfilesetwizard.h
     include/jobs/bjobwizard.h
     include/jobs/fileset/bfilesetdocument.h
@@ -1651,6 +1653,27 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME brunjobcommand_test COMMAND brunjobcommand_test)
+
+    # brestorecommand_test - the restore command of the restore wizard:
+    # quoting, restoreclient=, restorejob= (P0-4)
+    add_executable(brestorecommand_test
+        test/brestorecommand_test.cpp
+        src/jobs/brestorecommand.cpp
+        src/jobs/brunjobcommand.cpp
+        include/jobs/brestorecommand.h
+        include/jobs/brunjobcommand.h
+    )
+
+    target_include_directories(brestorecommand_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(brestorecommand_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME brestorecommand_test COMMAND brestorecommand_test)
 
     # bbvfsreplyrouter_test - replies of BVFS and restore commands matched to
     # their requests; late replies of closed wizards dropped (P0-15)
