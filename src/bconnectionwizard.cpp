@@ -2009,6 +2009,9 @@ void TLSPage::convertToPFX()
         QString pfxPath = converter.getPFXFilePath();
         if (!pfxPath.isEmpty()) {
             m_clientCertEdit->setText(pfxPath);
+#ifdef Q_OS_WINDOWS
+            m_clientKeyEdit->setText(converter.pfxPassword());   // the PFX password field there
+#endif
             QMessageBox::information(this, tr("PFX File Created"),
                 tr("PFX file has been created successfully.\n\n"
                    "The certificate path has been updated."));

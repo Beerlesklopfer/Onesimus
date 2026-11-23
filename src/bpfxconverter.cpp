@@ -8,6 +8,7 @@
 
 #include "bpfxconverter.h"
 #include "buiscale.h"
+#include "bpki.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -15,14 +16,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QFile>
-#include <QSslCertificate>
-#include <QSslKey>
 #include <QPushButton>
 #include <QDialogButtonBox>
-
-#include <openssl/pem.h>
-#include <openssl/pkcs12.h>
-#include <openssl/err.h>
 
 BPFXConverter::BPFXConverter(QWidget *parent)
     : QDialog(parent)
@@ -251,81 +246,44 @@ void BPFXConverter::onConvert()
 
 bool BPFXConverter::performConversion()
 {
+    auto readFile = [this](const QString &path, const QString &what, QByteArray *data) {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            m_logText->append(tr("✗ ERROR: Cannot open %1: %2").arg(what, file.errorString()));
+            QMessageBox::critical(this, tr("Error"),
+                tr("Cannot open %1:\n%2").arg(what, path));
+            return false;
+        }
+        *data = file.readAll();
+        return true;
+    };
+
+    QByteArray certData, keyData, caData;
     m_logText->append(tr("Loading certificate from: %1").arg(m_certFileEdit->text()));
-
-    // Load certificate
-    QFile certFile(m_certFileEdit->text());
-    if (!certFile.open(QIODevice::ReadOnly)) {
-        m_logText->append(tr("✗ ERROR: Cannot open certificate file"));
-        QMessageBox::critical(this, tr("Error"), tr("Cannot open certificate file."));
+    if (!readFile(m_certFileEdit->text(), tr("the certificate file"), &certData)) {
         return false;
     }
-    QByteArray certData = certFile.readAll();
-    certFile.close();
-
-    QList<QSslCertificate> certs = QSslCertificate::fromData(certData, QSsl::Pem);
-    if (certs.isEmpty()) {
-        // Try DER format
-        certs = QSslCertificate::fromData(certData, QSsl::Der);
-    }
-
-    if (certs.isEmpty()) {
-        m_logText->append(tr("✗ ERROR: Cannot parse certificate (not valid PEM or DER)"));
-        QMessageBox::critical(this, tr("Error"),
-            tr("Cannot parse certificate file. Make sure it's a valid PEM or DER certificate."));
-        return false;
-    }
-
-    m_logText->append(tr("✓ Certificate loaded: %1").arg(certs.first().subjectInfo(QSslCertificate::CommonName).join(", ")));
-
-    // Load private key
     m_logText->append(tr("Loading private key from: %1").arg(m_keyFileEdit->text()));
-
-    QFile keyFile(m_keyFileEdit->text());
-    if (!keyFile.open(QIODevice::ReadOnly)) {
-        m_logText->append(tr("✗ ERROR: Cannot open private key file"));
-        QMessageBox::critical(this, tr("Error"), tr("Cannot open private key file."));
+    if (!readFile(m_keyFileEdit->text(), tr("the private key file"), &keyData)) {
         return false;
     }
-    QByteArray keyData = keyFile.readAll();
-    keyFile.close();
-
-    QSslKey key(keyData, QSsl::Rsa, QSsl::Pem);
-    if (key.isNull()) {
-        // Try other formats
-        key = QSslKey(keyData, QSsl::Ec, QSsl::Pem);
-    }
-    if (key.isNull()) {
-        key = QSslKey(keyData, QSsl::Rsa, QSsl::Der);
+    const QString caPath = m_caFileEdit->text().trimmed();
+    if (!caPath.isEmpty()) {
+        if (!readFile(caPath, tr("the CA certificate file"), &caData)) {
+            return false;
+        }
     }
 
-    if (key.isNull()) {
-        m_logText->append(tr("✗ ERROR: Cannot parse private key"));
-        QMessageBox::critical(this, tr("Error"),
-            tr("Cannot parse private key file. Make sure it's a valid PEM or DER key."));
-        return false;
-    }
-
-    m_logText->append(tr("✓ Private key loaded"));
-
-    // Use OpenSSL to create PKCS#12
+    // Writes the file owner-only and reads it back with the password before
+    // it reports success
     m_logText->append(tr("Creating PFX (PKCS#12) file..."));
-
-    // For now, show that the conversion would happen
-    // Full OpenSSL PKCS#12 implementation would go here
-    m_logText->append(tr("⚠ Note: Full PFX conversion requires OpenSSL PKCS#12 API"));
-    m_logText->append(tr("  The certificate and key files are valid and can be loaded"));
-
-    // TODO: Implement actual PKCS#12 creation using OpenSSL
-    // This would require linking against OpenSSL and using:
-    // - PKCS12_create()
-    // - d2i_PKCS12_bio() / i2d_PKCS12_bio()
-
-    m_logText->append(tr("✓ Files validated successfully"));
-    m_logText->append(tr("  Certificate: %1").arg(m_certFileEdit->text()));
-    m_logText->append(tr("  Private Key: %1").arg(m_keyFileEdit->text()));
-
-    // For now, return success with validation
-    // Full implementation would write actual PFX file
+    QString error;
+    if (!BPki::convertToPkcs12(certData, keyData, caData, m_outputFileEdit->text(),
+                               m_passwordEdit->text().toUtf8(), &error)) {
+        m_logText->append(tr("✗ ERROR: %1").arg(error));
+        QMessageBox::critical(this, tr("Error"),
+            tr("The PFX file was not created.\n\n%1").arg(error));
+        return false;
+    }
     return true;
 }

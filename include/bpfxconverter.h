@@ -30,7 +30,8 @@ class BPFXConverter : public QDialog
 public:
     explicit BPFXConverter(QWidget *parent = nullptr);
 
-    QString getPFXFilePath() const { return m_pfxFilePath; }
+    QString getPFXFilePath() const { return m_pfxFilePath; }   ///< set only after the file was written
+    QString pfxPassword() const { return m_pfxFilePath.isEmpty() ? QString() : m_passwordEdit->text(); }
 
 private slots:
     void onBrowseCertificate();
