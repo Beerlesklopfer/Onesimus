@@ -533,7 +533,9 @@ cmd_appimage() {
         run linuxdeploy-x86_64.AppImage --appdir "$appdir" --plugin qt \
             --executable "${appdir}/usr/bin/onesimus" \
             --desktop-file "${appdir}/usr/share/applications/onesimus.desktop" \
-            --icon-file "${appdir}/usr/share/icons/hicolor/scalable/apps/onesimus.svg" --output appimage
+            --icon-file "${appdir}/usr/share/icons/hicolor/scalable/apps/onesimus.svg"
+        run scripts/ci/appimage-notices.sh "$appdir"
+        run linuxdeploy-x86_64.AppImage --appdir "$appdir" --output appimage
         return 0
     fi
     # Only the platform plugins this Qt has: linuxdeploy aborts on a missing
@@ -547,18 +549,30 @@ cmd_appimage() {
             warn "platform plugin ${p} not found in ${plugdir}: not bundled"
         fi
     done
+    # Two passes: the first bundles Qt and the libraries (and copies their
+    # Debian copyright files to usr/share/doc/<package>/), then the licence
+    # texts those files refer to and the list of bundled packages are added,
+    # the second pass writes the AppImage.
     ( cd "$out" && \
       env ARCH=x86_64 QMAKE="$qmake" APPIMAGE_EXTRACT_AND_RUN=1 \
           EXTRA_PLATFORM_PLUGINS="$extra" \
-          LINUXDEPLOY_OUTPUT_VERSION="$version" \
           PATH="${APPIMAGE_TOOLS}:${PATH}" \
       "${APPIMAGE_TOOLS}/linuxdeploy-x86_64.AppImage" \
           --appdir "$appdir" \
           --plugin qt \
           --executable "${appdir}/usr/bin/onesimus" \
           --desktop-file "${appdir}/usr/share/applications/onesimus.desktop" \
-          --icon-file "${appdir}/usr/share/icons/hicolor/scalable/apps/onesimus.svg" \
-          --output appimage ) || die "linuxdeploy failed"
+          --icon-file "${appdir}/usr/share/icons/hicolor/scalable/apps/onesimus.svg" ) \
+        || die "linuxdeploy failed"
+    "${SCRIPT_DIR}/scripts/ci/appimage-notices.sh" "$appdir" || die "appimage-notices.sh failed"
+    "${SCRIPT_DIR}/scripts/ci/check-notices.sh" "$appdir" || die "AppDir without third-party notices"
+    ( cd "$out" && \
+      env ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 \
+          LINUXDEPLOY_OUTPUT_VERSION="$version" \
+          PATH="${APPIMAGE_TOOLS}:${PATH}" \
+      "${APPIMAGE_TOOLS}/linuxdeploy-x86_64.AppImage" \
+          --appdir "$appdir" \
+          --output appimage ) || die "linuxdeploy (AppImage output) failed"
     local img; img="$(ls -1t "$out"/*.AppImage 2>/dev/null | head -1)"
     [ -f "$img" ] || die "no AppImage in ${out}"
     ok "AppImage: ${img} ($(du -h "$img" | cut -f1))"

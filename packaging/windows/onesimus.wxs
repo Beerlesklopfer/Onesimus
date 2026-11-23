@@ -112,7 +112,8 @@
   </Package>
 
   <!-- GUI: onesimus.exe with the start menu shortcut, plus everything
-       windeployqt put next to it (Qt DLLs, plugins, OpenSSL, VC runtime). -->
+       windeployqt put next to it (Qt DLLs, plugins, OpenSSL, VC runtime) and
+       the third-party notices (THIRD-PARTY-NOTICES.md, LICENSE, LICENSES\). -->
   <Fragment>
     <ComponentGroup Id="GuiFiles" Directory="INSTALLFOLDER">
       <Component Id="OnesimusExeComponent">

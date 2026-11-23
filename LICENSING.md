@@ -15,6 +15,17 @@ Every source and script file states its licence in an SPDX header.
 
 Because the program contains both, the program as a whole is distributed under AGPL-3.0 (version 3).
 
+## Third-party components
+
+The binary packages contain or link third-party components: Qt (LGPL-3.0-only), Qt gRPC
+(GPL-3.0-only), OpenSSL (Apache-2.0), icons from Feather (MIT) and, in the AppImage, the Debian
+libraries that linuxdeploy bundles. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists them per
+package with copyright, licence, upstream and where to get their source code; the licence texts are
+in [LICENSES/](LICENSES/). Every package ships both (`.deb`: `/usr/share/doc/onesimus/`, AppImage:
+`usr/share/doc/onesimus/`, Windows: next to `onesimus.exe`, macOS:
+`Onesimus.app/Contents/Resources/`), and the program shows them under *Help → About Onesimus →
+Third-party licences*.
+
 ## Bareos-related files
 
 The list is deliberately cautious: a file is listed when it ports Bareos code or reproduces Bareos

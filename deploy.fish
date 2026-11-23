@@ -523,18 +523,33 @@ function cmd_appimage
     set -l ld_args --appdir $appdir --plugin qt \
         --executable $appdir/usr/bin/onesimus \
         --desktop-file $appdir/usr/share/applications/onesimus.desktop \
-        --icon-file $appdir/usr/share/icons/hicolor/scalable/apps/onesimus.svg --output appimage
+        --icon-file $appdir/usr/share/icons/hicolor/scalable/apps/onesimus.svg
     if test "$DRY_RUN" = 1
         run linuxdeploy-x86_64.AppImage $ld_args
+        run $SCRIPT_DIR/scripts/ci/appimage-notices.sh $appdir
+        run linuxdeploy-x86_64.AppImage --appdir $appdir --output appimage
         return 0
     end
+    # Two passes as in deploy.sh: bundle, add the notices of the bundled
+    # libraries (scripts/ci/appimage-notices.sh), then write the AppImage.
     pushd $out
     env ARCH=x86_64 QMAKE=$qmake APPIMAGE_EXTRACT_AND_RUN=1 \
         EXTRA_PLATFORM_PLUGINS="libqwayland-egl.so;libqwayland-generic.so;libqoffscreen.so" \
-        LINUXDEPLOY_OUTPUT_VERSION=$version \
         PATH="$APPIMAGE_TOOLS:$PATH" \
         $APPIMAGE_TOOLS/linuxdeploy-x86_64.AppImage $ld_args
     set -l rc $status
+    if test $rc -eq 0
+        $SCRIPT_DIR/scripts/ci/appimage-notices.sh $appdir
+        and $SCRIPT_DIR/scripts/ci/check-notices.sh $appdir
+        set rc $status
+    end
+    if test $rc -eq 0
+        env ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 \
+            LINUXDEPLOY_OUTPUT_VERSION=$version \
+            PATH="$APPIMAGE_TOOLS:$PATH" \
+            $APPIMAGE_TOOLS/linuxdeploy-x86_64.AppImage --appdir $appdir --output appimage
+        set rc $status
+    end
     popd
     test $rc -eq 0; or die "linuxdeploy failed"
     set -l img (ls -1t $out/*.AppImage 2>/dev/null | head -1)
