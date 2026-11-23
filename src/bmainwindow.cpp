@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "bmainwindow.h"
+#include "bprofiletls.h"
 #include "buiscale.h"
 #include "btranslations.h"
 #include "director/baclmatrixdialog.h"
@@ -239,8 +240,8 @@ BMainWindow::BMainWindow(QWidget *parent)
 #ifdef IS_DEVELOPER
         BLOG_DEBUG() << "MainWindow: All resources loaded - models populated via typed signals";
 #endif
-        // Restore cursor - loading complete
-        QApplication::restoreOverrideCursor();
+        // Loading complete: the attempt is over
+        endConnectAttempt();
 
         // Resource dot-commands (filesets, storages, pools, levels, jobs, clients, schedule)
         // are already populated via typed signals from the state machine responses.
@@ -1741,58 +1742,28 @@ void BMainWindow::showConnectionDialog()
         settings.setLastUsedProfileId(profileId);
         settings.sync();
 
-        // Configure TLS
-        m_director->tlsConfig()->tlsEnable = profile.tlsEnabled;
-        m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
-        m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
-        m_director->tlsConfig()->tlsCipherList = profile.tlsCipherList;
-        m_director->tlsConfig()->tlsAllowedCn = profile.tlsAllowedCn;
-        // Every platform: the CA of the profile is what certificate TLS trusts
-        m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
-
-#ifndef Q_OS_WINDOWS
-        if (!profile.tlsCertFile.isEmpty()) {
-            m_director->tlsConfig()->tlsCertFile->setFileName(profile.tlsCertFile);
-        }
-        if (!profile.tlsKeyFile.isEmpty()) {
-            m_director->tlsConfig()->tlsKeyFile->setFileName(profile.tlsKeyFile);
-        }
-#else
-        if (!profile.tlsPfxFile.isEmpty()) {
-            m_director->tlsConfig()->tlsPfxFile->setFileName(profile.tlsPfxFile);
-        }
-        m_director->tlsConfig()->tlsPfxPassword = profile.tlsPfxPassword;
-#endif
-
-        // Connect using profile data
-        applyProfileTransport(profile);
-        onDirectorConnect(profile.host,
-                          profile.port,
-                          profile.directorName,
-                          profile.consoleName,
-                          profile.getPasswordHashHex());
-
-        m_statusLabel->setText(tr("Connecting to %1...").arg(profile.name));
-
-        // Show wait cursor until all resources are loaded
-        QApplication::setOverrideCursor(Qt::WaitCursor);
+        connectWithProfile(profile, false);
     }
 }
 void BMainWindow::onDisconnectTriggered()
 {
-    // Restore cursor if still waiting
-    while (QApplication::overrideCursor()) {
-        QApplication::restoreOverrideCursor();
-    }
+    // During an attempt: cancels it. A login that completes anyway is
+    // closed again (onAuthentificationSucceeded()).
+    const bool cancelling = m_connecting;
+    if (cancelling)
+        m_connectCancelled = true;
+    endConnectAttempt();
 
     m_director->disconnect();
-    m_statusLabel->setText(tr("Disconnected"));
+    m_statusLabel->setText(cancelling ? tr("Connection attempt cancelled") : tr("Disconnected"));
+    if (!m_director->isConnected())
+        onAuthentificationSucceeded(false, tr("Not connected"));
 }
 
 void BMainWindow::onToggleConnectionTriggered()
 {
-    if (m_director->isConnected()) {
-        // Currently connected, so disconnect
+    if (m_director->isConnected() || m_connecting) {
+        // Connected or connecting: disconnect (cancels an attempt)
         onDisconnectTriggered();
     } else {
         // Currently disconnected, so show connection dialog
@@ -2414,6 +2385,16 @@ void BMainWindow::onSettingsTriggered()
 
 void BMainWindow::onAuthentificationSucceeded(const bool connected, const QString msg)
 {
+    // A login that completes after Disconnect cancelled its attempt
+    if (connected && m_connectCancelled) {
+        m_connectCancelled = false;
+        m_director->disconnect();
+        onAuthentificationSucceeded(false, tr("Not connected"));
+        return;
+    }
+    if (!connected)
+        endConnectAttempt();
+
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "####################################";
 #endif
@@ -2578,8 +2559,8 @@ void BMainWindow::onAuthentificationSucceeded(const bool connected, const QStrin
 
 void BMainWindow::onConnectionError(const QString &error)
 {
-    // Restore cursor on error
-    QApplication::restoreOverrideCursor();
+    // The attempt (or the connection) is over
+    endConnectAttempt();
 
     m_statusLabel->setText(tr("Error: ") + error);
 
@@ -2640,15 +2621,22 @@ void BMainWindow::onRefreshAll()
 
 void BMainWindow::onConnectLastUsed()
 {
+    // Reconnect connects, whether auto-connect at start is on or not
     BConnectionProfile profile = BSettings::instance().lastUsedProfile();
-    if (!profile.isValid()) {
+    if (profile.id.isEmpty()) {
         QMessageBox::information(this, tr("No Saved Connection"),
             tr("No previous connection found. Please use 'Connect' to establish a new connection."));
         return;
     }
-
-    m_statusLabel->setText(tr("Connecting to %1...").arg(profile.name));
-    loadAndConnectLastUsed();
+    if (!profile.isValid()) {
+        QMessageBox::information(this, tr("Reconnect"),
+            tr("The connection profile \"%1\" has no saved password or is incomplete. "
+               "Complete it in Settings, then connect again.").arg(profile.name));
+        return;
+    }
+    if (m_director->isConnected() || m_connecting)
+        onDisconnectTriggered();
+    connectWithProfile(profile, false);
 }
 
 void BMainWindow::requestClientBackups()
@@ -2782,66 +2770,50 @@ void BMainWindow::loadAndConnectLastUsed()
 
     // Migrate old settings if needed
     settings.migrateOldConnectionSettings();
+    m_connectLastAction->setEnabled(!settings.lastUsedProfileId().isEmpty());
 
-    // Check if auto-connect is enabled
-    if (!settings.connectionAutoConnect()) {
-        m_connectLastAction->setEnabled(!settings.lastUsedProfileId().isEmpty());
+    // Only at start, and only when auto-connect is on (Reconnect does not
+    // come here: onConnectLastUsed())
+    if (!settings.connectionAutoConnect())
         return;
-    }
 
-    // Get last used profile
     BConnectionProfile profile = settings.lastUsedProfile();
-
     if (!profile.isValid()) {
 #ifdef IS_DEVELOPER
         BLOG_DEBUG() << "No valid last-used profile - skipping auto-connect"
                  << "(id:" << profile.id << ", host:" << profile.host
                  << ", hasPasswordHash:" << profile.hasValidPasswordHash() << ")";
 #endif
-        m_connectLastAction->setEnabled(!settings.lastUsedProfileId().isEmpty());
         return;
     }
 
-    // Configure TLS
-    m_director->tlsConfig()->tlsEnable = profile.tlsEnabled;
-    m_director->tlsConfig()->tlsRequire = profile.tlsEnabled;
-    m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
-    m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
-    m_director->tlsConfig()->tlsCipherList = profile.tlsCipherList;
-    m_director->tlsConfig()->tlsAllowedCn = profile.tlsAllowedCn;
-    // Every platform: the CA of the profile is what certificate TLS trusts
-    m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
+    connectWithProfile(profile, true);
+}
 
-#ifndef Q_OS_WINDOWS
-    if (!profile.tlsCertFile.isEmpty()) {
-        m_director->tlsConfig()->tlsCertFile->setFileName(profile.tlsCertFile);
-    }
-    if (!profile.tlsKeyFile.isEmpty()) {
-        m_director->tlsConfig()->tlsKeyFile->setFileName(profile.tlsKeyFile);
-    }
-#else
-    if (!profile.tlsPfxFile.isEmpty()) {
-        m_director->tlsConfig()->tlsPfxFile->setFileName(profile.tlsPfxFile);
-    }
-    m_director->tlsConfig()->tlsPfxPassword = profile.tlsPfxPassword;
-#endif
-
-#ifdef IS_DEVELOPER
-    BLOG_DEBUG() << "Auto-connecting to last used profile:" << profile.name
-             << "(" << profile.host << ":" << profile.port << ")";
-#endif
-
-    m_director->setTLSConfig(*m_director->tlsConfig());
+void BMainWindow::connectWithProfile(const BConnectionProfile &profile, bool automatic)
+{
+    // A fresh TLS configuration: nothing of the previous profile survives
+    m_director->setTLSConfig(bTlsConfigFromProfile(profile));
     applyProfileTransport(profile);
+
+    m_connecting = true;
+    m_connectCancelled = false;
     onDirectorConnect(profile.host, profile.port, profile.directorName,
                       profile.consoleName, profile.getPasswordHashHex());
-    m_statusLabel->setText(tr("Auto-connecting to %1...").arg(profile.name));
+    m_statusLabel->setText(automatic ? tr("Auto-connecting to %1...").arg(profile.name)
+                                     : tr("Connecting to %1...").arg(profile.name));
 
-    // Show wait cursor until all resources are loaded
-    QApplication::setOverrideCursor(Qt::WaitCursor);
-
-    // Update "Reconnect" button status
+    // Until the resources are loaded or the attempt fails; Disconnect cancels
+    m_waitCursor.show();
+    m_disconnectAction->setEnabled(true);
+    m_toggleConnectionAction->setToolTip(tr("Cancel the connection attempt"));
     m_connectLastAction->setEnabled(true);
+}
+
+void BMainWindow::endConnectAttempt()
+{
+    m_connecting = false;
+    m_waitCursor.hide();
 }
 
 void BMainWindow::showSecretStorageWarning(const QString &warning)
@@ -2867,13 +2839,13 @@ void BMainWindow::onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
                                               const QString &fingerprint,
                                               const QString &pinnedFingerprint)
 {
-    while (QApplication::overrideCursor()) {
-        QApplication::restoreOverrideCursor();
-    }
+    m_waitCursor.hide();
 
     if (!BConnectionWizard::confirmGrpcCertificate(this, host, grpcPort, fingerprint,
                                                    pinnedFingerprint)) {
+        endConnectAttempt();
         m_statusLabel->setText(tr("Connection cancelled: server certificate not trusted"));
+        onAuthentificationSucceeded(false, tr("Not connected"));
         return;
     }
 
@@ -2893,7 +2865,8 @@ void BMainWindow::onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
     onDirectorConnect(m_lastConnectHost, m_lastConnectPort, m_lastConnectDirector,
                       m_lastConnectConsole, m_lastConnectPassword);
     m_statusLabel->setText(tr("Connecting to %1...").arg(host));
-    QApplication::setOverrideCursor(Qt::WaitCursor);
+    m_connecting = true;
+    m_waitCursor.show();
 }
 
 BDirector *BMainWindow::director() const
@@ -3126,42 +3099,7 @@ void BMainWindow::onConnectionWizard()
 
         // Connect now if requested (use wizardData for reliable value)
         if (wizardData->connectNow) {
-            // Configure TLS
-            BDirector::TLSConfig tlsConfig;
-            if (profile.legacyAuth) {
-                tlsConfig.tlsEnable = false;
-                tlsConfig.tlsRequire = false;
-                tlsConfig.tlsPSKEnable = false;
-            } else if (profile.tlsUsePSK) {
-                tlsConfig.tlsEnable = true;
-                tlsConfig.tlsRequire = true;
-                tlsConfig.tlsPSKEnable = true;
-                tlsConfig.tlsVerifyPeer = false;
-            } else {
-                tlsConfig.tlsEnable = true;
-                tlsConfig.tlsRequire = true;
-                tlsConfig.tlsPSKEnable = false;
-                tlsConfig.tlsVerifyPeer = profile.tlsVerifyPeer;
-                if (!profile.tlsCaCertFile.isEmpty())
-                    tlsConfig.tlsCaCertFile = QSharedPointer<QFile>(new QFile(profile.tlsCaCertFile));
-#ifdef Q_OS_WINDOWS
-                if (!profile.tlsPfxFile.isEmpty())
-                    tlsConfig.tlsPfxFile = QSharedPointer<QFile>(new QFile(profile.tlsPfxFile));
-                if (!profile.tlsPfxPassword.isEmpty())
-                    tlsConfig.tlsPfxPassword = profile.tlsPfxPassword;
-#else
-                if (!profile.tlsCertFile.isEmpty())
-                    tlsConfig.tlsCertFile = QSharedPointer<QFile>(new QFile(profile.tlsCertFile));
-                if (!profile.tlsKeyFile.isEmpty())
-                    tlsConfig.tlsKeyFile = QSharedPointer<QFile>(new QFile(profile.tlsKeyFile));
-#endif
-            }
-            m_director->setTLSConfig(tlsConfig);
-
-            // Connect
-            applyProfileTransport(profile);
-            onDirectorConnect(profile.host, profile.port, profile.directorName,
-                              profile.consoleName, profile.getPasswordHashHex());
+            connectWithProfile(profile, false);
         }
     }
 

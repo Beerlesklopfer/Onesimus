@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include "blogging.h"
 #include "director/bdirector.h"
+#include "bwaitcursor.h"
 
 struct BConnectionProfile;
 
@@ -130,7 +131,13 @@ private:
     void offerLanguageRestart();
     void createToolBar();
     void showConnectionDialog();
+    /// At start: connects to the last used profile if auto-connect is on
     void loadAndConnectLastUsed();
+    /// Connects with a profile: TLS (bTlsConfigFromProfile()), transport,
+    /// status text, wait cursor; Disconnect cancels the attempt
+    void connectWithProfile(const BConnectionProfile &profile, bool automatic);
+    /// The connection attempt ended (ready, failed, cancelled)
+    void endConnectAttempt();
     /// Secrets the keychain did not take: warns once per start
     void showSecretStorageWarning(const QString &warning);
 
@@ -156,6 +163,9 @@ private:
     QString m_lastConnectDirector;
     QString m_lastConnectConsole;
     QString m_lastConnectPassword;
+    BWaitCursor m_waitCursor;           ///< Shown from connect until the resources are loaded
+    bool m_connecting = false;          ///< A connection attempt is running
+    bool m_connectCancelled = false;    ///< Disconnect was pressed during the attempt
     bool m_secretWarningShown = false;
 
     // Widgets

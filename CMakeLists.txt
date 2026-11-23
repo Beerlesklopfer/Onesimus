@@ -2108,6 +2108,29 @@ if(BUILD_TESTING)
             ENVIRONMENT "ONESIMUS_BINARY=$<TARGET_FILE:onesimus>")
     endif()
 
+    # bconnecthelpers_test - main window connection handling: a profile to
+    # its TLS configuration in one place (nothing of the previous profile
+    # survives), and a wait cursor that stays balanced
+    add_executable(bconnecthelpers_test
+        test/bconnecthelpers_test.cpp
+        include/bprofiletls.h
+        include/bwaitcursor.h
+    )
+    target_include_directories(bconnecthelpers_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(bconnecthelpers_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+    add_test(NAME bconnecthelpers_test COMMAND bconnecthelpers_test)
+    set_tests_properties(bconnecthelpers_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # bdirectorqueue_test - command queue of BareosDirector without a connection
     add_executable(bdirectorqueue_test
         test/bdirectorqueue_test.cpp
