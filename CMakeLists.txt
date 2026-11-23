@@ -908,11 +908,50 @@ else()
     target_compile_definitions(onesimus_secretstore PRIVATE ONESIMUS_NO_KEYCHAIN)
 endif()
 
-add_executable(${PROJECT_NAME}
-    ${SOURCES}
-    ${HEADERS}
+# ============================================================================
+# onesimus_core: the application without main()
+# ============================================================================
+# A static library, compiled once and linked by the program and by the tests
+# that need the whole application (bdialogfonts_test, bappwidgets_test);
+# before, those compiled every source again. The Director layer comes from
+# bareosdirector_lib (object library, also linked by many tests) and
+# BareosAuth from bareosauth_lib, so neither is compiled twice either.
+# The theme resources are an object library (onesimus_resources): in a
+# static library nothing references their initialiser and the linker would
+# drop them.
+set(ONESIMUS_DIRECTOR_LIB_SOURCES
+    src/director/bareosdirector.cpp
+    src/director/bjsonstreamreader.cpp
+    src/director/bjsonreassembler.cpp
+)
+set(ONESIMUS_CORE_SOURCES ${SOURCES})
+list(REMOVE_ITEM ONESIMUS_CORE_SOURCES src/main.cpp ${THEME_RESOURCES} ${WIN_RC_FILE}
+     ${ONESIMUS_DIRECTOR_LIB_SOURCES})
+# Their headers as well: AUTOMOC would run moc on them a second time
+set(ONESIMUS_CORE_HEADERS ${HEADERS})
+list(REMOVE_ITEM ONESIMUS_CORE_HEADERS
+    include/director/bareosauth.h
+    include/director/bareosdirector.h
+    include/director/bjsonstreamreader.h
+    include/director/bjsonreassembler.h
+)
+add_library(onesimus_core STATIC
+    ${ONESIMUS_CORE_SOURCES}
+    ${ONESIMUS_CORE_HEADERS}
     ${UI_FILES}
 )
+add_dependencies(onesimus_core onesimus_buildinfo)
+
+add_library(onesimus_resources OBJECT ${THEME_RESOURCES})
+target_link_libraries(onesimus_resources PRIVATE Qt6::Core)
+
+add_executable(${PROJECT_NAME}
+    src/main.cpp
+)
+if(WIN32)
+    target_sources(${PROJECT_NAME} PRIVATE ${WIN_RC_FILE})
+endif()
+target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_core onesimus_resources)
 
 qt_add_resources(${PROJECT_NAME} onesimus_legal
     PREFIX "/legal"
@@ -952,8 +991,6 @@ if(APPLE)
     )
 endif()
 
-add_dependencies(${PROJECT_NAME} onesimus_buildinfo)
-
 # Hide console window on Windows (GUI application)
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -966,8 +1003,9 @@ endif()
 # Link Libraries
 # ============================================================================
 
-# Qt6 Libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
+# Qt6 Libraries (PUBLIC: the program and the tests linking onesimus_core
+# get them as well)
+target_link_libraries(onesimus_core PUBLIC
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
@@ -975,6 +1013,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Sql
     onesimus_secretstore
     bareosauth_lib
+    bareosdirector_lib
 )
 
 # gRPC clients, generated from the proto submodule:
@@ -1019,38 +1058,27 @@ if(HAVE_GRPC)
     # include them, so ONESIMUS_WARNINGS does not report qtprotobufgen's
     # code (CMake >= 3.25; older versions ignore the property)
     set_target_properties(onesimus_grpc_proto PROPERTIES SYSTEM TRUE)
-    target_sources(${PROJECT_NAME} PRIVATE
-        src/director/bgrpctransport.cpp
-        src/director/bjobhistoryproto.cpp
-        include/director/bjobhistoryproto.h
-        include/director/bgrpctransport.h
-        src/director/bgrpcconnect.cpp
-        include/director/bgrpcconnect.h
-        src/director/bconfigproto.cpp
-        include/director/bconfigproto.h
-        src/director/busageproto.cpp
-        include/director/busageproto.h
-    )
-    target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_grpc_proto)
+    # The gRPC transport sources are compiled in bareosdirector_lib
+    target_link_libraries(onesimus_core PUBLIC onesimus_grpc_proto)
 endif()
 
 # GuiPrivate for QZipWriter/QZipReader
 if(WIN32 AND TARGET Qt6::GuiPrivate)
-    target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::GuiPrivate)
+    target_link_libraries(onesimus_core PRIVATE Qt6::GuiPrivate)
 else()
     # On Linux, Qt6GuiPrivate package may not exist; use private include dirs
-    target_include_directories(${PROJECT_NAME} PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
+    target_include_directories(onesimus_core PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
 endif()
 
 # OpenSSL Libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
+target_link_libraries(onesimus_core PUBLIC
     OpenSSL::SSL
     OpenSSL::Crypto
 )
 
 # Bei statischem OpenSSL: Hauptprojekt hängt von OpenSSL-Build ab
 if(USE_STATIC_OPENSSL)
-    add_dependencies(${PROJECT_NAME} openssl_build)
+    add_dependencies(onesimus_core openssl_build)
 endif()
 
 # ============================================================================
@@ -3155,53 +3183,25 @@ if(BUILD_TESTING)
     # job details, settings, connection and restore dialogs at 100 % and
     # 200 %, a zoom change while they are open, per-class fonts of the
     # platform theme, and a theme style sheet with sizes of its own (widgets,
-    # no Director, no network). Built from the sources of the application.
-    set(BDIALOGFONTS_SOURCES ${SOURCES})
-    list(REMOVE_ITEM BDIALOGFONTS_SOURCES src/main.cpp)
+    # no Director, no network). Linked against onesimus_core.
     add_executable(bdialogfonts_test
         test/bdialogfonts_test.cpp
-        ${BDIALOGFONTS_SOURCES}
-        ${HEADERS}
-        ${UI_FILES}
-    )
-    if(HAVE_GRPC)
-        target_sources(bdialogfonts_test PRIVATE
-            src/director/bgrpctransport.cpp
-            src/director/bjobhistoryproto.cpp
-            include/director/bjobhistoryproto.h
-            include/director/bgrpctransport.h
-            src/director/bgrpcconnect.cpp
-            include/director/bgrpcconnect.h
-            src/director/bconfigproto.cpp
-            include/director/bconfigproto.h
-            src/director/busageproto.cpp
-            include/director/busageproto.h
-        )
-    endif()
-    target_include_directories(bdialogfonts_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
     )
     target_compile_definitions(bdialogfonts_test PRIVATE
         ONESIMUS_THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
     )
-    # The sources of the application are compiled a second time here; their
-    # known warnings (OpenSSL's MD5 in bareosauth.cpp) are counted once, for
-    # the application
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(bdialogfonts_test PRIVATE -Wno-deprecated-declarations)
-    endif()
     target_link_libraries(bdialogfonts_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
+        onesimus_core
+        onesimus_resources
         Qt6::Test
     )
-    add_dependencies(bdialogfonts_test onesimus_buildinfo)
     add_test(NAME bdialogfonts_test COMMAND bdialogfonts_test)
     # To keep pictures of the dialogs, run it with
     # ONESIMUS_DIALOG_SCREENSHOT_DIR set to a directory.
     set_tests_properties(bdialogfonts_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     # bappwidgets_test - widgets of the application on their real classes,
-    # built from its sources like bdialogfonts_test (no Director, scratch
+    # linked against onesimus_core like bdialogfonts_test (no Director, scratch
     # settings, a keychain in memory). Registered twice:
     #  bsettingsdialog_test: Cancel reverts, the edited row is relabelled,
     #    Reset keeps the profiles, export/import on the app's settings store
@@ -3209,35 +3209,12 @@ if(BUILD_TESTING)
     #    pages and keep their selection by name
     add_executable(bappwidgets_test
         test/bappwidgets_test.cpp
-        ${BDIALOGFONTS_SOURCES}
-        ${HEADERS}
-        ${UI_FILES}
     )
-    if(HAVE_GRPC)
-        target_sources(bappwidgets_test PRIVATE
-            src/director/bgrpctransport.cpp
-            src/director/bjobhistoryproto.cpp
-            include/director/bjobhistoryproto.h
-            include/director/bgrpctransport.h
-            src/director/bgrpcconnect.cpp
-            include/director/bgrpcconnect.h
-            src/director/bconfigproto.cpp
-            include/director/bconfigproto.h
-            src/director/busageproto.cpp
-            include/director/busageproto.h
-        )
-    endif()
-    target_include_directories(bappwidgets_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
-    )
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(bappwidgets_test PRIVATE -Wno-deprecated-declarations)
-    endif()
     target_link_libraries(bappwidgets_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
+        onesimus_core
+        onesimus_resources
         Qt6::Test
     )
-    add_dependencies(bappwidgets_test onesimus_buildinfo)
     add_test(NAME bsettingsdialog_test COMMAND bappwidgets_test
         cancelRevertsProfilesAndSettings saveWritesTheWorkingCopy editedRowIsRelabelled
         resetKeepsProfiles resetCanIncludeProfiles exportImportUsesTheAppStore)
