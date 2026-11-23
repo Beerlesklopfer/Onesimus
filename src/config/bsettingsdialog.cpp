@@ -103,11 +103,14 @@ void BSettingsDialog::setupUI()
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->setSpacing(10);
 
-    m_resetButton = new QPushButton(tr("Reset"), this);
+    m_resetButton = new QPushButton(tr("Reset..."), this);
+    m_resetButton->setToolTip(tr("Reset the settings to their defaults at once. "
+                                 "The connection profiles are kept unless you choose otherwise."));
     m_resetButton->setObjectName("resetButton");
     m_cancelButton = new QPushButton(tr("Cancel"), this);
     m_cancelButton->setObjectName("cancelButton");
-    m_applyButton = new QPushButton(tr("Apply"), this);
+    // Saves everything, the profiles included; nothing is written before
+    m_applyButton = new QPushButton(tr("Save"), this);
     m_applyButton->setObjectName("applyButton");
     m_applyButton->setDefault(true);
 
@@ -197,6 +200,7 @@ void BSettingsDialog::createConnectionPage()
 
     // Profile list
     m_profileList = new QListWidget();
+    m_profileList->setObjectName("profileList");
     BUiScale::track(m_profileList, [this]() { m_profileList->setMinimumHeight(BUiScale::px(120)); });
     BUiScale::track(m_profileList, [this]() { m_profileList->setMaximumHeight(BUiScale::px(180)); });
     m_profileList->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -205,9 +209,8 @@ void BSettingsDialog::createConnectionPage()
     // Profile buttons
     QHBoxLayout *profileButtonLayout = new QHBoxLayout();
     m_addProfileButton = new QPushButton(tr("+ Add"));
+    m_addProfileButton->setObjectName("addProfileButton");
     m_addProfileButton->setToolTip(tr("Add a new connection profile"));
-    m_editProfileButton = new QPushButton(tr("Edit"));
-    m_editProfileButton->setEnabled(false);
     m_duplicateProfileButton = new QPushButton(tr("Duplicate"));
     m_duplicateProfileButton->setEnabled(false);
     m_deleteProfileButton = new QPushButton(tr("Delete"));
@@ -215,7 +218,6 @@ void BSettingsDialog::createConnectionPage()
     m_deleteProfileButton->setEnabled(false);
 
     profileButtonLayout->addWidget(m_addProfileButton);
-    profileButtonLayout->addWidget(m_editProfileButton);
     profileButtonLayout->addWidget(m_duplicateProfileButton);
     profileButtonLayout->addStretch();
     profileButtonLayout->addWidget(m_deleteProfileButton);
@@ -227,7 +229,6 @@ void BSettingsDialog::createConnectionPage()
     connect(m_profileList, &QListWidget::currentRowChanged, this, &BSettingsDialog::onProfileSelectionChanged);
     connect(m_profileList, &QListWidget::itemDoubleClicked, this, &BSettingsDialog::onEditProfile);
     connect(m_addProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onAddProfile);
-    connect(m_editProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onEditProfile);
     connect(m_duplicateProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onDuplicateProfile);
     connect(m_deleteProfileButton, &QPushButton::clicked, this, &BSettingsDialog::onDeleteProfile);
 
@@ -246,6 +247,7 @@ void BSettingsDialog::createConnectionPage()
     nameLayout->setSpacing(12);
 
     m_profileNameEdit = new QLineEdit();
+    m_profileNameEdit->setObjectName("profileNameEdit");
     m_profileNameEdit->setPlaceholderText(tr("e.g. Production Server, Test Environment"));
     nameLayout->addRow(tr("Profile Name:"), m_profileNameEdit);
 
@@ -258,6 +260,7 @@ void BSettingsDialog::createConnectionPage()
     bconsoleLayout->setSpacing(12);
 
     m_hostEdit = new QLineEdit();
+    m_hostEdit->setObjectName("hostEdit");
     m_hostEdit->setPlaceholderText(tr("e.g. 192.168.1.100 or bareos-dir.local"));
     bconsoleLayout->addRow(tr("Host:"), m_hostEdit);
 
@@ -511,27 +514,10 @@ void BSettingsDialog::createConnectionPage()
     m_autoConnectCheck = new QCheckBox(tr("Auto-connect on startup"));
     optionsLayout->addWidget(m_autoConnectCheck);
 
-    QHBoxLayout *timeoutLayout = new QHBoxLayout();
-    QLabel *timeoutLabel = new QLabel(tr("Connection timeout:"));
-    m_connectionTimeoutSpin = new QSpinBox();
-    m_connectionTimeoutSpin->setRange(5, 120);
-    m_connectionTimeoutSpin->setValue(30);
-    m_connectionTimeoutSpin->setSuffix(tr(" seconds"));
-    timeoutLayout->addWidget(timeoutLabel);
-    timeoutLayout->addWidget(m_connectionTimeoutSpin);
-    timeoutLayout->addStretch();
-    optionsLayout->addLayout(timeoutLayout);
 
     detailsLayout->addWidget(optionsGroup);
 
     detailsLayout->addStretch();
-
-    // Save profile button - slim, full width at bottom
-    QPushButton *saveProfileBtn = new QPushButton(tr("Save Profile"));
-    saveProfileBtn->setObjectName("applyButton");
-    saveProfileBtn->setToolTip(tr("Save changes to this connection profile"));
-    connect(saveProfileBtn, &QPushButton::clicked, this, &BSettingsDialog::saveCurrentProfile);
-    detailsLayout->addWidget(saveProfileBtn);
 
     // Initially hide details until a profile is selected
     m_profileDetailsWidget->setVisible(false);
@@ -601,20 +587,6 @@ void BSettingsDialog::createAppearancePage()
     fontLayout->addRow(tr("Interface zoom:"), m_uiZoomSpin);
 
     layout->addWidget(fontGroup);
-
-    // UI Options
-    QGroupBox *uiGroup = new QGroupBox(tr("User Interface"));
-    uiGroup->setObjectName("settingsGroup");
-    QVBoxLayout *uiLayout = new QVBoxLayout(uiGroup);
-
-    m_animationsCheck = new QCheckBox(tr("Enable animations"));
-    m_animationsCheck->setChecked(true);
-    uiLayout->addWidget(m_animationsCheck);
-
-    m_compactModeCheck = new QCheckBox(tr("Compact mode"));
-    uiLayout->addWidget(m_compactModeCheck);
-
-    layout->addWidget(uiGroup);
 
     // Language Selection
     QGroupBox *languageGroup = new QGroupBox(tr("Language"));
@@ -748,6 +720,7 @@ void BSettingsDialog::createBehaviorPage()
     QVBoxLayout *confirmLayout = new QVBoxLayout(confirmGroup);
 
     m_confirmJobCancelCheck = new QCheckBox(tr("Confirm job cancellation"));
+    m_confirmJobCancelCheck->setObjectName("confirmJobCancelCheck");
     m_confirmJobCancelCheck->setChecked(true);
     confirmLayout->addWidget(m_confirmJobCancelCheck);
 
@@ -944,6 +917,7 @@ void BSettingsDialog::createAdvancedPage()
     miscGroup->setObjectName("settingsGroup");
     QVBoxLayout *miscLayout = new QVBoxLayout(miscGroup);
 
+    // Applied by the main window's tooltip filter at once after saving
     m_enableTooltipsCheck = new QCheckBox(tr("Show tooltips"));
     m_enableTooltipsCheck->setChecked(true);
     miscLayout->addWidget(m_enableTooltipsCheck);
@@ -1200,21 +1174,16 @@ void BSettingsDialog::loadSettings()
     // Migrate old settings if needed
     settings.migrateOldConnectionSettings();
 
-    // Load profiles into list
-    m_profileList->clear();
-    QList<BConnectionProfile> profiles = settings.connectionProfiles();
-    QString lastUsedId = settings.lastUsedProfileId();
-
-    for (const BConnectionProfile &profile : profiles) {
-        QListWidgetItem *item = new QListWidgetItem(profile.displayName());
-        item->setData(Qt::UserRole, profile.id);
-        m_profileList->addItem(item);
-
-        // Select the last used profile
-        if (profile.id == lastUsedId) {
-            m_profileList->setCurrentItem(item);
-        }
+    // Working copy of the profiles: written by saveSettings() only
+    m_currentProfileId.clear();
+    m_profiles = settings.connectionProfiles();
+    m_lastUsedProfileId = settings.lastUsedProfileId();
+    {
+        QSignalBlocker blocker(m_profileList);
+        m_profileList->clear();
     }
+    for (const BConnectionProfile &profile : std::as_const(m_profiles))
+        addProfileToList(profile, profile.id == m_lastUsedProfileId);
 
     // If no profile was selected, select the first one
     if (m_profileList->currentRow() < 0 && m_profileList->count() > 0) {
@@ -1224,55 +1193,28 @@ void BSettingsDialog::loadSettings()
     // Global connection options (not per-profile)
     m_savePasswordCheck->setChecked(settings.connectionSavePassword());
     m_autoConnectCheck->setChecked(settings.connectionAutoConnect());
-    m_connectionTimeoutSpin->setValue(settings.connectionTimeout());
 
     // Appearance
     m_uiZoomSpin->setValue(settings.appearanceUiZoom());
-    m_animationsCheck->setChecked(settings.appearanceAnimations());
-    m_compactModeCheck->setChecked(settings.appearanceCompactMode());
 
     // Language
     QString currentLangCode = settings.appearanceLanguage();
     int langIndex = m_languageCombo->findData(currentLangCode);
     m_languageCombo->setCurrentIndex(langIndex >= 0 ? langIndex : 0);
 
-    // Level Colors
-    QColor colorFull = settings.levelColor("F");
-    if (colorFull.isValid()) {
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorFull.name());
-        m_colorButtonFull->setStyleSheet(styleSheet);
-    }
-
-    QColor colorIncremental = settings.levelColor("I");
-    if (colorIncremental.isValid()) {
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorIncremental.name());
-        m_colorButtonIncremental->setStyleSheet(styleSheet);
-    }
-
-    QColor colorDifferential = settings.levelColor("D");
-    if (colorDifferential.isValid()) {
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorDifferential.name());
-        m_colorButtonDifferential->setStyleSheet(styleSheet);
-    }
-
-    QColor colorVirtualFull = settings.levelColor("V");
-    if (colorVirtualFull.isValid()) {
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorVirtualFull.name());
-        m_colorButtonVirtualFull->setStyleSheet(styleSheet);
-    }
-
-    // Status Bar Colors
-    QColor colorConnected = settings.statusBarConnectedColor();
-    if (colorConnected.isValid()) {
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorConnected.name());
-        m_colorButtonConnected->setStyleSheet(styleSheet);
-    }
-
-    QColor colorDisconnected = settings.statusBarDisconnectedColor();
-    if (colorDisconnected.isValid()) {
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(colorDisconnected.name());
-        m_colorButtonDisconnected->setStyleSheet(styleSheet);
-    }
+    // Level and status bar colours: working copies, shown on the buttons
+    m_levelColors.clear();
+    for (const QString &level : {QStringLiteral("F"), QStringLiteral("I"),
+                                 QStringLiteral("D"), QStringLiteral("V")})
+        m_levelColors.insert(level, settings.levelColor(level));
+    showColor(m_colorButtonFull, m_levelColors.value("F"));
+    showColor(m_colorButtonIncremental, m_levelColors.value("I"));
+    showColor(m_colorButtonDifferential, m_levelColors.value("D"));
+    showColor(m_colorButtonVirtualFull, m_levelColors.value("V"));
+    m_connectedColor = settings.statusBarConnectedColor();
+    m_disconnectedColor = settings.statusBarDisconnectedColor();
+    showColor(m_colorButtonConnected, m_connectedColor);
+    showColor(m_colorButtonDisconnected, m_disconnectedColor);
 
     // Behavior
     m_confirmJobCancelCheck->setChecked(settings.behaviorConfirmJobCancel());
@@ -1319,20 +1261,31 @@ void BSettingsDialog::saveSettings()
     // Connection Profiles
     // ========================================================================
 
-    // Save the currently edited profile (if any)
+    // The form of the current profile into the working copy, then all of
+    // them at once: additions, deletions and edits made in the dialog
     saveCurrentProfileSilent();
+    settings.setConnectionProfiles(m_profiles);
+    if (profileIndex(m_lastUsedProfileId) < 0)
+        m_lastUsedProfileId.clear();
+    if (settings.lastUsedProfileId() != m_lastUsedProfileId)
+        settings.setLastUsedProfileId(m_lastUsedProfileId);
 
     // Save global connection options
     settings.setConnectionSavePassword(m_savePasswordCheck->isChecked());
     settings.setConnectionAutoConnect(m_autoConnectCheck->isChecked());
-    settings.setConnectionTimeout(m_connectionTimeoutSpin->value());
 
     // Appearance
     // Applied at once; the main window stores the value
     settings.setAppearanceUiZoom(m_uiZoomSpin->value());
     BUiScale::instance().setZoomPercent(m_uiZoomSpin->value());
-    settings.setAppearanceAnimations(m_animationsCheck->isChecked());
-    settings.setAppearanceCompactMode(m_compactModeCheck->isChecked());
+    for (auto it = m_levelColors.constBegin(); it != m_levelColors.constEnd(); ++it) {
+        if (it.value().isValid() && it.value() != settings.levelColor(it.key()))
+            settings.setLevelColor(it.key(), it.value());
+    }
+    if (m_connectedColor.isValid() && m_connectedColor != settings.statusBarConnectedColor())
+        settings.setStatusBarConnectedColor(m_connectedColor);
+    if (m_disconnectedColor.isValid() && m_disconnectedColor != settings.statusBarDisconnectedColor())
+        settings.setStatusBarDisconnectedColor(m_disconnectedColor);
 
     // Language
     QString selectedLangCode = m_languageCombo->currentData().toString();
@@ -1371,6 +1324,7 @@ void BSettingsDialog::saveSettings()
     }
     if (m_maxLogSizeSpin) {
         settings.setAdvancedMaxLogSize(m_maxLogSizeSpin->value());
+        BLOG_SET_MAX_SIZE_MB(m_maxLogSizeSpin->value());
     }
 #endif
     settings.setAdvancedEnableTooltips(m_enableTooltipsCheck->isChecked());
@@ -1399,19 +1353,45 @@ void BSettingsDialog::onCancelClicked()
     reject();
 }
 
+void BSettingsDialog::reject()
+{
+    // The file logging checkbox switches the logger at once: back to the
+    // stored state. Everything else was only held by the dialog.
+#ifdef ONESIMUS_FILE_LOGGING
+    if (m_debugLoggingCheck)
+        BLOG_SET_ENABLED(BSettings::instance().advancedDebugLogging());
+#endif
+    QDialog::reject();
+}
+
 void BSettingsDialog::onResetToDefaultsClicked()
 {
-    int ret = QMessageBox::question(this, tr("Reset"),
-        tr("Do you really want to reset all settings to default values?\n"
-        "This action cannot be undone."),
-        QMessageBox::Yes | QMessageBox::No);
+    QMessageBox box(QMessageBox::Question, tr("Reset Settings"),
+                    tr("Reset all settings to their default values now?\n\n"
+                       "This takes effect at once, also if you then press Cancel, "
+                       "and cannot be undone."),
+                    QMessageBox::NoButton, this);
+    QCheckBox *profilesCheck = new QCheckBox(tr("Also delete all connection profiles"), &box);
+    box.setCheckBox(profilesCheck);
+    QPushButton *resetButton = box.addButton(tr("Reset"), QMessageBox::DestructiveRole);
+    box.addButton(QMessageBox::Cancel);
+    box.setDefaultButton(QMessageBox::Cancel);
+    box.exec();
+    if (box.clickedButton() != resetButton)
+        return;
 
-    if (ret == QMessageBox::Yes) {
-        BSettings::instance().resetToDefaults();
-        loadSettings();
-        QMessageBox::information(this, tr("Reset"),
-            tr("All settings have been reset to default values."));
-    }
+    const bool includeProfiles = profilesCheck->isChecked();
+    resetToDefaults(includeProfiles);
+    QMessageBox::information(this, tr("Reset Settings"),
+        includeProfiles ? tr("All settings and connection profiles have been reset.")
+                        : tr("All settings have been reset to their default values. "
+                             "The connection profiles were kept."));
+}
+
+void BSettingsDialog::resetToDefaults(bool includeProfiles)
+{
+    BSettings::instance().resetToDefaults(includeProfiles);
+    loadSettings();
 }
 
 void BSettingsDialog::onBrowseCACert()
@@ -1447,52 +1427,107 @@ void BSettingsDialog::onBrowseClientKey()
 
 void BSettingsDialog::onExportSettings()
 {
-    QString file = QFileDialog::getSaveFileName(this, tr("Export Settings"),
-        "bacula-settings.json", "JSON (*.json)");
-
-    if (!file.isEmpty()) {
-        QSettings settings;
-        QJsonObject json;
-
-        foreach (QString key, settings.allKeys()) {
-            json[key] = settings.value(key).toString();
-        }
-
-        QJsonDocument doc(json);
-        QFile outFile(file);
-        if (outFile.open(QIODevice::WriteOnly)) {
-            outFile.write(doc.toJson());
-            outFile.close();
-            QMessageBox::information(this, tr("Export"), tr("Settings exported successfully."));
-        }
+    saveCurrentProfileSilent();
+    if (m_profiles.isEmpty()) {
+        QMessageBox::information(this, tr("Export Profiles"),
+            tr("There are no connection profiles to export."));
+        return;
     }
+
+    const QString file = QFileDialog::getSaveFileName(this, tr("Export Profiles"),
+        QStringLiteral("onesimus-profiles.json"), tr("JSON (*.json)"));
+    if (file.isEmpty())
+        return;
+
+    const auto answer = QMessageBox::question(this, tr("Export Profiles"),
+        tr("Include the stored passwords in the file?\n\n"
+           "The file then holds the password hashes, and anyone who has it can log "
+           "in to the Directors with them. Without them, the passwords must be "
+           "entered again after the import."),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+
+    QString error;
+    if (!exportProfiles(file, answer == QMessageBox::Yes, &error)) {
+        QMessageBox::warning(this, tr("Export Profiles"), error);
+        return;
+    }
+    QMessageBox::information(this, tr("Export Profiles"),
+        tr("%n connection profile(s) exported.", nullptr, int(m_profiles.size())));
+}
+
+bool BSettingsDialog::exportProfiles(const QString &path, bool includeSecrets, QString *error)
+{
+    saveCurrentProfileSilent();
+    QFile out(path);
+    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (error)
+            *error = tr("Cannot write %1: %2").arg(path, out.errorString());
+        return false;
+    }
+    if (includeSecrets) {
+        // Secrets: readable by the owner only
+        out.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    }
+    const QByteArray data = BSettings::profilesExportJson(m_profiles, includeSecrets);
+    if (out.write(data) != data.size()) {
+        if (error)
+            *error = tr("Cannot write %1: %2").arg(path, out.errorString());
+        return false;
+    }
+    return true;
 }
 
 void BSettingsDialog::onImportSettings()
 {
-    QString file = QFileDialog::getOpenFileName(this, tr("Import Settings"),
-        QString(), "JSON (*.json)");
+    const QString file = QFileDialog::getOpenFileName(this, tr("Import Profiles"),
+        QString(), tr("JSON (*.json)"));
+    if (file.isEmpty())
+        return;
 
-    if (!file.isEmpty()) {
-        QFile inFile(file);
-        if (inFile.open(QIODevice::ReadOnly)) {
-            QJsonDocument doc = QJsonDocument::fromJson(inFile.readAll());
-            QJsonObject json = doc.object();
-
-            QSettings settings;
-            for (auto it = json.begin(); it != json.end(); ++it) {
-                settings.setValue(it.key(), it.value().toString());
-            }
-
-            loadSettings();
-            QMessageBox::information(this, tr("Import"), tr("Settings imported successfully."));
-        }
+    QString error;
+    const int count = importProfiles(file, &error);
+    if (count == 0) {
+        QMessageBox::warning(this, tr("Import Profiles"), error);
+        return;
     }
+    QMessageBox::information(this, tr("Import Profiles"),
+        tr("%n connection profile(s) imported. They are stored when you save the settings.",
+           nullptr, count));
+}
+
+int BSettingsDialog::importProfiles(const QString &path, QString *error)
+{
+    QFile in(path);
+    if (!in.open(QIODevice::ReadOnly)) {
+        if (error)
+            *error = tr("Cannot read %1: %2").arg(path, in.errorString());
+        return 0;
+    }
+    const QList<BConnectionProfile> imported = BSettings::profilesFromExportJson(in.readAll(), error);
+    if (imported.isEmpty())
+        return 0;
+
+    saveCurrentProfileSilent();
+    const int count = BSettings::mergeImportedProfiles(m_profiles, imported);
+
+    // The list again from the working copy, the selection kept
+    const QString selected = m_currentProfileId;
+    m_currentProfileId.clear();
+    {
+        QSignalBlocker blocker(m_profileList);
+        m_profileList->clear();
+    }
+    for (const BConnectionProfile &profile : std::as_const(m_profiles))
+        addProfileToList(profile, false);
+    const int row = profileRow(selected.isEmpty() ? imported.first().id : selected);
+    m_profileList->setCurrentRow(row >= 0 ? row : 0);
+    onProfileSelectionChanged();
+    return count;
 }
 
 void BSettingsDialog::onClearStoredConnections()
 {
-    int profileCount = BSettings::instance().connectionProfiles().count();
+    int profileCount = int(m_profiles.count());
     if (profileCount == 0) {
         QMessageBox::information(this, tr("No Profiles"),
             tr("There are no connection profiles to delete."));
@@ -1507,104 +1542,78 @@ void BSettingsDialog::onClearStoredConnections()
         QMessageBox::No);
 
     if (ret == QMessageBox::Yes) {
-        BSettings& settings = BSettings::instance();
-
-        // Clear all profiles
-        settings.setConnectionProfiles(QList<BConnectionProfile>());
-        settings.setLastUsedProfileId(QString());
-        settings.sync();
+        // Working copy: stored when the settings are saved
+        m_profiles.clear();
+        m_lastUsedProfileId.clear();
 
         // Clear the list
-        m_profileList->clear();
+        {
+            QSignalBlocker blocker(m_profileList);
+            m_profileList->clear();
+        }
         m_currentProfileId.clear();
         m_profileDetailsWidget->setVisible(false);
 
         QMessageBox::information(this, tr("Deleted"),
-            tr("All connection profiles have been deleted."));
+            tr("All connection profiles have been removed. They are deleted when you save the settings."));
+    }
+}
+
+void BSettingsDialog::showColor(QPushButton *button, const QColor &color)
+{
+    button->setStyleSheet(color.isValid()
+        ? QString("background-color: %1; border: 1px solid #888;").arg(color.name())
+        : QString());
+}
+
+void BSettingsDialog::chooseLevelColor(const QString &level, QPushButton *button, const QString &title)
+{
+    const QColor current = m_levelColors.value(level);
+    const QColor chosen = QColorDialog::getColor(current, this, title);
+    if (chosen.isValid() && chosen != current) {
+        // Stored with the other settings when they are saved
+        m_levelColors.insert(level, chosen);
+        showColor(button, chosen);
     }
 }
 
 void BSettingsDialog::onChooseColorFull()
 {
-    QColor currentColor = BSettings::instance().levelColor("F");
-    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Full Backup"));
-
-    if (newColor.isValid() && newColor != currentColor) {
-        BSettings::instance().setLevelColor("F", newColor);
-
-        // Update button color
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
-        m_colorButtonFull->setStyleSheet(styleSheet);
-    }
+    chooseLevelColor("F", m_colorButtonFull, tr("Choose Color for Full Backup"));
 }
 
 void BSettingsDialog::onChooseColorIncremental()
 {
-    QColor currentColor = BSettings::instance().levelColor("I");
-    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Incremental Backup"));
-
-    if (newColor.isValid() && newColor != currentColor) {
-        BSettings::instance().setLevelColor("I", newColor);
-
-        // Update button color
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
-        m_colorButtonIncremental->setStyleSheet(styleSheet);
-    }
+    chooseLevelColor("I", m_colorButtonIncremental, tr("Choose Color for Incremental Backup"));
 }
 
 void BSettingsDialog::onChooseColorDifferential()
 {
-    QColor currentColor = BSettings::instance().levelColor("D");
-    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Differential Backup"));
-
-    if (newColor.isValid() && newColor != currentColor) {
-        BSettings::instance().setLevelColor("D", newColor);
-
-        // Update button color
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
-        m_colorButtonDifferential->setStyleSheet(styleSheet);
-    }
+    chooseLevelColor("D", m_colorButtonDifferential, tr("Choose Color for Differential Backup"));
 }
 
 void BSettingsDialog::onChooseColorVirtualFull()
 {
-    QColor currentColor = BSettings::instance().levelColor("V");
-    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Virtual Full Backup"));
-
-    if (newColor.isValid() && newColor != currentColor) {
-        BSettings::instance().setLevelColor("V", newColor);
-
-        // Update button color
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
-        m_colorButtonVirtualFull->setStyleSheet(styleSheet);
-    }
+    chooseLevelColor("V", m_colorButtonVirtualFull, tr("Choose Color for Virtual Full Backup"));
 }
 
 void BSettingsDialog::onChooseColorConnected()
 {
-    QColor currentColor = BSettings::instance().statusBarConnectedColor();
-    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Connected Status"));
-
-    if (newColor.isValid() && newColor != currentColor) {
-        BSettings::instance().setStatusBarConnectedColor(newColor);
-
-        // Update button color
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
-        m_colorButtonConnected->setStyleSheet(styleSheet);
+    const QColor chosen = QColorDialog::getColor(m_connectedColor, this,
+                                                 tr("Choose Color for Connected Status"));
+    if (chosen.isValid() && chosen != m_connectedColor) {
+        m_connectedColor = chosen;
+        showColor(m_colorButtonConnected, chosen);
     }
 }
 
 void BSettingsDialog::onChooseColorDisconnected()
 {
-    QColor currentColor = BSettings::instance().statusBarDisconnectedColor();
-    QColor newColor = QColorDialog::getColor(currentColor, this, tr("Choose Color for Disconnected Status"));
-
-    if (newColor.isValid() && newColor != currentColor) {
-        BSettings::instance().setStatusBarDisconnectedColor(newColor);
-
-        // Update button color
-        QString styleSheet = QString("background-color: %1; border: 1px solid #888;").arg(newColor.name());
-        m_colorButtonDisconnected->setStyleSheet(styleSheet);
+    const QColor chosen = QColorDialog::getColor(m_disconnectedColor, this,
+                                                 tr("Choose Color for Disconnected Status"));
+    if (chosen.isValid() && chosen != m_disconnectedColor) {
+        m_disconnectedColor = chosen;
+        showColor(m_colorButtonDisconnected, chosen);
     }
 }
 
@@ -1623,7 +1632,6 @@ void BSettingsDialog::onProfileSelectionChanged()
     bool hasSelection = (currentRow >= 0);
 
     // Enable/disable buttons based on selection
-    m_editProfileButton->setEnabled(hasSelection);
     m_duplicateProfileButton->setEnabled(hasSelection);
     m_deleteProfileButton->setEnabled(hasSelection);
 
@@ -1635,7 +1643,8 @@ void BSettingsDialog::onProfileSelectionChanged()
         QListWidgetItem *item = m_profileList->currentItem();
         if (item) {
             QString profileId = item->data(Qt::UserRole).toString();
-            BConnectionProfile profile = BSettings::instance().connectionProfile(profileId);
+            const int index = profileIndex(profileId);
+            const BConnectionProfile profile = index >= 0 ? m_profiles.at(index) : BConnectionProfile();
 
             if (!profile.id.isEmpty()) {
                 m_currentProfileId = profileId;
@@ -1706,21 +1715,39 @@ void BSettingsDialog::onProfileSelectionChanged()
     }
 }
 
-void BSettingsDialog::onAddProfile()
+int BSettingsDialog::profileRow(const QString &profileId) const
 {
-    // Create a new profile with defaults
-    BConnectionProfile profile = BConnectionProfile::create(tr("New Connection"));
+    for (int row = 0; row < m_profileList->count(); ++row) {
+        if (m_profileList->item(row)->data(Qt::UserRole).toString() == profileId)
+            return row;
+    }
+    return -1;
+}
 
-    // Add to settings
-    BSettings::instance().addConnectionProfile(profile);
+int BSettingsDialog::profileIndex(const QString &profileId) const
+{
+    for (int i = 0; i < m_profiles.size(); ++i) {
+        if (m_profiles.at(i).id == profileId)
+            return i;
+    }
+    return -1;
+}
 
-    // Add to list
+void BSettingsDialog::addProfileToList(const BConnectionProfile &profile, bool select)
+{
     QListWidgetItem *item = new QListWidgetItem(profile.displayName());
     item->setData(Qt::UserRole, profile.id);
     m_profileList->addItem(item);
+    if (select)
+        m_profileList->setCurrentItem(item);
+}
 
-    // Select the new profile
-    m_profileList->setCurrentItem(item);
+void BSettingsDialog::onAddProfile()
+{
+    // Working copy: stored when the settings are saved
+    BConnectionProfile profile = BConnectionProfile::create(tr("New Connection"));
+    m_profiles.append(profile);
+    addProfileToList(profile, true);
 
     // Focus the name edit for immediate renaming
     m_profileNameEdit->setFocus();
@@ -1729,7 +1756,7 @@ void BSettingsDialog::onAddProfile()
 
 void BSettingsDialog::onEditProfile()
 {
-    // Just ensure the profile is selected and details are visible
+    // Double click: the details of the selected profile are shown already
     if (m_profileList->currentRow() >= 0) {
         m_profileDetailsWidget->setVisible(true);
         m_profileNameEdit->setFocus();
@@ -1749,61 +1776,47 @@ void BSettingsDialog::onDeleteProfile()
 
     int ret = QMessageBox::question(this, tr("Delete Profile"),
         tr("Do you really want to delete the connection profile \"%1\"?\n\n"
-           "This action cannot be undone.").arg(profileName),
+           "It is deleted when you save the settings.").arg(profileName),
         QMessageBox::Yes | QMessageBox::No,
         QMessageBox::No);
 
     if (ret == QMessageBox::Yes) {
-        // Remove from settings
-        BSettings::instance().removeConnectionProfile(profileId);
-
-        // Remove from list
-        delete m_profileList->takeItem(currentRow);
-
-        // Clear current profile ID
-        if (m_currentProfileId == profileId) {
+        // Forget the form first: the row that is selected next must not
+        // receive the deleted profile's fields
+        if (m_currentProfileId == profileId)
             m_currentProfileId.clear();
-        }
+        const int index = profileIndex(profileId);
+        if (index >= 0)
+            m_profiles.removeAt(index);
+        delete m_profileList->takeItem(currentRow);
     }
 }
 
 void BSettingsDialog::onDuplicateProfile()
 {
-    int currentRow = m_profileList->currentRow();
-    if (currentRow < 0) return;
-
     QListWidgetItem *item = m_profileList->currentItem();
     if (!item) return;
 
-    QString profileId = item->data(Qt::UserRole).toString();
-    BConnectionProfile original = BSettings::instance().connectionProfile(profileId);
-
-    if (!original.isValid()) return;
+    // The form first, so the copy has the edits not saved yet
+    saveCurrentProfileSilent();
+    const int index = profileIndex(item->data(Qt::UserRole).toString());
+    if (index < 0) return;
 
     // Create a copy with a new ID
-    BConnectionProfile copy = original;
+    BConnectionProfile copy = m_profiles.at(index);
     copy.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    copy.name = tr("%1 (Copy)").arg(original.name);
-
-    // Add to settings
-    BSettings::instance().addConnectionProfile(copy);
-
-    // Add to list
-    QListWidgetItem *newItem = new QListWidgetItem(copy.displayName());
-    newItem->setData(Qt::UserRole, copy.id);
-    m_profileList->addItem(newItem);
-
-    // Select the new profile
-    m_profileList->setCurrentItem(newItem);
+    copy.name = tr("%1 (Copy)").arg(m_profiles.at(index).name);
+    m_profiles.append(copy);
+    addProfileToList(copy, true);
 }
 
 void BSettingsDialog::saveCurrentProfileSilent()
 {
     if (m_currentProfileId.isEmpty()) return;
 
-    BConnectionProfile profile = BSettings::instance().connectionProfile(m_currentProfileId);
-    if (profile.id.isEmpty()) return;
-
+    const int index = profileIndex(m_currentProfileId);
+    if (index < 0) return;
+    BConnectionProfile profile = m_profiles.at(index);
     // Update from form fields
     profile.name = m_profileNameEdit->text().trimmed();
     if (profile.name.isEmpty()) {
@@ -1850,14 +1863,12 @@ void BSettingsDialog::saveCurrentProfileSilent()
     profile.grpcPort = m_grpcPortSpin->value();
     profile.grpcCertFingerprint = m_grpcCertFingerprint;
 
-    // Save to settings
-    BSettings::instance().updateConnectionProfile(profile);
-
-    // Update list item text
-    QListWidgetItem *item = m_profileList->currentItem();
-    if (item) {
-        item->setText(profile.displayName());
-    }
+    // Into the working copy; the row of this profile gets its name (the
+    // current row may already be the next profile when the selection moves)
+    m_profiles[index] = profile;
+    const int row = profileRow(profile.id);
+    if (row >= 0)
+        m_profileList->item(row)->setText(profile.displayName());
 }
 
 void BSettingsDialog::onTransportChanged()
@@ -1888,18 +1899,6 @@ void BSettingsDialog::updateGrpcFingerprintDisplay()
             BConnectionProfile::formatFingerprint(m_grpcCertFingerprint, true)));
         m_grpcFingerprintLabel->setToolTip(tr("SHA-256: %1").arg(
             BConnectionProfile::formatFingerprint(m_grpcCertFingerprint)));
-    }
-}
-
-void BSettingsDialog::saveCurrentProfile()
-{
-    saveCurrentProfileSilent();
-
-    if (!m_currentProfileId.isEmpty()) {
-        QString name = m_profileNameEdit->text().trimmed();
-        if (name.isEmpty()) name = tr("Unnamed Connection");
-        QMessageBox::information(this, tr("Profile Saved"),
-            tr("Connection profile \"%1\" has been saved.").arg(name));
     }
 }
 

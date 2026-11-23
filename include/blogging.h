@@ -83,6 +83,14 @@ public:
 
     bool isEnabled() const { return m_enabled; }
 
+    /// Size in MB at which the log is rotated (Settings > Advanced)
+    void setMaxSizeMB(int maxSizeMB)
+    {
+        QMutexLocker locker(&m_mutex);
+        if (maxSizeMB > 0)
+            m_maxSize = qint64(maxSizeMB) * 1024 * 1024;
+    }
+
     /**
      * @brief Log a message
      * @param level Log level (DEBUG, INFO, WARNING, ERROR)
@@ -195,6 +203,7 @@ private:
 #define BLOG_INIT(filePath, maxSizeMB) BFileLogger::instance().init(filePath, maxSizeMB)
 #define BLOG_CLOSE() BFileLogger::instance().close()
 #define BLOG_SET_ENABLED(enabled) BFileLogger::instance().setEnabled(enabled)
+#define BLOG_SET_MAX_SIZE_MB(maxSizeMB) BFileLogger::instance().setMaxSizeMB(maxSizeMB)
 
 #else // ONESIMUS_FILE_LOGGING not defined
 
@@ -214,6 +223,7 @@ public:
 #define BLOG_INIT(filePath, maxSizeMB) ((void)0)
 #define BLOG_CLOSE() ((void)0)
 #define BLOG_SET_ENABLED(enabled) ((void)0)
+#define BLOG_SET_MAX_SIZE_MB(maxSizeMB) ((void)0)
 
 #endif // ONESIMUS_FILE_LOGGING
 

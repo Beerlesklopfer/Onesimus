@@ -21,6 +21,9 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include "director/bdirector.h"
+#include "bconnectionprofile.h"
+#include <QColor>
+#include <QMap>
 
 namespace Ui {
 class BSettingsDialog;
@@ -50,7 +53,29 @@ public:
 
     // Einstellungen laden/speichern
     void loadSettings();
+    /// Writes everything the dialog shows, the profiles included. Nothing
+    /// is written before: Cancel leaves the stored settings as they were.
     void saveSettings();
+
+    /**
+     * @brief Resets the stored settings to their defaults and reloads the dialog
+     * @param includeProfiles false: the connection profiles are kept
+     */
+    void resetToDefaults(bool includeProfiles);
+
+    /// Writes the profiles of the dialog (with the edits not saved yet) to
+    /// @p path; secrets only with @p includeSecrets
+    bool exportProfiles(const QString &path, bool includeSecrets, QString *error = nullptr);
+
+    /// Reads profiles from @p path into the dialog; saved with the dialog.
+    /// @return Number of profiles read, 0 on error
+    int importProfiles(const QString &path, QString *error = nullptr);
+
+    /// The profiles as the dialog holds them (not saved yet)
+    QList<BConnectionProfile> workingProfiles() const { return m_profiles; }
+
+public slots:
+    void reject() override;
 
 signals:
     void settingsChanged();
@@ -73,7 +98,6 @@ private slots:
     void onEditProfile();
     void onDeleteProfile();
     void onDuplicateProfile();
-    void saveCurrentProfile();
     void onTransportChanged();          ///< BNET/gRPC: enables gRPC port, hides BNET TLS options
     void onForgetGrpcCertificate();     ///< Clears the pinned gRPC certificate fingerprint
     void onChooseColorFull();
@@ -97,7 +121,12 @@ private:
     void createBehaviorPage();
     void createAdvancedPage();
     void applyModernStyle();
-    void saveCurrentProfileSilent();  ///< Auto-save current profile without user notification
+    void saveCurrentProfileSilent();  ///< Takes the form into the working copy of the current profile
+    int profileRow(const QString &profileId) const;  ///< Row of a profile in the list, -1 if none
+    int profileIndex(const QString &profileId) const; ///< Index in m_profiles, -1 if none
+    void addProfileToList(const BConnectionProfile &profile, bool select);
+    void showColor(QPushButton *button, const QColor &color);
+    void chooseLevelColor(const QString &level, QPushButton *button, const QString &title);
     void updateGrpcFingerprintDisplay(); ///< Shows the pinned fingerprint (short, full as tooltip)
 
     Ui::BSettingsDialog *ui;
@@ -119,11 +148,16 @@ private:
     // Connection Profile Management
     QListWidget *m_profileList;
     QPushButton *m_addProfileButton;
-    QPushButton *m_editProfileButton;
     QPushButton *m_deleteProfileButton;
     QPushButton *m_duplicateProfileButton;
     QWidget *m_profileDetailsWidget;
     QString m_currentProfileId;
+    // Working copies: written by saveSettings() only, so Cancel reverts them
+    QList<BConnectionProfile> m_profiles;
+    QString m_lastUsedProfileId;
+    QMap<QString, QColor> m_levelColors;   ///< Level code ("F", "I", ...) -> colour
+    QColor m_connectedColor;
+    QColor m_disconnectedColor;
 
     // Verbindungseinstellungen (for current profile)
     QLineEdit *m_profileNameEdit;
@@ -136,7 +170,6 @@ private:
     QLabel *m_md5Label;
     QCheckBox *m_savePasswordCheck;
     QCheckBox *m_autoConnectCheck;
-    QSpinBox *m_connectionTimeoutSpin;
 
     // Protocol (BNET or gRPC with the Onesimus Director)
     QComboBox *m_transportCombo;
@@ -158,8 +191,6 @@ private:
 
     // Appearance-Einstellungen
     QSpinBox *m_uiZoomSpin;     ///< Interface zoom in percent
-    QCheckBox *m_animationsCheck;
-    QCheckBox *m_compactModeCheck;
     QComboBox *m_languageCombo;
 
     // Level Color Buttons

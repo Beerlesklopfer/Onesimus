@@ -3086,6 +3086,46 @@ if(BUILD_TESTING)
     # ONESIMUS_DIALOG_SCREENSHOT_DIR set to a directory.
     set_tests_properties(bdialogfonts_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+    # bappwidgets_test - widgets of the application on their real classes,
+    # built from its sources like bdialogfonts_test (no Director, scratch
+    # settings, a keychain in memory). Registered as:
+    #  bsettingsdialog_test: Cancel reverts, the edited row is relabelled,
+    #    Reset keeps the profiles, export/import on the app's settings store
+    add_executable(bappwidgets_test
+        test/bappwidgets_test.cpp
+        ${BDIALOGFONTS_SOURCES}
+        ${HEADERS}
+        ${UI_FILES}
+    )
+    if(HAVE_GRPC)
+        target_sources(bappwidgets_test PRIVATE
+            src/director/bgrpctransport.cpp
+            src/director/bjobhistoryproto.cpp
+            include/director/bjobhistoryproto.h
+            include/director/bgrpctransport.h
+            src/director/bgrpcconnect.cpp
+            include/director/bgrpcconnect.h
+            src/director/bconfigproto.cpp
+            include/director/bconfigproto.h
+            src/director/busageproto.cpp
+            include/director/busageproto.h
+        )
+    endif()
+    target_include_directories(bappwidgets_test PRIVATE
+        $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(bappwidgets_test PRIVATE -Wno-deprecated-declarations)
+    endif()
+    target_link_libraries(bappwidgets_test PRIVATE
+        $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
+        Qt6::Test
+    )
+    add_test(NAME bsettingsdialog_test COMMAND bappwidgets_test
+        cancelRevertsProfilesAndSettings saveWritesTheWorkingCopy editedRowIsRelabelled
+        resetKeepsProfiles resetCanIncludeProfiles exportImportUsesTheAppStore)
+    set_tests_properties(bsettingsdialog_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # bscheduletimeline_test - the schedule tab's timeline as a whole: a bar
     # that is dragged and dropped sends no command, asks the capability gate
     # and says so in the status line; schedules no job uses are left out of
