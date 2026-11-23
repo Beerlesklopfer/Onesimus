@@ -37,7 +37,6 @@ TEMPLATE_DEFINITIONS = {
                 "Options": {
                     "Signature": "MD5",
                     "Compression": "GZIP",
-                    "Accurate": True,
                     "IgnoreCase": True,
                 },
                 "File": [
@@ -45,9 +44,9 @@ TEMPLATE_DEFINITIONS = {
                     "D:/ExchangeDB",
                     "E:/ExchangeLogs",
                     "C:/Windows/System32/config"
-                ]
-            },
-            "Plugin": "exchange:"
+                ],
+                "Plugin": "exchange:"
+            }
         },
         "recommended_schedule": "Hourly Transaction Log, Daily Differential, Weekly Full",
         "estimated_size": "100 GB - 10 TB",
@@ -75,7 +74,6 @@ TEMPLATE_DEFINITIONS = {
                     "Signature": "MD5",
                     "Compression": "GZIP",
                     "OneFS": True,
-                    "Accurate": True,
                     "Exclude": {
                         "WildFile": ["*.log", "*.tmp"],
                         "WildDir": ["*/logs", "*/tmp", "*/cache"]

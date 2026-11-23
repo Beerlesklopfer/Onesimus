@@ -78,7 +78,7 @@ signals:
 
 private slots:
     void onRemoveClicked();
-    void onOptionChanged();
+    void onOptionChanged(const QString &name, const QVariant &value);
 
 private:
     void setupUi();
@@ -87,7 +87,6 @@ private:
     void createExcludeTab();
     void connectSignals();
     void loadOptionsFromBlock();
-    void saveOptionsToBlock();
 
     BFileSetDocument *m_document;
     int m_blockIndex;

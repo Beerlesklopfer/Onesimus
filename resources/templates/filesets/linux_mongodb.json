@@ -14,11 +14,10 @@
         "Signature": "MD5",
         "Compression": "GZIP",
         "OneFS": true,
-        "Accurate": true,
         "ACL Support": true,
         "XATTR Support": true,
         "Exclude": {
-          "Files": [
+          "File": [
             "*.lock",
             "mongod.pid"
           ],

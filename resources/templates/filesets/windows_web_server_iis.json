@@ -14,11 +14,10 @@
         "Signature": "MD5",
         "Compression": "GZIP",
         "OneFS": false,
-        "Accurate": true,
         "IgnoreCase": true,
         "DriveType": "fixed",
         "Exclude": {
-          "Files": [
+          "File": [
             "*.log",
             "*.tmp"
           ],

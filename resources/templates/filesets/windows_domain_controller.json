@@ -14,12 +14,10 @@
         "Signature": "MD5",
         "Compression": "GZIP",
         "OneFS": false,
-        "Accurate": true,
-        "Verify": true,
         "IgnoreCase": true,
         "DriveType": "fixed",
         "Exclude": {
-          "Files": [
+          "File": [
             "C:/Windows/Temp",
             "C:/Temp",
             "C:/$Recycle.Bin",
@@ -50,9 +48,9 @@
         "C:/Program Files",
         "C:/ProgramData",
         "C:/Users"
-      ]
-    },
-    "Plugin": "vss:/@SYSTEMSTATE/"
+      ],
+      "Plugin": "vss:/@SYSTEMSTATE/"
+    }
   },
   "recommended_schedule": "Daily Incremental, Weekly Full",
   "estimated_size": "50-200 GB",

@@ -14,13 +14,12 @@
         "Signature": "MD5",
         "Compression": "GZIP",
         "OneFS": false,
-        "Accurate": true,
         "ACL Support": true,
         "XATTR Support": true,
         "IgnoreCase": true,
         "DriveType": "fixed",
         "Exclude": {
-          "Files": [
+          "File": [
             "*.tmp",
             "*.temp",
             "~$*",

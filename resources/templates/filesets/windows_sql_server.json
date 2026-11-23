@@ -14,11 +14,10 @@
         "Signature": "MD5",
         "Compression": "GZIP",
         "OneFS": false,
-        "Accurate": true,
         "IgnoreCase": true,
         "DriveType": "fixed",
         "Exclude": {
-          "Files": [
+          "File": [
             "*.trc",
             "*.xel"
           ],
@@ -34,9 +33,9 @@
         "E:/SQLLogs",
         "F:/SQLBackup",
         "C:/Windows/System32/config"
-      ]
-    },
-    "Plugin": "mssqlvdi:"
+      ],
+      "Plugin": "mssqlvdi:"
+    }
   },
   "recommended_schedule": "Hourly Transaction Log, Daily Differential, Weekly Full",
   "estimated_size": "100 GB - 5 TB",

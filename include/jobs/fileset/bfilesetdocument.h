@@ -10,22 +10,24 @@
 #include <QList>
 #include "config/beditablelistmodel.h"
 
-class BConfigResource;
-
 /**
  * @file bfilesetdocument.h
- * @brief Pure data model for FileSet editing with undo/redo support
+ * @brief Data model of the FileSet wizard, with undo/redo for the lists
  *
- * Coordinates multiple BEditableListModel instances for FileSet's nested structure:
- * - Basic properties (Name, Description, Enable VSS, etc.)
- * - Include blocks (each with paths, options, and nested exclude)
- * - Global Exclude block
+ * Coordinates BEditableListModel instances for the nested structure of a
+ * FileSet: Include blocks (files, the options of the files, the patterns of
+ * an exclusion Options block), the global Exclude block, and everything the
+ * wizard does not edit, kept verbatim so that loading and writing a FileSet
+ * loses no directive (backlog P1-23).
  *
- * This is a PURE DATA MODEL - no Director reference. All Director communication
- * (validate, import, export) happens in the wizard/dialog layer.
+ * What it writes follows the grammar of Bareos 25 (dird/inc_conf.cc,
+ * dird/dird_conf.cc fs_items): resource directives Name, Description,
+ * Ignore FileSet Changes, Enable VSS; an Include block with Options blocks,
+ * File, Plugin and Exclude Dir Containing; patterns to exclude in an
+ * Options block with "Exclude = yes" (there is no Exclude block inside
+ * Options); a global Exclude block with File.
  *
- * @author Joerg Bernau <support@onesimus.io>
- * @date 2026
+ * This is a pure data model - no Director reference.
  */
 class BFileSetDocument : public QObject
 {
@@ -35,31 +37,40 @@ class BFileSetDocument : public QObject
     Q_PROPERTY(bool modified READ isModified NOTIFY modifiedChanged)
 
 public:
+    /// A directive as it stands in the text: key as written, value without
+    /// quotes and escapes, and whether it was quoted
+    struct Directive {
+        QString key;
+        QString value;
+        bool quoted = false;
+    };
+    using DirectiveList = QList<Directive>;
+
     /**
-     * @brief Represents a single Include block with paths and options
+     * @brief One Include block
+     *
+     * The first Options block without "Exclude = yes" is @c options (keys are
+     * normalised Bareos keywords, see optionKey()); the first one with it
+     * holds the three exclude lists and @c excludeOptionsExtra. Further Options
+     * blocks, other Include directives and unknown nested blocks are kept
+     * verbatim.
      */
     struct IncludeBlock {
-        int id;                                    ///< Unique ID for this block
-        BEditableListModel *pathsModel;            ///< File paths in this Include
-        QMap<QString, QVariant> options;           ///< Include Options (signature, compression, etc.)
-        BEditableListModel *excludeFilesModel;     ///< Exclude files within Options
-        BEditableListModel *excludePatternsModel;  ///< WildDir patterns in Options
-        BEditableListModel *excludeWildFileModel;  ///< WildFile patterns in Options
-
-        IncludeBlock() : id(0), pathsModel(nullptr),
-                         excludeFilesModel(nullptr), excludePatternsModel(nullptr),
-                         excludeWildFileModel(nullptr) {}
+        int id = 0;                                    ///< Unique ID for this block
+        BEditableListModel *pathsModel = nullptr;      ///< File = entries
+        QMap<QString, QVariant> options;               ///< The options of the files
+        BEditableListModel *excludeFilesModel = nullptr;     ///< Wild = in the exclusion Options block
+        BEditableListModel *excludePatternsModel = nullptr;  ///< WildDir = in the exclusion Options block
+        BEditableListModel *excludeWildFileModel = nullptr;  ///< WildFile = in the exclusion Options block
+        DirectiveList excludeOptionsExtra;             ///< Regex... and other directives of that block
+        QList<DirectiveList> extraOptionsBlocks;       ///< Further Options blocks, verbatim
+        QStringList plugins;                           ///< Plugin = entries
+        QStringList excludeDirContaining;              ///< Exclude Dir Containing = entries
+        DirectiveList extraDirectives;                 ///< Other Include directives, verbatim
+        QStringList extraBlocks;                       ///< Unknown nested blocks, as text
     };
 
-    /**
-     * @brief Construct FileSet document
-     * @param parent Parent object
-     */
     explicit BFileSetDocument(QObject *parent = nullptr);
-
-    /**
-     * @brief Destructor
-     */
     ~BFileSetDocument() override;
 
     // =========================================================================
@@ -78,68 +89,66 @@ public:
     bool ignoreFileSetChanges() const;
     void setIgnoreFileSetChanges(bool ignore);
 
-    bool enableSnapshot() const;
-    void setEnableSnapshot(bool enable);
+    /// Resource directives the wizard does not edit, verbatim
+    DirectiveList extraDirectives() const { return m_extraDirectives; }
 
     // =========================================================================
     // Include Block Management
     // =========================================================================
 
-    /**
-     * @brief Get number of Include blocks
-     * @return Number of Include blocks
-     */
     int includeBlockCount() const;
-
-    /**
-     * @brief Get Include block at index
-     * @param index Block index
-     * @return Pointer to Include block, or nullptr if invalid
-     */
     IncludeBlock *includeBlock(int index);
     const IncludeBlock *includeBlock(int index) const;
 
     /**
-     * @brief Add a new Include block
-     * @return Pointer to the new block
+     * @brief Add a new Include block with the default options
+     *        (Signature, Compression, One FS, ACL and XAttr support)
      */
     IncludeBlock *addIncludeBlock();
-
-    /**
-     * @brief Remove an Include block
-     * @param index Block index to remove
-     */
     void removeIncludeBlock(int index);
 
     // =========================================================================
-    // Global Exclude (separate from Include Options)
+    // Global Exclude
+    // =========================================================================
+
+    BEditableListModel *excludePathModel() const;
+
+    // =========================================================================
+    // Options of the files, and the options form
     // =========================================================================
 
     /**
-     * @brief Get global Exclude paths model
-     * @return Pointer to exclude paths model
+     * @brief The normalised key of an Options directive: lower case, no
+     *        blanks or underscores, aliases resolved ("ACL Support", "acl"
+     *        -> "aclsupport", "strip_path" -> "strippath")
      */
-    BEditableListModel *excludePathModel() const;
+    static QString optionKey(const QString &key);
+
+    /// The directive name written for a normalised key ("aclsupport" -> "ACL Support")
+    static QString optionDirective(const QString &key);
+
+    /// true for the keywords Bareos 25 reads inside an Options block
+    static bool isOptionKeyword(const QString &key);
+
+    /**
+     * @brief Apply one value of the options form to @p block
+     *
+     * Only this key changes. An empty text or list, compression "None" and
+     * Strip Path 0 remove the directive; "exclude_dir_containing" goes to the
+     * Include block (it is not an Options directive); "vss" is the FileSet's
+     * Enable VSS and is not written into Options.
+     */
+    void setFormOption(IncludeBlock *block, const QString &formKey, const QVariant &value);
+
+    /// The options of @p block under the keys of the options form
+    static QMap<QString, QVariant> formOptions(const IncludeBlock *block);
 
     // =========================================================================
     // Undo/Redo
     // =========================================================================
 
-    /**
-     * @brief Get the undo stack
-     * @return Pointer to undo stack
-     */
     QUndoStack *undoStack() const;
-
-    /**
-     * @brief Check if document has unsaved changes
-     * @return true if modified
-     */
     bool isModified() const;
-
-    /**
-     * @brief Mark document as clean (no unsaved changes)
-     */
     void markClean();
 
     // =========================================================================
@@ -147,73 +156,50 @@ public:
     // =========================================================================
 
     /**
-     * @brief Load from parsed BConfigResource
-     * @param resource Parsed FileSet resource
+     * @brief Load from the text of a FileSet resource (ReadResource)
+     *
+     * Every directive is kept: what the wizard edits goes to its fields, the
+     * rest verbatim. @return false with @p error set if the text is not one
+     * FileSet resource the reader understands (@include, unbalanced braces);
+     * the document is then unchanged.
      */
-    void loadFromResource(const BConfigResource &resource);
+    bool loadFromConfigText(const QString &text, QString *error = nullptr);
 
     /**
-     * @brief Load from JSON preset/template
-     * @param preset JSON object with FileSet template data
+     * @brief Load from a wizard template ("fileset" object of a template)
+     *
+     * Reads "File" (and the older "Files") wherever the templates use it.
      */
-    void loadFromJson(const QJsonObject &preset);
+    void loadFromTemplate(const QJsonObject &fileset);
 
     /**
      * @brief Load from Bareos Director JSON response (show filesets format)
      *
-     * Handles the structured JSON returned by "show filesets" in .api 2 mode:
-     * { "name": "...", "include": [{ "options": [...], "file": [...] }], "exclude": [...] }
-     *
-     * @param fsObj JSON object for a single fileset from the Director response
+     * "show filesets" does not report Enable VSS and Ignore FileSet Changes
+     * (dird_conf.cc FilesetResource::PrintConfig); they keep their defaults.
      */
     void loadFromBareosJson(const QJsonObject &fsObj);
 
     /**
-     * @brief Convert to BConfigResource
-     * @return FileSet as BConfigResource
-     */
-    // BConfigResource toResource() const;
-
-    /**
      * @brief Generate Bareos config text
-     * @return FileSet configuration string
+     * @return FileSet configuration string, or an empty string with @p error
+     *         set if a value contains a control character
      */
-    QString toConfigText() const;
-
-    /**
-     * @brief Generate Bareos configure add command
-     * @return Single-line command for bconsole
-     */
-    QString toConfigureCommand() const;
-
-    /**
-     * @brief Convert to JSON (for template export)
-     * @return JSON object with FileSet data
-     */
-    QJsonObject toJson() const;
+    QString toConfigText(QString *error = nullptr) const;
 
     // =========================================================================
     // Validation
     // =========================================================================
 
-    /**
-     * @brief Validation result structure
-     */
     struct ValidationResult {
         bool valid;
         QStringList errors;
         QStringList warnings;
     };
 
-    /**
-     * @brief Validate the FileSet configuration
-     * @return Validation result with errors and warnings
-     */
     ValidationResult validate() const;
 
-    /**
-     * @brief Clear all data and reset to empty state
-     */
+    /// Clear all data and reset to empty state
     void clear();
 
 signals:
@@ -225,21 +211,23 @@ signals:
     void documentChanged();
 
 private:
+    IncludeBlock *newIncludeBlock(bool withDefaults);
     void connectBlockSignals(IncludeBlock *block);
     void onAnyModelChanged();
-    QString formatOption(const QString &key, const QVariant &value,
-                         const QString &indent = QString()) const;
     void initDefaultOptions(IncludeBlock *block);
+    void deleteBlock(IncludeBlock *block);
 
     QString m_name;
     QString m_description;
     bool m_enableVss = true;
     bool m_ignoreFileSetChanges = false;
-    bool m_enableSnapshot = false;
+    DirectiveList m_extraDirectives;           ///< Unknown resource directives
+    DirectiveList m_excludeExtra;              ///< Global Exclude: other directives
+    QStringList m_extraBlocks;                 ///< Unknown nested resource blocks, as text
 
     QList<IncludeBlock*> m_includeBlocks;
-    BEditableListModel *m_excludePathModel = nullptr;
     QUndoStack *m_undoStack = nullptr;
+    BEditableListModel *m_excludePathModel = nullptr;
 
     int m_nextBlockId = 1;
 };

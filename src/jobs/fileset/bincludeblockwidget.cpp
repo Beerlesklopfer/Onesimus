@@ -163,8 +163,10 @@ void BIncludeBlockWidget::createExcludeTab()
 
 void BIncludeBlockWidget::connectSignals()
 {
-    // Connect options form value changes to save
-    connect(m_optionsForm, &BIncludeOptionsForm::valueChanged,
+    // One changed option at a time: options the form does not show, and
+    // defaults the form shows for directives that are not set, stay as they
+    // are in the document
+    connect(m_optionsForm, &BIncludeOptionsForm::optionChanged,
             this, &BIncludeBlockWidget::onOptionChanged);
 }
 
@@ -175,19 +177,8 @@ void BIncludeBlockWidget::loadOptionsFromBlock()
         return;
     }
 
-    // Load options from document into form
-    m_optionsForm->setValues(block->options);
-}
-
-void BIncludeBlockWidget::saveOptionsToBlock()
-{
-    BFileSetDocument::IncludeBlock *block = m_document->includeBlock(m_blockIndex);
-    if (!block) {
-        return;
-    }
-
-    // Save all form values to document
-    block->options = m_optionsForm->allValues();
+    // Load options from document into form (under the form's keys)
+    m_optionsForm->setValues(BFileSetDocument::formOptions(block));
 }
 
 void BIncludeBlockWidget::onRemoveClicked()
@@ -195,7 +186,7 @@ void BIncludeBlockWidget::onRemoveClicked()
     emit removeRequested(m_blockIndex);
 }
 
-void BIncludeBlockWidget::onOptionChanged()
+void BIncludeBlockWidget::onOptionChanged(const QString &name, const QVariant &value)
 {
-    saveOptionsToBlock();
+    m_document->setFormOption(m_document->includeBlock(m_blockIndex), name, value);
 }

@@ -2227,6 +2227,26 @@ if(BUILD_TESTING)
     target_link_libraries(bquote_test PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME bquote_test COMMAND bquote_test)
 
+    # bfilesetdocument_test - FileSet wizard model: text round trip keeps
+    # every directive (several Options blocks, exclude regexes, Plugin,
+    # Enable VSS, Ignore FileSet Changes, names with blanks), the generated
+    # text in the Bareos 25 form, all templates, "show filesets" JSON, the
+    # options form changing one option (no Director)
+    add_executable(bfilesetdocument_test
+        test/bfilesetdocument_test.cpp
+        src/jobs/fileset/bfilesetdocument.cpp
+        src/config/beditablelistmodel.cpp
+        src/config/bundocommands.cpp
+        include/jobs/fileset/bfilesetdocument.h
+        include/config/beditablelistmodel.h
+        include/config/bundocommands.h
+        include/bquote.h
+    )
+    target_include_directories(bfilesetdocument_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_compile_definitions(bfilesetdocument_test PRIVATE ONESIMUS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(bfilesetdocument_test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+    add_test(NAME bfilesetdocument_test COMMAND bfilesetdocument_test)
+
     # bzipimport_test - ZIP import in memory: limits on archive size, entry
     # count, entry and total size, sizes that lie, paths leaving the archive,
     # symbolic links; BConfigParser::parseZipArchive() (no Director)

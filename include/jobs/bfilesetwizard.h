@@ -34,11 +34,16 @@
 #include <QVBoxLayout>
 
 #include "director/bdirector.h"
+#include "director/bconfigtypes.h"
+#include "config/bresourcepersistence.h"
+
+#include <optional>
 class BFileSetDocument;
 class BFilesetModel;
 class BIncludeBlockWidget;
 class BResourceWidget;
 class BEditableListWidget;
+class BResourceSaveDialogs;
 
 /**
  * @brief Unified wizard for creating and editing FileSet resources
@@ -134,6 +139,21 @@ public:
      */
     static QJsonObject loadTemplates();
 
+    /// The name of the FileSet being edited (edit mode)
+    QString originalName() const { return m_originalName; }
+
+    /// The Director offers this configuration method for FileSets in this
+    /// session (gRPC, GetConfigCapabilities)
+    bool canUseConfigMethod(BConfig::Operation operation) const;
+
+    /// Reads and writes FileSet resources (created on first use; null
+    /// without a Director)
+    BResourcePersistence *persistence();
+
+    /// The text the edited FileSet was loaded from (ReadResource), if any
+    const std::optional<BResourcePersistence::Raw> &raw() const { return m_raw; }
+    void setRaw(const std::optional<BResourcePersistence::Raw> &raw) { m_raw = raw; }
+
 private:
     void init();
 
@@ -143,6 +163,9 @@ private:
     BFileSetDocument *m_document = nullptr;
     QString m_originalName;  // For edit mode
     bool m_executeOnFinish = true;
+    BResourcePersistence *m_persistence = nullptr;
+    BResourceSaveDialogs *m_saveDialogs = nullptr;
+    std::optional<BResourcePersistence::Raw> m_raw;
 
     static QJsonObject s_templates;
 };
@@ -211,6 +234,8 @@ private:
     void fetchFileSets();
     void requestShowFilesets();
     void loadFileSetFromModel(const QString &filesetName);
+    void loadFileSetFromJson(const QString &filesetName);
+    void showDocument();
 
     // FileSet selection (Edit mode only)
     QWidget *m_filesetSelectWidget = nullptr;
@@ -224,7 +249,6 @@ private:
     // Global FileSet options
     QCheckBox *m_enableVssCheck = nullptr;
     QCheckBox *m_ignoreChangesCheck = nullptr;
-    QCheckBox *m_enableSnapshotCheck = nullptr;
 
     bool m_initialized = false;
 };
@@ -305,14 +329,15 @@ public:
 
 private slots:
     void onCopyConfig();
-    void onExportZip();
-    void onJsonResponse(BDirector::Command cmd, const QString &jsonData);
-    void onCommandResponse(BDirector::Command cmd, const QString &response);
-    void onConfigureTimeout();
 
 private:
     void generateConfig();
-    void executeConfigureCommand();
+    /// Create (new FileSet) or update (edited FileSet, loaded from its
+    /// text) over the configuration methods; @return false if the session
+    /// has no such method (nothing is sent then)
+    bool deploy();
+    /// true: the edited FileSet is written back with UpdateResource
+    bool updatesExisting() const;
 
     BResourceWidget *m_filesetWidget = nullptr;
     QTextEdit *m_commandEdit = nullptr;
@@ -320,8 +345,9 @@ private:
     QLabel *m_statusLabel = nullptr;
     QProgressBar *m_progressBar = nullptr;
     QPushButton *m_copyButton = nullptr;
-    QTimer *m_timeoutTimer = nullptr;
     bool m_executed = false;
+    bool m_waiting = false;
+    QMetaObject::Connection m_finishedConnection;
 };
 
 #endif // BFILESETWIZARD_H

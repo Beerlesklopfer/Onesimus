@@ -14,6 +14,10 @@
 #include "jobs/fileset/bfilesetdocument.h"
 #include "bcapabilitynotice.h"
 #include "blogging.h"
+#include "bquote.h"
+#include "config/bresourcepersistence.h"
+#include "config/bresourcereviewdialog.h"
+#include "director/bdirectorconfigclient.h"
 #include "jobs/fileset/bincludeblockwidget.h"
 #include "config/beditablelistwidget.h"
 #include "config/beditablelistmodel.h"
@@ -37,8 +41,6 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QListWidget>
-#include <QFileDialog>
-#include <private/qzipwriter_p.h>
 
 // Static template storage
 QJsonObject BFileSetWizard::s_templates;
@@ -76,6 +78,23 @@ BFileSetWizard::BFileSetWizard(BDirector *director, const QString &filesetName,
 
 BFileSetWizard::~BFileSetWizard()
 {
+    delete m_saveDialogs;
+}
+
+bool BFileSetWizard::canUseConfigMethod(BConfig::Operation operation) const
+{
+    return m_director && m_director->isConnected()
+        && m_director->transport() == BDirector::Transport::Grpc
+        && m_director->configCapabilities().supports(BConfig::ResourceType::FileSet, operation);
+}
+
+BResourcePersistence *BFileSetWizard::persistence()
+{
+    if (!m_persistence && m_director) {
+        m_saveDialogs = new BResourceSaveDialogs(this);
+        m_persistence = new BResourcePersistence(new BDirectorConfigClient(m_director, this), m_saveDialogs, this);
+    }
+    return m_persistence;
 }
 
 void BFileSetWizard::init()
@@ -292,99 +311,13 @@ void BFileSetTemplatePage::loadTemplateIntoDocument(const QString &templateName)
     QJsonObject templateObj = templates[templateName].toObject();
     BFileSetDocument *doc = wiz->document();
 
-    // Clear existing data
-    doc->clear();
-
-    // Set basic properties from template
-    doc->setName(templateObj["name"].toString());
-    doc->setDescription(templateObj["description"].toString());
-
-    // Extract fileset structure from template
-    QJsonObject fileset = templateObj["fileset"].toObject();
-    doc->setEnableVss(fileset["Enable VSS"].toBool(true));
-    doc->setIgnoreFileSetChanges(fileset["Ignore FileSet Changes"].toBool(false));
-    doc->setEnableSnapshot(fileset["Enable Snapshot"].toBool(false));
-
-    // Load Include block from template
-    QJsonObject include = fileset["Include"].toObject();
-    BFileSetDocument::IncludeBlock *block = doc->addIncludeBlock();
-
-    // Include paths from fileset.Include.File
-    QJsonValue fileVal = include["File"];
-    QStringList includePaths;
-    if (fileVal.isArray()) {
-        for (const QJsonValue &v : fileVal.toArray()) {
-            includePaths.append(v.toString());
-        }
-    } else if (fileVal.isString()) {
-        includePaths.append(fileVal.toString());
-    }
-    block->pathsModel->setItems(includePaths);
-
-    // Load options from fileset.Include.Options
-    QJsonObject opts = include["Options"].toObject();
-    for (auto it = opts.begin(); it != opts.end(); ++it) {
-        if (it.key().compare("Exclude", Qt::CaseInsensitive) == 0) {
-            // Nested exclude in Options
-            QJsonObject exclObj = it.value().toObject();
-            QStringList exclFiles, exclWildDir, exclWildFile;
-
-            // File exclusions
-            QJsonValue filesVal = exclObj["File"];
-            if (filesVal.isArray()) {
-                for (const QJsonValue &v : filesVal.toArray()) {
-                    exclFiles.append(v.toString());
-                }
-            } else if (filesVal.isString()) {
-                exclFiles.append(filesVal.toString());
-            }
-
-            // WildDir patterns (directory patterns)
-            QJsonValue wildDirVal = exclObj["WildDir"];
-            if (wildDirVal.isArray()) {
-                for (const QJsonValue &v : wildDirVal.toArray()) {
-                    exclWildDir.append(v.toString());
-                }
-            } else if (wildDirVal.isString()) {
-                exclWildDir.append(wildDirVal.toString());
-            }
-
-            // WildFile patterns (file patterns)
-            QJsonValue wildFileVal = exclObj["WildFile"];
-            if (wildFileVal.isArray()) {
-                for (const QJsonValue &v : wildFileVal.toArray()) {
-                    exclWildFile.append(v.toString());
-                }
-            } else if (wildFileVal.isString()) {
-                exclWildFile.append(wildFileVal.toString());
-            }
-
-            block->excludeFilesModel->setItems(exclFiles);
-            block->excludePatternsModel->setItems(exclWildDir);
-            block->excludeWildFileModel->setItems(exclWildFile);
-        } else {
-            // Regular option
-            QJsonValue val = it.value();
-            if (val.isBool()) {
-                block->options[it.key()] = val.toBool();
-            } else if (val.isString()) {
-                block->options[it.key()] = val.toString();
-            }
-        }
-    }
-
-    // Load global Exclude from fileset.Exclude
-    QJsonObject exclude = fileset["Exclude"].toObject();
-    QJsonValue exclFileVal = exclude["File"];
-    QStringList excludePaths;
-    if (exclFileVal.isArray()) {
-        for (const QJsonValue &v : exclFileVal.toArray()) {
-            excludePaths.append(v.toString());
-        }
-    } else if (exclFileVal.isString()) {
-        excludePaths.append(exclFileVal.toString());
-    }
-    doc->excludePathModel()->setItems(excludePaths);
+    // The FileSet part of the template, with its own Name ("LinuxHome");
+    // the template's title is only the fallback
+    doc->loadFromTemplate(templateObj["fileset"].toObject());
+    if (doc->name().isEmpty())
+        doc->setName(templateObj["name"].toString().remove(QLatin1Char(' ')));
+    if (doc->description().isEmpty())
+        doc->setDescription(templateObj["description"].toString());
 
     doc->markClean();
 
@@ -676,10 +609,6 @@ void BFileSetSettingsPage::setupUi()
     m_ignoreChangesCheck->setToolTip(tr("Don't trigger Full backup when FileSet changes"));
     globalLayout->addWidget(m_ignoreChangesCheck);
 
-    m_enableSnapshotCheck = new QCheckBox(tr("Enable Snapshot"), this);
-    m_enableSnapshotCheck->setToolTip(tr("Enable snapshot support (Linux LVM/btrfs)"));
-    globalLayout->addWidget(m_enableSnapshotCheck);
-
     globalLayout->addStretch();
     mainLayout->addWidget(globalGroup);
 
@@ -706,12 +635,13 @@ void BFileSetSettingsPage::initializePage()
         m_initialized = true;
     }
 
-    // Always update from document (template may have changed)
-    m_nameEdit->setText(doc->name().replace(" ", ""));
+    // Always update from document (template may have changed). The name as
+    // it is: blanks are allowed, and removing them in edit mode would make
+    // a new FileSet
+    m_nameEdit->setText(doc->name());
     m_descriptionEdit->setText(doc->description());
     m_enableVssCheck->setChecked(doc->enableVss());
     m_ignoreChangesCheck->setChecked(doc->ignoreFileSetChanges());
-    m_enableSnapshotCheck->setChecked(doc->enableSnapshot());
 }
 
 void BFileSetSettingsPage::cleanupPage()
@@ -727,7 +657,7 @@ bool BFileSetSettingsPage::validatePage()
 
 bool BFileSetSettingsPage::isComplete() const
 {
-    return !m_nameEdit->text().trimmed().isEmpty();
+    return BQuote::isValidName(m_nameEdit->text().trimmed());
 }
 
 void BFileSetSettingsPage::collectFormValues()
@@ -741,7 +671,6 @@ void BFileSetSettingsPage::collectFormValues()
     doc->setDescription(m_descriptionEdit->text().trimmed());
     doc->setEnableVss(m_enableVssCheck->isChecked());
     doc->setIgnoreFileSetChanges(m_ignoreChangesCheck->isChecked());
-    doc->setEnableSnapshot(m_enableSnapshotCheck->isChecked());
 }
 
 void BFileSetSettingsPage::fetchFileSets()
@@ -862,6 +791,47 @@ void BFileSetSettingsPage::loadFileSetFromModel(const QString &filesetName)
 {
     BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
     if (!wiz) return;
+    wiz->setRaw(std::nullopt);
+
+    // The text of the resource where the Director offers it: every
+    // directive, also those "show filesets" does not report
+    if (wiz->canUseConfigMethod(BConfig::Operation::ReadRaw) && wiz->persistence()) {
+        m_loadingLabel->setText(tr("Loading..."));
+        wiz->persistence()->read(BConfig::ResourceType::FileSet, filesetName, this,
+                                 [this, filesetName](const BConfig::Reply &,
+                                                     const std::optional<BResourcePersistence::Raw> &raw) {
+            BFileSetWizard *w = qobject_cast<BFileSetWizard*>(wizard());
+            if (!w) return;
+            QString error;
+            if (raw && w->document()->loadFromConfigText(raw->text, &error)) {
+                w->setRaw(raw);
+                showDocument();
+                m_loadingLabel->setText(tr("Loaded"));
+                return;
+            }
+            BLOG_WARNING() << "FileSet" << filesetName << "text not read:" << error;
+            loadFileSetFromJson(filesetName);
+        });
+        return;
+    }
+    loadFileSetFromJson(filesetName);
+}
+
+void BFileSetSettingsPage::showDocument()
+{
+    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
+    if (!wiz) return;
+    BFileSetDocument *doc = wiz->document();
+    m_nameEdit->setText(doc->name());
+    m_descriptionEdit->setText(doc->description());
+    m_enableVssCheck->setChecked(doc->enableVss());
+    m_ignoreChangesCheck->setChecked(doc->ignoreFileSetChanges());
+}
+
+void BFileSetSettingsPage::loadFileSetFromJson(const QString &filesetName)
+{
+    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
+    if (!wiz) return;
 
     BFilesetModel *model = wiz->filesetModel();
     if (model && model->hasFilesetConfigs()) {
@@ -869,15 +839,11 @@ void BFileSetSettingsPage::loadFileSetFromModel(const QString &filesetName)
         if (!fsObj.isEmpty()) {
             BFileSetDocument *doc = wiz->document();
             doc->loadFromBareosJson(fsObj);
+            showDocument();
 
-            // Update UI from document
-            m_nameEdit->setText(doc->name());
-            m_descriptionEdit->setText(doc->description());
-            m_enableVssCheck->setChecked(doc->enableVss());
-            m_ignoreChangesCheck->setChecked(doc->ignoreFileSetChanges());
-            m_enableSnapshotCheck->setChecked(doc->enableSnapshot());
-
-            m_loadingLabel->setText(tr("Loaded"));
+            // "show filesets" does not report these two directives
+            m_loadingLabel->setText(tr("Loaded from \"show filesets\": Enable VSS and Ignore FileSet "
+                                       "Changes are not reported there; check them."));
             BLOG_DEBUG() << "FileSet" << filesetName << "loaded from model cache"
                          << "(includes:" << doc->includeBlockCount() << ")";
             return;
@@ -1062,10 +1028,10 @@ void BFileSetExcludePage::initializePage()
 
 BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
     : QWizardPage(parent)
-    , m_timeoutTimer(new QTimer(this))
 {
     setTitle(tr("Preview & Deploy"));
-    setSubTitle(tr("Review the generated FileSet configuration. Copy or export it for manual deployment."));
+    setSubTitle(tr("Review the generated FileSet configuration. Finish sends it to the Director where the "
+                   "Director accepts FileSets; otherwise copy it for manual deployment."));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
@@ -1117,12 +1083,7 @@ BFileSetPreviewPage::BFileSetPreviewPage(QWidget *parent)
 
     mainLayout->addLayout(bottomLayout);
 
-    // Timeout timer (30 seconds)
-    m_timeoutTimer->setSingleShot(true);
-    m_timeoutTimer->setInterval(30000);
-
     connect(m_copyButton, &QPushButton::clicked, this, &BFileSetPreviewPage::onCopyConfig);
-    connect(m_timeoutTimer, &QTimer::timeout, this, &BFileSetPreviewPage::onConfigureTimeout);
 }
 
 void BFileSetPreviewPage::initializePage()
@@ -1138,19 +1099,30 @@ void BFileSetPreviewPage::generateConfig()
     BFileSetDocument *doc = wiz->document();
 
     // Generate configuration from document
-    QString config = doc->toConfigText();
+    QString textError;
+    QString config = doc->toConfigText(&textError);
 
-    // Show Bareos limitation notice + config text in command area
-    QString notice = tr(
-        "# NOTE: Bareos Director does not support 'configure add fileset' with\n"
-        "# nested Include/Exclude/Options blocks (confirmed Bareos limitation).\n"
-        "# Deploy this configuration manually:\n"
-        "#   1. Copy to /etc/bareos/bareos-dir.d/fileset/%1.conf\n"
-        "#   2. Run: systemctl reload bareos-dir\n"
-        "#\n"
-        "# Use 'Copy configuration' to copy the text below.\n\n")
-        .arg(doc->name());
-    m_commandEdit->setPlainText(notice + config);
+    const bool canSend = wiz->canUseConfigMethod(updatesExisting() ? BConfig::Operation::UpdateRaw
+                                                                     : BConfig::Operation::CreateRaw);
+    QString notice;
+    if (canSend) {
+        notice = updatesExisting()
+            ? tr("# Finish writes this text over the FileSet %1 on the Director, after the\n"
+                 "# Director has checked it and you have confirmed the change.\n\n").arg(wiz->originalName())
+            : tr("# Finish creates this FileSet on the Director, after the Director has\n"
+                 "# checked it and you have confirmed it.\n\n");
+    } else {
+        notice = tr(
+            "# NOTE: Bareos Director does not support 'configure add fileset' with\n"
+            "# nested Include/Exclude/Options blocks (confirmed Bareos limitation).\n"
+            "# Deploy this configuration manually:\n"
+            "#   1. Copy to /etc/bareos/bareos-dir.d/fileset/%1.conf\n"
+            "#   2. Run: systemctl reload bareos-dir\n"
+            "#\n"
+            "# Use 'Copy configuration' to copy the text below.\n\n")
+            .arg(doc->name());
+    }
+    m_commandEdit->setPlainText(notice + (config.isEmpty() ? QStringLiteral("# ") + textError : config));
 
     // Parse and display in resource widget
     BConfigParser parser;
@@ -1180,15 +1152,36 @@ void BFileSetPreviewPage::generateConfig()
     }
 }
 
+bool BFileSetPreviewPage::updatesExisting() const
+{
+    auto *wiz = qobject_cast<BFileSetWizard *>(wizard());
+    // Only a FileSet loaded from its text, under its old name: a renamed
+    // one is created as a new FileSet
+    return wiz && wiz->mode() == BFileSetWizard::EditMode && wiz->raw()
+        && wiz->document()->name() == wiz->originalName();
+}
+
 bool BFileSetPreviewPage::validatePage()
 {
-    // Finishing the wizard is where the user expects the FileSet to reach
-    // the Director. Say once per session why it does not; the question
-    // below and the copy path stay as they are.
-    if (auto *wiz = qobject_cast<BFileSetWizard *>(wizard())) {
-        BCapabilityNotice::check(this, wiz->director(), BCapabilities::Function::DeployFileSet,
-                                 BCapabilities::Request::Implicit);
+    if (m_executed) return true;
+    if (m_waiting) return false;
+
+    auto *wiz = qobject_cast<BFileSetWizard *>(wizard());
+    if (!wiz) return true;
+
+    const BFileSetDocument::ValidationResult validation = wiz->document()->validate();
+    if (!validation.valid) {
+        QMessageBox::warning(this, tr("FileSet not complete"), validation.errors.join(QLatin1Char('\n')));
+        return false;
     }
+
+    if (deploy())
+        return false;   // the wizard closes when the Director has written it
+
+    // Finishing the wizard is where the user expects the FileSet to reach
+    // the Director. Say once per session why it does not.
+    BCapabilityNotice::check(this, wiz->director(), BCapabilities::Function::DeployFileSet,
+                             BCapabilities::Request::Implicit);
 
     int ret = QMessageBox::question(this, tr("Close Wizard"),
         tr("The configuration has not been sent to the Director.\n"
@@ -1199,112 +1192,68 @@ bool BFileSetPreviewPage::validatePage()
     return (ret == QMessageBox::Yes);
 }
 
-void BFileSetPreviewPage::executeConfigureCommand()
+bool BFileSetPreviewPage::deploy()
 {
-    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-    if (!wiz || !wiz->director()) return;
+    auto *wiz = qobject_cast<BFileSetWizard *>(wizard());
+    if (!wiz) return false;
+    const bool update = updatesExisting();
+    if (!wiz->canUseConfigMethod(update ? BConfig::Operation::UpdateRaw : BConfig::Operation::CreateRaw))
+        return false;
+    BResourcePersistence *persistence = wiz->persistence();
+    if (!persistence) return false;
+    if (persistence->isBusy()) {
+        m_statusLabel->setText(tr("Another change is still being written. Try again when it is done."));
+        return true;
+    }
 
-    m_statusLabel->setText(tr("Executing configure command..."));
+    BFileSetDocument *doc = wiz->document();
+    QString error;
+    const QString text = doc->toConfigText(&error);
+    if (text.isEmpty()) {
+        m_statusLabel->setText(QString("<span style='color: red;'>%1</span>").arg(error.toHtmlEscaped()));
+        return true;
+    }
+
+    if (!m_finishedConnection) {
+        m_finishedConnection = connect(persistence, &BResourcePersistence::finished, this,
+                                       [this](const BResourceReport &report) {
+            if (!m_waiting) return;
+            m_waiting = false;
+            m_progressBar->setVisible(false);
+            if (report.kind == BResourceReport::Written) {
+                // The flow has told the user already (its report)
+                m_executed = true;
+                if (QWizard *w = wizard())
+                    w->accept();
+            } else if (report.kind == BResourceReport::Cancelled) {
+                m_statusLabel->setText(tr("Nothing was written."));
+            } else {
+                m_statusLabel->setText(QString("<span style='color: red;'>%1</span>")
+                                           .arg(QString(report.title + QStringLiteral(": ") + report.text)
+                                                    .left(600).toHtmlEscaped()));
+            }
+        });
+    }
+
+    BResourceReview review;
+    m_waiting = true;
     m_progressBar->setVisible(true);
-    m_timeoutTimer->start();
-
-    // Connect to director signals
-    connect(wiz->director(), &BDirector::jsonResult,
-            this, &BFileSetPreviewPage::onJsonResponse);
-    connect(wiz->director(), &BDirector::textResult,
-            this, &BFileSetPreviewPage::onCommandResponse);
-
-    // Send configure command (full FileSet definition)
-    QString command = wiz->document()->toConfigureCommand();
-    wiz->director()->doSend(BDirector::Command::Configure, command);
-}
-
-void BFileSetPreviewPage::onJsonResponse(BDirector::Command cmd, const QString &jsonData)
-{
-    if (cmd != BDirector::Command::Configure) return;
-
-    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-    if (!wiz) return;
-
-    m_timeoutTimer->stop();
-    m_progressBar->setVisible(false);
-
-    // Disconnect signals
-    disconnect(wiz->director(), &BDirector::jsonResult,
-               this, &BFileSetPreviewPage::onJsonResponse);
-    disconnect(wiz->director(), &BDirector::textResult,
-               this, &BFileSetPreviewPage::onCommandResponse);
-
-    // Parse response
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8());
-    QJsonObject result = doc.object()["result"].toObject();
-    QJsonObject configureObj = result["configure"].toObject();
-
-    if (configureObj.contains("add")) {
-        m_statusLabel->setText(QString("<span style='color: green;'>%1</span>")
-            .arg(tr("FileSet created successfully!")));
-        m_executed = true;
-
-        // Trigger reload
-        wiz->director()->doSend(BDirector::Command::Reload);
-
-        // Auto-close wizard after brief delay so user can see the success message
-        QTimer::singleShot(1500, this, [this]() {
-            if (wizard()) wizard()->accept();
-        });
+    m_statusLabel->setText(tr("The Director checks the FileSet..."));
+    bool started = false;
+    if (update) {
+        review.note = tr("The wizard writes the whole FileSet as it generates it: every directive is "
+                         "kept, comments and the layout of the file are not.");
+        started = persistence->update(BConfig::ResourceType::FileSet, doc->name(), *wiz->raw(), text, review);
     } else {
-        QString error = result["error"].toString();
-        if (error.isEmpty()) error = tr("Unknown error");
-        m_statusLabel->setText(QString("<span style='color: red;'>%1: %2</span>")
-            .arg(tr("Error")).arg(error));
+        review.note = tr("A new FileSet. No job uses it until a job names it.");
+        started = persistence->create(BConfig::ResourceType::FileSet, doc->name(), text, review);
     }
-}
-
-void BFileSetPreviewPage::onCommandResponse(BDirector::Command cmd, const QString &response)
-{
-    if (cmd != BDirector::Command::Configure) return;
-
-    m_timeoutTimer->stop();
-    m_progressBar->setVisible(false);
-
-    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-    if (wiz && wiz->director()) {
-        disconnect(wiz->director(), &BDirector::jsonResult,
-                   this, &BFileSetPreviewPage::onJsonResponse);
-        disconnect(wiz->director(), &BDirector::textResult,
-                   this, &BFileSetPreviewPage::onCommandResponse);
+    if (!started && m_waiting) {
+        // Refused at once; the report (if any) came through finished()
+        m_waiting = false;
+        m_progressBar->setVisible(false);
     }
-
-    // Handle text response
-    if (response.contains("Created") || response.contains("success", Qt::CaseInsensitive)) {
-        m_statusLabel->setText(QString("<span style='color: green;'>%1</span>")
-            .arg(tr("FileSet created successfully!")));
-        m_executed = true;
-
-        // Auto-close wizard after brief delay so user can see the success message
-        QTimer::singleShot(1500, this, [this]() {
-            if (wizard()) wizard()->accept();
-        });
-    } else {
-        // Show the Director's error response
-        m_statusLabel->setText(QString("<span style='color: red;'>%1: %2</span>")
-            .arg(tr("Error")).arg(response.trimmed()));
-    }
-}
-
-void BFileSetPreviewPage::onConfigureTimeout()
-{
-    m_progressBar->setVisible(false);
-
-    int ret = QMessageBox::question(this, tr("Timeout"),
-        tr("The configure command timed out.\nDo you want to retry?"),
-        QMessageBox::Retry | QMessageBox::Cancel);
-
-    if (ret == QMessageBox::Retry) {
-        executeConfigureCommand();
-    } else {
-        m_statusLabel->setText(tr("Command timed out"));
-    }
+    return true;
 }
 
 void BFileSetPreviewPage::onCopyConfig()
@@ -1314,94 +1263,4 @@ void BFileSetPreviewPage::onCopyConfig()
 
     QApplication::clipboard()->setText(wiz->document()->toConfigText());
     m_statusLabel->setText(tr("Configuration copied to clipboard"));
-}
-
-void BFileSetPreviewPage::onExportZip()
-{
-    BFileSetWizard *wiz = qobject_cast<BFileSetWizard*>(wizard());
-    if (!wiz) return;
-
-    BFileSetDocument *doc = wiz->document();
-    QString config = doc->toConfigText();
-
-    // Ask user for save location
-    QString filter = tr("ZIP Archives (*.zip);;Configuration Files (*.conf);;All Files (*)");
-    QString selectedFilter;
-    QString filePath = QFileDialog::getSaveFileName(
-        this, tr("Export FileSet Configuration"),
-        QString("%1.zip").arg(doc->name()),
-        filter,
-        &selectedFilter);
-
-    if (filePath.isEmpty()) return;
-
-    // Determine export format based on selected filter or extension
-    bool exportAsZip = selectedFilter.contains("zip", Qt::CaseInsensitive) ||
-                       filePath.endsWith(".zip", Qt::CaseInsensitive);
-
-    if (exportAsZip) {
-        // Ensure .zip extension
-        if (!filePath.endsWith(".zip", Qt::CaseInsensitive)) {
-            filePath += ".zip";
-        }
-
-        // Create ZIP using Qt's QZipWriter
-        QZipWriter zip(filePath);
-        if (zip.status() != QZipWriter::NoError) {
-            QMessageBox::warning(this, tr("Export Error"),
-                tr("Cannot create zip file: %1").arg(filePath));
-            return;
-        }
-
-        // Create directory structure
-        QString dirPath = QString("etc/bareos/bareos-dir.d/fileset");
-        zip.addDirectory("etc");
-        zip.addDirectory("etc/bareos");
-        zip.addDirectory("etc/bareos/bareos-dir.d");
-        zip.addDirectory(dirPath);
-
-        // Add FileSet configuration file
-        QString confPath = QString("%1/%2.conf").arg(dirPath, doc->name());
-        zip.addFile(confPath, config.toUtf8());
-
-        // Add README
-        QString readme = QString(
-            "Bareos FileSet Configuration: %1\n"
-            "=========================================\n\n"
-            "Contents:\n"
-            "  etc/bareos/bareos-dir.d/fileset/%1.conf\n\n"
-            "Installation:\n"
-            "  1. Extract this archive to / (root) on the Director server\n"
-            "     Or copy the .conf file to /etc/bareos/bareos-dir.d/fileset/\n"
-            "  2. Reload the Director: systemctl reload bareos-dir\n\n"
-            "Generated by Onesimus\n").arg(doc->name());
-        zip.addFile("README.txt", readme.toUtf8());
-
-        zip.close();
-
-        if (zip.status() != QZipWriter::NoError) {
-            QMessageBox::warning(this, tr("Export Error"),
-                tr("Error writing zip file"));
-            return;
-        }
-
-        m_statusLabel->setText(tr("Exported to: %1").arg(filePath));
-    } else {
-        // Export as plain .conf file
-        if (!filePath.endsWith(".conf", Qt::CaseInsensitive)) {
-            filePath += ".conf";
-        }
-
-        QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QMessageBox::warning(this, tr("Export Error"),
-                tr("Cannot write file: %1").arg(filePath));
-            return;
-        }
-
-        file.write(config.toUtf8());
-        file.close();
-
-        m_statusLabel->setText(tr("Exported to: %1").arg(filePath));
-    }
 }

@@ -17,7 +17,7 @@
         "ACL Support": true,
         "XATTR Support": true,
         "Exclude": {
-          "Files": [
+          "File": [
             "/proc",
             "/sys",
             "/dev",
