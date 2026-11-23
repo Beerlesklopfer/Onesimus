@@ -206,19 +206,24 @@ else the number of commits; `-DONESIMUS_INCREMENT_BUILD=ON` counts it up on ever
 
 ### Windows
 - **Visual Studio 2022** (C++ Desktop Development) - **REQUIRED** (VS 2019/2017 not supported)
-- Qt 6.8+
-- CMake 3.16+
-- Perl (Strawberry Perl)
+- Qt 6.8+ with the **Qt GRPC** module (`qtgrpc`: QtGrpc, QtProtobuf) and `protoc` in `PATH`
+- CMake 3.25+, Ninja
+- Perl (Strawberry Perl) and NASM (OpenSSL build)
 - Git
+
+Windows builds in `build\` with Ninja (`deploy.ps1`, `deploy.bat` and the `windows-*` presets).
 
 ### Linux
 ```bash
-sudo apt-get install build-essential cmake git qt6-base-dev qt6-tools-dev qt6-tools-dev-tools perl
+# Debian 13 / Ubuntu 24.04+: Qt 6.8+ with QtGrpc/QtProtobuf and protoc for the gRPC transport
+sudo apt-get install build-essential cmake ninja-build git perl pkgconf \
+    qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
+    qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev libsecret-1-dev
 ```
 
 ### macOS
 ```bash
-brew install cmake git qt@6 perl
+brew install cmake ninja git qt@6 perl protobuf   # Qt with QtGrpc/QtProtobuf; protoc from protobuf
 ```
 
 ## 🔧 Build Options

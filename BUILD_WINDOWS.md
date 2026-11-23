@@ -30,6 +30,21 @@ Falls gewünscht, können Sie auch direkt eine Developer PowerShell verwenden:
    .\deploy.ps1
    ```
 
+## 📦 Voraussetzungen
+
+- Visual Studio 2022 (oder Build Tools) mit „Desktop development with C++“
+- Qt ≥ 6.8 für `msvc2022_64` mit dem Modul **Qt GRPC** (`qtgrpc`: QtGrpc und
+  QtProtobuf; die CI nimmt Qt 6.8.3)
+- `protoc` (Protobuf-Compiler) im `PATH`, für `qt_add_protobuf`/`qt_add_grpc`
+  (die CI nimmt protoc 28.3)
+- CMake ≥ 3.25, Ninja, Git
+- Strawberry Perl und NASM für den OpenSSL-Build
+
+Build-Verzeichnis und Generator sind überall dieselben: `build\` mit Ninja
+(`deploy.ps1`, `deploy.bat` und die Presets `windows-*` in `CMakePresets.json`).
+Die Presets brauchen eine Developer PowerShell (cl.exe im `PATH`);
+`deploy.ps1` lädt die Umgebung selbst. `-Generator NMake` gibt es weiterhin.
+
 ## 🧭 Befehle
 
 `.\deploy.ps1 [Befehl] [Parameter]` – ohne Befehl gilt `all`.

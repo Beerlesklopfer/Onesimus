@@ -2,7 +2,10 @@
 # SPDX-FileCopyrightText: 2026 Jörg Bernau
 # SPDX-FileCopyrightText: 2026 Joerg Steffens
 
-cmake_minimum_required(VERSION 3.16)
+# 3.25: CMakePresets.json is a version 6 presets file (package presets),
+# which CMake reads from 3.25 on; the SYSTEM target property is 3.25 as well.
+# One minimum for presets, project and docs.
+cmake_minimum_required(VERSION 3.25)
 
 # macOS: the oldest release the app runs on. Qt 6.8 supports macOS 12 and
 # later, so nothing older is useful. Before project(), where CMake reads it;
@@ -1060,7 +1063,7 @@ if(HAVE_GRPC)
     target_compile_definitions(onesimus_grpc_proto PUBLIC HAVE_GRPC)
     # Generated code: its headers are system headers for the targets that
     # include them, so ONESIMUS_WARNINGS does not report qtprotobufgen's
-    # code (CMake >= 3.25; older versions ignore the property)
+    # code
     set_target_properties(onesimus_grpc_proto PROPERTIES SYSTEM TRUE)
     # The gRPC transport sources are compiled in bareosdirector_lib
     target_link_libraries(onesimus_core PUBLIC onesimus_grpc_proto)

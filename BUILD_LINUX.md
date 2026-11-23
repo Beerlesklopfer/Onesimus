@@ -27,6 +27,7 @@ sudo apt-get update
 sudo apt-get install -y build-essential cmake git \
     qt6-base-dev qt6-base-private-dev qt6-tools-dev \
     qt6-tools-dev-tools libqt6network6-dev \
+    qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev \
     perl imagemagick libssl-dev libxkbcommon-dev libsecret-1-dev
 
 # 2. Clone repository
@@ -50,6 +51,10 @@ make -j$(nproc)
 ```
 
 ## 📋 Prerequisites
+
+CMake 3.25 or newer (Debian 13: 3.31, Ubuntu 24.04: 3.28), Qt 6.8 or newer with the private
+headers, and for the gRPC transport to the Onesimus Director QtGrpc/QtProtobuf with `protoc`
+(Debian 13 below; without them the build falls back to BNET only).
 
 ### Ubuntu/Debian
 

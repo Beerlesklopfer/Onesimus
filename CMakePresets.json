@@ -2,7 +2,7 @@
   "version": 6,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 21,
+    "minor": 25,
     "patch": 0
   },
   "configurePresets": [
@@ -63,9 +63,12 @@
     {
       "name": "windows-base",
       "hidden": true,
-      "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
-      "binaryDir": "${sourceDir}/BUILD",
+      "generator": "Ninja",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}",
         "PERL_EXECUTABLE": "C:/Strawberry/perl/bin/perl.exe"

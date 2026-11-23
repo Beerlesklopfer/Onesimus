@@ -65,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   into `<build>/generated/`, `include/version.h` and `.build_number` are no longer tracked, and an
   unchanged build compiles nothing. The build number is the CI run number, else the commit count;
   `-DONESIMUS_INCREMENT_BUILD=ON` counts it up per build. About shows the source (commit) date.
+- Build: one CMake minimum, 3.25 (`CMakePresets.json` is a version 6 presets file); the Windows
+  presets use Ninja and `build\` like `deploy.ps1`; the build docs list QtGrpc/QtProtobuf and `protoc`.
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to

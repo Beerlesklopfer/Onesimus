@@ -96,7 +96,6 @@ checked against the code on 2026-11-23; file references are to that state. Repor
 - The bundled OpenSSL is configured `shared` (`CMakeLists.txt:240`, `:272`).
 - Linux and macOS use `Qt6Gui_PRIVATE_INCLUDE_DIRS` instead of `Qt6::GuiPrivate`
   (`CMakeLists.txt:1017`, `:2516`).
-- The CMake minimum is 3.16 (`CMakeLists.txt:5`, `README.md:208`), but `CMakePresets.json` needs 3.21.
 
 ### Docs/i18n
 - Translations: German is complete. Spanish, French, Italian and Russian each have 245 of 3884
