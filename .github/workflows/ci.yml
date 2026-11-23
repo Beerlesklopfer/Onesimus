@@ -12,7 +12,8 @@
 #          workflow_dispatch with macos_sign=true signs and notarises it with
 #          the secrets listed in release.yml.
 #
-# Submodules: only external/openssl and proto. wiki/ has an SSH URL and is
+# Submodules: only external/openssl and proto. wiki/ (SSH URL) and docs/webseite
+# (the website, Onesimus-io/onesimus.io) are not needed for a build; wiki/ is
 # never fetched (no `submodules:` on checkout).
 name: CI
 
