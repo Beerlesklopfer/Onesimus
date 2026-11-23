@@ -10,4 +10,4 @@
 	url = https://github.com/Onesimus-io/onesimus-proto.git
 [submodule "docs/webseite"]
 	path = docs/webseite
-	url = https://github.com/Onesimus-io/onesimus.io.git
+	url = git@github.com:Onesimus-io/onesimus.io.git
