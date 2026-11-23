@@ -106,7 +106,6 @@ public:
         Page_TLS,
         Page_ConfigPreview,
         Page_Test,
-        Page_ConsoleSetup,
         Page_ProfileName,
         Page_ImportConsoleSelection
     };
@@ -136,16 +135,6 @@ public:
 
     BConnectionProfile profile() const;
     void setProfile(const BConnectionProfile &profile);
-
-    /**
-     * @brief Save connection to database
-     * @param db Database connection
-     * @return Director ID on success, -1 on failure
-     *
-     * Saves the wizard data to the directors table using BDirectorModel.
-     * Returns the new Director ID which can be used to mark as default.
-     */
-    int saveToDatabase(QSqlDatabase &db);
 
     /**
      * @brief Ask the user whether to trust a gRPC server certificate
@@ -420,43 +409,6 @@ private slots:
     void onTimeout();
     void onGrpcCertificateNotTrusted(const QString &host, int grpcPort,
                                      const QString &fingerprint, const QString &pinnedFingerprint);
-};
-
-class ConsoleSetupPage : public QAPage
-{
-    Q_OBJECT
-public:
-    explicit ConsoleSetupPage(QWidget *parent = nullptr);
-    void initializePage() override;
-    bool validatePage() override;
-    bool isComplete() const override;
-private:
-    QRadioButton *m_modifyExistingRadio;
-    QRadioButton *m_createNewRadio;
-    QButtonGroup *m_group;
-    QComboBox *m_consoleCombo;
-    QTextEdit *m_consoleDetails;
-    QLineEdit *m_newNameEdit;
-    QLineEdit *m_newPasswordEdit;
-    QPushButton *m_generatePasswordButton;
-    QPushButton *m_refreshButton;
-    QLabel *m_statusLabel;
-    BareosDirector *m_director;
-    bool m_consolesLoaded;
-    void loadConsoles();
-    void loadConsoleDetails(const QString &name);
-    void generatePassword();
-    void createConsole();
-    BareosDirector::TLSConfig buildTLSConfig() const;
-    BareosDirector *createConnectedDirector();
-private slots:
-    void onSelectionChanged();
-    void onRefreshClicked();
-    void onConsoleSelected(int index);
-    void onGeneratePasswordClicked();
-    void onConsolesResult(const QJsonArray &consoles);
-    void onShowConsoleResult(const QString &name, const QJsonObject &console);
-    void onConfigureResult(bool success, const QString &message);
 };
 
 class ProfileNamePage : public QAPage

@@ -569,7 +569,6 @@ set(SOURCES
     src/config/bresourcepersistence.cpp
     src/config/bresourcereviewdialog.cpp
     src/jobs/bjobdefinitions.cpp
-    src/jobs/bjobdefinitionswidget.cpp
     src/schedules/model/brunparser.cpp
     src/schedules/model/brunwriter.cpp
     src/schedules/model/bscheduleoccurrences.cpp
@@ -580,11 +579,9 @@ set(SOURCES
     src/schedules/model/bschedulegridmodel.cpp
     src/schedules/model/bschedulegridtext.cpp
     src/jobs/bpaginationwidget.cpp
-    src/jobs/bviewpresets.cpp
 
     src/messages/bmessageswidget.cpp
 
-    src/clients/bclientwidget.cpp
     src/clients/bclientsmodel.cpp
     src/clients/bclientstatus.cpp
     src/clients/bclientswidget.cpp
@@ -613,7 +610,6 @@ set(SOURCES
 set(HEADERS
     include/bmainwindow.h
     include/bcheckableheaderview.h
-    include/clients/bclientwidget.h
     include/storagewidget.h
     include/bbyteformat.h
     include/busagestatus.h
@@ -685,7 +681,6 @@ set(HEADERS
     include/jobs/bjobsstatisticswidget.h
     include/jobs/bjobwidget.h
     include/jobs/bjsonjobview.h
-    include/jobs/bviewpresets.h
     include/jobs/blevelcolors.h
     include/jobs/bnewjobdialog.h
     include/jobs/brunjobcommand.h
@@ -734,7 +729,6 @@ set(HEADERS
     include/config/bresourcepersistence.h
     include/config/bresourcereviewdialog.h
     include/jobs/bjobdefinitions.h
-    include/jobs/bjobdefinitionswidget.h
     include/director/bconfigtypes.h
     include/director/bconfigclient.h
     include/director/bdirectorconfigclient.h
@@ -780,7 +774,6 @@ endif()
 set(UI_FILES
     ui/bmainwindow.ui
     ui/jobwidget.ui
-    ui/bclientwidget.ui
     ui/storagewidget.ui
     ui/bsettingsdialog.ui
 )
@@ -2541,60 +2534,6 @@ if(BUILD_TESTING)
     target_link_libraries(bjobdefinitions_test PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME bjobdefinitions_test COMMAND bjobdefinitions_test)
 
-    # bjobdefinitionswidget_test - the Job Definitions tab with a fake
-    # Director: save flow (check, review with diff and affected jobs, write)
-    # and every status, the raw text changed only where edited, delete
-    # refused while referenced, create and copy, BNET and missing ACLs
-    # read-only with nothing sent (widgets, no Director)
-    add_executable(bjobdefinitionswidget_test
-        test/bjobdefinitionswidget_test.cpp
-        test/bfakeconfigclient.h
-        src/jobs/bjobdefinitionswidget.cpp
-        src/jobs/bjobdefinitions.cpp
-        src/config/bresourcetext.cpp
-        src/config/bresourcepersistence.cpp
-        src/config/bresourcereviewdialog.cpp
-        src/bcapabilities.cpp
-        src/bheaderstate.cpp
-        src/config/bcolumnconfiguration.cpp
-        src/bstatuschip.cpp
-        src/bstatusdelegate.cpp
-        src/clients/bclientstatus.cpp
-        src/buiscale.cpp
-        src/config/bsettings.cpp
-        include/jobs/bjobdefinitionswidget.h
-        include/jobs/bjobdefinitions.h
-        include/config/bresourcetext.h
-        include/config/bresourcepersistence.h
-        include/config/bresourcereviewdialog.h
-        include/director/bconfigclient.h
-        include/director/bconfigtypes.h
-        include/bcapabilities.h
-        include/bheaderstate.h
-        include/config/bcolumnconfiguration.h
-        include/bstatuschip.h
-        include/bstatusdelegate.h
-        include/clients/bclientstatus.h
-        include/buiscale.h
-        include/config/bsettings.h
-    )
-    target_include_directories(bjobdefinitionswidget_test PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/test
-    )
-    target_link_libraries(bjobdefinitionswidget_test PRIVATE
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Widgets
-        Qt6::Test
-    )
-    add_test(NAME bjobdefinitionswidget_test COMMAND bjobdefinitionswidget_test)
-    # Widgets need a QApplication; no display is used. The settings go to
-    # the build directory, never to those of the user (the test redirects
-    # them itself as well).
-    set_tests_properties(bjobdefinitionswidget_test PROPERTIES ENVIRONMENT
-        "QT_QPA_PLATFORM=offscreen;XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/bjobdefinitionswidget_test_config")
-
     # bgrpcconnect_test - reaching the gRPC port: order of the resolved
     # addresses, the TLS probe per address against sockets on the loopback
     # interface, the texts of failed calls (no Director)
@@ -3530,7 +3469,7 @@ endif()
 
 # Tests that compile BSettings need its keychain
 foreach(_onesimus_settings_test storagewidget_test bstatuschip_test bjobstable_test
-        bjobdefinitionswidget_test b321dialog_test buiscale_test bscheduletimeline_test
+        b321dialog_test buiscale_test bscheduletimeline_test
         bschedulewizard_test)
     if(TARGET ${_onesimus_settings_test})
         target_link_libraries(${_onesimus_settings_test} PRIVATE onesimus_secretstore)

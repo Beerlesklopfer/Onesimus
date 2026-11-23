@@ -10,7 +10,6 @@
 #include "jobs/bjobmodels.h"
 #include "bcheckboxdelegate.h"
 #include "bcheckableheaderview.h"
-#include "bviewpresets.h"
 #include "bstatusdelegate.h"
 
 /**
@@ -96,35 +95,6 @@ public:
      * @since 2.0
      */
     void setLiveUpdateEnabled(bool enabled, int intervalMs = 5000);
-    
-    /**
-     * @brief Saves current view configuration as preset
-     * @param name Preset name
-     * @since 2.4
-     */
-    void saveViewPreset(const QString &name);
-    
-    /**
-     * @brief Loads a view preset
-     * @param name Preset name
-     * @return True if preset was loaded successfully
-     * @since 2.4
-     */
-    bool loadViewPreset(const QString &name);
-    
-    /**
-     * @brief Gets current view configuration
-     * @return Current preset configuration
-     * @since 2.4
-     */
-    BViewPresets::Preset currentPreset() const;
-    
-    /**
-     * @brief Applies a preset configuration
-     * @param preset Preset to apply
-     * @since 2.4
-     */
-    void applyPreset(const BViewPresets::Preset &preset);
     
     /**
      * @brief Saves the header (order, widths, hidden columns, sort) to BSettings
