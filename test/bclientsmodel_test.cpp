@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Jörg Bernau
+
+/**
+ * @file bclientsmodel_test.cpp
+ * @brief Job figures of the client table (BClientsModel)
+ *
+ * The replies are written out in the form of "llist clients", "list jobs"
+ * and "list backups client=<name>" in API mode 2 (a "result" object with
+ * the rows in an array), with only the fields the model reads.
+ * Runs without a Director (registered with CTest).
+ */
+
+#include <QtTest>
+
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QSignalSpy>
+
+#include "clients/bclientsmodel.h"
+
+namespace {
+
+QJsonObject job(const QString &client, const QString &start, qint64 bytes)
+{
+    QJsonObject j;
+    j["client"] = client;
+    j["starttime"] = start;
+    j["jobbytes"] = QString::number(bytes);
+    return j;
+}
+
+QJsonArray twoClients()
+{
+    QJsonObject a;
+    a["name"] = QStringLiteral("a-fd");
+    QJsonObject b;
+    b["name"] = QStringLiteral("b-fd");
+    return QJsonArray{ a, b };
+}
+
+/// The enriched row of a client in the unfiltered table
+QJsonObject row(BClientsModel &model, const QString &name)
+{
+    model.setClients(model.allClients());
+    for (int r = 0; r < model.rowCount(); ++r) {
+        const QJsonObject client = model.enrichedClient(r);
+        if (client["name"].toString() == name) return client;
+    }
+    return QJsonObject();
+}
+
+} // namespace
+
+class BClientsModelTest : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void backupsAreNotOverwrittenByTheJobList();
+    void backupRepliesOfAllClientsResetOnce();
+    void backupsOfAnEarlierRoundAreForgotten();
+};
+
+void BClientsModelTest::backupsAreNotOverwrittenByTheJobList()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+
+    // All backups of a-fd ...
+    model.setClientBackups(QStringLiteral("a-fd"), QJsonArray{
+        job("a-fd", "2026-11-20 23:05:00", 1000),
+        job("a-fd", "2026-11-21 23:05:00", 2000),
+        job("a-fd", "2026-11-22 23:05:00", 3000) });
+    // ... and then a page of the job list, with one job of each client and
+    // a newer start of a-fd than its last backup
+    model.enrichWithJobData(QJsonArray{
+        job("a-fd", "2026-11-23 06:00:00", 7),
+        job("b-fd", "2026-11-22 01:30:00", 500),
+        job("b-fd", "2026-11-23 01:30:00", 600) });
+
+    const QJsonObject a = row(model, QStringLiteral("a-fd"));
+    QCOMPARE(a["jobcount"].toInt(), 3);                         // the backups, not the page
+    QCOMPARE(a["totalbytes"].toString(), QString("6000"));
+    QCOMPARE(a["lastconnection"].toString(), QString("2026-11-23 06:00:00"));  // the newest of both
+
+    // A client without a backups reply has the figures of the page
+    const QJsonObject b = row(model, QStringLiteral("b-fd"));
+    QCOMPARE(b["jobcount"].toInt(), 2);
+    QCOMPARE(b["totalbytes"].toString(), QString("1100"));
+
+    // The order of the replies does not matter
+    model.setClientBackups(QStringLiteral("b-fd"), QJsonArray{ job("b-fd", "2026-11-01 01:30:00", 9) });
+    const QJsonObject b2 = row(model, QStringLiteral("b-fd"));
+    QCOMPARE(b2["jobcount"].toInt(), 1);
+    QCOMPARE(b2["totalbytes"].toString(), QString("9"));
+    QCOMPARE(b2["lastconnection"].toString(), QString("2026-11-23 01:30:00"));
+    QCOMPARE(row(model, QStringLiteral("a-fd"))["jobcount"].toInt(), 3);
+}
+
+void BClientsModelTest::backupRepliesOfAllClientsResetOnce()
+{
+    BClientsModel model(nullptr);
+    QJsonArray clients;
+    for (int i = 0; i < 50; ++i) {
+        QJsonObject c;
+        c["name"] = QStringLiteral("c%1-fd").arg(i);
+        clients.append(c);
+    }
+    model.setAllClients(clients);
+
+    // One reply per client after a connect: the table (filtered and reset
+    // on allClientsChanged) is not reset fifty times
+    QSignalSpy changed(&model, &BClientsModel::allClientsChanged);
+    for (int i = 0; i < 50; ++i) {
+        const QString name = QStringLiteral("c%1-fd").arg(i);
+        model.setClientBackups(name, QJsonArray{ job(name, "2026-11-22 23:05:00", i) });
+    }
+    QCOMPARE(changed.count(), 0);
+    QTRY_COMPARE_WITH_TIMEOUT(changed.count(), 1, 5000);
+    QTest::qWait(2 * BClientsModel::BackupsResetDelayMs);
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(row(model, QStringLiteral("c49-fd"))["totalbytes"].toString(), QString("49"));
+}
+
+void BClientsModelTest::backupsOfAnEarlierRoundAreForgotten()
+{
+    BClientsModel model(nullptr);
+    model.setAllClients(twoClients());
+    model.enrichWithJobData(QJsonArray{ job("b-fd", "2026-11-23 01:30:00", 600) });
+    model.setClientBackups(QStringLiteral("b-fd"), QJsonArray{
+        job("b-fd", "2026-11-01 01:30:00", 9),
+        job("b-fd", "2026-11-02 01:30:00", 9) });
+    QCOMPARE(row(model, QStringLiteral("b-fd"))["jobcount"].toInt(), 2);
+
+    // A refresh: b-fd's backups have been pruned, so no reply names it
+    model.forgetClientBackups();
+    const QJsonObject b = row(model, QStringLiteral("b-fd"));
+    QCOMPARE(b["jobcount"].toInt(), 1);                         // the page again
+    QCOMPARE(b["totalbytes"].toString(), QString("600"));
+}
+
+QTEST_GUILESS_MAIN(BClientsModelTest)
+#include "bclientsmodel_test.moc"

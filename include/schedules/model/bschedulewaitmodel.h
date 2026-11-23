@@ -253,6 +253,8 @@ struct BWaitLimits
     /// Reads the reply of "show clients" or "show client=<name>"; a reply
     /// with several clients replaces what was known, one client is merged
     void readClients(const QString &json);
+    /// The same from a reply that was parsed already (its root object)
+    void readClients(const QJsonObject &reply);
 
     /**
      * @brief A directive of a job, looked for in the job and then in the
@@ -315,6 +317,8 @@ struct BWaitLimits
     static constexpr int DefaultMaximumConcurrentJobs = 1;  ///< Bareos, all four resources
 
 private:
+    static QHash<QString, int> readResourceLimits(const QJsonObject &reply, const QString &kind,
+                                                  bool *ok);
     static QHash<QString, int> readResourceLimits(const QString &json, const QString &kind,
                                                   bool *ok);
 };

@@ -311,6 +311,8 @@ public slots:
     void processShowStoragesResponse(const QString &jsonData);
     void processShowDirectorResponse(const QString &jsonData);
     void processShowClientsResponse(const QString &jsonData);
+    /// The same from a reply that was parsed already (its root object)
+    void processShowClientsReply(const QJsonObject &reply);
     void setConnectionState(bool connected);
 
     /**

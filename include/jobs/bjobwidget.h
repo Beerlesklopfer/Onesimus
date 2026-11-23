@@ -5,6 +5,7 @@
 #define BJOBWIDGET_H
 
 #include <QWidget>
+#include <QJsonDocument>
 #include <QSplitter>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -137,6 +138,8 @@ public slots:
      * @since 2.0
      */
     void processJsonResponse(const QString &jsonData);
+    /// The same from a reply that was parsed already
+    void processJsonResponse(const QJsonDocument &doc);
 
     /**
      * @brief Processes .jobs dot-command response
@@ -363,6 +366,9 @@ private slots:
     void onLogSearchChanged(const QString &text);
 
 private:
+    /// The jobs of the reply the stream reader holds, into the table
+    void showParsedJobs();
+
     /**
      * @brief Sets up the user interface
      * @since 1.0

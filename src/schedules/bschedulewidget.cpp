@@ -882,6 +882,12 @@ void BScheduleWidget::processShowClientsResponse(const QString &jsonData)
     updateWaitPrediction();
 }
 
+void BScheduleWidget::processShowClientsReply(const QJsonObject &reply)
+{
+    m_limits.readClients(reply);
+    updateWaitPrediction();
+}
+
 void BScheduleWidget::onScheduleSelectionChanged()
 {
     updateJobList();

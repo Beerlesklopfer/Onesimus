@@ -10,6 +10,7 @@
 #include <QJsonDocument>
 #include <QMap>
 #include <QPair>
+#include <QTimer>
 #include "blogging.h"
 #include "clients/bclientstatus.h"
 #include "config/bconfigparser.h"
@@ -123,11 +124,34 @@ public:
     void setAllClients(const QJsonArray &clients);
 
     /**
-     * @brief Enriches client data with job statistics (bytes, count, last job time)
-     * @param jobs JSON array of job/backup objects
+     * @brief Job statistics (bytes, count, last job time) from the job list
+     * @param jobs JSON array of job objects ("list jobs")
+     *
+     * The job list is one page of the jobs: a client whose backups were
+     * reported (setClientBackups()) keeps their figures; the list counts
+     * only for the other clients, and for the newest start of each.
      * @since 2.9
      */
     void enrichWithJobData(const QJsonArray &jobs);
+
+    /**
+     * @brief The backups of one client ("list backups client=<name>")
+     *
+     * Only the figures of that client are worked out again. The table is
+     * filtered and reset once for a burst of replies (one per client after
+     * a connect), BackupsResetDelayMs after the first.
+     */
+    void setClientBackups(const QString &client, const QJsonArray &backups);
+    /**
+     * @brief A new round of "list backups client=" requests begins
+     *
+     * The backups of the last round are forgotten: a client with no backup
+     * left gets no reply of its own and has the figures of the job list
+     * again. The table is reset once BackupsResetDelayMs later, like for
+     * the replies.
+     */
+    void forgetClientBackups();
+    static constexpr int BackupsResetDelayMs = 200;
 
     /**
      * @brief Enriches client data with address/port from "show clients" response
@@ -135,6 +159,8 @@ public:
      * @since 2.9
      */
     void enrichWithShowClientData(const QString &jsonData);
+    /// The same from a reply that was parsed already (its root object)
+    void enrichWithShowClientData(const QJsonObject &reply);
 
     /**
      * @brief Requests client list from Director
@@ -255,6 +281,20 @@ private:
     QMap<QString, QString> m_lastJobTimes;          ///< Client name → last job starttime
     QMap<QString, qint64> m_totalBytes;             ///< Client name → total backed up bytes
     QMap<QString, int> m_jobCounts;                 ///< Client name → number of jobs
+
+    /// The figures of one client from one source
+    struct JobStats
+    {
+        QString lastStart;      ///< Newest start time, as the Director wrote it
+        qint64 bytes = 0;
+        int count = 0;
+    };
+    static QHash<QString, JobStats> statsOf(const QJsonArray &jobs);
+    QHash<QString, JobStats> m_jobListStats;    ///< From the job list (one page)
+    QHash<QString, JobStats> m_backupStats;     ///< From "list backups client=", per client
+    /// m_lastJobTimes, m_totalBytes, m_jobCounts of one client from both sources
+    void mergeStats(const QString &client);
+    QTimer *m_backupsTimer = nullptr;           ///< One reset for a burst of backup replies
     QMap<QString, QPair<QString, int>> m_addresses; ///< Client name → {address, port}
     QMap<QString, QJsonObject> m_showClientDetails; ///< Client name → full "show clients" data
 
@@ -265,7 +305,7 @@ private:
 
     // Deferred enrichment caches
     QJsonArray m_cachedJobs;            ///< Cached job data for deferred enrichment
-    QString m_cachedShowClients;        ///< Cached "show clients" response for deferred enrichment
+    QJsonObject m_cachedShowClients;    ///< Cached "show clients" reply for deferred enrichment
 };
 
 #endif // BCLIENTSMODEL_H

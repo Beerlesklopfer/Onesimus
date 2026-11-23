@@ -1198,7 +1198,19 @@ void BJobWidget::processJsonResponse(const QString &jsonData)
         m_refreshButton->setEnabled(true);
         return;
     }
+    showParsedJobs();
+}
 
+void BJobWidget::processJsonResponse(const QJsonDocument &doc)
+{
+    // Parsed by the caller already: not a second time
+    m_streamReader->clear();
+    m_streamReader->setDocument(doc);
+    showParsedJobs();
+}
+
+void BJobWidget::showParsedJobs()
+{
 #ifdef DEBUG_JSON
     BLOG_DEBUG() << "✓ JSON parsed successfully";
 #endif

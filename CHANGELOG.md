@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and
   waits for the job history (measured with the simulator, 80 clients and 120 jobs: a 30 s stall
   of the GUI thread before, none above 50 ms after connecting).
+- Client table: the job list (one page of jobs) no longer overwrites a client's job count and
+  backed-up bytes reported by "list backups client=".
 
 ## [0.2.0] - 2026-02-21
 

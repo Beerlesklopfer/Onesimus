@@ -2253,6 +2253,37 @@ if(BUILD_TESTING)
 
     add_test(NAME bschedulewaitmodel_test COMMAND bschedulewaitmodel_test)
 
+    # bclientsmodel_test - the job figures of the client table: the backups
+    # of a client against a page of the job list, one reset for the
+    # backup replies of all clients (no widgets, no Director)
+    add_executable(bclientsmodel_test
+        test/bclientsmodel_test.cpp
+        src/clients/bclientsmodel.cpp
+        src/clients/bclientstatus.cpp
+        src/bstatuschip.cpp
+        src/director/bdirector.cpp
+        src/config/bconfigparser.cpp
+        include/config/bconfigparser.h
+        include/clients/bclientsmodel.h
+        include/clients/bclientstatus.h
+        include/bstatuschip.h
+        include/director/bdirector.h
+    )
+    target_include_directories(bclientsmodel_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(bclientsmodel_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+    add_test(NAME bclientsmodel_test COMMAND bclientsmodel_test)
+
     # bwaitstagger_test - later start times for jobs that wait for each
     # other: the search, its bounds and the order of priorities
     add_executable(bwaitstagger_test

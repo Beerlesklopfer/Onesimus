@@ -262,21 +262,34 @@ BMainWindow::BMainWindow(QWidget *parent)
 
     // ✅ Route JSON responses to appropriate widgets based on Command enum
     connect(m_director, &BDirector::jsonResult, this, [this](BDirector::Command cmd, const QString &jsonData) {
-        QJsonParseError parseError;
-        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
-
-        if (parseError.error != QJsonParseError::NoError) {
-            BLOG_WARNING() << "MainWindow: Failed to parse JSON response:" << parseError.errorString();
-            return;
+        // Parsed here only for the replies that are read here or handed on
+        // parsed; every other reply is parsed once, by the one who reads it
+        QJsonObject root;
+        QJsonObject result;
+        switch (cmd) {
+        case BDirector::Command::ListJobs:
+        case BDirector::Command::ListJobsLast:
+        case BDirector::Command::ShowClient:
+        case BDirector::Command::ShowClients:
+        case BDirector::Command::ListBackups:
+        case BDirector::Command::ListBackupsClient: {
+            QJsonParseError parseError;
+            const QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+            if (parseError.error != QJsonParseError::NoError) {
+                BLOG_WARNING() << "MainWindow: Failed to parse JSON response:" << parseError.errorString();
+                return;
+            }
+            if (!doc.isObject()) {
+                BLOG_WARNING() << "MainWindow: JSON response is not an object";
+                return;
+            }
+            root = doc.object();
+            result = root["result"].toObject();
+            break;
         }
-
-        if (!doc.isObject()) {
-            BLOG_WARNING() << "MainWindow: JSON response is not an object";
-            return;
+        default:
+            break;
         }
-
-        QJsonObject root = doc.object();
-        QJsonObject result = root["result"].toObject();
 
         switch (cmd) {
         // Resource dot-commands handled by typed signals (Phase 6)
@@ -296,7 +309,7 @@ BMainWindow::BMainWindow(QWidget *parent)
 
         case BDirector::Command::ListJobs:
         case BDirector::Command::ListJobsLast: {
-            m_jobWidget->processJsonResponse(jsonData);
+            m_jobWidget->processJsonResponse(QJsonDocument(root));
             // Also enrich client widget with job data (for online status + total bytes)
             QJsonArray jobsArr = result["jobs"].toArray();
             if (!jobsArr.isEmpty())
@@ -306,9 +319,9 @@ BMainWindow::BMainWindow(QWidget *parent)
 
         case BDirector::Command::ShowClient:
         case BDirector::Command::ShowClients:
-            m_clientWidget->model()->enrichWithShowClientData(jsonData);
+            m_clientWidget->model()->enrichWithShowClientData(root);
             // Maximum Concurrent Jobs of the clients, for the predicted waits
-            m_scheduleWidget->processShowClientsResponse(jsonData);
+            m_scheduleWidget->processShowClientsReply(root);
             break;
 
         // Limits of the storages and of the Director, asked for by the
@@ -322,9 +335,10 @@ BMainWindow::BMainWindow(QWidget *parent)
 
         case BDirector::Command::ListBackups:
         case BDirector::Command::ListBackupsClient: {
-            // One reply per "list backups client=<name>": merge per client,
-            // then enrich the client model with the backups of all clients
-            QJsonArray backupsArr = result["backups"].toArray();
+            // One reply per "list backups client=<name>": only the clients
+            // in it are worked out again; the table is reset once for the
+            // replies of all clients (BClientsModel::setClientBackups())
+            const QJsonArray backupsArr = result["backups"].toArray();
             QHash<QString, QJsonArray> replyByClient;
             for (const QJsonValue &backupVal : backupsArr) {
                 QString clientName = backupVal.toObject()["client"].toString();
@@ -332,15 +346,7 @@ BMainWindow::BMainWindow(QWidget *parent)
                     replyByClient[clientName].append(backupVal);
             }
             for (auto it = replyByClient.constBegin(); it != replyByClient.constEnd(); ++it)
-                m_clientBackups[it.key()] = it.value();
-
-            QJsonArray mergedBackups;
-            for (const QJsonArray &clientBackups : std::as_const(m_clientBackups)) {
-                for (const QJsonValue &backupVal : clientBackups)
-                    mergedBackups.append(backupVal);
-            }
-            if (!mergedBackups.isEmpty())
-                m_clientWidget->model()->enrichWithJobData(mergedBackups);
+                m_clientWidget->model()->setClientBackups(it.key(), it.value());
             break;
         }
 
@@ -374,7 +380,7 @@ BMainWindow::BMainWindow(QWidget *parent)
         default:
 #ifdef IS_DEVELOPER
             BLOG_DEBUG() << "MainWindow: Unrouted JSON response for cmd:" << static_cast<int>(cmd);
-            BLOG_DEBUG() << "  Result keys:" << result.keys();
+            BLOG_DEBUG() << "  Data size:" << jsonData.size();
 #endif
             break;
         }
@@ -2651,7 +2657,9 @@ void BMainWindow::requestClientBackups()
             names.insert(name);
     }
 
-    m_clientBackups.clear();
+    // What the last round reported is forgotten: a client without backups
+    // gets no reply of its own
+    m_clientWidget->model()->forgetClientBackups();
 
     QStringList sortedNames = names.values();
     sortedNames.sort(Qt::CaseInsensitive);

@@ -195,13 +195,20 @@ BWaitLimits::RunTimeLimits BWaitLimits::runTimeLimits(const QMap<QString, QJsonO
 QHash<QString, int> BWaitLimits::readResourceLimits(const QString &json, const QString &kind,
                                                     bool *ok)
 {
+    *ok = false;
+    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+    if (!doc.isObject())
+        return {};
+    return readResourceLimits(doc.object(), kind, ok);
+}
+
+QHash<QString, int> BWaitLimits::readResourceLimits(const QJsonObject &reply, const QString &kind,
+                                                    bool *ok)
+{
     QHash<QString, int> limits;
     *ok = false;
 
-    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
-    if (!doc.isObject())
-        return limits;
-    const QJsonValue resources = doc.object().value(QLatin1String("result")).toObject().value(kind);
+    const QJsonValue resources = reply.value(QLatin1String("result")).toObject().value(kind);
     // An error reply, a text reply or another command's reply has no such object
     if (!resources.isObject())
         return limits;
@@ -242,8 +249,15 @@ void BWaitLimits::readStorages(const QString &json)
 
 void BWaitLimits::readClients(const QString &json)
 {
+    const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+    if (doc.isObject())
+        readClients(doc.object());
+}
+
+void BWaitLimits::readClients(const QJsonObject &reply)
+{
     bool ok = false;
-    const QHash<QString, int> found = readResourceLimits(json, QStringLiteral("clients"), &ok);
+    const QHash<QString, int> found = readResourceLimits(reply, QStringLiteral("clients"), &ok);
     if (!ok)
         return;     // not a reply about clients: what is known stays
     if (found.size() == 1) {

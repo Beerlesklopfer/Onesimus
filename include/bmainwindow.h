@@ -173,9 +173,6 @@ private:
     QLabel *m_licenceLabel = nullptr;   ///< End of the annual licence (Onesimus Director only)
     QString m_directorVersion;  ///< Speichere Director-Version
 
-    /// Backups per client from the "list backups client=" replies (merged for enrichment)
-    QHash<QString, QJsonArray> m_clientBackups;
-
     // Actions
     QAction *m_connectAction;
     QAction *m_connectLastAction;

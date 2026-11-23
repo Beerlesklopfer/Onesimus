@@ -8,11 +8,16 @@
 #include <QTimeZone>
 #include <QLocale>
 #include <QRegularExpression>
+#include <QSet>
 
 BClientsModel::BClientsModel(BDirector *director, QObject *parent)
     : QAbstractTableModel(parent)
     , m_director(director)
 {
+    m_backupsTimer = new QTimer(this);
+    m_backupsTimer->setSingleShot(true);
+    m_backupsTimer->setInterval(BackupsResetDelayMs);
+    connect(m_backupsTimer, &QTimer::timeout, this, &BClientsModel::allClientsChanged);
 }
 
 void BClientsModel::refresh()
@@ -84,7 +89,8 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             bool isLinux = uname.contains("linux", Qt::CaseInsensitive);
 
             // Try comma-separated distro: ",debian-11.2," or ",ubuntu-22.04,"
-            QRegularExpression distroRx(
+            // Compiled once: data() is called for every cell on every repaint
+            static const QRegularExpression distroRx(
                 R"(,(debian|ubuntu|centos|redhat|red\s?hat|suse|fedora|arch|gentoo|alpine|rocky|alma)[- ]?([\d.]*),)",
                 QRegularExpression::CaseInsensitiveOption);
             QRegularExpressionMatch distroMatch = distroRx.match(uname);
@@ -97,7 +103,7 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             }
 
             // Try "deb13" pattern from kernel version strings (e.g., "+deb13-amd64")
-            QRegularExpression debRx(R"(\+deb(\d+))", QRegularExpression::CaseInsensitiveOption);
+            static const QRegularExpression debRx(R"(\+deb(\d+))", QRegularExpression::CaseInsensitiveOption);
             QRegularExpressionMatch debMatch = debRx.match(uname);
             if (debMatch.hasMatch())
                 return QString("Linux Debian %1").arg(debMatch.captured(1));
@@ -120,7 +126,7 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             QString uname = client["uname"].toString().trimmed();
             // Extract Bareos FD version: first "X.Y.Z" pattern in the uname string
             // Typical: "bareos-fd 21.1.5 (date) ..."
-            QRegularExpression versionRx(R"((\d+\.\d+(?:\.\d+)*))");
+            static const QRegularExpression versionRx(R"((\d+\.\d+(?:\.\d+)*))");
             QRegularExpressionMatch match = versionRx.match(uname);
             if (match.hasMatch())
                 return match.captured(1);
@@ -271,11 +277,14 @@ void BClientsModel::clear()
     m_lastJobTimes.clear();
     m_totalBytes.clear();
     m_jobCounts.clear();
+    m_jobListStats.clear();
+    m_backupStats.clear();
+    m_backupsTimer->stop();
     m_addresses.clear();
     m_showClientDetails.clear();
     m_clientOnlineStatus.clear();
     m_cachedJobs = QJsonArray();
-    m_cachedShowClients.clear();
+    m_cachedShowClients = QJsonObject();
     endResetModel();
     emit dataChanged();
 }
@@ -296,6 +305,56 @@ void BClientsModel::setAllClients(const QJsonArray &clients)
     emit allClientsChanged();
 }
 
+QHash<QString, BClientsModel::JobStats> BClientsModel::statsOf(const QJsonArray &jobs)
+{
+    QHash<QString, JobStats> stats;
+    for (const QJsonValue &jobVal : jobs) {
+        const QJsonObject job = jobVal.toObject();
+        const QString clientName = job["client"].toString();
+        if (clientName.isEmpty())
+            continue;
+        JobStats &s = stats[clientName];
+
+        // Track latest job starttime per client
+        const QString startTime = job["starttime"].toString();
+        if (!startTime.isEmpty() && startTime > s.lastStart)
+            s.lastStart = startTime;
+
+        // Accumulate job bytes per client
+        const QJsonValue bytesVal = job["jobbytes"];
+        s.bytes += bytesVal.isString() ? bytesVal.toString().toLongLong()
+                                       : static_cast<qint64>(bytesVal.toDouble());
+        ++s.count;
+    }
+    return stats;
+}
+
+void BClientsModel::mergeStats(const QString &client)
+{
+    const auto backups = m_backupStats.constFind(client);
+    const auto listed = m_jobListStats.constFind(client);
+    const bool hasBackups = backups != m_backupStats.constEnd();
+    const bool hasListed = listed != m_jobListStats.constEnd();
+    if (!hasBackups && !hasListed) {
+        m_lastJobTimes.remove(client);
+        m_totalBytes.remove(client);
+        m_jobCounts.remove(client);
+        return;
+    }
+    // The backups of the client are all of them; the job list is a page
+    const JobStats &counted = hasBackups ? backups.value() : listed.value();
+    m_totalBytes[client] = counted.bytes;
+    m_jobCounts[client] = counted.count;
+    // The newest start either source knows of
+    QString last = hasBackups ? backups->lastStart : QString();
+    if (hasListed && listed->lastStart > last)
+        last = listed->lastStart;
+    if (last.isEmpty())
+        m_lastJobTimes.remove(client);
+    else
+        m_lastJobTimes[client] = last;
+}
+
 void BClientsModel::enrichWithJobData(const QJsonArray &jobs)
 {
     m_cachedJobs = jobs;
@@ -303,49 +362,59 @@ void BClientsModel::enrichWithJobData(const QJsonArray &jobs)
     if (m_allClients.isEmpty())
         return;
 
+    m_jobListStats = statsOf(jobs);
     m_lastJobTimes.clear();
     m_totalBytes.clear();
     m_jobCounts.clear();
-
-    for (const QJsonValue &jobVal : jobs) {
-        QJsonObject job = jobVal.toObject();
-        QString clientName = job["client"].toString();
-        if (clientName.isEmpty())
-            continue;
-
-        // Track latest job starttime per client
-        QString startTime = job["starttime"].toString();
-        if (!startTime.isEmpty()) {
-            if (!m_lastJobTimes.contains(clientName) || startTime > m_lastJobTimes[clientName]) {
-                m_lastJobTimes[clientName] = startTime;
-            }
-        }
-
-        // Accumulate job bytes per client
-        QJsonValue bytesVal = job["jobbytes"];
-        qint64 bytes = bytesVal.isString() ? bytesVal.toString().toLongLong()
-                                           : static_cast<qint64>(bytesVal.toDouble());
-        m_totalBytes[clientName] += bytes;
-
-        m_jobCounts[clientName]++;
-    }
+    QSet<QString> clients;
+    for (auto it = m_jobListStats.constBegin(); it != m_jobListStats.constEnd(); ++it)
+        clients.insert(it.key());
+    for (auto it = m_backupStats.constBegin(); it != m_backupStats.constEnd(); ++it)
+        clients.insert(it.key());
+    for (const QString &client : std::as_const(clients))
+        mergeStats(client);
 
     emit allClientsChanged();
 }
 
+void BClientsModel::setClientBackups(const QString &client, const QJsonArray &backups)
+{
+    if (client.isEmpty())
+        return;
+    m_backupStats.insert(client, statsOf(backups).value(client));
+    mergeStats(client);
+    // One filter and reset for the replies of all clients
+    if (!m_backupsTimer->isActive())
+        m_backupsTimer->start();
+}
+
+void BClientsModel::forgetClientBackups()
+{
+    const QStringList clients = m_backupStats.keys();
+    m_backupStats.clear();
+    for (const QString &client : clients)
+        mergeStats(client);
+    // Shown with the replies of the new round, or without them if none comes
+    if (!clients.isEmpty() && !m_backupsTimer->isActive())
+        m_backupsTimer->start();
+}
+
 void BClientsModel::enrichWithShowClientData(const QString &jsonData)
 {
-    m_cachedShowClients = jsonData;
+    QJsonParseError error;
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError)
+        return;
+    enrichWithShowClientData(doc.object());
+}
+
+void BClientsModel::enrichWithShowClientData(const QJsonObject &root)
+{
+    m_cachedShowClients = root;
 
     if (m_allClients.isEmpty())
         return;
 
-    QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError)
-        return;
-
-    QJsonObject root = doc.object();
     QJsonObject result = root["result"].toObject();
 
     // Collect client objects from various response formats

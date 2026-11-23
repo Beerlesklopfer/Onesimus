@@ -82,6 +82,10 @@ public slots:
      */
     bool parseJson();
 
+    /// Takes a document that was parsed elsewhere instead of parsing the
+    /// buffer
+    void setDocument(const QJsonDocument &doc) { m_jsonDocument = doc; }
+
 signals:
     /**
      * @brief Emitted when JSON parsing is complete
