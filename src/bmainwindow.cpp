@@ -1737,11 +1737,11 @@ void BMainWindow::showConnectionDialog()
         m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
         m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
         m_director->tlsConfig()->tlsCipherList = profile.tlsCipherList;
+        m_director->tlsConfig()->tlsAllowedCn = profile.tlsAllowedCn;
+        // Every platform: the CA of the profile is what certificate TLS trusts
+        m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
 
 #ifndef Q_OS_WINDOWS
-        if (!profile.tlsCaCertFile.isEmpty()) {
-            m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
-        }
         if (!profile.tlsCertFile.isEmpty()) {
             m_director->tlsConfig()->tlsCertFile->setFileName(profile.tlsCertFile);
         }
@@ -1752,6 +1752,7 @@ void BMainWindow::showConnectionDialog()
         if (!profile.tlsPfxFile.isEmpty()) {
             m_director->tlsConfig()->tlsPfxFile->setFileName(profile.tlsPfxFile);
         }
+        m_director->tlsConfig()->tlsPfxPassword = profile.tlsPfxPassword;
 #endif
 
         // Connect using profile data
@@ -2799,11 +2800,11 @@ void BMainWindow::loadAndConnectLastUsed()
     m_director->tlsConfig()->tlsPSKEnable = profile.tlsUsePSK;
     m_director->tlsConfig()->tlsVerifyPeer = profile.tlsVerifyPeer;
     m_director->tlsConfig()->tlsCipherList = profile.tlsCipherList;
+    m_director->tlsConfig()->tlsAllowedCn = profile.tlsAllowedCn;
+    // Every platform: the CA of the profile is what certificate TLS trusts
+    m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
 
 #ifndef Q_OS_WINDOWS
-    if (!profile.tlsCaCertFile.isEmpty()) {
-        m_director->tlsConfig()->tlsCaCertFile->setFileName(profile.tlsCaCertFile);
-    }
     if (!profile.tlsCertFile.isEmpty()) {
         m_director->tlsConfig()->tlsCertFile->setFileName(profile.tlsCertFile);
     }
@@ -2814,6 +2815,7 @@ void BMainWindow::loadAndConnectLastUsed()
     if (!profile.tlsPfxFile.isEmpty()) {
         m_director->tlsConfig()->tlsPfxFile->setFileName(profile.tlsPfxFile);
     }
+    m_director->tlsConfig()->tlsPfxPassword = profile.tlsPfxPassword;
 #endif
 
 #ifdef IS_DEVELOPER

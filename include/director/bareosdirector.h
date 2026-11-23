@@ -27,6 +27,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QByteArray>
 #include <QTimer>
 #include <QSettings>
@@ -458,6 +459,7 @@ public:
         bool tlsPSKEnable;
         bool tlsVerifyPeer;
         QString tlsCipherList;  ///< Colon-separated cipher list for PSK mode
+        QStringList tlsAllowedCn; ///< "TLS Allowed CN": certificate common names accepted instead of the host name
 
         QSharedPointer<QFile> tlsCaCertFile;
 

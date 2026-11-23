@@ -41,8 +41,8 @@ struct BCommandLineTlsOptions {
  *   error, because the user expects an encrypted connection
  * - --tls alone: TLS-PSK with the console password (the Bareos default)
  * - --tls with certificate options: certificate TLS, the Director's
- *   certificate is verified (against --tls-ca if given, otherwise against
- *   the system's certificate store)
+ *   certificate is verified against --tls-ca, which is then required (the
+ *   system's certificate store is never used)
  * - in both cases TLS is enabled and required
  *
  * Every option goes into its own field; files must exist.
@@ -87,6 +87,13 @@ inline QString bApplyCommandLineTls(const BCommandLineTlsOptions &options,
     }
 
     const bool certificateMode = options.hasCertificateOptions();
+
+    // Verification trusts only the CA given here: a certificate that some
+    // other CA issued for another host must not be enough
+    if (certificateMode && options.caFile.isEmpty()) {
+        return text("Certificate TLS needs --tls-ca: the Director's certificate is verified "
+                    "against this CA only.");
+    }
 
     config.tlsEnable = true;
     config.tlsRequire = true;

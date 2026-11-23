@@ -272,12 +272,35 @@ bool BareosAuth::setupCertificateTLS()
     // Set protocol to TLS 1.2 or later
     sslConfig.setProtocol(QSsl::TlsV1_2OrLater);
 
-    // ✅ Peer verification basierend auf Konfiguration
     if (m_tlsVerifyPeer)
     {
+        // Only the CA of the profile is trusted: setCaCertificates() replaces
+        // the system store (and its on-demand loading), so a certificate that
+        // any public CA issued for another name is not enough
+        if (m_tlsCaFile.isEmpty())
+        {
+            m_errorMessage = tr("Certificate verification is on, but no CA certificate file is set "
+                                "in the profile. Set the CA certificate file to the CA that signed "
+                                "the Director's certificate. Connection refused.");
+            m_authState = BAuthState::AUTH_FAILED;
+            stopAuthTimeout();
+            return false;
+        }
+        QList<QSslCertificate> caCerts = QSslCertificate::fromPath(m_tlsCaFile, QSsl::Pem);
+        if (caCerts.isEmpty())
+            caCerts = QSslCertificate::fromPath(m_tlsCaFile, QSsl::Der);
+        if (caCerts.isEmpty())
+        {
+            m_errorMessage = tr("The CA certificate file \"%1\" cannot be read or contains no "
+                                "certificate. Connection refused.").arg(m_tlsCaFile);
+            m_authState = BAuthState::AUTH_FAILED;
+            stopAuthTimeout();
+            return false;
+        }
+        sslConfig.setCaCertificates(caCerts);
         sslConfig.setPeerVerifyMode(QSslSocket::VerifyPeer);
 #ifdef IS_DEVELOPER
-        AUTH_DEBUG << "  Peer verification: ENABLED (Certificate mode)";
+        AUTH_DEBUG << "  Peer verification: ENABLED, CA certificates:" << caCerts.size();
 #endif
     }
     else
@@ -288,54 +311,60 @@ bool BareosAuth::setupCertificateTLS()
 #endif
     }
 
-    // Load CA certificate
-    if (!m_tlsCaFile.isEmpty()) {
-        QList<QSslCertificate> caCerts = QSslCertificate::fromPath(m_tlsCaFile);
-        if (caCerts.isEmpty()) {
-            AUTH_WARNING << "No CA certificates found in:" << m_tlsCaFile;
-        } else {
-            sslConfig.setCaCertificates(caCerts);
-#ifdef IS_DEVELOPER
-            AUTH_DEBUG << "  Loaded CA certificate:" << m_tlsCaFile;
-#endif
+    // Client certificate: a file that is set but cannot be used refuses the
+    // connection instead of going on without the certificate
+    if (!m_tlsPfxFile.isEmpty())
+    {
+        QFile pfx(m_tlsPfxFile);
+        QSslKey key;
+        QSslCertificate cert;
+        QList<QSslCertificate> chain;
+        if (!pfx.open(QIODevice::ReadOnly)
+            || !QSslCertificate::importPkcs12(&pfx, &key, &cert, &chain, m_tlsPfxPassword.toUtf8()))
+        {
+            m_errorMessage = tr("The client certificate file \"%1\" cannot be read (wrong password, "
+                                "or not a PKCS#12 file). Connection refused.").arg(m_tlsPfxFile);
+            m_authState = BAuthState::AUTH_FAILED;
+            stopAuthTimeout();
+            return false;
         }
+        sslConfig.setLocalCertificateChain(QList<QSslCertificate>{cert} + chain);
+        sslConfig.setPrivateKey(key);
     }
-
-    // Load client certificate
-    if (!m_tlsCertFile.isEmpty()) {
-        QList<QSslCertificate> localCerts = QSslCertificate::fromPath(m_tlsCertFile);
-        if (localCerts.isEmpty()) {
-            AUTH_WARNING << "No client certificate found in:" << m_tlsCertFile;
-        } else {
+    else
+    {
+        if (!m_tlsCertFile.isEmpty()) {
+            QList<QSslCertificate> localCerts = QSslCertificate::fromPath(m_tlsCertFile);
+            if (localCerts.isEmpty()) {
+                m_errorMessage = tr("The client certificate file \"%1\" cannot be read or contains "
+                                    "no certificate. Connection refused.").arg(m_tlsCertFile);
+                m_authState = BAuthState::AUTH_FAILED;
+                stopAuthTimeout();
+                return false;
+            }
             sslConfig.setLocalCertificateChain(localCerts);
-#ifdef IS_DEVELOPER
-            AUTH_DEBUG << "  Loaded client certificate:" << m_tlsCertFile;
-#endif
         }
-    }
 
-    // Load private key
-    if (!m_tlsKeyFile.isEmpty()) {
-        QFile keyFile(m_tlsKeyFile);
-        if (keyFile.open(QIODevice::ReadOnly)) {
-            // Try RSA first, then EC
-            QSslKey key(&keyFile, QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey);
-            if (key.isNull()) {
-                keyFile.seek(0);
-                key = QSslKey(&keyFile, QSsl::Ec, QSsl::Pem, QSsl::PrivateKey);
+        if (!m_tlsKeyFile.isEmpty()) {
+            QFile keyFile(m_tlsKeyFile);
+            QSslKey key;
+            if (keyFile.open(QIODevice::ReadOnly)) {
+                // Try RSA first, then EC
+                key = QSslKey(&keyFile, QSsl::Rsa, QSsl::Pem, QSsl::PrivateKey);
+                if (key.isNull()) {
+                    keyFile.seek(0);
+                    key = QSslKey(&keyFile, QSsl::Ec, QSsl::Pem, QSsl::PrivateKey);
+                }
             }
-            keyFile.close();
-
             if (key.isNull()) {
-                AUTH_WARNING << "Failed to load private key from:" << m_tlsKeyFile;
-            } else {
-                sslConfig.setPrivateKey(key);
-#ifdef IS_DEVELOPER
-                AUTH_DEBUG << "  Loaded private key:" << m_tlsKeyFile;
-#endif
+                m_errorMessage = tr("The private key file \"%1\" cannot be read (an unencrypted RSA "
+                                    "or EC key in PEM format is needed). Connection refused.")
+                                     .arg(m_tlsKeyFile);
+                m_authState = BAuthState::AUTH_FAILED;
+                stopAuthTimeout();
+                return false;
             }
-        } else {
-            AUTH_WARNING << "Failed to open key file:" << m_tlsKeyFile;
+            sslConfig.setPrivateKey(key);
         }
     }
 
@@ -605,6 +634,18 @@ void BareosAuth::onEncrypted()
 
     m_tlsStarted = true;
 
+    // Certificate TLS with "TLS Allowed CN": the common name must be listed
+    // even when the host name matched (no sslErrors() then), as in Bareos
+    if (!m_tlsPSKEnable && m_tlsVerifyPeer && !m_allowedCommonNames.isEmpty())
+    {
+        const QString nameError = certificateNameError(m_socket->peerCertificate(), false);
+        if (!nameError.isEmpty())
+        {
+            failAuthentication(nameError);
+            return;
+        }
+    }
+
     // ✅ Nach PSK-TLS: Jetzt Hello senden und CRAM-MD5 starten
     emit statusMessage(tr("TLS established, sending Hello packet..."));
 
@@ -660,7 +701,8 @@ void BareosAuth::onSslErrorsCertificate(const QList<QSslError> &errors)
         AUTH_WARNING << "  -" << error.errorString();
     }
 
-    // Bei Zertifikat-basierter TLS: Nur ignorieren wenn VerifyPeer deaktiviert
+    // Verification off in the profile: TLS only encrypts, the Director is
+    // proven by the mutual CRAM-MD5 handshake that follows
     if (!m_tlsVerifyPeer)
     {
 #ifdef IS_DEVELOPER
@@ -670,40 +712,75 @@ void BareosAuth::onSslErrorsCertificate(const QList<QSslError> &errors)
         return;
     }
 
-    // ✅ Bareos verwendet Daemon-Namen in Zertifikaten, nicht Hostnamen
-    // Daher ignorieren wir HostNameMismatch, prüfen aber andere Fehler
+    QList<QSslError> hostNameErrors;
     QList<QSslError> criticalErrors;
-    QList<QSslError> ignorableErrors;
-
     for (const QSslError &error : errors)
     {
         if (error.error() == QSslError::HostNameMismatch)
-        {
-            // Hostname-Mismatch ist bei Bareos normal (Zertifikat hat Daemon-Namen)
-            ignorableErrors.append(error);
-#ifdef IS_DEVELOPER
-            AUTH_DEBUG << "  Ignoring HostNameMismatch (Bareos uses daemon names in certificates)";
-#endif
-        }
+            hostNameErrors.append(error);
         else
-        {
-            // Andere Fehler sind kritisch
             criticalErrors.append(error);
-        }
     }
 
-    // Ignorierbare Fehler dem Socket mitteilen
-    if (!ignorableErrors.isEmpty())
-    {
-        m_socket->ignoreSslErrors(ignorableErrors);
-    }
-
-    // Bei kritischen Fehlern: Authentifizierung abbrechen
     if (!criticalErrors.isEmpty())
     {
-        m_errorMessage = QString("SSL/TLS Error: %1").arg(criticalErrors.first().errorString());
-        emit authenticationFailed(m_errorMessage);
+        failAuthentication(tr("The Director's certificate was not accepted: %1. It must be signed "
+                              "by the CA of the profile (\"%2\"). Connection refused.")
+                               .arg(criticalErrors.first().errorString(), m_tlsCaFile));
+        return;
     }
+
+    // A host name mismatch is only acceptable when "TLS Allowed CN" names
+    // the certificate (Bareos BnetTlsClient(): the list replaces the host check)
+    const QString nameError = certificateNameError(m_socket->peerCertificate(), !hostNameErrors.isEmpty());
+    if (!nameError.isEmpty())
+    {
+        failAuthentication(nameError);
+        return;
+    }
+    if (!hostNameErrors.isEmpty())
+    {
+        m_socket->ignoreSslErrors(hostNameErrors);
+    }
+}
+
+QString BareosAuth::certificateNameError(const QSslCertificate &cert, bool hostNameMismatch) const
+{
+    const QStringList commonNames = cert.subjectInfo(QSslCertificate::CommonName);
+
+    if (!m_allowedCommonNames.isEmpty())
+    {
+        for (const QString &allowed : m_allowedCommonNames)
+        {
+            if (commonNames.contains(allowed.trimmed()))
+                return QString();
+        }
+        return tr("The common name of the Director's certificate (\"%1\") is not in the TLS Allowed CN "
+                  "list of the profile (%2). Connection refused.")
+            .arg(commonNames.join(QStringLiteral(", ")), m_allowedCommonNames.join(QStringLiteral(", ")));
+    }
+
+    if (!hostNameMismatch)
+        return QString();
+
+    QStringList names;
+    const auto alternatives = cert.subjectAlternativeNames();
+    for (auto it = alternatives.cbegin(); it != alternatives.cend(); ++it)
+    {
+        if (it.key() == QSsl::DnsEntry || it.key() == QSsl::IpAddressEntry)
+            names.append(it.value());
+    }
+    for (const QString &cn : commonNames)
+    {
+        if (!names.contains(cn))
+            names.append(cn);
+    }
+    const QString host = m_socket->peerVerifyName().isEmpty() ? m_socket->peerName()
+                                                              : m_socket->peerVerifyName();
+    return tr("The Director's certificate is not issued for the host name \"%1\" (the certificate "
+              "names: %2). Connect with a name the certificate contains, or add its common name to "
+              "TLS Allowed CN in the profile. Connection refused.")
+        .arg(host, names.isEmpty() ? tr("none") : names.join(QStringLiteral(", ")));
 }
 
 void BareosAuth::failAuthentication(const QString &message)

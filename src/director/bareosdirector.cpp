@@ -1503,12 +1503,21 @@ void BareosDirector::startAuthentication()
     BLOG_DEBUG() << "PSK will be used:" << usePSK << "(password present:" << !m_password.isEmpty()
              << ", tlsPSKEnable:" << m_tlsConfig->tlsPSKEnable << ")";
 
-    // Set certificate files for TLS-Certificate mode (non-PSK)
-#ifndef Q_OS_WINDOWS
+    // Certificate TLS (non-PSK): CA, client certificate and the names the
+    // Director's certificate may carry. Windows profiles keep the client
+    // certificate in a PKCS#12 file instead of PEM certificate and key.
     if (m_tlsConfig->tlsEnable && !m_tlsConfig->tlsPSKEnable) {
         QString caPath = m_tlsConfig->tlsCaCertFile ? m_tlsConfig->tlsCaCertFile->fileName() : QString();
+#ifdef Q_OS_WINDOWS
+        QString certPath;
+        QString keyPath;
+        const QString pfxPath = m_tlsConfig->tlsPfxFile ? m_tlsConfig->tlsPfxFile->fileName() : QString();
+        if (!pfxPath.isEmpty())
+            m_auth->setPkcs12File(pfxPath, m_tlsConfig->tlsPfxPassword);
+#else
         QString certPath = m_tlsConfig->tlsCertFile ? m_tlsConfig->tlsCertFile->fileName() : QString();
         QString keyPath = m_tlsConfig->tlsKeyFile ? m_tlsConfig->tlsKeyFile->fileName() : QString();
+#endif
 
         BLOG_DEBUG() << "Setting certificate files for TLS-Certificate mode:";
         BLOG_DEBUG() << "  CA:" << caPath;
@@ -1516,8 +1525,8 @@ void BareosDirector::startAuthentication()
         BLOG_DEBUG() << "  Key:" << keyPath;
 
         m_auth->setCertificateFiles(caPath, certPath, keyPath);
+        m_auth->setAllowedCommonNames(m_tlsConfig->tlsAllowedCn);
     }
-#endif
 
     // Set cipher list if configured
     if (!m_tlsConfig->tlsCipherList.isEmpty()) {

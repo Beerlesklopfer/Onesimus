@@ -26,6 +26,7 @@ private slots:
     void certificateOptionsGoToTheirOwnFields();
     void caOnlyIsCertificateModeWithVerification();
     void certificateOptionWithoutTlsIsAnError();
+    void certificateWithoutCaIsAnError();
     void certificateWithoutKeyIsAnError();
     void keyWithoutCertificateIsAnError();
     void missingFileIsAnError();
@@ -166,6 +167,24 @@ void BCommandLineConnectionTest::certificateOptionWithoutTlsIsAnError()
 
     BareosDirector::TLSConfig config;
     QVERIFY(!bApplyCommandLineTls(options, config).isEmpty());
+    QVERIFY(!config.tlsEnable);
+}
+
+void BCommandLineConnectionTest::certificateWithoutCaIsAnError()
+{
+    // P0-11: certificate TLS verifies against the given CA only
+    BCommandLineTlsOptions options;
+    options.tls = true;
+#ifdef Q_OS_WINDOWS
+    options.pfxFile = m_pfx;
+#else
+    options.certFile = m_cert;
+    options.keyFile = m_key;
+#endif
+
+    BareosDirector::TLSConfig config;
+    const QString error = bApplyCommandLineTls(options, config);
+    QVERIFY(error.contains("--tls-ca"));
     QVERIFY(!config.tlsEnable);
 }
 

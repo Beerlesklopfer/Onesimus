@@ -35,6 +35,7 @@
 
 #include <QObject>
 #include <QSslSocket>
+#include <QSslCertificate>
 #include <QStringList>
 #include <QByteArray>
 #include <QString>
@@ -498,6 +499,27 @@ public:
     }
 
     /**
+     * @brief Sets the client certificate as a PKCS#12 file (Windows profiles)
+     *
+     * Used instead of the PEM certificate and key files. A file that cannot be
+     * read refuses the connection.
+     */
+    void setPkcs12File(const QString &pfxFile, const QString &password)
+    {
+        m_tlsPfxFile = pfxFile;
+        m_tlsPfxPassword = password;
+    }
+
+    /**
+     * @brief Sets "TLS Allowed CN" of the profile
+     *
+     * As in Bareos (BnetTlsClient()): when the list is not empty, the
+     * certificate's commonName must be one of its entries and the host name
+     * is not checked; when it is empty, the host name must match.
+     */
+    void setAllowedCommonNames(const QStringList &names) { m_allowedCommonNames = names; }
+
+    /**
      * @brief Keeps only plain PSK-* cipher names of a configured list
      *
      * TLS-PSK proves the Director only with a pure PSK cipher suite. Any other
@@ -644,6 +666,9 @@ private:
     QString m_remoteDirectorName; ///< Real Director name from CRAM-MD5 challenge
     QString m_tlsCipherList;      ///< Colon-separated PSK cipher list from auth (result)
     QString m_configuredCipherList; ///< Configured cipher list (input from profile)
+    QString m_tlsPfxFile;           ///< PKCS#12 client certificate (Windows profiles)
+    QString m_tlsPfxPassword;       ///< Password of the PKCS#12 file
+    QStringList m_allowedCommonNames; ///< "TLS Allowed CN" of the profile
     /// @}
 
     /**
@@ -653,6 +678,16 @@ private:
      * socket and emits authenticationFailed() once; later calls do nothing.
      */
     void failAuthentication(const QString &message);
+
+    /**
+     * @brief Checks the Director's certificate name (certificate TLS, verify on)
+     *
+     * Bareos rule: with "TLS Allowed CN" set, the commonName must be listed;
+     * otherwise Qt's host name check (subjectAltName, then commonName) applies.
+     *
+     * @return an empty string, or the reason for the user
+     */
+    QString certificateNameError(const QSslCertificate &cert, bool hostNameMismatch) const;
 
     /// @name TLS/PSK Helper Methods
     /// @{
