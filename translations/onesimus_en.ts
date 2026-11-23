@@ -572,22 +572,22 @@ Click Preset to use recommended ciphers.</source>
 <context>
     <name>B321Verifier</name>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="93"/>
+        <location filename="../src/tools/b321verifier.cpp" line="97"/>
         <source>unknown time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="99"/>
+        <location filename="../src/tools/b321verifier.cpp" line="103"/>
         <source>%1 %2 (%3)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="112"/>
+        <location filename="../src/tools/b321verifier.cpp" line="116"/>
         <source>(pool not reported)</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/tools/b321verifier.cpp" line="414"/>
+        <location filename="../src/tools/b321verifier.cpp" line="418"/>
         <source>No successful Full backup of %1 in the job history of the last %n day(s): there is no chain to restore.</source>
         <translation>
             <numerusform>No successful Full backup of %1 in the job history of the last %n day: there is no chain to restore.</numerusform>
@@ -595,37 +595,37 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="416"/>
+        <location filename="../src/tools/b321verifier.cpp" line="420"/>
         <source>No successful Full backup of %1 in the job history: there is no chain to restore.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="418"/>
+        <location filename="../src/tools/b321verifier.cpp" line="422"/>
         <source>Run a Full backup of %1 and check that it terminates normally.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="420"/>
+        <location filename="../src/tools/b321verifier.cpp" line="424"/>
         <source>No successful Full backup in the job history</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="422"/>
+        <location filename="../src/tools/b321verifier.cpp" line="426"/>
         <source>Only the original data on the client counts: 1 of 3 copies.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="435"/>
+        <location filename="../src/tools/b321verifier.cpp" line="439"/>
         <source>The chain a restore would use today is %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="436"/>
+        <location filename="../src/tools/b321verifier.cpp" line="440"/>
         <source>, a Differential</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/tools/b321verifier.cpp" line="437"/>
+        <location filename="../src/tools/b321verifier.cpp" line="441"/>
         <source> and %n Incremental(s) after it</source>
         <translation>
             <numerusform> and %n Incremental after it</numerusform>
@@ -633,167 +633,167 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="438"/>
+        <location filename="../src/tools/b321verifier.cpp" line="442"/>
         <source>; it counts as 1 copy.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="441"/>
+        <location filename="../src/tools/b321verifier.cpp" line="445"/>
         <source>The original data on the client counts as 1 copy (setting &quot;Count the original data as a copy&quot;).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="444"/>
+        <location filename="../src/tools/b321verifier.cpp" line="448"/>
         <source>The original data on the client is not counted (setting &quot;Count the original data as a copy&quot; is off).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="450"/>
+        <location filename="../src/tools/b321verifier.cpp" line="454"/>
         <source>job %1 from job %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="452"/>
+        <location filename="../src/tools/b321verifier.cpp" line="456"/>
         <source>Migrated chain jobs (%1): a Migrate moves the data and adds no copy; the old job is not restored any more.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="458"/>
+        <location filename="../src/tools/b321verifier.cpp" line="462"/>
         <source>Pool %1 holds a copy of every job of the chain; it counts as 1 copy.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="462"/>
+        <location filename="../src/tools/b321verifier.cpp" line="466"/>
         <source>Pool %1 holds copies of %2 of the %3 jobs of the chain (missing: %4); a partial copy does not count.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="468"/>
+        <location filename="../src/tools/b321verifier.cpp" line="472"/>
         <source>No Copy job has copied the chain.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="470"/>
+        <location filename="../src/tools/b321verifier.cpp" line="474"/>
         <source>Copies: %1 of 3.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="476"/>
+        <location filename="../src/tools/b321verifier.cpp" line="480"/>
         <source>The volumes of the chain are not known, so neither are their media types.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="477"/>
+        <location filename="../src/tools/b321verifier.cpp" line="481"/>
         <source>The volumes of the jobs (JobMedia) were not loaded: media types unknown.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="479"/>
+        <location filename="../src/tools/b321verifier.cpp" line="483"/>
         <source>Media types of the chain and its complete copies: %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="482"/>
+        <location filename="../src/tools/b321verifier.cpp" line="486"/>
         <source>A copy that spans several media types counts once; copies on media types of their own: %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="486"/>
+        <location filename="../src/tools/b321verifier.cpp" line="490"/>
         <source>They lie on the storages %1; the same media type on several storages counts as one type.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="491"/>
+        <location filename="../src/tools/b321verifier.cpp" line="495"/>
         <source>Some volumes of these jobs are not in the volume list or have no media type.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="513"/>
+        <location filename="../src/tools/b321verifier.cpp" line="517"/>
         <source>storage %1 marked off site</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="514"/>
+        <location filename="../src/tools/b321verifier.cpp" line="518"/>
         <source>volume %1 has location %2 in the catalog</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="518"/>
+        <location filename="../src/tools/b321verifier.cpp" line="522"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="519"/>
+        <location filename="../src/tools/b321verifier.cpp" line="523"/>
         <source>the chain</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="520"/>
+        <location filename="../src/tools/b321verifier.cpp" line="524"/>
         <source>the copy in pool %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="523"/>
+        <location filename="../src/tools/b321verifier.cpp" line="527"/>
         <source>Off site: %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="527"/>
+        <location filename="../src/tools/b321verifier.cpp" line="531"/>
         <source>Off site is unknown: no storage of the chain or its copies is marked off site and no volume has a location in the catalog. Bareos itself does not record whether a storage is off site.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="532"/>
+        <location filename="../src/tools/b321verifier.cpp" line="536"/>
         <source>Nothing is off site: every copy has a volume on a storage that is on site.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="538"/>
+        <location filename="../src/tools/b321verifier.cpp" line="542"/>
         <source>the present one</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="541"/>
+        <location filename="../src/tools/b321verifier.cpp" line="545"/>
         <source>Pool %1 lacks copies of the jobs %2: run its Copy job again (Selection Type = PoolUncopiedJobs copies what is missing) so that the whole chain is copied.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="549"/>
+        <location filename="../src/tools/b321verifier.cpp" line="553"/>
         <source>Add a Copy job to a second storage with a different media type than %1 (for example tape, a removable disk or cloud storage with a Media Type of its own) (needed: %2 more).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="554"/>
+        <location filename="../src/tools/b321verifier.cpp" line="558"/>
         <source>Add a Copy job to a second storage (needed: %1 more).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="558"/>
+        <location filename="../src/tools/b321verifier.cpp" line="562"/>
         <source>Write one of the copies to a storage with another media type than %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="562"/>
+        <location filename="../src/tools/b321verifier.cpp" line="566"/>
         <source>Refresh: the volumes of the jobs and the volume list are needed to tell the media types.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="567"/>
+        <location filename="../src/tools/b321verifier.cpp" line="571"/>
         <source>Mark storage %1 as off site if it is at another site; if it is not, tick &quot;Unmarked storages are on site&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="572"/>
+        <location filename="../src/tools/b321verifier.cpp" line="576"/>
         <source>Refresh: the storages of the volumes are needed to tell where the copies are.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="576"/>
+        <location filename="../src/tools/b321verifier.cpp" line="580"/>
         <source>Copy the chain to a storage at another site and mark that storage as off site (or take a volume off site and record its location).</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/tools/b321verifier.cpp" line="596"/>
+        <location filename="../src/tools/b321verifier.cpp" line="600"/>
         <source>The newest Full (job %1) is %n day(s) old</source>
         <translation>
             <numerusform>The newest Full (job %1) is %n day old</numerusform>
@@ -801,7 +801,7 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/tools/b321verifier.cpp" line="598"/>
+        <location filename="../src/tools/b321verifier.cpp" line="602"/>
         <source>; this job&apos;s Fulls ran every %n day(s) (median of the loaded history).</source>
         <translation>
             <numerusform>; this job&apos;s Fulls ran every %n day (median of the loaded history).</numerusform>
@@ -809,12 +809,12 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="601"/>
+        <location filename="../src/tools/b321verifier.cpp" line="605"/>
         <source> It is overdue.</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/tools/b321verifier.cpp" line="604"/>
+        <location filename="../src/tools/b321verifier.cpp" line="608"/>
         <source>The newest Full (job %1) is %n day(s) old; it is the only successful Full in the loaded history.</source>
         <translation>
             <numerusform>The newest Full (job %1) is %n day old; it is the only successful Full in the loaded history.</numerusform>
@@ -822,7 +822,7 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/tools/b321verifier.cpp" line="631"/>
+        <location filename="../src/tools/b321verifier.cpp" line="635"/>
         <source>The newest copy of this job (job %1 in pool %2, a copy of job %3) was made %n day(s) ago.</source>
         <translation>
             <numerusform>The newest copy of this job (job %1 in pool %2, a copy of job %3) was made %n day ago.</numerusform>
@@ -830,143 +830,143 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="641"/>
+        <location filename="../src/tools/b321verifier.cpp" line="645"/>
         <source>That copy belongs to an earlier chain: the current chain (from job %1) has no complete copy in pool %2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="670"/>
+        <location filename="../src/tools/b321verifier.cpp" line="674"/>
         <source>The chain&apos;s %1 (job %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="672"/>
+        <location filename="../src/tools/b321verifier.cpp" line="676"/>
         <source>The copy (job %1, pool %2) of the chain&apos;s %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="674"/>
+        <location filename="../src/tools/b321verifier.cpp" line="678"/>
         <source>Job %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="676"/>
+        <location filename="../src/tools/b321verifier.cpp" line="680"/>
         <source>%1 is on volume %2, which is in status Error.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="679"/>
+        <location filename="../src/tools/b321verifier.cpp" line="683"/>
         <source>The chain&apos;s Full is on volume %1, which is in Error: run a new Full backup and check the volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="684"/>
+        <location filename="../src/tools/b321verifier.cpp" line="688"/>
         <source>%1 is on volume %2, which is %3: Bareos may overwrite it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="693"/>
+        <location filename="../src/tools/b321verifier.cpp" line="697"/>
         <source>The job list hit its row limit: older jobs and copies may be missing from this check.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="699"/>
+        <location filename="../src/tools/b321verifier.cpp" line="703"/>
         <source>%1 of 3 copies</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="700"/>
+        <location filename="../src/tools/b321verifier.cpp" line="704"/>
         <source>partial copies: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="702"/>
+        <location filename="../src/tools/b321verifier.cpp" line="706"/>
         <source>media types unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="704"/>
+        <location filename="../src/tools/b321verifier.cpp" line="708"/>
         <source>media: %1 of 2 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="707"/>
+        <location filename="../src/tools/b321verifier.cpp" line="711"/>
         <source>off site: %1 of 1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="708"/>
+        <location filename="../src/tools/b321verifier.cpp" line="712"/>
         <source>off site unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="709"/>
+        <location filename="../src/tools/b321verifier.cpp" line="713"/>
         <source>nothing off site</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="862"/>
+        <location filename="../src/tools/b321verifier.cpp" line="866"/>
         <source>met</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="863"/>
+        <location filename="../src/tools/b321verifier.cpp" line="867"/>
         <source>not met</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="866"/>
-        <location filename="../src/tools/b321verifier.cpp" line="898"/>
+        <location filename="../src/tools/b321verifier.cpp" line="870"/>
+        <location filename="../src/tools/b321verifier.cpp" line="902"/>
         <source>unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="872"/>
+        <location filename="../src/tools/b321verifier.cpp" line="876"/>
         <source>Passes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="873"/>
+        <location filename="../src/tools/b321verifier.cpp" line="877"/>
         <source>Fails</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="876"/>
+        <location filename="../src/tools/b321verifier.cpp" line="880"/>
         <source>Unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="882"/>
+        <location filename="../src/tools/b321verifier.cpp" line="886"/>
         <source>Full</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="883"/>
+        <location filename="../src/tools/b321verifier.cpp" line="887"/>
         <source>Differential</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="884"/>
+        <location filename="../src/tools/b321verifier.cpp" line="888"/>
         <source>Incremental</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="885"/>
+        <location filename="../src/tools/b321verifier.cpp" line="889"/>
         <source>Virtual Full</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="888"/>
+        <location filename="../src/tools/b321verifier.cpp" line="892"/>
         <source>Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="894"/>
+        <location filename="../src/tools/b321verifier.cpp" line="898"/>
         <source>off site</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/tools/b321verifier.cpp" line="895"/>
+        <location filename="../src/tools/b321verifier.cpp" line="899"/>
         <source>on site</source>
         <translation type="unfinished"></translation>
     </message>
@@ -974,172 +974,172 @@ Click Preset to use recommended ciphers.</source>
 <context>
     <name>BAclMatrix</name>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="58"/>
+        <location filename="../src/director/baclmatrix.cpp" line="62"/>
         <source>Jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="59"/>
+        <location filename="../src/director/baclmatrix.cpp" line="63"/>
         <source>Clients</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="60"/>
+        <location filename="../src/director/baclmatrix.cpp" line="64"/>
         <source>Storages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="61"/>
+        <location filename="../src/director/baclmatrix.cpp" line="65"/>
         <source>Schedules</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="62"/>
+        <location filename="../src/director/baclmatrix.cpp" line="66"/>
         <source>Pools</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="63"/>
+        <location filename="../src/director/baclmatrix.cpp" line="67"/>
         <source>FileSets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="64"/>
+        <location filename="../src/director/baclmatrix.cpp" line="68"/>
         <source>Catalogs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="65"/>
+        <location filename="../src/director/baclmatrix.cpp" line="69"/>
         <source>Commands</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="72"/>
+        <location filename="../src/director/baclmatrix.cpp" line="76"/>
         <source>Where</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="73"/>
+        <location filename="../src/director/baclmatrix.cpp" line="77"/>
         <source>Plugin Options</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="87"/>
+        <location filename="../src/director/baclmatrix.cpp" line="91"/>
         <source>The Director sent no reply.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="88"/>
+        <location filename="../src/director/baclmatrix.cpp" line="92"/>
         <source>The Director did not answer with ACLs: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="97"/>
+        <location filename="../src/director/baclmatrix.cpp" line="101"/>
         <source>The Director refused &quot;.acl list&quot;: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="102"/>
+        <location filename="../src/director/baclmatrix.cpp" line="106"/>
         <source>The reply holds no list of consoles (&quot;acl&quot;).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="331"/>
-        <location filename="../src/director/baclmatrix.cpp" line="403"/>
+        <location filename="../src/director/baclmatrix.cpp" line="335"/>
+        <location filename="../src/director/baclmatrix.cpp" line="407"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="338"/>
+        <location filename="../src/director/baclmatrix.cpp" line="342"/>
         <source>Locked: the catalog ACL of the console could not be read; it may run status, .status, version and .api only.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="347"/>
+        <location filename="../src/director/baclmatrix.cpp" line="351"/>
         <source>Allowed (decided by the Director).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="347"/>
-        <location filename="../src/director/baclmatrix.cpp" line="360"/>
+        <location filename="../src/director/baclmatrix.cpp" line="351"/>
+        <location filename="../src/director/baclmatrix.cpp" line="364"/>
         <source>Allowed by %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="350"/>
+        <location filename="../src/director/baclmatrix.cpp" line="354"/>
         <source>The file ACL allows it (%1), the catalog ACL does not.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="352"/>
-        <location filename="../src/director/baclmatrix.cpp" line="361"/>
+        <location filename="../src/director/baclmatrix.cpp" line="356"/>
+        <location filename="../src/director/baclmatrix.cpp" line="365"/>
         <source>Denied by %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="355"/>
-        <location filename="../src/director/baclmatrix.cpp" line="363"/>
+        <location filename="../src/director/baclmatrix.cpp" line="359"/>
+        <location filename="../src/director/baclmatrix.cpp" line="367"/>
         <source>The console has no ACL of this type: nothing is allowed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="356"/>
-        <location filename="../src/director/baclmatrix.cpp" line="364"/>
+        <location filename="../src/director/baclmatrix.cpp" line="360"/>
+        <location filename="../src/director/baclmatrix.cpp" line="368"/>
         <source>No entry of the ACL allows it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="382"/>
+        <location filename="../src/director/baclmatrix.cpp" line="386"/>
         <source>Console %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="383"/>
+        <location filename="../src/director/baclmatrix.cpp" line="387"/>
         <source>Profiles: none</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="384"/>
+        <location filename="../src/director/baclmatrix.cpp" line="388"/>
         <source>Profiles: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="386"/>
+        <location filename="../src/director/baclmatrix.cpp" line="390"/>
         <source>Locked: its catalog ACL could not be read.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="389"/>
+        <location filename="../src/director/baclmatrix.cpp" line="393"/>
         <source>loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="390"/>
+        <location filename="../src/director/baclmatrix.cpp" line="394"/>
         <source>off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="391"/>
+        <location filename="../src/director/baclmatrix.cpp" line="395"/>
         <source>table missing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="392"/>
+        <location filename="../src/director/baclmatrix.cpp" line="396"/>
         <source>failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="393"/>
+        <location filename="../src/director/baclmatrix.cpp" line="397"/>
         <source>Catalog ACL: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="394"/>
+        <location filename="../src/director/baclmatrix.cpp" line="398"/>
         <source>Catalog ACL: %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/baclmatrix.cpp" line="399"/>
+        <location filename="../src/director/baclmatrix.cpp" line="403"/>
         <source>%n catalog ACL entry(s) narrow the file ACL.</source>
         <translation>
             <numerusform>%n catalog ACL entry narrows the file ACL.</numerusform>
@@ -1147,27 +1147,27 @@ Click Preset to use recommended ciphers.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="404"/>
+        <location filename="../src/director/baclmatrix.cpp" line="408"/>
         <source>%1: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="404"/>
+        <location filename="../src/director/baclmatrix.cpp" line="408"/>
         <source>none</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="414"/>
+        <location filename="../src/director/baclmatrix.cpp" line="418"/>
         <source>The Director did not answer with profiles: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="421"/>
+        <location filename="../src/director/baclmatrix.cpp" line="425"/>
         <source>The reply holds no profiles.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/baclmatrix.cpp" line="437"/>
+        <location filename="../src/director/baclmatrix.cpp" line="441"/>
         <source>Profile %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3236,32 +3236,32 @@ Do you want to continue?</source>
 <context>
     <name>BClientsModel</name>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="141"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="169"/>
         <source>Never</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="202"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="232"/>
         <source>Client: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="206"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="236"/>
         <source>Address: %1:%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="216"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="246"/>
         <source>%1 bytes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="235"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="272"/>
         <source>Name</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="237"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="274"/>
         <source>Address</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3276,42 +3276,72 @@ Do you want to continue?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="210"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="65"/>
+        <source>Online</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientsmodel.cpp" line="65"/>
+        <source>Offline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientsmodel.cpp" line="72"/>
+        <source>The Director reached the client at %1 (client event of the Director).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientsmodel.cpp" line="73"/>
+        <source>The Director could not reach the client at %1 (client event of the Director).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientsmodel.cpp" line="240"/>
         <source>FD Port: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="239"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="262"/>
+        <source>From &quot;list backups client=&quot;: all backups of the client in the catalog, not only the jobs on the current page.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientsmodel.cpp" line="265"/>
+        <source>Online or Offline when the Director reports client events (Onesimus Director over gRPC); otherwise the age of the last backup or contact.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientsmodel.cpp" line="276"/>
         <source>Port</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="241"/>
-        <source>Last Backup</source>
+        <location filename="../src/clients/bclientsmodel.cpp" line="278"/>
+        <source>Status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="243"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="286"/>
+        <source>Backups</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/clients/bclientsmodel.cpp" line="280"/>
         <source>Operating System</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="245"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="282"/>
         <source>Version</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="247"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="284"/>
         <source>Last Connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="249"/>
-        <source>Jobs</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/clients/bclientsmodel.cpp" line="251"/>
+        <location filename="../src/clients/bclientsmodel.cpp" line="288"/>
         <source>Total Data</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3319,117 +3349,117 @@ Do you want to continue?</source>
 <context>
     <name>BClientsWidget</name>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="38"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="39"/>
         <source>Auto</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="39"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="40"/>
         <source>Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="60"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="61"/>
         <source>Client:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="63"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="64"/>
         <source>Filter by client...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="70"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="71"/>
         <source>Last backup:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="71"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="72"/>
         <source>All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="72"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="73"/>
         <source>Recent</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="73"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="74"/>
         <source>Stale</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="74"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="75"/>
         <source>Never</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="75"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="76"/>
         <source>Unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="82"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="83"/>
         <source>Enable automatic refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="95"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="96"/>
         <source>Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="98"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="99"/>
         <source>Total:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="119"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="120"/>
         <source>Recent:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="120"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="121"/>
         <source>Clients whose last backup or contact is younger than the limit in the settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="122"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="123"/>
         <source>Stale:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="123"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="124"/>
         <source>Clients whose last backup or contact is older than the limit in the settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="125"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="126"/>
         <source>Never:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="126"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="127"/>
         <source>Clients without any known backup or contact</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="128"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="129"/>
         <source>Unknown:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="129"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="130"/>
         <source>Clients whose last backup time cannot be read</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="390"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="391"/>
         <source>Error parsing client data</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/clients/bclientswidget.cpp" line="431"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="432"/>
         <source>%n client(s) loaded</source>
         <translation>
             <numerusform>%n client loaded</numerusform>
@@ -3437,7 +3467,7 @@ Do you want to continue?</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/clients/bclientswidget.cpp" line="541"/>
+        <location filename="../src/clients/bclientswidget.cpp" line="542"/>
         <source>Details / Export...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3903,23 +3933,38 @@ Statement: %2</source>
 <context>
     <name>BDirectiveSchema</name>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="262"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="263"/>
         <source>Required directive &apos;%1&apos; is missing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="274"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="275"/>
         <source>&apos;%1&apos; must be an integer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="277"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="278"/>
         <source>&apos;%1&apos; must be &gt;= %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bdirectiveschema.cpp" line="280"/>
+        <location filename="../src/config/bdirectiveschema.cpp" line="281"/>
         <source>&apos;%1&apos; must be &lt;= %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bdirectiveschema.cpp" line="298"/>
+        <source>&apos;%1&apos; must be yes or no</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bdirectiveschema.cpp" line="304"/>
+        <source>&apos;%1&apos; must be a size such as 500 mb or 2 gb</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bdirectiveschema.cpp" line="310"/>
+        <source>&apos;%1&apos; must be a time such as 30 days or 1 hour 30 min</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4157,77 +4202,77 @@ Statement: %2</source>
 <context>
     <name>BFileSetDocument</name>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="170"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="174"/>
         <source>Line %1: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="219"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="223"/>
         <source>a quoted value is not closed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="249"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="253"/>
         <source>blocks are nested too deeply</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="254"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="258"/>
         <source>a closing brace is missing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="260"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="264"/>
         <source>a closing brace has no opening brace</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="265"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="269"/>
         <source>@include is not read here</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="279"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="283"/>
         <source>a directive name is missing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="285"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="289"/>
         <source>&quot;%1&quot; is followed by neither = nor {</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="757"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="761"/>
         <source>The text is not one FileSet resource.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1025"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1029"/>
         <source>A value contains a line break or another control character.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1042"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1046"/>
         <source>FileSet name is required</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1045"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1049"/>
         <source>The name may contain only letters, digits, blanks and the characters : . - _ / (no blank at the start or end, at most 127 characters)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1051"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1055"/>
         <source>At least one Include block is required</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1059"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1063"/>
         <source>Include block %1 has no file paths</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1063"/>
+        <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1067"/>
         <source>At least one Include block must have file paths</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4745,93 +4790,93 @@ Platform: %2</source>
 <context>
     <name>BGrpcTransport</name>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="222"/>
-        <location filename="../src/director/bgrpctransport.cpp" line="255"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="223"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="256"/>
         <source>gRPC login failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="230"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="231"/>
         <source>gRPC login failed: no challenge received</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="263"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="264"/>
         <source>Authentication failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="264"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="265"/>
         <source>invalid response</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="323"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="326"/>
         <source>Client %1 connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="325"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="329"/>
         <source>Client %1 disconnected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="328"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="335"/>
         <source>Client %1 is alive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="329"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="336"/>
         <source>Client %1 not reachable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="331"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="338"/>
         <source>Storage %1 connected (job %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="334"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="341"/>
         <source>Storage %1 disconnected (job %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="338"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="345"/>
         <source>Storage %1 is alive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="339"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="346"/>
         <source>Storage %1 not reachable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="471"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="478"/>
         <source>Invalid response</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="613"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="620"/>
         <source>Not connected to the gRPC service of the Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="674"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="681"/>
         <source>The reply of the Director could not be read</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="179"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="180"/>
         <source>The Director&apos;s certificate on the gRPC connection (SHA-256 %1) does not match the pinned certificate (SHA-256 %2). The connection was refused before the login; someone may be intercepting it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="182"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="183"/>
         <source>none</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bgrpctransport.cpp" line="189"/>
+        <location filename="../src/director/bgrpctransport.cpp" line="190"/>
         <source>Cannot open the local relay for the gRPC connection: %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6195,488 +6240,479 @@ Click Yes to execute, No to close without deploying.</source>
 <context>
     <name>BJobWidget</name>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="51"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="52"/>
         <source>Successful (T)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="52"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="53"/>
         <source>Warning (W)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="54"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="55"/>
         <source>Error (E)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="59"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="60"/>
         <source>Enable Date Filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="403"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1675"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1678"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="426"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1722"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1725"/>
         <source>Filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="462"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="485"/>
         <source>Job Name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="463"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="486"/>
         <source>Client:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="516"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="539"/>
         <source>Backup Level</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="548"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="571"/>
         <source>FileSet:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="549"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="572"/>
         <source>Storage:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="550"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="573"/>
         <source>Pool:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="536"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="559"/>
         <source>Date Range</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="42"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="43"/>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="43"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="44"/>
         <source>Clear History</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="53"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="54"/>
         <source>Failed (F)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="55"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="56"/>
         <source>Running (R)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="56"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="57"/>
         <source>Canceled (A)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="57"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="359"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="58"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="382"/>
         <source>Zero Bytes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="84"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="85"/>
         <source>When enabled, only shows jobs with 0 bytes transferred.
 Warning: This filter persists across restarts and may
 cause an empty table if no zero-byte jobs exist.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="92"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="93"/>
         <source>When enabled, only shows jobs within the selected date range.
 Warning: This filter persists across restarts and may
 cause an empty or limited table if the range is too narrow.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="108"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="110"/>
         <source>Filter by job name...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="112"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="115"/>
         <source>Filter by client...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="117"/>
         <location filename="../src/jobs/bjobwidget.cpp" line="120"/>
         <location filename="../src/jobs/bjobwidget.cpp" line="123"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="126"/>
         <source>(no job selected)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="136"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="158"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - Job: %1 (ID: %2) - Load error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="160"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1725"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="182"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1772"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - No job selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="164"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="186"/>
         <source>-- Select Job Log --</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="166"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="188"/>
         <source>Select from previously loaded job logs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="168"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="190"/>
         <source>Copy selected lines to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="171"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="193"/>
         <source>Clear job log history</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="174"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="196"/>
         <source>Search in log...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="176"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="198"/>
         <source>Filter log lines by search text</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="209"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="231"/>
         <source>Cancelling job...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="212"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="234"/>
         <source>Deleting job...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="215"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="237"/>
         <source>Running job again...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="218"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="240"/>
         <source>Loading job log...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="222"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="244"/>
         <source>Pruning expired jobs...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="263"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="285"/>
         <source>⚠ Zero Bytes filter active — only jobs with 0 bytes are shown. This filter persists across restarts!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="273"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="295"/>
         <source>⚠ Date filter active — only jobs within the selected range are shown. This filter persists across restarts!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="362"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="385"/>
         <source>Date Range (%1 – %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="375"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="398"/>
         <source>Status (hidden: %1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="380"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="403"/>
         <source>⚠ Active filters from last session: %1 — results may be limited</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="406"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="429"/>
         <source>Show/hide filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="412"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="435"/>
         <source>Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="416"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="439"/>
         <source>Auto-Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="418"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="441"/>
         <source>5 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="419"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="442"/>
         <source>10 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="420"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="443"/>
         <source>30 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="421"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="444"/>
         <source>1 min</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="422"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="445"/>
         <source>5 min</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="467"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="490"/>
         <source>&lt;b&gt;Status:&lt;/b&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="483"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="506"/>
         <source>Basic Filters</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="505"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="528"/>
         <source>Loading...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="530"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="553"/>
         <source>From:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="531"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="554"/>
         <source>To:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="555"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="578"/>
         <source>Job Details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="560"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="583"/>
         <source>Reset filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="681"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="704"/>
         <source>Updated: %1 - %2 jobs loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="726"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="750"/>
         <source>No selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="727"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="751"/>
         <source>Please select a job to cancel.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="738"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="768"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="805"/>
         <source>Cancel Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="739"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="765"/>
         <source>Do you really want to cancel job ID %1?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="747"/>
-        <source>Job Cancelled</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="748"/>
-        <source>Job %1 was cancelled.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1145"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1222"/>
         <source>Loading page %1...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1158"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1235"/>
         <source>Refreshing job list...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1295"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1342"/>
         <source>%1 jobs loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1530"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1577"/>
         <source>Auto-refresh on (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1535"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1582"/>
         <source>Auto-refresh off</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1630"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1677"/>
         <source>Filtered: %1 of %2 jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1676"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1723"/>
         <source>Hide filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1679"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1726"/>
         <source>Show filter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1707"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1754"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - Job: %1 (ID: %2) - Loading...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1745"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1882"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1792"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1929"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - Job: %1 (ID: %2) - %3 lines</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="592"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="615"/>
         <source>History:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="612"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="635"/>
         <source>Job Log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="615"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="638"/>
         <source>Messages</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1197"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1274"/>
         <source>Error parsing JSON data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1561"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1608"/>
         <source>Created</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1562"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1609"/>
         <source>Running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1563"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1610"/>
         <source>Blocked</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1564"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1611"/>
         <source>OK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1565"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1612"/>
         <source>Warning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1566"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1613"/>
         <source>Failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1567"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1614"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1568"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1615"/>
         <source>Non-fatal Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1569"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1616"/>
         <source>Canceled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1623"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1670"/>
         <source>⚠ No jobs visible — &apos;Zero Bytes&apos; filter is active!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1625"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1672"/>
         <source>⚠ No jobs visible — check your filter settings (%1 jobs loaded)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1634"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1681"/>
         <source>%1 Jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1740"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1787"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - Job: %1 (ID: %2) - %3 lines, job is running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1906"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1953"/>
         <source>Copied %1 log lines to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1921"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1968"/>
         <source>Copied %1 selected lines to clipboard</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1935"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1982"/>
         <source>Job log history cleared</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="752"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="755"/>
         <source>A cancel is still waiting for the Director&apos;s answer</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/bjobwidget.cpp" line="763"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="766"/>
         <source>Do you really want to cancel these %n jobs: %1?</source>
         <translation>
             <numerusform>Do you really want to cancel this %n job: %1?</numerusform>
@@ -6684,7 +6720,7 @@ cause an empty or limited table if the range is too narrow.</source>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/bjobwidget.cpp" line="774"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="777"/>
         <source>Cancelling %n job(s)...</source>
         <translation>
             <numerusform>Cancelling %n job...</numerusform>
@@ -6692,7 +6728,7 @@ cause an empty or limited table if the range is too narrow.</source>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/bjobwidget.cpp" line="791"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="794"/>
         <source>The Director accepted the cancel of %n job(s): %1</source>
         <translation>
             <numerusform>The Director accepted the cancel of %n job: %1</numerusform>
@@ -6700,17 +6736,17 @@ cause an empty or limited table if the range is too narrow.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="798"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="801"/>
         <source>Job %1: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="799"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="802"/>
         <source>no reason given</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/jobs/bjobwidget.cpp" line="803"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="806"/>
         <source>The Director did not cancel %n job(s):</source>
         <translation>
             <numerusform>The Director did not cancel %n job:</numerusform>
@@ -7197,533 +7233,558 @@ Only expired jobs for the affected client(s) will be removed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="146"/>
+        <location filename="../src/bmainwindow.cpp" line="168"/>
         <source>Interface zoom: %1 %</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="210"/>
+        <location filename="../src/bmainwindow.cpp" line="232"/>
         <source>Connecting...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="213"/>
+        <location filename="../src/bmainwindow.cpp" line="235"/>
         <source>Authenticating...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="216"/>
+        <location filename="../src/bmainwindow.cpp" line="238"/>
         <source>Setting API mode...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="219"/>
+        <location filename="../src/bmainwindow.cpp" line="241"/>
         <source>Loading resources...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="222"/>
+        <location filename="../src/bmainwindow.cpp" line="244"/>
         <source>Connected and ready</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="225"/>
+        <location filename="../src/bmainwindow.cpp" line="247"/>
         <source>Connection error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="228"/>
-        <location filename="../src/bmainwindow.cpp" line="1780"/>
+        <location filename="../src/bmainwindow.cpp" line="250"/>
+        <location filename="../src/bmainwindow.cpp" line="1818"/>
         <source>Disconnected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="235"/>
+        <location filename="../src/bmainwindow.cpp" line="257"/>
         <source>Loading resources... %1/%2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="260"/>
-        <location filename="../src/bmainwindow.cpp" line="710"/>
-        <location filename="../src/bmainwindow.cpp" line="2627"/>
+        <location filename="../src/bmainwindow.cpp" line="282"/>
+        <location filename="../src/bmainwindow.cpp" line="779"/>
+        <location filename="../src/bmainwindow.cpp" line="2677"/>
         <source>Ready</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="417"/>
-        <location filename="../src/bmainwindow.cpp" line="2989"/>
+        <location filename="../src/bmainwindow.cpp" line="443"/>
+        <location filename="../src/bmainwindow.cpp" line="3083"/>
         <source>Auto-refresh enabled (%1s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="421"/>
-        <location filename="../src/bmainwindow.cpp" line="2994"/>
+        <location filename="../src/bmainwindow.cpp" line="447"/>
+        <location filename="../src/bmainwindow.cpp" line="3088"/>
         <source>Auto-refresh disabled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="495"/>
+        <location filename="../src/bmainwindow.cpp" line="521"/>
         <source>Job: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="556"/>
-        <location filename="../src/bmainwindow.cpp" line="716"/>
-        <location filename="../src/bmainwindow.cpp" line="2543"/>
+        <location filename="../src/bmainwindow.cpp" line="582"/>
+        <location filename="../src/bmainwindow.cpp" line="785"/>
+        <location filename="../src/bmainwindow.cpp" line="1820"/>
+        <location filename="../src/bmainwindow.cpp" line="2452"/>
+        <location filename="../src/bmainwindow.cpp" line="2593"/>
+        <location filename="../src/bmainwindow.cpp" line="2933"/>
         <source>Not connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="633"/>
+        <location filename="../src/bmainwindow.cpp" line="702"/>
         <source>Storage/Volumes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="691"/>
+        <location filename="../src/bmainwindow.cpp" line="760"/>
         <source>Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="787"/>
-        <location filename="../src/bmainwindow.cpp" line="804"/>
-        <location filename="../src/bmainwindow.cpp" line="1714"/>
-        <location filename="../src/bmainwindow.cpp" line="1972"/>
+        <location filename="../src/bmainwindow.cpp" line="856"/>
+        <location filename="../src/bmainwindow.cpp" line="873"/>
+        <location filename="../src/bmainwindow.cpp" line="1784"/>
+        <location filename="../src/bmainwindow.cpp" line="2012"/>
         <source>Connect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="792"/>
-        <location filename="../src/bmainwindow.cpp" line="810"/>
-        <location filename="../src/bmainwindow.cpp" line="1973"/>
+        <location filename="../src/bmainwindow.cpp" line="861"/>
+        <location filename="../src/bmainwindow.cpp" line="879"/>
+        <location filename="../src/bmainwindow.cpp" line="2013"/>
+        <location filename="../src/bmainwindow.cpp" line="2692"/>
         <source>Reconnect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="798"/>
+        <location filename="../src/bmainwindow.cpp" line="867"/>
         <source>Disconnect</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="806"/>
-        <location filename="../src/bmainwindow.cpp" line="1636"/>
-        <location filename="../src/bmainwindow.cpp" line="2427"/>
+        <location filename="../src/bmainwindow.cpp" line="875"/>
+        <location filename="../src/bmainwindow.cpp" line="1706"/>
+        <location filename="../src/bmainwindow.cpp" line="2477"/>
         <source>Connect to Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="812"/>
+        <location filename="../src/bmainwindow.cpp" line="881"/>
         <source>Reconnect to last used connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="816"/>
-        <location filename="../src/bmainwindow.cpp" line="1974"/>
+        <location filename="../src/bmainwindow.cpp" line="885"/>
+        <location filename="../src/bmainwindow.cpp" line="2014"/>
         <source>Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="822"/>
-        <location filename="../src/bmainwindow.cpp" line="1975"/>
+        <location filename="../src/bmainwindow.cpp" line="891"/>
+        <location filename="../src/bmainwindow.cpp" line="2015"/>
         <source>Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="827"/>
-        <location filename="../src/bmainwindow.cpp" line="1976"/>
+        <location filename="../src/bmainwindow.cpp" line="896"/>
+        <location filename="../src/bmainwindow.cpp" line="2016"/>
         <source>Exit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="832"/>
-        <location filename="../src/bmainwindow.cpp" line="1805"/>
+        <location filename="../src/bmainwindow.cpp" line="901"/>
+        <location filename="../src/bmainwindow.cpp" line="1845"/>
         <source>About Onesimus</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="836"/>
+        <location filename="../src/bmainwindow.cpp" line="905"/>
         <source>About Qt</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="840"/>
+        <location filename="../src/bmainwindow.cpp" line="909"/>
         <source>Online Documentation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="845"/>
+        <location filename="../src/bmainwindow.cpp" line="914"/>
         <source>Report a Bug...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="849"/>
-        <location filename="../src/bmainwindow.cpp" line="1952"/>
-        <location filename="../src/bmainwindow.cpp" line="1958"/>
-        <location filename="../src/bmainwindow.cpp" line="2040"/>
+        <location filename="../src/bmainwindow.cpp" line="918"/>
+        <location filename="../src/bmainwindow.cpp" line="1992"/>
+        <location filename="../src/bmainwindow.cpp" line="1998"/>
+        <location filename="../src/bmainwindow.cpp" line="2080"/>
         <source>Keyboard Shortcuts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="854"/>
-        <location filename="../src/bmainwindow.cpp" line="2374"/>
+        <location filename="../src/bmainwindow.cpp" line="923"/>
+        <location filename="../src/bmainwindow.cpp" line="2414"/>
         <source>My Permissions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="860"/>
-        <location filename="../src/bmainwindow.cpp" line="1989"/>
+        <location filename="../src/bmainwindow.cpp" line="929"/>
+        <location filename="../src/bmainwindow.cpp" line="2029"/>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="866"/>
-        <location filename="../src/bmainwindow.cpp" line="1990"/>
+        <location filename="../src/bmainwindow.cpp" line="935"/>
+        <location filename="../src/bmainwindow.cpp" line="2030"/>
         <source>Select All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="872"/>
+        <location filename="../src/bmainwindow.cpp" line="941"/>
         <source>Clear Selection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="877"/>
+        <location filename="../src/bmainwindow.cpp" line="946"/>
         <source>Find...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="884"/>
-        <location filename="../src/bmainwindow.cpp" line="2004"/>
+        <location filename="../src/bmainwindow.cpp" line="953"/>
+        <location filename="../src/bmainwindow.cpp" line="2044"/>
         <source>Show Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="898"/>
-        <location filename="../src/bmainwindow.cpp" line="2005"/>
+        <location filename="../src/bmainwindow.cpp" line="967"/>
+        <location filename="../src/bmainwindow.cpp" line="2045"/>
         <source>Show Job Log</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="913"/>
-        <location filename="../src/bmainwindow.cpp" line="2007"/>
+        <location filename="../src/bmainwindow.cpp" line="982"/>
+        <location filename="../src/bmainwindow.cpp" line="2047"/>
         <source>Interface Zoom In</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="919"/>
-        <location filename="../src/bmainwindow.cpp" line="2008"/>
+        <location filename="../src/bmainwindow.cpp" line="988"/>
+        <location filename="../src/bmainwindow.cpp" line="2048"/>
         <source>Interface Zoom Out</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="931"/>
+        <location filename="../src/bmainwindow.cpp" line="1000"/>
         <source>Toggle Dark/Light Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="945"/>
+        <location filename="../src/bmainwindow.cpp" line="1015"/>
         <source>Run Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="950"/>
+        <location filename="../src/bmainwindow.cpp" line="1020"/>
         <source>Cancel Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="955"/>
+        <location filename="../src/bmainwindow.cpp" line="1025"/>
         <source>Show Details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="960"/>
-        <location filename="../src/bmainwindow.cpp" line="2022"/>
+        <location filename="../src/bmainwindow.cpp" line="1030"/>
+        <location filename="../src/bmainwindow.cpp" line="2062"/>
         <source>Refresh Jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="966"/>
+        <location filename="../src/bmainwindow.cpp" line="1036"/>
         <source>Export Jobs as JSON...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="971"/>
+        <location filename="../src/bmainwindow.cpp" line="1041"/>
         <source>Export Jobs as CSV...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="977"/>
+        <location filename="../src/bmainwindow.cpp" line="1047"/>
         <source>Add Job...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="996"/>
+        <location filename="../src/bmainwindow.cpp" line="1066"/>
         <source>Edit Job...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1002"/>
+        <location filename="../src/bmainwindow.cpp" line="1072"/>
         <source>Edit Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1003"/>
+        <location filename="../src/bmainwindow.cpp" line="1073"/>
         <source>No Jobs available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1009"/>
+        <location filename="../src/bmainwindow.cpp" line="1079"/>
         <source>Job Resources</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1062"/>
+        <location filename="../src/bmainwindow.cpp" line="1132"/>
         <source>Delete Job...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1070"/>
+        <location filename="../src/bmainwindow.cpp" line="1140"/>
         <source>Add JobDefs...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1089"/>
+        <location filename="../src/bmainwindow.cpp" line="1159"/>
         <source>Edit JobDefs...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1095"/>
+        <location filename="../src/bmainwindow.cpp" line="1165"/>
         <source>JobDefs Resources</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1150"/>
+        <location filename="../src/bmainwindow.cpp" line="1220"/>
         <source>Delete JobDefs...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1161"/>
-        <location filename="../src/bmainwindow.cpp" line="1165"/>
+        <location filename="../src/bmainwindow.cpp" line="1231"/>
+        <location filename="../src/bmainwindow.cpp" line="1235"/>
         <source>Delete JobDefs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1161"/>
+        <location filename="../src/bmainwindow.cpp" line="1231"/>
         <source>No JobDefs available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1165"/>
+        <location filename="../src/bmainwindow.cpp" line="1235"/>
         <source>JobDefs to delete:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1179"/>
+        <location filename="../src/bmainwindow.cpp" line="1249"/>
         <source>Jobs that use this JobDefs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1185"/>
+        <location filename="../src/bmainwindow.cpp" line="1255"/>
         <source>Job %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1195"/>
+        <location filename="../src/bmainwindow.cpp" line="1265"/>
         <source>Add FileSet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1203"/>
+        <location filename="../src/bmainwindow.cpp" line="1273"/>
         <source>Edit FileSet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1211"/>
+        <location filename="../src/bmainwindow.cpp" line="1281"/>
         <source>Delete FileSet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1220"/>
-        <location filename="../src/bmainwindow.cpp" line="1226"/>
-        <location filename="../src/bmainwindow.cpp" line="1270"/>
-        <location filename="../src/bmainwindow.cpp" line="1275"/>
+        <location filename="../src/bmainwindow.cpp" line="1290"/>
+        <location filename="../src/bmainwindow.cpp" line="1296"/>
+        <location filename="../src/bmainwindow.cpp" line="1340"/>
+        <location filename="../src/bmainwindow.cpp" line="1345"/>
         <source>Delete FileSet</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1221"/>
+        <location filename="../src/bmainwindow.cpp" line="1291"/>
         <source>No FileSets available.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1231"/>
+        <location filename="../src/bmainwindow.cpp" line="1301"/>
         <source>Select the FileSet to delete:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1241"/>
+        <location filename="../src/bmainwindow.cpp" line="1311"/>
         <source>&lt;span style=&apos;color: #cc0000;&apos;&gt;&lt;b&gt;Warning:&lt;/b&gt; This will remove the FileSet resource from the Director configuration. This action cannot be undone!&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1251"/>
+        <location filename="../src/bmainwindow.cpp" line="1321"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1263"/>
+        <location filename="../src/bmainwindow.cpp" line="1333"/>
         <source>Confirm Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1264"/>
+        <location filename="../src/bmainwindow.cpp" line="1334"/>
         <source>Are you sure you want to delete FileSet &quot;%1&quot;?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1271"/>
+        <location filename="../src/bmainwindow.cpp" line="1341"/>
         <source>Not connected to a Director. FileSet &quot;%1&quot; was not deleted.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1276"/>
+        <location filename="../src/bmainwindow.cpp" line="1346"/>
         <source>FileSet &quot;%1&quot; no longer exists on the Director. Nothing was deleted.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1284"/>
+        <location filename="../src/bmainwindow.cpp" line="1354"/>
         <source>Add New Client...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1292"/>
-        <location filename="../src/bmainwindow.cpp" line="2023"/>
+        <location filename="../src/bmainwindow.cpp" line="1362"/>
+        <location filename="../src/bmainwindow.cpp" line="2063"/>
         <source>Refresh Clients</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1298"/>
+        <location filename="../src/bmainwindow.cpp" line="1368"/>
         <source>Show Client Details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1308"/>
-        <location filename="../src/bmainwindow.cpp" line="2024"/>
+        <location filename="../src/bmainwindow.cpp" line="1378"/>
+        <location filename="../src/bmainwindow.cpp" line="2064"/>
         <source>Refresh Storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1315"/>
+        <location filename="../src/bmainwindow.cpp" line="1385"/>
         <source>Add Schedule...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1335"/>
-        <location filename="../src/bmainwindow.cpp" line="2025"/>
+        <location filename="../src/bmainwindow.cpp" line="1405"/>
+        <location filename="../src/bmainwindow.cpp" line="2065"/>
         <source>Refresh Schedules</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1342"/>
+        <location filename="../src/bmainwindow.cpp" line="1412"/>
         <source>Database Cleanup...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1344"/>
+        <location filename="../src/bmainwindow.cpp" line="1414"/>
         <source>Clean up old backups and free disk space</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1348"/>
+        <location filename="../src/bmainwindow.cpp" line="1418"/>
         <source>Connection Wizard...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1350"/>
+        <location filename="../src/bmainwindow.cpp" line="1420"/>
         <source>Set up a new director connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1353"/>
+        <location filename="../src/bmainwindow.cpp" line="1423"/>
         <source>Import Config...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1355"/>
+        <location filename="../src/bmainwindow.cpp" line="1425"/>
         <source>Import Director configuration from files or ZIP archive</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1364"/>
-        <location filename="../src/bmainwindow.cpp" line="1404"/>
-        <location filename="../src/bmainwindow.cpp" line="1420"/>
+        <location filename="../src/bmainwindow.cpp" line="1434"/>
+        <location filename="../src/bmainwindow.cpp" line="1474"/>
+        <location filename="../src/bmainwindow.cpp" line="1490"/>
         <source>Language</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1370"/>
+        <location filename="../src/bmainwindow.cpp" line="1440"/>
         <source>System (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1405"/>
+        <location filename="../src/bmainwindow.cpp" line="1475"/>
         <source>Onesimus will speak %1 after a restart.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1408"/>
+        <location filename="../src/bmainwindow.cpp" line="1478"/>
         <source>Restart now? The connection to the Director is closed and opened again if automatic connection is on.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1410"/>
+        <location filename="../src/bmainwindow.cpp" line="1480"/>
         <source>Restart now?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1411"/>
+        <location filename="../src/bmainwindow.cpp" line="1481"/>
         <source>Restart now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1412"/>
+        <location filename="../src/bmainwindow.cpp" line="1482"/>
         <source>Later</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1421"/>
+        <location filename="../src/bmainwindow.cpp" line="1491"/>
         <source>Onesimus could not be started again. The new language takes effect at the next start.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1431"/>
-        <location filename="../src/bmainwindow.cpp" line="1980"/>
+        <location filename="../src/bmainwindow.cpp" line="1501"/>
+        <location filename="../src/bmainwindow.cpp" line="2020"/>
         <source>File</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1445"/>
-        <location filename="../src/bmainwindow.cpp" line="1995"/>
+        <location filename="../src/bmainwindow.cpp" line="1515"/>
+        <location filename="../src/bmainwindow.cpp" line="2035"/>
         <source>Edit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1454"/>
-        <location filename="../src/bmainwindow.cpp" line="2013"/>
+        <location filename="../src/bmainwindow.cpp" line="1524"/>
+        <location filename="../src/bmainwindow.cpp" line="2053"/>
         <source>View</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1523"/>
+        <location filename="../src/bmainwindow.cpp" line="1593"/>
         <source>ACL matrix of the consoles...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1524"/>
+        <location filename="../src/bmainwindow.cpp" line="1594"/>
         <source>Which console may use which job, client, storage, schedule, pool, fileset, catalog and command (Onesimus Director)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="1818"/>
+        <source>Connection attempt cancelled</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="2693"/>
+        <source>The connection profile &quot;%1&quot; has no saved password or is incomplete. Complete it in Settings, then connect again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="2894"/>
+        <source>Cancel the connection attempt</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="2911"/>
+        <source>Passwords Not in the Keychain</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
-        <location filename="../src/bmainwindow.cpp" line="2913"/>
+        <location filename="../src/bmainwindow.cpp" line="2991"/>
+        <location filename="../src/bmainwindow.cpp" line="3024"/>
         <source>%n row(s) copied</source>
         <translation>
             <numerusform>%n row copied</numerusform>
@@ -7731,398 +7792,373 @@ Only expired jobs for the affected client(s) will be removed.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="625"/>
-        <location filename="../src/bmainwindow.cpp" line="1465"/>
+        <location filename="../src/bmainwindow.cpp" line="2999"/>
+        <source>No client selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="3039"/>
+        <source>All clients selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="3067"/>
+        <source>Find works in the Jobs and Clients tabs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/bmainwindow.cpp" line="694"/>
+        <location filename="../src/bmainwindow.cpp" line="1535"/>
         <source>Jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1473"/>
+        <location filename="../src/bmainwindow.cpp" line="1543"/>
         <source>Modify Jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1479"/>
+        <location filename="../src/bmainwindow.cpp" line="1549"/>
         <source>Modify JobDefs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1485"/>
+        <location filename="../src/bmainwindow.cpp" line="1555"/>
         <source>Filesets</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="629"/>
-        <location filename="../src/bmainwindow.cpp" line="1495"/>
+        <location filename="../src/bmainwindow.cpp" line="698"/>
+        <location filename="../src/bmainwindow.cpp" line="1565"/>
         <source>Clients</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1502"/>
+        <location filename="../src/bmainwindow.cpp" line="1572"/>
         <source>Storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="662"/>
-        <location filename="../src/bmainwindow.cpp" line="1506"/>
+        <location filename="../src/bmainwindow.cpp" line="731"/>
+        <location filename="../src/bmainwindow.cpp" line="1576"/>
         <source>Schedules</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="101"/>
+        <location filename="../src/bmainwindow.cpp" line="123"/>
         <source>Onesimus - Bacula Backup Management</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="103"/>
+        <location filename="../src/bmainwindow.cpp" line="125"/>
         <source>Onesimus - Bareos Backup Management</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1512"/>
+        <location filename="../src/bmainwindow.cpp" line="1582"/>
         <source>Tools</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1528"/>
-        <location filename="../src/bmainwindow.cpp" line="2044"/>
+        <location filename="../src/bmainwindow.cpp" line="1598"/>
+        <location filename="../src/bmainwindow.cpp" line="2084"/>
         <source>Help</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1557"/>
+        <location filename="../src/bmainwindow.cpp" line="1627"/>
         <source>Main Toolbar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1586"/>
-        <location filename="../src/bmainwindow.cpp" line="1600"/>
-        <location filename="../src/bmainwindow.cpp" line="2516"/>
+        <location filename="../src/bmainwindow.cpp" line="1656"/>
+        <location filename="../src/bmainwindow.cpp" line="1670"/>
+        <location filename="../src/bmainwindow.cpp" line="2566"/>
         <source>Statistics ▼</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1589"/>
+        <location filename="../src/bmainwindow.cpp" line="1659"/>
         <source>Show/Hide Statistics</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1600"/>
-        <location filename="../src/bmainwindow.cpp" line="2516"/>
-        <location filename="../src/bmainwindow.cpp" line="2552"/>
+        <location filename="../src/bmainwindow.cpp" line="1670"/>
+        <location filename="../src/bmainwindow.cpp" line="2566"/>
+        <location filename="../src/bmainwindow.cpp" line="2602"/>
         <source>Statistics ▶</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1628"/>
+        <location filename="../src/bmainwindow.cpp" line="1698"/>
         <source>No Connection Profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1629"/>
+        <location filename="../src/bmainwindow.cpp" line="1699"/>
         <source>No connection profiles found.
 
 Please create a connection profile in Settings first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1643"/>
+        <location filename="../src/bmainwindow.cpp" line="1713"/>
         <source>Select Connection Profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1649"/>
+        <location filename="../src/bmainwindow.cpp" line="1719"/>
         <source>Connection Profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1698"/>
+        <location filename="../src/bmainwindow.cpp" line="1768"/>
         <source>Manage Profiles...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1726"/>
+        <location filename="../src/bmainwindow.cpp" line="1796"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1727"/>
+        <location filename="../src/bmainwindow.cpp" line="1797"/>
         <source>Selected profile is invalid.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1766"/>
-        <location filename="../src/bmainwindow.cpp" line="2641"/>
-        <location filename="../src/bmainwindow.cpp" line="2875"/>
+        <location filename="../src/bmainwindow.cpp" line="2889"/>
+        <location filename="../src/bmainwindow.cpp" line="2952"/>
         <source>Connecting to %1...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1825"/>
+        <location filename="../src/bmainwindow.cpp" line="1865"/>
         <source>&lt;p style=&apos;color:#666; margin:0;&apos;&gt;Version %1 (Build %2)&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1831"/>
+        <location filename="../src/bmainwindow.cpp" line="1871"/>
         <source>&lt;p style=&apos;margin:0;&apos;&gt;Modern Qt6 GUI for Bacula Backup&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1833"/>
+        <location filename="../src/bmainwindow.cpp" line="1873"/>
         <source>&lt;p style=&apos;margin:0;&apos;&gt;Modern Qt6 GUI for Bareos Backup&lt;/p&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1917"/>
+        <location filename="../src/bmainwindow.cpp" line="1957"/>
         <source>Close</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1933"/>
+        <location filename="../src/bmainwindow.cpp" line="1973"/>
         <source>Documentation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1934"/>
-        <location filename="../src/bmainwindow.cpp" line="1944"/>
+        <location filename="../src/bmainwindow.cpp" line="1974"/>
+        <location filename="../src/bmainwindow.cpp" line="1984"/>
         <source>Could not open browser. Please visit:
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1943"/>
+        <location filename="../src/bmainwindow.cpp" line="1983"/>
         <source>Report Bug</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="1991"/>
+        <location filename="../src/bmainwindow.cpp" line="2031"/>
         <source>Find</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2006"/>
+        <location filename="../src/bmainwindow.cpp" line="2046"/>
         <source>Toggle Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2009"/>
+        <location filename="../src/bmainwindow.cpp" line="2049"/>
         <source>Reset Interface Zoom</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2030"/>
+        <location filename="../src/bmainwindow.cpp" line="2070"/>
         <source>Data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2039"/>
+        <location filename="../src/bmainwindow.cpp" line="2079"/>
         <source>Help Contents</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2375"/>
+        <location filename="../src/bmainwindow.cpp" line="2415"/>
         <source>Not connected to a Director.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2397"/>
+        <location filename="../src/bmainwindow.cpp" line="2437"/>
         <source>Settings saved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2424"/>
+        <location filename="../src/bmainwindow.cpp" line="2474"/>
         <source>Disconnect from Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2502"/>
+        <location filename="../src/bmainwindow.cpp" line="2552"/>
         <source>Connected to %1 version %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2504"/>
+        <location filename="../src/bmainwindow.cpp" line="2554"/>
         <source>Connected: version %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2510"/>
+        <location filename="../src/bmainwindow.cpp" line="2560"/>
         <source>Connected - Loading data...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2575"/>
+        <location filename="../src/bmainwindow.cpp" line="2625"/>
         <source>Error: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2582"/>
+        <location filename="../src/bmainwindow.cpp" line="2632"/>
         <source>Connection Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2597"/>
+        <location filename="../src/bmainwindow.cpp" line="2647"/>
         <source>Refreshing data...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2636"/>
+        <location filename="../src/bmainwindow.cpp" line="2687"/>
         <source>No Saved Connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2637"/>
+        <location filename="../src/bmainwindow.cpp" line="2688"/>
         <source>No previous connection found. Please use &apos;Connect&apos; to establish a new connection.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2829"/>
+        <location filename="../src/bmainwindow.cpp" line="2888"/>
         <source>Auto-connecting to %1...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2856"/>
+        <location filename="../src/bmainwindow.cpp" line="2932"/>
         <source>Connection cancelled: server certificate not trusted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2919"/>
-        <source>Copying client data is not implemented yet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/bmainwindow.cpp" line="2932"/>
+        <location filename="../src/bmainwindow.cpp" line="3036"/>
         <source>All jobs selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2935"/>
-        <source>Selecting all clients is not implemented yet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/bmainwindow.cpp" line="2947"/>
+        <location filename="../src/bmainwindow.cpp" line="3051"/>
+        <location filename="../src/bmainwindow.cpp" line="3054"/>
         <source>Selection cleared</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2950"/>
-        <source>Clearing the client selection is not implemented yet</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/bmainwindow.cpp" line="2961"/>
-        <location filename="../src/bmainwindow.cpp" line="2971"/>
-        <source>Search</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/bmainwindow.cpp" line="2962"/>
-        <source>Use the filter options in the Job view
-to search for specific jobs.
-
-Available filters:
-• Job Name
-• Client Name
-• Status (Success, Warning, Failed)
-• Level (Full, Incremental, Differential)
-• Date Range</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/bmainwindow.cpp" line="2972"/>
-        <source>Use the filter combo box in the Client view
-to search for specific clients.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/bmainwindow.cpp" line="3004"/>
+        <location filename="../src/bmainwindow.cpp" line="3098"/>
         <source>Reset Interface Zoom (now %1 %)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3018"/>
+        <location filename="../src/bmainwindow.cpp" line="3109"/>
         <source>Switched to Light Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3022"/>
+        <location filename="../src/bmainwindow.cpp" line="3110"/>
         <source>Switched to Dark Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3035"/>
-        <location filename="../src/bmainwindow.cpp" line="3047"/>
-        <location filename="../src/bmainwindow.cpp" line="3059"/>
+        <location filename="../src/bmainwindow.cpp" line="3119"/>
+        <location filename="../src/bmainwindow.cpp" line="3131"/>
+        <location filename="../src/bmainwindow.cpp" line="3143"/>
         <source>Not Connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3035"/>
-        <location filename="../src/bmainwindow.cpp" line="3047"/>
+        <location filename="../src/bmainwindow.cpp" line="3119"/>
+        <location filename="../src/bmainwindow.cpp" line="3131"/>
         <source>Please connect to the Director first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3041"/>
+        <location filename="../src/bmainwindow.cpp" line="3125"/>
         <source>Jobs exported as JSON</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3053"/>
+        <location filename="../src/bmainwindow.cpp" line="3137"/>
         <source>Jobs exported as CSV</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3060"/>
+        <location filename="../src/bmainwindow.cpp" line="3144"/>
         <source>Please connect to Bareos Director first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3069"/>
+        <location filename="../src/bmainwindow.cpp" line="3153"/>
         <source>Loading job data...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3105"/>
+        <location filename="../src/bmainwindow.cpp" line="3189"/>
         <source>Connection profile &apos;%1&apos; saved</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3190"/>
+        <location filename="../src/bmainwindow.cpp" line="3239"/>
         <source>Password Missing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3191"/>
+        <location filename="../src/bmainwindow.cpp" line="3240"/>
         <source>The imported Console &apos;%1&apos; does not contain a password.
 
 You will need to enter the password manually in the connection settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3212"/>
+        <location filename="../src/bmainwindow.cpp" line="3261"/>
         <source>Created connection profile &apos;%1&apos; for Director &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3217"/>
+        <location filename="../src/bmainwindow.cpp" line="3266"/>
         <source>Connect Now?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3218"/>
+        <location filename="../src/bmainwindow.cpp" line="3267"/>
         <source>Connection profile &apos;%1&apos; has been created.
 
 Do you want to connect now?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="3234"/>
+        <location filename="../src/bmainwindow.cpp" line="3283"/>
         <source>Imported Director &apos;%1&apos; with Console &apos;%2&apos;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2026"/>
+        <location filename="../src/bmainwindow.cpp" line="2066"/>
         <source>Add Schedule</source>
         <translation type="unfinished"></translation>
     </message>
@@ -8628,288 +8664,276 @@ on the Preview page to add this client automatically.</source>
 <context>
     <name>BNewJobDialog</name>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="27"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="30"/>
         <source>Run New Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="53"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="56"/>
         <source>Run Backup Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="63"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="66"/>
         <source>Command Preview</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="82"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="85"/>
         <source>Estimate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="84"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="87"/>
         <source>Calculate estimated files and size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="94"/>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="668"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="97"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="654"/>
         <source>Run Job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="116"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="119"/>
         <source>Job Configuration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="121"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="124"/>
         <source>Select job...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="124"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="127"/>
         <source>Job:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="127"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="130"/>
         <source>Select client...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="130"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="133"/>
         <source>Client:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="136"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="139"/>
         <source>Level:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="141"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="144"/>
         <source>Resources</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="146"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="149"/>
         <source>Select FileSet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="149"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="152"/>
         <source>FileSet:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="152"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="155"/>
         <source>Select Pool...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="155"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="158"/>
         <source>Pool:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="158"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="161"/>
         <source>Select Storage...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="161"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="164"/>
         <source>Storage:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="166"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="169"/>
         <source>Options</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="172"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="175"/>
         <source>Lower values = higher priority. Only sent if changed here; otherwise the job&apos;s own priority applies.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="179"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="182"/>
         <source>Priority:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="185"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="188"/>
         <source>Basic</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="195"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="198"/>
         <source>Scheduling</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="199"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="202"/>
         <source>e.g. &quot;2024-01-15 14:30:00&quot; or empty for immediate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="200"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="203"/>
         <source>Start time in the form YYYY-MM-DD HH:MM:SS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="202"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="205"/>
         <source>When:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="207"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="210"/>
         <source>Bootstrap Options</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="210"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="213"/>
         <source>Use Bootstrap file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="215"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="218"/>
         <source>Path to Bootstrap file</source>
         <translation type="unfinished"></translation>
     </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="708"/>
+        <source>Estimate: %n file(s), %1</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="225"/>
-        <source>Replace</source>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="713"/>
+        <source>The Director sent no estimate.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="228"/>
-        <source>Restore mode: Replace existing files</source>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="714"/>
+        <source>Estimate failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="232"/>
-        <source>Always</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="233"/>
-        <source>Never</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="234"/>
-        <source>If Newer</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="235"/>
-        <source>If Older</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="245"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="229"/>
         <source>Advanced</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="251"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="235"/>
         <source>⚠ No JobWidget connection available</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="256"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="240"/>
         <source>Loading configuration data from JobWidget...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="294"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="278"/>
         <source>✓ %1 jobs, %2 clients loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="300"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="284"/>
         <source>⚠ No jobs available - check connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="386"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="372"/>
         <source>✓ Configuration loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="425"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="411"/>
         <source>Loading job defaults...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="453"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="439"/>
         <source>Failed to load job defaults</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="564"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="550"/>
         <source>✓ Job defaults loaded</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="595"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="581"/>
         <source>No job selected.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="597"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="583"/>
         <source>The value for &apos;%1&apos; contains a line break or control character.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="599"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="585"/>
         <source>&apos;When&apos; must be a valid time in the form YYYY-MM-DD HH:MM:SS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="601"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="587"/>
         <source>The priority must be a positive number.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="603"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="589"/>
         <source>The command could not be built.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="621"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="607"/>
         <source>Nothing will be sent: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="648"/>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="689"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="634"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="675"/>
         <source>Missing Input</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="649"/>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="690"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="635"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="676"/>
         <source>Please select a job.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="657"/>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="697"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="643"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="683"/>
         <source>Invalid Input</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="669"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="655"/>
         <source>Do you want to run the following job?
 
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/bnewjobdialog.cpp" line="708"/>
+        <location filename="../src/jobs/bnewjobdialog.cpp" line="698"/>
         <source>Calculating estimate...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -9277,143 +9301,143 @@ You can now use this file in the certificate settings.</source>
 <context>
     <name>BPermissionsDialog</name>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2072"/>
+        <location filename="../src/bmainwindow.cpp" line="2112"/>
         <source>My Permissions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2085"/>
+        <location filename="../src/bmainwindow.cpp" line="2125"/>
         <source>Connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2087"/>
+        <location filename="../src/bmainwindow.cpp" line="2127"/>
         <source>Director:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2088"/>
+        <location filename="../src/bmainwindow.cpp" line="2128"/>
         <source>Host:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2095"/>
+        <location filename="../src/bmainwindow.cpp" line="2135"/>
         <source>TLS-PSK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2097"/>
+        <location filename="../src/bmainwindow.cpp" line="2137"/>
         <source>TLS Certificate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2099"/>
+        <location filename="../src/bmainwindow.cpp" line="2139"/>
         <source>None</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2101"/>
+        <location filename="../src/bmainwindow.cpp" line="2141"/>
         <source>Encryption:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2107"/>
+        <location filename="../src/bmainwindow.cpp" line="2147"/>
         <source>Backup &amp; Restore</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2108"/>
+        <location filename="../src/bmainwindow.cpp" line="2148"/>
         <source>Job Control</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2109"/>
+        <location filename="../src/bmainwindow.cpp" line="2149"/>
         <source>Administration</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2111"/>
+        <location filename="../src/bmainwindow.cpp" line="2151"/>
         <source>Media</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2122"/>
+        <location filename="../src/bmainwindow.cpp" line="2162"/>
         <source>Command Permissions</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2129"/>
+        <location filename="../src/bmainwindow.cpp" line="2169"/>
         <source>Checking...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2138"/>
+        <location filename="../src/bmainwindow.cpp" line="2178"/>
         <source>Restore Details</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2140"/>
-        <location filename="../src/bmainwindow.cpp" line="2149"/>
+        <location filename="../src/bmainwindow.cpp" line="2180"/>
+        <location filename="../src/bmainwindow.cpp" line="2189"/>
         <source>Loading...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2147"/>
+        <location filename="../src/bmainwindow.cpp" line="2187"/>
         <source>Other Available Commands</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2156"/>
+        <location filename="../src/bmainwindow.cpp" line="2196"/>
         <source>Raw Director Response</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2174"/>
+        <location filename="../src/bmainwindow.cpp" line="2214"/>
         <source>Querying Director...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2263"/>
+        <location filename="../src/bmainwindow.cpp" line="2303"/>
         <source>N/A</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2266"/>
+        <location filename="../src/bmainwindow.cpp" line="2306"/>
         <source>Authorized</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2269"/>
+        <location filename="../src/bmainwindow.cpp" line="2309"/>
         <source>Not authorized</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2294"/>
+        <location filename="../src/bmainwindow.cpp" line="2334"/>
         <source>&lt;b&gt;Permission:&lt;/b&gt; %1&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2298"/>
+        <location filename="../src/bmainwindow.cpp" line="2338"/>
         <source>&lt;b&gt;where= (restore path):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2302"/>
+        <location filename="../src/bmainwindow.cpp" line="2342"/>
         <source>&lt;b&gt;client= (target client):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2306"/>
+        <location filename="../src/bmainwindow.cpp" line="2346"/>
         <source>&lt;b&gt;replace= (replace policy):&lt;/b&gt; %1&lt;br&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2312"/>
+        <location filename="../src/bmainwindow.cpp" line="2352"/>
         <source>&lt;br&gt;&lt;b&gt;Available parameters:&lt;/b&gt; %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bmainwindow.cpp" line="2333"/>
+        <location filename="../src/bmainwindow.cpp" line="2373"/>
         <source>Total: %1 commands (%2 authorized, %3 denied)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -10036,137 +10060,137 @@ Leave empty to allow all valid certificates.</source>
 <context>
     <name>BRecycleForecast</name>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="65"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="69"/>
         <source>now</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="66"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="70"/>
         <source>never</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="69"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="73"/>
         <source>unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="77"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="81"/>
         <source>The Director did not report the status of this volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="82"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="86"/>
         <source>Archived: Bareos never prunes or recycles an archived volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="85"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="89"/>
         <source>Disabled: Bareos neither writes to nor recycles a disabled volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="89"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="93"/>
         <source>Error: Bareos never prunes a volume in Error, so it keeps its space until its status is changed. The job records on it still expire.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="93"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="97"/>
         <source>Read-Only: Bareos does not prune or recycle a read-only volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="96"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="100"/>
         <source>Cleaning tape: never used for data.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="101"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="105"/>
         <source>Recycle = no: the volume is never reused; its data stays until it is relabeled or deleted.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="105"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="109"/>
         <source>Purged: no job needs it any more, reusable now.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="109"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="113"/>
         <source>It still holds %1 on disk until it is recycled or truncated.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="115"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="119"/>
         <source>Marked for recycling: reused at the next need of its pool.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="118"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="122"/>
         <source>Busy: in use by a job right now.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="121"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="125"/>
         <source>Unlabeled: not yet written.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="127"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="131"/>
         <source>Append: the short volume list does not report the Volume Use Duration, so it is not known whether this volume stays open until it is full.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="131"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="135"/>
         <source>Append without Volume Use Duration: it stays open until it is full</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="133"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="137"/>
         <source>(%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="136"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="140"/>
         <source>or holds %1 jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="138"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="142"/>
         <source>; nothing on it is freed before that.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="144"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="148"/>
         <source>Append with a use duration of %1, but the first write or the retention is not reported.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="153"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="157"/>
         <source>Append until %1 (use duration %2), then %3 of volume retention.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="161"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="165"/>
         <source>%1: the last write or the volume retention is not reported.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="166"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="170"/>
         <source>%1: last written %2, volume retention %3.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="177"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="181"/>
         <source>%1: the job retention of %2 ends before the volume retention of %3; the jobs are pruned first and the volume becomes Purged.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="185"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="189"/>
         <source>The date has passed: it is pruned when its pool next needs a volume.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/storage/model/brecycleforecast.cpp" line="190"/>
+        <location filename="../src/storage/model/brecycleforecast.cpp" line="194"/>
         <source>Status &quot;%1&quot; is not known to this version.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -11714,137 +11738,137 @@ Check the log above for details.</source>
 <context>
     <name>BRunParser</name>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="116"/>
-        <location filename="../src/schedules/model/brunparser.cpp" line="148"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="120"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="152"/>
         <source>A Run line cannot contain a line break.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="137"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="141"/>
         <source>Unexpected character &quot;%1&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="166"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="170"/>
         <source>A quoted value is not closed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="396"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="400"/>
         <source>The Run line is empty.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="411"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="415"/>
         <source>Expected an equals, got: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="415"/>
-        <location filename="../src/schedules/model/brunparser.cpp" line="460"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="419"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="464"/>
         <source>Expected a value after &quot;%1=&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="426"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="430"/>
         <source>Expect a YES or NO, got: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="436"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="440"/>
         <source>Job level field: %1 not found in run record</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="443"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="447"/>
         <source>expected a positive integer, got: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="449"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="453"/>
         <source>expected a time period, got: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="500"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="504"/>
         <source>Unexpected token: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="505"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="509"/>
         <source>Day number out of range (1-31)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="512"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="516"/>
         <source>Unexpected token: &quot;%1&quot;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="522"/>
-        <location filename="../src/schedules/model/brunparser.cpp" line="656"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="526"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="660"/>
         <source>Week number out of range (0-53)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="528"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="532"/>
         <source>Job type field: %1 in run record not found</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="558"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="562"/>
         <source>Time must be preceded by keyword AT.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="574"/>
-        <location filename="../src/schedules/model/brunparser.cpp" line="579"/>
-        <location filename="../src/schedules/model/brunparser.cpp" line="588"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="578"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="583"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="592"/>
         <source>Bad time specification.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="613"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="617"/>
         <source>Bad day specification in modulo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="615"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="619"/>
         <source>Bad day specification, offset must always be &lt;= than modulo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="625"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="629"/>
         <source>Week number out of range (0-53) in modulo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="627"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="631"/>
         <source>Week interval out of range (1-53) in modulo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="629"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="633"/>
         <source>Bad week number specification in modulo, offset must always be &lt;= than modulo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="636"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="640"/>
         <source>Bad modulo time specification. Format for weekdays is &apos;01/02&apos;, for yearweeks is &apos;w01/w02&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="649"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="653"/>
         <source>Bad day range specification.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="664"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="668"/>
         <source>Invalid month, week or position day range</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/brunparser.cpp" line="668"/>
+        <location filename="../src/schedules/model/brunparser.cpp" line="672"/>
         <source>Invalid month, weekday or position range</source>
         <translation type="unfinished"></translation>
     </message>
@@ -14791,61 +14815,61 @@ Click Yes to execute, No to close without deploying.</source>
 <context>
     <name>BScheduleWaitModel</name>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1255"/>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1279"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1259"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1283"/>
         <source>%1 s</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1257"/>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1278"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1261"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1282"/>
         <source>%1 min</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1262"/>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1277"/>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1300"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1266"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1281"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1304"/>
         <source>%1 h</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1276"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1280"/>
         <source>%1 d</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1287"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1291"/>
         <source>Max Run Time %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1289"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1293"/>
         <source>Full Max Runtime %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1291"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1295"/>
         <source>Incremental Max Runtime %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1293"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1297"/>
         <source>Differential Max Runtime %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1295"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1299"/>
         <source>Max Run Sched Time %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1300"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1304"/>
         <source>no Max Run Time set, %1 assumed</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1306"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1310"/>
         <source>%n run(s) wait, longest %1</source>
         <translation>
             <numerusform>%n run waits, longest %1</numerusform>
@@ -14853,277 +14877,277 @@ Click Yes to execute, No to close without deploying.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1307"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1311"/>
         <source>No waiting predicted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1309"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1313"/>
         <source>%1 uncertain</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1318"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1322"/>
         <source>Director limit: the Director runs %1 job(s) at a time (Maximum Concurrent Jobs = %1) and all of them are taken.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1320"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1324"/>
         <source>Director limit: Maximum Concurrent Jobs of the Director is not known. With the Bareos default of 1 every job slot would be taken.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1324"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1328"/>
         <source>Storage limit: storage %1 takes %2 job(s) at a time (Maximum Concurrent Jobs = %2) and all places are taken.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1328"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1332"/>
         <source>Storage limit: the storage of this job is not known, and so is its Maximum Concurrent Jobs. With one shared storage and the Bareos default of 1 it would be full.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1331"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1335"/>
         <source>Storage limit: Maximum Concurrent Jobs of storage %1 is not known. With the Bareos default of 1 it would be full.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1335"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1339"/>
         <source>Client limit: client %1 takes %2 job(s) at a time (Maximum Concurrent Jobs = %2) and all places are taken.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1338"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1342"/>
         <source>Client limit: Maximum Concurrent Jobs of client %1 is not known. With the Bareos default of 1 it would be full.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1342"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1346"/>
         <source>Job limit: job %1 may run %2 time(s) at once (Maximum Concurrent Jobs = %2) and an earlier start of it has not finished.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1345"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1349"/>
         <source>Job limit: Maximum Concurrent Jobs of job %1 is not known. With the Bareos default of 1 an earlier start of it would be in the way.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1349"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1353"/>
         <source>Priority: this run has priority %1 and runs of priority %2 are running. The Director starts a run of a lower priority (a higher number) only when no run of another priority is running.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1354"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1358"/>
         <source>Priority: this run has priority %1 and runs of priority %2 are running. It starts beside them only if it and all of them have Allow Mixed Priority.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1358"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1362"/>
         <source>Queue order: a run of priority %1 is waiting ahead in the queue and cannot start yet. The Director starts no run that is behind it in the queue.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1382"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1386"/>
         <source>from %1, duration unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1392"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1396"/>
         <source>%1 to about %2, estimated</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1394"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1398"/>
         <source>%1 to %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1403"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1407"/>
         <source>and %1 more</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1416"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1420"/>
         <source>%1: it may run until %2 (%3)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1417"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1421"/>
         <source>%1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1422"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1426"/>
         <source>Maximum Concurrent Jobs of the Director is not known</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1425"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1429"/>
         <source>the storage of the job is not known (the Job and its JobDefs name none)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1426"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1430"/>
         <source>Maximum Concurrent Jobs of storage %1 is not known</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1428"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1432"/>
         <source>Maximum Concurrent Jobs of client %1 is not known</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1430"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1434"/>
         <source>Maximum Concurrent Jobs of job %1 is not known</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1432"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1436"/>
         <source>Allow Mixed Priority of job %1 is not known</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1434"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1438"/>
         <source>the duration of %1 was not measured at this level</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1436"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1440"/>
         <source>the duration of %1 was never measured</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1439"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1443"/>
         <source>the number of parallel writers of the storage device is not known (the job names no storage; the Director cannot read it)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1441"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1445"/>
         <source>the number of parallel writers of the device of storage %1 is not known (the Director cannot read it; set it in the list of predicted waits)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1505"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1509"/>
         <source>Director limit (Maximum Concurrent Jobs = %1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1508"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1512"/>
         <source>Storage limit (%1: Maximum Concurrent Jobs = %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1512"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1516"/>
         <source>Client limit (%1: Maximum Concurrent Jobs = %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1516"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1520"/>
         <source>Job limit (%1: Maximum Concurrent Jobs = %2)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1520"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1524"/>
         <source>Priority %1, runs of priority %2 are running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1524"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1528"/>
         <source>Queue order: a run of priority %1 waits ahead</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1531"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1535"/>
         <source>depends on values that are not known</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1534"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1538"/>
         <source>May wait: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1536"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1540"/>
         <source>may be longer: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1558"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1562"/>
         <source>%1 to %2: %3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1564"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1568"/>
         <source>Waits for: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1569"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1573"/>
         <source>Predicted start: %1, %2 after the scheduled time (%3)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1578"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1582"/>
         <source>it depends on values that are not known</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1581"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1585"/>
         <source>Uncertain, the wait may be longer: %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1583"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1587"/>
         <source>Uncertain, this run may have to wait: %1.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1587"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1591"/>
         <source>If so: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1610"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1614"/>
         <source>Inside the run: waits %1 in the storage daemon for a device of storage %2 (%3 parallel writer(s); after two waits for a release it tries again every %4 s)%5.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1617"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1621"/>
         <source>, held by %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1620"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1624"/>
         <source>Predicted end: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1623"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1627"/>
         <source>Start overhead %1 (from the Director starting the job to its recorded start: connections, Client Run Before Job)%2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1632"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1636"/>
         <source>Measured wait at this level: %1; predicted %2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1659"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1663"/>
         <source>not measured</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1660"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1664"/>
         <source>median %1, max %2 (%3 run(s))</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1671"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1675"/>
         <source>Prediction too low: measured median %1, predicted %2 - a limit the GUI does not know, e.g. the storage device (parallel writers), or a Client Run Before Job that takes long.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1676"/>
+        <location filename="../src/schedules/model/bschedulewaitmodel.cpp" line="1680"/>
         <source>Prediction too high: measured median %1, predicted %2 - a limit is set lower here than it is, or the durations used are too long.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16616,7 +16640,38 @@ Click Yes to execute, No to close without deploying.</source>
 <context>
     <name>BSettings</name>
     <message>
-        <location filename="../src/config/bsettings.cpp" line="224"/>
+        <location filename="../src/config/bsettings.cpp" line="168"/>
+        <source>A stored password is missing from the system keychain. Enter the password of the connection profile again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettings.cpp" line="172"/>
+        <source>The passwords of the connection profiles could not be read from the system keychain (%1). Unlock the keychain and restart Onesimus, or enter the passwords again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettings.cpp" line="175"/>
+        <location filename="../src/config/bsettings.cpp" line="286"/>
+        <source>no keychain available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettings.cpp" line="311"/>
+        <source>No system keychain could be used (%1). The passwords of the connection profiles are stored in the settings file %2, readable only by you. Install and unlock a keychain (for example GNOME Keyring or KWallet) to keep them out of the file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettings.cpp" line="453"/>
+        <source>The file is not valid JSON: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettings.cpp" line="485"/>
+        <source>The file contains no connection profiles.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettings.cpp" line="530"/>
         <source>Default</source>
         <translation type="unfinished"></translation>
     </message>
@@ -16626,563 +16681,662 @@ Click Yes to execute, No to close without deploying.</source>
     <message>
         <location filename="../ui/bsettingsdialog.ui" line="14"/>
         <location filename="../src/config/bsettingsdialog.cpp" line="67"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1391"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1367"/>
         <source>Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="106"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1404"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1412"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1398"/>
         <source>Reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="108"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="110"/>
         <source>Cancel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="110"/>
-        <source>Apply</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="144"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="147"/>
         <source>🔌 Connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="148"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="151"/>
         <source>🎨 Appearance</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="152"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="155"/>
         <source>⚙️ Behavior</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="156"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="159"/>
         <source>🔧 Advanced</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="185"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="188"/>
         <source>Connection Manager</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="193"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="196"/>
         <source>Saved Connections</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="207"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="211"/>
         <source>+ Add</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="208"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="213"/>
         <source>Add a new connection profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="209"/>
-        <source>Edit</source>
+        <location filename="../src/config/bsettingsdialog.cpp" line="106"/>
+        <source>Reset...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="211"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="107"/>
+        <source>Reset the settings to their defaults at once. The connection profiles are kept unless you choose otherwise.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="113"/>
+        <source>Save</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="214"/>
         <source>Duplicate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="213"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="216"/>
         <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="243"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="244"/>
         <source>Profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="249"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="251"/>
         <source>e.g. Production Server, Test Environment</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="250"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="252"/>
         <source>Profile Name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="255"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="257"/>
         <source>Director Connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="261"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="264"/>
         <source>e.g. 192.168.1.100 or bareos-dir.local</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="262"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="265"/>
         <source>Host:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="267"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="270"/>
         <source>Port:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="271"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="274"/>
         <source>BNET (Bareos console protocol)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="272"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="275"/>
         <source>gRPC (Onesimus Director)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="278"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="281"/>
         <source>This build of Onesimus has no gRPC support.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="280"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="283"/>
         <source>Protocol:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="285"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="288"/>
         <source>gRPC port of the Director (default: BNET port + 1000)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="286"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="289"/>
         <source>gRPC port:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="293"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="296"/>
         <source>Forget certificate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="294"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="297"/>
         <source>Remove the pinned certificate. The next connection asks again whether the server certificate is trusted.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="297"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="300"/>
         <source>Server certificate:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="305"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="308"/>
         <source>Linux/Unix</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="306"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="309"/>
         <source>Windows</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="307"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="310"/>
         <source>FreeBSD</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="308"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="311"/>
         <source>macOS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="309"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="312"/>
         <source>Server operating system (affects TLS paths in exported configs)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="310"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="313"/>
         <source>Server OS:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="314"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="317"/>
         <source>Director Name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="318"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="321"/>
         <source>Console name for authentication (e.g., &apos;admin&apos; or &apos;onesimus&apos;)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="319"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="322"/>
         <source>Console Name:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="324"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="327"/>
         <source>Password:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="331"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="337"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1672"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="334"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="340"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1703"/>
         <source>(password MD5 hash will appear here)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="332"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="335"/>
         <source>MD5 Hash:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="372"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="375"/>
         <source>⚠️ TLS encrypts communication with the Director.
 TLS is strongly recommended for production environments!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="380"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="383"/>
         <source>Authentication &amp; Encryption</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="386"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="389"/>
         <source>Authentication Method:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="392"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="395"/>
         <source>Use x509 certificates (instead of PSK)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="394"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="397"/>
         <source>By default, TLS uses Pre-Shared Key (PSK) authentication.
 Enable this to use X.509 certificate-based authentication instead.
 Certificate mode requires CA certificate and client certificate/key files.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="412"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="415"/>
         <source>Path to CA certificate (.pem)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="413"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="423"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="433"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="444"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="416"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="426"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="436"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="447"/>
         <source>Browse...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="418"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="421"/>
         <source>CA Certificate:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="422"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="425"/>
         <source>Path to client certificate (.pem)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="428"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="431"/>
         <source>Client Certificate:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="432"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="435"/>
         <source>Path to private key (.pem, .key)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="438"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="441"/>
         <source>Private Key:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="443"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="446"/>
         <source>Path to client certificate (.pfx)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="449"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="452"/>
         <source>PFX Certificate:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="452"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="455"/>
         <source>Convert PEM/DER to PFX...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="453"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="456"/>
         <source>Convert separate PEM/DER certificate and key files into a PFX file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="458"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="461"/>
         <source>Verify server certificate (recommended)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="467"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="470"/>
         <source>TLS Cipher List (optional):</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="473"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="476"/>
         <source>e.g., PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="474"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="477"/>
         <source>Colon-separated list of TLS-PSK ciphers.
 Leave empty for auto-detection.
 Example: PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="479"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="482"/>
         <source>Preset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="480"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="483"/>
         <source>Fill with recommended PSK ciphers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="491"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="494"/>
         <source>gRPC is always encrypted with TLS. The server certificate is confirmed on first use and pinned; the Director authenticates with console name and password. TLS-PSK and certificate settings do not apply.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="502"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="505"/>
         <source>Options</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="507"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="510"/>
         <source>Save password in profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="511"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="514"/>
         <source>Auto-connect on startup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="515"/>
-        <source>Connection timeout:</source>
+        <location filename="../src/config/bsettingsdialog.cpp" line="592"/>
+        <source>Theme</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="519"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="773"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="597"/>
+        <source>System</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="598"/>
+        <source>Light</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="599"/>
+        <source>Dark</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="600"/>
+        <source>&quot;System&quot; follows the light or dark colour scheme of the desktop.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="601"/>
+        <source>Colour theme:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1391"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1407"/>
+        <source>Reset Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1392"/>
+        <source>Reset all settings to their default values now?
+
+This takes effect at once, also if you then press Cancel, and cannot be undone.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1396"/>
+        <source>Also delete all connection profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1408"/>
+        <source>All settings and connection profiles have been reset.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1409"/>
+        <source>All settings have been reset to their default values. The connection profiles were kept.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1454"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1459"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1464"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1473"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1476"/>
+        <source>Export Profiles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1455"/>
+        <source>There are no connection profiles to export.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1460"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1505"/>
+        <source>JSON (*.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1465"/>
+        <source>Include the stored passwords in the file?
+
+The file then holds the password hashes, and anyone who has it can log in to the Directors with them. Without them, the passwords must be entered again after the import.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/config/bsettingsdialog.cpp" line="1477"/>
+        <source>%n connection profile(s) exported.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1486"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1496"/>
+        <source>Cannot write %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/config/bsettingsdialog.cpp" line="1516"/>
+        <source>%n connection profile(s) imported. They are stored when you save the settings.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1525"/>
+        <source>Cannot read %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1580"/>
+        <source>All connection profiles have been removed. They are deleted when you save the settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1800"/>
+        <source>Do you really want to delete the connection profile &quot;%1&quot;?
+
+It is deleted when you save the settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bsettingsdialog.cpp" line="759"/>
         <source> seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="530"/>
-        <source>Save Profile</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="532"/>
-        <source>Save changes to this connection profile</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="544"/>
         <source>Export All Profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="545"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="531"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1504"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1512"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1515"/>
         <source>Import Profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="584"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="570"/>
         <source>Appearance</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="590"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="576"/>
         <source>Text Size</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="599"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="585"/>
         <source>The text follows the font of your desktop. This factor enlarges or reduces it (Ctrl++, Ctrl+-, Ctrl+0).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="601"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="587"/>
         <source>Interface zoom:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="606"/>
-        <source>User Interface</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="610"/>
-        <source>Enable animations</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="614"/>
-        <source>Compact mode</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="620"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="605"/>
         <source>Language</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="628"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="613"/>
         <source>System (%1)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="640"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="625"/>
         <source>Application Language:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="643"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="628"/>
         <source>Language changes require an application restart. &quot;System&quot; follows the language of the operating system.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="652"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="637"/>
         <source>Status Bar Colors</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="661"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="646"/>
         <source>Color shown when connected to Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="663"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="648"/>
         <source>Connected:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="669"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="654"/>
         <source>Color shown when not connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="671"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="656"/>
         <source>Disconnected:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="676"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="661"/>
         <source>Backup Level Colors</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="740"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="725"/>
         <source>Behavior</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="746"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="731"/>
         <source>Confirmations</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="750"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="735"/>
         <source>Confirm job cancellation</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="754"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="740"/>
         <source>Confirm job start</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="761"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="747"/>
         <source>Auto-Refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="765"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="751"/>
         <source>Auto-refresh</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="769"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="755"/>
         <source>Interval:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="782"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="768"/>
         <source>Display</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="790"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="776"/>
         <source>Maximum Jobs:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="792"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="778"/>
         <source>Show newest jobs first</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="795"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="781"/>
         <source>When enabled, the job list shows the most recent jobs first.
 When disabled, the oldest jobs are shown first.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="802"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="788"/>
         <source> hours</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="804"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="790"/>
         <source>The clients table marks a client as stale when its last backup or contact
 is at least this old. The value is taken from the job history; it is not
 a live connection check.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="807"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="793"/>
         <source>Client backup is stale after:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="812"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="798"/>
         <source>Schedules</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="819"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="805"/>
         <source> days</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="821"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="807"/>
         <source>The schedule view measures how long jobs run and how long they wait
 from the jobs of the last days in the catalog. A longer time gives more
 runs per job and a larger request to the Director. The history is only
@@ -17190,186 +17344,145 @@ requested while the schedule view is open.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="825"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="811"/>
         <source>Measure job history over the last:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="830"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="816"/>
         <source>Visible Backup Levels</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="835"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="821"/>
         <source>Select which backup levels appear in the Run Backup dialog:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="841"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="827"/>
         <source>Complete backup of all files</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="842"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="828"/>
         <source>Backup files changed since last backup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="843"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="829"/>
         <source>Backup files changed since last Full backup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="844"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="830"/>
         <source>Consolidate incremental backups into a synthetic full</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="845"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="831"/>
         <source>Data-level backup (rarely used)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="893"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="879"/>
         <source>Advanced Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="900"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="886"/>
         <source>File Logging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="904"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="890"/>
         <source>Enable file logging</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="905"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="891"/>
         <source>Write debug information to a log file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="909"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="895"/>
         <source>Log File:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="919"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="905"/>
         <source>Max. Log Size:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="943"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="929"/>
         <source>Miscellaneous</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="947"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="934"/>
         <source>Show tooltips</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="955"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="942"/>
         <source>⚠️ These settings are for advanced users.
 Changes may affect application stability.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1392"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1368"/>
         <source>Settings have been saved.
 Some changes require an application restart.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1405"/>
-        <source>Do you really want to reset all settings to default values?
-This action cannot be undone.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1413"/>
-        <source>All settings have been reset to default values.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1419"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1421"/>
         <source>Select CA Certificate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1420"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1432"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1422"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1434"/>
         <source>Certificates (*.pem *.crt *.cert);;All Files (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1428"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1430"/>
         <source>Select Client Certificate</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1430"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1432"/>
         <source>Certificates (*.pfx *.pem *.crt *.cert *.der);;PFX Files (*.pfx);;PEM Files (*.pem);;DER Files (*.der);;All Files (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1441"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1443"/>
         <source>Select Private Key</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1442"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1444"/>
         <source>Keys (*.pem *.key);;All Files (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1450"/>
-        <source>Export Settings</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1466"/>
-        <source>Export</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1466"/>
-        <source>Settings exported successfully.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1473"/>
-        <source>Import Settings</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1488"/>
-        <source>Import</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1488"/>
-        <source>Settings imported successfully.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1497"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1554"/>
         <source>No Profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1498"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1555"/>
         <source>There are no connection profiles to delete.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1502"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1559"/>
         <source>Clear All Profiles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1503"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1560"/>
         <source>Do you really want to delete all %1 connection profile(s)?
 
 This includes all passwords and certificate paths.
@@ -17377,110 +17490,87 @@ This action cannot be undone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1522"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1579"/>
         <source>Deleted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1523"/>
-        <source>All connection profiles have been deleted.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1530"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1604"/>
         <source>Choose Color for Full Backup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1544"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1609"/>
         <source>Choose Color for Incremental Backup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1558"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1614"/>
         <source>Choose Color for Differential Backup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1572"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1619"/>
         <source>Choose Color for Virtual Full Backup</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1586"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1625"/>
         <source>Choose Color for Connected Status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1600"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1635"/>
         <source>Choose Color for Disconnected Status</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1664"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1695"/>
         <source>••••••••  (password saved)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1670"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1701"/>
         <source>Enter password</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1712"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1770"/>
         <source>New Connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1750"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1799"/>
         <source>Delete Profile</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1751"/>
-        <source>Do you really want to delete the connection profile &quot;%1&quot;?
-
-This action cannot be undone.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1786"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1830"/>
         <source>%1 (Copy)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1810"/>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1900"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1845"/>
         <source>Unnamed Connection</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1884"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1917"/>
         <source>(not pinned - confirmed on next connection)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1889"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1922"/>
         <source>SHA-256: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1901"/>
-        <source>Profile Saved</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1902"/>
-        <source>Connection profile &quot;%1&quot; has been saved.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1916"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1937"/>
         <source>PFX File Created</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/config/bsettingsdialog.cpp" line="1917"/>
+        <location filename="../src/config/bsettingsdialog.cpp" line="1938"/>
         <source>PFX file has been created successfully.
 
 The certificate path has been updated in the current profile.</source>
@@ -17543,27 +17633,27 @@ The certificate path has been updated in the current profile.</source>
 <context>
     <name>BStaggerPlan</name>
     <message>
-        <location filename="../src/schedules/bstaggerplan.cpp" line="33"/>
+        <location filename="../src/schedules/bstaggerplan.cpp" line="37"/>
         <source>Schedule %1 has no Run lines.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/bstaggerplan.cpp" line="37"/>
+        <location filename="../src/schedules/bstaggerplan.cpp" line="41"/>
         <source>Run line %1 of schedule %2 is not understood.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/bstaggerplan.cpp" line="40"/>
+        <location filename="../src/schedules/bstaggerplan.cpp" line="44"/>
         <source>Run line %1 of schedule %2 runs at several hours.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/bstaggerplan.cpp" line="43"/>
+        <location filename="../src/schedules/bstaggerplan.cpp" line="47"/>
         <source>Run line %1 of schedule %2 would move into the next day.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/bstaggerplan.cpp" line="53"/>
+        <location filename="../src/schedules/bstaggerplan.cpp" line="57"/>
         <source>Run line %1 of schedule %2 did not read back as written (%3).</source>
         <translation type="unfinished"></translation>
     </message>
@@ -17571,252 +17661,252 @@ The certificate path has been updated in the current profile.</source>
 <context>
     <name>BStatus</name>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="28"/>
+        <location filename="../src/bstatuschip.cpp" line="32"/>
         <source>OK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="28"/>
+        <location filename="../src/bstatuschip.cpp" line="32"/>
         <source>Terminated normally</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="29"/>
+        <location filename="../src/bstatuschip.cpp" line="33"/>
         <source>Warnings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="29"/>
+        <location filename="../src/bstatuschip.cpp" line="33"/>
         <source>Terminated with warnings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="30"/>
+        <location filename="../src/bstatuschip.cpp" line="34"/>
         <source>Error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="30"/>
+        <location filename="../src/bstatuschip.cpp" line="34"/>
         <source>Terminated in error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="31"/>
+        <location filename="../src/bstatuschip.cpp" line="35"/>
         <source>Errors</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="31"/>
+        <location filename="../src/bstatuschip.cpp" line="35"/>
         <source>Non-fatal error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="32"/>
+        <location filename="../src/bstatuschip.cpp" line="36"/>
         <source>Fatal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="32"/>
+        <location filename="../src/bstatuschip.cpp" line="36"/>
         <source>Fatal error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="33"/>
+        <location filename="../src/bstatuschip.cpp" line="37"/>
         <source>Canceled</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="33"/>
+        <location filename="../src/bstatuschip.cpp" line="37"/>
         <source>Canceled by user</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="34"/>
+        <location filename="../src/bstatuschip.cpp" line="38"/>
         <source>Running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="35"/>
+        <location filename="../src/bstatuschip.cpp" line="39"/>
         <source>Committing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="35"/>
+        <location filename="../src/bstatuschip.cpp" line="39"/>
         <source>Committing data (last despool)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="36"/>
+        <location filename="../src/bstatuschip.cpp" line="40"/>
         <source>Despooling</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="36"/>
+        <location filename="../src/bstatuschip.cpp" line="40"/>
         <source>Despooling data</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="37"/>
+        <location filename="../src/bstatuschip.cpp" line="41"/>
         <source>Created</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="37"/>
+        <location filename="../src/bstatuschip.cpp" line="41"/>
         <source>Created, not yet running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="38"/>
+        <location filename="../src/bstatuschip.cpp" line="42"/>
         <source>Wait FD</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="38"/>
+        <location filename="../src/bstatuschip.cpp" line="42"/>
         <source>Waiting on the File daemon</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="39"/>
+        <location filename="../src/bstatuschip.cpp" line="43"/>
         <source>Wait SD</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="39"/>
+        <location filename="../src/bstatuschip.cpp" line="43"/>
         <source>Waiting on the Storage daemon</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="40"/>
+        <location filename="../src/bstatuschip.cpp" line="44"/>
         <source>Wait media</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="40"/>
+        <location filename="../src/bstatuschip.cpp" line="44"/>
         <source>Waiting for new media</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="41"/>
+        <location filename="../src/bstatuschip.cpp" line="45"/>
         <source>Wait mount</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="41"/>
+        <location filename="../src/bstatuschip.cpp" line="45"/>
         <source>Waiting for mount</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="42"/>
+        <location filename="../src/bstatuschip.cpp" line="46"/>
         <source>Wait storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="42"/>
+        <location filename="../src/bstatuschip.cpp" line="46"/>
         <source>Waiting for a storage resource</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="43"/>
+        <location filename="../src/bstatuschip.cpp" line="47"/>
         <source>Wait job</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="43"/>
+        <location filename="../src/bstatuschip.cpp" line="47"/>
         <source>Waiting for a job resource</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="44"/>
+        <location filename="../src/bstatuschip.cpp" line="48"/>
         <source>Wait client</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="44"/>
+        <location filename="../src/bstatuschip.cpp" line="48"/>
         <source>Waiting for a client resource</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="45"/>
+        <location filename="../src/bstatuschip.cpp" line="49"/>
         <source>Wait max jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="45"/>
+        <location filename="../src/bstatuschip.cpp" line="49"/>
         <source>Waiting for maximum jobs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="46"/>
+        <location filename="../src/bstatuschip.cpp" line="50"/>
         <source>Wait start</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="46"/>
+        <location filename="../src/bstatuschip.cpp" line="50"/>
         <source>Waiting for the start time</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="47"/>
+        <location filename="../src/bstatuschip.cpp" line="51"/>
         <source>Wait priority</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="47"/>
+        <location filename="../src/bstatuschip.cpp" line="51"/>
         <source>Waiting for higher priority jobs to finish</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="48"/>
+        <location filename="../src/bstatuschip.cpp" line="52"/>
         <source>Wait device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="48"/>
+        <location filename="../src/bstatuschip.cpp" line="52"/>
         <source>Queued, waiting for a device</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="49"/>
+        <location filename="../src/bstatuschip.cpp" line="53"/>
         <source>Despool attr.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="49"/>
+        <location filename="../src/bstatuschip.cpp" line="53"/>
         <source>Storage daemon despooling attributes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="50"/>
+        <location filename="../src/bstatuschip.cpp" line="54"/>
         <source>Inserting</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="50"/>
+        <location filename="../src/bstatuschip.cpp" line="54"/>
         <source>Doing batch insert of file records</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="51"/>
+        <location filename="../src/bstatuschip.cpp" line="55"/>
         <source>Blocked</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="52"/>
+        <location filename="../src/bstatuschip.cpp" line="56"/>
         <source>Differences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="52"/>
+        <location filename="../src/bstatuschip.cpp" line="56"/>
         <source>Verify found differences</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="53"/>
+        <location filename="../src/bstatuschip.cpp" line="57"/>
         <source>Incomplete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/bstatuschip.cpp" line="53"/>
+        <location filename="../src/bstatuschip.cpp" line="57"/>
         <source>Incomplete job</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18246,27 +18336,27 @@ The certificate path has been updated in the current profile.</source>
 <context>
     <name>BWaitCalibration</name>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="193"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="197"/>
         <source>this job was not measured: median of all %1 runs on this Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="198"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="202"/>
         <source>nothing measured: %1 assumed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="206"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="210"/>
         <source>Duration %1: median of %2 measured run(s). It includes any wait for a device inside the storage daemon (the parallel writers of %3 are not known, so it is not taken out).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="210"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="214"/>
         <source>its storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="189"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="193"/>
         <source>median of %n measured run(s) at this level</source>
         <translation>
             <numerusform>median of %n measured run at this level</numerusform>
@@ -18274,7 +18364,7 @@ The certificate path has been updated in the current profile.</source>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="191"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="195"/>
         <source>median of %n measured run(s) of this job at other levels</source>
         <translation>
             <numerusform>median of %n measured run of this job at other levels</numerusform>
@@ -18282,7 +18372,7 @@ The certificate path has been updated in the current profile.</source>
         </translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="213"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="217"/>
         <source>Duration %1: median of %n measured run(s); they did not wait for the device.</source>
         <translation>
             <numerusform>Duration %1: median of %n measured run; it did not wait for the device.</numerusform>
@@ -18290,72 +18380,72 @@ The certificate path has been updated in the current profile.</source>
         </translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="217"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="221"/>
         <source>Duration %1 without the wait for the device (measured %2, median of %3 run(s)): counted from the end of the run that held the device before it (%4 parallel writer(s)). It may still hold up to 30 s of the storage daemon&apos;s tries.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="313"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="317"/>
         <source>%1 ended %2 after %3 on %4; alone it takes at least %5</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="330"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="334"/>
         <source>%1 night(s) with runs on storage %2; on %3 more than one of them was queued or running at the same time; on %4 the runs&apos; recorded start to end overlapped.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="337"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="341"/>
         <source>No two runs ever overlapped although several were queued: the storage wrote one job at a time.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="343"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="347"/>
         <source>Overlapping runs do not prove parallel writing: with Just In Time Reservation a job waits for the device inside its run.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="347"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="351"/>
         <source>%1 of %2 telling pair(s) ended sooner after each other than one writer allows (e.g. %3): it writes more than one job at a time.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="354"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="358"/>
         <source>In all %1 telling pair(s) on %2 night(s) the later run went on after the other ended for at least as long as it takes alone (e.g. %3): consistent with one writer at a time.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="361"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="365"/>
         <source>Not enough telling pairs (%1; a pair tells when the later run started well before the other ended and was also seen running alone): no suggestion.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="449"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="453"/>
         <source>Back-test: no measured night to replay.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="450"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="454"/>
         <source>Back-test, last %1 night(s) (%2 runs): median error %3, worst %4 (%5, %6; %7).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="456"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="460"/>
         <source>predicted too late</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="456"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="460"/>
         <source>predicted too early</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="458"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="462"/>
         <source>Replayed without a device limit for %1 (not set).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="461"/>
+        <location filename="../src/schedules/model/bwaitcalibration.cpp" line="465"/>
         <source>Durations and overheads come from the same history.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18445,59 +18535,59 @@ The certificate path has been updated in the current profile.</source>
 <context>
     <name>BareosAuth</name>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="157"/>
+        <location filename="../src/director/bareosauth.cpp" line="161"/>
         <source>Starting Bareos authentication...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="164"/>
+        <location filename="../src/director/bareosauth.cpp" line="168"/>
         <source>Setting up TLS-PSK...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="183"/>
+        <location filename="../src/director/bareosauth.cpp" line="187"/>
         <source>Starting TLS-PSK handshake...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="190"/>
+        <location filename="../src/director/bareosauth.cpp" line="194"/>
         <source>Setting up certificate-based TLS...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="206"/>
+        <location filename="../src/director/bareosauth.cpp" line="210"/>
         <source>Starting TLS handshake...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="214"/>
+        <location filename="../src/director/bareosauth.cpp" line="218"/>
         <source>Starting legacy authentication (no TLS)...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="650"/>
+        <location filename="../src/director/bareosauth.cpp" line="654"/>
         <source>TLS established, sending Hello packet...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="674"/>
+        <location filename="../src/director/bareosauth.cpp" line="678"/>
         <source>Waiting for Director challenge...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="840"/>
+        <location filename="../src/director/bareosauth.cpp" line="844"/>
         <source>Director rejected connection: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="847"/>
+        <location filename="../src/director/bareosauth.cpp" line="851"/>
         <source>
 
 Hint: The Director requires TLS encryption. Please use PSK or Certificate authentication instead of Legacy mode.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="853"/>
+        <location filename="../src/director/bareosauth.cpp" line="857"/>
         <source>Director sent empty response.
 
 This usually means the Director requires TLS encryption but Legacy (unencrypted) mode was used.
@@ -18505,28 +18595,28 @@ Please try PSK or Certificate authentication.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="861"/>
+        <location filename="../src/director/bareosauth.cpp" line="865"/>
         <source>Unexpected response from Director:
 %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="948"/>
+        <location filename="../src/director/bareosauth.cpp" line="952"/>
         <source>CRAM-MD5 response sent successfully</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1345"/>
+        <location filename="../src/director/bareosauth.cpp" line="1349"/>
         <source>The Director announced a message of %1 bytes during authentication (limit: %2 bytes). Connection closed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1561"/>
+        <location filename="../src/director/bareosauth.cpp" line="1565"/>
         <source>Connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1742"/>
+        <location filename="../src/director/bareosauth.cpp" line="1746"/>
         <source>TLS-PSK authentication failed: %1
 
 This usually means:
@@ -18537,7 +18627,7 @@ This usually means:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1751"/>
+        <location filename="../src/director/bareosauth.cpp" line="1755"/>
         <source>TLS handshake failed: %1
 
 Possible causes:
@@ -18547,107 +18637,107 @@ Possible causes:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1759"/>
+        <location filename="../src/director/bareosauth.cpp" line="1763"/>
         <source>Socket error: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="149"/>
+        <location filename="../src/director/bareosauth.cpp" line="153"/>
         <source>TLS is required for this connection, but neither TLS-PSK nor certificate TLS is enabled in the profile. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="282"/>
+        <location filename="../src/director/bareosauth.cpp" line="286"/>
         <source>Certificate verification is on, but no CA certificate file is set in the profile. Set the CA certificate file to the CA that signed the Director&apos;s certificate. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="294"/>
+        <location filename="../src/director/bareosauth.cpp" line="298"/>
         <source>The CA certificate file &quot;%1&quot; cannot be read or contains no certificate. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="325"/>
+        <location filename="../src/director/bareosauth.cpp" line="329"/>
         <source>The client certificate file &quot;%1&quot; cannot be read (wrong password, or not a PKCS#12 file). Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="339"/>
+        <location filename="../src/director/bareosauth.cpp" line="343"/>
         <source>The client certificate file &quot;%1&quot; cannot be read or contains no certificate. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="360"/>
+        <location filename="../src/director/bareosauth.cpp" line="364"/>
         <source>The private key file &quot;%1&quot; cannot be read (an unencrypted RSA or EC key in PEM format is needed). Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="543"/>
+        <location filename="../src/director/bareosauth.cpp" line="547"/>
         <source>The TLS library of this system offers no TLS-PSK cipher suite, so TLS-PSK cannot be used. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="727"/>
+        <location filename="../src/director/bareosauth.cpp" line="731"/>
         <source>The Director&apos;s certificate was not accepted: %1. It must be signed by the CA of the profile (&quot;%2&quot;). Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="758"/>
+        <location filename="../src/director/bareosauth.cpp" line="762"/>
         <source>The common name of the Director&apos;s certificate (&quot;%1&quot;) is not in the TLS Allowed CN list of the profile (%2). Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="780"/>
+        <location filename="../src/director/bareosauth.cpp" line="784"/>
         <source>The Director&apos;s certificate is not issued for the host name &quot;%1&quot; (the certificate names: %2). Connect with a name the certificate contains, or add its common name to TLS Allowed CN in the profile. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="783"/>
+        <location filename="../src/director/bareosauth.cpp" line="787"/>
         <source>none</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="892"/>
+        <location filename="../src/director/bareosauth.cpp" line="896"/>
         <source>The server sent this console&apos;s own challenge back instead of a challenge of the Director (reflection attack). It is not the configured Director. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="905"/>
+        <location filename="../src/director/bareosauth.cpp" line="909"/>
         <source>TLS is required for this connection, but the session with the Director is not encrypted. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="909"/>
+        <location filename="../src/director/bareosauth.cpp" line="913"/>
         <source>The Director requires TLS, but this connection is not encrypted. Use TLS-PSK or certificate TLS in the profile.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="940"/>
+        <location filename="../src/director/bareosauth.cpp" line="944"/>
         <source>Failed to send the CRAM-MD5 response to the Director.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1478"/>
+        <location filename="../src/director/bareosauth.cpp" line="1482"/>
         <source>Failed to send the CRAM-MD5 challenge to the Director.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1481"/>
+        <location filename="../src/director/bareosauth.cpp" line="1485"/>
         <source>The Director rejected the password of console &quot;%1&quot; (wrong password or console name). Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1484"/>
+        <location filename="../src/director/bareosauth.cpp" line="1488"/>
         <source>The server did not complete the CRAM-MD5 handshake (it answered &quot;%1&quot; instead of &quot;1000 OK auth&quot;). It may not be a Bareos or Onesimus Director. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1508"/>
+        <location filename="../src/director/bareosauth.cpp" line="1512"/>
         <source>The Director could not prove that it knows the console password: its answer to the CRAM-MD5 challenge is wrong. Either the server is not the configured Director, or the password stored on the Director differs from this profile. Connection refused.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosauth.cpp" line="1522"/>
+        <location filename="../src/director/bareosauth.cpp" line="1526"/>
         <source>Failed to send &quot;1000 OK auth&quot; to the Director.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -18655,98 +18745,98 @@ Possible causes:
 <context>
     <name>BareosDirector</name>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="189"/>
+        <location filename="../src/director/bareosdirector.cpp" line="205"/>
         <source>Changing the configuration needs the gRPC interface of the Onesimus Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="241"/>
+        <location filename="../src/director/bareosdirector.cpp" line="257"/>
         <source>Connection to the Director was closed before the reply arrived</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="300"/>
+        <location filename="../src/director/bareosdirector.cpp" line="314"/>
         <source>Disconnected from the Director before the reply arrived</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="467"/>
+        <location filename="../src/director/bareosdirector.cpp" line="509"/>
         <source>No response from Director within %1 seconds</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="477"/>
+        <location filename="../src/director/bareosdirector.cpp" line="519"/>
         <source>Timeout while loading resources: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="916"/>
+        <location filename="../src/director/bareosdirector.cpp" line="963"/>
         <source>Connection to the Director was lost before the reply arrived</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1012"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1114"/>
         <source>The Director did not confirm the API mode within %1 seconds. The connection was closed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1133"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1176"/>
         <source>The Director announced a message of %1 bytes (limit: %2 MiB). The connection was closed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1574"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1599"/>
         <source>TLS is enabled for this connection, but the session with the Director is not encrypted. The connection was closed.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1848"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1861"/>
         <source>Unknown error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1890"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1903"/>
         <source>Not sent: a value contains a control character</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1910"/>
-        <location filename="../src/director/bareosdirector.cpp" line="2359"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1923"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2369"/>
         <source>Not ready</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="1962"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1974"/>
         <source>Error sending command</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2009"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2021"/>
         <source>The command was not sent: no ready connection to the Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2348"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2358"/>
         <source>This build of Onesimus has no gRPC support</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2439"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2453"/>
         <source>Server certificate not trusted</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2455"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2469"/>
         <source>Command failed</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/director/bareosdirector.cpp" line="2488"/>
+        <location filename="../src/director/bareosdirector.cpp" line="2502"/>
         <source>Connection to Director lost: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/director/bareosdirector.cpp" line="1036"/>
+        <location filename="../src/director/bareosdirector.cpp" line="1042"/>
         <source>The Director did not answer within %n second(s)</source>
         <translation>
             <numerusform>The Director did not answer within %n second</numerusform>
@@ -18757,12 +18847,12 @@ Possible causes:
 <context>
     <name>CommandLine</name>
     <message>
-        <location filename="../src/main.cpp" line="395"/>
+        <location filename="../src/main.cpp" line="417"/>
         <source>--tls needs --host. Without --host the TLS settings of the saved connection profile are used.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="401"/>
+        <location filename="../src/main.cpp" line="423"/>
         <source>--tls needs the console password: use --password-file, the environment variable ONESIMUS_PASSWORD or --password.</source>
         <translation type="unfinished"></translation>
     </message>
