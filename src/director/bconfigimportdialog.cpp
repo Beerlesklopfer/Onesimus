@@ -10,6 +10,7 @@
  */
 
 #include "director/bconfigimportdialog.h"
+#include "blabelstate.h"
 #include "buiscale.h"
 #include "config/bdirectiveschema.h"
 #include <QApplication>
@@ -91,7 +92,8 @@ void BConfigImportDialog::setupUI()
 
     // Status label
     m_statusLabel = new QLabel(this);
-    m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_statusLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_statusLabel, "muted");
     mainLayout->addWidget(m_statusLabel);
 
     // Tab widget
@@ -383,7 +385,7 @@ void BConfigImportDialog::onParsingError(const QString &error)
     m_progressBar->setVisible(false);
     m_parseButton->setEnabled(true);
     m_statusLabel->setText(tr("Error: %1").arg(error));
-    m_statusLabel->setStyleSheet("color: red;");
+    bSetLabelState(m_statusLabel, "error");
 
     QMessageBox::warning(this, tr("Parsing Error"), error);
 }

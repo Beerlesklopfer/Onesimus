@@ -9,6 +9,7 @@ QWidget {
     alternate-background-color: #252526;
     selection-background-color: #094771;
     selection-color: #ffffff;
+    placeholder-text-color: #aaaaaa;
 }
 
 QMainWindow {
@@ -88,7 +89,7 @@ QToolButton:pressed {
 
 /* Status Bar */
 QStatusBar {
-    background-color: #007acc;
+    background-color: #0067c0;
     color: #ffffff;
     border-top: 1px solid #3e3e42;
 }
@@ -144,7 +145,7 @@ QPushButton:pressed {
 
 QPushButton:disabled {
     background-color: #3e3e42;
-    color: #666666;
+    color: #808080;
     border: 1px solid #3e3e42;
 }
 
@@ -192,7 +193,7 @@ QLineEdit:focus {
 
 QLineEdit:disabled {
     background-color: #2d2d30;
-    color: #666666;
+    color: #808080;
 }
 
 /* Combo Box */
@@ -315,7 +316,7 @@ QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
     padding: 0 5px;
-    color: #007acc;
+    color: #3794ff;
 }
 
 /* Table View */
@@ -617,7 +618,7 @@ QToolButton#scheduleGridAddScope:focus {
 QToolButton[paletteButton="true"]:disabled,
 QToolButton#scheduleGridAddScope:disabled {
     background-color: #2d2d30;
-    color: #666666;
+    color: #808080;
     border: 1px solid #3e3e42;
 }
 
@@ -625,7 +626,7 @@ QToolButton[paletteButton="true"]:checked:disabled {
     background-color: #3e3e42;
     border: 2px solid #666666;
     padding: 2px 7px;
-    color: #666666;
+    color: #808080;
 }
 
 QToolButton[maskButton="true"] {
@@ -652,7 +653,7 @@ QToolButton[maskButton="true"]:focus {
 }
 
 QToolButton[maskButton="true"]:disabled {
-    color: #6a6a6a;
+    color: #808080;
     background-color: #1e1e1e;
 }
 

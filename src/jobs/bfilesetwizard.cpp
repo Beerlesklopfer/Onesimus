@@ -10,6 +10,8 @@
  */
 
 #include "jobs/bfilesetwizard.h"
+#include "bstatuschip.h"
+#include "blabelstate.h"
 #include "buiscale.h"
 #include "jobs/fileset/bfilesetdocument.h"
 #include "bcapabilitynotice.h"
@@ -206,7 +208,8 @@ BFileSetTemplatePage::BFileSetTemplatePage(QWidget *parent)
 
     // Mixed templates indicator
     m_mixedLabel = new QLabel(this);
-    m_mixedLabel->setStyleSheet("color: #0066cc; font-weight: bold;");
+    m_mixedLabel->setStyleSheet("font-weight: bold;");
+    bSetLabelState(m_mixedLabel, "");
     m_mixedLabel->setVisible(false);
     layout->addWidget(m_mixedLabel);
 
@@ -219,7 +222,8 @@ BFileSetTemplatePage::BFileSetTemplatePage(QWidget *parent)
     descLayout->addWidget(m_descriptionLabel);
 
     m_platformLabel = new QLabel(this);
-    m_platformLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_platformLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_platformLabel, "muted");
     descLayout->addWidget(m_platformLabel);
 
     layout->addWidget(descGroup);
@@ -570,7 +574,8 @@ void BFileSetSettingsPage::setupUi()
     m_filesetCombo->setPlaceholderText(tr("Loading FileSets..."));
 
     m_loadingLabel = new QLabel(this);
-    m_loadingLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_loadingLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_loadingLabel, "muted");
 
     selectLayout->addWidget(selectLabel);
     selectLayout->addWidget(m_filesetCombo, 1);
@@ -1000,7 +1005,8 @@ void BFileSetExcludePage::setupUi()
         tr("These paths will be excluded from all backup jobs using this FileSet.\n"
            "Use absolute paths (e.g., /tmp, /var/cache) or patterns."), this);
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("color: gray; font-style: italic;");
+    infoLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(infoLabel, "muted");
     mainLayout->addWidget(infoLabel);
 
     mainLayout->addStretch();
@@ -1141,14 +1147,11 @@ void BFileSetPreviewPage::generateConfig()
     BFileSetDocument::ValidationResult validation = doc->validate();
 
     if (!validation.errors.isEmpty()) {
-        m_validationLabel->setText(QString("<span style='color: red;'>%1</span>")
-            .arg(validation.errors.join("<br>")));
+        m_validationLabel->setText(BStatus::textSpan(BStatus::Tone::Error, validation.errors.join("<br>")));
     } else if (!validation.warnings.isEmpty()) {
-        m_validationLabel->setText(QString("<span style='color: orange;'>%1</span>")
-            .arg(validation.warnings.join("<br>")));
+        m_validationLabel->setText(BStatus::textSpan(BStatus::Tone::Warning, validation.warnings.join("<br>")));
     } else {
-        m_validationLabel->setText(QString("<span style='color: green;'>%1</span>")
-            .arg(tr("Configuration is valid")));
+        m_validationLabel->setText(BStatus::textSpan(BStatus::Tone::Success, tr("Configuration is valid")));
     }
 }
 
@@ -1210,7 +1213,7 @@ bool BFileSetPreviewPage::deploy()
     QString error;
     const QString text = doc->toConfigText(&error);
     if (text.isEmpty()) {
-        m_statusLabel->setText(QString("<span style='color: red;'>%1</span>").arg(error.toHtmlEscaped()));
+        m_statusLabel->setText(BStatus::textSpan(BStatus::Tone::Error, error.toHtmlEscaped()));
         return true;
     }
 
@@ -1228,9 +1231,9 @@ bool BFileSetPreviewPage::deploy()
             } else if (report.kind == BResourceReport::Cancelled) {
                 m_statusLabel->setText(tr("Nothing was written."));
             } else {
-                m_statusLabel->setText(QString("<span style='color: red;'>%1</span>")
-                                           .arg(QString(report.title + QStringLiteral(": ") + report.text)
-                                                    .left(600).toHtmlEscaped()));
+                m_statusLabel->setText(BStatus::textSpan(
+                    BStatus::Tone::Error,
+                    QString(report.title + QStringLiteral(": ") + report.text).left(600).toHtmlEscaped()));
             }
         });
     }

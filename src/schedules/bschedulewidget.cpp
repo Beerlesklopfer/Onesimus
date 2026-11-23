@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "schedules/bschedulewidget.h"
+#include "blabelstate.h"
 #include "schedules/bstaggerplan.h"
 #include "schedules/bstaggerconstraintsdialog.h"
 #include <QDialog>
@@ -323,7 +324,8 @@ void BScheduleWidget::setupUI()
 
     // Run lines that were not understood: named here, shown nowhere else
     m_runProblemLabel->setVisible(false);
-    m_runProblemLabel->setStyleSheet("color: red; font-weight: bold;");
+    m_runProblemLabel->setStyleSheet("font-weight: bold;");
+    bSetLabelState(m_runProblemLabel, "error");
     toolbarLayout->addWidget(m_runProblemLabel);
 
     // The runs the job history measured, beside the planned bars of past
@@ -1152,7 +1154,7 @@ void BScheduleWidget::setupStatsPanel()
         QVBoxLayout *box = new QVBoxLayout();
         box->setSpacing(0);
         QLabel *hdr = new QLabel(label, this);
-        hdr->setStyleSheet("color: gray;");
+        bSetLabelState(hdr, "muted");
         BUiScale::bind(hdr, BUiScale::Small);
         hdr->setAlignment(Qt::AlignLeft);
         QLabel *val = new QLabel("-", this);
@@ -1192,7 +1194,7 @@ void BScheduleWidget::setupStatsPanel()
         QVBoxLayout *box = new QVBoxLayout();
         box->setSpacing(0);
         QLabel *headerLabel = new QLabel(label, this);
-        headerLabel->setStyleSheet("color: gray;");
+        bSetLabelState(headerLabel, "muted");
         BUiScale::bind(headerLabel, BUiScale::Small);
         headerLabel->setAlignment(Qt::AlignCenter);
         QLabel *valueLabel = new QLabel("-", this);
@@ -1434,7 +1436,7 @@ void BScheduleWidget::updateStatsPanel(const BScheduleEntry &entry)
     if (runs.isEmpty()) {
         m_statsRunsTable->setRowCount(1);
         QTableWidgetItem *noData = new QTableWidgetItem(tr("No history"));
-        noData->setForeground(Qt::gray);
+        noData->setForeground(m_statsRunsTable->palette().brush(QPalette::PlaceholderText));
         m_statsRunsTable->setItem(0, 0, noData);
         m_statsRunsTable->setSpan(0, 0, 1, 4);
     }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "bcleanupdialog.h"
+#include "bstatuschip.h"
 #include "bbyteformat.h"
 #include "buiscale.h"
 #include "bcapabilitynotice.h"
@@ -904,16 +905,19 @@ void BCleanupDialog::onRunFinished()
 
 void BCleanupDialog::logMessage(const QString &message, const QString &type)
 {
-    QString color = "#000000";
+    // Colours of the theme: fixed colours (black for plain lines) were
+    // unreadable in the dark theme
+    QString color = m_logTextEdit->palette().color(QPalette::Text).name();
+    auto tone = [](BStatus::Tone t) { return BStatus::color(t, BStatus::Part::Foreground).name(); };
 
     if (type == "error") {
-        color = "#d32f2f";
+        color = tone(BStatus::Tone::Error);
     } else if (type == "success") {
-        color = "#388e3c";
+        color = tone(BStatus::Tone::Success);
     } else if (type == "warning") {
-        color = "#f57c00";
+        color = tone(BStatus::Tone::Warning);
     } else if (type == "info") {
-        color = "#1976d2";
+        color = tone(BStatus::Tone::Running);
     }
 
     QString html = QString("<span style='color: %1;'>%2</span><br>")

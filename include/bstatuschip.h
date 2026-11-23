@@ -101,6 +101,15 @@ void setColor(Tone tone, Part part, const QColor &color);
 /// Forgets every token set by setColor()
 void resetColors();
 
+/**
+ * @brief Rich text in the text colour of a tone
+ *
+ * For rich text, where a QLabel[state] colour of the theme cannot reach:
+ * the tone's chip text colour, which is readable on the theme's normal
+ * background as well. @p html is inserted as it is (escape plain text).
+ */
+QString textSpan(Tone tone, const QString &html);
+
 } // namespace BStatus
 
 #endif // BSTATUSCHIP_H

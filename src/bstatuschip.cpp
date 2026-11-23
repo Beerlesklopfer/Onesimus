@@ -240,6 +240,12 @@ void setColor(Tone tone, Part part, const QColor &value)
     overrideSlot(tone, part) = value;
 }
 
+QString textSpan(Tone tone, const QString &html)
+{
+    return QStringLiteral("<span style='color:%1;'>%2</span>")
+        .arg(color(tone, Part::Foreground).name(), html);
+}
+
 void resetColors()
 {
     for (int t = 0; t < ToneCount; ++t) {

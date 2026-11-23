@@ -626,7 +626,8 @@ void BSettingsDialog::createAppearancePage()
     QLabel *infoLabel = new QLabel(
         tr("Language changes require an application restart. \"System\" follows the language of the operating system."));
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("color: #888; font-style: italic;");
+    infoLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(infoLabel, "muted");
     BUiScale::bind(infoLabel, BUiScale::Small);
     languageLayout->addRow("", infoLabel);
 

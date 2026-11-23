@@ -10,6 +10,7 @@
  */
 
 #include "config/beditablelistdelegate.h"
+#include "bstatuschip.h"
 #include "buiscale.h"
 #include "config/beditablelistmodel.h"
 #include <QPainter>
@@ -154,8 +155,8 @@ void BEditableListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
     QRect textArea = textRect(opt);
 
     if (text.isEmpty() && !m_placeholderText.isEmpty()) {
-        // Draw placeholder in gray
-        painter->setPen(QColor(150, 150, 150));
+        // Placeholder colour of the theme
+        painter->setPen(opt.palette.color(QPalette::PlaceholderText));
         painter->drawText(textArea, Qt::AlignLeft | Qt::AlignVCenter, m_placeholderText);
     } else {
         painter->setPen(opt.palette.color(QPalette::Text));
@@ -180,7 +181,7 @@ void BEditableListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
         }
 
         // Draw "..." text
-        painter->setPen(QColor(80, 80, 80));
+        painter->setPen(opt.palette.color(QPalette::Text));
         QFont font = painter->font();
         font.setBold(true);
         painter->setFont(font);
@@ -202,7 +203,7 @@ void BEditableListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
         }
 
         // Draw "×" text
-        painter->setPen(QColor(150, 50, 50));
+        painter->setPen(BStatus::color(BStatus::Tone::Error, BStatus::Part::Foreground));
         QFont font = painter->font();
         font.setBold(true);
         painter->setFont(font);
