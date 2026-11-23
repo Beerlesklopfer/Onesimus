@@ -6670,6 +6670,53 @@ cause an empty or limited table if the range is too narrow.</source>
         <source>Job log history cleared</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="752"/>
+        <source>A cancel is still waiting for the Director&apos;s answer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="763"/>
+        <source>Do you really want to cancel these %n jobs: %1?</source>
+        <translation>
+            <numerusform>Do you really want to cancel this %n job: %1?</numerusform>
+            <numerusform>Do you really want to cancel these %n jobs: %1?</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="774"/>
+        <source>Cancelling %n job(s)...</source>
+        <translation>
+            <numerusform>Cancelling %n job...</numerusform>
+            <numerusform>Cancelling %n jobs...</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="791"/>
+        <source>The Director accepted the cancel of %n job(s): %1</source>
+        <translation>
+            <numerusform>The Director accepted the cancel of %n job: %1</numerusform>
+            <numerusform>The Director accepted the cancel of %n jobs: %1</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="798"/>
+        <source>Job %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="799"/>
+        <source>no reason given</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="803"/>
+        <source>The Director did not cancel %n job(s):</source>
+        <translation>
+            <numerusform>The Director did not cancel %n job:</numerusform>
+            <numerusform>The Director did not cancel %n jobs:</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>BJobWizard</name>
@@ -18697,6 +18744,14 @@ Possible causes:
         <location filename="../src/director/bareosdirector.cpp" line="2488"/>
         <source>Connection to Director lost: %1</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/director/bareosdirector.cpp" line="1036"/>
+        <source>The Director did not answer within %n second(s)</source>
+        <translation>
+            <numerusform>The Director did not answer within %n second</numerusform>
+            <numerusform>The Director did not answer within %n seconds</numerusform>
+        </translation>
     </message>
 </context>
 <context>

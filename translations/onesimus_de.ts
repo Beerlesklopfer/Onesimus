@@ -6712,6 +6712,53 @@ zu einer leeren oder eingeschränkten Tabelle führen, wenn der Zeitraum zu eng 
         <source>Job log history cleared</source>
         <translation>Verlauf der Job-Protokolle gelöscht</translation>
     </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="752"/>
+        <source>A cancel is still waiting for the Director&apos;s answer</source>
+        <translation>Ein Abbruch wartet noch auf die Antwort des Directors</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="763"/>
+        <source>Do you really want to cancel these %n jobs: %1?</source>
+        <translation>
+            <numerusform>Möchten Sie diesen %n Job wirklich abbrechen: %1?</numerusform>
+            <numerusform>Möchten Sie diese %n Jobs wirklich abbrechen: %1?</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="774"/>
+        <source>Cancelling %n job(s)...</source>
+        <translation>
+            <numerusform>%n Job wird abgebrochen...</numerusform>
+            <numerusform>%n Jobs werden abgebrochen...</numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="791"/>
+        <source>The Director accepted the cancel of %n job(s): %1</source>
+        <translation>
+            <numerusform>Der Director hat den Abbruch von %n Job angenommen: %1</numerusform>
+            <numerusform>Der Director hat den Abbruch von %n Jobs angenommen: %1</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="798"/>
+        <source>Job %1: %2</source>
+        <translation>Job %1: %2</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="799"/>
+        <source>no reason given</source>
+        <translation>kein Grund angegeben</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/jobs/bjobwidget.cpp" line="803"/>
+        <source>The Director did not cancel %n job(s):</source>
+        <translation>
+            <numerusform>Der Director hat %n Job nicht abgebrochen:</numerusform>
+            <numerusform>Der Director hat %n Jobs nicht abgebrochen:</numerusform>
+        </translation>
+    </message>
 </context>
 <context>
     <name>BJobWizard</name>
@@ -18857,6 +18904,14 @@ Mögliche Ursachen:
         <location filename="../src/director/bareosdirector.cpp" line="2488"/>
         <source>Connection to Director lost: %1</source>
         <translation>Verbindung zum Director verloren: %1</translation>
+    </message>
+    <message numerus="yes">
+        <location filename="../src/director/bareosdirector.cpp" line="1036"/>
+        <source>The Director did not answer within %n second(s)</source>
+        <translation>
+            <numerusform>Der Director hat nicht innerhalb von %n Sekunde geantwortet</numerusform>
+            <numerusform>Der Director hat nicht innerhalb von %n Sekunden geantwortet</numerusform>
+        </translation>
     </message>
 </context>
 <context>
