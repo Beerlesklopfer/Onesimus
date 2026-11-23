@@ -9,8 +9,12 @@
 #include <QString>
 #include <QColor>
 #include <QHash>
+#include <QSet>
 #include <QTime>
+#include <memory>
 #include "bconnectionprofile.h"
+
+class BSecretBackend;
 
 /**
  * @brief Centralized settings management for Onesimus
@@ -111,6 +115,64 @@ public:
      * @return Profile if found, invalid profile otherwise
      */
     BConnectionProfile lastUsedProfile() const;
+
+    /**
+     * @brief The profiles as the file of "Export All Profiles"
+     * @param includeSecrets false: password hashes and PFX passwords are left
+     *        out (anyone with the file could log in with them)
+     */
+    static QByteArray profilesExportJson(const QList<BConnectionProfile> &profiles,
+                                         bool includeSecrets);
+
+    /**
+     * @brief Reads a file written by profilesExportJson()
+     *
+     * Also reads the key/value file of older versions, which held the
+     * profiles under "ConnectionProfiles/data". Profiles without an id are
+     * given one.
+     * @param error Set when the file holds no profiles
+     */
+    static QList<BConnectionProfile> profilesFromExportJson(const QByteArray &json,
+                                                            QString *error = nullptr);
+
+    /**
+     * @brief Adds imported profiles to a list
+     *
+     * A profile with an id already in @p profiles replaces it; a secret the
+     * file does not carry is kept from the profile it replaces. Others are
+     * appended.
+     * @return Number of profiles taken over
+     */
+    static int mergeImportedProfiles(QList<BConnectionProfile> &profiles,
+                                     const QList<BConnectionProfile> &imported);
+
+    // ------------------------------------------------------------------------
+    // Secrets of the profiles (password hash, PFX password)
+    //
+    // They are kept in the keychain of the system (BSecretStore), not in the
+    // profile JSON of the settings file. Where no keychain can be used they
+    // stay in the settings file, which is then made readable by the owner
+    // only, and secretStorageWarning() says so.
+    // ------------------------------------------------------------------------
+
+    /// Why secrets are in the settings file (no keychain); empty when they are not
+    QString secretStorageWarning() const { return m_secretWarning; }
+
+    /// Name of the keychain in use ("Secret Service", ...); empty without one
+    QString secretStorageName();
+
+    /**
+     * @brief Moves secrets still held in the settings file into the keychain
+     *
+     * Called at start: profiles of earlier versions keep their password hash
+     * in the profile JSON. Every secret the keychain takes is removed from
+     * the file; the others stay and secretStorageWarning() explains why.
+     * @return Number of secrets moved
+     */
+    int migrateSecretsToKeychain();
+
+    /// Replaces the keychain (tests: a BMemorySecretBackend); nullptr: none
+    void setSecretBackend(std::unique_ptr<BSecretBackend> backend);
 
     /**
      * @brief Migrate old single-connection settings to a profile
@@ -457,9 +519,11 @@ public:
     // ========================================================================
 
     /**
-     * @brief Reset all settings to defaults
+     * @brief Reset the settings to their defaults
+     * @param includeProfiles false (the default): the connection profiles and
+     *        the last used profile are kept; true: they are deleted as well
      */
-    void resetToDefaults();
+    void resetToDefaults(bool includeProfiles = false);
 
     /**
      * @brief Force sync settings to disk
@@ -494,11 +558,27 @@ signals:
      */
     void autoRefreshSettingsChanged(bool enabled, int intervalSeconds);
 
+    /// The secrets could not be kept in the keychain (or read from it)
+    void secretStorageWarningChanged(const QString &warning);
+
 private:
     BSettings();
     ~BSettings();
 
     QSettings m_settings;
+
+    // Keychain of the profile secrets
+    std::unique_ptr<BSecretBackend> m_secretBackend;
+    bool m_secretBackendCreated = false;
+    mutable QHash<QString, QString> m_secretCache;  ///< Account -> secret, as read or written
+    mutable QString m_secretWarning;
+    mutable QSet<QString> m_unreadableSecrets;      ///< Accounts the keychain refused to read
+    BSecretBackend *secretBackend();
+    QString keychainSecret(const QString &account) const;
+    void setSecretWarning(const QString &warning) const;
+    void restrictSettingsFile();
+    /// Accounts in the keychain per profile id, from the stored JSON
+    QHash<QString, QStringList> storedKeychainAccounts() const;
 
     // Helper to emit signals when settings change
     void setValue(const QString& key, const QVariant& value);

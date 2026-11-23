@@ -131,6 +131,8 @@ private:
     void createToolBar();
     void showConnectionDialog();
     void loadAndConnectLastUsed();
+    /// Secrets the keychain did not take: warns once per start
+    void showSecretStorageWarning(const QString &warning);
 
     /// Select BNET/gRPC for the next connect from a connection profile
     void applyProfileTransport(const BConnectionProfile &profile);
@@ -154,6 +156,7 @@ private:
     QString m_lastConnectDirector;
     QString m_lastConnectConsole;
     QString m_lastConnectPassword;
+    bool m_secretWarningShown = false;
 
     // Widgets
     QTabWidget *m_tabWidget;                ///< Main tab widget (Jobs, Clients, Storage, Schedules)

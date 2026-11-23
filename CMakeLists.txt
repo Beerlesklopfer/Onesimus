@@ -839,6 +839,42 @@ if(WIN32)
     list(APPEND SOURCES ${WIN_RC_FILE})
 endif()
 
+# ============================================================================
+# Keychain for the secrets of the connection profiles (BSecretStore)
+# ============================================================================
+# Linux: the Secret Service through libsecret (Debian: libsecret-1-dev to
+# build, libsecret-1-0 at run time); macOS: the Security framework; Windows:
+# the Credential Manager (advapi32). A static library, because BSettings is
+# compiled into several tests as well.
+option(ONESIMUS_KEYCHAIN "Keep connection profile secrets in the system keychain (Linux: libsecret)" ON)
+add_library(onesimus_secretstore STATIC
+    src/config/bsecretstore.cpp
+    include/config/bsecretstore.h
+)
+target_include_directories(onesimus_secretstore PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(onesimus_secretstore PUBLIC Qt6::Core)
+if(ONESIMUS_KEYCHAIN)
+    if(APPLE)
+        target_link_libraries(onesimus_secretstore PUBLIC "-framework Security" "-framework CoreFoundation")
+    elseif(WIN32)
+        target_link_libraries(onesimus_secretstore PUBLIC advapi32)
+    elseif(UNIX)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(LIBSECRET IMPORTED_TARGET libsecret-1)
+        if(NOT LIBSECRET_FOUND)
+            message(FATAL_ERROR "libsecret-1 not found: install libsecret-1-dev (Debian/Ubuntu) "
+                                "or libsecret-devel (Fedora), or configure with -DONESIMUS_KEYCHAIN=OFF "
+                                "to keep the profile secrets in the settings file.")
+        endif()
+        target_link_libraries(onesimus_secretstore PRIVATE PkgConfig::LIBSECRET)
+        target_compile_definitions(onesimus_secretstore PRIVATE ONESIMUS_HAVE_LIBSECRET)
+        message(STATUS "Keychain: libsecret ${LIBSECRET_VERSION}")
+    endif()
+else()
+    message(STATUS "Keychain: off (profile secrets stay in the settings file)")
+    target_compile_definitions(onesimus_secretstore PRIVATE ONESIMUS_NO_KEYCHAIN)
+endif()
+
 add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${HEADERS}
@@ -912,6 +948,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
     Qt6::Network
     Qt6::Sql
+    onesimus_secretstore
 )
 
 # gRPC clients, generated from the proto submodule:
@@ -2976,6 +3013,30 @@ if(BUILD_TESTING)
 
     add_test(NAME buiscale_test COMMAND buiscale_test)
 
+    # bsettingsstore_test - the settings store of the connection profiles:
+    # secrets in the keychain and out of the profile JSON, their migration,
+    # the warning without a keychain, a reset that keeps the profiles and the
+    # export/import file (a keychain in memory, scratch settings directory)
+    add_executable(bsettingsstore_test
+        test/bsettingsstore_test.cpp
+        src/config/bsettings.cpp
+        src/buiscale.cpp
+        include/config/bsettings.h
+        include/buiscale.h
+    )
+    target_include_directories(bsettingsstore_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(bsettingsstore_test PRIVATE
+        onesimus_secretstore
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+    add_test(NAME bsettingsstore_test COMMAND bsettingsstore_test)
+    set_tests_properties(bsettingsstore_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # bdialogfonts_test - dialogs and other windows of their own take the
     # interface font and zoom: a plain dialog, a message box and the real
     # job details, settings, connection and restore dialogs at 100 % and
@@ -3308,17 +3369,31 @@ elseif(UNIX)
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Onesimus-io/Onesimus")
     set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
         "Onesimus - Bareos/Bacula Backup Management Tool (Early Access)\n WARNING: This is a pre-release version under active development.\n Not suitable for production use. Features may change.\n A Qt6-based graphical management console for Bareos and Bacula\n backup systems. Provides client management, job monitoring,\n schedule visualization, and restore wizard.")
+    # libsecret-1-0: the keychain of the profile secrets (BSecretStore)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS
         "libqt6core6 (>= ${ONESIMUS_QT_MIN_VERSION}), libqt6gui6 (>= ${ONESIMUS_QT_MIN_VERSION}), libqt6widgets6 (>= ${ONESIMUS_QT_MIN_VERSION}), libqt6network6 (>= ${ONESIMUS_QT_MIN_VERSION})")
+    if(ONESIMUS_KEYCHAIN)
+        string(APPEND CPACK_DEBIAN_PACKAGE_DEPENDS ", libsecret-1-0")
+        set(CPACK_RPM_PACKAGE_REQUIRES_KEYCHAIN ", libsecret")
+    endif()
     set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
     # RPM package settings
     set(CPACK_RPM_PACKAGE_LICENSE "AGPL-3.0-only AND AGPL-3.0-or-later")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
-    set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= ${ONESIMUS_QT_MIN_VERSION}")
+    set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= ${ONESIMUS_QT_MIN_VERSION}${CPACK_RPM_PACKAGE_REQUIRES_KEYCHAIN}")
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 endif()
+
+# Tests that compile BSettings need its keychain
+foreach(_onesimus_settings_test storagewidget_test bstatuschip_test bjobstable_test
+        bjobdefinitionswidget_test b321dialog_test buiscale_test bscheduletimeline_test
+        bschedulewizard_test)
+    if(TARGET ${_onesimus_settings_test})
+        target_link_libraries(${_onesimus_settings_test} PRIVATE onesimus_secretstore)
+    endif()
+endforeach()
 
 # Windows: the test executables find the Qt and OpenSSL DLLs through PATH,
 # and the offscreen platform the system fonts.

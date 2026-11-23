@@ -27,7 +27,7 @@ sudo apt-get update
 sudo apt-get install -y build-essential cmake git \
     qt6-base-dev qt6-base-private-dev qt6-tools-dev \
     qt6-tools-dev-tools libqt6network6-dev \
-    perl imagemagick libssl-dev libxkbcommon-dev
+    perl imagemagick libssl-dev libxkbcommon-dev libsecret-1-dev
 
 # 2. Clone repository
 git clone <your-repo> onesimus
@@ -64,6 +64,7 @@ sudo apt-get install -y \
     qt6-tools-dev-tools \
     qt6-base-dev-tools \
     libqt6network6-dev \
+    libsecret-1-dev \
     perl \
     make \
     imagemagick
@@ -72,6 +73,11 @@ sudo apt-get install -y \
 **Required Qt6 modules:** Core, Gui, Widgets, Network, LinguistTools
 
 **Important packages:**
+- **libsecret-1-dev**: the system keychain (Secret Service: GNOME Keyring, KWallet,
+  KeePassXC) that keeps the passwords of the connection profiles out of the settings file.
+  Required by default; at run time the package needs `libsecret-1-0` (a `Depends` of the
+  `.deb`). `-DONESIMUS_KEYCHAIN=OFF` builds without it; the passwords then stay in the
+  settings file and the program says so at every start.
 - **qt6-base-dev**: Qt6 base development files (Core, Gui, Widgets)
 - **qt6-tools-dev**: Qt6 tools including Designer, UIC
 - **qt6-tools-dev-tools**: Qt6 LinguistTools (lupdate, lrelease) for translations
@@ -89,7 +95,7 @@ sudo apt-get install -y --no-install-recommends \
     ca-certificates git curl file perl make build-essential cmake ninja-build ccache \
     dpkg-dev librsvg2-bin \
     qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
-    qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev libgl-dev
+    qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev libgl-dev libsecret-1-dev pkgconf
 ```
 
 `OPENSSL_INSTALL_DIR=<dir>` keeps the static OpenSSL build outside the build tree:
@@ -111,6 +117,7 @@ sudo dnf install -y \
     qt6-qttools-devel \
     qt6-linguist \
     qt6-qtbase-network-devel \
+    libsecret-devel \
     perl \
     make \
     ImageMagick
@@ -133,6 +140,7 @@ sudo pacman -S --needed \
     git \
     qt6-base \
     qt6-tools \
+    libsecret \
     perl \
     imagemagick
 ```
@@ -156,6 +164,7 @@ sudo zypper install -y \
     qt6-tools-devel \
     qt6-linguist-devel \
     qt6-network-devel \
+    libsecret-devel \
     perl \
     make \
     ImageMagick

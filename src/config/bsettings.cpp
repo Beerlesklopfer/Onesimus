@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "config/bsettings.h"
+#include "config/bsecretstore.h"
 #include "blogging.h"
 #include "buiscale.h"
 #include <QDateTime>
@@ -9,6 +10,10 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QUrl>
+#include <QFile>
+#include <QFileInfo>
+#include <QUuid>
+#include <algorithm>
 
 // ============================================================================
 // Singleton Implementation
@@ -97,6 +102,109 @@ void BSettings::setConnectionTimeout(int seconds)
 // Connection Profiles
 // ========================================================================
 
+namespace {
+// Fields of BConnectionProfile::toJson() that are secrets
+const char *const SecretFields[] = {"passwordHash", "tlsPfxPassword"};
+const char KeychainFieldsKey[] = "secretsInKeychain";
+
+QString secretAccount(const QString &profileId, const QString &field)
+{
+    return profileId + QLatin1Char('/') + field;
+}
+
+QString &secretRef(BConnectionProfile &profile, const QString &field)
+{
+    return field == QLatin1String("passwordHash") ? profile.passwordHash : profile.tlsPfxPassword;
+}
+} // namespace
+
+BSecretBackend *BSettings::secretBackend()
+{
+    if (!m_secretBackendCreated) {
+        m_secretBackend = BSecretStore::createPlatformBackend();
+        m_secretBackendCreated = true;
+    }
+    return m_secretBackend.get();
+}
+
+void BSettings::setSecretBackend(std::unique_ptr<BSecretBackend> backend)
+{
+    m_secretBackend = std::move(backend);
+    m_secretBackendCreated = true;
+    m_secretCache.clear();
+    m_unreadableSecrets.clear();
+    m_secretWarning.clear();
+}
+
+QString BSettings::secretStorageName()
+{
+    BSecretBackend *backend = secretBackend();
+    return backend ? backend->name() : QString();
+}
+
+void BSettings::setSecretWarning(const QString &warning) const
+{
+    if (warning == m_secretWarning)
+        return;
+    m_secretWarning = warning;
+    BLOG_WARNING() << "BSettings:" << warning;
+    emit const_cast<BSettings *>(this)->secretStorageWarningChanged(warning);
+}
+
+QString BSettings::keychainSecret(const QString &account) const
+{
+    const auto cached = m_secretCache.constFind(account);
+    if (cached != m_secretCache.constEnd())
+        return cached.value();
+
+    BSecretBackend *backend = const_cast<BSettings *>(this)->secretBackend();
+    QString secret;
+    QString error;
+    const BSecretBackend::Result result =
+        backend ? backend->read(account, &secret, &error) : BSecretBackend::Result::Unavailable;
+    if (result != BSecretBackend::Result::Ok) {
+        secret.clear();
+        if (result == BSecretBackend::Result::NotFound) {
+            setSecretWarning(tr("A stored password is missing from the system keychain. "
+                                "Enter the password of the connection profile again."));
+        } else {
+            m_unreadableSecrets.insert(account);
+            setSecretWarning(tr("The passwords of the connection profiles could not be read "
+                                "from the system keychain (%1). Unlock the keychain and "
+                                "restart Onesimus, or enter the passwords again.")
+                                 .arg(error.isEmpty() ? tr("no keychain available") : error));
+        }
+    }
+    // Asked once per session, also when it failed: a keychain that refused
+    // is not asked again on every access
+    m_secretCache.insert(account, secret);
+    return secret;
+}
+
+QHash<QString, QStringList> BSettings::storedKeychainAccounts() const
+{
+    QHash<QString, QStringList> accounts;
+    const QJsonArray array =
+        QJsonDocument::fromJson(value("ConnectionProfiles/data").toByteArray()).array();
+    for (const QJsonValue &val : array) {
+        const QJsonObject obj = val.toObject();
+        const QString id = obj.value(QStringLiteral("id")).toString();
+        for (const QJsonValue &field : obj.value(QLatin1String(KeychainFieldsKey)).toArray())
+            accounts[id].append(secretAccount(id, field.toString()));
+    }
+    return accounts;
+}
+
+void BSettings::restrictSettingsFile()
+{
+#ifndef Q_OS_WINDOWS
+    m_settings.sync();
+    const QString file = m_settings.fileName();
+    if (QFileInfo::exists(file))
+        QFile::setPermissions(file, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+#endif
+}
+
 QList<BConnectionProfile> BSettings::connectionProfiles() const
 {
     QList<BConnectionProfile> profiles;
@@ -114,7 +222,15 @@ QList<BConnectionProfile> BSettings::connectionProfiles() const
     QJsonArray array = doc.array();
     for (const QJsonValue &val : array) {
         if (val.isObject()) {
-            profiles.append(BConnectionProfile::fromJson(val.toObject()));
+            const QJsonObject obj = val.toObject();
+            BConnectionProfile profile = BConnectionProfile::fromJson(obj);
+            // Secrets in the keychain: the JSON names the fields only
+            for (const QJsonValue &field : obj.value(QLatin1String(KeychainFieldsKey)).toArray()) {
+                const QString name = field.toString();
+                if (name == QLatin1String("passwordHash") || name == QLatin1String("tlsPfxPassword"))
+                    secretRef(profile, name) = keychainSecret(secretAccount(profile.id, name));
+            }
+            profiles.append(profile);
         }
     }
 
@@ -123,14 +239,117 @@ QList<BConnectionProfile> BSettings::connectionProfiles() const
 
 void BSettings::setConnectionProfiles(const QList<BConnectionProfile> &profiles)
 {
+    const QHash<QString, QStringList> before = storedKeychainAccounts();
+    BSecretBackend *backend = secretBackend();
+    QStringList kept;
+    QString failure;
+    bool plaintext = false;
+
     QJsonArray array;
     for (const BConnectionProfile &profile : profiles) {
-        array.append(profile.toJson());
+        QJsonObject obj = profile.toJson();
+        QJsonArray inKeychain;
+        for (const char *fieldName : SecretFields) {
+            const QString field = QLatin1String(fieldName);
+            const QString secret = obj.value(field).toString();
+            const QString account = secretAccount(profile.id, field);
+            obj.remove(field);
+            if (secret.isEmpty()) {
+                // Not read because the keychain refused: still there, keep it
+                if (m_unreadableSecrets.contains(account) && before.value(profile.id).contains(account)) {
+                    inKeychain.append(field);
+                    kept.append(account);
+                }
+                continue;
+            }
+            m_unreadableSecrets.remove(account);
+
+            const auto cached = m_secretCache.constFind(account);
+            if (cached != m_secretCache.constEnd() && cached.value() == secret
+                && before.value(profile.id).contains(account)) {
+                inKeychain.append(field);       // there already
+                kept.append(account);
+                continue;
+            }
+            QString error;
+            const BSecretBackend::Result result =
+                backend ? backend->write(account, secret, &error) : BSecretBackend::Result::Unavailable;
+            if (result == BSecretBackend::Result::Ok) {
+                m_secretCache.insert(account, secret);
+                inKeychain.append(field);
+                kept.append(account);
+            } else {
+                // No keychain: the secret stays in the file, which says so
+                obj.insert(field, secret);
+                plaintext = true;
+                if (failure.isEmpty())
+                    failure = error.isEmpty() ? tr("no keychain available") : error;
+            }
+        }
+        if (!inKeychain.isEmpty())
+            obj.insert(QLatin1String(KeychainFieldsKey), inKeychain);
+        array.append(obj);
+    }
+
+    // Entries of deleted profiles and of secrets that were cleared
+    if (backend) {
+        for (auto it = before.constBegin(); it != before.constEnd(); ++it) {
+            for (const QString &account : it.value()) {
+                if (!kept.contains(account)) {
+                    QString error;
+                    backend->remove(account, &error);
+                    m_secretCache.remove(account);
+                }
+            }
+        }
     }
 
     QJsonDocument doc(array);
     setValue("ConnectionProfiles/data", doc.toJson(QJsonDocument::Compact));
+    if (plaintext) {
+        restrictSettingsFile();
+        setSecretWarning(tr("No system keychain could be used (%1). The passwords of the "
+                            "connection profiles are stored in the settings file %2, readable "
+                            "only by you. Install and unlock a keychain (for example GNOME "
+                            "Keyring or KWallet) to keep them out of the file.")
+                             .arg(failure, m_settings.fileName()));
+    } else if (!m_secretWarning.isEmpty() && failure.isEmpty()) {
+        setSecretWarning(QString());
+    }
     emit connectionSettingsChanged();
+}
+
+int BSettings::migrateSecretsToKeychain()
+{
+    const QJsonArray array =
+        QJsonDocument::fromJson(value("ConnectionProfiles/data").toByteArray()).array();
+    int plain = 0;
+    for (const QJsonValue &val : array) {
+        const QJsonObject obj = val.toObject();
+        for (const char *field : SecretFields) {
+            if (!obj.value(QLatin1String(field)).toString().isEmpty())
+                ++plain;
+        }
+    }
+    if (plain == 0)
+        return 0;
+
+    setConnectionProfiles(connectionProfiles());
+    sync();
+
+    int left = 0;
+    const QJsonArray after =
+        QJsonDocument::fromJson(value("ConnectionProfiles/data").toByteArray()).array();
+    for (const QJsonValue &val : after) {
+        const QJsonObject obj = val.toObject();
+        for (const char *field : SecretFields) {
+            if (!obj.value(QLatin1String(field)).toString().isEmpty())
+                ++left;
+        }
+    }
+    if (left < plain)
+        BLOG_INFO() << "BSettings:" << (plain - left) << "secret(s) moved to the system keychain";
+    return plain - left;
 }
 
 void BSettings::addConnectionProfile(const BConnectionProfile &profile)
@@ -199,6 +418,93 @@ BConnectionProfile BSettings::lastUsedProfile() const
         return BConnectionProfile();
     }
     return connectionProfile(id);
+}
+
+namespace {
+const char ProfilesFormat[] = "onesimus-connection-profiles";
+}
+
+QByteArray BSettings::profilesExportJson(const QList<BConnectionProfile> &profiles,
+                                         bool includeSecrets)
+{
+    QJsonArray array;
+    for (const BConnectionProfile &profile : profiles) {
+        QJsonObject obj = profile.toJson();
+        if (!includeSecrets) {
+            obj.remove(QStringLiteral("passwordHash"));
+            obj.remove(QStringLiteral("tlsPfxPassword"));
+        }
+        array.append(obj);
+    }
+    QJsonObject root;
+    root[QStringLiteral("format")] = QLatin1String(ProfilesFormat);
+    root[QStringLiteral("version")] = 1;
+    root[QStringLiteral("profiles")] = array;
+    return QJsonDocument(root).toJson(QJsonDocument::Indented);
+}
+
+QList<BConnectionProfile> BSettings::profilesFromExportJson(const QByteArray &json, QString *error)
+{
+    QList<BConnectionProfile> profiles;
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(json, &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        if (error)
+            *error = tr("The file is not valid JSON: %1").arg(parseError.errorString());
+        return profiles;
+    }
+
+    QJsonArray array;
+    if (doc.isArray()) {
+        array = doc.array();
+    } else {
+        const QJsonObject root = doc.object();
+        if (root.value(QStringLiteral("format")).toString() == QLatin1String(ProfilesFormat)) {
+            array = root.value(QStringLiteral("profiles")).toArray();
+        } else if (root.contains(QStringLiteral("ConnectionProfiles/data"))) {
+            // Export of older versions: every setting as text, the profiles
+            // as the JSON text they were stored as
+            array = QJsonDocument::fromJson(
+                        root.value(QStringLiteral("ConnectionProfiles/data")).toString().toUtf8())
+                        .array();
+        }
+    }
+
+    for (const QJsonValue &val : std::as_const(array)) {
+        if (!val.isObject())
+            continue;
+        BConnectionProfile profile = BConnectionProfile::fromJson(val.toObject());
+        if (profile.host.isEmpty() && profile.name.isEmpty())
+            continue;
+        if (profile.id.isEmpty())
+            profile.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        profiles.append(profile);
+    }
+
+    if (profiles.isEmpty() && error)
+        *error = tr("The file contains no connection profiles.");
+    return profiles;
+}
+
+int BSettings::mergeImportedProfiles(QList<BConnectionProfile> &profiles,
+                                     const QList<BConnectionProfile> &imported)
+{
+    int taken = 0;
+    for (BConnectionProfile profile : imported) {
+        auto it = std::find_if(profiles.begin(), profiles.end(),
+                               [&profile](const BConnectionProfile &p) { return p.id == profile.id; });
+        if (it != profiles.end()) {
+            if (profile.passwordHash.isEmpty())
+                profile.passwordHash = it->passwordHash;
+            if (profile.tlsPfxPassword.isEmpty())
+                profile.tlsPfxPassword = it->tlsPfxPassword;
+            *it = profile;
+        } else {
+            profiles.append(profile);
+        }
+        ++taken;
+    }
+    return taken;
 }
 
 void BSettings::migrateOldConnectionSettings()
@@ -1172,19 +1478,45 @@ void BSettings::setMessagesMaxHistory(int maxMessages)
 // Utility Methods
 // ========================================================================
 
-void BSettings::resetToDefaults()
+void BSettings::resetToDefaults(bool includeProfiles)
 {
+    // The connection profiles are the user's data, not preferences: they
+    // survive a reset unless the user asked for them to go as well
+    QHash<QString, QVariant> kept;
+    if (!includeProfiles) {
+        m_settings.beginGroup(QStringLiteral("ConnectionProfiles"));
+        const QStringList keys = m_settings.allKeys();
+        for (const QString &key : keys)
+            kept.insert(QStringLiteral("ConnectionProfiles/") + key, m_settings.value(key));
+        m_settings.endGroup();
+    }
+
+    if (includeProfiles) {
+        if (BSecretBackend *backend = secretBackend()) {
+            const QHash<QString, QStringList> accounts = storedKeychainAccounts();
+            for (const QStringList &list : accounts) {
+                for (const QString &account : list) {
+                    QString error;
+                    backend->remove(account, &error);
+                }
+            }
+        }
+        m_secretCache.clear();
+    }
+
     m_settings.clear();
+    for (auto it = kept.constBegin(); it != kept.constEnd(); ++it)
+        m_settings.setValue(it.key(), it.value());
 
 #ifdef IS_DEVELOPER
-    BLOG_DEBUG() << "BSettings: All settings reset to defaults";
+    BLOG_DEBUG() << "BSettings: Settings reset to defaults, profiles kept:" << !includeProfiles;
 #endif
 
     // Emit all change signals
     emit connectionSettingsChanged();
     emit appearanceSettingsChanged();
     emit behaviorSettingsChanged();
-    emit autoRefreshSettingsChanged(false, 30);
+    emit autoRefreshSettingsChanged(behaviorAutoRefresh(), behaviorRefreshInterval());
 }
 
 void BSettings::sync()

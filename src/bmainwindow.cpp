@@ -554,6 +554,15 @@ BMainWindow::BMainWindow(QWidget *parent)
     onAutoRefreshSettingsChanged(settings.behaviorAutoRefresh(), settings.behaviorRefreshInterval());
 
     onAuthentificationSucceeded(false, tr("Not connected"));
+
+    // Secrets of earlier versions out of the settings file into the keychain;
+    // where that is not possible the user is told, once per start
+    connect(&BSettings::instance(), &BSettings::secretStorageWarningChanged,
+            this, &BMainWindow::showSecretStorageWarning);
+    BSettings::instance().migrateSecretsToKeychain();
+    if (!BSettings::instance().secretStorageWarning().isEmpty())
+        showSecretStorageWarning(BSettings::instance().secretStorageWarning());
+
     loadAndConnectLastUsed();
 
     // Apply saved theme from settings
@@ -2833,6 +2842,17 @@ void BMainWindow::loadAndConnectLastUsed()
 
     // Update "Reconnect" button status
     m_connectLastAction->setEnabled(true);
+}
+
+void BMainWindow::showSecretStorageWarning(const QString &warning)
+{
+    if (warning.isEmpty() || m_secretWarningShown)
+        return;
+    m_secretWarningShown = true;
+    // After the window is up: also at start, where this is called from the constructor
+    QTimer::singleShot(0, this, [this, warning]() {
+        QMessageBox::warning(this, tr("Passwords Not in the Keychain"), warning);
+    });
 }
 
 void BMainWindow::applyProfileTransport(const BConnectionProfile &profile)
