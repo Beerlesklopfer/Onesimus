@@ -50,6 +50,11 @@ for semantics, cited in comments):
 
 (`.h` in `include/`, `.cpp` in `src/`.)
 
+**Test configuration modelled on the Bareos default configuration** (same resource names and structure,
+partly the same descriptions as `/usr/lib/bareos/defaultconfigs/bareos-dir.d/`; not identical copies):
+`test/bareos-dir.d/bareos-dir.d/{catalog/MyCatalog,client/bareos-fd,director/bareos-dir,fileset/SelfTest,messages/Daemon,messages/Standard,pool/Full,schedule/WeeklyCycle,storage/File}.conf`.
+The console and job files in that directory and `test/configs/*.conf` are own files (AGPL-3.0-or-later).
+
 Not listed, because they contain no Bareos text or code: the directive descriptions in
 `resources/directives/*.json` (own short texts; directive names are facts of the interface).
 
