@@ -20,6 +20,7 @@
 
 #include <QtTest>
 
+#include <QCryptographicHash>
 #include <QJsonDocument>
 #include <QTimeZone>
 
@@ -127,6 +128,9 @@ private slots:
     void maxRunSchedTimeCountsFromTheScheduledTime();
     void estimateIsBoundedAsWell();
     void describeNamesLimitAndRuns();
+
+    // --- The same answer as the reference ---
+    void predictionMatchesTheReference();
 };
 
 // ============================================================================
@@ -1201,6 +1205,172 @@ void BScheduleWaitModelTest::sharedUnknownsAreStatedOnce()
     // Two rows are not "several"
     QVERIFY(BScheduleWaitModel::sharedUnknowns(r, {1, 2}).isEmpty());
     QCOMPARE(BScheduleWaitModel::sharedUnknowns(r, {1, 2}, 2).size(), 1);
+}
+
+// ============================================================================
+// The same answer as the reference
+// ============================================================================
+
+namespace {
+
+/// A small deterministic generator: the scenarios must be the same on
+/// every platform and with every Qt version
+struct Lcg
+{
+    quint64 state;
+    explicit Lcg(quint64 seed) : state(seed * 6364136223846793005ULL + 1442695040888963407ULL) {}
+    int next(int bound)
+    {
+        state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+        return int((state >> 33) % quint64(bound));
+    }
+};
+
+/// A queue of @p count runs over two nights, with limits, priorities,
+/// unknown durations and devices drawn from @p seed
+void scenario(quint64 seed, int count, const QTimeZone &zone,
+              QList<BWaitRun> *runs, BWaitLimits *limits)
+{
+    Lcg rnd(seed);
+    const QStringList clients = { "fd1", "fd2", "fd3", "fd4", "fd5" };
+    const QStringList storages = { "File", "Tape", "Disk2" };
+    for (int i = 0; i < count; ++i) {
+        BWaitRun r;
+        r.job = QStringLiteral("job%1").arg(rnd.next(count / 2 + 1));
+        r.id = r.job + QStringLiteral("-series");
+        r.client = rnd.next(10) == 0 ? QString() : clients[rnd.next(clients.size())];
+        r.storage = rnd.next(12) == 0 ? QString() : storages[rnd.next(storages.size())];
+        r.level = rnd.next(3) == 0 ? QStringLiteral("Full") : QStringLiteral("Incremental");
+        r.priority = rnd.next(4) == 0 ? 5 + rnd.next(3) * 5 : 10;
+        const int mix = rnd.next(3);
+        if (mix == 0) r.allowMixedPriority = true;
+        else if (mix == 1) r.allowMixedPriority = false;
+        r.usesClient = rnd.next(15) != 0;
+        r.usesStorage = rnd.next(15) != 0;
+        r.scheduled = QDateTime(QDate(2026, 11, 16 + rnd.next(2)),
+                                QTime(rnd.next(3) == 0 ? 1 : 23, rnd.next(4) * 5), zone);
+        const int basis = rnd.next(4);
+        r.durationBasis = basis == 0 ? BWaitRun::Duration::Unknown
+                        : basis == 1 ? BWaitRun::Duration::Estimated
+                                     : BWaitRun::Duration::Measured;
+        r.durationSecs = 60 + rnd.next(90) * 60;
+        if (rnd.next(4) == 0) {
+            r.maxRunSecs = 3600 + rnd.next(6) * 1800;
+            r.maxRunBound = BWaitRun::Bound::MaxRunTime;
+        }
+        if (rnd.next(6) == 0)
+            r.maxRunSchedSecs = 7200 + rnd.next(4) * 3600;
+        r.startOverheadSecs = rnd.next(3) == 0 ? rnd.next(120) : 0;
+        *runs << r;
+    }
+    if (rnd.next(4) != 0)
+        limits->director = 1 + rnd.next(6);
+    for (const BWaitRun &r : std::as_const(*runs)) {
+        if (rnd.next(5) != 0) limits->jobs.insert(r.job, 1 + rnd.next(2));
+        if (!r.client.isEmpty() && rnd.next(5) != 0) limits->clients.insert(r.client, 1 + rnd.next(3));
+        if (!r.storage.isEmpty() && rnd.next(5) != 0) limits->storages.insert(r.storage, 1 + rnd.next(4));
+        if (!r.storage.isEmpty() && rnd.next(3) == 0) limits->devices.insert(r.storage, 1 + rnd.next(2));
+    }
+}
+
+QString timeText(const QDateTime &when)
+{
+    if (!when.isValid())
+        return QStringLiteral("-");
+    return QStringLiteral("%1@%2").arg(when.toSecsSinceEpoch()).arg(when.offsetFromUtc());
+}
+
+QString listText(const QList<int> &list)
+{
+    QStringList parts;
+    for (int i : list) parts << QString::number(i);
+    return parts.join(QLatin1Char(','));
+}
+
+QString holdsText(const QList<BWaitHold> &holds)
+{
+    QStringList parts;
+    for (const BWaitHold &h : holds) {
+        parts << QStringLiteral("[%1 %2 %3%4 p%5 %6..%7 by %8]")
+                     .arg(int(h.reason)).arg(h.resource).arg(h.limit)
+                     .arg(h.limitKnown ? "" : "?").arg(h.otherPriority)
+                     .arg(timeText(h.from), timeText(h.until), listText(h.blockers));
+    }
+    return parts.join(QLatin1Char(' '));
+}
+
+/// Everything predict() and the texts say about every run, one line each
+QStringList predictionText(const QList<BWaitRun> &runs, const BWaitLimits &limits)
+{
+    QStringList lines;
+    QStringList texts;
+    const QList<BWaitResult> results = BScheduleWaitModel::predict(runs, limits);
+    for (int i = 0; i < results.size(); ++i) {
+        const BWaitResult &r = results[i];
+        QStringList unknowns;
+        for (const BWaitUnknown &u : r.unknowns) {
+            unknowns << QStringLiteral("%1:%2:%3:%4:%5").arg(int(u.kind)).arg(u.name)
+                            .arg(timeText(u.until)).arg(int(u.bound)).arg(u.boundSecs);
+        }
+        lines << QStringLiteral("%1 start=%2 wait=%3 certain=%4 end=%5 dev=%6/%7 by %8")
+                     .arg(i).arg(timeText(r.start)).arg(r.waitSecs).arg(r.certain)
+                     .arg(timeText(r.end)).arg(r.deviceWaitSecs).arg(r.deviceLimit)
+                     .arg(listText(r.deviceBlockers));
+        lines << QStringLiteral("  holds %1").arg(holdsText(r.holds));
+        lines << QStringLiteral("  possible %1").arg(holdsText(r.possibleHolds));
+        lines << QStringLiteral("  unknowns %1").arg(unknowns.join(QLatin1Char(' ')));
+        texts << BScheduleWaitModel::describe(i, runs, results)
+              << BScheduleWaitModel::describeTiming(i, runs, results, limits);
+    }
+    // The texts are long: the reference holds their checksum
+    lines << QStringLiteral("texts %1 lines, sha256 %2").arg(texts.size())
+                 .arg(QString::fromLatin1(QCryptographicHash::hash(texts.join(QLatin1Char('\n')).toUtf8(),
+                                                                   QCryptographicHash::Sha256).toHex()));
+    return lines;
+}
+
+} // namespace
+
+void BScheduleWaitModelTest::predictionMatchesTheReference()
+{
+    // The reference was written by the replay as it was before it kept its
+    // times as seconds and its blockers as sorted sets (b23fcd2): the same
+    // runs and limits must give the same prediction, hold for hold, and
+    // the same texts. BWAIT_WRITE_REFERENCE=<file> writes it anew.
+    QStringList lines;
+    const QTimeZone zones[] = { QTimeZone::utc(), QTimeZone(QByteArrayLiteral("Europe/Berlin")) };
+    int n = 0;
+    for (quint64 seed = 1; seed <= 16; ++seed) {
+        const QTimeZone &zone = zones[seed % 2];
+        QVERIFY(zone.isValid());
+        QList<BWaitRun> runs;
+        BWaitLimits limits;
+        scenario(seed, 10 + int(seed % 5) * 8, zone, &runs, &limits);
+        lines << QStringLiteral("# scenario %1 (%2 runs)").arg(seed).arg(runs.size());
+        lines << predictionText(runs, limits);
+        n += runs.size();
+    }
+    QVERIFY(n > 300);
+
+    const QString text = lines.join(QLatin1Char('\n')) + QLatin1Char('\n');
+    const QString writeTo = qEnvironmentVariable("BWAIT_WRITE_REFERENCE");
+    if (!writeTo.isEmpty()) {
+        QFile out(writeTo);
+        QVERIFY(out.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        out.write(text.toUtf8());
+        QSKIP("reference written");
+    }
+
+    const QString path = QFINDTESTDATA("data/bschedulewaitmodel_reference.txt");
+    QVERIFY2(!path.isEmpty(), "test/data/bschedulewaitmodel_reference.txt not found");
+    QFile in(path);
+    // Text: a checkout on Windows may have given the file CRLF line ends
+    QVERIFY(in.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QStringList expected = QString::fromUtf8(in.readAll()).split(QLatin1Char('\n'));
+    const QStringList actual = text.split(QLatin1Char('\n'));
+    for (int i = 0; i < qMin(expected.size(), actual.size()); ++i)
+        QCOMPARE(actual[i], expected[i]);
+    QCOMPARE(actual.size(), expected.size());
 }
 
 QTEST_GUILESS_MAIN(BScheduleWaitModelTest)
