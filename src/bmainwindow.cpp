@@ -47,6 +47,9 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QHeaderView>
+#include <QTableView>
+#include <algorithm>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDesktopServices>
@@ -82,6 +85,21 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QMenuBar>
+
+namespace {
+/// Settings > Advanced > Show tooltips: when off, no tooltip is shown
+class BToolTipFilter : public QObject
+{
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event->type() == QEvent::ToolTip && !BSettings::instance().advancedEnableTooltips())
+            return true;
+        return QObject::eventFilter(watched, event);
+    }
+};
+} // namespace
 
 BMainWindow::BMainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -560,6 +578,10 @@ BMainWindow::BMainWindow(QWidget *parent)
 
     onAuthentificationSucceeded(false, tr("Not connected"));
 
+    // Settings > Advanced: tooltips on or off, size of the log file
+    qApp->installEventFilter(new BToolTipFilter(this));
+    BLOG_SET_MAX_SIZE_MB(BSettings::instance().advancedMaxLogSize());
+
     // Secrets of earlier versions out of the settings file into the keychain;
     // where that is not possible the user is told, once per start
     connect(&BSettings::instance(), &BSettings::secretStorageWarningChanged,
@@ -980,12 +1002,12 @@ void BMainWindow::createActions()
     m_exportJobsJsonAction = new QAction(tr("Export Jobs as JSON..."), this);
     m_exportJobsJsonAction->setIcon(QIcon(":/icons/icons/export.svg"));
     m_exportJobsJsonAction->setEnabled(false);
-    connect(m_exportJobsJsonAction, &QAction::triggered, this, &BMainWindow::onExportSettingsTriggered);
+    connect(m_exportJobsJsonAction, &QAction::triggered, this, &BMainWindow::onExportJobsJsonTriggered);
 
     m_exportJobsCsvAction = new QAction(tr("Export Jobs as CSV..."), this);
     m_exportJobsCsvAction->setIcon(QIcon(":/icons/icons/export.svg"));
     m_exportJobsCsvAction->setEnabled(false);
-    connect(m_exportJobsCsvAction, &QAction::triggered, this, &BMainWindow::onImportSettingsTriggered);
+    connect(m_exportJobsCsvAction, &QAction::triggered, this, &BMainWindow::onExportJobsCsvTriggered);
 
     // Modify Jobs submenu actions
     m_addJobAction = new QAction(tr("Add Job..."), this);
@@ -2935,11 +2957,37 @@ void BMainWindow::onCopyTriggered()
             m_statusLabel->setText(tr("%n row(s) copied", nullptr, int(selectedIndexes.count())));
         }
     } else if (currentWidget == m_clientWidget) {
-        // Copy selected client data
-        if (m_clientWidget->model()) {
-            // TODO: Implement client data copy
-            m_statusLabel->setText(tr("Copying client data is not implemented yet"));
+        // The selected rows as shown: visible columns in their order, tab-separated
+        QTableView *view = m_clientWidget->tableView();
+        QAbstractItemModel *model = view->model();
+        QModelIndexList rows = view->selectionModel()->selectedRows();
+        if (rows.isEmpty()) {
+            m_statusLabel->setText(tr("No client selected"));
+            return;
         }
+        std::sort(rows.begin(), rows.end(), [view](const QModelIndex &a, const QModelIndex &b) {
+            return view->visualRect(a).top() < view->visualRect(b).top();
+        });
+        const QHeaderView *header = view->horizontalHeader();
+        QStringList lines;
+        QStringList titles;
+        for (int visual = 0; visual < header->count(); ++visual) {
+            const int col = header->logicalIndex(visual);
+            if (!header->isSectionHidden(col))
+                titles << model->headerData(col, Qt::Horizontal).toString();
+        }
+        lines << titles.join(QLatin1Char('\t'));
+        for (const QModelIndex &row : std::as_const(rows)) {
+            QStringList cells;
+            for (int visual = 0; visual < header->count(); ++visual) {
+                const int col = header->logicalIndex(visual);
+                if (!header->isSectionHidden(col))
+                    cells << model->index(row.row(), col).data().toString();
+            }
+            lines << cells.join(QLatin1Char('\t'));
+        }
+        QApplication::clipboard()->setText(lines.join(QLatin1Char('\n')) + QLatin1Char('\n'));
+        m_statusLabel->setText(tr("%n row(s) copied", nullptr, int(rows.count())));
     }
 }
 
@@ -2953,8 +3001,8 @@ void BMainWindow::onSelectAllTriggered()
         m_jobWidget->tableView()->jobsModel()->selectAll();
         m_statusLabel->setText(tr("All jobs selected"));
     } else if (currentWidget == m_clientWidget) {
-        // TODO: Implement select all for clients
-        m_statusLabel->setText(tr("Selecting all clients is not implemented yet"));
+        m_clientWidget->tableView()->selectAll();
+        m_statusLabel->setText(tr("All clients selected"));
     }
 }
 
@@ -2968,31 +3016,21 @@ void BMainWindow::onClearSelectionTriggered()
         m_jobWidget->tableView()->jobsModel()->clearSelection();
         m_statusLabel->setText(tr("Selection cleared"));
     } else if (currentWidget == m_clientWidget) {
-        // TODO: Implement clear selection for clients
-        m_statusLabel->setText(tr("Clearing the client selection is not implemented yet"));
+        m_clientWidget->tableView()->clearSelection();
+        m_statusLabel->setText(tr("Selection cleared"));
     }
 }
 
 void BMainWindow::onFindTriggered()
 {
-    // Get the currently active tab
+    // The name filter of the tab (jobs: the filter panel opens)
     QWidget *currentWidget = m_tabWidget->currentWidget();
-
     if (currentWidget == m_jobWidget) {
-        // Info: User can use filters via the toggle button in the Job view
-        QMessageBox::information(this, tr("Search"),
-            tr("Use the filter options in the Job view\n"
-               "to search for specific jobs.\n\n"
-               "Available filters:\n"
-               "• Job Name\n"
-               "• Client Name\n"
-               "• Status (Success, Warning, Failed)\n"
-               "• Level (Full, Incremental, Differential)\n"
-               "• Date Range"));
+        m_jobWidget->focusFilter();
     } else if (currentWidget == m_clientWidget) {
-        QMessageBox::information(this, tr("Search"),
-            tr("Use the filter combo box in the Client view\n"
-               "to search for specific clients."));
+        m_clientWidget->focusFilter();
+    } else {
+        m_statusLabel->setText(tr("Find works in the Jobs and Clients tabs"));
     }
 }
 
@@ -3051,7 +3089,7 @@ void BMainWindow::onToggleTheme()
     BSettings::instance().setAppearanceTheme(newTheme);
 }
 
-void BMainWindow::onExportSettingsTriggered()
+void BMainWindow::onExportJobsJsonTriggered()
 {
     if (!m_director->isConnected()) {
         QMessageBox::warning(this, tr("Not Connected"), tr("Please connect to the Director first."));
@@ -3063,7 +3101,7 @@ void BMainWindow::onExportSettingsTriggered()
     m_statusLabel->setText(tr("Jobs exported as JSON"));
 }
 
-void BMainWindow::onImportSettingsTriggered()
+void BMainWindow::onExportJobsCsvTriggered()
 {
     if (!m_director->isConnected()) {
         QMessageBox::warning(this, tr("Not Connected"), tr("Please connect to the Director first."));

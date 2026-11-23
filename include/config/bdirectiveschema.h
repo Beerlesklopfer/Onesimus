@@ -129,6 +129,17 @@ public:
     QString resourceDescription(const QString &resourceType) const;
 
     /**
+     * @brief Checks a value against the type of a directive
+     *
+     * boolean: yes/no/true/false/on/off/1/0; size: a number with an optional
+     * unit (k, kb, m, mb, g, gb, t, tb); time: numbers with optional units
+     * ("30 days", "1 hour 30 min", "3600"). Other types are not checked.
+     * @return Empty if the value fits, the message otherwise
+     */
+    static QString validateValue(const QString &type, const QString &directiveName,
+                                 const QString &value);
+
+    /**
      * @brief Validate a resource value
      * @param resourceType Resource type
      * @param directiveName Directive name

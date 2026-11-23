@@ -54,6 +54,12 @@ public:
      */
     BClientsModel* model() const { return m_model; }
 
+    /// The table of the clients (Edit > Copy, Select All, Clear Selection)
+    QTableView *tableView() const { return m_tableView; }
+
+    /// Edit > Find: puts the focus into the client name filter
+    void focusFilter();
+
     /**
      * @brief Shows the details dialog for the currently selected client
      * @return true if a client was selected and dialog shown

@@ -6,6 +6,9 @@
 #include "jobs/bjobwidget.h"
 #include "blogging.h"
 #include "config/bsettings.h"
+#include "blabelstate.h"
+#include <QLocale>
+#include <climits>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -221,25 +224,6 @@ void BNewJobDialog::createAdvancedTab()
 
     layout->addWidget(bootstrapGroup);
 
-    // Replace Options
-    QGroupBox *replaceGroup = new QGroupBox(tr("Replace"));
-    QVBoxLayout *replaceLayout = new QVBoxLayout(replaceGroup);
-
-    m_replaceCheck = new QCheckBox(tr("Restore mode: Replace existing files"));
-    replaceLayout->addWidget(m_replaceCheck);
-
-    m_replaceCombo = new QComboBox();
-    m_replaceCombo->addItem(tr("Always"), "always");
-    m_replaceCombo->addItem(tr("Never"), "never");
-    m_replaceCombo->addItem(tr("If Newer"), "ifnewer");
-    m_replaceCombo->addItem(tr("If Older"), "ifolder");
-    m_replaceCombo->setEnabled(false);
-    replaceLayout->addWidget(m_replaceCombo);
-
-    connect(m_replaceCheck, &QCheckBox::toggled, m_replaceCombo, &QComboBox::setEnabled);
-
-    layout->addWidget(replaceGroup);
-
     layout->addStretch();
 
     m_tabWidget->addTab(advancedTab, tr("Advanced"));
@@ -314,6 +298,8 @@ void BNewJobDialog::onJsonResponse(BDirector::Command cmd, const QString &jsonDa
         onDotClientsReceived(jsonData);
     } else if (cmd == BDirector::Command::DotDefaults) {
         onDotDefaultsReceived(jsonData);
+    } else if (cmd == BDirector::Command::Estimate) {
+        onEstimateReceived(jsonData);
     }
     // Note: .filesets, .storages, .pools are now loaded from JobWidget
 }
@@ -697,16 +683,36 @@ void BNewJobDialog::onEstimateClicked()
         QMessageBox::warning(this, tr("Invalid Input"), commandErrorText(result));
         return;
     }
-    const QString command = result.command;
-
     if (m_director) {
+        // As Command::Estimate, so the reply comes back here by its kind
+        connect(m_director, &BDirector::jsonResult,
+                this, &BNewJobDialog::onJsonResponse,
+                Qt::UniqueConnection);
+        const QString args = result.command.mid(QStringLiteral("estimate").size()).trimmed();
         QMetaObject::invokeMethod(m_director, "doSend",
                                   Qt::QueuedConnection,
-                                  Q_ARG(BDirector::Command, BDirector::Command::Custom),
-                                  Q_ARG(QString, command));
+                                  Q_ARG(BDirector::Command, BDirector::Command::Estimate),
+                                  Q_ARG(QString, args));
 
+        m_estimateButton->setEnabled(false);
         m_statusLabel->setText(tr("Calculating estimate..."));
-        m_statusLabel->setStyleSheet("color: blue;");
+        bSetLabelState(m_statusLabel, "info");
+    }
+}
+
+void BNewJobDialog::onEstimateReceived(const QString &jsonData)
+{
+    m_estimateButton->setEnabled(true);
+    const BRunJobCommand::Estimate estimate = BRunJobCommand::parseEstimateReply(jsonData);
+    if (estimate.ok) {
+        m_statusLabel->setText(tr("Estimate: %n file(s), %1", nullptr, int(qMin<qint64>(estimate.files, INT_MAX)))
+                                   .arg(QLocale().formattedDataSize(estimate.bytes)));
+        bSetLabelState(m_statusLabel, "success");
+    } else {
+        m_statusLabel->setText(estimate.error.isEmpty()
+                                   ? tr("The Director sent no estimate.")
+                                   : tr("Estimate failed: %1").arg(estimate.error));
+        bSetLabelState(m_statusLabel, "error");
     }
 }
 

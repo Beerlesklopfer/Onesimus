@@ -2108,6 +2108,22 @@ if(BUILD_TESTING)
             ENVIRONMENT "ONESIMUS_BINARY=$<TARGET_FILE:onesimus>")
     endif()
 
+    # bdirectiveschema_test - directive values checked by type (boolean,
+    # size, time), not only integers
+    add_executable(bdirectiveschema_test
+        test/bdirectiveschema_test.cpp
+        src/config/bdirectiveschema.cpp
+        include/config/bdirectiveschema.h
+    )
+    target_include_directories(bdirectiveschema_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(bdirectiveschema_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+    add_test(NAME bdirectiveschema_test COMMAND bdirectiveschema_test)
+
     # bconnecthelpers_test - main window connection handling: a profile to
     # its TLS configuration in one place (nothing of the previous profile
     # survives), and a wait cursor that stays balanced

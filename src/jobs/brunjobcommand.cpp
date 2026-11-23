@@ -5,6 +5,9 @@
 #include "bquote.h"
 
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <QRegularExpression>
 
 namespace BRunJobCommand {
@@ -144,6 +147,46 @@ Result buildEstimate(const Params &params)
     if (result.ok())
         result.command = command;
     return result;
+}
+
+Estimate parseEstimateReply(const QString &reply)
+{
+    Estimate estimate;
+    const QJsonDocument doc = QJsonDocument::fromJson(reply.toUtf8());
+    const QJsonObject root = doc.object();
+    auto number = [](const QJsonValue &v) -> qint64 {
+        if (v.isString())
+            return v.toString().remove(QLatin1Char(',')).toLongLong();
+        return qint64(v.toDouble());
+    };
+
+    const QJsonObject result = root.value(QStringLiteral("result")).toObject();
+    const QJsonObject est = result.value(QStringLiteral("estimate")).toObject();
+    if (est.contains(QStringLiteral("files")) && est.contains(QStringLiteral("bytes"))) {
+        estimate.ok = true;
+        estimate.files = number(est.value(QStringLiteral("files")));
+        estimate.bytes = number(est.value(QStringLiteral("bytes")));
+        return estimate;
+    }
+
+    // The text form, anywhere in the reply
+    static const QRegularExpression textRx(
+        QStringLiteral("files=([\\d,]+)\\s+bytes=([\\d,]+)"));
+    const QRegularExpressionMatch match = textRx.match(reply);
+    if (match.hasMatch()) {
+        estimate.ok = true;
+        estimate.files = match.captured(1).remove(QLatin1Char(',')).toLongLong();
+        estimate.bytes = match.captured(2).remove(QLatin1Char(',')).toLongLong();
+        return estimate;
+    }
+
+    const QJsonObject error = root.value(QStringLiteral("error")).toObject();
+    estimate.error = error.value(QStringLiteral("data")).toObject()
+                         .value(QStringLiteral("messages")).toObject()
+                         .value(QStringLiteral("error")).toArray().first().toString();
+    if (estimate.error.isEmpty())
+        estimate.error = error.value(QStringLiteral("message")).toString();
+    return estimate;
 }
 
 } // namespace BRunJobCommand

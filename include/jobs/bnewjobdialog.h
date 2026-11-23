@@ -54,6 +54,7 @@ private slots:
     void onDotJobsReceived(const QString &jsonData);
     void onDotClientsReceived(const QString &jsonData);
     void onDotDefaultsReceived(const QString &jsonData);
+    void onEstimateReceived(const QString &jsonData);   ///< Shows files and bytes in the status line
     // Note: Fileset, Storage, Pool data now comes from JobWidget
 
 private:
@@ -84,8 +85,6 @@ private:
     QLineEdit *m_whenEdit;
     QCheckBox *m_bootstrapCheck;
     QLineEdit *m_bootstrapEdit;
-    QCheckBox *m_replaceCheck;
-    QComboBox *m_replaceCombo;
     QTextEdit *m_commandPreview = nullptr;
 
     // Status

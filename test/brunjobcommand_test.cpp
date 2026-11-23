@@ -21,6 +21,7 @@ class BRunJobCommandTest : public QObject
     Q_OBJECT
 
 private slots:
+    void estimateReplyIsRead();
     void jobOnly();
     void allInputsAppearInTheCommand();
     void namesWithSpacesStayOneArgument();
@@ -283,6 +284,31 @@ void BRunJobCommandTest::estimateRejectsWhatRunRejects()
     QCOMPARE(result.error, Error::ControlCharacter);
     QCOMPARE(result.field, QString("fileset"));
     QVERIFY(result.command.isEmpty());
+}
+
+void BRunJobCommandTest::estimateReplyIsRead()
+{
+    // API mode 2 object
+    BRunJobCommand::Estimate e = BRunJobCommand::parseEstimateReply(
+        "{\"jsonrpc\":\"2.0\",\"id\":null,\"result\":{\"estimate\":"
+        "{\"files\":1234,\"bytes\":\"5678901\"}}}");
+    QVERIFY(e.ok);
+    QCOMPARE(e.files, 1234);
+    QCOMPARE(e.bytes, 5678901);
+
+    // The text line, with thousands separators
+    e = BRunJobCommand::parseEstimateReply(
+        "Connecting to Client fd at host:9102\n2000 OK estimate files=12,345 bytes=6,789,012\n");
+    QVERIFY(e.ok);
+    QCOMPARE(e.files, 12345);
+    QCOMPARE(e.bytes, 6789012);
+
+    // An error is passed on
+    e = BRunJobCommand::parseEstimateReply(
+        "{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":1,\"message\":\"failed\","
+        "\"data\":{\"result\":{},\"messages\":{\"error\":[\"Job x not found.\\n\"]}}}}");
+    QVERIFY(!e.ok);
+    QVERIFY2(e.error.contains("not found"), qPrintable(e.error));
 }
 
 QTEST_APPLESS_MAIN(BRunJobCommandTest)

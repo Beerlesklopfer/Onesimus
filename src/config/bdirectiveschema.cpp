@@ -14,6 +14,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QDir>
+#include <QRegularExpression>
 
 BDirectiveSchema &BDirectiveSchema::instance()
 {
@@ -281,8 +282,33 @@ QString BDirectiveSchema::validate(const QString &resourceType, const QString &d
         }
     }
 
-    // TODO: Add more type validations (path, directory, boolean, etc.)
+    return validateValue(dir.type, directiveName, value.toString());
+}
 
+QString BDirectiveSchema::validateValue(const QString &type, const QString &directiveName,
+                                        const QString &value)
+{
+    const QString v = value.trimmed();
+    if (v.isEmpty())
+        return QString();
+
+    if (type == QLatin1String("boolean")) {
+        static const QStringList words = {"yes", "no", "true", "false", "on", "off", "1", "0"};
+        if (!words.contains(v.toLower()))
+            return tr("'%1' must be yes or no").arg(directiveName);
+    } else if (type == QLatin1String("size")) {
+        static const QRegularExpression sizeRx(
+            QStringLiteral("^\\d+(\\.\\d+)?\\s*([kmgt]b?|bytes?)?$"),
+            QRegularExpression::CaseInsensitiveOption);
+        if (!sizeRx.match(v).hasMatch())
+            return tr("'%1' must be a size such as 500 mb or 2 gb").arg(directiveName);
+    } else if (type == QLatin1String("time")) {
+        static const QRegularExpression timeRx(
+            QStringLiteral("^(\\d+(\\.\\d+)?\\s*[a-z]*\\s*)+$"),
+            QRegularExpression::CaseInsensitiveOption);
+        if (!timeRx.match(v).hasMatch())
+            return tr("'%1' must be a time such as 30 days or 1 hour 30 min").arg(directiveName);
+    }
     return QString(); // Valid
 }
 

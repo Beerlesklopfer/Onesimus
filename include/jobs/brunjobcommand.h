@@ -72,6 +72,23 @@ Result build(const Params &params);
  */
 Result buildEstimate(const Params &params);
 
+/// What the Director answered to "estimate"
+struct Estimate
+{
+    bool ok = false;        ///< Files and bytes were found in the reply
+    qint64 files = 0;
+    qint64 bytes = 0;
+    QString error;          ///< The Director's error message, if it sent one
+};
+
+/**
+ * @brief Reads the reply to "estimate" (API mode 2)
+ *
+ * Takes result.estimate.files/bytes, or the text line
+ * "2000 OK estimate files=1,234 bytes=5,678" the Director also writes.
+ */
+Estimate parseEstimateReply(const QString &reply);
+
 } // namespace BRunJobCommand
 
 #endif // BRUNJOBCOMMAND_H

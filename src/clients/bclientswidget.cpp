@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "clients/bclientswidget.h"
+#include <QLineEdit>
 #include "buiscale.h"
 #include "clients/bclientsmodel.h"
 #include "clients/bclientdetailsdialog.h"
@@ -547,3 +548,9 @@ void BClientsWidget::onContextMenu(const QPoint &pos)
     menu.exec(m_tableView->viewport()->mapToGlobal(pos));
 }
 
+void BClientsWidget::focusFilter()
+{
+    m_clientFilter->setFocus(Qt::ShortcutFocusReason);
+    if (m_clientFilter->lineEdit())
+        m_clientFilter->lineEdit()->selectAll();
+}

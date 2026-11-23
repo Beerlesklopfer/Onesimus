@@ -276,7 +276,11 @@ void BColumnConfiguration::applyConfiguration(QHeaderView *header, const QMap<in
         const ColumnConfig &col = it.value();
         
         if (logicalIndex >= 0 && logicalIndex < header->count()) {
-            header->resizeSection(logicalIndex, BUiScale::px(col.width));
+            // A hidden column was stored with width 0 (QHeaderView reports
+            // 0 for hidden sections): it keeps its default width, so it is
+            // not invisible when shown again
+            if (col.width > 0)
+                header->resizeSection(logicalIndex, BUiScale::px(col.width));
             header->setSectionHidden(logicalIndex, !col.visible);
         }
     }

@@ -58,8 +58,8 @@ private slots:
     void onReportBugTriggered();
     void onKeyboardShortcutsTriggered();
     void onSettingsTriggered();
-    void onExportSettingsTriggered();
-    void onImportSettingsTriggered();
+    void onExportJobsJsonTriggered();
+    void onExportJobsCsvTriggered();
     void onAuthentificationSucceeded(bool connected, const QString msg);
     void onConnectionError(const QString &error);
     void onRefreshAll();
