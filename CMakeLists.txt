@@ -478,6 +478,7 @@ set(SOURCES
     src/btranslations.cpp
     src/director/bdirector.cpp
     src/director/bareosdirector.cpp
+    src/director/bjsonreassembler.cpp
     src/director/bdirectorconfigclient.cpp
     src/db/bdatabase.cpp
     src/db/bresourcemodel.cpp
@@ -640,6 +641,7 @@ set(HEADERS
     include/config/bzipimport.h
     include/director/bdirector.h
     include/director/bareosdirector.h
+    include/director/bjsonreassembler.h
     include/db/bdatabase.h
     include/db/bresourcemodel.h
     include/db/bdirectormodel.h
@@ -1311,9 +1313,11 @@ add_library(bareosdirector_lib OBJECT
     src/director/bareosdirector.cpp
     src/director/bareosauth.cpp
     src/director/bjsonstreamreader.cpp
+    src/director/bjsonreassembler.cpp
     include/director/bareosdirector.h
     include/director/bareosauth.h
     include/director/bjsonstreamreader.h
+    include/director/bjsonreassembler.h
 )
 
 target_include_directories(bareosdirector_lib PUBLIC
@@ -1962,6 +1966,25 @@ if(BUILD_TESTING)
     endif()
 
     add_test(NAME bcommandlineconnection_test COMMAND bcommandlineconnection_test)
+
+    # bjsonreassembler_test - a JSON reply reassembled from telegrams cut at
+    # any byte, decoded once, in linear time (P1-17)
+    add_executable(bjsonreassembler_test
+        test/bjsonreassembler_test.cpp
+        src/director/bjsonreassembler.cpp
+        include/director/bjsonreassembler.h
+    )
+
+    target_include_directories(bjsonreassembler_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(bjsonreassembler_test PRIVATE
+        Qt6::Core
+        Qt6::Test
+    )
+
+    add_test(NAME bjsonreassembler_test COMMAND bjsonreassembler_test)
 
     # bdirectorqueue_test - command queue of BareosDirector without a connection
     add_executable(bdirectorqueue_test

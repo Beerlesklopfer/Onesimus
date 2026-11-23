@@ -57,6 +57,7 @@
 #include "blogging.h"
 #include "director/bconfigtypes.h"
 #include "director/busage.h"
+#include "director/bjsonreassembler.h"
 #define DIR_DEBUG BLOG_DEBUG()
 #define DIR_WARNING BLOG_WARNING()
 #define DIR_CRITICAL BLOG_ERROR()
@@ -1204,8 +1205,7 @@ private:
     QQueue<CommandEntry> m_commandQueue;     ///< Pending + in-flight commands
     QList<CommandEntry> m_commandHistory;    ///< Completed commands (for rollback)
     static constexpr int MaxHistorySize = 100;
-    bool m_jsonTextAccumulation;  ///< True when accumulating fragmented JSON text
-    QString m_binaryJsonAccumulator;  ///< Accumulator for multi-telegram binary JSON responses
+    BJsonReassembler m_jsonReply;  ///< Bytes of a JSON reply spanning several telegrams
     bool m_consumeApiConfirmation = false;  ///< Consume next JSON response as .api 2 confirmation (no dequeue)
 
     quint64 m_lastSentSize;

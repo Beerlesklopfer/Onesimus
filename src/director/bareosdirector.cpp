@@ -24,6 +24,7 @@
 
 #include "director/bareosdirector.h"
 #include "director/bnetframe.h"
+#include "director/bjsonreassembler.h"
 #include "blogging.h"
 #include "blogredact.h"
 #include "bquote.h"
@@ -38,6 +39,7 @@
 #include <QUrlQuery>
 #include <QSslCipher>
 #include <QSslError>
+#include <QScopeGuard>
 
 #ifdef HAVE_GRPC
 #include "director/bgrpctransport.h"
@@ -65,7 +67,6 @@ BareosDirector::BareosDirector(QObject *parent)
     , m_auth(nullptr)
     , m_connected(false)
     , m_apiMode(ApiMode::Json)  // API mode enabled by default
-    , m_jsonTextAccumulation(false)
     , m_lastSentSize(0)
     , m_initialized(false)
     , m_authCompleted(false)
@@ -243,9 +244,8 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
         m_apiModeTimer->stop();
     }
     failPendingCommands(tr("Connection to the Director was closed before the reply arrived"));
-    m_binaryJsonAccumulator.clear();
+    m_jsonReply.clear();
     m_receiveBuffer.clear();
-    m_jsonTextAccumulation = false;
     m_consumeApiConfirmation = false;
 
     {
@@ -808,9 +808,7 @@ void BareosDirector::setApiMode(ApiMode mode)
 
     // ✅ Reset JSON accumulation when leaving API mode
     if (mode == ApiMode::Off) {
-        m_jsonTextAccumulation = false;
-        m_binaryJsonAccumulator.clear();
-        m_receiveBuffer.clear();  // Clear any pending JSON fragments
+        m_jsonReply.clear();
     }
 
     QString modeStr;
@@ -910,9 +908,8 @@ void BareosDirector::onDisconnected()
     }
 
     // Cleanup
-    m_binaryJsonAccumulator.clear();
+    m_jsonReply.clear();
     m_receiveBuffer.clear();
-    m_jsonTextAccumulation = false;
     m_consumeApiConfirmation = false;
     if (m_apiModeTimer) {
         m_apiModeTimer->stop();
@@ -1044,96 +1041,37 @@ void BareosDirector::onReadyRead()
     BLOG_DEBUG() << "     Buffer total:" << m_receiveBuffer.size() << "bytes";
 #endif
 
-    // ✅ Handle JSON text mode (after .api 2 is activated)
-    // When in API mode, responses are JSON text without binary headers
-    // JSON can be fragmented across multiple packets, so we accumulate and parse
-    if (m_apiMode != ApiMode::Off &&
-        m_receiveBuffer.size() > 0 &&
-        (m_receiveBuffer[0] == '{' || m_receiveBuffer[0] == '[' || m_jsonTextAccumulation)) {
+    // Every reply comes in BNET telegrams, in every API mode (Bareos bsock,
+    // odir crates/bareos-bnet). The telegrams are taken from the front of the
+    // buffer by offset and the consumed bytes removed once at the end, so a
+    // buffer holding many telegrams is not copied once per telegram.
+    qsizetype offset = 0;
+    const auto consumed = qScopeGuard([this, &offset]() {
+        m_receiveBuffer.remove(0, offset);
+    });
 
-        // Enter JSON text accumulation mode
-        if (!m_jsonTextAccumulation) {
-#ifdef IS_DEVELOPER
-            BLOG_DEBUG() << "📄 Entering JSON text accumulation mode (API mode enabled)";
-#endif
-            m_jsonTextAccumulation = true;
-        }
-
-        // Try to parse buffer as complete JSON
-        QJsonParseError parseError;
-        QJsonDocument doc = QJsonDocument::fromJson(m_receiveBuffer, &parseError);
-
-        if (parseError.error == QJsonParseError::NoError) {
-            // Successfully parsed JSON - we have at least one complete object
-#ifdef IS_DEVELOPER
-            BLOG_DEBUG() << "✓ Complete JSON parsed, size:" << m_receiveBuffer.size() << "bytes";
-#endif
-            // Process the JSON
-            QString jsonStr = QString::fromUtf8(m_receiveBuffer).trimmed();
-            processDirectorMessage(jsonStr, false);
-
-            // Clear buffer
-            m_receiveBuffer.clear();
-
-            // ✅ STAY in JSON accumulation mode in API mode
-            // Multiple JSON documents may follow without binary headers
-            // Only exit JSON mode when API mode is disabled
-            // m_jsonTextAccumulation remains TRUE in API mode
+    while (m_receiveBuffer.size() - offset >= BnetFrame::HeaderSize) {
+        // Reply handlers in this thread may end the session (disconnect(),
+        // abortConnection()), which empties the buffer under our feet
+        if (offset > m_receiveBuffer.size()) {
+            offset = 0;
             return;
-        } else {
-            // Parse error - check if it's incomplete JSON (need more data)
-            if (parseError.error == QJsonParseError::UnterminatedObject ||
-                parseError.error == QJsonParseError::UnterminatedArray ||
-                parseError.error == QJsonParseError::UnterminatedString ||
-                m_receiveBuffer.size() < 100) {  // Very small buffer, likely incomplete
-#if defined(IS_DEVELOPER) && defined(DEBUG_JSON)
-                BLOG_DEBUG() << "⏳ Incomplete JSON, waiting for more data. Error:" << parseError.errorString()
-                         << "at offset" << parseError.offset;
-#endif
-                // Wait for more data
-                if (m_receiveBuffer.size() > 10000000) {  // 10MB limit
-                    BLOG_ERROR() << "⚠ JSON buffer too large without valid JSON:" << m_receiveBuffer.size();
-                    BLOG_ERROR() << "   Parse error:" << parseError.errorString();
-                    BLOG_ERROR() << "   Buffer start:" << QString::fromUtf8(m_receiveBuffer.left(200));
-                    m_receiveBuffer.clear();
-                    m_jsonTextAccumulation = false;
-                }
-                return;  // Wait for more data
-            } else {
-                // Real parse error - log and clear
-                BLOG_ERROR() << "⚠ JSON parse error:" << parseError.errorString();
-                BLOG_ERROR() << "   Error offset:" << parseError.offset;
-                BLOG_ERROR() << "   Buffer content:" << QString::fromUtf8(m_receiveBuffer.left(500));
-                m_receiveBuffer.clear();
-                m_jsonTextAccumulation = false;  // Exit JSON mode on real error
-                return;
-            }
         }
-    }
 
-    // ✅ If we reach here and JSON accumulation is active but we're not in API mode anymore,
-    // reset the flag (shouldn't normally happen)
-    if (m_jsonTextAccumulation && m_apiMode == ApiMode::Off) {
-        BLOG_WARNING() << "⚠ JSON accumulation active but API mode is off - resetting";
-        m_jsonTextAccumulation = false;
-    }
-
-    // Verarbeite alle vollständigen Pakete im Buffer
-    while (m_receiveBuffer.size() >= BnetFrame::HeaderSize) {
         // Lese 4-Byte Message-Length Header (signed 32-bit big-endian)
-        const qint32 messageLength = BnetFrame::announcedLength(m_receiveBuffer.constData());
+        const qint32 messageLength = BnetFrame::announcedLength(m_receiveBuffer.constData() + offset);
         const BnetFrame::HeaderKind headerKind =
             BnetFrame::classifyHeader(messageLength, BnetFrame::MaxSessionPayload);
 
 #if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
         BLOG_DEBUG() << "     Message length from header:" << messageLength;
-        BLOG_DEBUG() << "     First 20 bytes (hex):" << m_receiveBuffer.left(20).toHex(' ');
 #endif
 
         // The length comes from the network: the same limit in every build.
         // Nothing is buffered for a telegram larger than the limit; the
         // stream cannot be resynchronised after it, so the connection ends.
         if (headerKind == BnetFrame::HeaderKind::TooLarge) {
+            offset = 0;   // abortConnection() clears the buffer itself
             abortConnection(tr("The Director announced a message of %1 bytes (limit: %2 MiB). "
                                "The connection was closed.")
                                 .arg(messageLength)
@@ -1145,66 +1083,43 @@ void BareosDirector::onReadyRead()
         // Ein Signal besteht NUR aus dem 4-Byte-Header, es folgt KEIN Payload
         // (Bareos bsock: Signal = nur die negative Länge auf dem Draht).
         if (headerKind == BnetFrame::HeaderKind::Signal) {
-            m_receiveBuffer.remove(0, BnetFrame::HeaderSize);
+            offset += BnetFrame::HeaderSize;
             handleBnetSignal(messageLength);
             continue;
         }
 
         // Prüfe ob vollständiges Paket vorhanden (4 Bytes Header + Payload)
         // (computed in 64 bit; the length is already bounded here)
-        if (m_receiveBuffer.size() < BnetFrame::telegramSize(messageLength)) {
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-            BLOG_DEBUG() << "     Waiting for more data..."
-                     << "Have:" << m_receiveBuffer.size()
-                     << "Need:" << (4 + messageLength);
-#endif
+        if (m_receiveBuffer.size() - offset < BnetFrame::telegramSize(messageLength)) {
             break;  // Warte auf mehr Daten
         }
 
         // Extrahiere Nachricht (ohne Header)
-        QByteArray message = m_receiveBuffer.mid(4, messageLength);
+        QByteArray message = m_receiveBuffer.mid(offset + BnetFrame::HeaderSize, messageLength);
+        offset += BnetFrame::telegramSize(messageLength);
         message.replace(0x01, ' ');
 
-        // Entferne verarbeitetes Paket aus Buffer (Header + Payload)
-        m_receiveBuffer.remove(0, 4 + messageLength);
-
-        // Konvertiere zu String
-        QString messageStr = QString::fromUtf8(message).trimmed();
-
-#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
-        BLOG_DEBUG() << "✓ Complete message received:";
-        BLOG_DEBUG() << "  Length:" << messageLength;
-        if (messageStr.size() > 200) {
-            BLOG_DEBUG() << "  Content (first 200 chars):" << messageStr.left(200);
-        } else {
-            BLOG_DEBUG() << "  Content:" << messageStr;
+        // A JSON reply can span many telegrams, cut anywhere, even inside a
+        // UTF-8 character. Its bytes are collected unchanged and decoded once
+        // the document is complete (or the reply ends with a signal, see
+        // handleBnetSignal()); nothing is trimmed at telegram boundaries.
+        if (!m_jsonReply.isEmpty() || BJsonReassembler::startsJson(message)) {
+            m_jsonReply.append(message);
+            QByteArray document;
+            while (m_jsonReply.takeDocument(&document)) {
+                processDirectorMessage(unbashSpaces(QString::fromUtf8(document)), false);
+            }
+            continue;
         }
+
+        // Non-JSON text data — process immediately (one reply per telegram
+        // until replies are framed by signal, see P3-1 in the backlog)
+        const QString messageStr = QString::fromUtf8(message).trimmed();
+#if defined(IS_DEVELOPER) && defined(DEBUG_PACKETS)
+        BLOG_DEBUG() << "✓ Text message received:" << messageStr.left(200);
 #endif
-
-        // ✅ Multi-telegram JSON accumulation for binary protocol
-        // A single JSON response from the Director can span multiple binary telegrams.
-        // We accumulate data telegrams and process the complete JSON when:
-        //   (a) a signal packet arrives (end-of-response delimiter, see handleBnetSignal), or
-        //   (b) the accumulated data is already valid JSON (single-telegram response)
-        if (messageStr.startsWith('{') || messageStr.startsWith('[')
-            || !m_binaryJsonAccumulator.isEmpty()) {
-            // JSON data telegram — accumulate (may span multiple telegrams)
-            m_binaryJsonAccumulator += messageStr;
-
-            // Check if JSON is already complete (avoids waiting for signal)
-            QJsonParseError parseErr;
-            QJsonDocument::fromJson(m_binaryJsonAccumulator.toUtf8(), &parseErr);
-            if (parseErr.error == QJsonParseError::NoError) {
-                // Complete JSON — process immediately
-                processDirectorMessage(unbashSpaces(m_binaryJsonAccumulator), false);
-                m_binaryJsonAccumulator.clear();
-            }
-            // Otherwise wait for more telegrams or signal
-        } else {
-            // Non-JSON text data — process immediately
-            if (!messageStr.isEmpty()) {
-                processDirectorMessage(unbashSpaces(messageStr), false);
-            }
+        if (!messageStr.isEmpty()) {
+            processDirectorMessage(unbashSpaces(messageStr), false);
         }
     }
 }
@@ -1230,10 +1145,11 @@ void BareosDirector::handleBnetSignal(qint32 signal)
     // Ein Signal (außer CMD_BEGIN) schließt die laufende Antwort ab
     // (EOD, CMD_OK, CMD_FAILED, MAIN_PROMPT, ...): bis dahin gesammelte
     // JSON-Telegramme sofort verarbeiten, nicht erst beim nächsten Paket.
-    if (signal != -16 /* CMD_BEGIN */ && !m_binaryJsonAccumulator.isEmpty()) {
-        const QString accumulated = m_binaryJsonAccumulator;
-        m_binaryJsonAccumulator.clear();
-        processDirectorMessage(unbashSpaces(accumulated), false);
+    if (signal != -16 /* CMD_BEGIN */ && !m_jsonReply.isEmpty()) {
+        const QByteArray accumulated = m_jsonReply.takeAll();
+        if (!accumulated.isEmpty()) {
+            processDirectorMessage(unbashSpaces(QString::fromUtf8(accumulated)), false);
+        }
     }
 
     if (signal == -4 /* TERMINATE */) {
@@ -2341,9 +2257,8 @@ void BareosDirector::connectGrpc()
     DIR_DEBUG << "Connecting via gRPC to" << m_host << ":" << grpcPort;
 
     m_commandQueue.clear();
-    m_binaryJsonAccumulator.clear();
+    m_jsonReply.clear();
     m_receiveBuffer.clear();
-    m_jsonTextAccumulation = false;
     m_consumeApiConfirmation = false;
 
     setState(Authenticating);
