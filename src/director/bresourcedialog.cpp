@@ -205,6 +205,7 @@ static QString resourceToConf(const BConfigResource &resource, QString *error)
                 conf += QString("  %1 = %2\n").arg(key, BQuote::quoted(item));
             break;
         case BConfigValue::Block:
+        case BConfigValue::BlockList:
             // Nested blocks not fully supported yet
             break;
         }

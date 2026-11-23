@@ -483,8 +483,8 @@ public:
         TLSConfig() :
             tlsEnable(false),
             tlsRequire(false),
-            tlsVerifyPeer(false),
             tlsPSKEnable(false),
+            tlsVerifyPeer(false),
             tlsCipherList(),
             tlsCaCertFile(new QFile("")),
             tlsPfxFile(new QFile("")),
@@ -493,8 +493,8 @@ public:
         TLSConfig() :
             tlsEnable(false),
             tlsRequire(false),
-            tlsVerifyPeer(false),
             tlsPSKEnable(false),
+            tlsVerifyPeer(false),
             tlsCipherList(),
             tlsCaCertFile(new QFile("")),
             tlsCertFile(new QFile("")),

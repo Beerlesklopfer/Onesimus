@@ -69,8 +69,8 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     , m_filesetModel(new BFilesetModel(this))
     , m_storageModel(new BStorageModel(this))
     , m_poolModel(new BPoolModel(this))
-    , m_catalogModel(new BCatalogModel(this))
     , m_levelModel(new BLevelModel(this))
+    , m_catalogModel(new BCatalogModel(this))
     , m_jobConfigModel(new BJobConfigModel(this))
 {
     // Initialize checkboxes - all checked by default (except Zero Bytes)
@@ -218,8 +218,8 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
             this, &BJobWidget::onJobSelectionChanged);
 
     // Connect current row changes (click or keyboard navigation)
-    bool connectionSuccess = connect(m_tableView, &BJsonJobView::currentRowChanged,
-                                     this, &BJobWidget::onCurrentRowChanged);
+    connect(m_tableView, &BJsonJobView::currentRowChanged,
+            this, &BJobWidget::onCurrentRowChanged);
 
     connect(m_tableView, &BJsonJobView::jobActionRequested,
             this, [this](const QString &command, const QString &args) {
@@ -681,7 +681,7 @@ void BJobWidget::setupUI()
     connect(m_autoRefreshCheck, &QCheckBox::toggled,
             this, &BJobWidget::toggleAutoRefresh);
     connect(m_refreshIntervalCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            [this](int index) {
+            [this](int) {
                 if (m_autoRefreshCheck->isChecked()) {
                     toggleAutoRefresh(false);
                     toggleAutoRefresh(true);

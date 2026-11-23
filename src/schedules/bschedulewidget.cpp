@@ -127,6 +127,7 @@ private:
 BScheduleWidget::BScheduleWidget(QWidget *parent)
     : QWidget(parent)
     , m_scheduleModel(new BScheduleModel(this))
+    , m_jobScheduleIndex(new BJobScheduleIndex(this))
     , m_splitter(new QSplitter(Qt::Horizontal, this))
     , m_leftSplitter(new QSplitter(Qt::Vertical, this))
     , m_scheduleList(new QListWidget(this))
@@ -146,7 +147,6 @@ BScheduleWidget::BScheduleWidget(QWidget *parent)
     , m_snapCombo(new QComboBox(this))
     , m_waitButton(new BElidingButton(this))
     , m_runProblemLabel(new QLabel(this))
-    , m_jobScheduleIndex(new BJobScheduleIndex(this))
     , m_director(nullptr)
     , m_currentDate(QDate::currentDate())
 {
@@ -998,7 +998,6 @@ void BScheduleWidget::onViewModeChanged(int index)
     // The grid is not about a date (its calendar has its own navigation)
     // and the table of measured waits is not either.
     const bool isGantt = (index == 0);
-    const bool isGrid = (index == 1);
     const bool isWaits = (index == 2);
     m_dayViewCombo->setVisible(isGantt);
     m_snapLabel->setVisible(isGantt);

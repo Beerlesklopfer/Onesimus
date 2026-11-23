@@ -1114,7 +1114,7 @@ void BareosDirector::onApiModeTimeout()
                        "The connection was closed.").arg(ApiModeTimeoutMs / 1000));
 }
 
-void BareosDirector::onBytesWritten(qint64 bytes){
+void BareosDirector::onBytesWritten(qint64 /*bytes*/){
 
     // During authentication, the Auth class handles all data
     // This should never happen, for that the connection to this
@@ -1637,11 +1637,10 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
 
     if (match.hasMatch())
     {
+#ifdef IS_DEVELOPER
         int major = match.captured(1).toInt();
         int minor = match.captured(2).toInt();
         int patch = match.captured(3).toInt();
-
-#ifdef IS_DEVELOPER
         BLOG_DEBUG() << "  Parsed version:" << major << "." << minor << "." << patch;
 
         // Enable compression if Director supports it

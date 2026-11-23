@@ -90,8 +90,10 @@ checked against the code on 2026-11-23; file references are to that state. Repor
 - No open items besides those above.
 
 ### Build/packaging
-- No compiler warning flags (`-Wall -Wextra`, `/W4`). No core library: `bareosauth.cpp` is
-  compiled for several targets (`CMakeLists.txt:473`, `:1335`, `:1370`).
+- Most tests still compile their own copies of application sources; only `bdialogfonts_test` and
+  `bappwidgets_test` link `onesimus_core` (`CMakeLists.txt`, test section).
+- Compiler warnings left: OpenSSL's deprecated `MD5_*` in `src/director/bareosauth.cpp:1126-1152`
+  (CRAM-MD5 of the BNET login), an unused `placementText()` in `src/tools/b321dialog.cpp:110`.
 - Tests still missing for `BJsonStreamReader` and `BConfigExporter`.
 - The bundled OpenSSL is configured `shared` (`CMakeLists.txt:240`, `:272`).
 - Linux and macOS use `Qt6Gui_PRIVATE_INCLUDE_DIRS` instead of `Qt6::GuiPrivate`

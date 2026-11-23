@@ -31,7 +31,7 @@
 BareosAuth::BareosAuth(QSslSocket *socket, QObject *parent)
     : QObject(parent), m_socket(socket), m_authTimer(nullptr), m_directorVersion(0), m_tlsLocalNeed(BAREOS_TLS_NONE), m_tlsRemoteNeed(BAREOS_TLS_NONE), m_tlsPSKEnable(true) // Default for Bareos 18.2+
       ,
-    m_tlsStarted(false), m_authSuccess(false), m_authState(BAuthState::AUTH_IDLE)
+    m_tlsStarted(false), m_authSuccess(false)
 {
     Q_ASSERT(socket != nullptr);
 

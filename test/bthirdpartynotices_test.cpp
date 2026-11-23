@@ -5,7 +5,7 @@
  * @file bthirdpartynotices_test.cpp
  * @brief The third-party notices compiled into the program
  *
- * THIRD-PARTY-NOTICES.md, LICENSE and LICENSES/*.txt are Qt resources under
+ * THIRD-PARTY-NOTICES.md, LICENSE and the *.txt files in LICENSES are Qt resources under
  * :/legal/ (the same list CMakeLists.txt installs into every package). Every
  * licence file the notices link must be there, every licence file there
  * must be linked, and the dialog of the About box shows them and follows a

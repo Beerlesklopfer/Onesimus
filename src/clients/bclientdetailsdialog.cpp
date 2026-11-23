@@ -241,7 +241,7 @@ static QString extractOS(const QString &uname)
     if (debMatch.hasMatch())
         return QString("Linux Debian %1").arg(debMatch.captured(1));
 
-    for (const QString &os : {"Windows", "FreeBSD", "Darwin", "macOS",
+    for (const char *os : {"Windows", "FreeBSD", "Darwin", "macOS",
                                "Solaris", "AIX", "HP-UX"}) {
         if (trimmed.contains(os, Qt::CaseInsensitive))
             return os;

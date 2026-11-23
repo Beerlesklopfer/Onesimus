@@ -67,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `-DONESIMUS_INCREMENT_BUILD=ON` counts it up per build. About shows the source (commit) date.
 - Build: one CMake minimum, 3.25 (`CMakePresets.json` is a version 6 presets file); the Windows
   presets use Ninja and `build\` like `deploy.ps1`; the build docs list QtGrpc/QtProtobuf and `protoc`.
+- Build: compiler warnings (`-Wall -Wextra`, MSVC `/W4`) for the Onesimus targets, option
+  `ONESIMUS_WARNINGS` (default ON; not for OpenSSL or the generated gRPC code); the cheap warnings
+  they showed are fixed.
+- Build: the application sources are compiled once into the static library `onesimus_core`, which the
+  program and the app-wide tests link; `bareosauth.cpp` is compiled once (`bareosauth_lib`).
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to
