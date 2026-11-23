@@ -135,12 +135,21 @@ public:
     bool parseDirectory(const QString &dirPath);
 
     /**
-     * @brief Parse configuration from a ZIP archive
+     * @brief Parse the configuration files of a ZIP archive
+     *
+     * The files are read into memory by BZipImport, within its limits (size,
+     * number of entries, no symbolic links, no path leaving the archive);
+     * nothing is extracted. Defined in bzipimport.cpp, so that only the
+     * targets that import archives need QZipReader.
      * @param zipPath Path to the ZIP file
-     * @param basePath Optional base path within the ZIP
-     * @return true on success, false on error
+     * @param basePath Optional directory within the ZIP; only files below it are parsed
+     * @return true if at least one resource was parsed; skippedEntries()
+     *         says which entries were refused
      */
     bool parseZipArchive(const QString &zipPath, const QString &basePath = QString());
+
+    /// "path: reason" for the archive entries the last parseZipArchive() refused
+    QStringList skippedEntries() const { return m_skippedEntries; }
 
     /**
      * @brief Get all parsed resources
@@ -232,6 +241,7 @@ private:
 
     QList<BConfigResource> m_resources;
     QString m_lastError;
+    QStringList m_skippedEntries;
 };
 
 #endif // BCONFIGPARSER_H

@@ -589,6 +589,7 @@ set(SOURCES
     src/clients/bnewclientdialog.cpp
 
     src/config/bconfigparser.cpp
+    src/config/bzipimport.cpp
     src/config/bdirectiveschema.cpp
     src/config/bresourceform.cpp
     src/config/bincludeoptionsform.cpp
@@ -636,6 +637,7 @@ set(HEADERS
     include/bpfxconverter.h
     include/bpki.h
     include/bquote.h
+    include/config/bzipimport.h
     include/director/bdirector.h
     include/director/bareosdirector.h
     include/db/bdatabase.h
@@ -2224,6 +2226,25 @@ if(BUILD_TESTING)
     target_include_directories(bquote_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(bquote_test PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME bquote_test COMMAND bquote_test)
+
+    # bzipimport_test - ZIP import in memory: limits on archive size, entry
+    # count, entry and total size, sizes that lie, paths leaving the archive,
+    # symbolic links; BConfigParser::parseZipArchive() (no Director)
+    add_executable(bzipimport_test
+        test/bzipimport_test.cpp
+        src/config/bzipimport.cpp
+        src/config/bconfigparser.cpp
+        include/config/bzipimport.h
+        include/config/bconfigparser.h
+    )
+    target_include_directories(bzipimport_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bzipimport_test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+    if(WIN32 AND TARGET Qt6::GuiPrivate)
+        target_link_libraries(bzipimport_test PRIVATE Qt6::GuiPrivate)
+    else()
+        target_include_directories(bzipimport_test PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
+    endif()
+    add_test(NAME bzipimport_test COMMAND bzipimport_test)
 
     # bpki_test - certificate generator and PFX converter without widgets:
     # key files owner-only (also an existing file), CA key encrypted,

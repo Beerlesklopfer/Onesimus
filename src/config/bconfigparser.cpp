@@ -178,16 +178,7 @@ bool BConfigParser::parseDirectory(const QString &dirPath)
     return parsedCount > 0;
 }
 
-bool BConfigParser::parseZipArchive(const QString &zipPath, const QString &basePath)
-{
-    // TODO: Implement ZIP archive parsing using QuaZip or similar
-    // For now, extract to temp directory and parse
-    Q_UNUSED(zipPath)
-    Q_UNUSED(basePath)
-    m_lastError = "ZIP archive parsing not yet implemented";
-    emit parsingError(m_lastError);
-    return false;
-}
+// parseZipArchive() is defined in bzipimport.cpp
 
 QList<BConfigResource> BConfigParser::resourcesByType(const QString &type) const
 {

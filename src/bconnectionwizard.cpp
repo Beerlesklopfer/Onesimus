@@ -24,7 +24,6 @@
 #include "config/bconfigparser.h"
 #include "bmdnsbrowser.h"
 
-#include <private/qzipreader_p.h>
 #include <private/qzipwriter_p.h>
 
 #include <QVBoxLayout>
@@ -811,59 +810,17 @@ void ImportConsoleSelectionPage::parseConfigSource()
     m_statusLabel->setText(tr("Extracting and parsing ZIP archive..."));
     m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
 
-    // Clean up any previous temp directory
-    cleanupTempDir();
-    m_tempDir = new QTemporaryDir();
-
-    if (!m_tempDir->isValid()) {
-        m_statusLabel->setText(tr("Failed to create temporary directory."));
+    // Read in memory with limits; nothing is extracted (BZipImport)
+    const bool parsed = m_parser->parseZipArchive(zipPath);
+    const QStringList skipped = m_parser->skippedEntries();
+    if (!skipped.isEmpty()) {
+        BLOG_WARNING() << "[ImportConsole] entries not read:" << skipped.join(QStringLiteral("; "));
+    }
+    if (!parsed && !m_parser->lastError().isEmpty() && m_parser->resources().isEmpty()) {
+        m_statusLabel->setText(tr("Cannot read the ZIP archive: %1").arg(m_parser->lastError()));
         m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
         m_progressBar->setVisible(false);
         return;
-    }
-
-    // Extract ZIP using QZipReader (Qt6 private API)
-    QZipReader zip(zipPath);
-    if (!zip.isReadable()) {
-        m_statusLabel->setText(tr("Cannot read ZIP file: %1").arg(zipPath));
-        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
-        m_progressBar->setVisible(false);
-        return;
-    }
-
-    if (!zip.extractAll(m_tempDir->path())) {
-        m_statusLabel->setText(tr("Failed to extract ZIP archive."));
-        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
-        m_progressBar->setVisible(false);
-        return;
-    }
-
-    zip.close();
-
-    // Scan extracted content for config sources
-    // 1. Look for directory-based configs (bareos-dir.d/ or bacula-dir.d/)
-    QDirIterator dirIt(m_tempDir->path(),
-                       QStringList() << "bareos-dir.d" << "bacula-dir.d",
-                       QDir::Dirs, QDirIterator::Subdirectories);
-
-    bool parsed = false;
-    if (dirIt.hasNext()) {
-        QString configDir = dirIt.next();
-        BLOG_DEBUG() << "[ImportConsole] Found config directory:" << configDir;
-        parsed = m_parser->parseDirectory(configDir);
-    }
-
-    // 2. If no directory found, look for flat config files (*.conf)
-    if (!parsed || m_parser->resources().isEmpty()) {
-        QDirIterator confIt(m_tempDir->path(),
-                            QStringList() << "*.conf",
-                            QDir::Files, QDirIterator::Subdirectories);
-        while (confIt.hasNext()) {
-            QString confFile = confIt.next();
-            BLOG_DEBUG() << "[ImportConsole] Parsing config file:" << confFile;
-            m_parser->parseFile(confFile);
-            parsed = true;
-        }
     }
 
     m_progressBar->setVisible(false);

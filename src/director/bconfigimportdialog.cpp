@@ -13,13 +13,11 @@
 #include "buiscale.h"
 #include "config/bdirectiveschema.h"
 #include <QApplication>
-#include <QClipboard>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QProcess>
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
@@ -219,45 +217,6 @@ void BConfigImportDialog::setupTabs()
     m_createProfileCheck->setChecked(true);
     connLayout->addWidget(m_createProfileCheck, 4, 0, 1, 2);
 
-    // DEBUG: Copy button to copy parsed resource info to clipboard
-    QPushButton *copyDebugButton = new QPushButton(tr("Copy Debug Info"), this);
-    copyDebugButton->setToolTip(tr("Copy parsed resource details to clipboard for debugging"));
-    connect(copyDebugButton, &QPushButton::clicked, this, [this]() {
-        QString debugInfo;
-        debugInfo += "=== PARSED RESOURCES DEBUG INFO ===\n\n";
-
-        // Directors
-        QList<BConfigResource> directors = m_parser->resourcesByType("Director");
-        debugInfo += QString("Directors: %1\n").arg(directors.size());
-        for (const BConfigResource &dir : directors) {
-            debugInfo += QString("  - %1\n").arg(dir.name());
-            debugInfo += QString("    Keys: %1\n").arg(dir.keys().join(", "));
-            for (const QString &key : dir.keys()) {
-                debugInfo += QString("    %1 = %2\n").arg(key, dir.simpleValue(key, "(complex)"));
-            }
-        }
-
-        // Consoles
-        QList<BConfigResource> consoles = m_parser->resourcesByType("Console");
-        debugInfo += QString("\nConsoles: %1\n").arg(consoles.size());
-        for (const BConfigResource &con : consoles) {
-            debugInfo += QString("  - %1\n").arg(con.name());
-            debugInfo += QString("    Keys: %1\n").arg(con.keys().join(", "));
-            for (const QString &key : con.keys()) {
-                QString val = con.simpleValue(key, "(complex)");
-                // Mask password partially
-                if (key.toLower() == "password" && val.length() > 10) {
-                    val = val.left(10) + "..." + QString(" (len=%1)").arg(val.length());
-                }
-                debugInfo += QString("    %1 = %2\n").arg(key, val);
-            }
-        }
-
-        QApplication::clipboard()->setText(debugInfo);
-        QMessageBox::information(this, tr("Debug Info Copied"),
-            tr("Debug information has been copied to clipboard.\n\nPaste it somewhere to view."));
-    });
-    connLayout->addWidget(copyDebugButton, 5, 0, 1, 2);
 
     directorTabLayout->addWidget(m_connectionGroup);
     m_tabWidget->addTab(directorTab, tr("Director"));
@@ -352,50 +311,20 @@ void BConfigImportDialog::onParse()
         // Parse directory directly
         m_parser->parseDirectory(path);
     } else if (fi.suffix().toLower() == "zip") {
-        // Extract ZIP to temp directory first
-        cleanupTempDir();
-        m_tempDir = new QTemporaryDir();
-
-        if (!m_tempDir->isValid()) {
-            onParsingError(tr("Failed to create temporary directory"));
+        // Read in memory with limits; nothing is extracted (BZipImport)
+        m_statusLabel->setText(tr("Reading ZIP archive..."));
+        if (!m_parser->parseZipArchive(path) && m_parser->resources().isEmpty()) {
+            if (!m_parser->lastError().isEmpty())
+                return;   // onParsingError() has shown it
+            onParsingError(tr("No configuration resources found in the archive."));
             return;
         }
-
-        m_statusLabel->setText(tr("Extracting ZIP archive..."));
-
-        // Use unzip command
-        QProcess unzip;
-        unzip.setWorkingDirectory(m_tempDir->path());
-        unzip.start("unzip", {"-q", path});
-
-        if (!unzip.waitForFinished(60000)) {
-            onParsingError(tr("Failed to extract ZIP archive (timeout)"));
-            return;
+        const QStringList skipped = m_parser->skippedEntries();
+        if (!skipped.isEmpty()) {
+            QMessageBox::warning(this, tr("Entries not read"),
+                                 tr("These entries of the archive were not read:\n%1")
+                                     .arg(skipped.mid(0, 20).join(QLatin1Char('\n'))));
         }
-
-        if (unzip.exitCode() != 0) {
-            onParsingError(tr("Failed to extract ZIP archive: %1")
-                               .arg(QString::fromUtf8(unzip.readAllStandardError())));
-            return;
-        }
-
-        // Find the bareos-dir.d directory
-        QDirIterator it(m_tempDir->path(), QStringList() << "bareos-dir.d" << "bacula-dir.d",
-                        QDir::Dirs, QDirIterator::Subdirectories);
-
-        QString configDir;
-        while (it.hasNext()) {
-            configDir = it.next();
-            break;
-        }
-
-        if (configDir.isEmpty()) {
-            // Try to find any .conf files
-            configDir = m_tempDir->path();
-        }
-
-        m_statusLabel->setText(tr("Parsing extracted files..."));
-        m_parser->parseDirectory(configDir);
     } else {
         // Try to parse as single file
         m_parser->parseFile(path);
