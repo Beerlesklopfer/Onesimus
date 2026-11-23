@@ -690,6 +690,7 @@ set(HEADERS
     include/jobs/bnewjobdialog.h
     include/jobs/brunjobcommand.h
     include/jobs/brestorecommand.h
+    include/jobs/bbvfsargs.h
     include/jobs/bfilesetwizard.h
     include/jobs/bjobwizard.h
     include/jobs/fileset/bfilesetdocument.h
@@ -1764,6 +1765,7 @@ if(BUILD_TESTING)
         src/jobs/bbvfsmodel.cpp
         src/jobs/bbvfsreplyrouter.cpp
         include/jobs/bbvfsmodel.h
+        include/jobs/bbvfsargs.h
         include/jobs/bbvfsreplyrouter.h
         src/director/bdirector.cpp
         include/director/bdirector.h

@@ -45,6 +45,7 @@ for semantics, cited in comments):
 | `tools/b321verifier` | which backups and copies a restore can use (`dird/ua_restore.cc`, `dird/migrate.cc`, `cats/sql_update.cc`) |
 | `director/bareosdirector`, `models/bvolumejson` | the output of list commands (`dird/ua_output.cc`, `cats/sql_list.cc`) |
 | `bquote` (header only) | quoting of command lines and resource text (`lib/scan.cc`, `lib/lex.cc`), the name rule of `lib/edit.cc` `IsNameValid()`, the characters `configure add` refuses (`dird/ua_configure.cc`) |
+| `jobs/bbvfsargs` (header only) | the arguments of the `.bvfs_*` commands (`dird/ua_dotcmds.cc`, `cats/bvfs.cc` `CheckTempBvfsTableName()`) |
 | `jobs/fileset/bfilesetdocument` | the FileSet grammar and keywords (`dird/inc_conf.cc`, `dird/dird_conf.cc` `fs_items`, `FilesetResource::PrintConfig`) |
 | `test/bfakebnetdirector.h` | the Director's side of the console login (`lib/cram_md5.cc`) and the BNET signals of the command loop (`lib/bsock.h`, after the Onesimus Director), as a fake Director for tests |
 

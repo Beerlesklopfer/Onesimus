@@ -107,6 +107,7 @@ private slots:
     void lateChildrenOfCheckedDirectoryArriveChecked();
     void uncheckingInsideCheckedDirectoryKeepsTheRestSelected();
     void unixRootKeepsItsName();
+    void idsFromDirectorAreOnlyTakenAsNumbers();
 };
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,45 @@ void BBvfsModelTest::listArgsUsesEmptyPathForRoot()
 {
     QCOMPARE(BBvfsModel::listArgs("1,2", 0, 0), QStringLiteral("jobid=1,2 path= limit=1000 offset=0"));
     QCOMPARE(BBvfsModel::listArgs("7", 42, 2000, 500), QStringLiteral("jobid=7 pathid=42 limit=500 offset=2000"));
+    // Job ids that are not a list of numbers: nothing to send (P1-24)
+    QCOMPARE(BBvfsModel::listArgs("7 path=/etc", 0, 0), QString());
+}
+
+void BBvfsModelTest::idsFromDirectorAreOnlyTakenAsNumbers()
+{
+    // .bvfs_get_jobids and .bvfs_lsfiles answer with ids that go into later
+    // commands; one that is not a number is dropped, never sent (P1-24)
+    QList<Sent> sent;
+    BBvfsReplyRouter router([&](Command c, const QString &a) { sent.append({c, a}); });
+    BBvfsModel model(&router);
+
+    model.loadJob(5, true);
+    QCOMPARE(sent.last().cmd, Command::BvfsGetJobIds);
+    QCOMPARE(sent.last().args, QStringLiteral("jobid=5"));
+    router.handleReply(Command::BvfsGetJobIds, jobIdsReply({"3", "4 path=/etc", "5"}), true);
+    QCOMPARE(sent.last().cmd, Command::BvfsUpdate);
+    QCOMPARE(sent.last().args, QStringLiteral("jobid=3,5"));
+    QCOMPARE(model.bvfsJobIds(), QStringLiteral("3,5"));
+
+    router.handleReply(Command::BvfsUpdate, "OK", false);
+    router.handleReply(Command::BvfsLsDirs, dirsPage(17, 0, {dirEntry(18, "/", "/")}), true);
+    const QModelIndex dir = model.index(0, 0);
+    model.loadFilesForDirectory(dir);
+    QCOMPARE(sent.last().cmd, Command::BvfsLsFiles);
+    QJsonArray files;
+    files.append(QJsonObject{{"type", "F"}, {"pathid", 18}, {"fileid", "77 dirid=1"}, {"jobid", 5},
+                             {"name", "bad"}, {"stat", QJsonObject{{"size", 1}}}});
+    files.append(QJsonObject{{"type", "F"}, {"pathid", 18}, {"fileid", 78}, {"jobid", 5},
+                             {"name", "good"}, {"stat", QJsonObject{{"size", 1}}}});
+    router.handleReply(Command::BvfsLsFiles, json({{"files", files}}), true);
+    QMap<QString, QString> idByName;
+    for (int row = 0; row < model.rowCount(dir); ++row) {
+        const QModelIndex child = model.index(row, 0, dir);
+        idByName.insert(child.data(Qt::DisplayRole).toString(), child.data(BBvfsModel::FileIdRole).toString());
+    }
+    QCOMPARE(idByName.value(QStringLiteral("good")), QStringLiteral("78"));
+    QVERIFY(idByName.contains(QStringLiteral("bad")));
+    QCOMPARE(idByName.value(QStringLiteral("bad")), QString());
 }
 
 void BBvfsModelTest::lastPageDetection()

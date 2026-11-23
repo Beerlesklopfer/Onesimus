@@ -4,6 +4,7 @@
 
 #include "jobs/brestorewizard.h"
 #include "jobs/brestorecommand.h"
+#include "jobs/bbvfsargs.h"
 #include "buiscale.h"
 #include "blogging.h"
 #include "blogredact.h"
@@ -150,8 +151,9 @@ void BRestoreWizard::sendCleanupIfNeeded()
     RESTORE_DEBUG << "Sending cleanup on close: .bvfs_cleanup path="
                   << m_data.restoreTableName;
     // Nobody waits for this reply; the router drops it
-    m_router->send(BDirector::Command::BvfsCleanup,
-                   QString("path=%1").arg(m_data.restoreTableName));
+    const QString args = BBvfsArgs::cleanup(m_data.restoreTableName);
+    if (!args.isEmpty())
+        m_router->send(BDirector::Command::BvfsCleanup, args);
     m_data.restoreTableCreated = false;
 }
 
@@ -1050,26 +1052,23 @@ void BRestorePreviewPage::initializePage()
     int rnd = QRandomGenerator::global()->bounded(100000, 999999);
     data->restoreTableName = QString("b2%1").arg(rnd);
 
-    // Build file ID and dir ID lists
-    QString fileIds = data->selectedFileIds.join(",");
-    QString dirIds;
+    // Build .bvfs_restore command: job, file and directory ids come from
+    // the Director and are only taken as numbers (BBvfsArgs)
     QStringList dirIdStrings;
     for (int id : data->selectedDirIds) {
         dirIdStrings.append(QString::number(id));
     }
-    dirIds = dirIdStrings.join(",");
-
-    // Build .bvfs_restore command
-    QStringList parts;
-    parts << QString("path=%1").arg(data->restoreTableName);
-    parts << QString("jobid=%1").arg(data->resolvedBvfsJobIds);
-    if (!fileIds.isEmpty()) {
-        parts << QString("fileid=%1").arg(fileIds);
+    data->bvfsRestoreCommand = BBvfsArgs::restore(data->restoreTableName, data->resolvedBvfsJobIds,
+                                                  data->selectedFileIds, dirIdStrings);
+    QString bvfsField;
+    if (data->bvfsRestoreCommand.isEmpty()) {
+        if (!BBvfsArgs::isIdList(data->resolvedBvfsJobIds))
+            bvfsField = QStringLiteral("jobid");
+        else if (!data->selectedFileIds.isEmpty() && BBvfsArgs::idList(data->selectedFileIds).isEmpty())
+            bvfsField = QStringLiteral("fileid");
+        else
+            bvfsField = QStringLiteral("dirid");
     }
-    if (!dirIds.isEmpty()) {
-        parts << QString("dirid=%1").arg(dirIds);
-    }
-    data->bvfsRestoreCommand = parts.join(" ");
 
     // Build restore command: client= is the client of the backup, the
     // target goes to restoreclient=; every name and the path are quoted
@@ -1082,9 +1081,10 @@ void BRestorePreviewPage::initializePage()
     params.replace = data->replacePolicy;
     const BRestoreCommand::Result built = BRestoreCommand::build(params);
     data->restoreCommand = built.arguments;
-    data->restoreCommandError = built.ok()
+    const QString badField = !bvfsField.isEmpty() ? bvfsField : (built.ok() ? QString() : built.field);
+    data->restoreCommandError = badField.isEmpty()
         ? QString()
-        : tr("The restore command cannot be built: the value of %1= is not valid.").arg(built.field);
+        : tr("The restore command cannot be built: the value of %1= is not valid.").arg(badField);
 
     // Update UI — build selection summary
     QStringList selectionParts;
@@ -1134,7 +1134,7 @@ void BRestorePreviewPage::initializePage()
     preview += "# Step 2: Execute restore\n";
     preview += "restore " + data->restoreCommand + "\n\n";
     preview += "# Step 3: Cleanup (automatic)\n";
-    preview += QString(".bvfs_cleanup path=%1\n").arg(data->restoreTableName);
+    preview += ".bvfs_cleanup " + BBvfsArgs::cleanup(data->restoreTableName) + "\n";
 
     m_commandPreview->setPlainText(preview);
 
@@ -1416,7 +1416,7 @@ void BRestoreExecutePage::sendCleanup()
     m_progressBar->setValue(2);
     setStatus(tr("Cleaning up restore table..."));
 
-    QString cleanupArgs = QString("path=%1").arg(data->restoreTableName);
+    const QString cleanupArgs = BBvfsArgs::cleanup(data->restoreTableName);
     appendLog(tr(">>> .bvfs_cleanup %1").arg(cleanupArgs));
 
     m_timeoutTimer->start();

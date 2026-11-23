@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "jobs/bbvfsmodel.h"
+#include "jobs/bbvfsargs.h"
 #include "blogging.h"
 #include <QJsonDocument>
 #include <QJsonParseError>
@@ -44,11 +45,9 @@ QString jsonErrorMessage(const QJsonObject &root)
 QString BBvfsModel::listArgs(const QString &jobIds, int pathId, int offset, int limit)
 {
     // "path=" with an empty value is the root (Bareos ua_dotcmds.cc
-    // BvfsParseArg/Bvfs::ChDir(""); the WebUI asks for the root the same way)
-    const QString where = pathId > 0 ? QStringLiteral("pathid=%1").arg(pathId)
-                                     : QStringLiteral("path=");
-    return QStringLiteral("jobid=%1 %2 limit=%3 offset=%4")
-        .arg(jobIds, where).arg(limit).arg(offset);
+    // BvfsParseArg/Bvfs::ChDir(""); the WebUI asks for the root the same way).
+    // Empty when the job ids are not a list of numbers (BBvfsArgs)
+    return BBvfsArgs::listing(jobIds, pathId, offset, limit);
 }
 
 bool BBvfsModel::isLastPage(int rows, int limit)
@@ -118,13 +117,13 @@ void BBvfsModel::loadJob(quint64 jobId, bool resolveAllRelatedJobs)
 
     if (resolveAllRelatedJobs) {
         // Resolve related job IDs via bvfs_get_jobids (same fileset only)
-        QString args = QString("jobid=%1").arg(jobId);
+        const QString args = BBvfsArgs::jobIds(QString::number(jobId));
         enqueueCommand({BDirector::Command::BvfsGetJobIds, args, m_rootNode, 0});
     } else {
         m_bvfsJobIds = QString::number(jobId);
         BVFS_DEBUG << "Using single job ID: " << m_bvfsJobIds;
 
-        QString args = QString("jobid=%1").arg(m_bvfsJobIds);
+        const QString args = BBvfsArgs::jobIds(m_bvfsJobIds);
         enqueueCommand({BDirector::Command::BvfsUpdate, args, m_rootNode, 0});
     }
 }
@@ -504,6 +503,15 @@ void BBvfsModel::processNextCommand()
         }
         args = listArgs(m_bvfsJobIds, root ? 0 : cmd.targetNode->pathId, cmd.offset);
     }
+    if (args.isEmpty()) {
+        // A value that is not a number (BBvfsArgs): not sent
+        BVFS_DEBUG << "Refused: cmd=" << static_cast<int>(cmd.cmd) << " has no valid arguments";
+        finishPendingListing(cmd.cmd, false);
+        if (cmd.cmd == BDirector::Command::BvfsGetJobIds || cmd.cmd == BDirector::Command::BvfsUpdate)
+            emit loadingFinished();   // the root listing will not follow
+        processNextCommand();
+        return;
+    }
 
     BVFS_DEBUG << "Sending: cmd=" << static_cast<int>(cmd.cmd)
                << " args=" << args
@@ -580,8 +588,9 @@ void BBvfsModel::handleJsonReply(BDirector::Command cmd, const QString &jsonData
     case BDirector::Command::BvfsGetJobIds: {
         QStringList ids;
         for (const QJsonValue &val : result["jobids"].toArray()) {
+            // Only numbers go into later commands (BBvfsArgs)
             const QString id = val.toObject()["id"].toVariant().toString();
-            if (!id.isEmpty()) ids << id;
+            if (BBvfsArgs::isNumber(id)) ids << id;
         }
         handleGetJobIds(ids);
         break;
@@ -676,8 +685,9 @@ void BBvfsModel::handleGetJobIds(const QStringList &jobIds)
     m_bvfsJobIds = jobIdList.join(",");
     BVFS_DEBUG << "Resolved job IDs: " << m_bvfsJobIds;
 
-    // Now enqueue bvfs_update with resolved IDs
-    QString args = QString("jobid=%1").arg(m_bvfsJobIds);
+    // Now enqueue bvfs_update with resolved IDs; empty (not sent) if one is
+    // not a number
+    const QString args = BBvfsArgs::jobIds(m_bvfsJobIds);
     enqueueCommand({BDirector::Command::BvfsUpdate, args, m_rootNode, 0});
 }
 
@@ -808,7 +818,9 @@ void BBvfsModel::handleLsFiles(BvfsNode *node, const QJsonArray &files, int offs
             child->fileSize = stat["size"].toVariant().toLongLong();
             child->mtime = stat["mtime"].toVariant().toLongLong();
             child->mode = stat["mode"].toInt();
-            child->fileId = obj["fileid"].toVariant().toString();
+            // A file id that is not a number is never put into .bvfs_restore
+            const QString fileId = obj["fileid"].toVariant().toString();
+            child->fileId = BBvfsArgs::isNumber(fileId) ? fileId : QString();
             child->parentNode = node;
 
             if (inheritCheck) {
