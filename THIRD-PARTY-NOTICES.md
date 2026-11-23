@@ -152,8 +152,9 @@ code under the Microsoft Visual Studio licence terms, not under an open-source l
 ## onesimus-proto
 
 The `.proto` files of the Onesimus Director interfaces come from the git submodule `proto/`
-(<https://github.com/Onesimus-io/onesimus-proto>), Copyright (C) 2025-2026 Jörg Bernau,
-AGPL-3.0-only. They are part of Onesimus, not third-party code, and are listed here because they
+(<https://github.com/Onesimus-io/onesimus-proto>), Copyright (C) 2025-2026 Jörg Bernau; the files
+also name the Bareos copyright holders (Free Software Foundation Europe e.V., Planets Communications
+B.V., Bareos GmbH & Co. KG), AGPL-3.0-only. They are part of Onesimus, not third-party code, and are listed here because they
 live in a repository of their own.
 
 ## Licence texts
