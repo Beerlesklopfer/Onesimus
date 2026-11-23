@@ -68,8 +68,10 @@ of them in part:
   preview: *Onesimus Director*.
 
 **Clients**
-- Client table with the age of the last backup (recent, stale, never). With the *Onesimus
-  Director* it shows Online or Offline from the Director's client events.
+- Client table with the age of the last backup (recent, stale, never), an estimate. A client with
+  a client-initiated connection shows as Connected (from `status director`). With the *Onesimus
+  Director* it shows Online or Offline from the Director's client events, and "Check Now" asks
+  whether one client is reachable.
 - Client details with configuration export. A new-client dialog generates the File Daemon and
   Director configuration, runs `configure add client` and exports the File Daemon files as ZIP.
 

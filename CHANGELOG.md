@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **3-2-1 Verifier** (Tools menu): checks the 3-2-1 rule per backup job.
 - **Prune and purge** with a preview on the Onesimus Director.
 - **Status bar**: free-tier usage and the end of the annual licence.
+- **Clients**: a client with a client-initiated connection to the Director (listed by
+  `status director`) shows as "Connected", on Bareos and on the Onesimus Director (#9).
+- **Clients**: "Check Now" in the context menu and in the client details asks whether one client
+  is reachable (Onesimus Director over gRPC); a timeout or error leaves the status unknown, and on
+  classic Bareos a notice explains why the check is not possible there (#9).
 - **Job log**: one append-only model with a live log in all three views.
 - **Languages**: View > Language; the system language by default; translations into German,
   Spanish, French, Italian and Russian (a few newer texts are not translated yet).

@@ -10,9 +10,15 @@ checked against the code on 2026-11-23; file references are to that state. Repor
 ## Known bugs
 
 ### Director/connection
-- Without client events (Bareos over BNET) the clients table shows the age of the last activity,
-  not Online/Offline (`src/clients/bclientsmodel.cpp:61`, `:808`). The Onesimus Director sends the
-  events. `status director` and an on-demand probe are still open (#9).
+- Client status (#9): on classic Bareos over BNET only clients with a client-initiated connection
+  (listed by `status director`) show a real state ("Connected"); every other client shows the age
+  of its last backup, an estimate (`src/clients/bclientsmodel.cpp`, `src/clients/bclientreachability.cpp`).
+  "Check Now" works only on the Onesimus Director over gRPC (typed GetClientStatus): Bareos in API
+  mode 2 does not send the text of `status client` (bareos/bareos#2325), and BNET replies are matched
+  by queue position (no request IDs yet). The `status director` reply is matched the same way; it
+  changes nothing unless it carries the `client-connection` list itself. The JSON shape of that
+  list on Bareos is taken from its source (`core/src/dird/ua_status.cc`), not yet from a running
+  Bareos with client-initiated connections.
 
 ### Jobs
 - The jobs table does not follow job status events: it changes only on Refresh or by the
