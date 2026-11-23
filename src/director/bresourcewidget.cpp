@@ -62,6 +62,13 @@ BResourceWidget::BResourceWidget(const QString &resourceType, BDirector *directo
 
     m_editButton = new QPushButton(tr("Edit..."), this);
     m_editButton->setEnabled(false);
+    // Only Job and JobDefs have a write path (raw text over gRPC). Every
+    // other type would be changed in this list only, with lists and nested
+    // blocks lost, so it is not offered (backlog P1-26).
+    if (!hasWritePath()) {
+        m_editButton->setToolTip(tr("Only Job and JobDefs resources can be changed here; they are written "
+                                    "to the Director. Change this resource in its configuration file."));
+    }
     connect(m_editButton, &QPushButton::clicked,
             this, &BResourceWidget::onEditResource);
     topBar->addWidget(m_editButton);
@@ -159,7 +166,7 @@ void BResourceWidget::onItemSelectionChanged()
 {
     BConfigResource resource = selectedResource();
     if (!resource.type().isEmpty()) {
-        m_editButton->setEnabled(true);
+        m_editButton->setEnabled(hasWritePath());
         if (m_previewToggle->isChecked())
             updateConfigPreview(resource);
         else
@@ -172,10 +179,15 @@ void BResourceWidget::onItemSelectionChanged()
     }
 }
 
+bool BResourceWidget::hasWritePath() const
+{
+    return m_resourceType == QLatin1String("Job") || m_resourceType == QLatin1String("JobDefs");
+}
+
 void BResourceWidget::onEditResource()
 {
     BConfigResource res = selectedResource();
-    if (res.type().isEmpty()) return;
+    if (res.type().isEmpty() || !hasWritePath()) return;
 
     BResourceDialog dlg(m_resourceType, res, this);
     if (!m_referenceData.isEmpty()) {
@@ -187,22 +199,11 @@ void BResourceWidget::onEditResource()
     if (modified.name().isEmpty())
         modified.setName(res.name());
 
-    // Job and JobDefs go to the Director; the list changes once it is written
-    if (writeEdited(res, modified, dlg.formDirectives()))
-        return;
-
-    // Other types: no write path yet, the change stays in the list
-    QTreeWidgetItem *current = m_treeWidget->currentItem();
-    if (current) {
-        int idx = current->data(0, Qt::UserRole).toInt();
-        if (idx >= 0 && idx < m_resources.size()) {
-            m_resources[idx] = modified;
-            updateDetails(modified);
-            if (!modified.name().isEmpty()) {
-                current->setText(0, modified.name());
-            }
-            emit resourceModified(modified);
-        }
+    // Job and JobDefs go to the Director; the list changes once it is
+    // written. Without a Director nothing is written and nothing changes.
+    if (!writeEdited(res, modified, dlg.formDirectives())) {
+        QMessageBox::information(this, tr("%1 %2 was not changed").arg(m_resourceType, res.name()),
+                                 tr("There is no Director connection to write the change to. Nothing was changed."));
     }
 }
 

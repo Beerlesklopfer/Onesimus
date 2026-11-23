@@ -151,12 +151,14 @@ protected:
      * its file, checked by the Director, shown for confirmation, written.
      * Over BNET, or where the session does not offer it, the capability
      * notice says so and nothing is written or changed in the list.
-     * @return false if this resource type has no write path (the change
-     *         then stays in the list only, as before)
+     * @return false if there is nothing to write to (no write path for
+     *         the type, or no Director); nothing is changed then
      */
     bool writeEdited(const BConfigResource &before, const BConfigResource &after,
                      const QStringList &formDirectives);
     void onWriteFinished(const BResourceReport &report);
+    /// true for the types whose changes are written (Job, JobDefs)
+    bool hasWritePath() const;
 
     /**
      * @brief Update the count label
