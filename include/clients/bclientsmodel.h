@@ -11,6 +11,7 @@
 #include <QDateTime>
 #include <QHash>
 #include <QMap>
+#include <QSet>
 #include <QPair>
 #include <QTimer>
 #include "blogging.h"
@@ -120,9 +121,11 @@ public:
      * @brief Job statistics (bytes, count, last job time) from the job list
      * @param jobs JSON array of job objects ("list jobs")
      *
-     * The job list is one page of the jobs: a client whose backups were
-     * reported (setClientBackups()) keeps their figures; the list counts
-     * only for the other clients, and for the newest start of each.
+     * The job list is one page of the jobs: it gives only the newest start
+     * of a client (the newer of it and the last backup). The number of
+     * backups and the data come from "list backups client=" alone
+     * (setClientBackups()), never from a page, so they do not change with
+     * the page or with the order in which the replies arrive.
      * @since 2.9
      */
     void enrichWithJobData(const QJsonArray &jobs);
@@ -138,12 +141,18 @@ public:
     /**
      * @brief A new round of "list backups client=" requests begins
      *
-     * The backups of the last round are forgotten: a client with no backup
-     * left gets no reply of its own and has the figures of the job list
-     * again. The table is reset once BackupsResetDelayMs later, like for
-     * the replies.
+     * The figures of the last round stay on display until the new replies
+     * replace them; nothing falls back to other figures in between.
+     * @param clients The clients asked for
      */
-    void forgetClientBackups();
+    void beginBackupRound(const QStringList &clients);
+    /**
+     * @brief Every reply of the round is in (or the round timed out)
+     *
+     * A client of the round without a backup in any reply has none: its
+     * figures become 0 (an empty reply does not name its client).
+     */
+    void finishBackupRound();
     static constexpr int BackupsResetDelayMs = 200;
 
     /**
@@ -302,6 +311,8 @@ private:
     static QHash<QString, JobStats> statsOf(const QJsonArray &jobs);
     QHash<QString, JobStats> m_jobListStats;    ///< From the job list (one page)
     QHash<QString, JobStats> m_backupStats;     ///< From "list backups client=", per client
+    QSet<QString> m_backupRoundClients;         ///< Asked for in the running round
+    QSet<QString> m_backupRoundSeen;            ///< Named by a reply of the running round
     /// m_lastJobTimes, m_totalBytes, m_jobCounts of one client from both sources
     void mergeStats(const QString &client);
     QTimer *m_backupsTimer = nullptr;           ///< One reset for a burst of backup replies

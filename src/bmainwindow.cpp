@@ -348,6 +348,8 @@ BMainWindow::BMainWindow(QWidget *parent)
             }
             for (auto it = replyByClient.constBegin(); it != replyByClient.constEnd(); ++it)
                 m_clientWidget->model()->setClientBackups(it.key(), it.value());
+            if (cmd == BDirector::Command::ListBackupsClient)
+                backupReplyArrived();
             break;
         }
 
@@ -2657,14 +2659,39 @@ void BMainWindow::requestClientBackups()
             names.insert(name);
     }
 
-    // What the last round reported is forgotten: a client without backups
-    // gets no reply of its own
-    m_clientWidget->model()->forgetClientBackups();
-
     QStringList sortedNames = names.values();
     sortedNames.sort(Qt::CaseInsensitive);
+
+    // The figures of the last round stay until the new replies replace them.
+    // A client without backups gets an empty reply that does not name it:
+    // when every reply is in, the clients no reply named have none. A reply
+    // that never comes (an error some paths report only as commandError)
+    // is covered by the timer.
+    m_clientWidget->model()->beginBackupRound(sortedNames);
+    m_backupRepliesPending = int(sortedNames.size());
+    if (!m_backupRoundTimer) {
+        m_backupRoundTimer = new QTimer(this);
+        m_backupRoundTimer->setSingleShot(true);
+        connect(m_backupRoundTimer, &QTimer::timeout, this, [this]() {
+            m_backupRepliesPending = 0;
+            m_clientWidget->model()->finishBackupRound();
+        });
+    }
+    if (m_backupRepliesPending > 0)
+        m_backupRoundTimer->start(120 * 1000);
     for (const QString &name : sortedNames) {
         onSendCommand(BDirector::Command::ListBackupsClient, name);   // quoted by the Director wrapper
+    }
+}
+
+void BMainWindow::backupReplyArrived()
+{
+    if (m_backupRepliesPending <= 0)
+        return;
+    if (--m_backupRepliesPending == 0) {
+        if (m_backupRoundTimer)
+            m_backupRoundTimer->stop();
+        m_clientWidget->model()->finishBackupRound();
     }
 }
 

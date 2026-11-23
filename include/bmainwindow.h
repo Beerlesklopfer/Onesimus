@@ -167,6 +167,9 @@ private:
     bool m_connecting = false;          ///< A connection attempt is running
     bool m_connectCancelled = false;    ///< Disconnect was pressed during the attempt
     bool m_secretWarningShown = false;
+    int m_backupRepliesPending = 0;     ///< Replies of the "list backups client=" round still to come
+    QTimer *m_backupRoundTimer = nullptr; ///< Ends a round whose replies do not all come
+    void backupReplyArrived();
 
     // Widgets
     QTabWidget *m_tabWidget;                ///< Main tab widget (Jobs, Clients, Storage, Schedules)

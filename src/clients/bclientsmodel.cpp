@@ -172,9 +172,11 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             return activity.raw;
         }
         case COL_JOB_COUNT:
-            return m_jobCounts.value(name, 0);
+            // Empty until "list backups" answered for the client
+            return m_jobCounts.contains(name) ? QVariant(m_jobCounts.value(name)) : QVariant();
         case COL_TOTAL_BYTES:
-            return formatBytes(m_totalBytes.value(name, 0));
+            return m_totalBytes.contains(name) ? QVariant(formatBytes(m_totalBytes.value(name)))
+                                               : QVariant();
         }
     }
 
@@ -255,6 +257,10 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
 
 QVariant BClientsModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
+    if (orientation == Qt::Horizontal && role == Qt::ToolTipRole
+        && (section == COL_JOB_COUNT || section == COL_TOTAL_BYTES))
+        return tr("From \"list backups client=\": all backups of the client in the catalog, "
+                  "not only the jobs on the current page.");
     if (orientation == Qt::Horizontal && role == Qt::ToolTipRole && section == COL_STATUS)
         return tr("Online or Offline when the Director reports client events (Onesimus "
                   "Director over gRPC); otherwise the age of the last backup or contact.");
@@ -277,7 +283,7 @@ QVariant BClientsModel::headerData(int section, Qt::Orientation orientation, int
     case COL_LAST_CONN:
         return tr("Last Connection");
     case COL_JOB_COUNT:
-        return tr("Jobs");
+        return tr("Backups");
     case COL_TOTAL_BYTES:
         return tr("Total Data");
     default:
@@ -310,6 +316,8 @@ void BClientsModel::clear()
     m_jobCounts.clear();
     m_jobListStats.clear();
     m_backupStats.clear();
+    m_backupRoundClients.clear();
+    m_backupRoundSeen.clear();
     m_backupsTimer->stop();
     m_addresses.clear();
     m_showClientDetails.clear();
@@ -366,16 +374,17 @@ void BClientsModel::mergeStats(const QString &client)
     const auto listed = m_jobListStats.constFind(client);
     const bool hasBackups = backups != m_backupStats.constEnd();
     const bool hasListed = listed != m_jobListStats.constEnd();
-    if (!hasBackups && !hasListed) {
-        m_lastJobTimes.remove(client);
-        m_totalBytes.remove(client);
+
+    // Number and data: the backups of the client, all of them. A page of
+    // the job list is never counted: its figures change with the page.
+    if (hasBackups) {
+        m_totalBytes[client] = backups->bytes;
+        m_jobCounts[client] = backups->count;
+    } else {
+        m_totalBytes.remove(client);    // not known yet: an empty cell
         m_jobCounts.remove(client);
-        return;
     }
-    // The backups of the client are all of them; the job list is a page
-    const JobStats &counted = hasBackups ? backups.value() : listed.value();
-    m_totalBytes[client] = counted.bytes;
-    m_jobCounts[client] = counted.count;
+
     // The newest start either source knows of
     QString last = hasBackups ? backups->lastStart : QString();
     if (hasListed && listed->lastStart > last)
@@ -413,20 +422,32 @@ void BClientsModel::setClientBackups(const QString &client, const QJsonArray &ba
     if (client.isEmpty())
         return;
     m_backupStats.insert(client, statsOf(backups).value(client));
+    m_backupRoundSeen.insert(client);
     mergeStats(client);
     // One filter and reset for the replies of all clients
     if (!m_backupsTimer->isActive())
         m_backupsTimer->start();
 }
 
-void BClientsModel::forgetClientBackups()
+void BClientsModel::beginBackupRound(const QStringList &clients)
 {
-    const QStringList clients = m_backupStats.keys();
-    m_backupStats.clear();
-    for (const QString &client : clients)
+    m_backupRoundClients = QSet<QString>(clients.begin(), clients.end());
+    m_backupRoundSeen.clear();
+}
+
+void BClientsModel::finishBackupRound()
+{
+    QSet<QString> without = m_backupRoundClients;
+    for (auto it = m_backupStats.constBegin(); it != m_backupStats.constEnd(); ++it)
+        without.insert(it.key());
+    without.subtract(m_backupRoundSeen);
+    for (const QString &client : std::as_const(without)) {
+        m_backupStats.insert(client, JobStats{});
         mergeStats(client);
-    // Shown with the replies of the new round, or without them if none comes
-    if (!clients.isEmpty() && !m_backupsTimer->isActive())
+    }
+    m_backupRoundClients.clear();
+    m_backupRoundSeen.clear();
+    if (!without.isEmpty() && !m_backupsTimer->isActive())
         m_backupsTimer->start();
 }
 

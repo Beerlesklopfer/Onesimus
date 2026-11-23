@@ -92,10 +92,12 @@ void BClientsModelTest::backupsAreNotOverwrittenByTheJobList()
     QCOMPARE(a["totalbytes"].toString(), QString("6000"));
     QCOMPARE(a["lastconnection"].toString(), QString("2026-11-23 06:00:00"));  // the newest of both
 
-    // A client without a backups reply has the figures of the page
+    // A client without a backups reply has no figures yet, not those of
+    // the page (P1-13: they would flip when the reply comes)
     const QJsonObject b = row(model, QStringLiteral("b-fd"));
-    QCOMPARE(b["jobcount"].toInt(), 2);
-    QCOMPARE(b["totalbytes"].toString(), QString("1100"));
+    QVERIFY(!b.contains("jobcount"));
+    QVERIFY(!b.contains("totalbytes"));
+    QCOMPARE(b["lastconnection"].toString(), QString("2026-11-23 01:30:00"));
 
     // The order of the replies does not matter
     model.setClientBackups(QStringLiteral("b-fd"), QJsonArray{ job("b-fd", "2026-11-01 01:30:00", 9) });
@@ -104,6 +106,11 @@ void BClientsModelTest::backupsAreNotOverwrittenByTheJobList()
     QCOMPARE(b2["totalbytes"].toString(), QString("9"));
     QCOMPARE(b2["lastconnection"].toString(), QString("2026-11-23 01:30:00"));
     QCOMPARE(row(model, QStringLiteral("a-fd"))["jobcount"].toInt(), 3);
+
+    // Another page does not change the figures
+    model.enrichWithJobData(QJsonArray{ job("b-fd", "2026-11-23 02:30:00", 123456) });
+    QCOMPARE(row(model, QStringLiteral("b-fd"))["jobcount"].toInt(), 1);
+    QCOMPARE(row(model, QStringLiteral("b-fd"))["totalbytes"].toString(), QString("9"));
 }
 
 void BClientsModelTest::backupRepliesOfAllClientsResetOnce()
@@ -141,11 +148,20 @@ void BClientsModelTest::backupsOfAnEarlierRoundAreForgotten()
         job("b-fd", "2026-11-02 01:30:00", 9) });
     QCOMPARE(row(model, QStringLiteral("b-fd"))["jobcount"].toInt(), 2);
 
-    // A refresh: b-fd's backups have been pruned, so no reply names it
-    model.forgetClientBackups();
+    // A refresh: while the round runs, the old figures stay (no flip to
+    // other figures in between) ...
+    model.beginBackupRound({QStringLiteral("a-fd"), QStringLiteral("b-fd")});
+    QCOMPARE(row(model, QStringLiteral("b-fd"))["jobcount"].toInt(), 2);
+    model.setClientBackups(QStringLiteral("a-fd"), QJsonArray{ job("a-fd", "2026-11-03 01:30:00", 5) });
+    QCOMPARE(row(model, QStringLiteral("b-fd"))["jobcount"].toInt(), 2);
+
+    // ... b-fd's backups have been pruned, so no reply names it: when the
+    // round is over it has none
+    model.finishBackupRound();
     const QJsonObject b = row(model, QStringLiteral("b-fd"));
-    QCOMPARE(b["jobcount"].toInt(), 1);                         // the page again
-    QCOMPARE(b["totalbytes"].toString(), QString("600"));
+    QCOMPARE(b["jobcount"].toInt(), 0);
+    QCOMPARE(b["totalbytes"].toString(), QString("0"));
+    QCOMPARE(row(model, QStringLiteral("a-fd"))["jobcount"].toInt(), 1);
 }
 
 namespace {
