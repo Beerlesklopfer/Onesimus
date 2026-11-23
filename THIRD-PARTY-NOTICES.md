@@ -92,7 +92,8 @@ An archive larger than 2 GiB is attached in parts `<archive>.part00`, `<archive>
 - **Licence:** Apache-2.0 (`LICENSES/Apache-2.0.txt`). OpenSSL 3 has no NOTICE file.
 - **Upstream:** <https://www.openssl.org/>, <https://github.com/openssl/openssl>
 - **In the packages:** linked statically into the program on Linux (`.deb`, AppImage) and macOS;
-  shipped as `libssl-3-x64.dll` and `libcrypto-3-x64.dll` on Windows. The AppImage also contains
+  shipped as `libssl-3-x64.dll` and `libcrypto-3-x64.dll` next to `onesimus.exe` on Windows, where
+  Qt's OpenSSL TLS plugin loads them at run time and the program uses the same DLLs. The AppImage also contains
   Debian's `libssl.so.3`/`libcrypto.so.3` (package `libssl3t64`), which Qt's OpenSSL TLS plugin
   loads; its copyright file is in `usr/share/doc/libssl3t64/`.
 

@@ -138,7 +138,7 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
                 return QString("Linux Debian %1").arg(debMatch.captured(1));
 
             // Check for non-Linux OS names
-            for (const QString &os : {"Windows", "FreeBSD", "Darwin", "macOS",
+            for (const char *os : {"Windows", "FreeBSD", "Darwin", "macOS",
                                        "Solaris", "AIX", "HP-UX"}) {
                 if (uname.contains(os, Qt::CaseInsensitive))
                     return os;

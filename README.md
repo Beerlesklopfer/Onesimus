@@ -138,7 +138,7 @@ release; [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) explains them.
 
 ## Build from source
 
-You need Qt 6.8 or later (with Qt gRPC for the Onesimus Director transport), CMake 3.21 or later
+You need Qt 6.8 or later (with Qt gRPC for the Onesimus Director transport), CMake 3.25 or later
 and a C++17 compiler.
 
 ```bash

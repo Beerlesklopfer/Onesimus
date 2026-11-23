@@ -1865,7 +1865,7 @@ void BMainWindow::onAboutTriggered()
 
     QLabel* versionLabel = new QLabel(tr("<p style='color:#666; margin:0;'>Version %1 (Build %2)</p>")
                                           .arg(PROJECT_VERSION)
-                                          .arg(BUILD_NUMBER));
+                                          .arg(BuildInfo::number));
     titleLayout->addWidget(versionLabel);
 
 #if USE_BACULA
@@ -1930,12 +1930,12 @@ void BMainWindow::onAboutTriggered()
 
     // Build Information
     QLabel* buildInfoLabel = new QLabel(
-        QString("<p style='%5;'><b>Build Date:</b> %1 %2</p>"
+        QString("<p style='%5;'><b>Source Date:</b> %1 %2 UTC</p>"
                 "<p style='%5;'><b>Git:</b> %3 (%4)</p>")
-            .arg(BUILD_DATE)
-            .arg(BUILD_TIME)
-            .arg(GIT_COMMIT_HASH)
-            .arg(GIT_BRANCH)
+            .arg(QLatin1String(BuildInfo::sourceDate))
+            .arg(QLatin1String(BuildInfo::sourceTime))
+            .arg(QLatin1String(BuildInfo::gitDescribe))
+            .arg(QLatin1String(BuildInfo::gitBranch))
             .arg(smallCss)
     );
     buildInfoLabel->setWordWrap(true);

@@ -437,7 +437,7 @@ int main(int argc, char *argv[])
 
     if (options.verbose) {
         BLOG_INFO() << "Starting" << PROJECT_NAME << "v" PROJECT_VERSION;
-        BLOG_INFO() << "Build:" << BUILD_DATE << BUILD_TIME;
+        BLOG_INFO() << "Build:" << BuildInfo::versionFull << BuildInfo::gitDescribe;
     }
 
     // ========================================

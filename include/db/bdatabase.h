@@ -78,7 +78,7 @@ public:
     /**
      * @brief Import built-in FileSet templates from Qt resources
      *
-     * Loads templates from :/templates/filesets/templates/filesets/*.json
+     * Loads templates (*.json) from :/templates/filesets/templates/filesets
      * (prefix and file path of resources.qrc) and inserts them
      * into the fileset_templates table with is_builtin = 1.
      * Existing built-in templates are updated, user templates are preserved.

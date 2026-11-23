@@ -647,7 +647,7 @@ private:
     QString m_consoleName;  ///< Console name for authentication
     QByteArray m_password;  ///< Password for CRAM-MD5 and PSK
 
-    BAuthState m_authState; ///< Aktueller Zustand der Authentifizierung
+    BAuthState m_authState = BAuthState::AUTH_IDLE; ///< Aktueller Zustand der Authentifizierung
     int m_tlsLocalNeed;     ///< Local TLS requirement level
     int m_tlsRemoteNeed;    ///< Remote TLS requirement level
 

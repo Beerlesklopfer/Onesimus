@@ -31,7 +31,7 @@ CMAKE_PREFIX_PATH=~/Qt/6.8.3/macos ./deploy.sh build
 ## Voraussetzungen
 
 - Xcode oder die Command Line Tools (`xcode-select --install`)
-- CMake ≥ 3.16, Perl (für den OpenSSL-Build), optional Ninja
+- CMake ≥ 3.25, Perl (für den OpenSSL-Build), optional Ninja
 - Qt ≥ 6.8 mit dem Modul **Qt GRPC** (QtGrpc/QtProtobuf) und `protoc`
   (in der CI: `brew install ninja protobuf`)
 

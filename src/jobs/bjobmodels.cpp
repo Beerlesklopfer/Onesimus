@@ -741,7 +741,7 @@ void BJobsFilterModel::setDateRange(const QDateTime &from, const QDateTime &to)
     invalidateFilter();
 }
 
-bool BJobsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
+bool BJobsFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex & /*sourceParent*/) const
 {
     BJobsModel *model = qobject_cast<BJobsModel*>(sourceModel());
     if (!model) {

@@ -10,7 +10,7 @@
 /**
  * @brief The colour themes: "light", "dark" and "system"
  *
- * The style sheets (resources/themes/*.qss) do not cover every part of
+ * The style sheets (the *.qss files in resources/themes) do not cover every part of
  * every widget; what they leave out is drawn from the palette. The main
  * window therefore uses the Fusion style, which draws everything from the
  * palette, and a palette with the colours of the style sheet, so that a

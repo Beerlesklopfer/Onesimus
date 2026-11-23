@@ -15,7 +15,7 @@ class QUrl;
 /**
  * @brief The third-party notices and licence texts, from the Qt resources
  *
- * CMakeLists.txt compiles THIRD-PARTY-NOTICES.md, LICENSE and LICENSES/*.txt
+ * CMakeLists.txt compiles THIRD-PARTY-NOTICES.md, LICENSE and the *.txt files in LICENSES
  * into the program under :/legal/ (the same files every package ships). The
  * dialog shows one document at a time: the notices as Markdown, a licence as
  * plain text. A link in the notices to a licence file (LICENSES/MIT.txt)

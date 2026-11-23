@@ -15,14 +15,17 @@ build, test and package the GUI; `help` prints every command. The platform guide
 [BUILD_LINUX.md](BUILD_LINUX.md), [BUILD_WINDOWS.md](BUILD_WINDOWS.md) and
 [BUILD_OSX.md](BUILD_OSX.md).
 
-Every build increments `.build_number` and regenerates `include/version.h`. Both files are
-tracked; do not commit the values a development build stamped into them.
+The build writes `version.h` and the build number into the build tree only
+(`<build>/generated/`); the source tree stays clean. The build number is the CI run number, else
+the number of commits; `-DONESIMUS_INCREMENT_BUILD=ON` counts it up on every build.
 
 CMake options besides the build type:
 
 | Option | Default | Effect |
 |---|---|---|
-| `USE_STATIC_OPENSSL` | `ON` | OpenSSL from the `external/openssl` submodule instead of the system's |
+| `USE_STATIC_OPENSSL` | `ON` | OpenSSL from the `external/openssl` submodule, built in `<build>/openssl-build`: linked statically on Linux and macOS; DLLs next to `onesimus.exe` on Windows, because Qt's TLS plugin loads them at run time. `OFF`: the system's OpenSSL |
+| `ONESIMUS_WARNINGS` | `ON` | `-Wall -Wextra` or `/W4` for the project's own targets |
+| `ONESIMUS_INCREMENT_BUILD` | `OFF` | Count the build number up on every build |
 | `ENABLE_GRPC` | `ON` | gRPC transport for the Onesimus Director (needs Qt gRPC and Qt Protobuf) |
 | `ONESIMUS_KEYCHAIN` | `ON` | Profile secrets in the system keychain (Linux: libsecret) |
 | `ONESIMUS_FILE_LOGGING` | `OFF` | `BLOG_*` macros write `onesimus.log` in the application data directory |

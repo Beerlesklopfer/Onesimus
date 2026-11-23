@@ -737,7 +737,7 @@ void BResourceWidget::exportToZip()
     QString readme;
     readme += QString("# %1 Configuration Export\n\n").arg(baseName);
     readme += QString("Exported: %1\n").arg(QDateTime::currentDateTime().toString(Qt::ISODate));
-    readme += QString("Generator: Onesimus %1\n\n").arg(VERSION_FULL);
+    readme += QString("Generator: Onesimus %1\n\n").arg(QLatin1String(BuildInfo::versionFull));
     readme += "## Configuration Files\n\n";
     for (const BConfigResource &res : exportRes) {
         readme += QString("- `%1` (%2: %3)\n")

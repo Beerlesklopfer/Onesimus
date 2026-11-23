@@ -61,6 +61,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `resources/icons/create_ico.bat` and `external/README.md` are removed.
 - CTest also registers the live-Director tests `bareosauth_live_test` and `director_live_test`
   (label `live-director`); they are skipped unless `ONESIMUS_LIVE_DIRECTOR` names a test Director.
+- A build no longer writes into the source tree (#7): `version.h` and the build number are generated
+  into `<build>/generated/`, `include/version.h` and `.build_number` are no longer tracked, and an
+  unchanged build compiles nothing. The build number is the CI run number, else the commit count;
+  `-DONESIMUS_INCREMENT_BUILD=ON` counts it up per build. About shows the source (commit) date.
+- Build: one CMake minimum, 3.25 (`CMakePresets.json` is a version 6 presets file); the Windows
+  presets use Ninja and `build\` like `deploy.ps1`; the build docs list QtGrpc/QtProtobuf and `protoc`.
+- Build: compiler warnings (`-Wall -Wextra`, MSVC `/W4`) for the Onesimus targets, option
+  `ONESIMUS_WARNINGS` (default ON; not for OpenSSL or the generated gRPC code); the cheap warnings
+  they showed are fixed.
+- Build: the application sources are compiled once into the static library `onesimus_core`, which the
+  program and the app-wide tests link; `bareosauth.cpp` is compiled once (`bareosauth_lib`).
+- Build: `Qt6::GuiPrivate` is linked on every platform (needed from Qt 6.9 on; Linux and macOS used
+  `Qt6Gui_PRIVATE_INCLUDE_DIRS`).
+- Build: the bundled OpenSSL is the default of CMake as in the deploy scripts (before, CMake took a
+  system OpenSSL when it found one); it is built `no-shared` (DLLs on Windows only, for Qt's TLS
+  plugin), out of source, into `lib/`, and its DLLs are no longer copied into the Qt installation.
+  An empty `OPENSSL_INSTALL_DIR` defaults to `<build>/openssl-install` again.
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to

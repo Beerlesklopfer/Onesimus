@@ -2,7 +2,10 @@
 # SPDX-FileCopyrightText: 2026 Jörg Bernau
 # SPDX-FileCopyrightText: 2026 Joerg Steffens
 
-cmake_minimum_required(VERSION 3.16)
+# 3.25: CMakePresets.json is a version 6 presets file (package presets),
+# which CMake reads from 3.25 on; the SYSTEM target property is 3.25 as well.
+# One minimum for presets, project and docs.
+cmake_minimum_required(VERSION 3.25)
 
 # macOS: the oldest release the app runs on. Qt 6.8 supports macOS 12 and
 # later, so nothing older is useful. Before project(), where CMake reads it;
@@ -19,17 +22,22 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ============================================================================
-# Version Information Generation (version.h)
+# Version information (version.h, buildinfo.cpp)
 # ============================================================================
 # Version scheme: MAJOR.MINOR.PATCH.BUILD
-#   - Triplet (MAJOR.MINOR.PATCH) is set in project() above
-#   - BUILD number auto-increments on every build via custom target
-#   - version.h is regenerated at build time (not configure time)
+#   - the triplet is set in project() above; packages and release tags use it
+#   - version.h (stable values) is generated at configure time and
+#     buildinfo.cpp (build number, source date, git) on every build, both into
+#     ${CMAKE_BINARY_DIR}/generated; nothing in the source tree is written
+#   - BUILD: the CI run number (GITHUB_RUN_NUMBER), else the number of commits
+#     up to HEAD; -DONESIMUS_INCREMENT_BUILD=ON counts it up on every build
+#     instead (a counter in the build directory)
 # ============================================================================
+option(ONESIMUS_INCREMENT_BUILD "Count the build number up on every build (counter in the build directory)" OFF)
 
 message(STATUS "")
 message(STATUS "========================================")
-message(STATUS "Version: ${PROJECT_VERSION} (build number increments at build time)")
+message(STATUS "Version: ${PROJECT_VERSION}")
 message(STATUS "========================================")
 
 set(CMAKE_AUTOMOC ON)
@@ -105,22 +113,26 @@ endif()
 message(STATUS "========================================")
 message(STATUS "")
 
-set(USE_STATIC_OPENSSL_DEFAULT ON)
-if(APPLE AND USE_STATIC_OPENSSL)
-    # macOS with the static OpenSSL asked for: no find_package(OpenSSL). It
-    # finds Homebrew's OpenSSL (e.g. openssl@4 on the CI runners) and its
-    # imported OpenSSL::SSL target wins over the alias defined below, so the
-    # app linked /opt/homebrew/.../libssl.4.dylib against the headers of
-    # the static build.
-else()
-    find_package(OpenSSL)
-    if(TARGET OpenSSL::SSL)
-        set(USE_STATIC_OPENSSL_DEFAULT OFF)
-    endif()
-endif()
+# Compiler warnings for the Onesimus targets (applied at the end of this file
+# to every target but the bundled OpenSSL and the generated gRPC/protobuf
+# code). Warnings only; there is no -Werror.
+option(ONESIMUS_WARNINGS "Compiler warnings for the Onesimus targets (-Wall -Wextra, MSVC /W4)" ON)
 
-# Option für statisches OpenSSL
-option(USE_STATIC_OPENSSL "Use static OpenSSL from git submodule (auto-download)" ${USE_STATIC_OPENSSL_DEFAULT})
+# OpenSSL: the bundled one from the external/openssl submodule by default,
+# on every platform and in deploy.sh/deploy.ps1 alike (one default; before,
+# CMake took the system OpenSSL when it found one). -DUSE_STATIC_OPENSSL=OFF
+# (deploy.sh -s, the linux-* presets) links the system OpenSSL instead.
+#   Linux, macOS: built no-shared and linked statically into the program.
+#   Windows: built as DLLs (libssl-3-x64.dll, libcrypto-3-x64.dll), shipped
+#     next to onesimus.exe. Qt's TLS backend (qopensslbackend, used by
+#     QSslSocket for gRPC over TLS) loads libssl/libcrypto at run time; the
+#     official Qt builds are not linked against OpenSSL, so the DLLs are
+#     needed anyway, and the program uses the same ones.
+# find_package(OpenSSL) is called only for the system OpenSSL: on macOS it
+# found Homebrew's OpenSSL, whose imported OpenSSL::SSL target won over the
+# alias defined below (the app linked libssl.4.dylib against the headers of
+# the bundled build).
+option(USE_STATIC_OPENSSL "Build and link the bundled OpenSSL (external/openssl submodule)" ON)
 
 # ============================================================================
 # OpenSSL Automatischer Download und Build via Git Submodule
@@ -135,8 +147,13 @@ if(USE_STATIC_OPENSSL)
     # Install prefix of the static OpenSSL build. It may lie outside the build
     # tree (the CI keeps it in a cache keyed on the submodule commit): a prefix
     # that already holds the libraries is used as it is, without a rebuild.
+    if(NOT OPENSSL_INSTALL_DIR)
+        set(OPENSSL_INSTALL_DIR "${CMAKE_BINARY_DIR}/openssl-install")
+    endif()
     set(OPENSSL_INSTALL_DIR "${OPENSSL_INSTALL_DIR}" CACHE PATH
-        "Install prefix of the static OpenSSL build (reused when it already holds the libraries)")
+        "Install prefix of the static OpenSSL build (reused when it already holds the libraries)" FORCE)
+    # Out-of-source build: the submodule stays clean
+    set(OPENSSL_BUILD_DIR "${CMAKE_BINARY_DIR}/openssl-build")
     
     # Automatischer Download via Git Submodule
     message(STATUS "Checking OpenSSL submodule...")
@@ -235,14 +252,16 @@ if(USE_STATIC_OPENSSL)
         message(STATUS "Perl: ${PERL_EXECUTABLE}")
         message(STATUS "Build System: NMAKE (Visual Studio)")
         
-        set(OPENSSL_CONFIGURE_COMMAND 
-            ${PERL_EXECUTABLE} Configure VC-WIN64A
+        # shared: Qt's TLS plugin loads the DLLs at run time (see above)
+        set(OPENSSL_CONFIGURE_COMMAND
+            ${PERL_EXECUTABLE} ${OPENSSL_SUBMODULE_DIR}/Configure VC-WIN64A
             shared
             no-tests
             no-apps
             no-docs
             --prefix=${OPENSSL_INSTALL_DIR}
             --openssldir=${OPENSSL_INSTALL_DIR}/ssl
+            --libdir=lib
         )
         
         set(OPENSSL_BUILD_COMMAND nmake)
@@ -251,7 +270,7 @@ if(USE_STATIC_OPENSSL)
         # Windows System-Bibliotheken
         set(OPENSSL_SYSTEM_LIBS ws2_32 crypt32 advapi32 user32)
         
-        # Bibliotheksnamen
+        # Import libraries of the DLLs
         set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.lib)
         set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.lib)
         
@@ -265,19 +284,23 @@ if(USE_STATIC_OPENSSL)
         if(N_CORES EQUAL 0)
             set(N_CORES 1)
         endif()
-        message(STATUS "Parallel Build: ${N_CORES} cores")
-        
-        set(OPENSSL_CONFIGURE_COMMAND 
-            ./config
-            shared
+        set(OPENSSL_BUILD_JOBS "${N_CORES}" CACHE STRING "Parallel jobs of the OpenSSL build (make -j)")
+        message(STATUS "Parallel Build: ${OPENSSL_BUILD_JOBS} jobs")
+
+        # no-shared: static libraries only, linked into the program.
+        # --libdir=lib: lib/ on every platform (64-bit Linux defaulted to lib64).
+        set(OPENSSL_CONFIGURE_COMMAND
+            ${OPENSSL_SUBMODULE_DIR}/config
+            no-shared
             no-tests
             no-apps
             no-docs
             --prefix=${OPENSSL_INSTALL_DIR}
             --openssldir=${OPENSSL_INSTALL_DIR}/ssl
+            --libdir=lib
         )
-        
-        set(OPENSSL_BUILD_COMMAND make -j${N_CORES})
+
+        set(OPENSSL_BUILD_COMMAND make -j${OPENSSL_BUILD_JOBS})
         set(OPENSSL_INSTALL_COMMAND make install_sw install_ssldirs)
         # macOS: OpenSSL's own compiler calls get the same minimum macOS as
         # the app, otherwise the linker warns that the objects need a newer one.
@@ -291,19 +314,8 @@ if(USE_STATIC_OPENSSL)
         # Linux System-Bibliotheken
         set(OPENSSL_SYSTEM_LIBS pthread dl)
         
-        if(APPLE)
-            # OpenSSL's darwin64 targets install into lib/, not lib64/
-            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
-            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib64/libssl.a)
-            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib64/libcrypto.a)
-        elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
-            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
-        else()
-            message(FATAL_ERROR "Unknown architecture")
-        endif()        # Bibliotheksnamen
+        set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
+        set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
     endif()
     
     set(OPENSSL_INCLUDE_DIR ${OPENSSL_INSTALL_DIR}/include)
@@ -326,10 +338,10 @@ if(USE_STATIC_OPENSSL)
     set(OPENSSL_PREBUILT OFF)
     ExternalProject_Add(openssl_build
         SOURCE_DIR ${OPENSSL_SUBMODULE_DIR}
+        BINARY_DIR ${OPENSSL_BUILD_DIR}
         CONFIGURE_COMMAND ${OPENSSL_CONFIGURE_COMMAND}
         BUILD_COMMAND ${OPENSSL_BUILD_COMMAND}
         INSTALL_COMMAND ${OPENSSL_INSTALL_COMMAND}
-        BUILD_IN_SOURCE 1
         BUILD_ALWAYS 0
         LOG_CONFIGURE ON
         LOG_BUILD ON
@@ -382,6 +394,7 @@ else()
     # ========================================================================
     # System OpenSSL verwenden
     # ========================================================================
+    find_package(OpenSSL)
     if(TARGET OpenSSL::SSL)
         message(STATUS "Using system OpenSSL")
         message(STATUS "✓ Found OpenSSL ${OPENSSL_VERSION}")
@@ -413,11 +426,15 @@ find_package(Qt6 REQUIRED COMPONENTS
     LinguistTools
 )
 
-# GuiPrivate (QZipWriter/QZipReader): Qt >= 6.9 ships it as a package of its
-# own; up to 6.8 the Qt6::GuiPrivate target comes with Qt6Gui. Linux uses the
-# private include dirs directly.
-if(WIN32 AND Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
+# GuiPrivate (QZipWriter/QZipReader), on every platform: Qt >= 6.9 ships it
+# as a package of its own (find_package(Qt6 COMPONENTS GuiPrivate)); up to 6.8
+# the Qt6::GuiPrivate target comes with Qt6Gui (6.8 has no GuiPrivate
+# package, so find_package would fail there). Debian: qt6-base-private-dev.
+if(Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
     find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
+endif()
+if(NOT TARGET Qt6::GuiPrivate)
+    message(FATAL_ERROR "Qt6::GuiPrivate not found (private Qt headers; Debian: qt6-base-private-dev)")
 endif()
 
 message(STATUS "✓ Found Qt6 ${Qt6_VERSION}")
@@ -461,7 +478,11 @@ qt_add_translations(${PROJECT_NAME}
 # ============================================================================
 
 # Include-Verzeichnisse
+# The generated directory comes first: version.h is generated there (a stale
+# include/version.h of an older checkout must not shadow it).
+set(ONESIMUS_GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 include_directories(
+    ${ONESIMUS_GENERATED_DIR}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
 )
@@ -470,7 +491,6 @@ include_directories(
 set(SOURCES
     src/main.cpp
     src/bmainwindow.cpp
-    src/director/bareosauth.cpp
 
     src/bcheckableheaderview.cpp
     src/bcheckboxdelegate.cpp
@@ -650,7 +670,6 @@ set(HEADERS
     include/db/bdatabase.h
     include/db/bresourcemodel.h
     include/db/bdirectormodel.h
-    include/version.h
     include/director/bareosauth.h
     include/director/bjsonstreamreader.h
     include/bpaginationwidget.h
@@ -769,8 +788,6 @@ if(USE_BAREOS_ONLY)
     message(STATUS "========================================")
     message(STATUS "Building with BAREOS backend")
     message(STATUS "========================================")
-    list(APPEND SOURCES src/director/bareosauth.cpp)
-    list(APPEND HEADERS include/director/bareosauth.h)
     add_compile_definitions(USE_BAREOS)
     add_compile_definitions(BAREOS_VERSION)
 endif()
@@ -801,6 +818,40 @@ set(ONESIMUS_NOTICE_FILES THIRD-PARTY-NOTICES.md LICENSE)
 # Absolute paths, for custom commands (they run in the build directory)
 list(TRANSFORM ONESIMUS_NOTICE_FILES PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE ONESIMUS_NOTICE_PATHS)
 list(TRANSFORM ONESIMUS_LICENSE_TEXTS PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE ONESIMUS_LICENSE_PATHS)
+
+# ============================================================================
+# Version header and build info (GitHub issue #7)
+# ============================================================================
+# version.h: stable values, configured once (rewritten only when they change).
+# buildinfo.cpp: build number, source date and git state, refreshed by
+# cmake/BuildInfo.cmake on every build but rewritten only when a value
+# changed. So an unchanged build compiles nothing, a new commit recompiles
+# one file, and the source tree is never written (sudo make install leaves no
+# root-owned files in it). version.txt holds VERSION_FULL for deploy.sh/.ps1.
+if(EXISTS "${CMAKE_SOURCE_DIR}/include/version.h")
+    message(WARNING "include/version.h is left over from an older checkout and no longer used "
+                    "(the header is generated into ${ONESIMUS_GENERATED_DIR}); delete it.")
+endif()
+configure_file(${CMAKE_SOURCE_DIR}/include/version.h.in ${ONESIMUS_GENERATED_DIR}/version.h @ONLY)
+set(ONESIMUS_BUILDINFO_CPP ${ONESIMUS_GENERATED_DIR}/buildinfo.cpp)
+add_custom_target(onesimus_buildinfo
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DBINARY_DIR=${CMAKE_BINARY_DIR}
+        -DTEMPLATE_FILE=${CMAKE_SOURCE_DIR}/cmake/buildinfo.cpp.in
+        -DOUTPUT_FILE=${ONESIMUS_BUILDINFO_CPP}
+        -DVERSION_FILE=${ONESIMUS_GENERATED_DIR}/version.txt
+        -DPROJECT_VERSION=${PROJECT_VERSION}
+        -DINCREMENT=${ONESIMUS_INCREMENT_BUILD}
+        -P ${CMAKE_SOURCE_DIR}/cmake/BuildInfo.cmake
+    BYPRODUCTS ${ONESIMUS_BUILDINFO_CPP} ${ONESIMUS_GENERATED_DIR}/version.txt
+    COMMENT "Checking build info (build number, git)"
+    VERBATIM
+)
+set_source_files_properties(${ONESIMUS_BUILDINFO_CPP} PROPERTIES GENERATED TRUE SKIP_AUTOGEN TRUE)
+# In SOURCES: the tests built from the application sources need it as well
+# (each of them depends on onesimus_buildinfo).
+list(APPEND SOURCES ${ONESIMUS_BUILDINFO_CPP})
 
 # Theme Resources
 qt6_add_resources(THEME_RESOURCES
@@ -864,11 +915,50 @@ else()
     target_compile_definitions(onesimus_secretstore PRIVATE ONESIMUS_NO_KEYCHAIN)
 endif()
 
-add_executable(${PROJECT_NAME}
-    ${SOURCES}
-    ${HEADERS}
+# ============================================================================
+# onesimus_core: the application without main()
+# ============================================================================
+# A static library, compiled once and linked by the program and by the tests
+# that need the whole application (bdialogfonts_test, bappwidgets_test);
+# before, those compiled every source again. The Director layer comes from
+# bareosdirector_lib (object library, also linked by many tests) and
+# BareosAuth from bareosauth_lib, so neither is compiled twice either.
+# The theme resources are an object library (onesimus_resources): in a
+# static library nothing references their initialiser and the linker would
+# drop them.
+set(ONESIMUS_DIRECTOR_LIB_SOURCES
+    src/director/bareosdirector.cpp
+    src/director/bjsonstreamreader.cpp
+    src/director/bjsonreassembler.cpp
+)
+set(ONESIMUS_CORE_SOURCES ${SOURCES})
+list(REMOVE_ITEM ONESIMUS_CORE_SOURCES src/main.cpp ${THEME_RESOURCES} ${WIN_RC_FILE}
+     ${ONESIMUS_DIRECTOR_LIB_SOURCES})
+# Their headers as well: AUTOMOC would run moc on them a second time
+set(ONESIMUS_CORE_HEADERS ${HEADERS})
+list(REMOVE_ITEM ONESIMUS_CORE_HEADERS
+    include/director/bareosauth.h
+    include/director/bareosdirector.h
+    include/director/bjsonstreamreader.h
+    include/director/bjsonreassembler.h
+)
+add_library(onesimus_core STATIC
+    ${ONESIMUS_CORE_SOURCES}
+    ${ONESIMUS_CORE_HEADERS}
     ${UI_FILES}
 )
+add_dependencies(onesimus_core onesimus_buildinfo)
+
+add_library(onesimus_resources OBJECT ${THEME_RESOURCES})
+target_link_libraries(onesimus_resources PRIVATE Qt6::Core)
+
+add_executable(${PROJECT_NAME}
+    src/main.cpp
+)
+if(WIN32)
+    target_sources(${PROJECT_NAME} PRIVATE ${WIN_RC_FILE})
+endif()
+target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_core onesimus_resources)
 
 qt_add_resources(${PROJECT_NAME} onesimus_legal
     PREFIX "/legal"
@@ -915,45 +1005,22 @@ if(WIN32)
     )
 endif()
 
-# ============================================================================
-# Build Number Auto-Increment (runs on every build)
-# ============================================================================
-# Increments .build_number and regenerates version.h before compiling.
-# Version scheme: MAJOR.MINOR.PATCH.BUILD (triplet from project() + auto build number)
-
-add_custom_target(increment_build_number
-    COMMAND ${CMAKE_COMMAND}
-        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-        -DBINARY_DIR=${CMAKE_BINARY_DIR}
-        -DTEMPLATE_FILE=${CMAKE_SOURCE_DIR}/include/version.h.in
-        -DOUTPUT_FILE=${CMAKE_SOURCE_DIR}/include/version.h
-        -DPROJECT_VERSION=${PROJECT_VERSION}
-        -DPROJECT_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-        -DPROJECT_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-        -DPROJECT_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-        -DPROJECT_NAME=${PROJECT_NAME}
-        -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
-        -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        -DCMAKE_CXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}
-        -DCMAKE_CXX_COMPILER_VERSION=${CMAKE_CXX_COMPILER_VERSION}
-        -P ${CMAKE_SOURCE_DIR}/cmake/IncrementBuildNumber.cmake
-    COMMENT "Incrementing build number..."
-)
-add_dependencies(${PROJECT_NAME} increment_build_number)
 
 # ============================================================================
 # Link Libraries
 # ============================================================================
 
-# Qt6 Libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
+# Qt6 Libraries (PUBLIC: the program and the tests linking onesimus_core
+# get them as well)
+target_link_libraries(onesimus_core PUBLIC
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
     Qt6::Sql
     onesimus_secretstore
+    bareosauth_lib
+    bareosdirector_lib
 )
 
 # gRPC clients, generated from the proto submodule:
@@ -994,38 +1061,26 @@ if(HAVE_GRPC)
     target_include_directories(onesimus_grpc_proto PUBLIC ${ONESIMUS_PROTO_STUB_DIR})
     target_link_libraries(onesimus_grpc_proto PUBLIC Qt6::Protobuf Qt6::ProtobufWellKnownTypes Qt6::Grpc Qt6::Network)
     target_compile_definitions(onesimus_grpc_proto PUBLIC HAVE_GRPC)
-    target_sources(${PROJECT_NAME} PRIVATE
-        src/director/bgrpctransport.cpp
-        src/director/bjobhistoryproto.cpp
-        include/director/bjobhistoryproto.h
-        include/director/bgrpctransport.h
-        src/director/bgrpcconnect.cpp
-        include/director/bgrpcconnect.h
-        src/director/bconfigproto.cpp
-        include/director/bconfigproto.h
-        src/director/busageproto.cpp
-        include/director/busageproto.h
-    )
-    target_link_libraries(${PROJECT_NAME} PRIVATE onesimus_grpc_proto)
+    # Generated code: its headers are system headers for the targets that
+    # include them, so ONESIMUS_WARNINGS does not report qtprotobufgen's
+    # code
+    set_target_properties(onesimus_grpc_proto PROPERTIES SYSTEM TRUE)
+    # The gRPC transport sources are compiled in bareosdirector_lib
+    target_link_libraries(onesimus_core PUBLIC onesimus_grpc_proto)
 endif()
 
 # GuiPrivate for QZipWriter/QZipReader
-if(WIN32 AND TARGET Qt6::GuiPrivate)
-    target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::GuiPrivate)
-else()
-    # On Linux, Qt6GuiPrivate package may not exist; use private include dirs
-    target_include_directories(${PROJECT_NAME} PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
-endif()
+target_link_libraries(onesimus_core PRIVATE Qt6::GuiPrivate)
 
 # OpenSSL Libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
+target_link_libraries(onesimus_core PUBLIC
     OpenSSL::SSL
     OpenSSL::Crypto
 )
 
 # Bei statischem OpenSSL: Hauptprojekt hängt von OpenSSL-Build ab
 if(USE_STATIC_OPENSSL)
-    add_dependencies(${PROJECT_NAME} openssl_build)
+    add_dependencies(onesimus_core openssl_build)
 endif()
 
 # ============================================================================
@@ -1160,45 +1215,26 @@ message(STATUS "========================================")
 message(STATUS "")
 
 # ============================================================================
-# OpenSSL DLLs automatisch zu Qt kopieren
+# Windows: OpenSSL DLLs next to the programs of the build tree
 # ============================================================================
-
+# onesimus.exe and the tests link the import libraries, so they need
+# libssl-3-x64.dll/libcrypto-3-x64.dll at run time; Windows looks in the
+# directory of the .exe first. Nothing is written into the Qt installation
+# (before, the DLLs were copied into Qt's bin directory). The packages get
+# them through the "deploy" target below.
 if(USE_STATIC_OPENSSL AND WIN32)
-    # Prüfe ob wir shared libraries gebaut haben
-    if(EXISTS "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll")
-        # Qt Bin-Verzeichnis
-        get_target_property(QT_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
-        get_filename_component(QT_BIN_DIR ${QT_QMAKE_EXECUTABLE} DIRECTORY)
-
-        message(STATUS "")
-        message(STATUS "========================================")
-        message(STATUS "Copying OpenSSL DLLs to Qt")
-        message(STATUS "========================================")
-        message(STATUS "  From:     ${OPENSSL_INSTALL_DIR}/bin")
-        message(STATUS "  To:       ${QT_BIN_DIR}")
-
-        if(OPENSSL_PREBUILT)
-            # No ExternalProject to hang the step on: copy now.
-            file(COPY "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
-                      "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
-                 DESTINATION "${QT_BIN_DIR}")
-        else()
-        # Kopiere nach OpenSSL-Build
-        ExternalProject_Add_Step(openssl_build copy_dlls_to_qt
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
-                "${QT_BIN_DIR}/libssl-3-x64.dll"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
-                "${QT_BIN_DIR}/libcrypto-3-x64.dll"
+    set(_openssl_dlls
+        "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
+        "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll")
+    if(OPENSSL_PREBUILT)
+        # No ExternalProject to hang the step on: copy now.
+        file(COPY ${_openssl_dlls} DESTINATION "${CMAKE_BINARY_DIR}")
+    else()
+        ExternalProject_Add_Step(openssl_build copy_dlls_to_build_tree
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${_openssl_dlls} "${CMAKE_BINARY_DIR}"
             DEPENDEES install
-            COMMENT "Copying OpenSSL DLLs to Qt bin directory"
+            COMMENT "Copying the OpenSSL DLLs into the build directory"
         )
-        endif()
-
-        message(STATUS "✓ OpenSSL DLLs werden automatisch kopiert")
-        message(STATUS "========================================")
-        message(STATUS "")
     endif()
 endif()
 
@@ -1330,8 +1366,10 @@ endif()
 # Test Executables
 # ============================================================================
 
-# bareosauth_lib - Object library for BareosAuth (shared between main and test)
-add_library(bareosauth_lib OBJECT
+# bareosauth_lib - BareosAuth, compiled once for the application, the
+# libraries and the tests (a static library: bareosdirector_lib, an object
+# library, passes it on to the tests that link it)
+add_library(bareosauth_lib STATIC
     src/director/bareosauth.cpp
     include/director/bareosauth.h
 )
@@ -1367,11 +1405,9 @@ target_link_libraries(bareosauth_test PRIVATE
 # bareosdirector_lib - Object library for BareosDirector (shared between main and test)
 add_library(bareosdirector_lib OBJECT
     src/director/bareosdirector.cpp
-    src/director/bareosauth.cpp
     src/director/bjsonstreamreader.cpp
     src/director/bjsonreassembler.cpp
     include/director/bareosdirector.h
-    include/director/bareosauth.h
     include/director/bjsonstreamreader.h
     include/director/bjsonreassembler.h
 )
@@ -1381,6 +1417,7 @@ target_include_directories(bareosdirector_lib PUBLIC
 )
 
 target_link_libraries(bareosdirector_lib PUBLIC
+    bareosauth_lib
     Qt6::Core
     Qt6::Widgets
     Qt6::Network
@@ -2510,11 +2547,7 @@ if(BUILD_TESTING)
     )
     target_include_directories(bzipimport_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(bzipimport_test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
-    if(WIN32 AND TARGET Qt6::GuiPrivate)
-        target_link_libraries(bzipimport_test PRIVATE Qt6::GuiPrivate)
-    else()
-        target_include_directories(bzipimport_test PRIVATE ${Qt6Gui_PRIVATE_INCLUDE_DIRS})
-    endif()
+    target_link_libraries(bzipimport_test PRIVATE Qt6::GuiPrivate)
     add_test(NAME bzipimport_test COMMAND bzipimport_test)
 
     # bconfigparser_test - configuration text read as Bareos 25 reads it:
@@ -3129,43 +3162,16 @@ if(BUILD_TESTING)
     # job details, settings, connection and restore dialogs at 100 % and
     # 200 %, a zoom change while they are open, per-class fonts of the
     # platform theme, and a theme style sheet with sizes of its own (widgets,
-    # no Director, no network). Built from the sources of the application.
-    set(BDIALOGFONTS_SOURCES ${SOURCES})
-    list(REMOVE_ITEM BDIALOGFONTS_SOURCES src/main.cpp)
+    # no Director, no network). Linked against onesimus_core.
     add_executable(bdialogfonts_test
         test/bdialogfonts_test.cpp
-        ${BDIALOGFONTS_SOURCES}
-        ${HEADERS}
-        ${UI_FILES}
-    )
-    if(HAVE_GRPC)
-        target_sources(bdialogfonts_test PRIVATE
-            src/director/bgrpctransport.cpp
-            src/director/bjobhistoryproto.cpp
-            include/director/bjobhistoryproto.h
-            include/director/bgrpctransport.h
-            src/director/bgrpcconnect.cpp
-            include/director/bgrpcconnect.h
-            src/director/bconfigproto.cpp
-            include/director/bconfigproto.h
-            src/director/busageproto.cpp
-            include/director/busageproto.h
-        )
-    endif()
-    target_include_directories(bdialogfonts_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
     )
     target_compile_definitions(bdialogfonts_test PRIVATE
         ONESIMUS_THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
     )
-    # The sources of the application are compiled a second time here; their
-    # known warnings (OpenSSL's MD5 in bareosauth.cpp) are counted once, for
-    # the application
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(bdialogfonts_test PRIVATE -Wno-deprecated-declarations)
-    endif()
     target_link_libraries(bdialogfonts_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
+        onesimus_core
+        onesimus_resources
         Qt6::Test
     )
     add_test(NAME bdialogfonts_test COMMAND bdialogfonts_test)
@@ -3174,7 +3180,7 @@ if(BUILD_TESTING)
     set_tests_properties(bdialogfonts_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     # bappwidgets_test - widgets of the application on their real classes,
-    # built from its sources like bdialogfonts_test (no Director, scratch
+    # linked against onesimus_core like bdialogfonts_test (no Director, scratch
     # settings, a keychain in memory). Registered twice:
     #  bsettingsdialog_test: Cancel reverts, the edited row is relabelled,
     #    Reset keeps the profiles, export/import on the app's settings store
@@ -3182,32 +3188,10 @@ if(BUILD_TESTING)
     #    pages and keep their selection by name
     add_executable(bappwidgets_test
         test/bappwidgets_test.cpp
-        ${BDIALOGFONTS_SOURCES}
-        ${HEADERS}
-        ${UI_FILES}
     )
-    if(HAVE_GRPC)
-        target_sources(bappwidgets_test PRIVATE
-            src/director/bgrpctransport.cpp
-            src/director/bjobhistoryproto.cpp
-            include/director/bjobhistoryproto.h
-            include/director/bgrpctransport.h
-            src/director/bgrpcconnect.cpp
-            include/director/bgrpcconnect.h
-            src/director/bconfigproto.cpp
-            include/director/bconfigproto.h
-            src/director/busageproto.cpp
-            include/director/busageproto.h
-        )
-    endif()
-    target_include_directories(bappwidgets_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},INCLUDE_DIRECTORIES>
-    )
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(bappwidgets_test PRIVATE -Wno-deprecated-declarations)
-    endif()
     target_link_libraries(bappwidgets_test PRIVATE
-        $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
+        onesimus_core
+        onesimus_resources
         Qt6::Test
     )
     add_test(NAME bsettingsdialog_test COMMAND bappwidgets_test
@@ -3548,3 +3532,24 @@ endif()
 
 # include(CPack) must come AFTER all CPACK_* variables are set
 include(CPack)
+
+# ============================================================================
+# Compiler warnings (ONESIMUS_WARNINGS)
+# ============================================================================
+# Every target of this directory that compiles our code; not the generated
+# gRPC/protobuf library (its headers count as system headers for the
+# targets including them) and not OpenSSL (an ExternalProject with its own
+# flags). Qt's headers are system headers through the imported targets.
+if(ONESIMUS_WARNINGS)
+    get_property(_onesimus_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_t IN LISTS _onesimus_targets)
+        get_target_property(_type ${_t} TYPE)
+        if(_type MATCHES "^(EXECUTABLE|STATIC_LIBRARY|OBJECT_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY)$"
+           AND NOT _t STREQUAL "onesimus_grpc_proto")
+            target_compile_options(${_t} PRIVATE
+                $<$<CXX_COMPILER_ID:MSVC>:/W4>
+                $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>)
+        endif()
+    endforeach()
+    message(STATUS "Compiler warnings: ON (-Wall -Wextra / /W4; -DONESIMUS_WARNINGS=OFF to disable)")
+endif()

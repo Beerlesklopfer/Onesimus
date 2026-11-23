@@ -74,7 +74,7 @@ env:
   # windows and macos jobs check against what they ship).
   QT_VERSION: '6.8.3'
   QT_SOURCE_MODULES: 'qtbase qtsvg qtgrpc qtimageformats qttranslations'
-  OPENSSL_CACHE_REV: '1'
+  OPENSSL_CACHE_REV: '2'
 
 jobs:
   check:

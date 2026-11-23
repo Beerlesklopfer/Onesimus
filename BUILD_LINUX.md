@@ -27,6 +27,7 @@ sudo apt-get update
 sudo apt-get install -y build-essential cmake git \
     qt6-base-dev qt6-base-private-dev qt6-tools-dev \
     qt6-tools-dev-tools libqt6network6-dev \
+    qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev \
     perl imagemagick libssl-dev libxkbcommon-dev libsecret-1-dev
 
 # 2. Clone repository
@@ -50,6 +51,10 @@ make -j$(nproc)
 ```
 
 ## 📋 Prerequisites
+
+CMake 3.25 or newer (Debian 13: 3.31, Ubuntu 24.04: 3.28), Qt 6.8 or newer with the private
+headers, and for the gRPC transport to the Onesimus Director QtGrpc/QtProtobuf with `protoc`
+(Debian 13 below; without them the build falls back to BNET only).
 
 ### Ubuntu/Debian
 
@@ -182,6 +187,9 @@ sudo zypper install -y \
 
 ### Option 1: Static OpenSSL (Default)
 
+The default of CMake and of `deploy.sh`. OpenSSL is built `no-shared` out of source
+(`build/openssl-build`) and installed into `build/openssl-install/lib`.
+
 ```bash
 mkdir build && cd build
 cmake .. -DUSE_STATIC_OPENSSL=ON
@@ -301,9 +309,11 @@ Environment: `BUILD_DIR`, `BUILD_TYPE`, `JOBS`, `OPENSSL` (static/system),
 `PACKAGE_GENERATORS`, `APPIMAGE_TOOLS`, `CLEAN`, `DRY_RUN`, `ONESIMUS_ALLOW_ROOT`.
 
 An existing build tree keeps its build type and OpenSSL mode unless `-t`/`-s`
-(or `BUILD_TYPE`/`OPENSSL`) is given. Every build increments `.build_number`
-and regenerates `include/version.h` (both tracked: do not commit the stamped
-values of a development build).
+(or `BUILD_TYPE`/`OPENSSL`) is given. The build writes `version.h`,
+`buildinfo.cpp` and `version.txt` into `<build>/generated/` and nothing into the
+source tree, so an unchanged build compiles nothing. The build number is
+`GITHUB_RUN_NUMBER` in CI, else the number of commits up to HEAD;
+`-DONESIMUS_INCREMENT_BUILD=ON` counts it up on every build instead.
 
 ## ⏱️ Build Times
 
@@ -435,7 +445,7 @@ cat build/openssl_build-prefix/src/openssl_build-stamp/openssl_build-build.log
 **Rebuild OpenSSL:**
 ```bash
 cd build
-rm -rf openssl-install openssl_build-prefix
+rm -rf openssl-install openssl-build openssl_build-prefix
 cmake --build . --target openssl_build
 ```
 

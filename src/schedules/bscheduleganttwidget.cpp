@@ -1529,11 +1529,8 @@ void BScheduleGanttWidget::mouseMoveEvent(QMouseEvent *event)
 
             if (slotIdx >= 0 && slotIdx < m_heatmapSlots.size()) {
                 int slotMinutes = slotIdx * HEATMAP_SLOT_MINUTES;
-                int dayOffset = 0;
-                if (m_viewMode == WeekView) {
-                    dayOffset = slotMinutes / (24 * 60);
+                if (m_viewMode == WeekView)
                     slotMinutes %= (24 * 60);
-                }
                 int h = slotMinutes / 60;
                 int m = slotMinutes % 60;
                 int count = m_heatmapSlots[slotIdx];

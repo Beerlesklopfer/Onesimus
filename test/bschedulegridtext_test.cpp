@@ -61,12 +61,6 @@ BGridScope scopeOf(quint8 weeks, bool last = false, quint16 months = BDateTimeMa
     return scope;
 }
 
-BDateTimeMask maskOf(const QString &run)
-{
-    const BRunLine line = BRunParser::parse(run);
-    return line.spec ? line.spec->mask : BDateTimeMask();
-}
-
 QStringList levelNames(const BScheduleCalendarDay &day)
 {
     QStringList names;
