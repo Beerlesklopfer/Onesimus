@@ -110,7 +110,11 @@ if(USE_STATIC_OPENSSL)
     message(STATUS "========================================")
     
     set(OPENSSL_SUBMODULE_DIR ${CMAKE_SOURCE_DIR}/external/openssl)
-    set(OPENSSL_INSTALL_DIR ${CMAKE_BINARY_DIR}/openssl-install)
+    # Install prefix of the static OpenSSL build. It may lie outside the build
+    # tree (the CI keeps it in a cache keyed on the submodule commit): a prefix
+    # that already holds the libraries is used as it is, without a rebuild.
+    set(OPENSSL_INSTALL_DIR "${OPENSSL_INSTALL_DIR}" CACHE PATH
+        "Install prefix of the static OpenSSL build (reused when it already holds the libraries)")
     
     # Automatischer Download via Git Submodule
     message(STATUS "Checking OpenSSL submodule...")
@@ -277,6 +281,15 @@ if(USE_STATIC_OPENSSL)
     
     message(STATUS "Configuring OpenSSL ExternalProject...")
     
+    if(EXISTS "${OPENSSL_SSL_LIB}" AND EXISTS "${OPENSSL_CRYPTO_LIB}"
+       AND EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/ssl.h")
+        # Already built (earlier build or restored CI cache): an empty target
+        # keeps the add_dependencies() calls below valid.
+        set(OPENSSL_PREBUILT ON)
+        message(STATUS "✓ Reusing the OpenSSL build in ${OPENSSL_INSTALL_DIR}")
+        add_custom_target(openssl_build)
+    else()
+    set(OPENSSL_PREBUILT OFF)
     ExternalProject_Add(openssl_build
         SOURCE_DIR ${OPENSSL_SUBMODULE_DIR}
         CONFIGURE_COMMAND ${OPENSSL_CONFIGURE_COMMAND}
@@ -292,6 +305,7 @@ if(USE_STATIC_OPENSSL)
             ${OPENSSL_SSL_LIB}
             ${OPENSSL_CRYPTO_LIB}
     )
+    endif()
     
     # ========================================================================
     # OpenSSL Interface Libraries
@@ -365,8 +379,10 @@ find_package(Qt6 REQUIRED COMPONENTS
     LinguistTools
 )
 
-# GuiPrivate: Windows has the package, Linux uses private include dirs directly
-if(WIN32)
+# GuiPrivate (QZipWriter/QZipReader): Qt >= 6.9 ships it as a package of its
+# own; up to 6.8 the Qt6::GuiPrivate target comes with Qt6Gui. Linux uses the
+# private include dirs directly.
+if(WIN32 AND Qt6_VERSION VERSION_GREATER_EQUAL 6.9)
     find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
 endif()
 
@@ -882,7 +898,7 @@ if(HAVE_GRPC)
 endif()
 
 # GuiPrivate for QZipWriter/QZipReader
-if(WIN32)
+if(WIN32 AND TARGET Qt6::GuiPrivate)
     target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::GuiPrivate)
 else()
     # On Linux, Qt6GuiPrivate package may not exist; use private include dirs
@@ -1041,6 +1057,12 @@ if(USE_STATIC_OPENSSL AND WIN32)
         message(STATUS "  From:     ${OPENSSL_INSTALL_DIR}/bin")
         message(STATUS "  To:       ${QT_BIN_DIR}")
 
+        if(OPENSSL_PREBUILT)
+            # No ExternalProject to hang the step on: copy now.
+            file(COPY "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
+                      "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
+                 DESTINATION "${QT_BIN_DIR}")
+        else()
         # Kopiere nach OpenSSL-Build
         ExternalProject_Add_Step(openssl_build copy_dlls_to_qt
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -1052,6 +1074,7 @@ if(USE_STATIC_OPENSSL AND WIN32)
             DEPENDEES install
             COMMENT "Copying OpenSSL DLLs to Qt bin directory"
         )
+        endif()
 
         message(STATUS "✓ OpenSSL DLLs werden automatisch kopiert")
         message(STATUS "========================================")
@@ -1088,10 +1111,10 @@ if(WIN32)
             COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${CMAKE_BINARY_DIR}/deploy/"
             # Copy OpenSSL DLLs first (needed for windeployqt to find them)
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_BINARY_DIR}/openssl-install/bin/libssl-3-x64.dll"
+                "${OPENSSL_INSTALL_DIR}/bin/libssl-3-x64.dll"
                 "${CMAKE_BINARY_DIR}/deploy/"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_BINARY_DIR}/openssl-install/bin/libcrypto-3-x64.dll"
+                "${OPENSSL_INSTALL_DIR}/bin/libcrypto-3-x64.dll"
                 "${CMAKE_BINARY_DIR}/deploy/"
             COMMAND ${WINDEPLOYQT_EXECUTABLE}
                 $<IF:$<CONFIG:Debug>,--debug,--release>
@@ -1099,7 +1122,7 @@ if(WIN32)
                 --no-system-d3d-compiler
                 --no-opengl-sw
                 --compiler-runtime
-                --openssl-root "${CMAKE_BINARY_DIR}/openssl-install"
+                --openssl-root "${OPENSSL_INSTALL_DIR}"
                 "${CMAKE_BINARY_DIR}/deploy/${PROJECT_NAME}.exe"
             DEPENDS ${PROJECT_NAME}
             COMMENT "Running windeployqt with OpenSSL support..."
@@ -2885,6 +2908,25 @@ elseif(UNIX)
     set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
     set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= ${ONESIMUS_QT_MIN_VERSION}")
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+endif()
+
+# Windows: the test executables find the Qt and OpenSSL DLLs through PATH,
+# and the offscreen platform the system fonts.
+# Only the application gets the DLLs copied next to it; without this a test
+# fails to start (0xC0000135) or picks up a foreign libcrypto from PATH.
+if(WIN32 AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.22)
+    get_property(_onesimus_tests DIRECTORY PROPERTY TESTS)
+    if(_onesimus_tests)
+        set(_onesimus_test_path "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+        # The offscreen platform looks for fonts in Qt's lib/fonts, which Qt no
+        # longer ships: without fonts text is elided and some tests crash
+        file(TO_CMAKE_PATH "$ENV{WINDIR}/Fonts" _onesimus_font_dir)
+        list(APPEND _onesimus_test_path "QT_QPA_FONTDIR=set:${_onesimus_font_dir}")
+        if(USE_STATIC_OPENSSL AND OPENSSL_INSTALL_DIR)
+            list(APPEND _onesimus_test_path "PATH=path_list_prepend:${OPENSSL_INSTALL_DIR}/bin")
+        endif()
+        set_tests_properties(${_onesimus_tests} PROPERTIES ENVIRONMENT_MODIFICATION "${_onesimus_test_path}")
+    endif()
 endif()
 
 # include(CPack) must come AFTER all CPACK_* variables are set

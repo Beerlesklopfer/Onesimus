@@ -5,6 +5,17 @@ All notable changes to Onesimus will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Build scripts became deploy scripts** (modelled on forgeiec-studio):
+  `build.sh`/`build.fish` → `deploy.sh`/`deploy.fish`, `build-windows.ps1` → `deploy.ps1`,
+  `run-build.bat`/`rebuild.bat` → `deploy.bat`. Verbs: `all` (default: build + deploy into
+  `/usr` with sudo per step; on Windows build + windeployqt), `configure`, `build`, `rebuild`,
+  `run`, `test`, `install`, `package`, `appimage` (Linux), `installer`/`zip`/`msi` (Windows),
+  `status`, `clean`, `help`. All former flags keep their meaning; `--dry-run`/`-DryRun`
+  prints every command instead of running it. `./deploy.sh build` is the former `./build.sh`.
+
 ## [0.2.0] - 2026-02-21
 
 ### Added

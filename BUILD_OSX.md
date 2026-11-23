@@ -5,15 +5,20 @@
 ### Automatischer Build (Empfohlen)
 
 ```bash
-./build.sh
+./deploy.sh build      # nur bauen
+./deploy.sh            # bauen + onesimus nach /usr/local/bin kopieren
+./deploy.sh package    # DMG über CPack
+./deploy.sh -n         # Probelauf: zeigt die Befehle, ohne sie auszuführen
 ```
 
 Das Script:
-- Initialisiert Git-Submodule automatisch
-- Prüft alle Voraussetzungen (Homebrew, Qt, CMake, etc.)
-- Fragt nach Build-Optionen
-- Konfiguriert CMake
-- Kompiliert das Projekt
+- Initialisiert die nötigen Git-Submodule (external/openssl bei statischem OpenSSL, proto/)
+- Prüft die Voraussetzungen und setzt `CMAKE_PREFIX_PATH` auf `brew --prefix qt@6`, falls nicht gesetzt
+- Konfiguriert CMake (Ninja, falls installiert) und kompiliert
+- Kopiert beim Deploy (`all`, Standard) das Binary nach `DEPLOY_PREFIX/bin` (Standard `/usr/local`)
+
+Alle Befehle und Flags: `./deploy.sh help` und [BUILD_LINUX.md](BUILD_LINUX.md#-build-script-options).
+`./deploy.fish` ist dasselbe Script für die Fish-Shell.
 
 ### Manueller Build
 
@@ -687,7 +692,7 @@ Bitte anhängen:
 
 ```bash
 # Standard Build (empfohlen)
-./build.sh
+./deploy.sh build
 
 # Manuell mit statischem OpenSSL
 mkdir build && cd build

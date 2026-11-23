@@ -22,9 +22,9 @@ BSettings::BSettings()
 #if USE_BACULA
     , m_settings()  // Uses QCoreApplication::organizationName() and applicationName()
 #elif defined(USE_BAREOS)
-    , m_settings("Bareos", "Onesimus")  // Bareos organization name
+    , m_settings(QSettings::defaultFormat(), QSettings::UserScope, "Bareos", "Onesimus")  // Bareos organization name
 #else
-    , m_settings("Bareos", "Onesimus")  // Default to Bareos
+    , m_settings(QSettings::defaultFormat(), QSettings::UserScope, "Bareos", "Onesimus")  // Default to Bareos
 #endif
 {
 #ifdef IS_DEVELOPER

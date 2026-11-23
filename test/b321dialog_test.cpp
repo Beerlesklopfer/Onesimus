@@ -194,7 +194,10 @@ void B321DialogTest::initTestCase()
     qputenv("XDG_CONFIG_HOME", m_config.path().toUtf8());
     QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, m_config.path());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_config.path());
-    const QSettings probe(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+    // Windows keeps NativeFormat in the registry, where setPath does not reach
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    const QSettings probe(QSettings::defaultFormat(), QSettings::UserScope,
+                         QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
     QVERIFY2(probe.fileName().startsWith(m_config.path()), qPrintable(probe.fileName()));
 
     QFont font(QStringLiteral("DejaVu Sans"));

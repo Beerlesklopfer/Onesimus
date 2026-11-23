@@ -5,8 +5,8 @@
 
 BColumnConfiguration::BColumnConfiguration(QObject *parent)
     : QObject(parent)
-    , m_settings(QCoreApplication::organizationName(), 
-                 QCoreApplication::applicationName())
+    , m_settings(QSettings::defaultFormat(), QSettings::UserScope,
+                 QCoreApplication::organizationName(), QCoreApplication::applicationName())
 {
 }
 
@@ -72,7 +72,7 @@ void BColumnConfiguration::restoreHeaderState(QHeaderView *header, const QString
 
 bool BColumnConfiguration::hasHeaderState(const QString &settingsKey) const
 {
-    QSettings settings(m_settings.organizationName(), m_settings.applicationName());
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, m_settings.organizationName(), m_settings.applicationName());
     settings.beginGroup(settingsKey);
     const bool stored = !settings.childGroups().isEmpty();
     settings.endGroup();
@@ -171,7 +171,7 @@ void BColumnConfiguration::deletePreset(const QString &presetName)
 QStringList BColumnConfiguration::availablePresets() const
 {
     // Create temporary settings object to avoid const issues
-    QSettings settings(m_settings.organizationName(), m_settings.applicationName());
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, m_settings.organizationName(), m_settings.applicationName());
     
     settings.beginGroup("Presets");
     QStringList presets = settings.childGroups();
@@ -186,7 +186,7 @@ BColumnConfiguration::Preset BColumnConfiguration::getPreset(const QString &pres
     preset.name = presetName;
     
     // Can't use m_settings directly in const method, need to work around
-    QSettings settings(m_settings.organizationName(), m_settings.applicationName());
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, m_settings.organizationName(), m_settings.applicationName());
     
     settings.beginGroup("Presets");
     

@@ -1,0 +1,255 @@
+# Build and test on every push and pull request.
+#
+# Linux:   Debian 13 (trixie) container - the first Debian with Qt >= 6.8 and
+#          QtGrpc/QtProtobuf as distribution packages, the same base as the
+#          .deb of the release. Build and ctest through ./deploy.sh.
+# Windows: MSVC 2022 + Qt from install-qt-action, build, ctest and an MSI
+#          (GUI only) through deploy.ps1, so a broken WiX source shows up here
+#          and not first on a release tag.
+# macOS:   build only, allowed to fail (app bundle deferred, backlog P3-22).
+#
+# Submodules: only external/openssl and proto. wiki/ has an SSH URL and is
+# never fetched (no `submodules:` on checkout).
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    # Release tags run release.yml.
+    tags-ignore: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.8.3'
+  # Bump to drop the cached static OpenSSL builds (they are keyed on the
+  # submodule commit already).
+  OPENSSL_CACHE_REV: '1'
+
+jobs:
+  linux:
+    name: Linux (Debian 13, Qt 6.8)
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    timeout-minutes: 60
+    env:
+      # deploy.sh refuses root unless told; the container has no other user.
+      ONESIMUS_ALLOW_ROOT: '1'
+      BUILD_DIR: build
+      GENERATOR: Ninja
+      OPENSSL_INSTALL_DIR: /opt/ci-cache/openssl
+      CCACHE_DIR: /opt/ci-cache/ccache
+      CCACHE_MAXSIZE: 500M
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # git before checkout, otherwise checkout downloads a tarball without
+      # .git and the submodules cannot be fetched.
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git curl zstd file perl make build-essential cmake ninja-build ccache \
+            dpkg-dev librsvg2-bin \
+            qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
+            qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev libgl-dev
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fetch submodules (openssl, proto)
+        id: sub
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git submodule update --init --depth 1 external/openssl proto
+          echo "openssl=$(git rev-parse HEAD:external/openssl)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache static OpenSSL
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/ci-cache/openssl
+          key: openssl-${{ env.OPENSSL_CACHE_REV }}-debian13-${{ steps.sub.outputs.openssl }}
+
+      - name: Cache ccache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/ci-cache/ccache
+          key: ccache-debian13-${{ github.sha }}
+          restore-keys: ccache-debian13-
+
+      - name: Configure
+        run: ./deploy.sh configure
+
+      - name: Build
+        run: JOBS="$(nproc)" ./deploy.sh build
+
+      - name: Test (ctest, offscreen)
+        run: JOBS="$(nproc)" ./deploy.sh test
+
+      # The .ts files are updated after merging (translators work on them),
+      # so a difference is reported, not fatal.
+      - name: Translations up to date (lupdate)
+        continue-on-error: true
+        run: |
+          cmake --build build --target onesimus_lupdate >/dev/null
+          if git diff --quiet -- translations; then
+            echo "translations/*.ts match the sources"
+          else
+            git diff --stat -- translations
+            echo "::warning title=Translations::lupdate changes translations/*.ts - run 'cmake --build build --target update_translations' and commit"
+          fi
+          git checkout -- translations
+
+      - name: ccache statistics
+        if: always()
+        run: ccache --show-stats || true
+
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-test-log
+          path: build/Testing/Temporary/
+          if-no-files-found: ignore
+
+  windows:
+    name: Windows (MSVC 2022, Qt 6.8)
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      BUILD_DIR: build
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fetch submodules (openssl, proto)
+        id: sub
+        run: |
+          git submodule update --init --depth 1 external/openssl proto
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          "openssl=$(git rev-parse HEAD:external/openssl)" >> $env:GITHUB_OUTPUT
+          "OPENSSL_INSTALL_DIR=$env:RUNNER_TEMP\ci-cache\openssl" >> $env:GITHUB_ENV
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtgrpc
+          cache: true
+
+      # protoc for qt_add_protobuf/qt_add_grpc and NASM for the OpenSSL
+      # assembler code, pinned and checked against SHA-256 (computed from the
+      # upstream downloads; change version and checksum together).
+      - name: Install protoc and NASM
+        run: |
+          $tools = "$env:RUNNER_TEMP\tools"
+          $downloads = @(
+            @{ Url = 'https://github.com/protocolbuffers/protobuf/releases/download/v28.3/protoc-28.3-win64.zip'
+               Sha = 'ce64f49bdeddef49ce4bd313a8f59bcf92fcf67b5831efbf66170386d2e66948'; Dir = 'protoc'; Bin = 'bin' },
+            @{ Url = 'https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip'
+               Sha = '3ee4782247bcb874378d02f7eab4e294a84d3d15f3f6ee2de2f47a46aa7226e6'; Dir = 'nasm'; Bin = 'nasm-2.16.03' }
+          )
+          foreach ($d in $downloads) {
+            $zip = "$env:RUNNER_TEMP\$($d.Dir).zip"
+            Invoke-WebRequest -Uri $d.Url -OutFile $zip
+            $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+            if ($hash -ne $d.Sha) { throw "SHA-256 mismatch for $($d.Url): $hash" }
+            Expand-Archive -Path $zip -DestinationPath "$tools\$($d.Dir)"
+            "$tools\$($d.Dir)\$($d.Bin)" >> $env:GITHUB_PATH
+          }
+
+      - name: Cache static OpenSSL
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}\ci-cache\openssl
+          key: openssl-${{ env.OPENSSL_CACHE_REV }}-windows2022-msvc-${{ steps.sub.outputs.openssl }}
+
+      - name: Build
+        run: .\deploy.ps1 build -QtPath $env:QT_ROOT_DIR -BuildDir $env:BUILD_DIR
+
+      - name: Test (ctest, offscreen)
+        run: .\deploy.ps1 test -QtPath $env:QT_ROOT_DIR -BuildDir $env:BUILD_DIR
+
+      - name: Install WiX
+        run: |
+          dotnet tool install --global wix --version 6.0.2
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
+
+      # GUI-only MSI (no onesimus-dird input here): checks the WiX source.
+      - name: MSI
+        run: .\deploy.ps1 installer -QtPath $env:QT_ROOT_DIR -BuildDir $env:BUILD_DIR
+
+      - name: Upload MSI
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-msi
+          path: build/Onesimus-*-windows-x86_64.msi*
+          retention-days: 7
+
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-test-log
+          path: build/Testing/Temporary/
+          if-no-files-found: ignore
+
+  macos:
+    # Build only and allowed to fail: there is no app bundle yet (backlog
+    # P3-22), so nothing here is shipped. It keeps the code compiling on clang.
+    name: macOS (build only, allowed to fail)
+    runs-on: macos-15
+    timeout-minutes: 60
+    continue-on-error: true
+    env:
+      BUILD_DIR: build
+      GENERATOR: Ninja
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Fetch submodules (openssl, proto)
+        id: sub
+        run: |
+          git submodule update --init --depth 1 external/openssl proto
+          echo "openssl=$(git rev-parse HEAD:external/openssl)" >> "$GITHUB_OUTPUT"
+          echo "OPENSSL_INSTALL_DIR=$RUNNER_TEMP/ci-cache/openssl" >> "$GITHUB_ENV"
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: qtgrpc
+          cache: true
+
+      - name: Install ninja and protoc
+        run: brew install ninja protobuf
+
+      - name: Cache static OpenSSL
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/ci-cache/openssl
+          key: openssl-${{ env.OPENSSL_CACHE_REV }}-macos14-${{ steps.sub.outputs.openssl }}
+
+      - name: Build
+        run: CMAKE_PREFIX_PATH="$QT_ROOT_DIR" JOBS="$(sysctl -n hw.ncpu)" ./deploy.sh build

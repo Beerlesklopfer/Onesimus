@@ -135,9 +135,12 @@ void BJobsTableTest::initTestCase()
     qputenv("XDG_CONFIG_HOME", m_config.path().toUtf8());
     QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, m_config.path());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_config.path());
+    // Windows keeps NativeFormat in the registry, where setPath does not reach
+    QSettings::setDefaultFormat(QSettings::IniFormat);
     QCoreApplication::setOrganizationName(QStringLiteral("bareos"));
     QCoreApplication::setApplicationName(QStringLiteral("onesimus-jobstable-test"));
-    const QSettings probe(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+    const QSettings probe(QSettings::defaultFormat(), QSettings::UserScope,
+                         QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
     QVERIFY2(probe.fileName().startsWith(m_config.path()), qPrintable(probe.fileName()));
     const QSettings legacy;
     QVERIFY2(legacy.fileName().startsWith(m_config.path()), qPrintable(legacy.fileName()));

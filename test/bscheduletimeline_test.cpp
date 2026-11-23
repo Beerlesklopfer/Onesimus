@@ -255,7 +255,10 @@ void BScheduleTimelineTest::initTestCase()
     qputenv("XDG_CONFIG_HOME", m_config.path().toUtf8());
     QSettings::setPath(QSettings::NativeFormat, QSettings::UserScope, m_config.path());
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, m_config.path());
-    const QSettings probe(QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
+    // Windows keeps NativeFormat in the registry, where setPath does not reach
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    const QSettings probe(QSettings::defaultFormat(), QSettings::UserScope,
+                         QStringLiteral("Bareos"), QStringLiteral("Onesimus"));
     QVERIFY2(probe.fileName().startsWith(m_config.path()), qPrintable(probe.fileName()));
 }
 
@@ -1533,8 +1536,11 @@ void BScheduleTimelineTest::counterSaysWhetherTheListIsOpen()
              qPrintable(counter->accessibleName()));
     QVERIFY(tab.waitPanel()->isVisible());
     // With room, the whole text; without, it is cut with "…" (the buttons
-    // beside it are not) and the accessible name still has all of it
-    QVERIFY(!counter->text().contains(QChar(0x2026)));
+    // beside it are not) and the accessible name still has all of it.
+    // "With room" is made explicit: fonts differ in width between systems
+    tab.widget.resize(1600, 900);
+    QCoreApplication::processEvents();
+    QVERIFY2(!counter->text().contains(QChar(0x2026)), qPrintable(counter->text()));
     QWidget *legend = nullptr;
     for (QPushButton *b : tab.widget.findChildren<QPushButton *>())
         if (b->text() == QLatin1String("Legend")) legend = b;

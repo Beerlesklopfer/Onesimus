@@ -37,7 +37,7 @@ Write-Host "CMAKE_PREFIX_PATH gesetzt auf: $env:CMAKE_PREFIX_PATH" -ForegroundCo
 Write-Host "(Auch als User-Umgebungsvariable gespeichert)" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Jetzt bauen mit:" -ForegroundColor Cyan
-Write-Host "  .\build-windows.ps1" -ForegroundColor White
+Write-Host "  .\deploy.ps1" -ForegroundColor White
 Write-Host ""
 Write-Host "Oder manuell:" -ForegroundColor Cyan
 Write-Host "  cd build" -ForegroundColor White

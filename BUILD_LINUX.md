@@ -5,15 +5,19 @@
 ### Automated Build (Recommended)
 
 ```bash
-./build.sh
+./deploy.sh build      # build only
+./deploy.sh            # build + deploy to /usr (sudo per step)
+./deploy.sh -n         # dry run: print the commands a deploy would run
 ```
 
 The script:
-- Automatically initializes Git submodules
-- Checks all prerequisites
-- Prompts for build options
-- Configures CMake
-- Compiles the project
+- Initializes the Git submodules it needs (external/openssl for a static OpenSSL, proto/)
+- Checks the prerequisites
+- Configures CMake (Ninja when installed) and compiles the project
+- Deploys binary, desktop entry and icons into /usr (`all`, the default)
+
+`./deploy.fish` is the same script for the fish shell. See
+[Build Script Options](#-build-script-options) for all commands.
 
 ### Manual Build
 
@@ -72,6 +76,29 @@ sudo apt-get install -y \
 - **qt6-tools-dev**: Qt6 tools including Designer, UIC
 - **qt6-tools-dev-tools**: Qt6 LinguistTools (lupdate, lrelease) for translations
 - **libqt6network6-dev**: Qt6 Network module development files
+
+### Debian 13 (trixie) with gRPC - the CI environment
+
+The gRPC transport needs QtGrpc/QtProtobuf, which Debian ships from Qt 6.8 on
+(Debian 13; Ubuntu 24.04 has Qt 6.4 only). The CI Linux job
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) installs exactly this list in a
+`debian:trixie` container and then runs `./deploy.sh configure`, `build` and `test`:
+
+```bash
+sudo apt-get install -y --no-install-recommends \
+    ca-certificates git curl file perl make build-essential cmake ninja-build ccache \
+    dpkg-dev librsvg2-bin \
+    qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
+    qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev libgl-dev
+```
+
+`OPENSSL_INSTALL_DIR=<dir>` keeps the static OpenSSL build outside the build tree:
+the first build compiles it into `<dir>`, every later tree (and `./deploy.sh appimage`)
+reuses it. The CI caches that directory per OpenSSL submodule commit.
+
+Release packages (`.deb`, AppImage) are built the same way by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) on a `v*` tag; see
+"CI and Releases" in the README.
 
 ### Fedora/RHEL/CentOS
 
@@ -235,26 +262,39 @@ make -j$(nproc)
 
 ## 🔧 Build Script Options
 
-The `build.sh` script offers interactive options:
+`deploy.sh` (and its fish twin `deploy.fish`) takes a command and flags.
+`./deploy.sh help` prints the full table.
 
-```bash
-./build.sh
-```
+| Command | What it does |
+|---|---|
+| `all`, `onesimus`, `gui` (default) | Build, then copy `onesimus` to `/usr/local/bin`, the desktop entry to `/usr/local/share/applications`, the icons to `/usr/local/share/icons/hicolor` (`DEPLOY_PREFIX`, default `/usr/local`, the old destination of `make install`), and refresh the icon/desktop caches. Each step runs `sudo` on its own; do not start the script with `sudo`. |
+| `configure [args]` | Create the build tree; extra arguments go to cmake |
+| `build` / `rebuild` | Build (incremental) / clean rebuild |
+| `run [args]` | Build and start onesimus |
+| `test` | Build and run ctest (offscreen) |
+| `install` | `cmake --install` into `PREFIX` (default `/usr/local`, sudo only when not writable) |
+| `package` | `.deb` via CPack in the build directory |
+| `appimage` | AppImage in `dist/appimage/` (linuxdeploy in a pinned, checksummed version) |
+| `status` | What is deployed, built (with stamped version) and packaged |
+| `clean` | Remove the build trees |
 
-**Prompts:**
-```
-OpenSSL Build Option:
-1) Static (from submodule) - recommended for deployment
-2) System OpenSSL - faster build
+| Flag | Meaning |
+|---|---|
+| `-t, --type TYPE` | Release (default), Debug, RelWithDebInfo, MinSizeRel |
+| `-s, --system-openssl` | System OpenSSL instead of the static submodule (default: static) |
+| `-c, --clean` | Remove the build directory first |
+| `-j, --jobs N` | Parallel jobs (default: number of CPUs) |
+| `-d, --build-dir DIR` | Build directory (default: `build`) |
+| `-n, --dry-run` | Print every command instead of running it |
 
-Choose [1/2] (Default: 1):
-```
+Environment: `BUILD_DIR`, `BUILD_TYPE`, `JOBS`, `OPENSSL` (static/system),
+`GENERATOR`, `PREFIX`, `DEPLOY_PREFIX` (default `/usr/local`), `CMAKE_PREFIX_PATH`,
+`PACKAGE_GENERATORS`, `APPIMAGE_TOOLS`, `CLEAN`, `DRY_RUN`, `ONESIMUS_ALLOW_ROOT`.
 
-**With existing build directory:**
-```
-Build directory already exists.
-Do you want to recreate it? (y/n)
-```
+An existing build tree keeps its build type and OpenSSL mode unless `-t`/`-s`
+(or `BUILD_TYPE`/`OPENSSL`) is given. Every build increments `.build_number`
+and regenerates `include/version.h` (both tracked: do not commit the stamped
+values of a development build).
 
 ## ⏱️ Build Times
 
@@ -297,16 +337,13 @@ sudo make install
 ### Create AppImage
 
 ```bash
-# Download linuxdeployqt
-wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-chmod +x linuxdeployqt-continuous-x86_64.AppImage
-
-# Create AppImage
-./linuxdeployqt-continuous-x86_64.AppImage \
-    build/onesimus \
-    -appimage \
-    -qmake=/usr/lib/qt6/bin/qmake
+./deploy.sh appimage     # -> dist/appimage/Onesimus-<version>-x86_64.AppImage
 ```
+
+The script builds a Release tree with `PREFIX=/usr`, installs it into an AppDir and
+runs linuxdeploy with the Qt plugin (pinned versions, checked against SHA-256).
+The AppImage needs a glibc at least as new as the build system's; the release
+workflow builds it on Debian 13.
 
 ### Flatpak (TODO)
 
@@ -685,8 +722,9 @@ In case of problems:
 ## ✅ Quick Reference
 
 ```bash
-# Standard build
-./build.sh
+# Standard build / build + deploy to /usr
+./deploy.sh build
+./deploy.sh
 
 # Manual with static OpenSSL
 mkdir build && cd build
