@@ -116,8 +116,14 @@ setup_test_config() {
     return 0
 }
 
-# TLS certificate paths
+# TLS certificate paths (test-only PKI, generated on first use, not in git)
 TLS_DIR="$SCRIPT_DIR/bareos-dir.d/tls"
+
+ensure_test_pki() {
+    [ -f "$TLS_DIR/ca.pem" ] && return 0
+    log_info "Generating the test PKI in $TLS_DIR"
+    "$SCRIPT_DIR/make-test-pki.sh" "$TLS_DIR"
+}
 
 # The test-cert console refers to the generated client certificate.
 write_cert_console() {
@@ -156,6 +162,7 @@ update_director_port() {
 
     log_info "Updating director config for port $port (TLS Enable=$tls_enable, TLS Require=$tls_require)"
 
+    ensure_test_pki || return 1
     write_cert_console
 
     cat > "$dir_conf" << EOF

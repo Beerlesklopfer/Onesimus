@@ -91,6 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test tree: the console password of the test configuration is an obvious dummy, and the sudoers
   file that gave passwordless root `cp`, `chown` and `kill` to a named user is removed; the
   live-Director scripts need no root (`test/README.md`).
+- Test tree: the test PKI (CA, server and client keys) is no longer committed; `test/make-test-pki.sh`
+  generates it on first use of the live-Director scripts, and the stray `.srl` serial files are gone.
 
 ### Fixed
 - The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and

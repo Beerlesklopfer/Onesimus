@@ -20,6 +20,11 @@ you can afford to lose. Never point them at a production Director.
 - `test_auth.sh setup` copies base resources from
   `BAREOS_SYSTEM_CONFIG_DIR` (default `/etc/bareos/bareos-dir.d`); it has to
   be readable by you, otherwise point the variable at a copy you own.
+- The TLS files in `bareos-dir.d/tls/` are a **test-only PKI** that
+  `make-test-pki.sh` generates on first use (`test_auth.sh` and
+  `run_all_tests.sh` call it); they are not in git. Delete the directory for a
+  fresh one. The keys are written owner-only; when the daemon runs as another
+  user (`BAREOS_DIR_USER`), make `server.key` readable for that user.
 - All passwords in `bareos-dir.d/` and `configs/` (for example
   `onesimus-test-password-not-secret`) are dummies for such a test Director.
   Do not reuse them anywhere else.
