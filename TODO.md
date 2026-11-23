@@ -23,8 +23,13 @@ checked against the code on 2026-11-23; file references are to that state. Repor
   (`src/jobs/bbvfsmodel.cpp:452-505`), so large trees load slowly.
 
 ### To verify
-- Job log scroll flip and the empty log panel (#10): the job log was rewritten as one append-only
-  model with follow-tail (0ee8227). Not yet confirmed against a running job.
+- Job log scroll flip (#10): the job log is one append-only model with follow-tail (0ee8227).
+  bjoblogscroll_test finds no flip (Director signals -> source -> model -> view, scroll bar
+  values within the delivering call and at every paint): following the tail, scrolled up, a
+  large first load with the summary, a job switch, BNET polling and gRPC push, in the Jobs tab
+  pane, the job log dialog and the job details dialog; with a model reset on appends (the old
+  code) it fails. Left: a look at a running job on a real Director (D10); the empty log panel
+  was not reproduced.
 - Job statistics: the figures are summed over the jobs loaded into the table, not over the
   whole catalog or the current filter (`src/jobs/bjobmodels.cpp:499-526`). Not yet decided
   whether that is the intended meaning.

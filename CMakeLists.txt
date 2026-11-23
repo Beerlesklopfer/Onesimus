@@ -3226,6 +3226,23 @@ if(BUILD_TESTING)
     add_test(NAME bthemecontrast_test COMMAND bthemecontrast_test)
     set_tests_properties(bthemecontrast_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+    # bjoblogscroll_test - the job log does not flip when log data arrives
+    # (issue #10): Director signals -> source -> model -> view, scroll bar
+    # values within the delivering call and at every paint, for following
+    # the tail, a user who scrolled up, a large first load and a job switch;
+    # also the pane of the Jobs tab, the job log dialog and the job details
+    # dialog (widgets, no Director)
+    add_executable(bjoblogscroll_test
+        test/bjoblogscroll_test.cpp
+    )
+    target_link_libraries(bjoblogscroll_test PRIVATE
+        onesimus_core
+        onesimus_resources
+        Qt6::Test
+    )
+    add_test(NAME bjoblogscroll_test COMMAND bjoblogscroll_test)
+    set_tests_properties(bjoblogscroll_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     # bscheduletimeline_test - the schedule tab's timeline as a whole: a bar
     # that is dragged and dropped sends no command, asks the capability gate
     # and says so in the status line; schedules no job uses are left out of
