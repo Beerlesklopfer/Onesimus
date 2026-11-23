@@ -74,6 +74,9 @@ public:
      */
     BJsonJobView* tableView() const { return m_tableView; }
 
+    /// Edit > Find: opens the filter panel and puts the focus into the job name filter
+    void focusFilter();
+
     /**
      * @brief Triggers run job action (public interface to private slot)
      * @since 2.6
@@ -305,6 +308,12 @@ private slots:
      * @since 2.4.1
      */
     void applyFilters();
+
+    /**
+     * @brief Fills a job or client filter list, keeping its selection by name
+     * @param key "name" or "client" (BSettings::jobsFilterComboText())
+     */
+    void refillNameFilter(QComboBox *combo, const QStringList &names, const QString &key);
     
     /**
      * @brief Clears all active filters

@@ -105,10 +105,12 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     m_filterTimer->setInterval(300);  // 300ms delay
 
     // Setup editable combo boxes
+    m_nameFilter->setObjectName("jobNameFilter");
     m_nameFilter->setEditable(true);
     m_nameFilter->setPlaceholderText(tr("Filter by job name..."));
     m_nameFilter->setInsertPolicy(QComboBox::NoInsert);  // Don't add typed text as item
 
+    m_clientFilter->setObjectName("jobClientFilter");
     m_clientFilter->setEditable(true);
     m_clientFilter->setPlaceholderText(tr("Filter by client..."));
     m_clientFilter->setInsertPolicy(QComboBox::NoInsert);  // Don't add typed text as item
@@ -306,14 +308,15 @@ BJobWidget::BJobWidget(BDirector *director, QWidget *parent)
     // Connect filter timer to apply
     connect(m_filterTimer, &QTimer::timeout, this, &BJobWidget::applyFilters);
 
-    // Connect combobox filters to save current index
-    connect(m_nameFilter, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this](int index) {
-                BSettings::instance().setJobsFilterCombobox("name", index);
+    // The filters are kept by name (the lists change; an index would then
+    // point at another job). Refilling the lists blocks these signals.
+    connect(m_nameFilter, &QComboBox::currentTextChanged,
+            this, [](const QString &text) {
+                BSettings::instance().setJobsFilterComboText("name", text);
             });
-    connect(m_clientFilter, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this](int index) {
-                BSettings::instance().setJobsFilterCombobox("client", index);
+    connect(m_clientFilter, &QComboBox::currentTextChanged,
+            this, [](const QString &text) {
+                BSettings::instance().setJobsFilterComboText("client", text);
             });
 
     // Connect checkbox filters to save state
@@ -852,7 +855,10 @@ void BJobWidget::setConnectionState(bool connected)
             m_messagesWidget->startPolling(msgPollInterval);
         }
     } else {
-        // Clear combo boxes when disconnected
+        // Clear combo boxes when disconnected; the stored filter stays for
+        // the next connection
+        const QSignalBlocker nameBlocker(m_nameFilter);
+        const QSignalBlocker clientBlocker(m_clientFilter);
         m_nameFilter->clear();
         m_clientFilter->clear();
         m_messagesWidget->stopPolling();
@@ -934,20 +940,43 @@ void BJobWidget::processDotJobsResponse(const QString &jsonData)
     // Update job names in filter model
     m_filterComboModel->updateJobNamesFromDotCommand(jsonData);
 
-    // Update job name combo box
-    int savedNameIndex = BSettings::instance().jobsFilterCombobox("name", 0);
-    m_nameFilter->clear();
-    m_nameFilter->addItem("");  // Empty option to show all
-    m_nameFilter->addItems(m_filterComboModel->jobNames());
-
-    // Restore saved index if valid
-    if (savedNameIndex >= 0 && savedNameIndex < m_nameFilter->count()) {
-        m_nameFilter->setCurrentIndex(savedNameIndex);
-    }
+    // All configured jobs, the filter kept by name
+    refillNameFilter(m_nameFilter, m_filterComboModel->jobNames(), QStringLiteral("name"));
 
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "✓ Job name filter updated with" << m_filterComboModel->jobNames().size() << "jobs";
 #endif
+}
+
+void BJobWidget::focusFilter()
+{
+    do_toggleFilters(true);
+    m_nameFilter->setFocus(Qt::ShortcutFocusReason);
+    if (m_nameFilter->lineEdit())
+        m_nameFilter->lineEdit()->selectAll();
+}
+
+void BJobWidget::refillNameFilter(QComboBox *combo, const QStringList &names, const QString &key)
+{
+    // The text to keep: what the combo shows now, else the stored filter
+    // (first list after a start or a new connection)
+    QString wanted = combo->currentText();
+    if (wanted.isEmpty())
+        wanted = BSettings::instance().jobsFilterComboText(key);
+
+    {
+        const QSignalBlocker blocker(combo);
+        combo->clear();
+        combo->addItem(QString());  // Empty option to show all
+        combo->addItems(names);
+        const int index = combo->findText(wanted, Qt::MatchFixedString | Qt::MatchCaseSensitive);
+        if (index >= 0)
+            combo->setCurrentIndex(index);
+        else
+            combo->setEditText(wanted);  // typed part of a name: kept as typed
+    }
+    // The blocked signals did not run the filter
+    m_filterTimer->start();
 }
 
 void BJobWidget::processDotClientsResponse(const QString &jsonData)
@@ -959,16 +988,8 @@ void BJobWidget::processDotClientsResponse(const QString &jsonData)
     // Update client names in filter model
     m_filterComboModel->updateClientNamesFromDotCommand(jsonData);
 
-    // Update client name combo box
-    int savedClientIndex = BSettings::instance().jobsFilterCombobox("client", 0);
-    m_clientFilter->clear();
-    m_clientFilter->addItem("");  // Empty option to show all
-    m_clientFilter->addItems(m_filterComboModel->clientNames());
-
-    // Restore saved index if valid
-    if (savedClientIndex >= 0 && savedClientIndex < m_clientFilter->count()) {
-        m_clientFilter->setCurrentIndex(savedClientIndex);
-    }
+    // All configured clients, the filter kept by name
+    refillNameFilter(m_clientFilter, m_filterComboModel->clientNames(), QStringLiteral("client"));
 
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "✓ Client name filter updated with" << m_filterComboModel->clientNames().size() << "clients";
@@ -1315,38 +1336,8 @@ void BJobWidget::showParsedJobs()
     BLOG_DEBUG() << "✓ Table view updated";
 #endif
 
-    // Update filter combo box model with enriched data
-    m_filterComboModel->updateFromJobsArray(enrichedJobsArray);
-
-    // Update combo boxes with new data
-    int savedNameIndex = BSettings::instance().jobsFilterCombobox("name", 0);
-    int savedClientIndex = BSettings::instance().jobsFilterCombobox("client", 0);
-
-    // Update job name combo box
-    m_nameFilter->clear();
-    m_nameFilter->addItem("");  // Empty option to show all
-    m_nameFilter->addItems(m_filterComboModel->jobNames());
-
-    // Restore saved index if valid
-    if (savedNameIndex >= 0 && savedNameIndex < m_nameFilter->count()) {
-        m_nameFilter->setCurrentIndex(savedNameIndex);
-    }
-
-    // Update client name combo box
-    m_clientFilter->clear();
-    m_clientFilter->addItem("");  // Empty option to show all
-    m_clientFilter->addItems(m_filterComboModel->clientNames());
-
-    // Restore saved index if valid
-    if (savedClientIndex >= 0 && savedClientIndex < m_clientFilter->count()) {
-        m_clientFilter->setCurrentIndex(savedClientIndex);
-    }
-
-#ifdef IS_DEVELOPER
-    BLOG_DEBUG() << "✓ Filter combo boxes updated with"
-             << m_filterComboModel->jobNames().size() << "job names and"
-             << m_filterComboModel->clientNames().size() << "client names";
-#endif
+    // The filter lists are not touched here: they hold every configured job
+    // and client (.jobs, .clients), not the names on this page
 
     emit statusMessageChanged(tr("%1 jobs loaded").arg(enrichedJobsArray.size()));
     m_refreshButton->setEnabled(true);

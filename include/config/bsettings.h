@@ -242,10 +242,10 @@ public:
     bool jobsFilterCheckbox(const QString& key, bool defaultValue = true) const;
     void setJobsFilterCheckbox(const QString& key, bool value);
 
-    QMap<QString, int> jobsFilterComboboxes() const;
-    void setJobsFilterComboboxes(const QMap<QString, int>& comboboxes);
-    int jobsFilterCombobox(const QString& key, int defaultValue = 0) const;
-    void setJobsFilterCombobox(const QString& key, int value);
+    /// Text of the job name ("name") and client ("client") filter, kept by
+    /// name: the lists change, an index would point at another entry
+    QString jobsFilterComboText(const QString& key) const;
+    void setJobsFilterComboText(const QString& key, const QString& text);
 
     bool jobsFilterDateEnabled() const;
     void setJobsFilterDateEnabled(bool enabled);

@@ -232,7 +232,6 @@ class BFilterComboModel : public QObject
 public:
     explicit BFilterComboModel(QObject *parent = nullptr);
 
-    void updateFromJobsArray(const QJsonArray &jobsArray);
     void updateJobNamesFromDotCommand(const QString &dotJobsResponse);
     void updateClientNamesFromDotCommand(const QString &dotClientsResponse);
 

@@ -641,47 +641,14 @@ void BSettings::setJobsFilterCheckbox(const QString& key, bool value)
     setValue(QString("Widgets/Jobs/FilterCheckboxes/%1").arg(key), value);
 }
 
-QMap<QString, int> BSettings::jobsFilterComboboxes() const
+QString BSettings::jobsFilterComboText(const QString& key) const
 {
-    QMap<QString, int> comboboxes;
-
-    // Load all saved comboboxes from settings
-    // Note: We can't use beginGroup/endGroup in const methods
-    // So we'll iterate through all keys and filter for our prefix
-    QStringList allKeys = m_settings.allKeys();
-    QString prefix = "Widgets/Jobs/FilterComboboxes/";
-
-    for (const QString &key : allKeys) {
-        if (key.startsWith(prefix)) {
-            QString shortKey = key.mid(prefix.length());
-            comboboxes[shortKey] = m_settings.value(key, 0).toInt();
-        }
-    }
-
-    return comboboxes;
+    return value(QString("Widgets/Jobs/FilterComboText/%1").arg(key)).toString();
 }
 
-void BSettings::setJobsFilterComboboxes(const QMap<QString, int>& comboboxes)
+void BSettings::setJobsFilterComboText(const QString& key, const QString& text)
 {
-    // Clear existing comboboxes
-    m_settings.beginGroup("Widgets/Jobs/FilterComboboxes");
-    m_settings.remove("");  // Remove all keys in this group
-    m_settings.endGroup();
-
-    // Save all comboboxes
-    for (auto it = comboboxes.constBegin(); it != comboboxes.constEnd(); ++it) {
-        setValue(QString("Widgets/Jobs/FilterComboboxes/%1").arg(it.key()), it.value());
-    }
-}
-
-int BSettings::jobsFilterCombobox(const QString& key, int defaultValue) const
-{
-    return value(QString("Widgets/Jobs/FilterComboboxes/%1").arg(key), defaultValue).toInt();
-}
-
-void BSettings::setJobsFilterCombobox(const QString& key, int value)
-{
-    setValue(QString("Widgets/Jobs/FilterComboboxes/%1").arg(key), value);
+    setValue(QString("Widgets/Jobs/FilterComboText/%1").arg(key), text);
 }
 
 bool BSettings::jobsFilterDateEnabled() const

@@ -868,43 +868,6 @@ BFilterComboModel::BFilterComboModel(QObject *parent)
 {
 }
 
-void BFilterComboModel::updateFromJobsArray(const QJsonArray &jobsArray)
-{
-    QSet<QString> jobNamesSet;
-    QSet<QString> clientNamesSet;
-
-    for (const QJsonValue &jobVal : jobsArray) {
-        if (!jobVal.isObject()) {
-            continue;
-        }
-
-        QJsonObject job = jobVal.toObject();
-
-        QString jobName = job["name"].toString().trimmed();
-        if (!jobName.isEmpty()) {
-            jobNamesSet.insert(jobName);
-        }
-
-        QString clientName = job["client"].toString().trimmed();
-        if (!clientName.isEmpty()) {
-            clientNamesSet.insert(clientName);
-        }
-    }
-
-    m_jobNames = jobNamesSet.values();
-    m_jobNames.sort(Qt::CaseInsensitive);
-
-    m_clientNames = clientNamesSet.values();
-    m_clientNames.sort(Qt::CaseInsensitive);
-
-#ifdef IS_DEVELOPER
-    BLOG_DEBUG() << "BFilterComboModel: Updated with" << m_jobNames.size() << "unique job names and"
-             << m_clientNames.size() << "unique client names";
-#endif
-
-    emit dataUpdated();
-}
-
 void BFilterComboModel::updateJobNamesFromDotCommand(const QString &dotJobsResponse)
 {
     QJsonParseError parseError;
