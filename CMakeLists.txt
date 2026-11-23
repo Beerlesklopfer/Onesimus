@@ -631,6 +631,9 @@ set(HEADERS
     include/bvolumepurge.h
     include/bvolumepurgepanel.h
     include/bconnectionwizard.h
+    include/bconnectionprofile.h
+    include/blogging.h
+    include/bpasswordutil.h
     include/bmdnsbrowser.h
     include/bcertificategenerator.h
     include/bpfxconverter.h

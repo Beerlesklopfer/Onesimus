@@ -557,7 +557,6 @@ wizard.setReferenceData(refData);
 - **JSON directive schemas** — format unchanged, loader class renamed to BDirectiveSchema
 - **FileSet templates** — 22 preset templates in `resources/templates/filesets/`
 - **Connection profiles** — saved via QSettings (not SQLite)
-- **bdirectiveregistry.h/.cpp** — still exists in codebase but superseded by BDirectiveSchema
 
 ### Files (db/ directory)
 
