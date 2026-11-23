@@ -1623,6 +1623,7 @@ if(BUILD_TESTING)
     add_executable(bjobstable_test
         test/bjobstable_test.cpp
         src/jobs/bjobmodels.cpp
+        src/bbyteformat.cpp
         src/bheaderstate.cpp
         src/bcheckableheaderview.cpp
         src/config/bcolumnconfiguration.cpp
@@ -1631,6 +1632,7 @@ if(BUILD_TESTING)
         src/buiscale.cpp
         src/config/bsettings.cpp
         include/jobs/bjobmodels.h
+        include/bbyteformat.h
         include/bheaderstate.h
         include/bcheckableheaderview.h
         include/config/bcolumnconfiguration.h
@@ -1757,7 +1759,9 @@ if(BUILD_TESTING)
         test/bbvfsmodel_test.cpp
         src/jobs/bbvfsmodel.cpp
         src/jobs/bbvfsreplyrouter.cpp
+        src/bbyteformat.cpp
         include/jobs/bbvfsmodel.h
+        include/bbyteformat.h
         include/jobs/bbvfsargs.h
         include/jobs/bbvfsreplyrouter.h
         src/director/bdirector.cpp
@@ -2651,8 +2655,10 @@ if(BUILD_TESTING)
         src/bstatuschip.cpp
         src/director/bdirector.cpp
         src/config/bconfigparser.cpp
+        src/bbyteformat.cpp
         include/config/bconfigparser.h
         include/clients/bclientsmodel.h
+        include/bbyteformat.h
         include/clients/bclientstatus.h
         include/bstatuschip.h
         include/director/bdirector.h

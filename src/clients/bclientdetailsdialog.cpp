@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "clients/bclientdetailsdialog.h"
+#include "bbyteformat.h"
 #include "buiscale.h"
 #include "clients/bclientsmodel.h"
 #include "blogging.h"
@@ -88,7 +89,7 @@ QVariant BClientJobsModel::data(const QModelIndex &index, int role) const
         case COL_FILES:
             return job["jobfiles"].toVariant().toLongLong();
         case COL_BYTES:
-            return formatBytes(job["jobbytes"].toVariant().toLongLong());
+            return BByteFormat::format(job["jobbytes"].toVariant().toLongLong());
         case COL_STATUS: {
             QString status = job["jobstatus"].toString();
             if (status == "T") return tr("OK");
@@ -162,24 +163,6 @@ void BClientJobsModel::setJobs(const QJsonArray &jobs)
     }
 
     endResetModel();
-}
-
-QString BClientJobsModel::formatBytes(qint64 bytes) const
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-
-    if (bytes >= TB)
-        return QString("%1 TB").arg(bytes / (double)TB, 0, 'f', 2);
-    if (bytes >= GB)
-        return QString("%1 GB").arg(bytes / (double)GB, 0, 'f', 2);
-    if (bytes >= MB)
-        return QString("%1 MB").arg(bytes / (double)MB, 0, 'f', 2);
-    if (bytes >= KB)
-        return QString("%1 KB").arg(bytes / (double)KB, 0, 'f', 2);
-    return QString("%1 B").arg(bytes);
 }
 
 BClientDetailsDialog::BClientDetailsDialog(BDirector *director, BClientsModel *model, int row, QWidget *parent)
@@ -271,24 +254,6 @@ static QString extractOS(const QString &uname)
 }
 
 // Helper: format bytes to human-readable string
-static QString formatBytes(qint64 bytes)
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-
-    if (bytes >= TB)
-        return QString("%1 TB").arg(bytes / (double)TB, 0, 'f', 2);
-    if (bytes >= GB)
-        return QString("%1 GB").arg(bytes / (double)GB, 0, 'f', 2);
-    if (bytes >= MB)
-        return QString("%1 MB").arg(bytes / (double)MB, 0, 'f', 2);
-    if (bytes >= KB)
-        return QString("%1 KB").arg(bytes / (double)KB, 0, 'f', 2);
-    return QString("%1 B").arg(bytes);
-}
-
 // Helper: format Bareos retention time (seconds) to human-readable string
 static QString formatRetention(const QJsonValue &val)
 {
@@ -514,7 +479,7 @@ void BClientDetailsDialog::setupStatisticsTab()
     m_totalJobsLabel = new QLabel(QString::number(jobCount));
     m_successfulJobsLabel = new QLabel(tr("Loading..."));
     m_failedJobsLabel = new QLabel(tr("Loading..."));
-    m_totalBytesLabel = new QLabel(totalBytes > 0 ? formatBytes(totalBytes) : "0 B");
+    m_totalBytesLabel = new QLabel(totalBytes > 0 ? BByteFormat::format(totalBytes) : "0 B");
     m_totalFilesLabel = new QLabel(tr("Loading..."));
 
     statsForm->addRow(tr("Total Jobs:"), m_totalJobsLabel);
@@ -613,5 +578,5 @@ void BClientDetailsDialog::onJobsReceived(BDirector::Command cmd, const QString 
     m_failedJobsLabel->setText(QString::number(stats.failedJobs));
     m_totalFilesLabel->setText(QLocale().toString(stats.totalFiles));
     if (stats.totalBytes > 0)
-        m_totalBytesLabel->setText(formatBytes(stats.totalBytes));
+        m_totalBytesLabel->setText(BByteFormat::format(stats.totalBytes));
 }

@@ -130,11 +130,6 @@ public:
      */
     qint64 computeSelectedSize(bool *complete = nullptr) const;
 
-    /**
-     * @brief Format byte count as human-readable string (e.g., "1.5 GiB")
-     */
-    QString formatBytes(qint64 bytes) const;
-
 signals:
     void loadingStarted();
     void loadingFinished();

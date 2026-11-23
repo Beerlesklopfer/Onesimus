@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "clients/bclientsmodel.h"
+#include "bbyteformat.h"
 #include "bstatuschip.h"
 #include "bsortvalue.h"
 #include <QDateTime>
@@ -175,7 +176,7 @@ QVariant BClientsModel::data(const QModelIndex &index, int role) const
             // Empty until "list backups" answered for the client
             return m_jobCounts.contains(name) ? QVariant(m_jobCounts.value(name)) : QVariant();
         case COL_TOTAL_BYTES:
-            return m_totalBytes.contains(name) ? QVariant(formatBytes(m_totalBytes.value(name)))
+            return m_totalBytes.contains(name) ? QVariant(BByteFormat::format(m_totalBytes.value(name)))
                                                : QVariant();
         }
     }
@@ -794,26 +795,6 @@ QList<BConfigResource> BClientsModel::clientResources(int row, TlsMode tlsMode) 
     }
 
     return resources;
-}
-
-QString BClientsModel::formatBytes(qint64 bytes) const
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-
-    if (bytes >= TB) {
-        return QString("%1 TB").arg(bytes / (double)TB, 0, 'f', 2);
-    } else if (bytes >= GB) {
-        return QString("%1 GB").arg(bytes / (double)GB, 0, 'f', 2);
-    } else if (bytes >= MB) {
-        return QString("%1 MB").arg(bytes / (double)MB, 0, 'f', 2);
-    } else if (bytes >= KB) {
-        return QString("%1 KB").arg(bytes / (double)KB, 0, 'f', 2);
-    } else {
-        return QString("%1 B").arg(bytes);
-    }
 }
 
 QString BClientsModel::lastActivityTimestamp(const QJsonObject &client) const

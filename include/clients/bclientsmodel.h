@@ -276,14 +276,6 @@ signals:
 
 private:
     /**
-     * @brief Formats bytes into human-readable string
-     * @param bytes Byte count
-     * @return Formatted string (e.g., "1.5 GB")
-     * @since 1.0
-     */
-    QString formatBytes(qint64 bytes) const;
-
-    /**
      * @brief Timestamp text of the last backup or contact, empty if none is known
      *
      * "lastconnection" of the client, else the newest job start time.

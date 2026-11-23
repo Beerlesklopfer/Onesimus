@@ -82,7 +82,6 @@ private:
     bool isBusy() const;
     void setStatus(const QString &text, const QString &kind);
     void logMessage(const QString &message, const QString &type = "info");
-    QString formatBytes(qint64 bytes);
 
     BDirector *m_director;
     BJobsModel *m_jobsModel;

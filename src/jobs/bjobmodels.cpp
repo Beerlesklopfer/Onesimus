@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "jobs/bjobmodels.h"
+#include "bbyteformat.h"
 #include "bsortvalue.h"
 #include "bstatuschip.h"
 #include "jobs/blevelcolors.h"
@@ -138,7 +139,7 @@ QVariant BJobsModel::data(const QModelIndex &index, int role) const
                 return QLocale().toString(files);
             }
             case COL_BYTES:
-                return formatBytes(job["jobbytes"].toString().toLongLong());
+                return BByteFormat::format(job["jobbytes"].toString().toLongLong());
             case COL_STATUS:
                 return BStatus::jobStatus(job["jobstatus"].toString()).text;
         }
@@ -627,32 +628,6 @@ int BJobsModel::rowToDataIndex(int row) const
         return row;
 
     return (m_currentPage * m_pageSize) + row;
-}
-
-QString BJobsModel::formatBytes(qint64 bytes) const
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-
-    QLocale locale;
-
-    if (bytes >= TB) {
-        double value = bytes / (double)TB;
-        return QString("%1 TB").arg(locale.toString(value, 'f', 2));
-    } else if (bytes >= GB) {
-        double value = bytes / (double)GB;
-        return QString("%1 GB").arg(locale.toString(value, 'f', 2));
-    } else if (bytes >= MB) {
-        double value = bytes / (double)MB;
-        return QString("%1 MB").arg(locale.toString(value, 'f', 2));
-    } else if (bytes >= KB) {
-        double value = bytes / (double)KB;
-        return QString("%1 KB").arg(locale.toString(value, 'f', 2));
-    } else {
-        return QString("%1 B").arg(locale.toString(bytes));
-    }
 }
 
 QString BJobsModel::formatStatus(const QString &status) const

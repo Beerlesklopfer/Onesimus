@@ -61,7 +61,6 @@ public:
 private:
     QJsonArray m_jobs;
     Statistics m_stats;
-    QString formatBytes(qint64 bytes) const;
 };
 
 /**

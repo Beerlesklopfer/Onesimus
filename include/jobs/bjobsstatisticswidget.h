@@ -48,7 +48,6 @@ private slots:
 private:
     void setupUi();
     void updateStatistics();
-    QString formatBytes(qint64 bytes) const;
     
     BJobsModel *m_model;                ///< The model to display stats for
     
