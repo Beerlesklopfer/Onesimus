@@ -141,6 +141,18 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
         return false;
     }
 
+    // TLS required by the profile: never fall back to the clear-text legacy
+    // handshake, not even for the Hello (TLS-PSK and certificate TLS both
+    // encrypt before the first byte of the protocol)
+    if (m_tlsLocalNeed == BAREOS_TLS_REQUIRED && !tlsPSKEnable && !tlsEnable)
+    {
+        m_errorMessage = tr("TLS is required for this connection, but neither TLS-PSK nor "
+                            "certificate TLS is enabled in the profile. Connection refused.");
+        m_authState = BAuthState::AUTH_FAILED;
+        stopAuthTimeout();
+        return false;
+    }
+
     // Bareos 18.2+ sequence: TLS-PSK first, then Hello + CRAM-MD5
     emit statusMessage(tr("Starting Bareos authentication..."));
 
@@ -220,55 +232,9 @@ bool BareosAuth::authenticateDirector(const QString &directorName,
             return false;
         }
 
+        // The Director's TLS policy arrives with its challenge: checked in
+        // cramMD5Response() before anything else is sent
         return true;
-
-        // // Check TLS requirements, if server requre this
-        // BareosTLSRequirementResult tlsResult = testTLSRequirement();
-        // if (tlsResult != BAREOS_TLS_REQ_OK)
-        // {
-        //     if (tlsResult == BAREOS_TLS_REQ_ERR_LOCAL)
-        //     {
-        //         m_errorMessage = "Remote server did not advertise required TLS support";
-        //     }
-        //     else
-        //     {
-        //         m_errorMessage = "Remote server requires TLS but local TLS is not available";
-        //     }
-        //     emit authenticationFailed(m_errorMessage);
-        //     return false;
-        // }
-
-        // // @TODO: Start certificate TLS if required (not PSK)
-        // // For now, we assume PSK is preferred
-
-        // // Wait for Director banner
-        // QByteArray response;
-        // if (brecv(response, 5000) != BnetStatus::Ok)
-        // {
-        //     m_errorMessage = "No response from Director after authentication";
-        //     emit authenticationFailed(m_errorMessage);
-        //     return false;
-        // }
-
-        // BLOG_DEBUG() << "<<< Director banner:" << response;
-
-        // // Parse version from banner
-        // if (!parseDirectorVersion(response))
-        // {
-        //     AUTH_WARNING << "Could not parse Director version from response";
-        // }
-
-        // // Success!
-        // stopAuthTimeout();
-        // m_authSuccess = true;
-
-        // BLOG_DEBUG() << "\n\n";
-        // BLOG_DEBUG() << "BAREOS AUTHENTICATION SUCCESSFUL";
-        // BLOG_DEBUG() << "  Director Version:" << m_directorVersionString;
-        // BLOG_DEBUG() << "========================================";
-
-        // emit authenticationSucceeded(m_directorVersion);
-        // return true;
     }
     else
     {
@@ -452,11 +418,17 @@ bool BareosAuth::setupPSKTLS()
     if (!m_configuredCipherList.isEmpty())
     {
         AUTH_DEBUG << "Using configured cipher list:" << m_configuredCipherList;
-        QStringList configuredNames = m_configuredCipherList.split(':', Qt::SkipEmptyParts);
-
-        for (const QString &cipherName : configuredNames)
+        // Only pure PSK suites prove the Director: with a certificate suite
+        // in the list a server without the key could still complete TLS
+        QStringList dropped;
+        const QStringList configuredNames = pskOnlyCipherNames(m_configuredCipherList, &dropped);
+        if (!dropped.isEmpty())
         {
-            QString trimmedName = cipherName.trimmed();
+            AUTH_WARNING << "Ignoring configured ciphers that are not PSK-*:" << dropped;
+        }
+
+        for (const QString &trimmedName : configuredNames)
+        {
             for (const QSslCipher &cipher : availableCiphers)
             {
                 if (cipher.name() == trimmedName)
@@ -537,7 +509,13 @@ bool BareosAuth::setupPSKTLS()
                 AUTH_WARNING << "FATAL: Still no PSK ciphers available!";
                 AUTH_WARNING << "OpenSSL may not be compiled with PSK support";
                 AUTH_WARNING << "========================================";
-                // Don't set empty cipher list - let it fail with proper error
+                // Without a PSK suite Qt would offer its default certificate
+                // suites, and TLS would no longer prove the Director
+                m_errorMessage = tr("The TLS library of this system offers no TLS-PSK cipher suite, "
+                                    "so TLS-PSK cannot be used. Connection refused.");
+                m_authState = BAuthState::AUTH_FAILED;
+                stopAuthTimeout();
+                return false;
             }
             else
             {
@@ -728,6 +706,39 @@ void BareosAuth::onSslErrorsCertificate(const QList<QSslError> &errors)
     }
 }
 
+void BareosAuth::failAuthentication(const QString &message)
+{
+    if (m_authState == BAuthState::AUTH_FAILED && !m_errorMessage.isEmpty())
+        return;
+
+    AUTH_CRITICAL << message;
+    m_errorMessage = message;
+    m_authState = BAuthState::AUTH_FAILED;
+    m_authSuccess = false;
+    stopAuthTimeout();
+    disconnectSignals();
+    emit authenticationFailed(m_errorMessage);
+}
+
+QStringList BareosAuth::pskOnlyCipherNames(const QString &configured, QStringList *dropped)
+{
+    QStringList kept;
+    const QStringList names = configured.split(QLatin1Char(':'), Qt::SkipEmptyParts);
+    for (const QString &name : names)
+    {
+        const QString trimmed = name.trimmed();
+        if (trimmed.isEmpty())
+            continue;
+        // Same rule as the automatic selection in setupPSKTLS(): plain PSK-*
+        // suites only. A certificate suite would not prove the Director
+        if (trimmed.startsWith(QLatin1String("PSK-")))
+            kept.append(trimmed);
+        else if (dropped)
+            dropped->append(trimmed);
+    }
+    return kept;
+}
+
 bool BareosAuth::cramMD5Response(const QByteArray challenge)
 {
 #ifdef IS_DEVELOPER
@@ -773,8 +784,7 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
             m_errorMessage = tr("Unexpected response from Director:\n%1").arg(response);
         }
 
-        emit authenticationFailed(m_errorMessage);
-        AUTH_CRITICAL << m_errorMessage;
+        failAuthentication(m_errorMessage);
         return false;
     }
 
@@ -796,6 +806,34 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
         if (afterAt.startsWith("R_DIRECTOR::"))
             afterAt = afterAt.mid(12);
         m_remoteDirectorName = afterAt;
+
+        // Bareos CompareChallengeWithOwnQualifiedName(): a challenge that
+        // carries our own name is our challenge from another connection,
+        // reflected to get it answered here
+        if (afterAt == QString::fromLatin1(bashSpaces(m_consoleName.toLatin1())))
+        {
+            failAuthentication(tr("The server sent this console's own challenge back instead of a "
+                                  "challenge of the Director (reflection attack). It is not the "
+                                  "configured Director. Connection refused."));
+            return false;
+        }
+    }
+
+    // Both TLS policies are known now (Bareos checks them right after
+    // CRAM-MD5 in DoTlsHandshake(); this client never starts TLS later, so a
+    // session that is not encrypted by now stays in clear text)
+    switch (testTLSRequirement())
+    {
+    case BAREOS_TLS_REQ_ERR_LOCAL:
+        failAuthentication(tr("TLS is required for this connection, but the session with the "
+                              "Director is not encrypted. Connection refused."));
+        return false;
+    case BAREOS_TLS_REQ_ERR_REMOTE:
+        failAuthentication(tr("The Director requires TLS, but this connection is not encrypted. "
+                              "Use TLS-PSK or certificate TLS in the profile."));
+        return false;
+    case BAREOS_TLS_REQ_OK:
+        break;
     }
 
 #ifdef IS_DEVELOPER
@@ -822,9 +860,7 @@ bool BareosAuth::cramMD5Response(const QByteArray challenge)
     // ✅ Sende NUR die HMAC-Response
     if (send() != BnetStatus::Ok)
     {
-        m_errorMessage = "Failed to send HMAC response";
-        emit authenticationFailed(m_errorMessage);
-        AUTH_CRITICAL << m_errorMessage;
+        failAuthentication(tr("Failed to send the CRAM-MD5 response to the Director."));
         return false;
     }
 
@@ -965,26 +1001,27 @@ int BareosAuth::calculateTLSNeed(bool tlsEnable, bool tlsRequire)
 
 BareosTLSRequirementResult BareosAuth::testTLSRequirement()
 {
-    // Check if remote can meet our requirements
-    // if (m_tlsRemoteNeed < m_tlsLocalNeed &&
-    //     m_tlsLocalNeed != BAREOS_TLS_OK &&
-    //     m_tlsRemoteNeed != BAREOS_TLS_OK)
-    // {
-    //     AUTH_WARNING << "Remote TLS level" << m_tlsRemoteNeed
-    //                << "does not meet local requirement" << m_tlsLocalNeed;
-    //     return BAREOS_TLS_REQ_ERR_LOCAL;
-    // }
+    // TLS-PSK and certificate TLS are set up before the Hello, so an
+    // encrypted socket meets any policy (Bareos: DoTlsHandshake() returns
+    // early when tls_conn exists)
+    if (m_socket->isEncrypted())
+        return BAREOS_TLS_REQ_OK;
 
-    // // Check if we can meet remote's requirements
-    // if (m_tlsRemoteNeed > m_tlsLocalNeed &&
-    //     m_tlsLocalNeed != BAREOS_TLS_OK &&
-    //     m_tlsRemoteNeed != BAREOS_TLS_OK)
-    // {
-    //     AUTH_WARNING << "Local TLS level" << m_tlsLocalNeed
-    //                << "does not meet remote requirement" << m_tlsRemoteNeed;
-    //     return BAREOS_TLS_REQ_ERR_REMOTE;
-    // }
-
+    // Clear text: Bareos TlsResource::SelectTlsPolicy() denies the session
+    // when one side requires TLS. Policies are 0 (none), 1 (enabled) and
+    // 2 (required); when both sides only enable it, the Director would start
+    // TLS after CRAM-MD5, which this client does not do - not reached, since
+    // TLS enabled in the profile always encrypts first.
+    if (m_tlsLocalNeed == BAREOS_TLS_REQUIRED)
+    {
+        AUTH_WARNING << "Local TLS requirement not met: session not encrypted";
+        return BAREOS_TLS_REQ_ERR_LOCAL;
+    }
+    if (m_tlsRemoteNeed == BAREOS_TLS_REQUIRED)
+    {
+        AUTH_WARNING << "Director requires TLS (ssl=" << m_tlsRemoteNeed << "), session not encrypted";
+        return BAREOS_TLS_REQ_ERR_REMOTE;
+    }
     return BAREOS_TLS_REQ_OK;
 }
 
@@ -1332,15 +1369,16 @@ void BareosAuth::onReadyRead()
             AUTH_DEBUG << "  State changed -> COMPUTING_RESPONSE";
 #endif
         } else {
-            m_authState = BAuthState::AUTH_FAILED;
-            emit authenticationFailed(m_errorMessage);
+            failAuthentication(m_errorMessage);
         }
         break;
 
     case BAuthState::WAIT_FOR_OK_AUTH:
     {
-        // Wir haben unsere HMAC-Response gesendet und warten auf "1000 OK auth"
-        // (siehe Bareos cram_md5.cc Zeile 240: "1000 OK auth\n")
+        // We sent our HMAC and wait for "1000 OK auth" (Bareos cram_md5.cc,
+        // CramMd5Challenge()). Nothing else counts: Bareos and odir both run
+        // the second, mutual half next, so a greeting here means the server
+        // skipped proving that it knows the password.
 #ifdef IS_DEVELOPER
         AUTH_DEBUG << "  Waiting for '1000 OK auth' from Director";
         AUTH_DEBUG << "  Received:" << message;
@@ -1348,9 +1386,7 @@ void BareosAuth::onReadyRead()
 
         QString msgStr = QString::fromLatin1(message).trimmed();
 
-        if (msgStr.startsWith("1000 OK auth")) {
-            // Director hat unsere HMAC-Response akzeptiert
-            // Jetzt senden wir unsere eigene Challenge (bidirektionale Auth)
+        if (msgStr.startsWith(QLatin1String("1000 OK auth"))) {
 #ifdef IS_DEVELOPER
             AUTH_DEBUG << "  ✓ Director accepted our HMAC";
             AUTH_DEBUG << "  Sending our challenge now (bidirectional auth)...";
@@ -1362,32 +1398,16 @@ void BareosAuth::onReadyRead()
                 AUTH_DEBUG << "  State changed -> WAIT_FOR_DIRECTOR_HMAC";
 #endif
             } else {
-                m_authState = BAuthState::AUTH_FAILED;
-                emit authenticationFailed(m_errorMessage);
+                failAuthentication(tr("Failed to send the CRAM-MD5 challenge to the Director."));
             }
-        } else if (msgStr.contains("bareos-dir") || msgStr.contains("Version")) {
-            // Director sendet direkt das finale Banner (unidirektionale Auth)
-#ifdef IS_DEVELOPER
-            AUTH_DEBUG << "  ✓ Director sent final banner (unidirectional auth)";
-#endif
-            m_authSuccess = true;
-            m_authState = BAuthState::AUTH_SUCCESS;
-            stopAuthTimeout();
-            disconnectSignals();
-            emit statusMessage(tr("Connected"));
-            m_directorBanner = msgStr;
-            emit authenticationSucceeded(msgStr);
-        } else if (msgStr.startsWith("1999")) {
-            // Authentifizierung fehlgeschlagen
-            m_errorMessage = QString("Director rejected authentication: %1").arg(msgStr);
-            m_authState = BAuthState::AUTH_FAILED;
-            emit authenticationFailed(m_errorMessage);
+        } else if (msgStr.startsWith(QLatin1String("1999"))) {
+            failAuthentication(tr("The Director rejected the password of console \"%1\" (wrong password "
+                                  "or console name). Connection refused.").arg(m_consoleName));
         } else {
-#ifdef IS_DEVELOPER
-            AUTH_WARNING << "  Unexpected response in WAIT_FOR_OK_AUTH:" << message;
-#endif
-            // Versuche trotzdem weiterzumachen
-            m_errorMessage = QString("Unexpected response: %1").arg(msgStr);
+            failAuthentication(tr("The server did not complete the CRAM-MD5 handshake (it answered "
+                                  "\"%1\" instead of \"1000 OK auth\"). It may not be a Bareos or "
+                                  "Onesimus Director. Connection refused.")
+                                   .arg(QString::fromLatin1(unbashSpaces(message)).trimmed().left(120)));
         }
         break;
     }
@@ -1399,57 +1419,30 @@ void BareosAuth::onReadyRead()
         AUTH_DEBUG << "  Response:" << message;
 #endif
 
-        // Prüfe ob der Director "1000 OK" sendet (keine bidirektionale Auth)
-        // oder einen HMAC (bidirektionale Auth)
-        QString msgStr = QString::fromLatin1(message).trimmed();
-
-        if (msgStr.startsWith("1000 OK")) {
-            // Director macht KEINE bidirektionale Authentifizierung
-            // Er hat unsere Challenge ignoriert und direkt "1000 OK" gesendet
-#ifdef IS_DEVELOPER
-            AUTH_DEBUG << "  Director skipped bidirectional auth, sent OK directly";
-#endif
-
-            // Prüfe ob es das finale Banner ist
-            if (msgStr.contains("bareos-dir") || msgStr.contains("Version")) {
-                // Das ist bereits das finale Banner!
-                m_authSuccess = true;
-                m_authState = BAuthState::AUTH_SUCCESS;
-                stopAuthTimeout();
-                m_directorBanner = msgStr;
-                emit authenticationSucceeded(msgStr);
-#ifdef IS_DEVELOPER
-                AUTH_DEBUG << "  ✓ Authentication complete (unidirectional)";
-#endif
-            } else {
-                // Es ist "1000 OK auth", warte auf das finale Banner
-                m_authState = BAuthState::WAIT_FOR_FINAL_OK;
-#ifdef IS_DEVELOPER
-                AUTH_DEBUG << "  State changed -> WAIT_FOR_FINAL_OK";
-#endif
-            }
-            break;
-        }
-
-        // Director sendet HMAC - bidirektionale Authentifizierung
-        // Verifiziere Director's HMAC
+        // The Director must answer our challenge with HMAC-MD5 under the
+        // shared password. Only then is it the configured Director: without
+        // this check any server could accept our HMAC with "1000 OK auth"
+        // and receive every command that follows.
         if (!verifyDirectorResponse(message)) {
-            AUTH_WARNING << "  Director HMAC verification failed";
-            // Bei Fehlern trotzdem fortfahren (einige Directors haben Bugs)
-            // Die Verbindung wird später scheitern wenn wirklich falsch
-        } else {
-#ifdef IS_DEVELOPER
-            AUTH_DEBUG << "  ✓ Director HMAC verified successfully";
-#endif
+            // As Bareos CramMd5Challenge() does: tell the peer, then stop
+            m_writeBuffer = QByteArray("1999 Authorization failed.\n");
+            send();
+            m_socket->flush();
+            failAuthentication(tr("The Director could not prove that it knows the console password: "
+                                  "its answer to the CRAM-MD5 challenge is wrong. Either the server is "
+                                  "not the configured Director, or the password stored on the Director "
+                                  "differs from this profile. Connection refused."));
+            return;
         }
+#ifdef IS_DEVELOPER
+        AUTH_DEBUG << "  ✓ Director HMAC verified successfully";
+#endif
 
         // Sende "1000 OK auth" an Director
         m_writeBuffer = QByteArray("1000 OK auth\n");
 
         if (send() != BnetStatus::Ok) {
-            m_errorMessage = "Failed to send '1000 OK auth'";
-            m_authState = BAuthState::AUTH_FAILED;
-            emit authenticationFailed(m_errorMessage);
+            failAuthentication(tr("Failed to send \"1000 OK auth\" to the Director."));
             return;
         }
 

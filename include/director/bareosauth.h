@@ -35,6 +35,7 @@
 
 #include <QObject>
 #include <QSslSocket>
+#include <QStringList>
 #include <QByteArray>
 #include <QString>
 #include <QTimer>
@@ -496,6 +497,19 @@ public:
         m_configuredCipherList = cipherList;
     }
 
+    /**
+     * @brief Keeps only plain PSK-* cipher names of a configured list
+     *
+     * TLS-PSK proves the Director only with a pure PSK cipher suite. Any other
+     * name of the list (RSA, ECDHE-RSA, ...) would let a server without the
+     * key negotiate a certificate suite instead, so it is dropped.
+     *
+     * @param configured colon-separated cipher names from the profile
+     * @param dropped receives the names that were removed (may be null)
+     * @return the remaining names, in their order
+     */
+    static QStringList pskOnlyCipherNames(const QString &configured, QStringList *dropped = nullptr);
+
     enum class BnetStatus
     {
         Ok,         // Normale Daten
@@ -631,6 +645,14 @@ private:
     QString m_tlsCipherList;      ///< Colon-separated PSK cipher list from auth (result)
     QString m_configuredCipherList; ///< Configured cipher list (input from profile)
     /// @}
+
+    /**
+     * @brief Ends the authentication with a message for the user
+     *
+     * Sets the state to AUTH_FAILED, stops the timer, detaches from the
+     * socket and emits authenticationFailed() once; later calls do nothing.
+     */
+    void failAuthentication(const QString &message);
 
     /// @name TLS/PSK Helper Methods
     /// @{
