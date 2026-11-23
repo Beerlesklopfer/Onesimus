@@ -345,6 +345,13 @@ jobs:
       - name: Third-party notices in the package
         run: scripts/ci/check-notices.sh out/*.dmg
 
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-macos
+          path: out/*
+          if-no-files-found: error
+          retention-days: 7
+
   sources:
     name: Source archives (Onesimus, Qt)
     needs: check
@@ -383,13 +390,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: packages-macos
-          path: out/*
-          if-no-files-found: error
-          retention-days: 7
-
   release:
     name: Draft GitHub Release
     needs: [check, linux, windows, macos, sources]
@@ -417,6 +417,18 @@ jobs:
         env:
           VERSION: ${{ needs.check.outputs.version }}
         run: src/scripts/ci/check-source-assets.sh dist "$VERSION" "$QT_VERSION"
+
+      # Every package type, so a job that builds but does not upload is caught
+      - name: Packages present
+        working-directory: dist
+        run: |
+          missing=0
+          for pat in '*.deb' '*-x86_64.AppImage' '*-windows-x86_64.msi' '*-Windows.zip' '*-macos-arm64.dmg'; do
+            if ! compgen -G "$pat" >/dev/null; then
+              echo "::error::No package matching $pat"; missing=1
+            fi
+          done
+          exit $missing
 
       - name: SHA256SUMS
         working-directory: dist
