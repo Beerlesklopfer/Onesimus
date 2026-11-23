@@ -29,6 +29,7 @@ has not been decided; until a legal review, these files stay `AGPL-3.0-only`.
 | `src/schedules/model/bscheduleoccurrences.cpp`, `include/schedules/model/bscheduleoccurrences.h` | `dird/date_time.cc`, `lib/btime.cc` `TmWoy()` |
 | `src/director/bareosauth.cpp`, `include/director/bareosauth.h` | CRAM-MD5 handshake and its base64 variants (`lib/cram_md5.cc`, `lib/bsock.cc`, `lib/tls_openssl_private.cc`) |
 | `src/director/baculaauth.cpp`, `include/director/baculaauth.h` | the Bacula handshake (not built; the Bacula backend is deprecated) |
+| `test/bquote_test.cpp` | `lib/scan.cc` `next_arg()`, the quoted-string state of `lib/lex.cc` |
 
 **Own implementations of Bareos behaviour** (written against the Bareos source as the reference
 for semantics, cited in comments):
@@ -42,6 +43,8 @@ for semantics, cited in comments):
 | `bstatuschip` | the job status letters of `include/job_status.h` |
 | `tools/b321verifier` | which backups and copies a restore can use (`dird/ua_restore.cc`, `dird/migrate.cc`, `cats/sql_update.cc`) |
 | `director/bareosdirector`, `models/bvolumejson` | the output of list commands (`dird/ua_output.cc`, `cats/sql_list.cc`) |
+| `bquote` (header only) | quoting of command lines and resource text (`lib/scan.cc`, `lib/lex.cc`), the name rule of `lib/edit.cc` `IsNameValid()`, the characters `configure add` refuses (`dird/ua_configure.cc`) |
+| `jobs/fileset/bfilesetdocument` | the FileSet grammar and keywords (`dird/inc_conf.cc`, `dird/dird_conf.cc` `fs_items`, `FilesetResource::PrintConfig`) |
 
 (`.h` in `include/`, `.cpp` in `src/`.)
 
