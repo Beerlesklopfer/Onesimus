@@ -5,6 +5,7 @@
 #include "buiscale.h"
 #include "clients/bclientsmodel.h"
 #include "blogging.h"
+#include "jobs/brunjobcommand.h"
 #include <QDateTime>
 #include <QFont>
 #include <QFormLayout>
@@ -545,8 +546,10 @@ void BClientDetailsDialog::loadClientJobs()
             this, &BClientDetailsDialog::onJobsReceived,
             Qt::UniqueConnection);
 
-    // Send "list jobs client=<name>" via Custom command
-    QString cmd = QString("list jobs client=%1").arg(m_clientName);
+    // Send "list jobs client=<name>" via Custom command; the name is quoted,
+    // Bareos client names may contain spaces
+    QString cmd = QStringLiteral("list jobs client=%1").arg(BRunJobCommand::quote(m_clientName));
+    m_jobsRequested = true;
     QMetaObject::invokeMethod(m_director, "doSend",
                               Qt::QueuedConnection,
                               Q_ARG(BDirector::Command, BDirector::Command::Custom),
@@ -556,10 +559,8 @@ void BClientDetailsDialog::loadClientJobs()
 void BClientDetailsDialog::onJobsReceived(BDirector::Command cmd, const QString &response)
 {
     // This uses Command::Custom with "list jobs client=X", so check for Custom
-    if (cmd != BDirector::Command::Custom)
+    if (cmd != BDirector::Command::Custom || !m_jobsRequested)
         return;
-
-    m_refreshJobsButton->setEnabled(true);
 
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8(), &error);
@@ -585,6 +586,21 @@ void BClientDetailsDialog::onJobsReceived(BDirector::Command cmd, const QString 
         }
     }
 
+    // Every widget sends Custom commands and sees every Custom reply (P0-15):
+    // take only a job list in which every job belongs to this client. A late
+    // list of another client or another request's reply is dropped; this
+    // client's own list arrives after it, because the Director answers in order.
+    if (!doc.isObject() || !doc.object().value("result").toObject().value("jobs").isArray())
+        return;
+    for (const QJsonValue &v : jobsArray) {
+        const QJsonObject job = v.toObject();
+        if (!job.contains("jobid") || job.value("client").toString() != m_clientName) {
+            BLOG_DEBUG() << "BClientDetailsDialog: reply is not this client's job list, ignored";
+            return;
+        }
+    }
+
+    m_refreshJobsButton->setEnabled(true);
     BLOG_DEBUG() << "BClientDetailsDialog: Found" << jobsArray.size() << "jobs";
 
     // Populate model (calculates statistics internally)

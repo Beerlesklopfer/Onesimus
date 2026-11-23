@@ -523,6 +523,7 @@ set(SOURCES
     src/jobs/bjoblogview.cpp
     src/jobs/bjobdetailsdialog.cpp
     src/jobs/bbvfsmodel.cpp
+    src/jobs/bbvfsreplyrouter.cpp
     src/jobs/bjobfileswidget.cpp
     src/jobs/brestorewizard.cpp
     src/jobs/bjoblogdialog.cpp
@@ -660,6 +661,7 @@ set(HEADERS
     include/director/bjobpushmessage.h
     include/jobs/bjobdetailsdialog.h
     include/jobs/bbvfsmodel.h
+    include/jobs/bbvfsreplyrouter.h
     include/jobs/bjobfileswidget.h
     include/jobs/bjoblogdialog.h
     include/jobs/brestorewizard.h
@@ -1649,6 +1651,32 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME brunjobcommand_test COMMAND brunjobcommand_test)
+
+    # bbvfsreplyrouter_test - replies of BVFS and restore commands matched to
+    # their requests; late replies of closed wizards dropped (P0-15)
+    add_executable(bbvfsreplyrouter_test
+        test/bbvfsreplyrouter_test.cpp
+        src/jobs/bbvfsreplyrouter.cpp
+        include/jobs/bbvfsreplyrouter.h
+        src/director/bdirector.cpp
+        include/director/bdirector.h
+    )
+
+    target_include_directories(bbvfsreplyrouter_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    # bareosdirector_lib: BDirector wraps a BareosDirector; none is created
+    target_link_libraries(bbvfsreplyrouter_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bbvfsreplyrouter_test COMMAND bbvfsreplyrouter_test)
 
     # bcleanup_test - cleanup selection, analysis invalidation and command sequencing
     add_executable(bcleanup_test

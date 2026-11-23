@@ -125,6 +125,7 @@ private:
     QTableView *m_jobsTable;
     BClientJobsModel *m_jobsModel;
     QPushButton *m_refreshJobsButton;
+    bool m_jobsRequested = false;   ///< "list jobs client=" was sent; replies before are not ours
 
     // Settings tab
     QWidget *m_settingsTab;
