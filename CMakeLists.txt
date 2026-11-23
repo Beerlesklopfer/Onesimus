@@ -511,6 +511,7 @@ set(SOURCES
     src/tools/b321action.cpp
 
     src/config/bcolumnconfiguration.cpp
+    src/btheme.cpp
     src/config/bsettings.cpp
     src/config/bsettingsdialog.cpp
     src/config/bprofilesettingsdialog.cpp
@@ -657,6 +658,11 @@ set(HEADERS
     include/config/bcolumnconfiguration.h
     include/config/bsettings.h
     include/config/bsettingsdialog.h
+    include/btheme.h
+    include/bprofiletls.h
+    include/bwaitcursor.h
+    include/director/bclientevent.h
+    include/config/bsecretstore.h
     include/config/bprofilesettingsdialog.h
     include/config/bconfigexporter.h
     include/config/bsettingshistory.h
@@ -2107,6 +2113,24 @@ if(BUILD_TESTING)
         set_tests_properties(bheadlessrunner_test PROPERTIES
             ENVIRONMENT "ONESIMUS_BINARY=$<TARGET_FILE:onesimus>")
     endif()
+
+    # btheme_test - the "system" theme follows the desktop; the palette of
+    # each theme has readable text on its backgrounds (issue #6)
+    add_executable(btheme_test
+        test/btheme_test.cpp
+        src/btheme.cpp
+        include/btheme.h
+    )
+    target_include_directories(btheme_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(btheme_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+    )
+    add_test(NAME btheme_test COMMAND btheme_test)
+    set_tests_properties(btheme_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     # bdirectiveschema_test - directive values checked by type (boolean,
     # size, time), not only integers

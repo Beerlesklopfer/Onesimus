@@ -588,6 +588,19 @@ void BSettingsDialog::createAppearancePage()
 
     layout->addWidget(fontGroup);
 
+    // Colour theme
+    QGroupBox *themeGroup = new QGroupBox(tr("Theme"));
+    themeGroup->setObjectName("settingsGroup");
+    QFormLayout *themeLayout = new QFormLayout(themeGroup);
+    m_themeCombo = new QComboBox();
+    m_themeCombo->setObjectName("themeCombo");
+    m_themeCombo->addItem(tr("System"), QStringLiteral("system"));
+    m_themeCombo->addItem(tr("Light"), QStringLiteral("light"));
+    m_themeCombo->addItem(tr("Dark"), QStringLiteral("dark"));
+    m_themeCombo->setToolTip(tr("\"System\" follows the light or dark colour scheme of the desktop."));
+    themeLayout->addRow(tr("Colour theme:"), m_themeCombo);
+    layout->addWidget(themeGroup);
+
     // Language Selection
     QGroupBox *languageGroup = new QGroupBox(tr("Language"));
     languageGroup->setObjectName("settingsGroup");
@@ -1197,6 +1210,10 @@ void BSettingsDialog::loadSettings()
     // Appearance
     m_uiZoomSpin->setValue(settings.appearanceUiZoom());
 
+    // Theme
+    const int themeIndex = m_themeCombo->findData(settings.appearanceTheme());
+    m_themeCombo->setCurrentIndex(themeIndex >= 0 ? themeIndex : m_themeCombo->findData("dark"));
+
     // Language
     QString currentLangCode = settings.appearanceLanguage();
     int langIndex = m_languageCombo->findData(currentLangCode);
@@ -1286,6 +1303,11 @@ void BSettingsDialog::saveSettings()
         settings.setStatusBarConnectedColor(m_connectedColor);
     if (m_disconnectedColor.isValid() && m_disconnectedColor != settings.statusBarDisconnectedColor())
         settings.setStatusBarDisconnectedColor(m_disconnectedColor);
+
+    // Theme: the main window applies it on appearanceSettingsChanged()
+    const QString theme = m_themeCombo->currentData().toString();
+    if (theme != settings.appearanceTheme())
+        settings.setAppearanceTheme(theme);
 
     // Language
     QString selectedLangCode = m_languageCombo->currentData().toString();

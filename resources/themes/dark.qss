@@ -215,10 +215,9 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: url(none);
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 5px solid #d4d4d4;
+    image: url(:/icons/icons/arrow-down-ondark.svg);
+    width: 10px;
+    height: 6px;
     margin-right: 5px;
 }
 
@@ -245,6 +244,20 @@ QSpinBox::up-button, QSpinBox::down-button {
 
 QSpinBox::up-button:hover, QSpinBox::down-button:hover {
     background-color: #37373d;
+}
+
+/* The buttons are styled, so their arrows must be too: without an image
+   no arrow is drawn */
+QSpinBox::up-arrow {
+    image: url(:/icons/icons/arrow-up-ondark.svg);
+    width: 8px;
+    height: 5px;
+}
+
+QSpinBox::down-arrow {
+    image: url(:/icons/icons/arrow-down-ondark.svg);
+    width: 8px;
+    height: 5px;
 }
 
 /* Check Box */

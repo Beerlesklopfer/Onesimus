@@ -192,6 +192,7 @@ private:
     // Appearance-Einstellungen
     QSpinBox *m_uiZoomSpin;     ///< Interface zoom in percent
     QComboBox *m_languageCombo;
+    QComboBox *m_themeCombo;    ///< "system", "light", "dark"
 
     // Level Color Buttons
     QPushButton *m_colorButtonFull;

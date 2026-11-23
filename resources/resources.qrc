@@ -16,6 +16,10 @@
         <!-- SVG icons - App -->
         <file>icons/onesimus.svg</file>
         <file>icons/sun.svg</file>
+        <file>icons/arrow-down-ondark.svg</file>
+        <file>icons/arrow-up-ondark.svg</file>
+        <file>icons/arrow-down-onlight.svg</file>
+        <file>icons/arrow-up-onlight.svg</file>
         <file>icons/moon.svg</file>
         <file>icons/connect.svg</file>
         <file>icons/disconnect.svg</file>

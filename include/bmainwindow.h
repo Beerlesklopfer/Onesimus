@@ -147,7 +147,8 @@ private:
     /// Sends "list backups client=<name>" for every known client
     /// (Bareos rejects "list backups" without client=)
     void requestClientBackups();
-    void applyTheme(const QString &themeName);
+    /// Applies a theme setting: "light", "dark" or "system" (BTheme)
+    void applyTheme(const QString &setting);
     /// State and text of the interface zoom entries in the View menu
     void updateZoomActions();
 
@@ -167,6 +168,7 @@ private:
     bool m_connecting = false;          ///< A connection attempt is running
     bool m_connectCancelled = false;    ///< Disconnect was pressed during the attempt
     bool m_secretWarningShown = false;
+    QString m_appliedThemeSetting;      ///< Theme setting on display ("light", "dark", "system")
     int m_backupRepliesPending = 0;     ///< Replies of the "list backups client=" round still to come
     QTimer *m_backupRoundTimer = nullptr; ///< Ends a round whose replies do not all come
     void backupReplyArrived();
@@ -204,7 +206,7 @@ private:
     QAction *m_reportBugAction;
     QAction *m_keyboardShortcutsAction;
     QAction *m_toggleStatisticsAction;
-    QAction *m_toggleThemeAction;
+    QAction *m_toggleThemeAction = nullptr;
     QAction *m_zoomInAction = nullptr;      ///< Interface zoom (BUiScale)
     QAction *m_zoomOutAction = nullptr;
     QAction *m_zoomResetAction = nullptr;

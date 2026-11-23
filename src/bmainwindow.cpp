@@ -3,6 +3,9 @@
 
 #include "bmainwindow.h"
 #include "bprofiletls.h"
+#include "btheme.h"
+#include <QStyleFactory>
+#include <QStyleHints>
 #include "buiscale.h"
 #include "btranslations.h"
 #include "director/baclmatrixdialog.h"
@@ -595,6 +598,21 @@ BMainWindow::BMainWindow(QWidget *parent)
     // Apply saved theme from settings
     QString savedTheme = BSettings::instance().appearanceTheme();
     applyTheme(savedTheme);
+    m_appliedThemeSetting = savedTheme;
+
+    // "System": follows a change of the desktop's colour scheme; a theme
+    // chosen in the settings dialog is applied when the settings are saved
+    connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this]() {
+        if (BSettings::instance().appearanceTheme() == QLatin1String("system"))
+            applyTheme(QStringLiteral("system"));
+    });
+    connect(&BSettings::instance(), &BSettings::appearanceSettingsChanged, this, [this]() {
+        const QString setting = BSettings::instance().appearanceTheme();
+        if (setting != m_appliedThemeSetting) {
+            m_appliedThemeSetting = setting;
+            applyTheme(setting);
+        }
+    });
 }
 
 BMainWindow::~BMainWindow()
@@ -603,9 +621,24 @@ BMainWindow::~BMainWindow()
     delete ui;
 }
 
-void BMainWindow::applyTheme(const QString &themeName)
+void BMainWindow::applyTheme(const QString &setting)
 {
+    // "system" follows the colour scheme of the desktop
+    const QString themeName = BTheme::resolve(setting, BTheme::systemIsDark());
     QString themePath;
+
+    // Fusion draws everything the style sheet leaves out from the palette;
+    // the palette has the theme's colours. Without them the native style of
+    // some desktops paints light parts into the dark theme (issue #6).
+    if (QApplication::style()->name().compare(QLatin1String("fusion"), Qt::CaseInsensitive) != 0) {
+        if (QStyle *fusion = QStyleFactory::create(QStringLiteral("Fusion")))
+            QApplication::setStyle(fusion);
+    }
+    QApplication::setPalette(BTheme::palette(themeName));
+    if (m_toggleThemeAction) {
+        m_toggleThemeAction->setIcon(QIcon(themeName == QLatin1String("dark")
+                                               ? ":/icons/icons/sun.svg" : ":/icons/icons/moon.svg"));
+    }
 
     if (themeName == "light") {
         themePath = ":/themes/themes/light.qss";
@@ -968,7 +1001,8 @@ void BMainWindow::createActions()
     m_toggleThemeAction->setShortcut(QKeySequence("Ctrl+Shift+T"));
 
     // Set initial icon based on current theme
-    QString currentTheme = BSettings::instance().appearanceTheme();
+    QString currentTheme = BTheme::resolve(BSettings::instance().appearanceTheme(),
+                                           BTheme::systemIsDark());
     if (currentTheme == "dark") {
         m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.svg"));
     } else {
@@ -3066,26 +3100,16 @@ void BMainWindow::updateZoomActions()
 
 void BMainWindow::onToggleTheme()
 {
-    // Get current theme
-    QString currentTheme = BSettings::instance().appearanceTheme();
-
-    // Toggle theme
-    QString newTheme;
-
-    if (currentTheme == "dark") {
-        newTheme = "light";
-        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/moon.svg"));
-        m_statusLabel->setText(tr("Switched to Light Theme"));
-    } else {
-        newTheme = "dark";
-        m_toggleThemeAction->setIcon(QIcon(":/icons/icons/sun.svg"));
-        m_statusLabel->setText(tr("Switched to Dark Theme"));
-    }
-
-    // Apply new theme
+    // From the theme on display (also when it follows the system) to the
+    // other one, chosen explicitly
+    const QString shown = BTheme::resolve(BSettings::instance().appearanceTheme(),
+                                          BTheme::systemIsDark());
+    const QString newTheme = shown == QLatin1String("dark") ? QStringLiteral("light")
+                                                            : QStringLiteral("dark");
+    m_statusLabel->setText(newTheme == QLatin1String("light") ? tr("Switched to Light Theme")
+                                                              : tr("Switched to Dark Theme"));
+    m_appliedThemeSetting = newTheme;
     applyTheme(newTheme);
-
-    // Save new theme to settings
     BSettings::instance().setAppearanceTheme(newTheme);
 }
 
