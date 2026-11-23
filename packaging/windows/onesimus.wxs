@@ -117,7 +117,7 @@
   <Fragment>
     <ComponentGroup Id="GuiFiles" Directory="INSTALLFOLDER">
       <Component Id="OnesimusExeComponent">
-        <File Id="OnesimusExe" Source="!(bindpath.Gui)onesimus.exe" KeyPath="yes">
+        <File Id="OnesimusExe" Name="onesimus.exe" Source="!(bindpath.Gui)onesimus.exe" KeyPath="yes">
           <Shortcut Id="StartMenuShortcut" Directory="OnesimusMenuFolder"
                     Name="Onesimus" Description="Bareos management console"
                     WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" Advertise="yes" />
