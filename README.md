@@ -1,7 +1,7 @@
 # Onesimus — Modern Backup Management UI
 
 <p align="center">
-  <strong>Every backup admin asks the same 5 questions. No tool answers them visually. Until now.</strong><br>
+  <strong>Every backup admin asks the same 5 questions. Onesimus is being built to answer them visually.</strong><br>
   <a href="https://onesimus.io">onesimus.io</a> · <a href="https://onesimus.io/docs/">Documentation</a> · <a href="https://github.com/Onesimus-io/Onesimus/issues">Report Bug</a>
 </p>
 
@@ -18,13 +18,16 @@
 
 ## The 5 Questions
 
-| # | Question | Answer | Tier |
-|---|----------|--------|------|
-| 1 | **Where does my storage go?** | Pool overview & visualization | Pro |
-| 2 | **When will the pool be full?** | Growth trends & capacity forecasts | Pro |
-| 3 | **Which jobs/clients consume the most?** | Storage consumption per job & client | Pro |
-| 4 | **What happens if I change retention?** | Retention analysis & what-if simulation | Enterprise |
-| 5 | **Which volumes can I recycle?** | Smart recycling recommendations | Pro |
+| # | Question | Answer | Status |
+|---|----------|--------|--------|
+| 1 | **Where does my storage go?** | Pool overview & visualization | planned |
+| 2 | **When will the pool be full?** | Growth trends & capacity forecasts | planned |
+| 3 | **Which jobs/clients consume the most?** | Storage consumption per job & client | planned |
+| 4 | **What happens if I change retention?** | Retention analysis & what-if simulation | planned |
+| 5 | **Which volumes can I recycle?** | Smart recycling recommendations | planned |
+
+Every feature is part of every edition. The editions differ only in how much the Director may write per month and in
+support; up to 1 TB a month is free. See [Pricing](https://onesimus.io/pricing/).
 
 Onesimus is a native Qt6 desktop application that connects directly to your Bareos Director via the bconsole protocol.
 
@@ -537,7 +540,9 @@ Every contribution helps keep development going — and shows that open source b
 
 ### Roadmap
 
-**Community (free, AGPL-3.0-or-later)** — Modern management interface:
+Every feature below is part of every edition ([Pricing](https://onesimus.io/pricing/)).
+
+**Management interface:**
 - ✅ Job, Client & Schedule management
 - ✅ Gantt timeline & weekly planner
 - ✅ Restore wizard with BVFS file browser
@@ -547,14 +552,14 @@ Every contribution helps keep development going — and shows that open source b
 - 🔜 Pool management (v0.3.0)
 - 🔜 Live job monitoring, volume operations
 
-**Pro** — Storage intelligence:
+**Storage intelligence:**
 - 🔜 Pool overview & storage visualization
 - 🔜 Storage consumption per job/client
 - 🔜 Growth trends & capacity forecasts
 - 🔜 Volume recycle recommendations
 - 🔜 Pre-built signed binaries
 
-**Enterprise** — Scale across infrastructure:
+**Scale across infrastructure:**
 - 🔜 Simultaneous Director connections
 - 🔜 Capacity planning
 - 🔜 Retention analysis & what-if simulation
