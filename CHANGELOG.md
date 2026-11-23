@@ -82,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with a blank, `"` or `\` stay one value (the ACL matrix dropped backslashes, the schedule wizard
   and the new-client dialog did not escape); a value with a line break is not sent; values that
   `configure add` cannot write (`;`, `@`, `"`, `\`) are refused before sending.
+- **Passwords of the connection profiles in the system keychain.** The password hash (all that is
+  needed to log in) and the PFX password are kept in the Secret Service (GNOME Keyring, KWallet) on
+  Linux, the login keychain on macOS and the Credential Manager on Windows, no longer in the
+  settings file. At the first start, secrets an earlier version stored there are moved into the
+  keychain and removed from the file. Where no keychain can be used they stay in the file, which is
+  then made readable by the owner only, and a warning says so at every start (bsettingsstore_test).
 
 ### Fixed
 - The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and
@@ -143,6 +149,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commands of `--script` (one per line), prints each reply (the Director's JSON) and exits with
   0 (all succeeded), 1 (a command failed) or 2 (no session); it needs no display and needs
   `--host`. Before, the command was never sent. The unused `--config` option is removed.
+- Settings dialog: Cancel reverts everything, also added, deleted, duplicated and imported
+  profiles and the level and status bar colours; they are written when the settings are saved.
+  Editing a profile and selecting another no longer renames the other row. Reset asks whether the
+  connection profiles go as well and keeps them by default. "Edit" and "Save Profile", which did
+  nothing of their own, are gone (bsettingsdialog_test).
+- Export and import of the connection profiles work on the application's settings: export wrote
+  column widths and no profiles, import reported success and added nothing. The export asks
+  whether the password hashes go into the file; import also reads files of the old export
+  (bsettingsstore_test, bsettingsdialog_test).
+- Jobs tab: the job and client filter lists keep every configured job and client instead of the
+  names on the current page, so the Run dialog and the job wizard offer all of them; the selected
+  filter is kept by name, not by position (bjobfilter_test).
+- Reconnect connects also when auto-connect at start is off. Disconnect cancels a connection
+  attempt, the wait cursor no longer stays after an error or a certificate question, and every
+  connection gets its TLS settings from the profile alone, without CA or certificate files of the
+  profile used before (bconnecthelpers_test).
+- Clients tab: with the Onesimus Director over gRPC, the status column shows Online or Offline from
+  the Director's client events (connected, disconnected, check result) and returns to the age of
+  the last backup when no event holds (bclientsmodel_test). "Backups" and "Total Data" come from
+  "list backups client=" only and keep their values during a refresh instead of falling back to the
+  figures of the current job page.
+- Run dialog: Estimate shows the files and bytes the Director estimates; the unused Replace options
+  are gone (brunjobcommand_test). Edit > Copy, Select All, Clear Selection work in the Clients tab,
+  and Edit > Find puts the focus into the name filter of the Jobs or Clients tab.
+- Settings: "Show tooltips" and the maximum log size take effect; the connection timeout, animation
+  and compact mode options, which nothing read, are gone. Directive values of the new client dialog
+  are checked as yes/no, size and time, not only as integers (bdirectiveschema_test).
+- Dark mode (issue #6): what the style sheet leaves out is drawn by the Fusion style from a palette
+  with the theme's colours instead of the desktop's; a "System" theme follows the desktop's light or
+  dark scheme (Settings > Appearance); combo and spin boxes get arrow images (btheme_test).
 
 ## [0.2.0] - 2026-02-21
 
