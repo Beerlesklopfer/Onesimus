@@ -1158,10 +1158,13 @@ const QByteArray BareosAuth::base64Encode(const QByteArray &data, bool isCompati
 {
 
     m_isCompatible = isCompatible;
-    char* buf = static_cast<char*>(malloc(MAXHOSTNAMELEN * sizeof(char)));
+    // Owned by the QByteArray (it was malloc()ed and never freed)
+    QByteArray out(MAXHOSTNAMELEN, Qt::Uninitialized);
+    char* buf = out.data();
     int buflen = MAXHOSTNAMELEN;
     const char* bin = data.constData();
-    int binlen = MD5ENCODEDLEN;
+    // Never read past the input (the HMAC is MD5ENCODEDLEN bytes)
+    const int binlen = qMin(static_cast<int>(MD5ENCODEDLEN), static_cast<int>(data.size()));
 
     uint32_t reg, save, mask;
     int rem, i;
@@ -1194,9 +1197,8 @@ const QByteArray BareosAuth::base64Encode(const QByteArray &data, bool isCompati
             buf[j++] = base64_digits[reg & mask];
         }
     }
-    buf[j] = 0;
-
-    return QByteArray(buf, j);
+    out.truncate(j);
+    return out;
 }
 
 const QByteArray BareosAuth::base64Decode(const QByteArray &data, bool isCompatible){
