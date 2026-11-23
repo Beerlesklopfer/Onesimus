@@ -206,6 +206,15 @@ BRestoreSelectJobPage::BRestoreSelectJobPage(QWidget *parent)
     m_errorLabel->setVisible(false);
     layout->addRow(QString(), m_errorLabel);
 
+    if (!kShowChainSelection) {
+        layout->setRowVisible(m_clientCombo, false);
+        layout->setRowVisible(m_fileSetCombo, false);
+        layout->setRowVisible(m_beforeDateEdit, false);
+        // The FileSet list is only needed for its combo box; the client
+        // list is still loaded for the target client on the options page
+        m_fileSetsLoaded = true;
+    }
+
     m_loadTimeoutTimer = new QTimer(this);
     m_loadTimeoutTimer->setSingleShot(true);
     m_loadTimeoutTimer->setInterval(10000);  // 10 seconds
@@ -478,10 +487,15 @@ bool BRestoreSelectJobPage::validatePage()
     if (!wiz) return false;
     auto *data = wiz->wizardData();
 
-    data->selectedClient = m_clientCombo->currentText();
-    data->selectedFileSet = m_fileSetCombo->currentText();
+    if (kShowChainSelection) {
+        data->selectedClient = m_clientCombo->currentText();
+        data->selectedFileSet = m_fileSetCombo->currentText();
+        data->beforeDate = m_beforeDateEdit->dateTime();
+    } else {
+        data->selectedClient = data->sourceClient;
+        data->selectedFileSet = data->sourceFileSet;
+    }
     data->allRelatedJobs = m_allRelatedRadio->isChecked();
-    data->beforeDate = m_beforeDateEdit->dateTime();
 
     RESTORE_DEBUG << "SelectJobPage validated: client=" << data->selectedClient
                   << " fileset=" << data->selectedFileSet
