@@ -179,6 +179,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dark mode (issue #6): what the style sheet leaves out is drawn by the Fusion style from a palette
   with the theme's colours instead of the desktop's; a "System" theme follows the desktop's light or
   dark scheme (Settings > Appearance); combo and spin boxes get arrow images (btheme_test).
+- **Console commands built from values** (P1-24): job ids, file ids and limits are sent only as
+  numbers, resource names (also `.defaults`, and the client of "prune jobs" in the job list) are
+  quoted, and the argument strings of restore, show, label, configure and the `.bvfs` commands
+  are refused when a value in them is not quoted; nothing that contains a newline is sent. Job,
+  file and directory ids from the Director's BVFS replies are taken only when they are numbers,
+  and a restore table only as `b2` and digits, as the Director checks them.
+- **Configuration import reads files as Bareos does** (P1-25): `FD Port`, `FDPort` and `fdport`
+  are one directive, `;` ends a directive (before, the rest of the resource was dropped),
+  repeated blocks (several `ipv4` addresses, several `Options`) are kept as a list instead of
+  the last one, a backslash in a quoted string takes the next character as it is, and quoted
+  strings in a row are joined. `@include` is followed when a single file is imported (absolute
+  paths and wildcards; a command after `@|` is never run), otherwise it is reported instead of
+  ending the import; include loops, nesting deeper than 32 levels and more than 16 MiB of text
+  are refused.
+- CRAM-MD5 login: the buffer of each answer is freed (memory leak found by LeakSanitizer).
 
 ## [0.2.0] - 2026-02-21
 
