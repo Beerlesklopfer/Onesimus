@@ -1828,6 +1828,30 @@ if(BUILD_TESTING)
 
     add_test(NAME bnetframe_test COMMAND bnetframe_test)
 
+    # bareosauth_security_test - BareosAuth against fake BNET Directors on the
+    # loopback interface: mutual CRAM-MD5 (P0-6), CA file and certificate
+    # name of certificate TLS (P0-11); no real Director
+    add_executable(bareosauth_security_test
+        test/bareosauth_security_test.cpp
+        test/btlstestcerts.h
+    )
+
+    target_include_directories(bareosauth_security_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/test
+    )
+
+    target_link_libraries(bareosauth_security_test PRIVATE
+        bareosauth_lib
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bareosauth_security_test COMMAND bareosauth_security_test)
+
     # bcommandlineconnection_test - --tls* options and password sources of the command line
     add_executable(bcommandlineconnection_test
         test/bcommandlineconnection_test.cpp
@@ -2935,6 +2959,7 @@ if(BUILD_TESTING)
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
     message(STATUS "  bschedulepersistence_test - schedule resource text, save flow and request bytes test (registered with CTest)")
     message(STATUS "  bgrpcconnect_test - gRPC address order, TLS probe and failure text test (registered with CTest)")
+    message(STATUS "  bareosauth_security_test - BNET handshake against fake Directors test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")
     message(STATUS "  bschedulewaitmodel_test - predicted waiting time of scheduled runs test (registered with CTest)")
