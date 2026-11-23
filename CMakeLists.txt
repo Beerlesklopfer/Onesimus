@@ -124,6 +124,11 @@ else()
     endif()
 endif()
 
+# Compiler warnings for the Onesimus targets (applied at the end of this file
+# to every target but the bundled OpenSSL and the generated gRPC/protobuf
+# code). Warnings only; there is no -Werror.
+option(ONESIMUS_WARNINGS "Compiler warnings for the Onesimus targets (-Wall -Wextra, MSVC /W4)" ON)
+
 # Option für statisches OpenSSL
 option(USE_STATIC_OPENSSL "Use static OpenSSL from git submodule (auto-download)" ${USE_STATIC_OPENSSL_DEFAULT})
 
@@ -479,7 +484,6 @@ include_directories(
 set(SOURCES
     src/main.cpp
     src/bmainwindow.cpp
-    src/director/bareosauth.cpp
 
     src/bcheckableheaderview.cpp
     src/bcheckboxdelegate.cpp
@@ -777,8 +781,6 @@ if(USE_BAREOS_ONLY)
     message(STATUS "========================================")
     message(STATUS "Building with BAREOS backend")
     message(STATUS "========================================")
-    list(APPEND SOURCES src/director/bareosauth.cpp)
-    list(APPEND HEADERS include/director/bareosauth.h)
     add_compile_definitions(USE_BAREOS)
     add_compile_definitions(BAREOS_VERSION)
 endif()
@@ -972,6 +974,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Network
     Qt6::Sql
     onesimus_secretstore
+    bareosauth_lib
 )
 
 # gRPC clients, generated from the proto submodule:
@@ -1012,6 +1015,10 @@ if(HAVE_GRPC)
     target_include_directories(onesimus_grpc_proto PUBLIC ${ONESIMUS_PROTO_STUB_DIR})
     target_link_libraries(onesimus_grpc_proto PUBLIC Qt6::Protobuf Qt6::ProtobufWellKnownTypes Qt6::Grpc Qt6::Network)
     target_compile_definitions(onesimus_grpc_proto PUBLIC HAVE_GRPC)
+    # Generated code: its headers are system headers for the targets that
+    # include them, so ONESIMUS_WARNINGS does not report qtprotobufgen's
+    # code (CMake >= 3.25; older versions ignore the property)
+    set_target_properties(onesimus_grpc_proto PROPERTIES SYSTEM TRUE)
     target_sources(${PROJECT_NAME} PRIVATE
         src/director/bgrpctransport.cpp
         src/director/bjobhistoryproto.cpp
@@ -1348,8 +1355,10 @@ endif()
 # Test Executables
 # ============================================================================
 
-# bareosauth_lib - Object library for BareosAuth (shared between main and test)
-add_library(bareosauth_lib OBJECT
+# bareosauth_lib - BareosAuth, compiled once for the application, the
+# libraries and the tests (a static library: bareosdirector_lib, an object
+# library, passes it on to the tests that link it)
+add_library(bareosauth_lib STATIC
     src/director/bareosauth.cpp
     include/director/bareosauth.h
 )
@@ -1385,11 +1394,9 @@ target_link_libraries(bareosauth_test PRIVATE
 # bareosdirector_lib - Object library for BareosDirector (shared between main and test)
 add_library(bareosdirector_lib OBJECT
     src/director/bareosdirector.cpp
-    src/director/bareosauth.cpp
     src/director/bjsonstreamreader.cpp
     src/director/bjsonreassembler.cpp
     include/director/bareosdirector.h
-    include/director/bareosauth.h
     include/director/bjsonstreamreader.h
     include/director/bjsonreassembler.h
 )
@@ -1399,6 +1406,7 @@ target_include_directories(bareosdirector_lib PUBLIC
 )
 
 target_link_libraries(bareosdirector_lib PUBLIC
+    bareosauth_lib
     Qt6::Core
     Qt6::Widgets
     Qt6::Network
@@ -3568,3 +3576,24 @@ endif()
 
 # include(CPack) must come AFTER all CPACK_* variables are set
 include(CPack)
+
+# ============================================================================
+# Compiler warnings (ONESIMUS_WARNINGS)
+# ============================================================================
+# Every target of this directory that compiles our code; not the generated
+# gRPC/protobuf library (its headers count as system headers for the
+# targets including them) and not OpenSSL (an ExternalProject with its own
+# flags). Qt's headers are system headers through the imported targets.
+if(ONESIMUS_WARNINGS)
+    get_property(_onesimus_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(_t IN LISTS _onesimus_targets)
+        get_target_property(_type ${_t} TYPE)
+        if(_type MATCHES "^(EXECUTABLE|STATIC_LIBRARY|OBJECT_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY)$"
+           AND NOT _t STREQUAL "onesimus_grpc_proto")
+            target_compile_options(${_t} PRIVATE
+                $<$<CXX_COMPILER_ID:MSVC>:/W4>
+                $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>)
+        endif()
+    endforeach()
+    message(STATUS "Compiler warnings: ON (-Wall -Wextra / /W4; -DONESIMUS_WARNINGS=OFF to disable)")
+endif()
