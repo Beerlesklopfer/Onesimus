@@ -47,7 +47,6 @@ public:
     ~BMainWindow();
 
     BDirector *director() const;
-    void setDirector(BDirector *newDirector);
 
 private slots:
     void onConnectTriggered();

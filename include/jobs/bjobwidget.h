@@ -399,14 +399,6 @@ private:
     QJsonArray convertJobsToJson(const QList<BDirector::JobInfo> &jobs);
     
     /**
-     * @brief Formats bytes into human-readable string
-     * @param bytes Byte count
-     * @return Formatted string
-     * @since 1.0
-     */
-    QString formatBytes(qint64 bytes);
-    
-    /**
      * @brief Formats job status code to German description
      * @param status Status code
      * @return German description

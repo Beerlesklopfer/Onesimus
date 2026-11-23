@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "jobs/bjobdetailsdialog.h"
+#include "bbyteformat.h"
 #include "buiscale.h"
 #include "bstatusdelegate.h"
 #include "jobs/bjobwidget.h"
@@ -139,7 +140,7 @@ void BJobDetailsDialog::setupStatusTab(const QJsonObject &job)
     statsLayout->addRow(tr("Files Backed Up:"), new QLabel(filesCount));
 
     qint64 bytes = job["jobbytes"].toString().toLongLong();
-    QString bytesFormatted = formatBytes(bytes);
+    QString bytesFormatted = BByteFormat::format(bytes);
     QString bytesExact = QString("%1 bytes").arg(job["jobbytes"].toString());
     QLabel *bytesLabel = new QLabel(bytesFormatted);
     bytesLabel->setToolTip(bytesExact);
@@ -247,26 +248,6 @@ void BJobDetailsDialog::onJobDetailReceived(BDirector::Command cmd, const QStrin
                    this, &BJobDetailsDialog::onJobDetailReceived);
         disconnect(m_director, &BDirector::textResult,
                    this, &BJobDetailsDialog::onJobDetailReceived);
-    }
-}
-
-QString BJobDetailsDialog::formatBytes(qint64 bytes) const
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-
-    if (bytes >= TB) {
-        return QString("%1 TB").arg(bytes / (double)TB, 0, 'f', 2);
-    } else if (bytes >= GB) {
-        return QString("%1 GB").arg(bytes / (double)GB, 0, 'f', 2);
-    } else if (bytes >= MB) {
-        return QString("%1 MB").arg(bytes / (double)MB, 0, 'f', 2);
-    } else if (bytes >= KB) {
-        return QString("%1 KB").arg(bytes / (double)KB, 0, 'f', 2);
-    } else {
-        return QString("%1 B").arg(bytes);
     }
 }
 

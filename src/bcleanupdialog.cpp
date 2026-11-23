@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "bcleanupdialog.h"
+#include "bbyteformat.h"
 #include "buiscale.h"
 #include "bcapabilitynotice.h"
 #include "blabelstate.h"
@@ -584,7 +585,7 @@ void BCleanupDialog::analyzeJobs()
         if (!plan.oldFulls.isEmpty()) {
             logMessage(tr("  - Old full backups: %1 (%2)")
                        .arg(plan.oldFulls.size())
-                       .arg(formatBytes(plan.oldFullsBytes)), "info");
+                       .arg(BByteFormat::format(plan.oldFullsBytes)), "info");
         }
         if (!plan.emptyJobs.isEmpty()) {
             logMessage(tr("  - Empty jobs: %1").arg(plan.emptyJobs.size()), "info");
@@ -604,14 +605,6 @@ void BCleanupDialog::analyzeJobs()
     } else {
         setStatus(tr("Analysis complete. Nothing to clean up."), "info");
     }
-}
-
-QString BCleanupDialog::formatBytes(qint64 bytes)
-{
-    if (bytes < 1024) return QString("%1 B").arg(bytes);
-    if (bytes < 1024 * 1024) return QString("%1 KB").arg(bytes / 1024.0, 0, 'f', 1);
-    if (bytes < 1024 * 1024 * 1024) return QString("%1 MB").arg(bytes / (1024.0 * 1024.0), 0, 'f', 1);
-    return QString("%1 GB").arg(bytes / (1024.0 * 1024.0 * 1024.0), 0, 'f', 2);
 }
 
 void BCleanupDialog::logOldFullBackups(const BCleanup::Plan &plan)
@@ -680,7 +673,7 @@ void BCleanupDialog::logOldFullBackups(const BCleanup::Plan &plan)
             }
             const BCleanup::JobRef &job = group.selected[i];
             logMessage(tr("    → Job %1: %2 (%3, %4)")
-                       .arg(job.jobId, job.name, job.startTime, formatBytes(job.bytes)), "warning");
+                       .arg(job.jobId, job.name, job.startTime, BByteFormat::format(job.bytes)), "warning");
             if (!job.requiredDeletions.isEmpty()) {
                 logMessage(tr("      its dependent jobs %1 are deleted by this cleanup as well")
                            .arg(job.requiredDeletions.join(", ")), "warning");
@@ -697,7 +690,7 @@ void BCleanupDialog::logOldFullBackups(const BCleanup::Plan &plan)
     if (!plan.oldFulls.isEmpty()) {
         logMessage(tr("✓ Found %1 old full backups to delete (%2)")
                    .arg(plan.oldFulls.size())
-                   .arg(formatBytes(plan.oldFullsBytes)), "success");
+                   .arg(BByteFormat::format(plan.oldFullsBytes)), "success");
     } else {
         logMessage(tr("  No old full backups found to delete"), "info");
     }

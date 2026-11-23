@@ -2966,11 +2966,6 @@ BDirector *BMainWindow::director() const
     return m_director;
 }
 
-void BMainWindow::setDirector(BDirector *newDirector)
-{
-    m_director = newDirector;
-}
-
 void BMainWindow::onCopyTriggered()
 {
     // Get the currently active tab

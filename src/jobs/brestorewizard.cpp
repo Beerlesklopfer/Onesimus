@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: 2026 Joerg Steffens
 
 #include "jobs/brestorewizard.h"
+#include "bbyteformat.h"
 #include "jobs/brestorecommand.h"
 #include "jobs/bbvfsargs.h"
 #include "buiscale.h"
@@ -847,7 +848,7 @@ void BRestoreOptionsPage::initializePage()
     bool sizeComplete = true;
     qint64 estimatedSize = model->computeSelectedSize(&sizeComplete);
     QString sizeStr = estimatedSize > 0
-        ? (sizeComplete ? tr("~%1") : tr("at least %1")).arg(model->formatBytes(estimatedSize))
+        ? (sizeComplete ? tr("~%1") : tr("at least %1")).arg(BByteFormat::format(estimatedSize))
         : tr("unknown");
 
     m_sourceLabel->setText(tr("Job %1: %2 — %3 selected (estimated size: %4)")
@@ -1106,7 +1107,7 @@ void BRestorePreviewPage::initializePage()
     bool sizeComplete = true;
     qint64 estimatedSize = model->computeSelectedSize(&sizeComplete);
     QString sizeStr = estimatedSize > 0
-        ? (sizeComplete ? tr("~%1") : tr("at least %1")).arg(model->formatBytes(estimatedSize))
+        ? (sizeComplete ? tr("~%1") : tr("at least %1")).arg(BByteFormat::format(estimatedSize))
         : tr("unknown");
 
     QString summary = tr("Restore summary:\n"

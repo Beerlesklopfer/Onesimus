@@ -1208,7 +1208,7 @@ void BareosDirector::onReadyRead()
             m_jsonReply.append(message);
             QByteArray document;
             while (m_jsonReply.takeDocument(&document)) {
-                processDirectorMessage(unbashSpaces(QString::fromUtf8(document)), false);
+                processDirectorMessage(unbashSpaces(QString::fromUtf8(document)));
             }
             continue;
         }
@@ -1220,7 +1220,7 @@ void BareosDirector::onReadyRead()
         BLOG_DEBUG() << "✓ Text message received:" << messageStr.left(200);
 #endif
         if (!messageStr.isEmpty()) {
-            processDirectorMessage(unbashSpaces(messageStr), false);
+            processDirectorMessage(unbashSpaces(messageStr));
         }
     }
 }
@@ -1249,7 +1249,7 @@ void BareosDirector::handleBnetSignal(qint32 signal)
     if (signal != -16 /* CMD_BEGIN */ && !m_jsonReply.isEmpty()) {
         const QByteArray accumulated = m_jsonReply.takeAll();
         if (!accumulated.isEmpty()) {
-            processDirectorMessage(unbashSpaces(QString::fromUtf8(accumulated)), false);
+            processDirectorMessage(unbashSpaces(QString::fromUtf8(accumulated)));
         }
     }
 
@@ -1260,7 +1260,7 @@ void BareosDirector::handleBnetSignal(qint32 signal)
     }
 }
 
-void BareosDirector::processDirectorMessage(const QString &message, bool isSignal)
+void BareosDirector::processDirectorMessage(const QString &message)
 {
     // Ignoriere leere Nachrichten
     if (message.isEmpty()) {
@@ -1271,7 +1271,7 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
     // The Director sends TWO responses for .api 2: a text status message (processed first,
     // triggers startResourceLoading()) and a JSON-RPC confirmation. The JSON confirmation
     // must NOT dequeue from the command queue (the queue now contains resource commands).
-    if (m_consumeApiConfirmation && !isSignal && message.startsWith('{')) {
+    if (m_consumeApiConfirmation && message.startsWith('{')) {
         m_consumeApiConfirmation = false;
 #ifdef IS_DEVELOPER
         BLOG_DEBUG() << "Consuming .api 2 JSON confirmation (not dequeuing from command queue)";
@@ -1280,22 +1280,19 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
     }
 
     // ---- Command Queue: dequeue the matching command for this response ----
-    // Signal messages (negative-length packets) are not command responses
+    // (BNET signals never get here, see handleBnetSignal())
     CommandEntry currentEntry;
-    bool hasQueuedCommand = false;
-    if (!isSignal) {
-        hasQueuedCommand = dequeueCurrentCommand(currentEntry);
-        if (hasQueuedCommand && currentEntry.status == CommandEntry::TimedOut) {
-            // Already reported as failed; the late reply belongs to nobody
-            // and must not be taken for the reply of the next command
-            BLOG_WARNING() << "Dropping the late reply to command"
-                           << static_cast<int>(currentEntry.cmd);
-            return;
-        }
-        if (hasQueuedCommand) {
-            m_lastCommandEnum = currentEntry.cmd;
-            m_lastCommand = commandToString(currentEntry.cmd, currentEntry.args);
-        }
+    const bool hasQueuedCommand = dequeueCurrentCommand(currentEntry);
+    if (hasQueuedCommand && currentEntry.status == CommandEntry::TimedOut) {
+        // Already reported as failed; the late reply belongs to nobody
+        // and must not be taken for the reply of the next command
+        BLOG_WARNING() << "Dropping the late reply to command"
+                       << static_cast<int>(currentEntry.cmd);
+        return;
+    }
+    if (hasQueuedCommand) {
+        m_lastCommandEnum = currentEntry.cmd;
+        m_lastCommand = commandToString(currentEntry.cmd, currentEntry.args);
     }
 
     // The job history leaves here, through its own signal (see
@@ -1461,17 +1458,6 @@ void BareosDirector::processDirectorMessage(const QString &message, bool isSigna
             }
         }
     }
-
-    // Prompt "*" oder andere Text-Nachrichten
-    if (isSignal || message == "*") {
-        return;
-    }
-
-    // Normale Text-Antwort
-#ifdef IS_DEVELOPER
-    BLOG_DEBUG() << "📝 Text response:" << message;
-#endif
-    // emit commandResponse(m_lastCommand, message);
 }
 
 void BareosDirector::onError(QAbstractSocket::SocketError error)
@@ -1978,9 +1964,6 @@ void BareosDirector::writeToSocket(const QByteArray &packet)
 #endif
     }
 }
-
-//@deprecated
-void BareosDirector::doSend(Command cmd, quint64){ commandToString(cmd); }
 
 void BareosDirector::doSend(const Command cmd, const QString &args){
 #ifdef IS_DEVELOPER
@@ -2561,7 +2544,7 @@ void BareosDirector::onGrpcCommandFinished(const QString &commandLine, bool succ
         message = QStringLiteral(R"({"jsonrpc":"2.0","id":null,"result":{}})");
     }
 
-    processDirectorMessage(message, false);
+    processDirectorMessage(message);
 }
 
 void BareosDirector::onGrpcJobStatus(int jobId, const QString &jobName, const QString &status,

@@ -117,9 +117,4 @@
         <file>templates/filesets/macos_user.json</file>
         <file>templates/filesets/empty_custom.json</file>
     </qresource>
-    <qresource prefix="/translations/directives">
-        <file>translations/directives/director_de.json</file>
-        <file>translations/directives/client_de.json</file>
-        <file>translations/directives/messages_de.json</file>
-    </qresource>
 </RCC>

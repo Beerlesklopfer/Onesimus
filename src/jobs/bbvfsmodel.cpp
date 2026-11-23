@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "jobs/bbvfsmodel.h"
+#include "bbyteformat.h"
 #include "jobs/bbvfsargs.h"
 #include "blogging.h"
 #include <QJsonDocument>
@@ -284,11 +285,11 @@ QVariant BBvfsModel::data(const QModelIndex &index, int role) const
             if (node->isDirectory) {
                 if (!node->children.isEmpty()) {
                     qint64 dirSize = computeSubtreeSize(node);
-                    return dirSize > 0 ? formatBytes(dirSize) : QString("-");
+                    return dirSize > 0 ? BByteFormat::format(dirSize) : QString("-");
                 }
                 return QString("-");
             }
-            return formatBytes(node->fileSize);
+            return BByteFormat::format(node->fileSize);
         case ColType:
             if (node->isDirectory) return tr("Directory");
             if (node->mode > 0 && (node->mode & 0170000) == 0120000) return tr("Symlink");
@@ -1101,25 +1102,5 @@ void BBvfsModel::enqueueChildLoading(BvfsNode *node)
     if (node->fileLoadState == BvfsNode::NotLoaded) {
         node->fileLoadState = BvfsNode::Loading;
         enqueueListing(BDirector::Command::BvfsLsFiles, node);
-    }
-}
-
-QString BBvfsModel::formatBytes(qint64 bytes) const
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-
-    if (bytes >= TB) {
-        return QString("%1 TB").arg(bytes / (double)TB, 0, 'f', 2);
-    } else if (bytes >= GB) {
-        return QString("%1 GB").arg(bytes / (double)GB, 0, 'f', 2);
-    } else if (bytes >= MB) {
-        return QString("%1 MB").arg(bytes / (double)MB, 0, 'f', 2);
-    } else if (bytes >= KB) {
-        return QString("%1 KB").arg(bytes / (double)KB, 0, 'f', 2);
-    } else {
-        return QString("%1 B").arg(bytes);
     }
 }

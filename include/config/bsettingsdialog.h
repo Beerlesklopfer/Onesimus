@@ -120,7 +120,6 @@ private:
     void createAppearancePage();
     void createBehaviorPage();
     void createAdvancedPage();
-    void applyModernStyle();
     void saveCurrentProfileSilent();  ///< Takes the form into the working copy of the current profile
     int profileRow(const QString &profileId) const;  ///< Row of a profile in the list, -1 if none
     int profileIndex(const QString &profileId) const; ///< Index in m_profiles, -1 if none

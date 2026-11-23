@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "jobs/bjobsstatisticswidget.h"
+#include "bbyteformat.h"
 #include "buiscale.h"
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -172,7 +173,7 @@ void BJobsStatisticsWidget::updateStatistics()
     
     // Update data summary
     m_totalFilesLabel->setText(QString::number(stats.totalFiles));
-    m_totalBytesLabel->setText(formatBytes(stats.totalBytes));
+    m_totalBytesLabel->setText(BByteFormat::format(stats.totalBytes));
     
     // Update date range
     if (stats.earliestJob.isValid() && stats.latestJob.isValid()) {
@@ -182,25 +183,5 @@ void BJobsStatisticsWidget::updateStatistics()
         m_dateRangeLabel->setText(dateRange);
     } else {
         m_dateRangeLabel->setText(tr("N/A"));
-    }
-}
-
-QString BJobsStatisticsWidget::formatBytes(qint64 bytes) const
-{
-    const qint64 KB = 1024;
-    const qint64 MB = KB * 1024;
-    const qint64 GB = MB * 1024;
-    const qint64 TB = GB * 1024;
-    
-    if (bytes >= TB) {
-        return QString("%1 TB").arg(bytes / (double)TB, 0, 'f', 2);
-    } else if (bytes >= GB) {
-        return QString("%1 GB").arg(bytes / (double)GB, 0, 'f', 2);
-    } else if (bytes >= MB) {
-        return QString("%1 MB").arg(bytes / (double)MB, 0, 'f', 2);
-    } else if (bytes >= KB) {
-        return QString("%1 KB").arg(bytes / (double)KB, 0, 'f', 2);
-    } else {
-        return QString("%1 B").arg(bytes);
     }
 }

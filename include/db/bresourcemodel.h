@@ -19,7 +19,7 @@
  * - Change reason documentation
  * - Integration with BSettingsHistory
  *
- * Subclasses: BDirectorModel, BClientModel, BStorageModel, BConsoleModel
+ * Subclasses: BDirectorModel
  *
  * @since 0.1.0.5
  */

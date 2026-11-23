@@ -21,8 +21,9 @@
  * as "50 GiB", exactly as configured. A decimal "53.7 GB" would look like an
  * overflow of the limit. There is no decimal mode.
  *
- * The decimal separator is always '.', whatever the locale, so that the text
- * is the same in every language and in tests.
+ * The decimal separator follows the application language (QLocale(), set by
+ * BTranslations): "1.5 GiB" in English, "1,5 GiB" in German. The unit names
+ * are the same in every language. Thousands separators are never used.
  *
  * One exception, formatDecimal(): the free tier limit of the Onesimus
  * Director is defined in decimal bytes (1 TB = 10^12 bytes, as the Director

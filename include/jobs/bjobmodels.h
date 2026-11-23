@@ -140,7 +140,6 @@ signals:
     void currentPageChanged(int page);
 
 private:
-    QString formatBytes(qint64 bytes) const;
     QString formatStatus(const QString &status) const;
     int rowToDataIndex(int row) const;
 

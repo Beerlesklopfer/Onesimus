@@ -372,13 +372,11 @@ onesimus/
 │   ├── bcleanupdialog.h                 #   Old job cleanup dialog with filters
 │   ├── bcheckableheaderview.h           #   Table header with checkboxes
 │   ├── bconnectionprofile.h             #   Connection profile data structure
-│   ├── bconsolemodel.h                  #   Console resource model
 │   ├── bpaginationwidget.h              #   Pagination controls for large tables
 │   ├── storagewidget.h                  #   Storage/volume management tab
 │   ├── version.h                        #   Auto-generated version, build number, git info
 │   ├── clients/                         # Client management
 │   │   ├── bclientswidget.h             #   Client list + filtering
-│   │   ├── bclientwidget.h              #   Single client detail widget
 │   │   ├── bclientdetailsdialog.h       #   Client details dialog
 │   │   ├── bclientsmodel.h              #   Client list model with online/offline status
 │   │   └── bnewclientdialog.h           #   New Client Wizard (3-page)
@@ -417,7 +415,6 @@ onesimus/
 │   │   ├── bfilesetwizard.h             #   FileSet creation wizard
 │   │   ├── bjsonjobview.h               #   Raw JSON job data viewer
 │   │   ├── blevelcolors.h               #   Backup level color definitions
-│   │   ├── bviewpresets.h               #   Table view presets (column sets)
 │   │   └── fileset/                     # FileSet sub-components
 │   │       ├── bfilesetdocument.h       #   FileSet document model
 │   │       └── bincludeblockwidget.h    #   Include/Exclude block editor
@@ -438,7 +435,6 @@ onesimus/
 │   ├── templates/filesets/              #   22 FileSet presets
 │   ├── icons/                           #   53 SVG/PNG icons
 │   ├── themes/                          #   QSS stylesheets (dark/light)
-│   ├── translations/                    #   Directive translation files
 │   └── sql/                             #   DB schema + migrations (v1–v5)
 ├── translations/                        # Qt Linguist .ts files (6 languages)
 ├── test/                                # Tests, test configs, test data generator
@@ -448,7 +444,7 @@ onesimus/
 ├── deploy.sh / deploy.fish              # Linux/macOS build + deploy scripts
 ├── deploy.ps1 / deploy.bat              # Windows build + deploy script
 ├── CMakeLists.txt                       # Build configuration
-└── CHANGELOG.md / LICENSE / todo.md     # Project docs
+└── CHANGELOG.md / TODO.md / LICENSE      # Project docs
 ```
 
 ### Architecture
@@ -535,7 +531,7 @@ Every contribution helps keep development going — and shows that open source b
 
 - 🌐 Website: [onesimus.io](https://onesimus.io)
 - 📖 Documentation: [onesimus.io/docs/](https://onesimus.io/docs/)
-- 🐛 Bugs: [GitHub Issues](https://github.com/Onesimus-io/Onesimus/issues)
+- 🐛 Known bugs and planned work: [TODO.md](TODO.md); report new ones on [GitHub Issues](https://github.com/Onesimus-io/Onesimus/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/Onesimus-io/Onesimus/discussions)
 
 ## 🔄 Version History

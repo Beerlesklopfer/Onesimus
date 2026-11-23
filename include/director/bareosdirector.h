@@ -909,16 +909,6 @@ public slots:
                       const QString &grpcCertFingerprint = QString());
 
     /**
-     * @brief Sends a raw command string to the Director
-     *
-     * @param command Command string (without newline)
-     * @deprecated
-     *
-     * @since 1.0.0
-     */
-    void doSend(Command cmd, quint64);
-
-    /**
      * @brief Internal slot for thread-safe socket writing
      * @param packet Raw packet data to write to socket
      * @since 1.0.0
@@ -1127,7 +1117,7 @@ private:
     QString parseResponse(const QByteArray &data);
     void connectSocketSignals();
     void disconnectAllSignals();
-    void processDirectorMessage(const QString &message, bool isSignal);
+    void processDirectorMessage(const QString &message);
 
     /**
      * @brief Handles a BNET signal packet (negative length, no payload)
