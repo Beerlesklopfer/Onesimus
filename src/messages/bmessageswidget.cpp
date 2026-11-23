@@ -10,6 +10,8 @@
  */
 
 #include "messages/bmessageswidget.h"
+#include "bstatuschip.h"
+#include "blabelstate.h"
 #include "buiscale.h"
 #include "director/bdirector.h"
 #include <QJsonDocument>
@@ -59,13 +61,13 @@ QVariant BMessagesModel::data(const QModelIndex &index, int role) const
         return m_messageFont;
 
     case Qt::ForegroundRole:
-        // Color based on message type
+        // Color based on message type, readable in the theme on display
         if (msg.type == "error" || msg.type == "fatal")
-            return QColor(Qt::red);
+            return BStatus::color(BStatus::Tone::Error, BStatus::Part::Foreground);
         if (msg.type == "warning")
-            return QColor(255, 165, 0);  // Orange
+            return BStatus::color(BStatus::Tone::Warning, BStatus::Part::Foreground);
         if (msg.type == "daemon")
-            return QColor(Qt::cyan);
+            return BStatus::color(BStatus::Tone::Running, BStatus::Part::Foreground);
         return QVariant();
 
     case Qt::ToolTipRole:
@@ -249,7 +251,8 @@ void BMessagesWidget::setupUI()
     toolbarLayout->addWidget(m_countLabel);
 
     m_statusLabel = new QLabel(this);
-    m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_statusLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_statusLabel, "muted");
     toolbarLayout->addWidget(m_statusLabel);
 
     mainLayout->addLayout(toolbarLayout);

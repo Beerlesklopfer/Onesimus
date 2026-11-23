@@ -3,6 +3,8 @@
 // SPDX-FileCopyrightText: 2026 Joerg Steffens
 
 #include "jobs/brestorewizard.h"
+#include "bstatuschip.h"
+#include "blabelstate.h"
 #include "bbyteformat.h"
 #include "jobs/brestorecommand.h"
 #include "jobs/bbvfsargs.h"
@@ -205,7 +207,8 @@ BRestoreSelectJobPage::BRestoreSelectJobPage(QWidget *parent)
     // Load status warning
     m_errorLabel = new QLabel(this);
     m_errorLabel->setWordWrap(true);
-    m_errorLabel->setStyleSheet("QLabel { color: orange; font-weight: bold; }");
+    m_errorLabel->setStyleSheet("font-weight: bold;");
+    bSetLabelState(m_errorLabel, "warning");
     m_errorLabel->setVisible(false);
     layout->addRow(QString(), m_errorLabel);
 
@@ -560,7 +563,7 @@ BRestoreBrowsePage::BRestoreBrowsePage(QWidget *parent)
     // Errors of the Director while listing (shown instead of an endless wait)
     m_errorLabel = new QLabel(this);
     m_errorLabel->setWordWrap(true);
-    m_errorLabel->setStyleSheet("QLabel { color: red; }");
+    bSetLabelState(m_errorLabel, "error");
     m_errorLabel->setVisible(false);
     mainLayout->addWidget(m_errorLabel);
 }
@@ -811,7 +814,8 @@ BRestoreOptionsPage::BRestoreOptionsPage(QWidget *parent)
 
     m_replacePolicyHelpLabel = new QLabel(this);
     m_replacePolicyHelpLabel->setWordWrap(true);
-    m_replacePolicyHelpLabel->setStyleSheet("QLabel { color: gray; font-style: italic; }");
+    m_replacePolicyHelpLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_replacePolicyHelpLabel, "muted");
     layout->addRow(QString(), m_replacePolicyHelpLabel);
     updateReplacePolicyHelp(0);
 
@@ -1008,7 +1012,8 @@ BRestorePreviewPage::BRestorePreviewPage(QWidget *parent)
     m_authClientLabel = new QLabel(this);
     m_authWhereLabel = new QLabel(this);
     m_authStatusLabel = new QLabel(this);
-    m_authStatusLabel->setStyleSheet("QLabel { color: gray; font-style: italic; }");
+    m_authStatusLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_authStatusLabel, "muted");
     permLayout->addRow(tr("Restore command:"), m_authRestoreLabel);
     permLayout->addRow(tr("Target client:"), m_authClientLabel);
     permLayout->addRow(tr("Where path:"), m_authWhereLabel);
@@ -1224,17 +1229,20 @@ void BRestorePreviewPage::onHelpAllResponse(BDirector::Command cmd, const QStrin
     bool whereAvailable = restoreAuthorized && restoreArgs.contains("where=");
     if (whereAvailable) {
         m_authWhereLabel->setText(tr("Available (subject to WhereACL)"));
-        m_authWhereLabel->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+        m_authWhereLabel->setStyleSheet("font-weight: bold;");
+        bSetLabelState(m_authWhereLabel, "success");
     } else if (restoreAuthorized) {
         m_authWhereLabel->setText(tr("Not available"));
-        m_authWhereLabel->setStyleSheet("QLabel { color: red; font-weight: bold; }");
+        m_authWhereLabel->setStyleSheet("font-weight: bold;");
+        bSetLabelState(m_authWhereLabel, "error");
     } else {
         m_authWhereLabel->setText(tr("N/A (restore not authorized)"));
-        m_authWhereLabel->setStyleSheet("QLabel { color: gray; font-weight: bold; }");
+        m_authWhereLabel->setStyleSheet("font-weight: bold;");
+        bSetLabelState(m_authWhereLabel, "muted");
     }
 
     m_authStatusLabel->setText(tr("Permission check completed."));
-    m_authStatusLabel->setStyleSheet("QLabel { color: green; }");
+    bSetLabelState(m_authStatusLabel, "success");
 
     RESTORE_DEBUG << "Permission check via .help all: restore=" << restoreAuthorized
                   << " client=" << clientAuthorized << " where=" << whereAvailable;
@@ -1257,7 +1265,7 @@ void BRestorePreviewPage::onAuthCheckTimeout()
     m_authWhereLabel->setText(tr("Unknown (timeout)"));
     m_authWhereLabel->setStyleSheet(timeoutStyle);
     m_authStatusLabel->setText(tr("Permission check timed out — you can still proceed."));
-    m_authStatusLabel->setStyleSheet("QLabel { color: orange; }");
+    bSetLabelState(m_authStatusLabel, "warning");
 
     finishAuthChecks();
 }
@@ -1285,12 +1293,14 @@ void BRestorePreviewPage::setAuthLabel(QLabel *label, bool authorized, const QSt
 {
     if (authorized) {
         label->setText(tr("Authorized"));
-        label->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+        label->setStyleSheet("font-weight: bold;");
+        bSetLabelState(label, "success");
     } else {
         QString text = tr("Not authorized");
         if (!detail.isEmpty()) text += " — " + detail;
         label->setText(text);
-        label->setStyleSheet("QLabel { color: red; font-weight: bold; }");
+        label->setStyleSheet("font-weight: bold;");
+        bSetLabelState(label, "error");
     }
 }
 
@@ -1684,7 +1694,7 @@ void BRestoreExecutePage::onTimeout()
 void BRestoreExecutePage::appendLog(const QString &msg, bool isError)
 {
     if (isError) {
-        m_logEdit->append(QString("<span style='color:red'>%1</span>").arg(msg.toHtmlEscaped()));
+        m_logEdit->append(BStatus::textSpan(BStatus::Tone::Error, msg.toHtmlEscaped()));
     } else {
         m_logEdit->append(msg);
     }

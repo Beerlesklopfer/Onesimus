@@ -122,7 +122,8 @@ private:
     void executeCreateResource();
     void disconnectDirectorSignals();
     void endWaiting();
-    void setStatus(const QString &text, const QString &style = QString());
+    /// @p state: a QLabel[state=...] colour of the theme ("error", "warning", "success"), "" for normal text
+    void setStatus(const QString &text, const char *state = "");
 
     QPlainTextEdit *m_runsEdit = nullptr;
     QPlainTextEdit *m_configEdit = nullptr;

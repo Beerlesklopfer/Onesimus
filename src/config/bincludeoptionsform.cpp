@@ -10,6 +10,7 @@
  */
 
 #include "config/bincludeoptionsform.h"
+#include "blabelstate.h"
 #include "buiscale.h"
 #include "config/beditablelistwidget.h"
 #include "config/beditablelistmodel.h"
@@ -88,7 +89,7 @@ void BIncludeOptionsForm::buildForm()
     QJsonObject schema = loadSchema();
     if (schema.isEmpty()) {
         QLabel *errorLabel = new QLabel(tr("Failed to load include options schema"), formWidget);
-        errorLabel->setStyleSheet("color: red;");
+        bSetLabelState(errorLabel, "error");
         formLayout->addWidget(errorLabel);
         m_scrollArea->setWidget(formWidget);
         return;

@@ -7,6 +7,7 @@
  */
 
 #include "config/bprofilesettingsdialog.h"
+#include "blabelstate.h"
 #include "buiscale.h"
 #include "director/bareosdirector.h"
 
@@ -131,7 +132,7 @@ QWidget* BProfileSettingsDialog::createGeneralTab()
            "the server-side Profile."),
         widget);
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("color: #666;");
+    bSetLabelState(infoLabel, "muted");
     BUiScale::bind(infoLabel, BUiScale::Tiny);
     layout->addRow(infoLabel);
 

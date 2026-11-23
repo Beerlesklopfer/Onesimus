@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "jobs/bjsonjobview.h"
+#include "bstatuschip.h"
 #include "buiscale.h"
 #include "bquote.h"
 #include "blogging.h"
@@ -604,7 +605,8 @@ void BJsonJobView::deleteJob()
 
     // Warning label
     QLabel *warningLabel = new QLabel(
-        tr("<span style='color: #cc0000;'><b>Warning:</b> This action cannot be undone!</span>"));
+        tr("<span style='color: #cc0000;'><b>Warning:</b> This action cannot be undone!</span>")
+            .replace(QLatin1String("#cc0000"), BStatus::color(BStatus::Tone::Error, BStatus::Part::Foreground).name()));   // the theme's colour
     layout->addWidget(warningLabel);
 
     layout->addSpacing(10);

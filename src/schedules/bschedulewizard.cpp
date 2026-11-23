@@ -10,6 +10,7 @@
  */
 
 #include "schedules/bschedulewizard.h"
+#include "blabelstate.h"
 #include "schedules/bschedulegridview.h"
 #include "schedules/bschedulepersistence.h"
 #include "schedules/model/bschedulegridmodel.h"
@@ -94,7 +95,7 @@ BScheduleNamePage::BScheduleNamePage(QWidget *parent)
     m_problemLabel = new QLabel(this);
     m_problemLabel->setObjectName(QStringLiteral("scheduleWizardNameProblem"));
     m_problemLabel->setWordWrap(true);
-    m_problemLabel->setStyleSheet(QStringLiteral("color: red;"));
+    bSetLabelState(m_problemLabel, "error");
     layout->addWidget(m_problemLabel);
     layout->addStretch();
 
@@ -282,7 +283,7 @@ void BScheduleReviewPage::initializePage()
                                     : QString());
     m_copyButton->setEnabled(writable);
     if (!writable)
-        setStatus(tr("This schedule cannot be written. %1").arg(error), QStringLiteral("color: red;"));
+        setStatus(tr("This schedule cannot be written. %1").arg(error), "error");
 }
 
 QString BScheduleReviewPage::runLinesText() const { return m_runsEdit->toPlainText(); }
@@ -290,9 +291,9 @@ QString BScheduleReviewPage::configText() const { return m_configEdit->toPlainTe
 QString BScheduleReviewPage::commandText() const { return m_commandEdit->toPlainText(); }
 QString BScheduleReviewPage::statusText() const { return m_statusLabel->text(); }
 
-void BScheduleReviewPage::setStatus(const QString &text, const QString &style)
+void BScheduleReviewPage::setStatus(const QString &text, const char *state)
 {
-    m_statusLabel->setStyleSheet(style);
+    bSetLabelState(m_statusLabel, state);
     m_statusLabel->setText(text);
 }
 
@@ -366,7 +367,7 @@ void BScheduleReviewPage::executeCreateResource()
     BSchedulePersistence *persistence = wiz->persistence();
     if (persistence->isBusy()) {
         setStatus(tr("Another change of a schedule is being written. Try again when it is done."),
-                  QStringLiteral("color: orange;"));
+                  "warning");
         return;
     }
 
@@ -379,13 +380,13 @@ void BScheduleReviewPage::executeCreateResource()
             // The flow has told the user already (its report); the wizard
             // has nothing more to do
             m_executed = true;
-            setStatus(tr("Schedule created."), QStringLiteral("color: green; font-weight: bold;"));
+            setStatus(tr("Schedule created."), "success");
             if (QWizard *wiz = wizard())
                 wiz->accept();
         } else if (report.kind == BScheduleReport::Cancelled) {
             setStatus(tr("Nothing was written."));
         } else {
-            setStatus(tr("%1: %2").arg(report.title, report.text).left(600), QStringLiteral("color: red;"));
+            setStatus(tr("%1: %2").arg(report.title, report.text).left(600), "error");
         }
     }));
     m_waiting = true;
@@ -413,9 +414,9 @@ void BScheduleReviewPage::onConfigureResult(bool success, const QString &message
     if (success) {
         m_executed = true;
         setStatus(tr("Schedule created successfully! Click Finish to close."),
-                  QStringLiteral("color: green; font-weight: bold;"));
+                  "success");
     } else {
-        setStatus(tr("Error: %1").arg(message.left(500)), QStringLiteral("color: red;"));
+        setStatus(tr("Error: %1").arg(message.left(500)), "error");
     }
 }
 
@@ -425,7 +426,7 @@ void BScheduleReviewPage::onDirectorDisconnected()
     endWaiting();
     setStatus(tr("The connection to the Director was lost before it answered. "
                  "Reconnect and check with 'show schedules' whether the schedule exists."),
-              QStringLiteral("color: red;"));
+              "error");
 }
 
 void BScheduleReviewPage::onConfigureTimeout()
@@ -433,7 +434,7 @@ void BScheduleReviewPage::onConfigureTimeout()
     endWaiting();
     setStatus(tr("Timeout waiting for Director response. "
                  "The schedule may have been created — check with 'show schedules'."),
-              QStringLiteral("color: orange;"));
+              "warning");
     m_executed = true;
 }
 

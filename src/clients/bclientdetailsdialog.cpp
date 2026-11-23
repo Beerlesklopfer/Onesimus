@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "clients/bclientdetailsdialog.h"
+#include "bstatuschip.h"
 #include "bbyteformat.h"
 #include "buiscale.h"
 #include "clients/bclientsmodel.h"
@@ -108,9 +109,10 @@ QVariant BClientJobsModel::data(const QModelIndex &index, int role) const
         }
     } else if (role == Qt::ForegroundRole && index.column() == COL_STATUS) {
         QString status = job["jobstatus"].toString();
-        if (status == "T") return QColor(0, 128, 0);
-        if (status == "f" || status == "E") return QColor(Qt::red);
-        if (status == "W") return QColor(200, 150, 0);
+        // Readable in the theme on display
+        if (status == "T") return BStatus::color(BStatus::Tone::Success, BStatus::Part::Foreground);
+        if (status == "f" || status == "E") return BStatus::color(BStatus::Tone::Error, BStatus::Part::Foreground);
+        if (status == "W") return BStatus::color(BStatus::Tone::Warning, BStatus::Part::Foreground);
     } else if (role == Qt::TextAlignmentRole) {
         switch (index.column()) {
         case COL_JOBID:

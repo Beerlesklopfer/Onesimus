@@ -8,6 +8,7 @@
  */
 
 #include "bconnectionwizard.h"
+#include "bstatuschip.h"
 #include "buiscale.h"
 #include "blabelstate.h"
 #include "blogging.h"
@@ -274,7 +275,8 @@ QAPage::QAPage(const QString &question, QWidget *parent)
 
     m_hintLabel = new QLabel(this);
     m_hintLabel->setWordWrap(true);
-    m_hintLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_hintLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_hintLabel, "muted");
     m_hintLabel->setVisible(false);
     m_layout->addWidget(m_hintLabel);
 }
@@ -353,7 +355,8 @@ TemplateSelectionPage::TemplateSelectionPage(QWidget *parent)
 
     m_templateDetailsLabel = new QLabel(this);
     m_templateDetailsLabel->setWordWrap(true);
-    m_templateDetailsLabel->setStyleSheet("color: gray; font-style: italic; margin-left: 30px;");
+    m_templateDetailsLabel->setStyleSheet("font-style: italic; margin-left: 30px;");
+    bSetLabelState(m_templateDetailsLabel, "muted");
     m_templateDetailsLabel->setVisible(false);
     m_layout->addWidget(m_templateDetailsLabel);
 
@@ -689,7 +692,8 @@ ImportConsoleSelectionPage::ImportConsoleSelectionPage(QWidget *parent)
     // Status label
     m_statusLabel = new QLabel(this);
     m_statusLabel->setWordWrap(true);
-    m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_statusLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_statusLabel, "muted");
     m_layout->addWidget(m_statusLabel);
 
     // Details area (read-only) showing selected console config
@@ -740,13 +744,15 @@ void ImportConsoleSelectionPage::parseConfigSource()
     QString zipPath = field("importZipPath").toString();
     if (zipPath.isEmpty()) {
         m_statusLabel->setText(tr("No ZIP file specified."));
-        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+        m_statusLabel->setStyleSheet("font-style: italic;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
     m_progressBar->setVisible(true);
     m_statusLabel->setText(tr("Extracting and parsing ZIP archive..."));
-    m_statusLabel->setStyleSheet("color: gray; font-style: italic;");
+    m_statusLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_statusLabel, "muted");
 
     // Read in memory with limits; nothing is extracted (BZipImport)
     const bool parsed = m_parser->parseZipArchive(zipPath);
@@ -756,7 +762,8 @@ void ImportConsoleSelectionPage::parseConfigSource()
     }
     if (!parsed && !m_parser->lastError().isEmpty() && m_parser->resources().isEmpty()) {
         m_statusLabel->setText(tr("Cannot read the ZIP archive: %1").arg(m_parser->lastError()));
-        m_statusLabel->setStyleSheet("color: #c00000; font-style: italic;");
+        m_statusLabel->setStyleSheet("font-style: italic;");
+        bSetLabelState(m_statusLabel, "error");
         m_progressBar->setVisible(false);
         return;
     }
@@ -765,7 +772,8 @@ void ImportConsoleSelectionPage::parseConfigSource()
 
     if (!parsed || m_parser->resources().isEmpty()) {
         m_statusLabel->setText(tr("No configuration resources found in the archive."));
-        m_statusLabel->setStyleSheet("color: #c08000; font-style: italic;");
+        m_statusLabel->setStyleSheet("font-style: italic;");
+        bSetLabelState(m_statusLabel, "warning");
         return;
     }
 
@@ -793,11 +801,13 @@ void ImportConsoleSelectionPage::populateCombos()
                                .arg(totalResources)
                                .arg(directors.size())
                                .arg(consoles.size()));
-    m_statusLabel->setStyleSheet("color: #008000; font-style: italic;");
+    m_statusLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_statusLabel, "success");
 
     if (directors.isEmpty() || consoles.isEmpty()) {
         m_statusLabel->setText(tr("Warning: Need at least one Director and one Console resource."));
-        m_statusLabel->setStyleSheet("color: #c08000; font-style: italic;");
+        m_statusLabel->setStyleSheet("font-style: italic;");
+        bSetLabelState(m_statusLabel, "warning");
     }
 
     updateConsoleDetails();
@@ -1146,7 +1156,7 @@ ServerPage::ServerPage(QWidget *parent)
     // Config file path hint
     auto *configLabel = new QLabel(this);
     configLabel->setWordWrap(true);
-    configLabel->setStyleSheet("color: #666;");
+    bSetLabelState(configLabel, "muted");
     BUiScale::bind(configLabel, BUiScale::Tiny);
     configLabel->setText(tr("Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"));
     m_layout->addWidget(configLabel);
@@ -1397,7 +1407,7 @@ CredentialsPage::CredentialsPage(QWidget *parent)
     // Config file path hints
     auto *configLabel = new QLabel(this);
     configLabel->setWordWrap(true);
-    configLabel->setStyleSheet("color: #666;");
+    bSetLabelState(configLabel, "muted");
     BUiScale::bind(configLabel, BUiScale::Tiny);
     configLabel->setText(tr(
         "Director config: /etc/bareos/bareos-dir.d/director/bareos-dir.conf\n"
@@ -1507,7 +1517,8 @@ AuthMethodPage::AuthMethodPage(QWidget *parent)
     // Capability info label (shown after server check)
     m_capabilityLabel = new QLabel(this);
     m_capabilityLabel->setWordWrap(true);
-    m_capabilityLabel->setStyleSheet("color: #666; margin-top: 10px;");
+    m_capabilityLabel->setStyleSheet("margin-top: 10px;");
+    bSetLabelState(m_capabilityLabel, "muted");
     BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
     m_capabilityLabel->setVisible(false);
     m_layout->addWidget(m_capabilityLabel);
@@ -1518,7 +1529,7 @@ AuthMethodPage::AuthMethodPage(QWidget *parent)
     cipherLayout->setContentsMargins(0, 10, 0, 0);
 
     QLabel *cipherLabel = new QLabel(tr("TLS Cipher List (optional):"), m_cipherWidget);
-    cipherLabel->setStyleSheet("color: #666;");
+    bSetLabelState(cipherLabel, "muted");
     BUiScale::bind(cipherLabel, BUiScale::Tiny);
     cipherLayout->addWidget(cipherLabel);
 
@@ -1599,7 +1610,8 @@ void AuthMethodPage::updateCapabilityHints()
     if (caps.reachable) {
         if (caps.supportsPSK) {
             m_capabilityLabel->setText(tr("Server supports TLS encryption."));
-            m_capabilityLabel->setStyleSheet("color: #008000; margin-top: 10px;");
+            m_capabilityLabel->setStyleSheet("margin-top: 10px;");
+            bSetLabelState(m_capabilityLabel, "success");
             BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
         } else {
             // Server doesn't support PSK (older Bareos/Bacula?)
@@ -1609,14 +1621,16 @@ void AuthMethodPage::updateCapabilityHints()
                 m_pskRadio->setText(tr("TLS-PSK - not available on this server"));
                 m_capabilityLabel->setText(tr("This server doesn't appear to support TLS-PSK. "
                                               "Consider upgrading to Bareos 18.2 or later."));
-                m_capabilityLabel->setStyleSheet("color: #c08000; margin-top: 10px;");
+                m_capabilityLabel->setStyleSheet("margin-top: 10px;");
+                bSetLabelState(m_capabilityLabel, "warning");
                 BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
             }
         }
     } else {
         // Server not reachable
         m_capabilityLabel->setText(tr("Server check failed: %1").arg(caps.lastError));
-        m_capabilityLabel->setStyleSheet("color: #c00000; margin-top: 10px;");
+        m_capabilityLabel->setStyleSheet("margin-top: 10px;");
+        bSetLabelState(m_capabilityLabel, "error");
         BUiScale::bind(m_capabilityLabel, BUiScale::Tiny);
     }
 }
@@ -1633,11 +1647,13 @@ void AuthMethodPage::onSelectionChanged()
 {
     if (m_pskRadio->isChecked()) {
         setHint(tr("TLS-PSK uses your password to encrypt the connection."));
-        m_hintLabel->setStyleSheet("color: gray; font-style: italic;");
+        m_hintLabel->setStyleSheet("font-style: italic;");
+        bSetLabelState(m_hintLabel, "muted");
         m_cipherWidget->setVisible(true);  // Show cipher list for PSK mode
     } else if (m_certRadio->isChecked()) {
         setHint(tr("You'll need CA, client certificate, and private key."));
-        m_hintLabel->setStyleSheet("color: gray; font-style: italic;");
+        m_hintLabel->setStyleSheet("font-style: italic;");
+        bSetLabelState(m_hintLabel, "muted");
         m_cipherWidget->setVisible(false);  // Hide cipher list for cert mode
     }
     setField("authMethod", authMethod());
@@ -1942,7 +1958,7 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     consoleLayout->addWidget(consoleLabel);
 
     auto *consolePath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/console/&lt;name&gt;.conf"), consoleWidget);
-    consolePath->setStyleSheet("color: #666;");
+    bSetLabelState(consolePath, "muted");
     BUiScale::bind(consolePath, BUiScale::Tiny);
     consoleLayout->addWidget(consolePath);
 
@@ -1983,7 +1999,7 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     directorLayout->addWidget(directorLabel);
 
     auto *directorPath = new QLabel(tr("Path: /etc/bareos/bareos-dir.d/director/bareos-dir.conf"), directorWidget);
-    directorPath->setStyleSheet("color: #666;");
+    bSetLabelState(directorPath, "muted");
     BUiScale::bind(directorPath, BUiScale::Tiny);
     directorLayout->addWidget(directorPath);
 
@@ -2030,7 +2046,7 @@ ConfigPreviewPage::ConfigPreviewPage(QWidget *parent)
     auto *clientPath = new QLabel(tr("Path: /etc/bareos/bconsole.conf (bconsole), "
                                      "/etc/bareos/oconsole.conf or oconsole -c &lt;file&gt; (oconsole)"),
                                   clientWidget);
-    clientPath->setStyleSheet("color: #666;");
+    bSetLabelState(clientPath, "muted");
     BUiScale::bind(clientPath, BUiScale::Tiny);
     clientPath->setWordWrap(true);
     clientLayout->addWidget(clientPath);
@@ -2702,7 +2718,7 @@ void TestPage::appendLog(const QString &msg, bool err)
     // Use palette-aware colors for dark/light theme compatibility
     QString color;
     if (err) {
-        color = "#dc3545";  // Bootstrap red - visible in both themes
+        color = BStatus::color(BStatus::Tone::Error, BStatus::Part::Foreground).name();
     } else {
         // Use the window text color from the palette
         QColor textColor = palette().color(QPalette::WindowText);

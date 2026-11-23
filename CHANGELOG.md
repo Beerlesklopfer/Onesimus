@@ -219,6 +219,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dark mode (issue #6): what the style sheet leaves out is drawn by the Fusion style from a palette
   with the theme's colours instead of the desktop's; a "System" theme follows the desktop's light or
   dark scheme (Settings > Appearance); combo and spin boxes get arrow images (btheme_test).
+- Text contrast in both themes (issue #6): state, hint, warning and error texts, placeholders,
+  group box titles, the status bar, the messages list and the logs of the certificate generator,
+  cleanup, connection and restore dialogs take colours of the theme with at least 4.5:1 contrast
+  instead of fixed colours that were dark on dark (black or dark grey log lines) or pale on light
+  (bthemecontrast_test measures every theme from the palette and from a rendering).
 - **Console commands built from values** (P1-24): job ids, file ids and limits are sent only as
   numbers, resource names (also `.defaults`, and the client of "prune jobs" in the job list) are
   quoted, and the argument strings of restore, show, label, configure and the `.bvfs` commands

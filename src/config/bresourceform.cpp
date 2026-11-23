@@ -10,6 +10,7 @@
  */
 
 #include "config/bresourceform.h"
+#include "blabelstate.h"
 #include "buiscale.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -154,7 +155,8 @@ void BResourceForm::buildForm()
 
     if (directives.isEmpty()) {
         QLabel *noSchema = new QLabel(tr("No schema available for resource type '%1'").arg(m_resourceType), formWidget);
-        noSchema->setStyleSheet("color: gray; font-style: italic;");
+        noSchema->setStyleSheet("font-style: italic;");
+        bSetLabelState(noSchema, "muted");
         formLayout->addWidget(noSchema);
         m_scrollArea->setWidget(formWidget);
         return;

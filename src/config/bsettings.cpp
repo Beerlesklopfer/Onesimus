@@ -692,8 +692,8 @@ void BSettings::setStatusBarConnectedColor(const QColor& color)
 
 QColor BSettings::statusBarDisconnectedColor() const
 {
-    // Default: gray
-    QString colorString = value("Appearance/statusbar_disconnected_color", "#aaaaaa").toString();
+    // Default: light grey, readable on the blue status bar (4.5:1)
+    QString colorString = value("Appearance/statusbar_disconnected_color", "#ececec").toString();
     return QColor(colorString);
 }
 

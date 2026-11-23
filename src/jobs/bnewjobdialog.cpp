@@ -233,12 +233,12 @@ void BNewJobDialog::loadConfigurationDataFromJobWidget()
 {
     if (!m_jobWidget) {
         m_statusLabel->setText(tr("⚠ No JobWidget connection available"));
-        m_statusLabel->setStyleSheet("color: red;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
     m_statusLabel->setText(tr("Loading configuration data from JobWidget..."));
-    m_statusLabel->setStyleSheet("color: blue;");
+    bSetLabelState(m_statusLabel, "muted");
 
     // Get all data directly from JobWidget (already loaded during connection)
     m_jobNames = m_jobWidget->jobNames();
@@ -278,11 +278,11 @@ void BNewJobDialog::loadConfigurationDataFromJobWidget()
         m_statusLabel->setText(tr("✓ %1 jobs, %2 clients loaded")
                                .arg(m_jobNames.size())
                                .arg(m_clientNames.size()));
-        m_statusLabel->setStyleSheet("color: green;");
+        bSetLabelState(m_statusLabel, "success");
         m_dataLoaded = true;
     } else {
         m_statusLabel->setText(tr("⚠ No jobs available - check connection"));
-        m_statusLabel->setStyleSheet("color: orange;");
+        bSetLabelState(m_statusLabel, "warning");
         m_dataLoaded = false;
     }
 
@@ -370,7 +370,7 @@ void BNewJobDialog::onDotClientsReceived(const QString &jsonData)
     if (!m_jobNames.isEmpty() && !m_clientNames.isEmpty()) {
         m_dataLoaded = true;
         m_statusLabel->setText(tr("✓ Configuration loaded"));
-        m_statusLabel->setStyleSheet("color: green;");
+        bSetLabelState(m_statusLabel, "success");
     }
 
     buildRunCommand();
@@ -409,7 +409,7 @@ void BNewJobDialog::updateJobDefaults()
     if (m_director) {
         BLOG_DEBUG() << "BNewJobDialog: Requesting defaults for job:" << jobName;
         m_statusLabel->setText(tr("Loading job defaults..."));
-        m_statusLabel->setStyleSheet("color: blue;");
+        bSetLabelState(m_statusLabel, "muted");
 
         // Connect to receive the response
         connect(m_director, &BDirector::jsonResult,
@@ -437,7 +437,7 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     if (error.error != QJsonParseError::NoError) {
         BLOG_WARNING() << "BNewJobDialog: Failed to parse .defaults response:" << error.errorString();
         m_statusLabel->setText(tr("Failed to load job defaults"));
-        m_statusLabel->setStyleSheet("color: orange;");
+        bSetLabelState(m_statusLabel, "warning");
         return;
     }
 
@@ -548,7 +548,7 @@ void BNewJobDialog::onDotDefaultsReceived(const QString &jsonData)
     }
 
     m_statusLabel->setText(tr("✓ Job defaults loaded"));
-    m_statusLabel->setStyleSheet("color: green;");
+    bSetLabelState(m_statusLabel, "success");
 
     buildRunCommand();
 }

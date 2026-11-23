@@ -10,6 +10,7 @@
  */
 
 #include "bcertificategenerator.h"
+#include "bstatuschip.h"
 #include "buiscale.h"
 #include "blabelstate.h"
 #include "bpki.h"
@@ -155,8 +156,8 @@ void BCertificateGenerator::onBrowseOutput()
 
 void BCertificateGenerator::appendLog(const QString &msg, bool error)
 {
-    QString color = error ? "#c00000" : "#333333";
-    m_logEdit->append(QString("<span style='color:%1;'>%2</span>").arg(color, msg));
+    // Colours of the theme: a fixed dark grey was nearly invisible in the dark theme
+    m_logEdit->append(error ? BStatus::textSpan(BStatus::Tone::Error, msg) : msg);
 }
 
 bool BCertificateGenerator::fileExists(const QString &path) const

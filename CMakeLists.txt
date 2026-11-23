@@ -2431,6 +2431,8 @@ if(BUILD_TESTING)
         test/bmessagesmodel_test.cpp
         src/messages/bmessageswidget.cpp
         src/buiscale.cpp
+        src/bstatuschip.cpp
+        src/clients/bclientstatus.cpp
         include/messages/bmessageswidget.h
         include/buiscale.h
     )
@@ -3229,6 +3231,46 @@ if(BUILD_TESTING)
     add_test(NAME bjobfilter_test COMMAND bappwidgets_test
         filterListsStayCompleteAcrossPages filterSelectionKeptByName)
     set_tests_properties(bsettingsdialog_test bjobfilter_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # bthemecontrast_test - every theme (light, dark, "system" on a light and
+    # on a dark desktop) applied by the real main window on a desktop of the
+    # opposite brightness: text of the widget types the application uses
+    # (labels, edits, combo boxes and popups, tables and trees with selected,
+    # hovered and alternate rows, tabs, menus, tool tips, buttons, the job
+    # table and the job log) has WCAG contrast, from the palette and from a
+    # rendering (issue #6); no fixed text colour in a widget's style sheet
+    # without its background. With ONESIMUS_THEME_SCREENSHOT_DIR set,
+    # pictures and the measured table are written there.
+    add_executable(bthemecontrast_test
+        test/bthemecontrast_test.cpp
+    )
+    target_compile_definitions(bthemecontrast_test PRIVATE
+        ONESIMUS_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    )
+    target_link_libraries(bthemecontrast_test PRIVATE
+        onesimus_core
+        onesimus_resources
+        Qt6::Test
+    )
+    add_test(NAME bthemecontrast_test COMMAND bthemecontrast_test)
+    set_tests_properties(bthemecontrast_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    # bjoblogscroll_test - the job log does not flip when log data arrives
+    # (issue #10): Director signals -> source -> model -> view, scroll bar
+    # values within the delivering call and at every paint, for following
+    # the tail, a user who scrolled up, a large first load and a job switch;
+    # also the pane of the Jobs tab, the job log dialog and the job details
+    # dialog (widgets, no Director)
+    add_executable(bjoblogscroll_test
+        test/bjoblogscroll_test.cpp
+    )
+    target_link_libraries(bjoblogscroll_test PRIVATE
+        onesimus_core
+        onesimus_resources
+        Qt6::Test
+    )
+    add_test(NAME bjoblogscroll_test COMMAND bjoblogscroll_test)
+    set_tests_properties(bjoblogscroll_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     # bscheduletimeline_test - the schedule tab's timeline as a whole: a bar
     # that is dragged and dropped sends no command, asks the capability gate

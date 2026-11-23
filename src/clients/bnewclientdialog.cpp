@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "clients/bnewclientdialog.h"
+#include "bstatuschip.h"
 #include "buiscale.h"
 #include "blogging.h"
 #include "blogredact.h"
@@ -162,6 +163,7 @@ void BNewClientDirectorPage::initializePage()
         m_errorLabel->setText(
             tr("<b style='color:red;'>Cannot proceed:</b><br>%1<br><br>"
                "Make sure you are connected to a Director.")
+                .replace(QLatin1String("color:red;"), QStringLiteral("color:%1;").arg(BStatus::color(BStatus::Tone::Error, BStatus::Part::Foreground).name()))
                 .arg(errors.join("<br>")));
         m_errorLabel->setVisible(true);
     } else {
@@ -180,7 +182,8 @@ void BNewClientDirectorPage::initializePage()
                     tr("<span style='color:orange;'><b>Warning:</b> The current console may not have "
                        "permission to run 'configure add client'. "
                        "Check the Command ACL in the Console resource on the Director.</span><br>"
-                       "You can still generate and export the FD configuration files."));
+                       "You can still generate and export the FD configuration files.")
+                        .replace(QLatin1String("color:orange;"), QStringLiteral("color:%1;").arg(BStatus::color(BStatus::Tone::Warning, BStatus::Part::Foreground).name())));
                 m_errorLabel->setVisible(true);
             }
         }
@@ -818,10 +821,10 @@ void BNewClientPreviewPage::validateConfigs()
     } else {
         QString text;
         for (const QString &e : d.validationErrors) {
-            text += QString("<span style='color:red;'>ERROR: %1</span><br>").arg(e);
+            text += BStatus::textSpan(BStatus::Tone::Error, QStringLiteral("ERROR: ") + e) + QStringLiteral("<br>");
         }
         for (const QString &w : d.validationWarnings) {
-            text += QString("<span style='color:orange;'>WARNING: %1</span><br>").arg(w);
+            text += BStatus::textSpan(BStatus::Tone::Warning, QStringLiteral("WARNING: ") + w) + QStringLiteral("<br>");
         }
         m_validationLabel->setText(text);
     }

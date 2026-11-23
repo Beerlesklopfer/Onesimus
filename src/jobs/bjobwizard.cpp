@@ -10,6 +10,7 @@
  */
 
 #include "jobs/bjobwizard.h"
+#include "blabelstate.h"
 #include "buiscale.h"
 #include "config/bresourceform.h"
 #include "director/bdirectorreply.h"
@@ -276,7 +277,8 @@ BJobBasicsPage::BJobBasicsPage(QWidget *parent)
     inheritLayout->addLayout(inheritForm);
 
     m_jobDefsHint = new QLabel(this);
-    m_jobDefsHint->setStyleSheet("color: gray; font-style: italic;");
+    m_jobDefsHint->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_jobDefsHint, "muted");
     m_jobDefsHint->setWordWrap(true);
     m_jobDefsHint->hide();
     inheritLayout->addWidget(m_jobDefsHint);
@@ -743,7 +745,8 @@ BJobPreviewPage::BJobPreviewPage(QWidget *parent)
 
     // Warning label (shown if RunScript blocks present)
     m_warningLabel = new QLabel(this);
-    m_warningLabel->setStyleSheet("color: #e8a838; font-style: italic;");
+    m_warningLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(m_warningLabel, "warning");
     m_warningLabel->setWordWrap(true);
     m_warningLabel->hide();
     mainLayout->addWidget(m_warningLabel);
@@ -837,14 +840,14 @@ void BJobPreviewPage::executeConfigureCommand()
     const QString problem = wiz->configureProblem();
     if (!problem.isEmpty()) {
         m_statusLabel->setText(tr("Not sent: %1").arg(problem));
-        m_statusLabel->setStyleSheet("color: red;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
     disconnectDirectorSignals();
     m_waitingForConfigure = true;
     m_progressBar->setVisible(true);
-    m_statusLabel->setStyleSheet(QString());
+    bSetLabelState(m_statusLabel, "");
     m_statusLabel->setText(tr("Sending configure command..."));
 
     // configureResult() is the Director layer's verdict on the reply, in
@@ -881,7 +884,7 @@ void BJobPreviewPage::onConfigureResult(bool success, const QString &message)
 
     if (!success) {
         m_statusLabel->setText(tr("Error: %1").arg(message.left(300)));
-        m_statusLabel->setStyleSheet("color: red;");
+        bSetLabelState(m_statusLabel, "error");
         return;
     }
 
@@ -890,13 +893,13 @@ void BJobPreviewPage::onConfigureResult(bool success, const QString &message)
 
     if (!wiz || !wiz->director() || !wiz->director()->isConnected()) {
         m_statusLabel->setText(tr("Resource created successfully."));
-        m_statusLabel->setStyleSheet("color: green;");
+        bSetLabelState(m_statusLabel, "success");
         return;
     }
 
     m_waitingForReload = true;
     m_progressBar->setVisible(true);
-    m_statusLabel->setStyleSheet(QString());
+    bSetLabelState(m_statusLabel, "");
     m_statusLabel->setText(tr("Resource created. Reloading Director..."));
 
     // The reload reply is JSON in API mode and text otherwise
@@ -921,11 +924,11 @@ void BJobPreviewPage::onReloadReply(BDirector::Command cmd, const QString &reply
 
     if (BDirectorReply::reloadSucceeded(reply)) {
         m_statusLabel->setText(tr("Resource created and Director reloaded successfully."));
-        m_statusLabel->setStyleSheet("color: green;");
+        bSetLabelState(m_statusLabel, "success");
     } else {
         m_statusLabel->setText(tr("Resource created, but reloading the Director failed. "
                                   "Run 'reload' on the Director."));
-        m_statusLabel->setStyleSheet("color: orange;");
+        bSetLabelState(m_statusLabel, "warning");
     }
 }
 
@@ -938,11 +941,11 @@ void BJobPreviewPage::onDirectorDisconnected()
     if (created) {
         m_statusLabel->setText(tr("Resource created, but the connection to the Director was lost "
                                   "before the reload was confirmed."));
-        m_statusLabel->setStyleSheet("color: orange;");
+        bSetLabelState(m_statusLabel, "warning");
     } else {
         m_statusLabel->setText(tr("The connection to the Director was lost before it answered. "
                                   "Reconnect and check whether the resource exists."));
-        m_statusLabel->setStyleSheet("color: red;");
+        bSetLabelState(m_statusLabel, "error");
     }
 }
 
@@ -958,21 +961,21 @@ void BJobPreviewPage::onConfigureTimeout()
         m_statusLabel->setText(tr("Timeout waiting for Director response. "
                                   "The command may still be processing."));
     }
-    m_statusLabel->setStyleSheet("color: orange;");
+    bSetLabelState(m_statusLabel, "warning");
 }
 
 void BJobPreviewPage::onCopyConfig()
 {
     QApplication::clipboard()->setText(m_configEdit->toPlainText());
     m_statusLabel->setText(tr("Configuration copied to clipboard."));
-    m_statusLabel->setStyleSheet("color: gray;");
+    bSetLabelState(m_statusLabel, "muted");
 }
 
 void BJobPreviewPage::onCopyCommand()
 {
     QApplication::clipboard()->setText(m_commandEdit->toPlainText());
     m_statusLabel->setText(tr("Command copied to clipboard."));
-    m_statusLabel->setStyleSheet("color: gray;");
+    bSetLabelState(m_statusLabel, "muted");
 }
 
 void BJobPreviewPage::disconnectDirectorSignals()

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "bmainwindow.h"
+#include "bstatuschip.h"
+#include "blabelstate.h"
 #include "bprofiletls.h"
 #include "btheme.h"
 #include <QStyleFactory>
@@ -1315,10 +1317,12 @@ void BMainWindow::createActions()
 
         layout->addSpacing(10);
 
+        // The colour in the (translated) text is replaced by the theme's
         QLabel *warning = new QLabel(
             tr("<span style='color: #cc0000;'><b>Warning:</b> This will remove the "
                "FileSet resource from the Director configuration. "
-               "This action cannot be undone!</span>"), &dialog);
+               "This action cannot be undone!</span>")
+                .replace(QLatin1String("#cc0000"), BStatus::color(BStatus::Tone::Error, BStatus::Part::Foreground).name()), &dialog);
         warning->setWordWrap(true);
         layout->addWidget(warning);
 
@@ -1744,7 +1748,8 @@ void BMainWindow::showConnectionDialog()
 
     // Profile info label
     QLabel *infoLabel = new QLabel(&dialog);
-    infoLabel->setStyleSheet("color: #888; font-style: italic;");
+    infoLabel->setStyleSheet("font-style: italic;");
+    bSetLabelState(infoLabel, "muted");
     infoLabel->setWordWrap(true);
     profileLayout->addWidget(infoLabel);
 
@@ -1775,7 +1780,7 @@ void BMainWindow::showConnectionDialog()
     QHBoxLayout *linkLayout = new QHBoxLayout();
     QPushButton *manageBtn = new QPushButton(tr("Manage Profiles..."), &dialog);
     manageBtn->setFlat(true);
-    manageBtn->setStyleSheet("color: #4a90d9; text-decoration: underline;");
+    manageBtn->setStyleSheet("color: palette(link); text-decoration: underline;");
     manageBtn->setCursor(Qt::PointingHandCursor);
     connect(manageBtn, &QPushButton::clicked, [this, &dialog]() {
         dialog.reject();
@@ -1871,7 +1876,10 @@ void BMainWindow::onAboutTriggered()
     QLabel* titleLabel = new QLabel("<h1 style='margin:0;'>Onesimus</h1>");
     titleLayout->addWidget(titleLabel);
 
+    // The colour in the (translated) text is replaced by the theme's
+    const QString secondaryColor = BStatus::color(BStatus::Tone::Neutral, BStatus::Part::Foreground).name();
     QLabel* versionLabel = new QLabel(tr("<p style='color:#666; margin:0;'>Version %1 (Build %2)</p>")
+                                          .replace(QLatin1String("color:#666;"), QStringLiteral("color:%1;").arg(secondaryColor))
                                           .arg(PROJECT_VERSION)
                                           .arg(BuildInfo::number));
     titleLayout->addWidget(versionLabel);
@@ -1924,11 +1932,11 @@ void BMainWindow::onAboutTriggered()
     const QString smallCss = BUiScale::cssFontSize(BUiScale::Small);
     QLabel* licenseLabel = new QLabel(
         QString("<p><b>License:</b> GNU Affero General Public License v3.0 (AGPL-3.0). Onesimus' own code is also available under any later version; parts that follow Bareos are version 3 only (see LICENSING.md).</p>"
-        "<p style='" + smallCss + "; color:#666;'>"
+        "<p style='" + smallCss + "; color:" + secondaryColor + ";'>"
         "This program is free software: you can redistribute it and/or modify it under the "
         "terms of the GNU Affero General Public License as published by the Free Software "
         "Foundation, version 3 of the License.</p>"
-        "<p style='" + smallCss + "; color:#666;'>"
+        "<p style='" + smallCss + "; color:" + secondaryColor + ";'>"
         "This program is distributed in the hope that it will be useful, but WITHOUT ANY "
         "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A "
         "PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.</p>")
@@ -2182,7 +2190,7 @@ public:
             m_cmdLayout->addRow(header);
             for (const QString &cmd : group.second) {
                 QLabel *label = new QLabel(tr("Checking..."), this);
-                label->setStyleSheet("QLabel { color: gray; }");
+                bSetLabelState(label, "muted");
                 m_labels[cmd] = label;
                 m_cmdLayout->addRow("  " + cmd + ":", label);
             }
@@ -2316,13 +2324,15 @@ private:
 
                 if (!permissions.contains(cmd)) {
                     label->setText(tr("N/A"));
-                    label->setStyleSheet("QLabel { color: gray; }");
+                    bSetLabelState(label, "muted");
                 } else if (permissions[cmd]) {
                     label->setText(tr("Authorized"));
-                    label->setStyleSheet("QLabel { color: green; font-weight: bold; }");
+                    label->setStyleSheet("font-weight: bold;");
+                    bSetLabelState(label, "success");
                 } else {
                     label->setText(tr("Not authorized"));
-                    label->setStyleSheet("QLabel { color: red; font-weight: bold; }");
+                    label->setStyleSheet("font-weight: bold;");
+                    bSetLabelState(label, "error");
                 }
             }
         }
@@ -2346,22 +2356,16 @@ private:
             bool hasReplace = restoreArgs.contains("replace=", Qt::CaseInsensitive);
 
             QString info;
+            auto good = [](const char *text) { return BStatus::textSpan(BStatus::Tone::Success, QLatin1String(text)); };
+            auto bad = [](const char *text) { return BStatus::textSpan(BStatus::Tone::Error, QLatin1String(text)); };
             info += tr("<b>Permission:</b> %1<br>")
-                        .arg(permissions["restore"]
-                                 ? "<span style='color:green;'>Authorized</span>"
-                                 : "<span style='color:red;'>Not authorized</span>");
+                        .arg(permissions["restore"] ? good("Authorized") : bad("Not authorized"));
             info += tr("<b>where= (restore path):</b> %1<br>")
-                        .arg(hasWhere
-                                 ? "<span style='color:green;'>Available</span>"
-                                 : "<span style='color:red;'>Not available (WhereACL may restrict)</span>");
+                        .arg(hasWhere ? good("Available") : bad("Not available (WhereACL may restrict)"));
             info += tr("<b>client= (target client):</b> %1<br>")
-                        .arg(hasClient
-                                 ? "<span style='color:green;'>Available</span>"
-                                 : "<span style='color:red;'>Not available</span>");
+                        .arg(hasClient ? good("Available") : bad("Not available"));
             info += tr("<b>replace= (replace policy):</b> %1<br>")
-                        .arg(hasReplace
-                                 ? "<span style='color:green;'>Available</span>"
-                                 : "<span style='color:red;'>Not available</span>");
+                        .arg(hasReplace ? good("Available") : bad("Not available"));
 
             if (!params.isEmpty()) {
                 info += tr("<br><b>Available parameters:</b> %1").arg(params.join(", "));
