@@ -444,7 +444,7 @@ onesimus/
 ├── deploy.sh / deploy.fish              # Linux/macOS build + deploy scripts
 ├── deploy.ps1 / deploy.bat              # Windows build + deploy script
 ├── CMakeLists.txt                       # Build configuration
-└── CHANGELOG.md / LICENSE / LICENSING.md # Project docs
+└── CHANGELOG.md / TODO.md / LICENSE      # Project docs
 ```
 
 ### Architecture
@@ -529,7 +529,7 @@ Every contribution helps keep development going — and shows that open source b
 
 - 🌐 Website: [onesimus.io](https://onesimus.io)
 - 📖 Documentation: [onesimus.io/docs/](https://onesimus.io/docs/)
-- 🐛 Bugs, known issues and planned work: [GitHub Issues](https://github.com/Onesimus-io/Onesimus/issues)
+- 🐛 Known bugs and planned work: [TODO.md](TODO.md); report new ones on [GitHub Issues](https://github.com/Onesimus-io/Onesimus/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/Onesimus-io/Onesimus/discussions)
 
 ## 🔄 Version History
