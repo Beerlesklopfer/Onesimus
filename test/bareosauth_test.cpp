@@ -20,6 +20,10 @@
  *   --verbose                Verbose output
  *   -h, --help               Show this help
  *
+ * Without -P/--password the target comes from ONESIMUS_LIVE_* (blivedirector.h);
+ * without ONESIMUS_LIVE_DIRECTOR the test is skipped (exit code 77), so CTest
+ * runs it without a Director.
+ *
  * Examples:
  *   ./bareosauth_test -m legacy -c onesimus-legacy -P mypassword
  *   ./bareosauth_test -m psk -c onesimus-psk -P mypassword
@@ -34,6 +38,7 @@
 #include <QFile>
 
 #include "director/bareosauth.h"
+#include "blivedirector.h"
 
 class AuthTester : public QObject
 {
@@ -74,7 +79,7 @@ public:
         qDebug() << "Director:" << m_config.directorName;
         qDebug() << "Console:" << m_config.consoleName;
         qDebug() << "Mode:" << m_config.mode;
-        if (m_config.mode == "x509") {
+        if (m_config.mode == "cert") {
             qDebug() << "CA File:" << m_config.caFile;
             qDebug() << "Cert File:" << m_config.certFile;
             qDebug() << "Key File:" << m_config.keyFile;
@@ -120,7 +125,7 @@ private slots:
             tlsEnable = true;
             tlsRequire = true;
             tlsPSKEnable = true;
-        } else if (m_config.mode == "x509") {
+        } else if (m_config.mode == "cert") {
             tlsEnable = true;
             tlsRequire = true;
             tlsVerifyPeer = !m_config.caFile.isEmpty();
@@ -222,16 +227,23 @@ int main(int argc, char *argv[])
 
     parser.process(app);
 
+    if (BLiveDirector::skipWithoutDirector(parser))
+        return BLiveDirector::SkipExitCode;
+
+    using BLiveDirector::valueOrEnv;
     AuthTester::Config config;
     config.host = parser.value("host");
     config.port = parser.value("port").toInt();
-    config.directorName = parser.value("director");
-    config.consoleName = parser.value("console");
-    config.password = parser.value("password");
-    config.mode = parser.value("mode").toLower();
-    config.caFile = parser.value("ca");
-    config.certFile = parser.value("cert");
-    config.keyFile = parser.value("key");
+    BLiveDirector::applyHostPort(parser, &config.host, &config.port);
+    config.directorName = valueOrEnv(parser, "director", "ONESIMUS_LIVE_DIRECTOR_NAME");
+    config.consoleName = valueOrEnv(parser, "console", "ONESIMUS_LIVE_CONSOLE");
+    config.password = valueOrEnv(parser, "password", "ONESIMUS_LIVE_PASSWORD");
+    config.mode = valueOrEnv(parser, "mode", "ONESIMUS_LIVE_MODE").toLower();
+    if (config.mode == "x509")
+        config.mode = "cert";
+    config.caFile = valueOrEnv(parser, "ca", "ONESIMUS_LIVE_CA");
+    config.certFile = valueOrEnv(parser, "cert", "ONESIMUS_LIVE_CERT");
+    config.keyFile = valueOrEnv(parser, "key", "ONESIMUS_LIVE_KEY");
     config.verbose = parser.isSet("verbose");
 
     // Debug output
@@ -251,12 +263,12 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (config.mode != "psk" && config.mode != "x509") {
-        qDebug() << "Error: Invalid mode. Use: psk or x509";
+    if (config.mode != "legacy" && config.mode != "psk" && config.mode != "cert") {
+        qDebug() << "Error: Invalid mode. Use: legacy, psk or cert";
         return 1;
     }
 
-    if (config.mode == "x509" && config.caFile.isEmpty()) {
+    if (config.mode == "cert" && config.caFile.isEmpty()) {
         qDebug() << "Warning: Certificate mode without CA file - peer verification may fail";
     }
 

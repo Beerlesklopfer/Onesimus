@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Windows helper scripts moved to `scripts/windows/` (`check-qt6.ps1`, `package-windows.ps1`, which
   `deploy.ps1 zip` calls); the generated `qt6-quickfix.ps1`, `examples/example_usage.cpp`,
   `resources/icons/create_ico.bat` and `external/README.md` are removed.
+- CTest also registers the live-Director tests `bareosauth_live_test` and `director_live_test`
+  (label `live-director`); they are skipped unless `ONESIMUS_LIVE_DIRECTOR` names a test Director.
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to

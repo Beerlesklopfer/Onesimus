@@ -11,6 +11,14 @@ Director. The tests and scripts that talk to a real `bareos-dir`
 need a **test Director that you set up yourself**, on a machine and catalog
 you can afford to lose. Never point them at a production Director.
 
+- CTest registers `bareosauth_live_test` and `director_live_test` (label
+  `live-director`). Without `ONESIMUS_LIVE_DIRECTOR` they report "skipped";
+  to run them against your test Director set
+  `ONESIMUS_LIVE_DIRECTOR=host[:port]` and `ONESIMUS_LIVE_PASSWORD`, optionally
+  `ONESIMUS_LIVE_CONSOLE`, `ONESIMUS_LIVE_DIRECTOR_NAME`, `ONESIMUS_LIVE_MODE`
+  (`legacy`, `psk`, `cert`) and, for `cert`, `ONESIMUS_LIVE_CA`,
+  `ONESIMUS_LIVE_CERT`, `ONESIMUS_LIVE_KEY` (`blivedirector.h`), then
+  `ctest -L live-director`.
 - Nothing in this directory needs root, and no sudoers file is shipped or
   needed. `test_auth.sh` runs `bareos-dir` as you by default; your user then
   needs read access to the configuration and access to the test catalog.

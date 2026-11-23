@@ -58,6 +58,7 @@
 #include <QJsonArray>
 
 #include "director/bareosdirector.h"
+#include "blivedirector.h"
 
 /**
  * @class DirectorTester
@@ -802,14 +803,23 @@ int main(int argc, char *argv[])
 
     parser.process(app);
 
+    // Without -P the target comes from ONESIMUS_LIVE_* (blivedirector.h);
+    // without ONESIMUS_LIVE_DIRECTOR the test is skipped (exit code 77).
+    if (BLiveDirector::skipWithoutDirector(parser))
+        return BLiveDirector::SkipExitCode;
+
+    using BLiveDirector::valueOrEnv;
     DirectorTester::Config config;
     config.host = parser.value("host");
     config.port = parser.value("port").toInt();
-    config.directorName = parser.value("director");
-    config.consoleName = parser.value("console");
-    config.password = parser.value("password");
-    config.legacy = parser.isSet("legacy") || !parser.isSet("psk");
-    config.psk = parser.isSet("psk");
+    BLiveDirector::applyHostPort(parser, &config.host, &config.port);
+    config.directorName = valueOrEnv(parser, "director", "ONESIMUS_LIVE_DIRECTOR_NAME");
+    config.consoleName = valueOrEnv(parser, "console", "ONESIMUS_LIVE_CONSOLE");
+    config.password = valueOrEnv(parser, "password", "ONESIMUS_LIVE_PASSWORD");
+    const bool envPsk = !parser.isSet("legacy") && !parser.isSet("psk")
+        && qEnvironmentVariable("ONESIMUS_LIVE_MODE").toLower() == QLatin1String("psk");
+    config.psk = parser.isSet("psk") || envPsk;
+    config.legacy = !config.psk;
     config.verbose = parser.isSet("verbose");
     config.grpcPort = parser.value("grpc-port").toInt();
     config.fingerprint = parser.value("fingerprint");
