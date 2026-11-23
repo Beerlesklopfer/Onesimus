@@ -136,8 +136,8 @@ Bareos/Bacula Management Tool
 
 ## Support
 
-GitHub: https://github.com/Beerlesklopfer/Onesimus
-Wiki:   https://github.com/Beerlesklopfer/Onesimus/wiki
+GitHub: https://github.com/Onesimus-io/Onesimus
+Wiki:   https://github.com/Onesimus-io/Onesimus/wiki
 
 ## License
 

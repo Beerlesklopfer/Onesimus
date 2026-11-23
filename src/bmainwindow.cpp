@@ -1849,7 +1849,7 @@ void BMainWindow::onAboutTriggered()
         "<p><b>Copyright:</b> © 2025-2026 Jörg Bernau</p>"
         "<p><b>Website:</b> <a href='https://onesimus.io'>https://onesimus.io</a></p>"
         "<p><b>Support:</b> <a href='mailto:support@onesimus.io'>support@onesimus.io</a></p>"
-        "<p><b>Source:</b> <a href='https://github.com/Beerlesklopfer/Onesimus'>github.com/Beerlesklopfer/Onesimus</a></p>"
+        "<p><b>Source:</b> <a href='https://github.com/Onesimus-io/Onesimus'>github.com/Onesimus-io/Onesimus</a></p>"
     );
     copyrightLabel->setWordWrap(true);
     copyrightLabel->setOpenExternalLinks(true);
@@ -1913,7 +1913,7 @@ void BMainWindow::onAboutTriggered()
 void BMainWindow::onDocumentationTriggered()
 {
     // Open online documentation in default browser
-    QString docUrl = "https://github.com/Beerlesklopfer/Onesimus/wiki";
+    QString docUrl = "https://github.com/Onesimus-io/Onesimus/wiki";
     if (!QDesktopServices::openUrl(QUrl(docUrl))) {
         QMessageBox::information(this, tr("Documentation"),
             tr("Could not open browser. Please visit:\n%1").arg(docUrl));
@@ -1923,7 +1923,7 @@ void BMainWindow::onDocumentationTriggered()
 void BMainWindow::onReportBugTriggered()
 {
     // Open GitHub issues page in default browser
-    QString issuesUrl = "https://github.com/Beerlesklopfer/Onesimus/issues";
+    QString issuesUrl = "https://github.com/Onesimus-io/Onesimus/issues";
     if (!QDesktopServices::openUrl(QUrl(issuesUrl))) {
         QMessageBox::information(this, tr("Report Bug"),
             tr("Could not open browser. Please visit:\n%1").arg(issuesUrl));

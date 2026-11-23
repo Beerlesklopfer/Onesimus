@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Every backup admin asks the same 5 questions. No tool answers them visually. Until now.</strong><br>
-  <a href="https://onesimus.io">onesimus.io</a> · <a href="https://onesimus.io/docs/">Documentation</a> · <a href="https://github.com/Beerlesklopfer/Onesimus/issues">Report Bug</a>
+  <a href="https://onesimus.io">onesimus.io</a> · <a href="https://onesimus.io/docs/">Documentation</a> · <a href="https://github.com/Onesimus-io/Onesimus/issues">Report Bug</a>
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@ Unlike the [Bareos WebUI](https://docs.bareos.org/IntroductionAndTutorial/Bareos
 
 Onesimus **never accesses the database directly**. No SQL queries, no direct catalog access. All data flows through the native **Bareos JSON-RPC API** — the same protocol bconsole uses. Every action passes through the Director's **ACL checks and audit trail**. Onesimus can't bypass permissions, and everything it does is logged.
 
-> **Alpha Notice:** This project is under active development. Not suitable for production use. Features may change. Use at your own risk. See [Disclaimer](https://onesimus.io/legal/disclaimer/). Current development: [`development` branch](https://github.com/Beerlesklopfer/Onesimus/tree/development).
+> **Alpha Notice:** This project is under active development. Not suitable for production use. Features may change. Use at your own risk. See [Disclaimer](https://onesimus.io/legal/disclaimer/). Current development: [`development` branch](https://github.com/Onesimus-io/Onesimus/tree/development).
 
 ---
 
@@ -466,8 +466,8 @@ Every contribution helps keep development going — and shows that open source b
 
 - 🌐 Website: [onesimus.io](https://onesimus.io)
 - 📖 Documentation: [onesimus.io/docs/](https://onesimus.io/docs/)
-- 🐛 Bugs: [GitHub Issues](https://github.com/Beerlesklopfer/Onesimus/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/Beerlesklopfer/Onesimus/discussions)
+- 🐛 Bugs: [GitHub Issues](https://github.com/Onesimus-io/Onesimus/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/Onesimus-io/Onesimus/discussions)
 
 ## 🔄 Version History
 

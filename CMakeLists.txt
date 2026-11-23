@@ -2872,7 +2872,7 @@ elseif(UNIX)
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Joerg Bernau <support@onesimus.io>")
     set(CPACK_DEBIAN_PACKAGE_SECTION "admin")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Beerlesklopfer/Onesimus")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Onesimus-io/Onesimus")
     set(CPACK_DEBIAN_PACKAGE_DESCRIPTION
         "Onesimus - Bareos/Bacula Backup Management Tool (Early Access)\n WARNING: This is a pre-release version under active development.\n Not suitable for production use. Features may change.\n A Qt6-based graphical management console for Bareos and Bacula\n backup systems. Provides client management, job monitoring,\n schedule visualization, and restore wizard.")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS

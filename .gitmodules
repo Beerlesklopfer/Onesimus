@@ -4,7 +4,7 @@
 	branch = openssl-3.6.0
 [submodule "wiki"]
 	path = wiki
-	url = git@github.com:Beerlesklopfer/Onesimus.wiki.git
+	url = git@github.com:Onesimus-io/Onesimus.wiki.git
 [submodule "proto"]
 	path = proto
-	url = https://github.com/Beerlesklopfer/baReos-proto.git
+	url = https://github.com/Onesimus-io/onesimus-proto.git

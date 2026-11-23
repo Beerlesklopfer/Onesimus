@@ -306,7 +306,7 @@ $wxsContent = @"
     <!-- Icon fuer Add/Remove Programs -->
     <Icon Id="AppIcon" SourceFile="$iconPath" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/Beerlesklopfer/Onesimus" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Onesimus-io/Onesimus" />
 
     <!-- Install UI mit Feature-Auswahl (Checkboxen fuer Shortcuts) -->
     <ui:WixUI Id="WixUI_FeatureTree" />
