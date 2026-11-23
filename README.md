@@ -53,7 +53,7 @@ Onesimus **never accesses the database directly**. No SQL queries, no direct cat
 - **Responsive Design:** Optimized for various screen sizes
 
 ### 🌍 Internationalization (i18n)
-- **6 Languages:** 🇬🇧 English *(complete)* • 🇩🇪 Deutsch *(~30% translated)* • ~~🇪🇸 Español~~ *(0%)* • ~~🇫🇷 Français~~ *(0%)* • ~~🇮🇹 Italiano~~ *(0%)* • ~~🇷🇺 Русский~~ *(0%)*
+- **6 Languages** (View > Language, the system language by default): 🇬🇧 English *(source)* • 🇩🇪 Deutsch *(99.9 %)* • 🇪🇸 Español • 🇫🇷 Français • 🇮🇹 Italiano • 🇷🇺 Русский *(99 % each)*
 - **Automatic Language Detection:** Automatically selects system language on first start
 - **Live Language Switching:** Change language via Settings (restart required for full effect)
 - **Native Language Names:** All languages in their native spelling with flags
