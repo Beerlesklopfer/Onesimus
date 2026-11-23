@@ -21,6 +21,7 @@ class QGrpcBidiStream;
 class QGrpcCallReply;
 class QGrpcStatus;
 class BGrpcAddressProbe;
+class BGrpcPinnedRelay;
 
 namespace BJobHistoryProto {
 struct Request;
@@ -47,7 +48,9 @@ class Client;
  *        │   first address that completes the handshake -> SHA-256 fingerprint
  *        │   mismatch / not yet pinned -> certificateNotTrusted()
  *        ▼
- *   QGrpcHttp2Channel (https://<that address>:grpcPort)
+ *   QGrpcHttp2Channel (unix://<local relay>, plain HTTP/2)
+ *        │   BGrpcPinnedRelay: TLS to that address, the certificate of
+ *        │   this connection must match the pin before any byte is sent
  *        ▼
  *   GetChallenge(console) -> nonce
  *        ▼
@@ -176,6 +179,7 @@ private:
     QString m_pinnedFingerprint;
 
     QPointer<BGrpcAddressProbe> m_probe;
+    QPointer<BGrpcPinnedRelay> m_relay;
     std::unique_ptr<onesimus::director::Director::Client> m_client;
     std::unique_ptr<onesimus::director::api::DirectorApi::Client> m_api;
     std::unique_ptr<QGrpcBidiStream> m_pushStream;

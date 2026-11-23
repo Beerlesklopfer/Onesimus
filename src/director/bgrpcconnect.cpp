@@ -10,10 +10,16 @@
 #include "director/bgrpcconnect.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QRandomGenerator>
 #include <QHostInfo>
 #include <QSslConfiguration>
 #include <QSslSocket>
 #include <QTimer>
+
+#include <memory>
 
 namespace BGrpcConnect {
 
@@ -309,4 +315,214 @@ void BGrpcAddressProbe::dropSocket()
     socket->disconnect(this);
     socket->abort();
     socket->deleteLater();
+}
+
+// ============================================================================
+// BGrpcPinnedRelay
+// ============================================================================
+
+namespace {
+
+/// What the channel may send before the TLS connection is verified: the
+/// HTTP/2 preface, SETTINGS and the first request headers fit easily
+constexpr qint64 MaxPendingBeforeVerified = 1024 * 1024;
+
+/// One connection of the channel and its TLS connection to the Director
+struct RelayPair
+{
+    QPointer<QLocalSocket> local;
+    QPointer<QSslSocket> tls;
+    QByteArray pending;     ///< from the channel, held until verified
+    bool verified = false;
+    bool closed = false;
+
+    void close()
+    {
+        if (closed)
+            return;
+        closed = true;
+        if (tls) {
+            tls->disconnectFromHost();
+            tls->deleteLater();
+        }
+        if (local) {
+            local->disconnectFromServer();
+            local->deleteLater();
+        }
+    }
+
+    void abort()
+    {
+        if (closed)
+            return;
+        closed = true;
+        pending.clear();
+        if (tls) {
+            tls->abort();
+            tls->deleteLater();
+        }
+        if (local) {
+            local->abort();
+            local->deleteLater();
+        }
+    }
+};
+
+} // namespace
+
+BGrpcPinnedRelay::BGrpcPinnedRelay(QObject *parent)
+    : QObject(parent)
+{
+}
+
+BGrpcPinnedRelay::~BGrpcPinnedRelay()
+{
+    if (m_server)
+        m_server->close();
+}
+
+QString BGrpcPinnedRelay::fingerprint(const QSslCertificate &certificate)
+{
+    if (certificate.isNull())
+        return QString();
+    return QString::fromLatin1(
+        QCryptographicHash::hash(certificate.toDer(), QCryptographicHash::Sha256).toHex());
+}
+
+QString BGrpcPinnedRelay::normalizedFingerprint(const QString &fingerprint)
+{
+    QString normalized = fingerprint.trimmed().toLower();
+    normalized.remove(QLatin1Char(':'));
+    normalized.remove(QLatin1Char(' '));
+    return normalized;
+}
+
+bool BGrpcPinnedRelay::start(const QHostAddress &address, quint16 port, const QString &serverName,
+                             const QString &pinnedFingerprint)
+{
+    m_address = address;
+    m_port = port;
+    m_serverName = serverName;
+    m_pinnedFingerprint = normalizedFingerprint(pinnedFingerprint);
+    m_error.clear();
+
+    if (m_pinnedFingerprint.isEmpty()) {
+        m_error = tr("no pinned certificate");
+        return false;
+    }
+
+    if (m_server) {
+        m_server->close();
+        m_server->deleteLater();
+    }
+    m_server = new QLocalServer(this);
+    // Only this user may connect (Unix: socket file mode, Windows: pipe ACL)
+    m_server->setSocketOptions(QLocalServer::UserAccessOption);
+    connect(m_server, &QLocalServer::newConnection, this, &BGrpcPinnedRelay::acceptConnections);
+
+    // Lower case letters, digits and '-' only: the name is the host part of
+    // the channel URL, and QUrl lowers the case of a host
+    const QString name = QStringLiteral("onesimus-grpc-%1-%2")
+                             .arg(QCoreApplication::applicationPid())
+                             .arg(QRandomGenerator::system()->generate64(), 16, 16, QLatin1Char('0'));
+    if (!m_server->listen(name)) {
+        m_error = m_server->errorString();
+        return false;
+    }
+    return true;
+}
+
+QString BGrpcPinnedRelay::serverName() const
+{
+    return m_server ? m_server->serverName() : QString();
+}
+
+QUrl BGrpcPinnedRelay::channelUrl() const
+{
+    // QGrpcHttp2Channel connects a QLocalSocket to host() + path()
+    QUrl url;
+    url.setScheme(QStringLiteral("unix"));
+    url.setHost(serverName());
+    return url;
+}
+
+void BGrpcPinnedRelay::acceptConnections()
+{
+    while (m_server && m_server->hasPendingConnections()) {
+        QLocalSocket *local = m_server->nextPendingConnection();
+        if (!local)
+            break;
+
+        auto pair = std::make_shared<RelayPair>();
+        pair->local = local;
+        auto *tls = new QSslSocket(this);
+        pair->tls = tls;
+
+        // The pin is the trust anchor: verification by Qt is off, the
+        // certificate of this connection is compared in encrypted() below
+        QSslConfiguration ssl = tls->sslConfiguration();
+        ssl.setPeerVerifyMode(QSslSocket::VerifyNone);
+        ssl.setAllowedNextProtocols({QByteArrayLiteral("h2")});
+        tls->setSslConfiguration(ssl);
+
+        connect(local, &QLocalSocket::readyRead, this, [pair]() {
+            if (pair->closed || !pair->local)
+                return;
+            const QByteArray data = pair->local->readAll();
+            if (pair->verified && pair->tls) {
+                pair->tls->write(data);
+                return;
+            }
+            pair->pending.append(data);
+            if (pair->pending.size() > MaxPendingBeforeVerified)
+                pair->abort();
+        });
+        connect(local, &QLocalSocket::disconnected, this, [pair]() { pair->close(); });
+
+        connect(tls, &QSslSocket::encrypted, this, [this, pair]() {
+            if (pair->closed || !pair->tls)
+                return;
+            const QString presented = fingerprint(pair->tls->peerCertificate());
+            if (presented.isEmpty() || presented != m_pinnedFingerprint) {
+                // Not one byte of the channel (session token, commands) goes
+                // to a server with another certificate
+                pair->abort();
+                emit pinMismatch(presented);
+                return;
+            }
+            pair->verified = true;
+            if (!pair->pending.isEmpty()) {
+                pair->tls->write(pair->pending);
+                pair->pending.clear();
+            }
+            if (pair->local && pair->tls->bytesAvailable() > 0)
+                pair->local->write(pair->tls->readAll());
+        });
+        connect(tls, &QSslSocket::readyRead, this, [pair]() {
+            if (pair->closed || !pair->verified || !pair->tls || !pair->local)
+                return;
+            pair->local->write(pair->tls->readAll());
+        });
+        connect(tls, &QSslSocket::disconnected, this, [pair]() {
+            // Hand the channel what arrived with the close
+            if (!pair->closed && pair->verified && pair->tls && pair->local)
+                pair->local->write(pair->tls->readAll());
+            pair->close();
+        });
+        connect(tls, &QSslSocket::errorOccurred, this, [this, pair](QAbstractSocket::SocketError error) {
+            if (pair->closed)
+                return;
+            const QString reason = pair->tls ? pair->tls->errorString() : QString();
+            if (error == QAbstractSocket::RemoteHostClosedError && pair->verified) {
+                pair->close();
+                return;
+            }
+            pair->abort();
+            emit connectionFailed(reason);
+        });
+
+        // The address the probe reached, the host name for the TLS server name
+        tls->connectToHostEncrypted(m_address.toString(), m_port,
+                                    m_serverName.isEmpty() ? m_address.toString() : m_serverName);
+    }
 }

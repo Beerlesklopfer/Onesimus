@@ -164,18 +164,37 @@ void BGrpcTransport::preflightDone(const QHostAddress &address, const QSslCertif
         return;
     }
 
-    // Certificate is the pinned one. The channel itself cannot verify a
-    // self-signed certificate against a host name, so verification is off and
-    // the pre-flight pin is the trust anchor.
-    QSslConfiguration ssl = QSslConfiguration::defaultConfiguration();
-    ssl.setPeerVerifyMode(QSslSocket::VerifyNone);
-    ssl.setAllowedNextProtocols({QByteArrayLiteral("h2")});
+    // The certificate of the probe is the pinned one. The channel's own
+    // connection is checked again: QGrpcHttp2Channel cannot verify a
+    // self-signed certificate reached by IP address, so it talks to a local
+    // relay that opens the TLS connection and compares the certificate of
+    // that connection with the pin before forwarding anything (P0-7)
+    const quint64 gen = m_generation;
+    m_relay = new BGrpcPinnedRelay(this);
+    connect(m_relay, &BGrpcPinnedRelay::pinMismatch, this, [this, gen](const QString &presented) {
+        if (gen != m_generation)
+            return;
+        BLOG_WARNING() << "gRPC: certificate on the channel connection" << presented
+                       << "does not match the pin" << m_pinnedFingerprint;
+        fail(tr("The Director's certificate on the gRPC connection (SHA-256 %1) does not match "
+                "the pinned certificate (SHA-256 %2). The connection was refused before the "
+                "login; someone may be intercepting it.")
+                 .arg(presented.isEmpty() ? tr("none") : presented, m_pinnedFingerprint));
+    });
+    connect(m_relay, &BGrpcPinnedRelay::connectionFailed, this, [](const QString &reason) {
+        BLOG_WARNING() << "gRPC: TLS connection of the channel failed:" << reason;
+    });
+    const QString serverName = QHostAddress(m_host).isNull() ? m_host : QString();
+    if (!m_relay->start(address, quint16(m_port), serverName, m_pinnedFingerprint)) {
+        fail(tr("Cannot open the local relay for the gRPC connection: %1").arg(m_relay->errorString()));
+        return;
+    }
 
+    // Plain HTTP/2 to the relay; TLS is the relay's connection
     QGrpcChannelOptions options;
-    options.setSslConfiguration(ssl);
 
     // One channel for both services
-    auto channel = std::make_shared<QGrpcHttp2Channel>(BGrpcConnect::channelUrl(m_host, m_port, address), options);
+    auto channel = std::make_shared<QGrpcHttp2Channel>(m_relay->channelUrl(), options);
     m_client = std::make_unique<Director::Client>();
     m_client->attachChannel(channel);
     m_api = std::make_unique<api::DirectorApi::Client>();
@@ -362,6 +381,10 @@ void BGrpcTransport::close()
     }
     if (m_api) {
         m_api.release()->deleteLater();
+    }
+    if (m_relay) {
+        m_relay->deleteLater();
+        m_relay = nullptr;
     }
     m_sessionToken.clear();
     m_pending.clear();

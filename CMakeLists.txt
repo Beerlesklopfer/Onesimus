@@ -2217,6 +2217,32 @@ if(BUILD_TESTING)
 
     add_test(NAME bgrpcconnect_test COMMAND bgrpcconnect_test)
 
+    # bgrpcpin_test - the certificate pin checked on the connection the gRPC
+    # channel really uses (BGrpcPinnedRelay, BGrpcTransport end to end against
+    # a TLS server on the loopback interface; P0-7); no Director
+    if(HAVE_GRPC)
+        add_executable(bgrpcpin_test
+            test/bgrpcpin_test.cpp
+            test/btlstestcerts.h
+        )
+
+        target_include_directories(bgrpcpin_test PRIVATE
+            ${CMAKE_SOURCE_DIR}/include
+            ${CMAKE_SOURCE_DIR}/test
+        )
+
+        target_link_libraries(bgrpcpin_test PRIVATE
+            bareosdirector_lib
+            Qt6::Core
+            Qt6::Network
+            Qt6::Test
+            OpenSSL::SSL
+            OpenSSL::Crypto
+        )
+
+        add_test(NAME bgrpcpin_test COMMAND bgrpcpin_test)
+    endif()
+
     # bcapabilities_test - capability table, server detection from the login
     # data, notice texts and the rules for showing a notice (no widgets)
     add_executable(bcapabilities_test
@@ -2959,6 +2985,7 @@ if(BUILD_TESTING)
     message(STATUS "  bmessagesmodel_test - Director messages model test (registered with CTest)")
     message(STATUS "  bschedulepersistence_test - schedule resource text, save flow and request bytes test (registered with CTest)")
     message(STATUS "  bgrpcconnect_test - gRPC address order, TLS probe and failure text test (registered with CTest)")
+    message(STATUS "  bgrpcpin_test - gRPC certificate pin on the channel connection test (registered with CTest)")
     message(STATUS "  bareosauth_security_test - BNET handshake against fake Directors test (registered with CTest)")
     message(STATUS "  bcapabilities_test - Director capability table and notice test (registered with CTest)")
     message(STATUS "  bjobhistorystats_test - job history reply and statistics test (registered with CTest)")

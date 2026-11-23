@@ -15,6 +15,7 @@
 
 #include <chrono>
 
+class QLocalServer;
 class QSslSocket;
 class QTimer;
 
@@ -33,9 +34,9 @@ class QTimer;
  * then got "gRPC login failed: " without a reason. The transport therefore
  * resolves the name itself, tries the addresses one after the other with a
  * short TLS handshake each, and hands the channel the address that answered.
- * The handshake of the probe is also the one whose certificate is checked
- * against the pinned fingerprint, so the pin applies to exactly the address
- * the channel uses.
+ * The certificate of the probe is compared with the pinned fingerprint for
+ * the trust-on-first-use dialog; the connection the channel then uses is
+ * checked again by BGrpcPinnedRelay.
  */
 namespace BGrpcConnect {
 
@@ -172,6 +173,78 @@ private:
     int m_lookupId = -1;
     quint64 m_generation = 0;
     bool m_running = false;
+};
+
+/**
+ * @brief Carries the gRPC channel over a TLS connection whose certificate is
+ *        checked against the pin, on that same connection (P0-7)
+ *
+ * QGrpcHttp2Channel (Qt 6.8) opens its own QSslSocket and offers no hook to
+ * look at the peer certificate or to ignore a single TLS error. With
+ * VerifyPeer and the pinned certificate as the only CA it would also check
+ * the host name, which the self-signed certificate of the Onesimus Director
+ * does not contain when the user connects by IP address. Verifying with the
+ * pre-flight probe alone is not enough: the channel then makes a second TLS
+ * connection with verification off, which an attacker on the path can take
+ * over.
+ *
+ * The channel therefore speaks plain HTTP/2 to a local socket of this relay
+ * (scheme unix://, a QLocalServer: Unix domain socket or named pipe,
+ * accessible to the user only), and the relay opens the TLS connection to
+ * the Director itself. Nothing the channel sends is forwarded until the
+ * SHA-256 fingerprint of the certificate presented on that very TLS
+ * connection equals the pinned one; otherwise both sockets are closed and
+ * pinMismatch() is emitted. A reconnect of the channel is a new TLS
+ * connection with the same check.
+ */
+class BGrpcPinnedRelay : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit BGrpcPinnedRelay(QObject *parent = nullptr);
+    ~BGrpcPinnedRelay() override;
+
+    /**
+     * @brief Starts listening for the channel
+     * @param address    Director address (the one the probe reached)
+     * @param port       gRPC port
+     * @param serverName TLS server name (host name), empty for an address
+     * @param pinnedFingerprint SHA-256 of the pinned certificate, hex
+     *                   (colons and case do not matter)
+     * @return false if the local socket cannot be opened (errorString())
+     */
+    bool start(const QHostAddress &address, quint16 port, const QString &serverName,
+               const QString &pinnedFingerprint);
+
+    /// The URL to give QGrpcHttp2Channel (unix://<local name>)
+    QUrl channelUrl() const;
+    /// The local socket name (tests)
+    QString serverName() const;
+    QString errorString() const { return m_error; }
+
+    /// Lowercase hex SHA-256 of the DER certificate
+    static QString fingerprint(const QSslCertificate &certificate);
+    /// Lowercase, without colons and spaces
+    static QString normalizedFingerprint(const QString &fingerprint);
+
+signals:
+    /// A TLS connection presented another certificate; it was closed
+    /// before any byte of the channel was sent
+    void pinMismatch(const QString &fingerprint);
+    /// The TLS connection to the Director failed (the channel sees a
+    /// closed connection)
+    void connectionFailed(const QString &reason);
+
+private:
+    void acceptConnections();
+
+    QLocalServer *m_server = nullptr;
+    QHostAddress m_address;
+    quint16 m_port = 0;
+    QString m_serverName;
+    QString m_pinnedFingerprint;
+    QString m_error;
 };
 
 #endif // BGRPCCONNECT_H
