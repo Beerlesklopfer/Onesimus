@@ -43,7 +43,7 @@ Falls gewünscht, können Sie auch direkt eine Developer PowerShell verwenden:
 | `run` | Bauen, deployen, `build\deploy\onesimus.exe` starten |
 | `test` | Bauen + ctest |
 | `installer` (`package`, `msi`) | MSI-Installer über `package-msi.ps1` (WiX v6) |
-| `zip` | Portables ZIP über `package-windows.ps1` |
+| `zip` | Portables ZIP über `scripts\windows\package-windows.ps1` |
 | `install` | `cmake --install` nach `-Prefix` (Standard `build\stage`) |
 | `status` | Gebautes Binary, Version, Installer |
 | `clean` | Build-Verzeichnis löschen |

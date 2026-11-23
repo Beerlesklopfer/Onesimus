@@ -1,4 +1,3 @@
-nul 
 # Build-Verzeichnisse
 build/
 build-*/
@@ -39,7 +38,6 @@ qrc_*.cpp
 *.dylib
 *.dll
 *.exe
-BaculaQtUI
 
 # IDE-spezifische Dateien
 .vscode/
@@ -85,11 +83,13 @@ QUICKSTART.md
 build-windows.ps1.backup
 create-bacula-certs.bat
 create-bacula-certs.ps1
+qt6-quickfix.ps1
 .cache
 .claude/
 debug.log
 
-*bareos-dir.d*.*
+# Local configuration exports/backups in the repository root (bareos-dir.d.zip, ...)
+/*bareos-dir.d*.*
 
 # Package output (AppImage) and package inputs (onesimus-dird Windows zip)
 dist/

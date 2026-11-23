@@ -50,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `run`, `test`, `install`, `package`, `appimage` (Linux), `installer`/`zip`/`msi` (Windows),
   `status`, `clean`, `help`. All former flags keep their meaning; `--dry-run`/`-DryRun`
   prints every command instead of running it. `./deploy.sh build` is the former `./build.sh`.
+- Windows helper scripts moved to `scripts/windows/` (`check-qt6.ps1`, `package-windows.ps1`, which
+  `deploy.ps1 zip` calls); the generated `qt6-quickfix.ps1`, `examples/example_usage.cpp`,
+  `resources/icons/create_ico.bat` and `external/README.md` are removed.
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to

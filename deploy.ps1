@@ -29,7 +29,7 @@
     run        Build + deploy, then start build\deploy\Onesimus.exe.
     test       Build + ctest.
     installer  MSI installer via package-msi.ps1 (WiX v6). Aliases: msi, package.
-    zip        Portable ZIP via package-windows.ps1.
+    zip        Portable ZIP via scripts\windows\package-windows.ps1.
     msi        Same as installer.
     install    cmake --install into -Prefix (default build\stage).
     status     Built binary, version, installers.
@@ -284,14 +284,14 @@ function Find-Qt {
     if (-not $found) {
         if ($DryRun) { Write-Warn "Qt6 not found - dry run continues with C:\Qt\<version>\msvc2022_64"; return 'C:\Qt\<version>\msvc2022_64' }
         Write-Err "Qt6 was not found automatically."
-        Write-Warn "  1. Diagnose: .\check-qt6.ps1"
+        Write-Warn "  1. Diagnose: .\scripts\windows\check-qt6.ps1"
         Write-Warn "  2. Install Qt6: https://www.qt.io/download-qt-installer"
         $manual = Read-Host "Or enter the Qt path (e.g. C:\Qt\6.8.0\msvc2022_64)"
         if (Test-Path "$manual\bin\qmake.exe") { $found = $manual } else { Write-Err "Qt not found in: $manual"; exit 1 }
     }
     if (-not (Test-Path "$found\lib\cmake\Qt6\Qt6Config.cmake")) {
         Write-Err "Qt6Config.cmake missing: $found\lib\cmake\Qt6\Qt6Config.cmake"
-        Write-Warn "  Diagnose with .\check-qt6.ps1, or add the modules with the Qt Maintenance Tool."
+        Write-Warn "  Diagnose with .\scripts\windows\check-qt6.ps1, or add the modules with the Qt Maintenance Tool."
         exit 1
     }
     Write-Info "Qt version: $(& "$found\bin\qmake.exe" -query QT_VERSION)"
@@ -421,7 +421,7 @@ function Invoke-Zip {
     $ver = if ($Version) { $Version } else { Get-StampedVersion }
     Write-Section "Portable ZIP"
     Invoke-Checked 'package-windows.ps1' 'powershell.exe' @('-NoProfile', '-ExecutionPolicy', 'Bypass',
-        '-File', (Join-Path $ScriptDir 'package-windows.ps1'), '-BuildDir', $DeployDir, '-Version', $ver)
+        '-File', (Join-Path $ScriptDir 'scripts\windows\package-windows.ps1'), '-BuildDir', $DeployDir, '-Version', $ver)
 }
 
 function Invoke-Install {
