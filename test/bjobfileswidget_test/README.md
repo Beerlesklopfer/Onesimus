@@ -208,8 +208,6 @@ connect(m_treeModel, &QStandardItemModel::itemChanged,
 
 ## Known Issues to Test
 
-Based on KNOWN_BUGS.md:
-
 ### Job Tree View - Table Update
 Test if table updates correctly when simulating job status changes.
 
