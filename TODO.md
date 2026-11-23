@@ -96,8 +96,6 @@ checked against the code on 2026-11-23; file references are to that state. Repor
   (CRAM-MD5 of the BNET login), an unused `placementText()` in `src/tools/b321dialog.cpp:110`.
 - Tests still missing for `BJsonStreamReader` and `BConfigExporter`.
 - The bundled OpenSSL is configured `shared` (`CMakeLists.txt:240`, `:272`).
-- Linux and macOS use `Qt6Gui_PRIVATE_INCLUDE_DIRS` instead of `Qt6::GuiPrivate`
-  (`CMakeLists.txt:1017`, `:2516`).
 
 ### Docs/i18n
 - Translations: German is complete. Spanish, French, Italian and Russian each have 245 of 3884

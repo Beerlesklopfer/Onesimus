@@ -72,6 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they showed are fixed.
 - Build: the application sources are compiled once into the static library `onesimus_core`, which the
   program and the app-wide tests link; `bareosauth.cpp` is compiled once (`bareosauth_lib`).
+- Build: `Qt6::GuiPrivate` is linked on every platform (needed from Qt 6.9 on; Linux and macOS used
+  `Qt6Gui_PRIVATE_INCLUDE_DIRS`).
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to
