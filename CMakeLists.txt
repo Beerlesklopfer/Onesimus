@@ -3088,9 +3088,11 @@ if(BUILD_TESTING)
 
     # bappwidgets_test - widgets of the application on their real classes,
     # built from its sources like bdialogfonts_test (no Director, scratch
-    # settings, a keychain in memory). Registered as:
+    # settings, a keychain in memory). Registered twice:
     #  bsettingsdialog_test: Cancel reverts, the edited row is relabelled,
     #    Reset keeps the profiles, export/import on the app's settings store
+    #  bjobfilter_test: the job and client filter lists stay complete across
+    #    pages and keep their selection by name
     add_executable(bappwidgets_test
         test/bappwidgets_test.cpp
         ${BDIALOGFONTS_SOURCES}
@@ -3124,7 +3126,9 @@ if(BUILD_TESTING)
     add_test(NAME bsettingsdialog_test COMMAND bappwidgets_test
         cancelRevertsProfilesAndSettings saveWritesTheWorkingCopy editedRowIsRelabelled
         resetKeepsProfiles resetCanIncludeProfiles exportImportUsesTheAppStore)
-    set_tests_properties(bsettingsdialog_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_test(NAME bjobfilter_test COMMAND bappwidgets_test
+        filterListsStayCompleteAcrossPages filterSelectionKeptByName)
+    set_tests_properties(bsettingsdialog_test bjobfilter_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     # bscheduletimeline_test - the schedule tab's timeline as a whole: a bar
     # that is dragged and dropped sends no command, asks the capability gate

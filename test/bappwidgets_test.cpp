@@ -5,10 +5,12 @@
 // network, scratch settings, a keychain in memory):
 //  - settings dialog (P1-16, P1-15): Cancel reverts, the edited row is
 //    relabelled, Reset keeps the profiles, export/import on the app's store
+//  - job filter lists (P1-9): complete across pages, kept by name
 
 #include <QtTest>
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -21,6 +23,8 @@
 #include "config/bsecretstore.h"
 #include "config/bsettings.h"
 #include "config/bsettingsdialog.h"
+#include "director/bdirector.h"
+#include "jobs/bjobwidget.h"
 
 namespace {
 const QString Hash = QStringLiteral("0123456789abcdef0123456789abcdef");
@@ -41,6 +45,37 @@ QStringList storedNames()
     return names;
 }
 
+QString dotList(const char *kind, const QStringList &names)
+{
+    QJsonArray array;
+    for (const QString &n : names)
+        array.append(QJsonObject{{"name", n}});
+    return QString::fromUtf8(QJsonDocument(QJsonObject{
+        {"jsonrpc", "2.0"}, {"id", QJsonValue()},
+        {"result", QJsonObject{{QLatin1String(kind), array}}}}).toJson(QJsonDocument::Compact));
+}
+
+QJsonDocument jobPage(const QList<QPair<QString, QString>> &jobs)
+{
+    QJsonArray array;
+    int id = 1;
+    for (const auto &job : jobs) {
+        array.append(QJsonObject{{"jobid", QString::number(id++)}, {"name", job.first},
+                                 {"client", job.second}, {"level", "F"}, {"type", "B"},
+                                 {"jobstatus", "T"}, {"starttime", "2026-11-20 01:00:00"},
+                                 {"jobbytes", "100"}, {"jobfiles", "1"}});
+    }
+    return QJsonDocument(QJsonObject{{"jsonrpc", "2.0"},
+                                     {"result", QJsonObject{{"jobs", array}}}});
+}
+
+QStringList items(QComboBox *combo)
+{
+    QStringList list;
+    for (int i = 0; i < combo->count(); ++i)
+        list << combo->itemText(i);
+    return list;
+}
 } // namespace
 
 class BAppWidgetsTest : public QObject
@@ -58,6 +93,10 @@ private slots:
     void resetKeepsProfiles();
     void resetCanIncludeProfiles();
     void exportImportUsesTheAppStore();
+
+    // Job filter lists
+    void filterListsStayCompleteAcrossPages();
+    void filterSelectionKeptByName();
 
 private:
     QTemporaryDir m_config;
@@ -181,6 +220,48 @@ void BAppWidgetsTest::exportImportUsesTheAppStore()
     // Nothing went to a default QSettings of the process (the old bug)
     QSettings defaults;
     QVERIFY(!defaults.contains("ConnectionProfiles/data"));
+}
+
+void BAppWidgetsTest::filterListsStayCompleteAcrossPages()
+{
+    BDirector director;
+    BJobWidget widget(&director);
+    auto *names = widget.findChild<QComboBox *>("jobNameFilter");
+    auto *clients = widget.findChild<QComboBox *>("jobClientFilter");
+    QVERIFY(names && clients);
+
+    widget.processDotJobsResponse(dotList("jobs", {"backup-a", "backup-b", "backup-c"}));
+    widget.processDotClientsResponse(dotList("clients", {"fd-1", "fd-2", "fd-3"}));
+    QCOMPARE(items(names), (QStringList{"", "backup-a", "backup-b", "backup-c"}));
+
+    // A page of the job list with one job of one client
+    widget.processJsonResponse(jobPage({{"backup-b", "fd-2"}}));
+    QCOMPARE(items(names), (QStringList{"", "backup-a", "backup-b", "backup-c"}));
+    QCOMPARE(items(clients), (QStringList{"", "fd-1", "fd-2", "fd-3"}));
+    QCOMPARE(widget.jobNames(), (QStringList{"backup-a", "backup-b", "backup-c"}));
+    QCOMPARE(widget.clientNames(), (QStringList{"fd-1", "fd-2", "fd-3"}));
+}
+
+void BAppWidgetsTest::filterSelectionKeptByName()
+{
+    BDirector director;
+    BJobWidget widget(&director);
+    auto *names = widget.findChild<QComboBox *>("jobNameFilter");
+    QVERIFY(names);
+
+    widget.processDotJobsResponse(dotList("jobs", {"backup-a", "backup-c"}));
+    names->setCurrentIndex(names->findText("backup-c"));
+    QCOMPARE(BSettings::instance().jobsFilterComboText("name"), QStringLiteral("backup-c"));
+
+    // A job is added before it: the index moves, the selection does not
+    widget.processDotJobsResponse(dotList("jobs", {"backup-a", "backup-b", "backup-c"}));
+    QCOMPARE(names->currentText(), QStringLiteral("backup-c"));
+
+    // A new widget (next start) restores it from the settings
+    BJobWidget next(&director);
+    auto *nextNames = next.findChild<QComboBox *>("jobNameFilter");
+    next.processDotJobsResponse(dotList("jobs", {"backup-0", "backup-a", "backup-b", "backup-c"}));
+    QCOMPARE(nextNames->currentText(), QStringLiteral("backup-c"));
 }
 
 QTEST_MAIN(BAppWidgetsTest)
