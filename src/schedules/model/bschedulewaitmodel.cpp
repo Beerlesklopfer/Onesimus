@@ -8,9 +8,11 @@
 #include <QJsonValue>
 #include <QRegularExpression>
 #include <QSet>
+#include <QTimeZone>
 #include <QVector>
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 
 // ============================================================================
@@ -329,6 +331,7 @@ public:
     Replay(const QList<BWaitRun> &runs, const BWaitLimits &limits, bool against)
         : m_runs(runs), m_limits(limits), m_against(against), m_state(runs.size())
     {
+        places();
         run();
     }
 
@@ -338,6 +341,8 @@ public:
     qint64 end(int i) const { return m_state[i].end; }
     /// Its end is known (it has a device or needs none)
     bool hasEnd(int i) const { return m_state[i].phase == Phase::Writing; }
+    /// The holds as BWaitHold: times in UTC, made once at the end of the
+    /// replay (predict() gives them the caller's time zone)
     const QList<BWaitHold> &holds(int i) const { return m_state[i].holds; }
     qint64 deviceWait(int i) const { return m_state[i].deviceWait; }
     /// Waited for a device whose number of writers is not known
@@ -353,6 +358,22 @@ private:
         Writing,        ///< Has its device (or needs none): its end is known
     };
 
+    /// A hold while the replay runs: times as seconds since the epoch. A
+    /// QDateTime per step costs a conversion to local time (glibc stats
+    /// /etc/localtime for it); they are made once, after the replay.
+    struct Hold
+    {
+        BWaitHold::Reason reason = BWaitHold::Reason::Priority;
+        QString resource;
+        int limit = 0;
+        bool limitKnown = true;
+        int otherPriority = 0;
+        qint64 from = 0;
+        qint64 until = 0;
+        bool closed = false;    ///< until is set
+        QList<int> blockers;    ///< Ascending, no index twice
+    };
+
     struct State
     {
         qint64 scheduled = 0;
@@ -360,7 +381,8 @@ private:
         qint64 end = 0;
         bool started = false;
         bool holdOpen = false;
-        QList<BWaitHold> holds;
+        QList<Hold> replayHolds;    ///< While the replay runs
+        QList<BWaitHold> holds;     ///< After it, from replayHolds
 
         Phase phase = Phase::Queued;
         qint64 length = 0;      ///< How long it writes once it has a device
@@ -380,7 +402,7 @@ private:
         QString resource;
         Limit limit;
         int otherPriority = 0;
-        QList<int> blockers;
+        QList<int> blockers;    ///< Ascending: the caller sorts them once
     };
 
     // --- What is not known, taken one way or the other ---
@@ -451,13 +473,13 @@ private:
                 bool same = false;
                 switch (what) {
                 case BWaitHold::Reason::StorageLimit:
-                    same = usesStorage(other) && m_runs[other].storage == m_runs[i].storage;
+                    same = usesStorage(other) && m_place[other].storage == m_place[i].storage;
                     break;
                 case BWaitHold::Reason::ClientLimit:
-                    same = usesClient(other) && m_runs[other].client == m_runs[i].client;
+                    same = usesClient(other) && m_place[other].client == m_place[i].client;
                     break;
                 case BWaitHold::Reason::JobLimit:
-                    same = m_runs[other].job == m_runs[i].job;
+                    same = m_place[other].job == m_place[i].job;
                     break;
                 default:
                     break;
@@ -473,16 +495,12 @@ private:
     /// jobq.cc AcquireResources(): storage, client, job. true: all free.
     bool placesFree(int i, Held *held) const
     {
-        struct Check { bool applies; BWaitHold::Reason reason; Limit limit; QString name; };
+        const Place &p = m_place[i];
+        struct Check { bool applies; BWaitHold::Reason reason; const Limit &limit; const QString &name; };
         const Check checks[] = {
-            { usesStorage(i), BWaitHold::Reason::StorageLimit,
-              m_runs[i].storage.isEmpty() ? unknownLimit()
-                                          : limitIn(m_limits.storages, m_runs[i].storage),
-              m_runs[i].storage },
-            { usesClient(i), BWaitHold::Reason::ClientLimit,
-              limitIn(m_limits.clients, m_runs[i].client), m_runs[i].client },
-            { true, BWaitHold::Reason::JobLimit,
-              limitIn(m_limits.jobs, m_runs[i].job), m_runs[i].job },
+            { usesStorage(i), BWaitHold::Reason::StorageLimit, p.storageLimit, m_runs[i].storage },
+            { usesClient(i), BWaitHold::Reason::ClientLimit, p.clientLimit, m_runs[i].client },
+            { true, BWaitHold::Reason::JobLimit, p.jobLimit, m_runs[i].job },
         };
         for (const Check &check : checks) {
             if (!check.applies)
@@ -499,6 +517,68 @@ private:
             }
         }
         return true;
+    }
+
+    /// placesFree() without the holders: from the number of places taken
+    /// at each storage, client and job (Taken), which look() keeps up
+    struct Taken
+    {
+        QVector<int> storages;
+        QVector<int> clients;
+        QVector<int> jobs;
+    };
+    Taken taken() const
+    {
+        Taken t;
+        t.storages.fill(0, m_storageCount);
+        t.clients.fill(0, m_clientCount);
+        t.jobs.fill(0, m_jobCount);
+        for (const QList<int> *list : { &m_running, &m_ready }) {
+            for (int other : *list)
+                take(&t, other);
+        }
+        return t;
+    }
+    void take(Taken *t, int i) const
+    {
+        if (usesStorage(i)) ++t->storages[m_place[i].storage];
+        if (usesClient(i)) ++t->clients[m_place[i].client];
+        ++t->jobs[m_place[i].job];
+    }
+    bool placesFree(int i, const Taken &t) const
+    {
+        const Place &p = m_place[i];
+        if (usesStorage(i) && t.storages[p.storage] >= p.storageLimit.value) return false;
+        if (usesClient(i) && t.clients[p.client] >= p.clientLimit.value) return false;
+        return t.jobs[p.job] < p.jobLimit.value;
+    }
+
+    /// The storage, client and job of every run as numbers, and their
+    /// limits: looked up once instead of compared as names at every step
+    void places()
+    {
+        QHash<QString, int> storages, clients, jobs;
+        auto id = [](QHash<QString, int> &ids, const QString &name) {
+            const auto it = ids.constFind(name);
+            if (it != ids.constEnd()) return it.value();
+            const int next = int(ids.size());
+            ids.insert(name, next);
+            return next;
+        };
+        m_place.resize(m_runs.size());
+        for (int i = 0; i < m_runs.size(); ++i) {
+            const BWaitRun &r = m_runs[i];
+            Place &p = m_place[i];
+            p.storage = id(storages, r.storage);
+            p.client = id(clients, r.client);
+            p.job = id(jobs, r.job);
+            p.storageLimit = r.storage.isEmpty() ? unknownLimit() : limitIn(m_limits.storages, r.storage);
+            p.clientLimit = limitIn(m_limits.clients, r.client);
+            p.jobLimit = limitIn(m_limits.jobs, r.job);
+        }
+        m_storageCount = int(storages.size());
+        m_clientCount = int(clients.size());
+        m_jobCount = int(jobs.size());
     }
 
     // --- The queue ---
@@ -547,7 +627,8 @@ private:
         s.start = now + qMax<qint64>(0, m_runs[i].startOverheadSecs);
         s.length = duration(i, s.start);
         if (s.holdOpen) {
-            s.holds.last().until = QDateTime::fromSecsSinceEpoch(now);
+            s.replayHolds.last().until = now;
+            s.replayHolds.last().closed = true;
             s.holdOpen = false;
         }
         const Limit device = deviceLimit(i);
@@ -650,17 +731,19 @@ private:
             return false;
 
         bool moved = false;
+        Taken places = taken();
         int k = 0;
         while (k < m_waiting.size()) {
             const int i = m_waiting[k];
             if (!considered(i, priority, runningMix))
                 break;
-            if (!placesFree(i, nullptr)) {
+            if (!placesFree(i, places)) {
                 ++k;
                 continue;
             }
             m_waiting.removeAt(k);
             m_ready.append(i);
+            take(&places, i);
             moved = true;
         }
         return moved;
@@ -705,27 +788,33 @@ private:
 
     // --- Why the runs that are left are held ---
 
-    void note(int i, qint64 now, Held held)
+    /// Two ascending lists as one, each index once
+    static QList<int> unite(const QList<int> &a, const QList<int> &b)
     {
-        std::sort(held.blockers.begin(), held.blockers.end());
+        QList<int> both;
+        both.reserve(a.size() + b.size());
+        std::set_union(a.cbegin(), a.cend(), b.cbegin(), b.cend(), std::back_inserter(both));
+        return both;
+    }
+
+    /// @p held.blockers ascending
+    void note(int i, qint64 now, const Held &held)
+    {
         State &s = m_state[i];
-        const QDateTime when = QDateTime::fromSecsSinceEpoch(now);
 
         if (s.holdOpen) {
-            BWaitHold &last = s.holds.last();
+            Hold &last = s.replayHolds.last();
             if (last.reason == held.reason && last.resource == held.resource
                 && last.otherPriority == held.otherPriority) {
-                for (int blocker : std::as_const(held.blockers)) {
-                    if (!last.blockers.contains(blocker))
-                        last.blockers.append(blocker);
-                }
-                std::sort(last.blockers.begin(), last.blockers.end());
+                if (last.blockers != held.blockers)
+                    last.blockers = unite(last.blockers, held.blockers);
                 return;
             }
-            last.until = when;
+            last.until = now;
+            last.closed = true;
         }
 
-        BWaitHold hold;
+        Hold hold;
         hold.reason = held.reason;
         hold.resource = held.resource;
         const bool isLimit = held.reason != BWaitHold::Reason::Priority
@@ -733,20 +822,31 @@ private:
         hold.limit = isLimit ? held.limit.value : 0;
         hold.limitKnown = !isLimit || held.limit.known;
         hold.otherPriority = held.otherPriority;
-        hold.from = when;
+        hold.from = now;
         hold.blockers = held.blockers;
-        s.holds.append(hold);
+        s.replayHolds.append(hold);
         s.holdOpen = true;
     }
 
     void noteHolds(qint64 now)
     {
+        // What is noted depends on the three lists only (and on what does
+        // not change during the replay): with the same lists as at the last
+        // note, every run would be noted with the hold it has open
+        if (m_running == m_notedRunning && m_ready == m_notedReady && m_waiting == m_notedWaiting)
+            return;
+        m_notedRunning = m_running;
+        m_notedReady = m_ready;
+        m_notedWaiting = m_waiting;
+
         const Limit jobSlots = directorLimit();
+        QList<int> running = m_running;
+        std::sort(running.begin(), running.end());
 
         Held noSlot;
         noSlot.reason = BWaitHold::Reason::DirectorLimit;
         noSlot.limit = jobSlots;
-        noSlot.blockers = m_running;
+        noSlot.blockers = running;
 
         // Has its places, waits for a slot of the Director
         for (int i : std::as_const(m_ready))
@@ -782,15 +882,17 @@ private:
                     stoppedAt = i;
                 held.reason = BWaitHold::Reason::Priority;
                 held.otherPriority = priority;
-                for (int other : std::as_const(m_running)) {
+                for (int other : std::as_const(running)) {
                     if (m_runs[other].priority != mine)
-                        held.blockers.append(other);
+                        held.blockers.append(other);    // ascending, as running is
                 }
                 // A higher priority that may not mix is held by all of them
                 if (held.blockers.isEmpty())
-                    held.blockers = m_running;
+                    held.blockers = running;
             } else if (placesFree(i, &held)) {
                 continue;   // cannot be after settle(); nothing to note
+            } else {
+                std::sort(held.blockers.begin(), held.blockers.end());
             }
             note(i, now, held);
         }
@@ -834,6 +936,27 @@ private:
                 enqueue(order[next++]);
             settle(now);
         }
+
+        // The holds with their times, once. In UTC, which needs no look at
+        // the local time zone; predict() moves them to the caller's.
+        const QTimeZone utc = QTimeZone::utc();
+        for (State &s : m_state) {
+            s.holds.reserve(s.replayHolds.size());
+            for (const Hold &h : std::as_const(s.replayHolds)) {
+                BWaitHold hold;
+                hold.reason = h.reason;
+                hold.resource = h.resource;
+                hold.limit = h.limit;
+                hold.limitKnown = h.limitKnown;
+                hold.otherPriority = h.otherPriority;
+                hold.from = QDateTime::fromSecsSinceEpoch(h.from, utc);
+                if (h.closed)
+                    hold.until = QDateTime::fromSecsSinceEpoch(h.until, utc);
+                hold.blockers = h.blockers;
+                s.holds.append(hold);
+            }
+            s.replayHolds.clear();
+        }
     }
 
     const QList<BWaitRun> &m_runs;
@@ -843,15 +966,57 @@ private:
     QList<int> m_waiting;   ///< Sorted by priority, then by arrival
     QList<int> m_ready;     ///< Have their places, wait for a slot of the Director
     QList<int> m_running;   ///< In the order in which they started
+
+    /// Where run i takes its places, as numbers (places())
+    struct Place
+    {
+        int storage = 0;
+        int client = 0;
+        int job = 0;
+        Limit storageLimit;
+        Limit clientLimit;
+        Limit jobLimit;
+    };
+    QVector<Place> m_place;
+    int m_storageCount = 0;
+    int m_clientCount = 0;
+    int m_jobCount = 0;
+
+    // The three lists at the last noteHolds()
+    QList<int> m_notedRunning;
+    QList<int> m_notedReady;
+    QList<int> m_notedWaiting;
 };
 
-void addUnknown(QList<BWaitUnknown> *list, BWaitUnknown::Kind kind, const QString &name)
+/// The unknowns of one run, each (kind, name) once, in the order found.
+/// The set makes the check cheap: the chain of a run can pass the same
+/// job hundreds of times.
+struct Unknowns
 {
+    QList<BWaitUnknown> list;
+    QSet<QPair<int, QString>> keys;
+
+    bool has(BWaitUnknown::Kind kind, const QString &name) const
+    {
+        return keys.contains(qMakePair(int(kind), name));
+    }
+    void add(const BWaitUnknown &unknown)
+    {
+        if (keys.contains(qMakePair(int(unknown.kind), unknown.name)))
+            return;
+        keys.insert(qMakePair(int(unknown.kind), unknown.name));
+        list.append(unknown);
+    }
+};
+
+void addUnknown(Unknowns *list, BWaitUnknown::Kind kind, const QString &name)
+{
+    if (list->has(kind, name))
+        return;
     BWaitUnknown unknown;
     unknown.kind = kind;
     unknown.name = name;
-    if (!list->contains(unknown))
-        list->append(unknown);
+    list->add(unknown);
 }
 
 /// What the start of run @p index depends on that is not known: followed
@@ -859,7 +1024,7 @@ void addUnknown(QList<BWaitUnknown> *list, BWaitUnknown::Kind kind, const QStrin
 QList<BWaitUnknown> unknownsOf(int index, const QList<BWaitRun> &runs,
                                const Replay &favour, const Replay &against)
 {
-    QList<BWaitUnknown> unknowns;
+    Unknowns unknowns;
     QSet<int> seen;
     QList<int> todo;
     todo.append(index);
@@ -905,10 +1070,16 @@ QList<BWaitUnknown> unknownsOf(int index, const QList<BWaitRun> &runs,
                     // for a device whose number of writers is not known
                     if (against.deviceWaitUnknown(blocker))
                         addUnknown(&unknowns, BWaitUnknown::Kind::DeviceLimit, other.storage);
-                    if (other.durationBasis != BWaitRun::Duration::Measured) {
-                        BWaitUnknown unknown;
-                        unknown.kind = other.durationBasis == BWaitRun::Duration::Estimated
+                    const BWaitUnknown::Kind durationKind =
+                        other.durationBasis == BWaitRun::Duration::Estimated
                             ? BWaitUnknown::Kind::EstimatedDuration : BWaitUnknown::Kind::NoHistory;
+                    // The first run of a job in the chain says how long it
+                    // may be in the way; the times of the others are not
+                    // worked out (each is a conversion to local time)
+                    if (other.durationBasis != BWaitRun::Duration::Measured
+                        && !unknowns.has(durationKind, other.job)) {
+                        BWaitUnknown unknown;
+                        unknown.kind = durationKind;
                         unknown.name = other.job;
                         // How long it may be in the way: its end in the
                         // replay against the runs, and the limit behind it
@@ -922,8 +1093,7 @@ QList<BWaitUnknown> unknownsOf(int index, const QList<BWaitRun> &runs,
                                                                                     : other.maxRunSecs;
                             unknown.until = other.scheduled.addSecs(against.end(blocker) - scheduled);
                         }
-                        if (!unknowns.contains(unknown))
-                            unknowns.append(unknown);
+                        unknowns.add(unknown);
                     }
                     // Its own start is not certain: look at what held it
                     if (favour.start(blocker) != against.start(blocker) && !seen.contains(blocker)) {
@@ -934,7 +1104,7 @@ QList<BWaitUnknown> unknownsOf(int index, const QList<BWaitRun> &runs,
             }
         }
     }
-    return unknowns;
+    return unknowns.list;
 }
 
 QString clock(const QDateTime &when, const QDate &reference, bool seconds = false)
