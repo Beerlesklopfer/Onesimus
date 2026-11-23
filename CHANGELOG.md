@@ -199,6 +199,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   libraries bundled in the AppImage) with the licence texts in `LICENSES/` and the AGPL; the
   `.deb` also a Debian `copyright` file. The AppImage adds the licence texts its bundled Debian
   libraries refer to and a list of their package versions. CI fails a package without them.
+- **Source archives with every release** (P2-7): Onesimus with its OpenSSL and proto submodules,
+  the Debian source packages of all libraries in the AppImage and the Qt sources of the Windows
+  and macOS packages are attached to the GitHub release; the release is not drafted without them.
 - About dialog: a "Third-party licences..." button shows the notices and licence texts.
 - The Bareos and Bacula logos are no longer built into the program or kept in the source tree
   (they were not shown anywhere).
