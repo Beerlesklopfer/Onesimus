@@ -1926,6 +1926,7 @@ if(BUILD_TESTING)
     add_executable(bareosauth_security_test
         test/bareosauth_security_test.cpp
         test/btlstestcerts.h
+        test/bbnettesthelpers.h
     )
 
     target_include_directories(bareosauth_security_test PRIVATE
@@ -1985,6 +1986,33 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME bjsonreassembler_test COMMAND bjsonreassembler_test)
+
+    # bdirectorsession_test - BareosDirector and BDirector in a BNET session
+    # with a fake Director: JSON cut in characters, quit, command timeout,
+    # wrapper destroyed while connected (P1-5, P1-17, P1-19)
+    add_executable(bdirectorsession_test
+        test/bdirectorsession_test.cpp
+        test/bfakebnetdirector.h
+        test/bbnettesthelpers.h
+        src/director/bdirector.cpp
+        include/director/bdirector.h
+    )
+
+    target_include_directories(bdirectorsession_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/test
+    )
+
+    target_link_libraries(bdirectorsession_test PRIVATE
+        bareosdirector_lib
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
+
+    add_test(NAME bdirectorsession_test COMMAND bdirectorsession_test)
 
     # bdirectorqueue_test - command queue of BareosDirector without a connection
     add_executable(bdirectorqueue_test

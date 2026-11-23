@@ -34,61 +34,15 @@
 
 #include "director/bareosauth.h"
 #include "btlstestcerts.h"
+#include "bbnettesthelpers.h"
 
 namespace {
 
 const QString Password = QStringLiteral("console-secret");
 const QString ConsoleName = QStringLiteral("admin");
 
-QByteArray keyOf(const QString &password)
-{
-    return QCryptographicHash::hash(password.toLatin1(), QCryptographicHash::Md5).toHex();
-}
-
-/// Bareos BinToBase64() (lib/base64.cc), both variants
-QByteArray bareosBase64(const QByteArray &bin, bool compatible)
-{
-    static const char digits[] =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    QByteArray out;
-    quint32 reg = 0;
-    int rem = 0;
-    for (int i = 0; i < bin.size();) {
-        if (rem < 6) {
-            reg <<= 8;
-            if (compatible)
-                reg |= quint8(bin[i++]);
-            else
-                reg |= quint32(qint32(qint8(bin[i++])));
-            rem += 8;
-        }
-        const quint32 save = reg;
-        reg >>= (rem - 6);
-        out.append(digits[reg & 0x3F]);
-        reg = save;
-        rem -= 6;
-    }
-    if (rem) {
-        const quint32 mask = (1u << rem) - 1;
-        // Bareos quirk: only the compatible variant shifts the last digit
-        out.append(digits[compatible ? (reg & mask) << (6 - rem) : (reg & mask)]);
-    }
-    return out;
-}
-
-QByteArray hmacAnswer(const QByteArray &challenge, const QString &password, bool compatible)
-{
-    return bareosBase64(QMessageAuthenticationCode::hash(challenge, keyOf(password),
-                                                         QCryptographicHash::Md5),
-                        compatible);
-}
-
-QByteArray frame(const QByteArray &payload)
-{
-    QByteArray out(4, '\0');
-    qToBigEndian<qint32>(qint32(payload.size()), reinterpret_cast<uchar *>(out.data()));
-    return out + payload;
-}
+using BFakeBnet::frame;
+using BFakeBnet::hmacAnswer;
 
 /**
  * @brief The Director's side of the console handshake, honest or not

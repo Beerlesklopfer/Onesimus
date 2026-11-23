@@ -30,6 +30,7 @@ has not been decided; until a legal review, these files stay `AGPL-3.0-only`.
 | `src/director/bareosauth.cpp`, `include/director/bareosauth.h` | CRAM-MD5 handshake and its base64 variants (`lib/cram_md5.cc`, `lib/bsock.cc`, `lib/tls_openssl_private.cc`) |
 | `src/director/baculaauth.cpp`, `include/director/baculaauth.h` | the Bacula handshake (not built; the Bacula backend is deprecated) |
 | `test/bquote_test.cpp` | `lib/scan.cc` `next_arg()`, the quoted-string state of `lib/lex.cc` |
+| `test/bbnettesthelpers.h` | `BinToBase64()` of `lib/base64.cc` and the CRAM-MD5 answer of `lib/cram_md5.cc`, for the fake Directors of the tests |
 
 **Own implementations of Bareos behaviour** (written against the Bareos source as the reference
 for semantics, cited in comments):
@@ -45,6 +46,7 @@ for semantics, cited in comments):
 | `director/bareosdirector`, `models/bvolumejson` | the output of list commands (`dird/ua_output.cc`, `cats/sql_list.cc`) |
 | `bquote` (header only) | quoting of command lines and resource text (`lib/scan.cc`, `lib/lex.cc`), the name rule of `lib/edit.cc` `IsNameValid()`, the characters `configure add` refuses (`dird/ua_configure.cc`) |
 | `jobs/fileset/bfilesetdocument` | the FileSet grammar and keywords (`dird/inc_conf.cc`, `dird/dird_conf.cc` `fs_items`, `FilesetResource::PrintConfig`) |
+| `test/bfakebnetdirector.h` | the Director's side of the console login (`lib/cram_md5.cc`) and the BNET signals of the command loop (`lib/bsock.h`, after the Onesimus Director), as a fake Director for tests |
 
 (`.h` in `include/`, `.cpp` in `src/`.)
 
