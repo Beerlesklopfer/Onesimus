@@ -310,6 +310,7 @@ void BConfigImportDialog::onParse()
     if (fi.isDir()) {
         // Parse directory directly
         m_parser->parseDirectory(path);
+        showNotRead(m_parser->skippedEntries());
     } else if (fi.suffix().toLower() == "zip") {
         // Read in memory with limits; nothing is extracted (BZipImport)
         m_statusLabel->setText(tr("Reading ZIP archive..."));
@@ -328,7 +329,18 @@ void BConfigImportDialog::onParse()
     } else {
         // Try to parse as single file
         m_parser->parseFile(path);
+        showNotRead(m_parser->skippedEntries());
     }
+}
+
+void BConfigImportDialog::showNotRead(const QStringList &skipped)
+{
+    // Includes not followed, resources without a name (BConfigParser)
+    if (skipped.isEmpty())
+        return;
+    QMessageBox::warning(this, tr("Entries not read"),
+                         tr("These parts of the configuration were not read:\n%1")
+                             .arg(skipped.mid(0, 20).join(QLatin1Char('\n'))));
 }
 
 void BConfigImportDialog::onResourceParsed(const QString &type, const QString &name)

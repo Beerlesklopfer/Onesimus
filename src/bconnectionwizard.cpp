@@ -971,9 +971,14 @@ void ImportConsoleSelectionPage::prefillWizardData()
             BConfigValue dirAddrs = dir.value("diraddresses");
             if (dirAddrs.type() == BConfigValue::Block) {
                 QMap<QString, BConfigValue> block = dirAddrs.blockValue();
-                for (auto it = block.constBegin(); it != block.constEnd(); ++it) {
-                    if (it.value().type() == BConfigValue::Block) {
-                        QMap<QString, BConfigValue> inner = it.value().blockValue();
+                for (auto it = block.constBegin(); it != block.constEnd() && address.isEmpty(); ++it) {
+                    // Several "ipv4 = { }" are kept as a list of blocks: the first counts
+                    QList<QMap<QString, BConfigValue>> inners;
+                    if (it.value().type() == BConfigValue::Block)
+                        inners << it.value().blockValue();
+                    else if (it.value().type() == BConfigValue::BlockList)
+                        inners = it.value().blockListValue();
+                    for (const QMap<QString, BConfigValue> &inner : std::as_const(inners)) {
                         if (inner.contains("addr")) {
                             address = inner["addr"].simpleValue();
                             break;

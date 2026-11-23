@@ -84,6 +84,9 @@ private:
     void validateSelection();
     void cleanupTempDir();
 
+    /// Shows what the parser did not read (includes, resources without a name)
+    void showNotRead(const QStringList &skipped);
+
     /**
      * @brief Validate parsed resources against directive schemas
      * @return List of validation warnings/errors (empty if all valid)

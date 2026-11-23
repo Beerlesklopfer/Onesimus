@@ -2496,6 +2496,19 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME bzipimport_test COMMAND bzipimport_test)
 
+    # bconfigparser_test - configuration text read as Bareos 25 reads it:
+    # directive names without blanks and case, ';', quoted strings, lists,
+    # repeated blocks, @include (parseFile() only, never a command), nesting
+    # and include depth, include loops, huge values (P1-25)
+    add_executable(bconfigparser_test
+        test/bconfigparser_test.cpp
+        src/config/bconfigparser.cpp
+        include/config/bconfigparser.h
+    )
+    target_include_directories(bconfigparser_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bconfigparser_test PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME bconfigparser_test COMMAND bconfigparser_test)
+
     # bpki_test - certificate generator and PFX converter without widgets:
     # key files owner-only (also an existing file), CA key encrypted,
     # client certificate extensions and SAN, random serials, PFX with a

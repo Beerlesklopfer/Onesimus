@@ -222,7 +222,27 @@ QMap<QString, BDirective> BDirectiveSchema::directives(const QString &resourceTy
 
 BDirective BDirectiveSchema::directive(const QString &resourceType, const QString &directiveName) const
 {
-    return m_schemas.value(resourceType).value(directiveName.toLower());
+    const QMap<QString, BDirective> directives = m_schemas.value(resourceType);
+    const auto exact = directives.constFind(directiveName.toLower());
+    if (exact != directives.constEnd())
+        return exact.value();
+    // Bareos drops the blanks of a directive name (lib/lex.cc): the parsed
+    // "fdport" is the schema's "FD Port"
+    // (as BConfigParser::normalizeKey(), not linked into every user of the schema)
+    const auto compact = [](const QString &name) {
+        QString out;
+        for (const QChar c : name) {
+            if (!c.isSpace())
+                out += c.toLower();
+        }
+        return out;
+    };
+    const QString wanted = compact(directiveName);
+    for (auto it = directives.constBegin(); it != directives.constEnd(); ++it) {
+        if (compact(it.key()) == wanted)
+            return it.value();
+    }
+    return BDirective();
 }
 
 bool BDirectiveSchema::isRequired(const QString &resourceType, const QString &directiveName) const
