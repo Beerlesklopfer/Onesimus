@@ -29,7 +29,6 @@
 #include "blogging.h"
 #include "blogredact.h"
 #include "bquote.h"
-#include "version.h"
 
 #include <QApplication>
 #include <QNetworkRequest>

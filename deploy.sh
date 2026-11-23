@@ -18,17 +18,16 @@
 #   ./deploy.sh --dry-run all    print every command instead of running it
 #   ./deploy.sh help             the full verb table
 #
-# The build stamps the version: CMake's increment_build_number target
-# increments .build_number and regenerates include/version.h on every build.
-# Both files are tracked; do not commit the stamped values from a dev build.
+# The build writes the version header and build number into the build tree
+# only (<build>/generated); the source tree stays clean.
 set -euo pipefail
 
 # ─── First: not as root ─────────────────────────────────────────────────────
 #
 # Before anything else. The script calls sudo itself for each privileged step.
 # Under `sudo ./deploy.sh` CMake and the compiler run as root as well and leave
-# a root-owned build tree (and a root-owned .build_number / version.h in the
-# source tree) that the next build as a normal user cannot overwrite.
+# a root-owned build tree that the next build as a normal user cannot
+# overwrite.
 #
 # ONESIMUS_ALLOW_ROOT=1 lifts the block (containers without a normal user).
 if [ "$(id -u)" -ne 0 ]; then
@@ -38,7 +37,7 @@ elif [ "${ONESIMUS_ALLOW_ROOT:-0}" = "1" ]; then
 else
     printf '[deploy] Do not run this script as root.\n' >&2
     printf '[deploy]   It raises itself with sudo for every privileged step.\n' >&2
-    printf '[deploy]   As root the build tree and version.h become root-owned.\n' >&2
+    printf '[deploy]   As root the build tree becomes root-owned.\n' >&2
     printf '[deploy]\n' >&2
     printf '[deploy]   Right:  ./deploy.sh %s\n' "${1:-<command>}" >&2
     printf '[deploy]   Container without a user:  ONESIMUS_ALLOW_ROOT=1 ./deploy.sh %s\n' "${1:-<command>}" >&2
@@ -218,9 +217,10 @@ app_bin() {
     fi
 }
 
-# VERSION_FULL as stamped by the last build (include/version.h).
+# VERSION_FULL as written by the last build (<build>/generated/version.txt);
+# $1: another build directory (the AppImage tree).
 stamped_version() {
-    sed -n 's/^#define VERSION_FULL *"\(.*\)"/\1/p' include/version.h 2>/dev/null | head -1
+    head -1 "${1:-$BUILD_DIR}/generated/version.txt" 2>/dev/null || true
 }
 
 # ─── Development loop ───────────────────────────────────────────────────────
@@ -522,7 +522,7 @@ cmd_appimage() {
         "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/${LINUXDEPLOY_QT_TAG}/linuxdeploy-plugin-qt-x86_64.AppImage" \
         "$LINUXDEPLOY_QT_SHA256"
 
-    local version; version="$(stamped_version)"
+    local version; version="$(stamped_version "$dir")"
     [ -n "$version" ] || version="0.0.0"
     run mkdir -p "$out"
     info "linuxdeploy (Qt plugin, version ${version})"
@@ -602,7 +602,7 @@ show_status() {
     else
         warn "  no binary (./deploy.sh build)"
     fi
-    info "Stamped version (include/version.h): $(stamped_version)"
+    info "Version (${BUILD_DIR}/generated/version.txt): $(stamped_version)"
     local f
     for f in "$BUILD_DIR"/*.deb "$BUILD_DIR"/*.rpm "$BUILD_DIR"/*.dmg dist/appimage/*.AppImage; do
         [ -f "$f" ] && info "Package: $f"
@@ -651,7 +651,8 @@ Env: BUILD_DIR, BUILD_TYPE, JOBS, OPENSSL (static|system), GENERATOR, PREFIX,
      DEPLOY_PREFIX, CMAKE_PREFIX_PATH, PACKAGE_GENERATORS, APPIMAGE_TOOLS,
      OPENSSL_INSTALL_DIR, CLEAN, DRY_RUN, ONESIMUS_ALLOW_ROOT
 
-Every build increments .build_number and regenerates include/version.h.
+Build number: the CI run number, else the commit count (CMake option
+ONESIMUS_INCREMENT_BUILD=ON counts it up per build in the build tree).
 
 Examples:
   ./deploy.sh                     # build + deploy to /usr

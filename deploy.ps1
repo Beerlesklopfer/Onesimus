@@ -13,8 +13,8 @@
     install by default on Windows: "deploy" means build + make runnable; the
     installers (MSI via WiX, portable ZIP) are separate verbs.
 
-    The build stamps the version: CMake's increment_build_number target
-    increments .build_number and regenerates include\version.h on every build.
+    The build writes the version header and build number into the build tree
+    only (<BuildDir>\generated); the source tree stays clean.
 
     Environment: OPENSSL_INSTALL_DIR names a prefix for the static OpenSSL
     build that is reused when it already holds the libraries (CI cache).
@@ -64,7 +64,7 @@
     Delete CMakeCache.txt and configure afresh.
 
 .PARAMETER Version
-    Version for "zip". Default: VERSION_FULL from include\version.h.
+    Version for "zip". Default: VERSION_FULL from <BuildDir>\generated\version.txt.
 
 .PARAMETER DirdZip
     For "installer": onesimus-dird-<version>-windows-x86_64.zip with
@@ -159,10 +159,10 @@ function Remove-Tree($path) {
 }
 
 function Get-StampedVersion {
-    $h = Join-Path $ScriptDir 'include\version.h'
-    if (Test-Path $h) {
-        $m = Select-String -Path $h -Pattern '^#define VERSION_FULL\s+"([^"]+)"' | Select-Object -First 1
-        if ($m) { return $m.Matches[0].Groups[1].Value }
+    $f = Join-Path $BuildDir 'generated\version.txt'
+    if (Test-Path $f) {
+        $v = (Get-Content $f -TotalCount 1).Trim()
+        if ($v) { return $v }
     }
     return '0.0.0'
 }
@@ -466,7 +466,7 @@ function Show-Status {
         $plat = Test-Path (Join-Path $DeployDir 'platforms\qwindows.dll')
         Write-Ok "  deploy\: $dlls DLLs, Qt platform plugin: $(if ($plat) { 'yes' } else { 'NO (windeployqt missing?)' })"
     }
-    Write-Info "Stamped version (include\version.h): $(Get-StampedVersion)"
+    Write-Info "Version (generated\version.txt): $(Get-StampedVersion)"
     Get-ChildItem -Path $BuildDir -Include '*.msi', '*.zip', '*setup*.exe', 'onesimus-*.exe' -File -ErrorAction SilentlyContinue |
         ForEach-Object { Write-Info "Package: $($_.FullName)" }
 }

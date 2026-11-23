@@ -93,3 +93,6 @@ debug.log
 
 # Package output (AppImage) and package inputs (onesimus-dird Windows zip)
 dist/
+# Generated into the build directory since GitHub issue #7; leftovers of older checkouts
+/include/version.h
+/.build_number

@@ -301,9 +301,11 @@ Environment: `BUILD_DIR`, `BUILD_TYPE`, `JOBS`, `OPENSSL` (static/system),
 `PACKAGE_GENERATORS`, `APPIMAGE_TOOLS`, `CLEAN`, `DRY_RUN`, `ONESIMUS_ALLOW_ROOT`.
 
 An existing build tree keeps its build type and OpenSSL mode unless `-t`/`-s`
-(or `BUILD_TYPE`/`OPENSSL`) is given. Every build increments `.build_number`
-and regenerates `include/version.h` (both tracked: do not commit the stamped
-values of a development build).
+(or `BUILD_TYPE`/`OPENSSL`) is given. The build writes `version.h`,
+`buildinfo.cpp` and `version.txt` into `<build>/generated/` and nothing into the
+source tree, so an unchanged build compiles nothing. The build number is
+`GITHUB_RUN_NUMBER` in CI, else the number of commits up to HEAD;
+`-DONESIMUS_INCREMENT_BUILD=ON` counts it up on every build instead.
 
 ## ⏱️ Build Times
 

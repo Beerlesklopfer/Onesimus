@@ -14,9 +14,8 @@
 #   ./deploy.fish --dry-run all    print every command instead of running it
 #   ./deploy.fish help             the full verb table
 #
-# The build stamps the version: CMake's increment_build_number target
-# increments .build_number and regenerates include/version.h on every build.
-# Both files are tracked; do not commit the stamped values from a dev build.
+# The build writes the version header and build number into the build tree
+# only (<build>/generated); the source tree stays clean.
 
 # ─── First: not as root (see deploy.sh for the reason) ──────────────────────
 if test (id -u) -ne 0
@@ -27,7 +26,7 @@ else
     set -l first (test (count $argv) -gt 0; and echo $argv[1]; or echo "<command>")
     printf '[deploy] Do not run this script as root.\n' >&2
     printf '[deploy]   It raises itself with sudo for every privileged step.\n' >&2
-    printf '[deploy]   As root the build tree and version.h become root-owned.\n' >&2
+    printf '[deploy]   As root the build tree becomes root-owned.\n' >&2
     printf '[deploy]\n' >&2
     printf '[deploy]   Right:  ./deploy.fish %s\n' $first >&2
     printf '[deploy]   Container without a user:  ONESIMUS_ALLOW_ROOT=1 ./deploy.fish %s\n' $first >&2
@@ -201,8 +200,11 @@ function app_bin
     end
 end
 
+# $argv[1]: another build directory (the AppImage tree)
 function stamped_version
-    sed -n 's/^#define VERSION_FULL *"\(.*\)"/\1/p' include/version.h 2>/dev/null | head -1
+    set -l d $BUILD_DIR
+    test (count $argv) -gt 0; and set d $argv[1]
+    head -1 $d/generated/version.txt 2>/dev/null
 end
 
 function static_flag
@@ -516,7 +518,7 @@ function cmd_appimage
         https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/$LINUXDEPLOY_QT_TAG/linuxdeploy-plugin-qt-x86_64.AppImage \
         $LINUXDEPLOY_QT_SHA256
 
-    set -l version (stamped_version)
+    set -l version (stamped_version $dir)
     test -n "$version"; or set version 0.0.0
     run mkdir -p $out
     info "linuxdeploy (Qt plugin, version $version)"
@@ -584,7 +586,7 @@ function show_status
     else
         warn "  no binary (./deploy.fish build)"
     end
-    info "Stamped version (include/version.h): "(stamped_version)
+    info "Version ($BUILD_DIR/generated/version.txt): "(stamped_version)
     for f in $BUILD_DIR/*.deb $BUILD_DIR/*.rpm $BUILD_DIR/*.dmg dist/appimage/*.AppImage
         test -f $f; and info "Package: $f"
     end
@@ -631,7 +633,8 @@ Env: BUILD_DIR, BUILD_TYPE, JOBS, OPENSSL (static|system), GENERATOR, PREFIX,
      DEPLOY_PREFIX, CMAKE_PREFIX_PATH, PACKAGE_GENERATORS, APPIMAGE_TOOLS,
      OPENSSL_INSTALL_DIR, CLEAN, DRY_RUN, ONESIMUS_ALLOW_ROOT
 
-Every build increments .build_number and regenerates include/version.h.
+Build number: the CI run number, else the commit count (CMake option
+ONESIMUS_INCREMENT_BUILD=ON counts it up per build in the build tree).
 
 Examples:
   ./deploy.fish                     # build + deploy to /usr

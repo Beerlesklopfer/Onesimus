@@ -90,8 +90,6 @@ checked against the code on 2026-11-23; file references are to that state. Repor
 - No open items besides those above.
 
 ### Build/packaging
-- Every build rewrites the tracked `include/version.h` and `.build_number`
-  (`cmake/IncrementBuildNumber.cmake`, called at `CMakeLists.txt:940`) (#7).
 - No compiler warning flags (`-Wall -Wextra`, `/W4`). No core library: `bareosauth.cpp` is
   compiled for several targets (`CMakeLists.txt:473`, `:1335`, `:1370`).
 - Tests still missing for `BJsonStreamReader` and `BConfigExporter`.

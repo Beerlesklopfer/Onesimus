@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `resources/icons/create_ico.bat` and `external/README.md` are removed.
 - CTest also registers the live-Director tests `bareosauth_live_test` and `director_live_test`
   (label `live-director`); they are skipped unless `ONESIMUS_LIVE_DIRECTOR` names a test Director.
+- A build no longer writes into the source tree (#7): `version.h` and the build number are generated
+  into `<build>/generated/`, `include/version.h` and `.build_number` are no longer tracked, and an
+  unchanged build compiles nothing. The build number is the CI run number, else the commit count;
+  `-DONESIMUS_INCREMENT_BUILD=ON` counts it up per build. About shows the source (commit) date.
 
 ### Security
 - **BNET: the Director must prove the password.** The console refuses a Director whose answer to

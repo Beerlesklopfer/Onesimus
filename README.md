@@ -198,7 +198,9 @@ Examples:
 ```
 
 `./deploy.fish` has the same commands, flags and environment variables for Fish
-users. Every build increments `.build_number` and regenerates `include/version.h`.
+users. The build writes `version.h` and the build number into the build tree only
+(`build/generated/`); the source tree stays clean. The build number is the CI run number,
+else the number of commits; `-DONESIMUS_INCREMENT_BUILD=ON` counts it up on every build.
 
 ## 📦 Prerequisites
 
@@ -374,7 +376,7 @@ onesimus/
 │   ├── bconnectionprofile.h             #   Connection profile data structure
 │   ├── bpaginationwidget.h              #   Pagination controls for large tables
 │   ├── storagewidget.h                  #   Storage/volume management tab
-│   ├── version.h                        #   Auto-generated version, build number, git info
+│   ├── version.h.in                     #   Template of the generated version.h (build/generated)
 │   ├── clients/                         # Client management
 │   │   ├── bclientswidget.h             #   Client list + filtering
 │   │   ├── bclientdetailsdialog.h       #   Client details dialog

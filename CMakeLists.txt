@@ -19,17 +19,22 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ============================================================================
-# Version Information Generation (version.h)
+# Version information (version.h, buildinfo.cpp)
 # ============================================================================
 # Version scheme: MAJOR.MINOR.PATCH.BUILD
-#   - Triplet (MAJOR.MINOR.PATCH) is set in project() above
-#   - BUILD number auto-increments on every build via custom target
-#   - version.h is regenerated at build time (not configure time)
+#   - the triplet is set in project() above; packages and release tags use it
+#   - version.h (stable values) is generated at configure time and
+#     buildinfo.cpp (build number, source date, git) on every build, both into
+#     ${CMAKE_BINARY_DIR}/generated; nothing in the source tree is written
+#   - BUILD: the CI run number (GITHUB_RUN_NUMBER), else the number of commits
+#     up to HEAD; -DONESIMUS_INCREMENT_BUILD=ON counts it up on every build
+#     instead (a counter in the build directory)
 # ============================================================================
+option(ONESIMUS_INCREMENT_BUILD "Count the build number up on every build (counter in the build directory)" OFF)
 
 message(STATUS "")
 message(STATUS "========================================")
-message(STATUS "Version: ${PROJECT_VERSION} (build number increments at build time)")
+message(STATUS "Version: ${PROJECT_VERSION}")
 message(STATUS "========================================")
 
 set(CMAKE_AUTOMOC ON)
@@ -461,7 +466,11 @@ qt_add_translations(${PROJECT_NAME}
 # ============================================================================
 
 # Include-Verzeichnisse
+# The generated directory comes first: version.h is generated there (a stale
+# include/version.h of an older checkout must not shadow it).
+set(ONESIMUS_GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 include_directories(
+    ${ONESIMUS_GENERATED_DIR}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
 )
@@ -650,7 +659,6 @@ set(HEADERS
     include/db/bdatabase.h
     include/db/bresourcemodel.h
     include/db/bdirectormodel.h
-    include/version.h
     include/director/bareosauth.h
     include/director/bjsonstreamreader.h
     include/bpaginationwidget.h
@@ -802,6 +810,40 @@ set(ONESIMUS_NOTICE_FILES THIRD-PARTY-NOTICES.md LICENSE)
 list(TRANSFORM ONESIMUS_NOTICE_FILES PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE ONESIMUS_NOTICE_PATHS)
 list(TRANSFORM ONESIMUS_LICENSE_TEXTS PREPEND "${CMAKE_SOURCE_DIR}/" OUTPUT_VARIABLE ONESIMUS_LICENSE_PATHS)
 
+# ============================================================================
+# Version header and build info (GitHub issue #7)
+# ============================================================================
+# version.h: stable values, configured once (rewritten only when they change).
+# buildinfo.cpp: build number, source date and git state, refreshed by
+# cmake/BuildInfo.cmake on every build but rewritten only when a value
+# changed. So an unchanged build compiles nothing, a new commit recompiles
+# one file, and the source tree is never written (sudo make install leaves no
+# root-owned files in it). version.txt holds VERSION_FULL for deploy.sh/.ps1.
+if(EXISTS "${CMAKE_SOURCE_DIR}/include/version.h")
+    message(WARNING "include/version.h is left over from an older checkout and no longer used "
+                    "(the header is generated into ${ONESIMUS_GENERATED_DIR}); delete it.")
+endif()
+configure_file(${CMAKE_SOURCE_DIR}/include/version.h.in ${ONESIMUS_GENERATED_DIR}/version.h @ONLY)
+set(ONESIMUS_BUILDINFO_CPP ${ONESIMUS_GENERATED_DIR}/buildinfo.cpp)
+add_custom_target(onesimus_buildinfo
+    COMMAND ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DBINARY_DIR=${CMAKE_BINARY_DIR}
+        -DTEMPLATE_FILE=${CMAKE_SOURCE_DIR}/cmake/buildinfo.cpp.in
+        -DOUTPUT_FILE=${ONESIMUS_BUILDINFO_CPP}
+        -DVERSION_FILE=${ONESIMUS_GENERATED_DIR}/version.txt
+        -DPROJECT_VERSION=${PROJECT_VERSION}
+        -DINCREMENT=${ONESIMUS_INCREMENT_BUILD}
+        -P ${CMAKE_SOURCE_DIR}/cmake/BuildInfo.cmake
+    BYPRODUCTS ${ONESIMUS_BUILDINFO_CPP} ${ONESIMUS_GENERATED_DIR}/version.txt
+    COMMENT "Checking build info (build number, git)"
+    VERBATIM
+)
+set_source_files_properties(${ONESIMUS_BUILDINFO_CPP} PROPERTIES GENERATED TRUE SKIP_AUTOGEN TRUE)
+# In SOURCES: the tests built from the application sources need it as well
+# (each of them depends on onesimus_buildinfo).
+list(APPEND SOURCES ${ONESIMUS_BUILDINFO_CPP})
+
 # Theme Resources
 qt6_add_resources(THEME_RESOURCES
     ${CMAKE_SOURCE_DIR}/resources/resources.qrc
@@ -908,6 +950,8 @@ if(APPLE)
     )
 endif()
 
+add_dependencies(${PROJECT_NAME} onesimus_buildinfo)
+
 # Hide console window on Windows (GUI application)
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -915,32 +959,6 @@ if(WIN32)
     )
 endif()
 
-# ============================================================================
-# Build Number Auto-Increment (runs on every build)
-# ============================================================================
-# Increments .build_number and regenerates version.h before compiling.
-# Version scheme: MAJOR.MINOR.PATCH.BUILD (triplet from project() + auto build number)
-
-add_custom_target(increment_build_number
-    COMMAND ${CMAKE_COMMAND}
-        -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-        -DBINARY_DIR=${CMAKE_BINARY_DIR}
-        -DTEMPLATE_FILE=${CMAKE_SOURCE_DIR}/include/version.h.in
-        -DOUTPUT_FILE=${CMAKE_SOURCE_DIR}/include/version.h
-        -DPROJECT_VERSION=${PROJECT_VERSION}
-        -DPROJECT_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-        -DPROJECT_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-        -DPROJECT_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-        -DPROJECT_NAME=${PROJECT_NAME}
-        -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
-        -DCMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}
-        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        -DCMAKE_CXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}
-        -DCMAKE_CXX_COMPILER_VERSION=${CMAKE_CXX_COMPILER_VERSION}
-        -P ${CMAKE_SOURCE_DIR}/cmake/IncrementBuildNumber.cmake
-    COMMENT "Incrementing build number..."
-)
-add_dependencies(${PROJECT_NAME} increment_build_number)
 
 # ============================================================================
 # Link Libraries
@@ -3168,6 +3186,7 @@ if(BUILD_TESTING)
         $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
         Qt6::Test
     )
+    add_dependencies(bdialogfonts_test onesimus_buildinfo)
     add_test(NAME bdialogfonts_test COMMAND bdialogfonts_test)
     # To keep pictures of the dialogs, run it with
     # ONESIMUS_DIALOG_SCREENSHOT_DIR set to a directory.
@@ -3210,6 +3229,7 @@ if(BUILD_TESTING)
         $<TARGET_PROPERTY:${PROJECT_NAME},LINK_LIBRARIES>
         Qt6::Test
     )
+    add_dependencies(bappwidgets_test onesimus_buildinfo)
     add_test(NAME bsettingsdialog_test COMMAND bappwidgets_test
         cancelRevertsProfilesAndSettings saveWritesTheWorkingCopy editedRowIsRelabelled
         resetKeepsProfiles resetCanIncludeProfiles exportImportUsesTheAppStore)

@@ -49,7 +49,10 @@ Falls gewünscht, können Sie auch direkt eine Developer PowerShell verwenden:
 | `clean` | Build-Verzeichnis löschen |
 | `help` | `Get-Help .\deploy.ps1 -Detailed` |
 
-Jeder Build erhöht `.build_number` und erzeugt `include\version.h` neu.
+Der Build schreibt `version.h` und die Build-Nummer nur ins Build-Verzeichnis
+(`build\generated\`), nicht in den Quellbaum. Die Build-Nummer ist in der CI
+`GITHUB_RUN_NUMBER`, sonst die Zahl der Commits; `-DONESIMUS_INCREMENT_BUILD=ON`
+zählt sie stattdessen bei jedem Build hoch.
 
 ## 📋 Parameter
 
@@ -92,7 +95,7 @@ Wird als `BACKUP_SYSTEM` an CMake übergeben. Derzeit baut nur `BAREOS` (Standar
 
 ### -BuildDir, -Jobs, -Prefix, -Reconfigure, -Version, -DryRun
 Build-Verzeichnis (Standard `build`), parallele Jobs, Ziel von `install`,
-frische CMake-Konfiguration, Version für `zip` (Standard: aus `version.h`) und
+frische CMake-Konfiguration, Version für `zip` (Standard: aus `build\generated\version.txt`) und
 Probelauf: `-DryRun` zeigt jeden Befehl, ohne ihn auszuführen.
 
 ### Kombiniert
