@@ -612,7 +612,7 @@ Every feature below is part of every edition ([Pricing](https://onesimus.io/pric
 - ✅ Restore wizard with BVFS file browser
 - ✅ Predicted waiting times and proposed start times (stagger)
 - ✅ Multi-Director support (connection profiles)
-- ✅ Job Definitions tab: view and change Job and JobDefs
+- ✅ Edit Job and Edit JobDefs over gRPC
 - ✅ Live job log
 - ✅ ACL matrix of consoles and profiles
 - ✅ 3-2-1 Verifier
@@ -623,7 +623,7 @@ Every feature below is part of every edition ([Pricing](https://onesimus.io/pric
 - 🔜 Storage consumption per job/client
 - 🔜 Growth trends & capacity forecasts
 - 🚧 Volume recycle recommendations ("reusable from" in the volume table)
-- 🔜 Pre-built signed binaries
+- 🚧 Pre-built binaries: .deb, AppImage, MSI and a signed and notarised macOS dmg; the Linux and Windows packages are not signed yet
 
 **Scale across infrastructure:**
 - 🔜 Simultaneous Director connections

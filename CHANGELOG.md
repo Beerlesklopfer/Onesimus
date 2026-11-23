@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   constraints per Director profile, applied after one confirmation.
 - **ACL matrix**: the consoles' ACLs and profiles in one matrix; catalog ACLs, new consoles
   and new profiles are changed as proposed configuration text.
-- **Job Definitions** tab: view and change Job and JobDefs over gRPC.
+- **Edit Job and Edit JobDefs** (Jobs menu) write over gRPC; JobDefs can be deleted.
 - **3-2-1 Verifier** (Tools menu): checks the 3-2-1 rule per backup job.
 - **Prune and purge** with a preview on the Onesimus Director.
 - **Status bar**: free-tier usage and the end of the annual licence.
