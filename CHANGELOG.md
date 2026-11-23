@@ -45,7 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the Bareos source AGPL-3.0-only (see `LICENSING.md`).
 - Byte counts in the jobs and clients tables, job and client details, job statistics, restore
   wizard and cleanup dialog are shown in binary units with IEC names (KiB, MiB, GiB, TiB) and one
-  decimal, like the storage view; before they were labelled KB/MB/GB with two decimals.
+  decimal, like the storage view; before they were labelled KB/MB/GB with two decimals. The
+  decimal separator follows the application language ("1,5 GiB" in German), also in the storage
+  view and the free-tier usage.
 - The Bacula backend is deprecated; the BOTH build option is removed.
 - **Build scripts became deploy scripts** (modelled on forgeiec-studio):
   `build.sh`/`build.fish` → `deploy.sh`/`deploy.fish`, `build-windows.ps1` → `deploy.ps1`,

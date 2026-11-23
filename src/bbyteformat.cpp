@@ -7,6 +7,8 @@
 
 #include "bbyteformat.h"
 
+#include <QLocale>
+
 #include <cmath>
 
 namespace BByteFormat {
@@ -25,6 +27,13 @@ QString withoutTrailingZeros(QString number)
         }
     }
     return number;
+}
+
+// The decimal separator of the application language ("1,5" in German)
+QString localized(const QString &number)
+{
+    QString text = number;
+    return text.replace(QLatin1Char('.'), QLocale().decimalPoint());
 }
 
 } // namespace
@@ -60,7 +69,7 @@ QString format(qint64 bytes, int decimals)
         value = std::round(double(magnitude) / divisor * factor) / factor;
     }
 
-    const QString number = withoutTrailingZeros(QString::number(value, 'f', decimals));
+    const QString number = localized(withoutTrailingZeros(QString::number(value, 'f', decimals)));
     return sign + number + QLatin1Char(' ') + QLatin1String(units[unit]);
 }
 
@@ -90,7 +99,7 @@ QString formatDecimal(quint64 bytes, int decimals)
         value = std::round(double(bytes) / divisor * factor) / factor;
     }
 
-    const QString number = withoutTrailingZeros(QString::number(value, 'f', decimals));
+    const QString number = localized(withoutTrailingZeros(QString::number(value, 'f', decimals)));
     return number + QLatin1Char(' ') + QLatin1String(units[unit]);
 }
 

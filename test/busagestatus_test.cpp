@@ -61,6 +61,8 @@ class BUsageStatusTest : public QObject
     Q_OBJECT
 
 private slots:
+    // The expected texts use '.', the separator of the C locale
+    void initTestCase() { QLocale::setDefault(QLocale::c()); }
     void licenceHiddenForFreeTierAndFarEnd();
     void licenceEndsSoon();
     void licenceExpiredAndInvalid();

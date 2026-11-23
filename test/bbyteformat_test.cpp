@@ -22,7 +22,9 @@ class BByteFormatTest : public QObject
     Q_OBJECT
 
 private slots:
+    void initTestCase();
     void bareosFiftyGIsFiftyGiB();
+    void decimalSeparatorFollowsLanguage();
     void format_data();
     void format();
     void formatDecimals();
@@ -34,6 +36,23 @@ private slots:
     void parseRejects();
     void realVolumeSizes();
 };
+
+// The expected texts below use '.', the separator of the C locale
+void BByteFormatTest::initTestCase()
+{
+    QLocale::setDefault(QLocale::c());
+}
+
+void BByteFormatTest::decimalSeparatorFollowsLanguage()
+{
+    QLocale::setDefault(QLocale(QLocale::German, QLocale::Germany));
+    QCOMPARE(BByteFormat::format(1536), QStringLiteral("1,5 KiB"));
+    QCOMPARE(BByteFormat::format(Q_INT64_C(53687091200)), QStringLiteral("50 GiB"));
+    QCOMPARE(BByteFormat::formatDecimal(Q_UINT64_C(73600000000)), QStringLiteral("73,6 GB"));
+    QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
+    QCOMPARE(BByteFormat::format(1536), QStringLiteral("1.5 KiB"));
+    QLocale::setDefault(QLocale::c());
+}
 
 void BByteFormatTest::bareosFiftyGIsFiftyGiB()
 {

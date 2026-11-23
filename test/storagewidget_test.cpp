@@ -127,6 +127,8 @@ private:
 
 void StorageWidgetTest::initTestCase()
 {
+    // The expected texts use '.', the separator of the C locale
+    QLocale::setDefault(QLocale::c());
     QVERIFY2(!fixture().isEmpty(), "fixture missing");
 }
 
