@@ -7,11 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-23
+
+### Added
+- **Onesimus Director over gRPC**: typed transport to the Rust Director (`odir`) with mDNS
+  discovery; functions the connected Director does not offer are named as unavailable.
+- **Schedules**: grid editor by weekday and hour (brushes, undo, Description), a wizard of a
+  name page plus the grid, save/change/delete over gRPC, copy/rename/move of one job.
+- **Schedule timeline**: measured job history instead of fixed durations, predicted waiting
+  time calibrated against the catalog (device writers, SD retry, start overhead), a live
+  overlay with the Director's times, a legend, day view of who waits for whom, calendar.
+- **Stagger**: proposed later start times for waiting jobs, on the quarter hour, with
+  constraints per Director profile, applied after one confirmation.
+- **ACL matrix**: the consoles' ACLs and profiles in one matrix; catalog ACLs, new consoles
+  and new profiles are changed as proposed configuration text.
+- **Job Definitions** tab: view and change Job and JobDefs over gRPC.
+- **3-2-1 Verifier** (Tools menu): checks the 3-2-1 rule per backup job.
+- **Prune and purge** with a preview on the Onesimus Director.
+- **Status bar**: free-tier usage and the end of the annual licence.
+- **Job log**: one append-only model with a live log in all three views.
+- **Languages**: View > Language; the system language by default; translations into German,
+  Spanish, French, Italian and Russian (a few newer texts are not translated yet).
+- **Interface**: the desktop font as base with an interface zoom; status chips in the tables;
+  volume table with "reusable from"; resizable, sortable client columns.
+- **Windows**: MSI installer with features for the GUI, oconsole and the ofd service, plus a
+  portable ZIP. This release's MSI holds the GUI only.
+- **CI**: Linux and Windows builds with tests, a macOS build; a release workflow for .deb, AppImage,
+  MSI and ZIP.
+- `SECURITY.md`: how to report a vulnerability; from v1.0.0 each version gets security fixes
+  for 2 years.
+
 ### Changed
+- Licence: AGPL-3.0-or-later.
+- The Bacula backend is deprecated; the BOTH build option is removed.
 - **Build scripts became deploy scripts** (modelled on forgeiec-studio):
   `build.sh`/`build.fish` → `deploy.sh`/`deploy.fish`, `build-windows.ps1` → `deploy.ps1`,
   `run-build.bat`/`rebuild.bat` → `deploy.bat`. Verbs: `all` (default: build + deploy into
-  `/usr` with sudo per step; on Windows build + windeployqt), `configure`, `build`, `rebuild`,
+  `/usr/local` with sudo per step; on Windows build + windeployqt), `configure`, `build`, `rebuild`,
   `run`, `test`, `install`, `package`, `appimage` (Linux), `installer`/`zip`/`msi` (Windows),
   `status`, `clean`, `help`. All former flags keep their meaning; `--dry-run`/`-DryRun`
   prints every command instead of running it. `./deploy.sh build` is the former `./build.sh`.
