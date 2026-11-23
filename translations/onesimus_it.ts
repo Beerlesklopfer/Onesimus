@@ -3767,6 +3767,110 @@ Continuare?</translation>
         <source>&lt;b&gt;Validation Warnings:&lt;/b&gt;&lt;br&gt;</source>
         <translation>&lt;b&gt;Avvisi di convalida:&lt;/b&gt;&lt;br&gt;</translation>
     </message>
+    <message>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="342"/>
+        <source>These parts of the configuration were not read:
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>BConfigParser</name>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="381"/>
+        <source>%1: the quoted string has no closing quote</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="411"/>
+        <source>%1: the file name after @ is missing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="120"/>
+        <source>%1: more than %2 MiB of configuration text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="604"/>
+        <source>%1: UTF-16 files cannot be read; save the file as UTF-8</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="728"/>
+        <source>%1: @%2 was not read (includes are only followed when one file is opened)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="734"/>
+        <source>%1: @%2 was not run (commands are never run)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="738"/>
+        <source>%1: @%2 was not read (relative path)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="742"/>
+        <source>%1: includes nested deeper than %2 levels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="749"/>
+        <source>%1: cannot open the included file %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="755"/>
+        <source>%1: %2 includes itself</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="759"/>
+        <source>%1: more than %2 included files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="785"/>
+        <source>%1: expected a resource type, got &quot;%2&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="792"/>
+        <source>%1: expected &quot;{&quot; after the resource type %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="807"/>
+        <source>%1: the %2 resource has no Name and was left out</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="821"/>
+        <source>%1: blocks nested deeper than %2 levels</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="832"/>
+        <source>%1: the text ends before the closing &quot;}&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="853"/>
+        <source>%1: expected &quot;=&quot; after %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="859"/>
+        <source>%1: unexpected &quot;%2&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="877"/>
+        <source>%1: expected a value for %2</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>BConnectionWizard</name>
@@ -18980,6 +19084,11 @@ Cause possibili:
             <numerusform></numerusform>
             <numerusform></numerusform>
         </translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosdirector.cpp" line="1995"/>
+        <source>The command was not sent: one of its values cannot be written in a command line</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

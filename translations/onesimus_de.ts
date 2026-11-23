@@ -3768,6 +3768,111 @@ Möchten Sie fortfahren?</translation>
         <source>&lt;b&gt;Validation Warnings:&lt;/b&gt;&lt;br&gt;</source>
         <translation>&lt;b&gt;Validierungswarnungen:&lt;/b&gt;&lt;br&gt;</translation>
     </message>
+    <message>
+        <location filename="../src/director/bconfigimportdialog.cpp" line="342"/>
+        <source>These parts of the configuration were not read:
+%1</source>
+        <translation>Diese Teile der Konfiguration wurden nicht gelesen:
+%1</translation>
+    </message>
+</context>
+<context>
+    <name>BConfigParser</name>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="381"/>
+        <source>%1: the quoted string has no closing quote</source>
+        <translation>%1: dem Text in Anführungszeichen fehlt das schließende Anführungszeichen</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="411"/>
+        <source>%1: the file name after @ is missing</source>
+        <translation>%1: der Dateiname nach @ fehlt</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="120"/>
+        <source>%1: more than %2 MiB of configuration text</source>
+        <translation>%1: mehr als %2 MiB Konfigurationstext</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="604"/>
+        <source>%1: UTF-16 files cannot be read; save the file as UTF-8</source>
+        <translation>%1: UTF-16-Dateien können nicht gelesen werden; speichern Sie die Datei als UTF-8</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="728"/>
+        <source>%1: @%2 was not read (includes are only followed when one file is opened)</source>
+        <translation>%1: @%2 wurde nicht gelesen (eingebundene Dateien werden nur beim Öffnen einer einzelnen Datei gelesen)</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="734"/>
+        <source>%1: @%2 was not run (commands are never run)</source>
+        <translation>%1: @%2 wurde nicht ausgeführt (Befehle werden nie ausgeführt)</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="738"/>
+        <source>%1: @%2 was not read (relative path)</source>
+        <translation>%1: @%2 wurde nicht gelesen (relativer Pfad)</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="742"/>
+        <source>%1: includes nested deeper than %2 levels</source>
+        <translation>%1: eingebundene Dateien tiefer als %2 Ebenen verschachtelt</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="749"/>
+        <source>%1: cannot open the included file %2</source>
+        <translation>%1: die eingebundene Datei %2 kann nicht geöffnet werden</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="755"/>
+        <source>%1: %2 includes itself</source>
+        <translation>%1: %2 bindet sich selbst ein</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="759"/>
+        <source>%1: more than %2 included files</source>
+        <translation>%1: mehr als %2 eingebundene Dateien</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="785"/>
+        <source>%1: expected a resource type, got &quot;%2&quot;</source>
+        <translation>%1: Ressourcentyp erwartet, gefunden: &quot;%2&quot;</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="792"/>
+        <source>%1: expected &quot;{&quot; after the resource type %2</source>
+        <translation>%1: &quot;{&quot; nach dem Ressourcentyp %2 erwartet</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="807"/>
+        <source>%1: the %2 resource has no Name and was left out</source>
+        <translation>%1: die Ressource %2 hat keinen Namen und wurde ausgelassen</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="821"/>
+        <source>%1: blocks nested deeper than %2 levels</source>
+        <translation>%1: Blöcke tiefer als %2 Ebenen verschachtelt</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="832"/>
+        <source>%1: the text ends before the closing &quot;}&quot;</source>
+        <translation>%1: der Text endet vor der schließenden &quot;}&quot;</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="853"/>
+        <source>%1: expected &quot;=&quot; after %2</source>
+        <translation>%1: &quot;=&quot; nach %2 erwartet</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="859"/>
+        <source>%1: unexpected &quot;%2&quot;</source>
+        <translation>%1: unerwartetes &quot;%2&quot;</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigparser.cpp" line="877"/>
+        <source>%1: expected a value for %2</source>
+        <translation>%1: Wert für %2 erwartet</translation>
+    </message>
 </context>
 <context>
     <name>BConnectionWizard</name>
@@ -18996,6 +19101,11 @@ Mögliche Ursachen:
             <numerusform>Der Director hat nicht innerhalb von %n Sekunde geantwortet</numerusform>
             <numerusform>Der Director hat nicht innerhalb von %n Sekunden geantwortet</numerusform>
         </translation>
+    </message>
+    <message>
+        <location filename="../src/director/bareosdirector.cpp" line="1995"/>
+        <source>The command was not sent: one of its values cannot be written in a command line</source>
+        <translation>Der Befehl wurde nicht gesendet: einer seiner Werte lässt sich nicht in einer Befehlszeile schreiben</translation>
     </message>
 </context>
 <context>
