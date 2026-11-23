@@ -34,7 +34,7 @@ Onesimus is a native Qt6 desktop application that connects directly to your Bare
 
 ### 🖥️ Desktop-Native — No Server Required
 
-Unlike the [Bareos WebUI](https://docs.bareos.org/IntroductionAndTutorial/BareosWebui.html) (PHP, Apache/Nginx, server-side), Onesimus runs on **your workstation**. No web server, no PHP, no browser, no session management. Install it, enter your Director credentials, done. It starts instantly, works offline, and doesn't add attack surface to the backup server.
+Onesimus is a native desktop application that runs on **your workstation**: no web server, no PHP, no browser session. Install it, enter your Director credentials, done. It installs nothing on the backup server and connects to the Director like a console does.
 
 ### 🔒 Native Bareos API — No Direct SQL
 
