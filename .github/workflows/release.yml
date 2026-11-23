@@ -84,7 +84,7 @@ jobs:
             ca-certificates git curl zstd file perl make build-essential cmake ninja-build \
             dpkg-dev librsvg2-bin \
             qt6-base-dev qt6-base-private-dev qt6-tools-dev qt6-tools-dev-tools qt6-l10n-tools \
-            qt6-grpc-dev qt6-grpc-tools protobuf-compiler libprotobuf-dev libgl-dev
+            qt6-grpc-dev qt6-grpc-tools qt6-wayland protobuf-compiler libprotobuf-dev libgl-dev
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

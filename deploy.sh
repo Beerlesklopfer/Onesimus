@@ -524,9 +524,20 @@ cmd_appimage() {
             --icon-file "${appdir}/usr/share/icons/hicolor/scalable/apps/onesimus.svg" --output appimage
         return 0
     fi
+    # Only the platform plugins this Qt has: linuxdeploy aborts on a missing
+    # one (Wayland needs the package qt6-wayland on Debian).
+    local plugdir extra="" p
+    plugdir="$("$qmake" -query QT_INSTALL_PLUGINS 2>/dev/null)/platforms"
+    for p in libqwayland-egl.so libqwayland-generic.so libqoffscreen.so; do
+        if [ -f "${plugdir}/${p}" ]; then
+            extra="${extra:+${extra};}${p}"
+        else
+            warn "platform plugin ${p} not found in ${plugdir}: not bundled"
+        fi
+    done
     ( cd "$out" && \
       env ARCH=x86_64 QMAKE="$qmake" APPIMAGE_EXTRACT_AND_RUN=1 \
-          EXTRA_PLATFORM_PLUGINS="libqwayland-egl.so;libqwayland-generic.so;libqoffscreen.so" \
+          EXTRA_PLATFORM_PLUGINS="$extra" \
           LINUXDEPLOY_OUTPUT_VERSION="$version" \
           PATH="${APPIMAGE_TOOLS}:${PATH}" \
       "${APPIMAGE_TOOLS}/linuxdeploy-x86_64.AppImage" \
