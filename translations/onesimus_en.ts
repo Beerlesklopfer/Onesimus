@@ -1742,6 +1742,19 @@ Click Preset to use recommended ciphers.</source>
     </message>
 </context>
 <context>
+    <name>BBvfsReplyRouter</name>
+    <message>
+        <location filename="../src/jobs/bbvfsreplyrouter.cpp" line="36"/>
+        <source>The connection to the Director was lost.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bbvfsreplyrouter.cpp" line="38"/>
+        <source>The connection to the Director was established again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>BCapabilities</name>
     <message>
         <location filename="../src/bcapabilities.cpp" line="34"/>
@@ -10795,6 +10808,11 @@ Leave empty to allow all valid certificates.</source>
         <source>Browse files — Client: %1, FileSet: %2</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="748"/>
+        <source>The Director reported an error: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
         <location filename="../src/jobs/brestorewizard.cpp" line="708"/>
         <source>%n directory(ies)</source>
@@ -10886,6 +10904,16 @@ Leave empty to allow all valid certificates.</source>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1284"/>
         <source>&gt;&gt;&gt; .bvfs_cleanup %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1435"/>
+        <source>The Director answered.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1450"/>
+        <source>Cleanup failed: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -10994,8 +11022,18 @@ Check the log above for details.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1500"/>
-        <source>Timeout waiting for %1 response (no response within %2 seconds)</source>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1672"/>
+        <source>No answer from the Director to %1 within %2 seconds.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1675"/>
+        <source>Waiting for the Director...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1676"/>
+        <source>The restore may still start. Check the job list before you start it again. The answer is still awaited while this window is open.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -11019,6 +11057,11 @@ Check the log above for details.</source>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="736"/>
         <source>Target Client:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="797"/>
+        <source>Restore Job:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11083,6 +11126,11 @@ Check the log above for details.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="848"/>
+        <source>at least %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="786"/>
         <source>unknown</source>
         <translation type="unfinished"></translation>
@@ -11090,6 +11138,11 @@ Check the log above for details.</source>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="788"/>
         <source>Job %1: %2 — %3 selected (estimated size: %4)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="926"/>
+        <source>Chosen by the Director</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11155,6 +11208,11 @@ Check the log above for details.</source>
         <source>Step %1 of %2 — Review the commands that will be sent to the Director.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1087"/>
+        <source>The restore command cannot be built: the value of %1= is not valid.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message numerus="yes">
         <location filename="../src/jobs/brestorewizard.cpp" line="970"/>
         <location filename="../src/jobs/brestorewizard.cpp" line="973"/>
@@ -11191,6 +11249,11 @@ Check the log above for details.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1109"/>
+        <source>at least %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="985"/>
         <source>unknown</source>
         <translation type="unfinished"></translation>
@@ -11203,6 +11266,11 @@ Check the log above for details.</source>
 • Target client: %3
 • Restore to: %4
 • Replace policy: %5</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1124"/>
+        <source>• Restore job: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

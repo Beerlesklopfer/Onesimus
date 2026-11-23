@@ -1744,6 +1744,19 @@ Auf „Vorgabe“ klicken, um die empfohlenen Ciphers zu verwenden.</translation
     </message>
 </context>
 <context>
+    <name>BBvfsReplyRouter</name>
+    <message>
+        <location filename="../src/jobs/bbvfsreplyrouter.cpp" line="36"/>
+        <source>The connection to the Director was lost.</source>
+        <translation>Die Verbindung zum Director wurde unterbrochen.</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bbvfsreplyrouter.cpp" line="38"/>
+        <source>The connection to the Director was established again.</source>
+        <translation>Die Verbindung zum Director wurde neu aufgebaut.</translation>
+    </message>
+</context>
+<context>
     <name>BCapabilities</name>
     <message>
         <location filename="../src/bcapabilities.cpp" line="34"/>
@@ -10898,6 +10911,11 @@ Leer lassen, um alle gültigen Zertifikate zu erlauben.</translation>
         <source>Browse files — Client: %1, FileSet: %2</source>
         <translation>Dateien durchsuchen — Client: %1, FileSet: %2</translation>
     </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="748"/>
+        <source>The Director reported an error: %1</source>
+        <translation>Der Director meldet einen Fehler: %1</translation>
+    </message>
     <message numerus="yes">
         <location filename="../src/jobs/brestorewizard.cpp" line="708"/>
         <source>%n directory(ies)</source>
@@ -10990,6 +11008,16 @@ Leer lassen, um alle gültigen Zertifikate zu erlauben.</translation>
         <location filename="../src/jobs/brestorewizard.cpp" line="1284"/>
         <source>&gt;&gt;&gt; .bvfs_cleanup %1</source>
         <translation>&gt;&gt;&gt; .bvfs_cleanup %1</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1435"/>
+        <source>The Director answered.</source>
+        <translation>Der Director hat geantwortet.</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1450"/>
+        <source>Cleanup failed: %1</source>
+        <translation>Aufräumen fehlgeschlagen: %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1300"/>
@@ -11100,9 +11128,19 @@ Details finden Sie im Protokoll oben.</translation>
         <translation>Befehl</translation>
     </message>
     <message>
-        <location filename="../src/jobs/brestorewizard.cpp" line="1500"/>
-        <source>Timeout waiting for %1 response (no response within %2 seconds)</source>
-        <translation>Zeitüberschreitung beim Warten auf die Antwort auf %1 (keine Antwort innerhalb von %2 Sekunden)</translation>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1672"/>
+        <source>No answer from the Director to %1 within %2 seconds.</source>
+        <translation>Keine Antwort des Directors auf %1 innerhalb von %2 Sekunden.</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1675"/>
+        <source>Waiting for the Director...</source>
+        <translation>Warten auf den Director...</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1676"/>
+        <source>The restore may still start. Check the job list before you start it again. The answer is still awaited while this window is open.</source>
+        <translation>Die Wiederherstellung kann noch starten. Prüfen Sie die Job-Liste, bevor Sie sie erneut starten. Solange dieses Fenster offen ist, wird weiter auf die Antwort gewartet.</translation>
     </message>
 </context>
 <context>
@@ -11126,6 +11164,11 @@ Details finden Sie im Protokoll oben.</translation>
         <location filename="../src/jobs/brestorewizard.cpp" line="736"/>
         <source>Target Client:</source>
         <translation>Ziel-Client:</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="797"/>
+        <source>Restore Job:</source>
+        <translation>Restore-Job:</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="739"/>
@@ -11189,6 +11232,11 @@ Details finden Sie im Protokoll oben.</translation>
         <translation>~%1</translation>
     </message>
     <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="848"/>
+        <source>at least %1</source>
+        <translation>mindestens %1</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="786"/>
         <source>unknown</source>
         <translation>unbekannt</translation>
@@ -11197,6 +11245,11 @@ Details finden Sie im Protokoll oben.</translation>
         <location filename="../src/jobs/brestorewizard.cpp" line="788"/>
         <source>Job %1: %2 — %3 selected (estimated size: %4)</source>
         <translation>Job %1: %2 — %3 ausgewählt (geschätzte Größe: %4)</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="926"/>
+        <source>Chosen by the Director</source>
+        <translation>Vom Director gewählt</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="822"/>
@@ -11261,6 +11314,11 @@ Details finden Sie im Protokoll oben.</translation>
         <source>Step %1 of %2 — Review the commands that will be sent to the Director.</source>
         <translation>Schritt %1 von %2 — Prüfen Sie die Befehle, die an den Director gesendet werden.</translation>
     </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1087"/>
+        <source>The restore command cannot be built: the value of %1= is not valid.</source>
+        <translation>Der Restore-Befehl kann nicht erstellt werden: Der Wert von %1= ist ungültig.</translation>
+    </message>
     <message numerus="yes">
         <location filename="../src/jobs/brestorewizard.cpp" line="970"/>
         <location filename="../src/jobs/brestorewizard.cpp" line="973"/>
@@ -11297,6 +11355,11 @@ Details finden Sie im Protokoll oben.</translation>
         <translation>~%1</translation>
     </message>
     <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1109"/>
+        <source>at least %1</source>
+        <translation>mindestens %1</translation>
+    </message>
+    <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="985"/>
         <source>unknown</source>
         <translation>unbekannt</translation>
@@ -11315,6 +11378,11 @@ Details finden Sie im Protokoll oben.</translation>
 • Ziel-Client: %3
 • Wiederherstellen nach: %4
 • Ersetzungsrichtlinie: %5</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/brestorewizard.cpp" line="1124"/>
+        <source>• Restore job: %1</source>
+        <translation>• Restore-Job: %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1014"/>
