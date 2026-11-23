@@ -25,7 +25,7 @@
 | 2 | **When will the pool be full?** | Growth trends & capacity forecasts | planned |
 | 3 | **Which jobs/clients consume the most?** | Storage consumption per job & client | planned |
 | 4 | **What happens if I change retention?** | Retention analysis & what-if simulation | planned |
-| 5 | **Which volumes can I recycle?** | Smart recycling recommendations | planned |
+| 5 | **Which volumes can I recycle?** | Smart recycling recommendations | partly: the volume table shows when a volume is reusable |
 
 Every feature is part of every edition. The editions differ only in how much the Director may write per month and in
 support; up to 1 TB a month is free. See [Pricing](https://onesimus.io/pricing/).
@@ -610,17 +610,19 @@ Every feature below is part of every edition ([Pricing](https://onesimus.io/pric
 - ✅ Job, Client & Schedule management
 - ✅ Gantt timeline & weekly planner
 - ✅ Restore wizard with BVFS file browser
-- ✅ Schedule conflict detection (collision warnings)
+- ✅ Predicted waiting times and proposed start times (stagger)
 - ✅ Multi-Director support (connection profiles)
-- 🚧 Job/JobDefs Wizard (WIP)
-- 🔜 Pool management (v0.3.0)
-- 🔜 Live job monitoring, volume operations
+- ✅ Job Definitions tab: view and change Job and JobDefs
+- ✅ Live job log
+- ✅ ACL matrix of consoles and profiles
+- ✅ 3-2-1 Verifier
+- 🔜 Pool management, volume operations
 
 **Storage intelligence:**
 - 🔜 Pool overview & storage visualization
 - 🔜 Storage consumption per job/client
 - 🔜 Growth trends & capacity forecasts
-- 🔜 Volume recycle recommendations
+- 🚧 Volume recycle recommendations ("reusable from" in the volume table)
 - 🔜 Pre-built signed binaries
 
 **Scale across infrastructure:**
