@@ -75,6 +75,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the GUI thread before, none above 50 ms after connecting).
 - Client table: the job list (one page of jobs) no longer overwrites a client's job count and
   backed-up bytes reported by "list backups client=".
+- **Restore wizard, restore command** (P0-4): client names, the restore path and the Restore
+  Job are quoted, so a path with spaces or quotes stays one value; the client of the backup is
+  sent as `client=` and the target client as `restoreclient=`; the Restore Job is chosen on the
+  options page and sent as `restorejob=`, so the Director no longer asks which one to use.
+- **Restore wizard, waiting and cleanup** (P0-4): after 60 seconds without an answer the wizard
+  no longer reports a failed restore; it says the restore may still start, points to the job
+  list and keeps waiting. The restore table is dropped (`.bvfs_cleanup`) on every way out of
+  the wizard, also after a failure.
+- **Restore wizard, page 1** (P0-5): Client, FileSet and Before Date are hidden; they did not
+  change which backups were restored.
+- **Late replies** (P0-15): the reply to a request of a closed restore wizard or file browser is
+  no longer taken by the next one; the client details dialog takes only its own client's job
+  list.
+- **File browser and restore selection** (P0-16): directory listings are read in pages of 1000
+  until they are complete instead of stopping at the Director's default of 2000 entries; the
+  root directory is asked for by path instead of assuming PathId 1; checking a directory no
+  longer loads its whole subtree, and a partly selected directory restores every entry that was
+  not unchecked.
 
 ## [0.2.0] - 2026-02-21
 
