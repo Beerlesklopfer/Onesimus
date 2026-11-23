@@ -200,6 +200,10 @@ while IFS= read -r f; do
 done < <(macho_files)
 endgroup
 [ "$bad" = "0" ] || die "the bundle refers to files outside itself (see above)"
+# OpenSSL is linked statically; a libssl/libcrypto dylib in the bundle means
+# the build picked up another OpenSSL (Homebrew) instead.
+ssl_dylibs="$(find "$APP" -name 'libssl*.dylib' -o -name 'libcrypto*.dylib')"
+[ -z "$ssl_dylibs" ] || die "OpenSSL dylibs in the bundle (expected the static OpenSSL): $ssl_dylibs"
 info "otool check passed: $(macho_files | wc -l | tr -d ' ') Mach-O files, nothing outside the bundle and the system"
 
 group "bundle contents"

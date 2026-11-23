@@ -102,9 +102,17 @@ message(STATUS "========================================")
 message(STATUS "")
 
 set(USE_STATIC_OPENSSL_DEFAULT ON)
-find_package(OpenSSL)
-if(TARGET OpenSSL::SSL)
-    set(USE_STATIC_OPENSSL_DEFAULT OFF)
+if(APPLE AND USE_STATIC_OPENSSL)
+    # macOS with the static OpenSSL asked for: no find_package(OpenSSL). It
+    # finds Homebrew's OpenSSL (e.g. openssl@4 on the CI runners) and its
+    # imported OpenSSL::SSL target wins over the alias defined below, so the
+    # app linked /opt/homebrew/.../libssl.4.dylib against the headers of
+    # the static build.
+else()
+    find_package(OpenSSL)
+    if(TARGET OpenSSL::SSL)
+        set(USE_STATIC_OPENSSL_DEFAULT OFF)
+    endif()
 endif()
 
 # Option für statisches OpenSSL
@@ -279,7 +287,11 @@ if(USE_STATIC_OPENSSL)
         # Linux System-Bibliotheken
         set(OPENSSL_SYSTEM_LIBS pthread dl)
         
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        if(APPLE)
+            # OpenSSL's darwin64 targets install into lib/, not lib64/
+            set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib/libssl.a)
+            set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib/libcrypto.a)
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
             set(OPENSSL_SSL_LIB ${OPENSSL_INSTALL_DIR}/lib64/libssl.a)
             set(OPENSSL_CRYPTO_LIB ${OPENSSL_INSTALL_DIR}/lib64/libcrypto.a)
         elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)

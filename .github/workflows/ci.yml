@@ -9,6 +9,8 @@
 # macOS:   Onesimus.app and an unsigned (ad-hoc signed) .dmg through
 #          scripts/ci/macos-package.sh (macdeployqt, otool check, start test),
 #          uploaded as an artifact; allowed to fail until it has been green.
+#          workflow_dispatch with macos_sign=true signs and notarises it with
+#          the secrets listed in release.yml.
 #
 # Submodules: only external/openssl and proto. wiki/ has an SSH URL and is
 # never fetched (no `submodules:` on checkout).
@@ -21,6 +23,11 @@ on:
     tags-ignore: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      macos_sign:
+        description: 'macOS: sign and notarise the dmg with the release secrets'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -258,7 +265,17 @@ jobs:
       - name: Build
         run: CMAKE_PREFIX_PATH="$QT_ROOT_DIR" JOBS="$(sysctl -n hw.ncpu)" ./deploy.sh build
 
-      - name: Package (unsigned dmg)
+      # Unsigned (ad hoc) on push and pull request. A manual run with
+      # macos_sign=true signs and notarises with the secrets of release.yml
+      # (they reach only this step, and never a pull request from a fork).
+      - name: Package (dmg)
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ inputs.macos_sign && secrets.MACOS_CERTIFICATE_P12_BASE64 || '' }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ inputs.macos_sign && secrets.MACOS_CERTIFICATE_PASSWORD || '' }}
+          MACOS_SIGN_IDENTITY: ${{ inputs.macos_sign && secrets.MACOS_SIGN_IDENTITY || '' }}
+          APPSTORE_API_KEY_ID: ${{ inputs.macos_sign && secrets.APPSTORE_API_KEY_ID || '' }}
+          APPSTORE_API_ISSUER_ID: ${{ inputs.macos_sign && secrets.APPSTORE_API_ISSUER_ID || '' }}
+          APPSTORE_API_KEY_P8_BASE64: ${{ inputs.macos_sign && secrets.APPSTORE_API_KEY_P8_BASE64 || '' }}
         run: scripts/ci/macos-package.sh build
 
       - name: Upload dmg
