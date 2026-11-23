@@ -12,6 +12,7 @@
 #include "blabelstate.h"
 #include "blogging.h"
 #include "bprivatefile.h"
+#include "bquote.h"
 #include "director/bareosdirector.h"
 #include "bcertificategenerator.h"
 #include "config/bprofilesettingsdialog.h"
@@ -2220,8 +2221,8 @@ void ConfigPreviewPage::updateConfigs()
     // Generate Console config
     QString consoleConfig;
     consoleConfig += QString("Console {\n");
-    consoleConfig += QString("  Name = \"%1\"\n").arg(consoleName);
-    consoleConfig += QString("  Password = \"%1\"\n").arg(password);
+    consoleConfig += QString("  Name = %1\n").arg(BQuote::quoted(consoleName));
+    consoleConfig += QString("  Password = %1\n").arg(BQuote::quoted(password));
 
     if (grpc) {
         // No TLS directives: gRPC TLS uses the Director's server certificate
@@ -2239,22 +2240,22 @@ void ConfigPreviewPage::updateConfigs()
             clientCert = field("clientPfx").toString();
 #endif
         if (!caCert.isEmpty())
-            consoleConfig += QString("  TLS CA Certificate File = \"%1\"\n").arg(caCert);
+            consoleConfig += QString("  TLS CA Certificate File = %1\n").arg(BQuote::quoted(caCert));
         if (!clientCert.isEmpty()) {
 #ifdef Q_OS_WINDOWS
             // Windows: PFX contains both certificate and key
             if (clientCert.endsWith(".pfx", Qt::CaseInsensitive)) {
-                consoleConfig += QString("  TLS Certificate = \"%1\"\n").arg(clientCert);
+                consoleConfig += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(clientCert));
                 // PFX password is handled separately by the application
             } else {
-                consoleConfig += QString("  TLS Certificate = \"%1\"\n").arg(clientCert);
+                consoleConfig += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(clientCert));
                 if (!clientKey.isEmpty())
-                    consoleConfig += QString("  TLS Key = \"%1\"\n").arg(clientKey);
+                    consoleConfig += QString("  TLS Key = %1\n").arg(BQuote::quoted(clientKey));
             }
 #else
-            consoleConfig += QString("  TLS Certificate = \"%1\"\n").arg(clientCert);
+            consoleConfig += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(clientCert));
             if (!clientKey.isEmpty())
-                consoleConfig += QString("  TLS Key = \"%1\"\n").arg(clientKey);
+                consoleConfig += QString("  TLS Key = %1\n").arg(BQuote::quoted(clientKey));
 #endif
         }
     } else {
@@ -2265,7 +2266,7 @@ void ConfigPreviewPage::updateConfigs()
         // Add cipher list if specified
         QString cipherList = field("tlsCipherList").toString();
         if (!cipherList.isEmpty()) {
-            consoleConfig += QString("  TLS Cipher List = \"%1\"\n").arg(cipherList);
+            consoleConfig += QString("  TLS Cipher List = %1\n").arg(BQuote::quoted(cipherList));
         }
     }
 
@@ -2323,7 +2324,7 @@ void ConfigPreviewPage::updateConfigs()
         // Add cipher list if specified
         QString cipherList = field("tlsCipherList").toString();
         if (!cipherList.isEmpty()) {
-            directorConfig += QString("  TLS Cipher List = \"%1\"\n").arg(cipherList);
+            directorConfig += QString("  TLS Cipher List = %1\n").arg(BQuote::quoted(cipherList));
         }
         directorConfig += QString("  # TLS-PSK uses the Console password for encryption\n");
         directorConfig += QString("}\n");
@@ -2387,13 +2388,13 @@ QString ConfigPreviewPage::clientConsoleConfig(bool oconsoleGrpc) const
     config += "\n";
 
     config += QString("Director {\n");
-    config += QString("  Name = %1\n").arg(directorName);
-    config += QString("  Address = %1\n").arg(host);
+    config += QString("  Name = %1\n").arg(BQuote::quoted(directorName));
+    config += QString("  Address = %1\n").arg(BQuote::quoted(host));
     config += QString("  DirPort = %1\n").arg(port);
     // Comment on its own line: the line-based oconsole parser would read a
     // trailing comment as part of the value
     config += "  # " + tr("not used when the Console resource below matches") + "\n";
-    config += QString("  Password = \"%1\"\n").arg(password);
+    config += QString("  Password = %1\n").arg(BQuote::quoted(password));
     if (oconsoleGrpc) {
         config += QString("  Grpc = yes\n");
         config += QString("  Grpc Port = %1\n").arg(grpcPort);
@@ -2410,18 +2411,18 @@ QString ConfigPreviewPage::clientConsoleConfig(bool oconsoleGrpc) const
         config += QString("  TLS Enable = yes\n");
         config += QString("  TLS Require = yes\n");
         if (!caCert.isEmpty())
-            config += QString("  TLS CA Certificate File = \"%1\"\n").arg(caCert);
+            config += QString("  TLS CA Certificate File = %1\n").arg(BQuote::quoted(caCert));
         if (!clientCert.isEmpty())
-            config += QString("  TLS Certificate = \"%1\"\n").arg(clientCert);
+            config += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(clientCert));
         if (!clientKey.isEmpty())
-            config += QString("  TLS Key = \"%1\"\n").arg(clientKey);
+            config += QString("  TLS Key = %1\n").arg(BQuote::quoted(clientKey));
     }
     config += QString("}\n\n");
 
     config += QString("Console {\n");
-    config += QString("  Name = %1\n").arg(consoleName);
-    config += QString("  Password = \"%1\"\n").arg(password);
-    config += QString("  Director = %1\n").arg(directorName);
+    config += QString("  Name = %1\n").arg(BQuote::quoted(consoleName));
+    config += QString("  Password = %1\n").arg(BQuote::quoted(password));
+    config += QString("  Director = %1\n").arg(BQuote::quoted(directorName));
     config += QString("}\n");
     return config;
 }

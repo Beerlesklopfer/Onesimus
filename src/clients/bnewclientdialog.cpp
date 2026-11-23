@@ -5,6 +5,7 @@
 #include "buiscale.h"
 #include "blogging.h"
 #include "blogredact.h"
+#include "bquote.h"
 
 #include <QFormLayout>
 #include <QVBoxLayout>
@@ -386,8 +387,11 @@ void BNewClientSettingsPage::restoreFormValues()
 
 bool BNewClientSettingsPage::isComplete() const
 {
-    return !m_nameEdit->text().trimmed().isEmpty()
-        && !m_addressEdit->text().trimmed().isEmpty()
+    // A name the Director takes (IsNameValid()), an address configure add
+    // can write unchanged
+    const QString address = m_addressEdit->text().trimmed();
+    return BQuote::isValidName(m_nameEdit->text().trimmed())
+        && !address.isEmpty() && BQuote::configureAddForbidden(address).isNull()
         && !m_passwordEdit->text().trimmed().isEmpty();
 }
 
@@ -628,9 +632,9 @@ void BNewClientPreviewPage::generateConfigs()
     // Generate FD-side director.conf
     d.directorConf = QString(
         "Director {\n"
-        "  Name = \"%1\"\n"
-        "  Password = \"[md5]%2\"\n")
-        .arg(d.directorName, d.passwordHash);
+        "  Name = %1\n"
+        "  Password = %2\n")
+        .arg(BQuote::quoted(d.directorName), BQuote::quoted("[md5]" + d.passwordHash));
 
     // TLS settings
     d.directorConf += "  TLS Enable = yes\n";
@@ -639,23 +643,23 @@ void BNewClientPreviewPage::generateConfigs()
         // Platform-specific certificate paths
 #ifdef Q_OS_WIN
         if (!d.tlsCertificateFile.isEmpty()) {
-            d.directorConf += QString("  TLS Certificate File = \"%1\"\n").arg(d.tlsCertificateFile);
+            d.directorConf += QString("  TLS Certificate File = %1\n").arg(BQuote::quoted(d.tlsCertificateFile));
         } else {
             d.directorConf += "  # TLS Certificate File = \"C:\\\\bareos\\\\tls\\\\client.pfx\"\n";
         }
 #else
         if (!d.tlsCaCertificateFile.isEmpty()) {
-            d.directorConf += QString("  TLS CA Certificate File = \"%1\"\n").arg(d.tlsCaCertificateFile);
+            d.directorConf += QString("  TLS CA Certificate File = %1\n").arg(BQuote::quoted(d.tlsCaCertificateFile));
         } else {
             d.directorConf += "  # TLS CA Certificate File = /etc/bareos/tls/ca.pem\n";
         }
         if (!d.tlsCertificate.isEmpty()) {
-            d.directorConf += QString("  TLS Certificate = \"%1\"\n").arg(d.tlsCertificate);
+            d.directorConf += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(d.tlsCertificate));
         } else {
             d.directorConf += "  # TLS Certificate = /etc/bareos/tls/client.pem\n";
         }
         if (!d.tlsKey.isEmpty()) {
-            d.directorConf += QString("  TLS Key = \"%1\"\n").arg(d.tlsKey);
+            d.directorConf += QString("  TLS Key = %1\n").arg(BQuote::quoted(d.tlsKey));
         } else {
             d.directorConf += "  # TLS Key = /etc/bareos/tls/client-key.pem\n";
         }
@@ -668,9 +672,9 @@ void BNewClientPreviewPage::generateConfigs()
     // Generate FD-side myself.conf
     d.clientConf = QString(
         "FileDaemon {\n"
-        "  Name = \"%1\"\n"
+        "  Name = %1\n"
         "  FD Port = %2\n")
-        .arg(d.clientName)
+        .arg(BQuote::quoted(d.clientName))
         .arg(d.fdPort);
 
     // TLS settings
@@ -679,23 +683,23 @@ void BNewClientPreviewPage::generateConfigs()
         d.clientConf += "  TLS Require = yes\n";
 #ifdef Q_OS_WIN
         if (!d.tlsCertificateFile.isEmpty()) {
-            d.clientConf += QString("  TLS Certificate File = \"%1\"\n").arg(d.tlsCertificateFile);
+            d.clientConf += QString("  TLS Certificate File = %1\n").arg(BQuote::quoted(d.tlsCertificateFile));
         } else {
             d.clientConf += "  # TLS Certificate File = \"C:\\\\bareos\\\\tls\\\\client.pfx\"\n";
         }
 #else
         if (!d.tlsCaCertificateFile.isEmpty()) {
-            d.clientConf += QString("  TLS CA Certificate File = \"%1\"\n").arg(d.tlsCaCertificateFile);
+            d.clientConf += QString("  TLS CA Certificate File = %1\n").arg(BQuote::quoted(d.tlsCaCertificateFile));
         } else {
             d.clientConf += "  # TLS CA Certificate File = /etc/bareos/tls/ca.pem\n";
         }
         if (!d.tlsCertificate.isEmpty()) {
-            d.clientConf += QString("  TLS Certificate = \"%1\"\n").arg(d.tlsCertificate);
+            d.clientConf += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(d.tlsCertificate));
         } else {
             d.clientConf += "  # TLS Certificate = /etc/bareos/tls/client.pem\n";
         }
         if (!d.tlsKey.isEmpty()) {
-            d.clientConf += QString("  TLS Key = \"%1\"\n").arg(d.tlsKey);
+            d.clientConf += QString("  TLS Key = %1\n").arg(BQuote::quoted(d.tlsKey));
         } else {
             d.clientConf += "  # TLS Key = /etc/bareos/tls/client-key.pem\n";
         }
@@ -709,18 +713,19 @@ void BNewClientPreviewPage::generateConfigs()
     d.messagesConf = QString(
         "Messages {\n"
         "  Name = \"Standard\"\n"
-        "  Director = \"%1\" = all, !skipped, !restored\n"
+        "  Director = %1 = all, !skipped, !restored\n"
         "}\n")
-        .arg(d.directorName);
+        .arg(BQuote::quoted(d.directorName));
 
     // Generate Director-side client.conf
     d.dirClientConf = QString(
         "Client {\n"
-        "  Name = \"%1\"\n"
-        "  Address = \"%2\"\n"
-        "  Password = \"[md5]%3\"\n"
+        "  Name = %1\n"
+        "  Address = %2\n"
+        "  Password = %3\n"
         "  FD Port = %4\n")
-        .arg(d.clientName, d.clientAddress, d.passwordHash)
+        .arg(BQuote::quoted(d.clientName), BQuote::quoted(d.clientAddress),
+             BQuote::quoted("[md5]" + d.passwordHash))
         .arg(d.fdPort);
 
     // NAT/Passive mode settings
@@ -733,8 +738,9 @@ void BNewClientPreviewPage::generateConfigs()
 
     // Generate configure command args (without "configure" prefix — Command::Configure adds it)
     d.configureCommand = QString(
-        "add client name=%1 address=%2 password=\"[md5]%3\"")
-        .arg(d.clientName, d.clientAddress, d.passwordHash);
+        "add client name=%1 address=%2 password=%3")
+        .arg(BQuote::quoted(d.clientName), BQuote::quoted(d.clientAddress),
+             BQuote::quoted("[md5]" + d.passwordHash));
     if (d.fdPort != 9102) {
         d.configureCommand += QString(" fdport=%1").arg(d.fdPort);
     }

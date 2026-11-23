@@ -635,6 +635,7 @@ set(HEADERS
     include/bcertificategenerator.h
     include/bpfxconverter.h
     include/bpki.h
+    include/bquote.h
     include/director/bdirector.h
     include/director/bareosdirector.h
     include/db/bdatabase.h
@@ -2211,6 +2212,18 @@ if(BUILD_TESTING)
     target_include_directories(bresourcechanges_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_link_libraries(bresourcechanges_test PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME bresourcechanges_test COMMAND bresourcechanges_test)
+
+    # bquote_test - the one quoting helper for command lines and resource
+    # text: escaping, control characters, the configure add character rule,
+    # the Bareos name rule, round trips through ports of next_arg() and the
+    # configuration lexer (no Director)
+    add_executable(bquote_test
+        test/bquote_test.cpp
+        include/bquote.h
+    )
+    target_include_directories(bquote_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bquote_test PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME bquote_test COMMAND bquote_test)
 
     # bpki_test - certificate generator and PFX converter without widgets:
     # key files owner-only (also an existing file), CA key encrypted,

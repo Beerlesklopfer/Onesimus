@@ -52,8 +52,6 @@ public:
     static QString unquotedPart(const QString &line);
     /// The inside of a quoted value without its escapes
     static QString unescape(const QString &quotedBody);
-    /// A value as Bareos reads it in a configuration file: quoted, with \ and " escaped
-    static QString quoted(const QString &value);
     /// "Full Backup Pool" -> "fullbackuppool": how keys are compared
     static QString normalizedKey(const QString &key);
     /// Does a value need quotes to be read back as the same value?

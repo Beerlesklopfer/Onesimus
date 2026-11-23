@@ -11,6 +11,7 @@
 
 #include "director/bresourcedialog.h"
 #include "buiscale.h"
+#include "bquote.h"
 #include "config/bresourceform.h"
 #include "schedules/model/brunspec.h"
 #include <QVBoxLayout>
@@ -158,7 +159,7 @@ static QString resourceToConf(const BConfigResource &resource, QString *error)
 {
     QString conf;
     conf += QString("%1 {\n").arg(resource.type());
-    conf += QString("  Name = \"%1\"\n").arg(resource.name());
+    conf += QString("  Name = %1\n").arg(BQuote::quoted(resource.name()));
 
     const bool isSchedule = (resource.type().compare("Schedule", Qt::CaseInsensitive) == 0);
 
@@ -194,14 +195,14 @@ static QString resourceToConf(const BConfigResource &resource, QString *error)
             if (v.startsWith("[md5]")) needsQuotes = false;
 
             if (needsQuotes)
-                conf += QString("  %1 = \"%2\"\n").arg(key, v);
+                conf += QString("  %1 = %2\n").arg(key, BQuote::quoted(v));
             else
                 conf += QString("  %1 = %2\n").arg(key, v);
             break;
         }
         case BConfigValue::List:
             for (const QString &item : val.listValue())
-                conf += QString("  %1 = \"%2\"\n").arg(key, item);
+                conf += QString("  %1 = %2\n").arg(key, BQuote::quoted(item));
             break;
         case BConfigValue::Block:
             // Nested blocks not fully supported yet

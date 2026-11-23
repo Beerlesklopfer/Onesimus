@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "jobs/brunjobcommand.h"
+#include "bquote.h"
 
 #include <QDateTime>
 #include <QRegularExpression>
@@ -9,15 +10,6 @@
 namespace BRunJobCommand {
 
 namespace {
-
-bool hasControlCharacter(const QString &value)
-{
-    for (const QChar c : value) {
-        if (c.unicode() < 0x20 || c.unicode() == 0x7f)
-            return true;
-    }
-    return false;
-}
 
 bool isPlainWord(const QString &value)
 {
@@ -37,19 +29,7 @@ QString stripSurroundingQuotes(const QString &value)
 
 QString quote(const QString &value, bool *ok)
 {
-    if (ok)
-        *ok = !hasControlCharacter(value);
-
-    QString escaped;
-    escaped.reserve(value.size() + 2);
-    escaped += '"';
-    for (const QChar c : value) {
-        if (c == '\\' || c == '"')
-            escaped += '\\';
-        escaped += c;
-    }
-    escaped += '"';
-    return escaped;
+    return BQuote::quoted(value, ok);
 }
 
 Result build(const Params &params)

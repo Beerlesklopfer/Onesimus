@@ -2665,8 +2665,7 @@ void BMainWindow::requestClientBackups()
     QStringList sortedNames = names.values();
     sortedNames.sort(Qt::CaseInsensitive);
     for (const QString &name : sortedNames) {
-        QString arg = name.contains(QLatin1Char(' ')) ? QString("\"%1\"").arg(name) : name;
-        onSendCommand(BDirector::Command::ListBackupsClient, arg);
+        onSendCommand(BDirector::Command::ListBackupsClient, name);   // quoted by the Director wrapper
     }
 }
 

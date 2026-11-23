@@ -316,6 +316,9 @@ public:
     QMap<QString, QString> collectAllValues() const;
     QList<RunScriptEntry> collectRunScripts() const;
     QString generateConfigureCommand() const;
+    /// Why the configure command cannot be sent (a value configure add
+    /// cannot write); empty when it can
+    QString configureProblem() const;
     QString generateConfigText() const;
 
 private:

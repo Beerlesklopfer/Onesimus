@@ -26,6 +26,7 @@
 #include "director/bnetframe.h"
 #include "blogging.h"
 #include "blogredact.h"
+#include "bquote.h"
 #include "version.h"
 
 #include <QApplication>
@@ -1794,6 +1795,8 @@ void BareosDirector::routeTypedResponse(const QString &jsonData)
         // Extract the name from m_lastCommand (after "show console=")
         if (m_lastCommand.contains("=")) {
             QString name = m_lastCommand.mid(m_lastCommand.indexOf('=') + 1);
+            if (name.size() >= 2 && name.startsWith('"') && name.endsWith('"'))
+                name = BQuote::unescape(name.mid(1, name.size() - 2));   // quoted by commandToString()
             emit showConsoleResult(name, consoles.value(name).toObject());
         } else {
             // "show console" without =name returns all consoles
@@ -1882,9 +1885,16 @@ void BareosDirector::queryConfigureAddConsole(const QString &name, const QString
 {
     // gRPC (Onesimus Director): login with name + password, no BNET TLS directive
     const QString tls = m_transport == Transport::Grpc ? QString() : QStringLiteral(" tlsenable=false");
-    doSend(Command::Configure,
-           QString("add console name=%1 password=\"%2\" profile=%3%4")
-               .arg(name, password, profile, tls));
+    bool nameOk = false, passwordOk = false, profileOk = false;
+    const QString command = QString("add console name=%1 password=%2 profile=%3%4")
+                                .arg(BQuote::quoted(name, &nameOk), BQuote::quoted(password, &passwordOk),
+                                     BQuote::quoted(profile, &profileOk), tls);
+    if (!nameOk || !passwordOk || !profileOk) {
+        // A newline would end the command and start another one
+        emit statusMessage(tr("Not sent: a value contains a control character"));
+        return;
+    }
+    doSend(Command::Configure, command);
 }
 
 bool BareosDirector::sendCommand(const QString &command)
@@ -2071,6 +2081,9 @@ bool BareosDirector::rollbackLast()
 const QString BareosDirector::commandToString(Command cmd, const QString &args)
 {
     QString command;
+    // A resource name as the value of one keyword: always quoted, so that a
+    // blank, a quote or "yes" in a name stays part of it (BQuote)
+    const QString name = args.isEmpty() ? args : BQuote::quoted(args);
 
     switch (cmd) {
     case Command::ApiMode:
@@ -2096,8 +2109,8 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
 
     // Status Commands
     case Command::StatusDirector:   command = "status director"; break;
-    case Command::StatusClient:     command = QString("status client=%1").arg(args); break;
-    case Command::StatusStorage:    command = QString("status storage=%1").arg(args); break;
+    case Command::StatusClient:     command = QString("status client=%1").arg(name); break;
+    case Command::StatusStorage:    command = QString("status storage=%1").arg(name); break;
     case Command::StatusScheduler:  command = "status scheduler"; break;
     case Command::StatusRunning:    command = "status running"; break;
     case Command::StatusSubscriptions: command = "status subscriptions"; break;
@@ -2122,22 +2135,22 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::ListClients:      command = "llist clients"; break;
     case Command::ListPools:        command = "list pools"; break;
     case Command::ListVolumes:      command = "list volumes"; break;
-    case Command::ListVolumePool:   command = QString("list volumes pool=%1").arg(args); break;
+    case Command::ListVolumePool:   command = QString("list volumes pool=%1").arg(name); break;
     case Command::ListMedia:        command = "list media"; break;
     case Command::ListFileSets:     command = "list filesets"; break;
     case Command::ListFiles:        command = QString("list files jobid=%1").arg(args); break;
     case Command::ListBackups:      command = "list backups"; break;
-    case Command::ListBackupsClient: command = QString("list backups client=%1").arg(args); break;
+    case Command::ListBackupsClient: command = QString("list backups client=%1").arg(name); break;
     case Command::ListJobTotals:    command = "list jobtotals"; break;
 
     // Job Control
-    case Command::Run:              command = QString("run job=%1").arg(args); break;
-    case Command::RunYes:           command = QString("run job=%1 yes").arg(args); break;
+    case Command::Run:              command = QString("run job=%1").arg(name); break;
+    case Command::RunYes:           command = QString("run job=%1 yes").arg(name); break;
     case Command::Cancel:           command = QString("cancel jobid=%1").arg(args); break;
     case Command::DeleteJob:        command = QString("delete job jobid=%1 yes").arg(args); break;
-    case Command::DeleteFileSet:    command = QString("delete fileset=\"%1\" yes").arg(args); break;
-    case Command::Disable:          command = QString("disable job=%1").arg(args); break;
-    case Command::Enable:           command = QString("enable job=%1").arg(args); break;
+    case Command::DeleteFileSet:    command = QString("delete fileset=%1 yes").arg(name); break;
+    case Command::Disable:          command = QString("disable job=%1").arg(name); break;
+    case Command::Enable:           command = QString("enable job=%1").arg(name); break;
     case Command::Rerun:            command = QString("rerun jobid=%1").arg(args); break;
 
     // Restore
@@ -2148,16 +2161,16 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     // Volume Management
     case Command::Label:            command = QString("label %1").arg(args); break;
     case Command::Relabel:          command = QString("relabel %1").arg(args); break;
-    case Command::Mount:            command = QString("mount storage=%1").arg(args); break;
-    case Command::Unmount:          command = QString("unmount storage=%1").arg(args); break;
-    case Command::Release:          command = QString("release storage=%1").arg(args); break;
+    case Command::Mount:            command = QString("mount storage=%1").arg(name); break;
+    case Command::Unmount:          command = QString("unmount storage=%1").arg(name); break;
+    case Command::Release:          command = QString("release storage=%1").arg(name); break;
     case Command::Update:           command = "update"; break;
-    case Command::UpdateVolume:     command = QString("update volume=%1").arg(args); break;
-    case Command::Purge:            command = QString("purge volume=%1").arg(args); break;
+    case Command::UpdateVolume:     command = QString("update volume=%1").arg(name); break;
+    case Command::Purge:            command = QString("purge volume=%1").arg(name); break;
     case Command::Prune:            command = "prune"; break;
     case Command::PruneFiles:       command = "prune files"; break;
     case Command::PruneJobs:        command = "prune jobs"; break;
-    case Command::PruneVolume:      command = QString("prune volume=%1").arg(args); break;
+    case Command::PruneVolume:      command = QString("prune volume=%1").arg(name); break;
 
     // Console Commands
     case Command::Show:             command = QString("show %1").arg(args); break;
@@ -2215,9 +2228,9 @@ const QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::ShowProfiles:     command = "show profiles"; break;
 
     // Show single resource
-    case Command::ShowFileset:      command = QString("show fileset=%1").arg(args); break;
-    case Command::ShowClient:       command = QString("show client=%1").arg(args); break;
-    case Command::ShowConsole:      command = QString("show console=%1").arg(args); break;
+    case Command::ShowFileset:      command = QString("show fileset=%1").arg(name); break;
+    case Command::ShowClient:       command = QString("show client=%1").arg(name); break;
+    case Command::ShowConsole:      command = QString("show console=%1").arg(name); break;
 
     // Volume Maintenance (bulk)
     // Documented form: prune volume [=volume] [pool=<pool>] [all] [yes]

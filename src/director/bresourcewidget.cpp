@@ -13,6 +13,7 @@
 #include "buiscale.h"
 #include "director/bresourcedialog.h"
 #include "bcapabilitynotice.h"
+#include "bquote.h"
 #include "config/bdirectiveschema.h"
 #include "config/bresourcechanges.h"
 #include "config/bresourcepersistence.h"
@@ -517,7 +518,7 @@ QString BResourceWidget::resourceToConf(const BConfigResource &resource) const
     conf += QString("#").repeated(pad) + label + QString("#").repeated(50 - pad - label.length()) + "\n";
 
     conf += QString("%1 {\n").arg(resource.type());
-    conf += QString("  Name = \"%1\"\n").arg(resource.name());
+    conf += QString("  Name = %1\n").arg(BQuote::quoted(resource.name()));
 
     // Bareos quoting rules (docs.bareos.org):
     // - Numbers must NEVER be quoted, even with units (e.g. "365 days")
@@ -558,12 +559,12 @@ QString BResourceWidget::resourceToConf(const BConfigResource &resource) const
                 || v.contains('=') || isTimePeriod || v.startsWith("[md5]"))
                 conf += QString("%1%2 = %3\n").arg(pad, directive, v);
             else
-                conf += QString("%1%2 = \"%3\"\n").arg(pad, directive, v);
+                conf += QString("%1%2 = %3\n").arg(pad, directive, BQuote::quoted(v));
             break;
         }
         case BConfigValue::List:
             for (const QString &item : val.listValue())
-                conf += QString("%1%2 = \"%3\"\n").arg(pad, directive, item);
+                conf += QString("%1%2 = %3\n").arg(pad, directive, BQuote::quoted(item));
             break;
         case BConfigValue::Block: {
             conf += QString("%1%2 {\n").arg(pad, directive);

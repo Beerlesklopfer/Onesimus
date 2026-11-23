@@ -46,7 +46,7 @@ struct Result {
 };
 
 /**
- * @brief Put a value in double quotes for a bconsole command line
+ * @brief Put a value in double quotes for a bconsole command line (BQuote::quoted())
  * @param value Raw value
  * @param ok Set to false when the value contains a control character
  * @return "value" with backslash and double quote escaped by a backslash

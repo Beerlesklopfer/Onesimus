@@ -11,6 +11,7 @@
  */
 
 #include "schedules/model/brunspec.h"
+#include "bquote.h"
 
 #include <QRegularExpression>
 
@@ -309,10 +310,5 @@ bool BRunWriter::runTexts(const QStringList &reported, QStringList *texts, QStri
 
 QString BRunWriter::quotedForCommand(const QString &runText)
 {
-    // The command line of the Director takes a backslash as "next character
-    // as it is" and a double quote as the start or end of a quoted part
-    QString escaped = runText;
-    escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
-    escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
-    return QLatin1Char('"') + escaped + QLatin1Char('"');
+    return BQuote::quoted(runText);
 }

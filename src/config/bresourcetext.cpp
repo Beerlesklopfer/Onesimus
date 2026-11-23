@@ -8,6 +8,7 @@
  */
 
 #include "config/bresourcetext.h"
+#include "bquote.h"
 
 #include <QHash>
 #include <QRegularExpression>
@@ -75,21 +76,7 @@ QString BResourceText::unquotedPart(const QString &line)
 
 QString BResourceText::unescape(const QString &quotedBody)
 {
-    QString out;
-    for (int i = 0; i < quotedBody.size(); ++i) {
-        if (quotedBody[i] == QLatin1Char('\\') && i + 1 < quotedBody.size())
-            ++i;
-        out.append(quotedBody[i]);
-    }
-    return out;
-}
-
-QString BResourceText::quoted(const QString &value)
-{
-    QString escaped = value;
-    escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
-    escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
-    return QLatin1Char('"') + escaped + QLatin1Char('"');
+    return BQuote::unescape(quotedBody);
 }
 
 QString BResourceText::normalizedKey(const QString &key)
@@ -411,7 +398,7 @@ bool BResourceText::edit(const QString &raw, const QList<Change> &changes, QStri
             if (directive.value == change.value)
                 continue;
             const bool quote = directive.quoted || needsQuotes(change.value);
-            const QString value = quote ? quoted(change.value) : change.value;
+            const QString value = quote ? BQuote::quoted(change.value) : change.value;
             replaced.insert(directive.lineIndex,
                             line.left(directive.valueStart) + value + line.mid(directive.valueEnd));
             continue;
@@ -434,7 +421,7 @@ bool BResourceText::edit(const QString &raw, const QList<Change> &changes, QStri
         }
         const bool quote = needsQuotes(change.value) || key == QLatin1String("name");
         inserted.append(indent + change.key + QStringLiteral(" = ")
-                        + (quote ? quoted(change.value) : change.value) + end);
+                        + (quote ? BQuote::quoted(change.value) : change.value) + end);
     }
 
     QString out;
@@ -484,7 +471,7 @@ QString BResourceText::createText(const QString &typeWord, const QList<Change> &
             continue;
         const bool quote = needsQuotes(change.value) || normalizedKey(change.key) == QLatin1String("name");
         text += QStringLiteral("  ") + change.key + QStringLiteral(" = ")
-              + (quote ? quoted(change.value) : change.value) + lineEnd;
+              + (quote ? BQuote::quoted(change.value) : change.value) + lineEnd;
     }
     text += QStringLiteral("}") + lineEnd;
     return text;

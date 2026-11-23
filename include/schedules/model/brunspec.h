@@ -209,7 +209,7 @@ public:
     /// year is set
     static QString weekOfYearText(const BDateTimeMask &mask);
 
-    /// A Run text as the value of run="..." in a "configure add" command
+    /// A Run text as the value of run="..." in a "configure add" command (BQuote::quoted())
     static QString quotedForCommand(const QString &runText);
 };
 

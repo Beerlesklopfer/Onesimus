@@ -6,6 +6,7 @@
 // Follows Bareos (see LICENSING.md); AGPL-3.0-only until reviewed.
 
 #include "director/baclmatrix.h"
+#include "bquote.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -235,11 +236,8 @@ QStringList BAclMatrix::catalogAfter(const QStringList &current, const QString &
 
 QString BAclMatrix::changeCommand(const QString &console, const QString &type, const QStringList &entries)
 {
-    auto quoted = [](const QString &value) {
-        QString escaped = value;
-        escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
-        return QLatin1Char('"') + escaped + QLatin1Char('"');
-    };
+    // A backslash is escaped as well: next_arg() would drop it otherwise
+    auto quoted = [](const QString &value) { return BQuote::quoted(value); };
     if (entries.isEmpty())
         return QStringLiteral(".acl delete console=%1 %2").arg(quoted(console), type);
     // One occurrence of the key per entry (odir 69cd11b): each is exactly
@@ -498,12 +496,7 @@ QString BAclMatrix::directiveName(const QString &type)
 
 QString BAclMatrix::profileText(const BConsoleAcl &profile, const QHash<QString, QStringList> &lists)
 {
-    auto quoted = [](const QString &value) {
-        QString escaped = value;
-        escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
-        escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
-        return QLatin1Char('"') + escaped + QLatin1Char('"');
-    };
+    auto quoted = [](const QString &value) { return BQuote::quoted(value); };
     QString text = QStringLiteral("Profile {\n  Name = %1\n").arg(quoted(profile.name));
     if (!profile.description.isEmpty())
         text += QStringLiteral("  Description = %1\n").arg(quoted(profile.description));

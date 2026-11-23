@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 #include "bvolumepurge.h"
+#include "bquote.h"
 
 #include <QCoreApplication>
 #include <QJsonArray>
@@ -142,7 +143,7 @@ QString buildCommand(const Selection &selection, Mode mode, QString *error)
         static const QRegularExpression plainRx(QStringLiteral("^[A-Za-z0-9_.:-]+$"));
         line += plainRx.match(pool).hasMatch()
                     ? QStringLiteral("pool=%1").arg(pool)
-                    : QStringLiteral("pool=\"%1\"").arg(pool);
+                    : QStringLiteral("pool=") + BQuote::quoted(pool);
     }
     line += QStringLiteral(" volstatus=") + ordered.join(QLatin1Char(','));
     line += mode == Mode::DryRun ? QStringLiteral(" dryrun") : QStringLiteral(" yes");

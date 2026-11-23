@@ -6,6 +6,7 @@
 // Follows Bareos (see LICENSING.md); AGPL-3.0-only until reviewed.
 
 #include "schedules/bstaggerplan.h"
+#include "bquote.h"
 
 #include <QRegularExpression>
 
@@ -20,10 +21,7 @@ QString tr(const char *text)
 
 QString quoted(const QString &value)
 {
-    QString escaped = value;
-    escaped.replace(QLatin1Char('\\'), QLatin1String("\\\\"));
-    escaped.replace(QLatin1Char('"'), QLatin1String("\\\""));
-    return QLatin1Char('"') + escaped + QLatin1Char('"');
+    return BQuote::quoted(value);
 }
 
 } // namespace

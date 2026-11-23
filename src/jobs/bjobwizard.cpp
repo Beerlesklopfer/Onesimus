@@ -15,6 +15,7 @@
 #include "director/bdirectorreply.h"
 #include "blogging.h"
 #include "blogredact.h"
+#include "bquote.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -785,7 +786,11 @@ void BJobPreviewPage::generatePreview()
 
     // Show warning if RunScript blocks present
     QList<RunScriptEntry> scripts = wiz->collectRunScripts();
-    if (!scripts.isEmpty()) {
+    const QString problem = wiz->configureProblem();
+    if (!problem.isEmpty()) {
+        m_warningLabel->setText(problem);
+        m_warningLabel->show();
+    } else if (!scripts.isEmpty()) {
         m_warningLabel->setText(
             tr("Note: RunScript blocks cannot be sent via 'configure add'. "
                "The command above creates the job without RunScript blocks. "
@@ -828,6 +833,13 @@ void BJobPreviewPage::executeConfigureCommand()
     if (!wiz || !wiz->director()) return;
 
     if (m_waitingForConfigure || m_waitingForReload) return;
+
+    const QString problem = wiz->configureProblem();
+    if (!problem.isEmpty()) {
+        m_statusLabel->setText(tr("Not sent: %1").arg(problem));
+        m_statusLabel->setStyleSheet("color: red;");
+        return;
+    }
 
     disconnectDirectorSignals();
     m_waitingForConfigure = true;
@@ -1065,14 +1077,23 @@ QString BJobWizard::generateConfigureCommand() const
         QString key = it.key().toLower().remove(' ');
         QString val = it.value();
 
-        // Quote values containing spaces or special chars
-        if (val.contains(' ') || val.contains('"') || val.contains('=')) {
-            val = QString("\"%1\"").arg(val.replace("\"", "\\\""));
-        }
-        cmd += QString(" %1=%2").arg(key, val);
+        cmd += QString(" %1=%2").arg(key, BQuote::quoted(val));
     }
 
     return cmd;
+}
+
+QString BJobWizard::configureProblem() const
+{
+    const QMap<QString, QString> values = collectAllValues();
+    for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
+        const QChar bad = BQuote::configureAddForbidden(it.value());
+        if (!bad.isNull()) {
+            const QString shown = bad.unicode() < 0x20 ? tr("a control character") : QString(bad);
+            return tr("%1 contains %2, which 'configure add' cannot write.").arg(it.key(), shown);
+        }
+    }
+    return QString();
 }
 
 QString BJobWizard::generateConfigText() const
@@ -1090,7 +1111,7 @@ QString BJobWizard::generateConfigText() const
         bool isNumber = false;
         val.toInt(&isNumber);
         if (!isNumber && val != "yes" && val != "no") {
-            config += QString("  %1 = \"%2\"\n").arg(it.key(), val);
+            config += QString("  %1 = %2\n").arg(it.key(), BQuote::quoted(val));
         } else {
             config += QString("  %1 = %2\n").arg(it.key(), val);
         }
@@ -1099,7 +1120,7 @@ QString BJobWizard::generateConfigText() const
     // RunScript blocks
     for (const RunScriptEntry &s : scripts) {
         config += "  RunScript {\n";
-        config += QString("    Command = \"%1\"\n").arg(s.command);
+        config += QString("    Command = %1\n").arg(BQuote::quoted(s.command));
         config += QString("    RunsWhen = %1\n").arg(s.runsWhen);
         config += QString("    RunsOnClient = %1\n").arg(s.runsOnClient ? "Yes" : "No");
         if (s.runsOnFailure)

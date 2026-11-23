@@ -118,9 +118,6 @@ public:
     static QString createText(const QString &name, const QString &description, bool enabled,
                               const QStringList &runs, const QString &lineEnd = QStringLiteral("\n"));
 
-    /// A value as Bareos reads it in a configuration file: quoted, with \ and " escaped
-    static QString quoted(const QString &value);
-
     /**
      * @brief Why @p name cannot be the name of a new schedule; empty if it can
      *

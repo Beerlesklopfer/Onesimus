@@ -10,6 +10,7 @@
 #include "schedules/model/bscheduleresource.h"
 
 #include "config/bresourcetext.h"
+#include "bquote.h"
 
 #include <QHash>
 #include <QRegularExpression>
@@ -20,7 +21,8 @@ namespace {
 int commentStart(const QString &line) { return BResourceText::commentStart(line); }
 QString body(const QString &line) { return BResourceText::lineBody(line); }
 QString unquotedPart(const QString &line) { return BResourceText::unquotedPart(line); }
-QString unescape(const QString &quotedBody) { return BResourceText::unescape(quotedBody); }
+QString unescape(const QString &quotedBody) { return BQuote::unescape(quotedBody); }
+QString quoted(const QString &value) { return BQuote::quoted(value); }
 
 /// Everything of the text that is not a Run line, for the check after a rewrite
 QString withoutRunLines(const BScheduleResource::Parsed &parsed)
@@ -37,11 +39,6 @@ QString withoutRunLines(const BScheduleResource::Parsed &parsed)
 }
 
 } // namespace
-
-QString BScheduleResource::quoted(const QString &value)
-{
-    return BResourceText::quoted(value);
-}
 
 QString BScheduleResource::nameProblem(const QString &name, const QStringList &taken)
 {

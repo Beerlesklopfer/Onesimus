@@ -19,6 +19,7 @@
 #include "buiscale.h"
 #include "blogging.h"
 #include "blogredact.h"
+#include "bquote.h"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -568,9 +569,12 @@ QString BScheduleWizard::generateConfigureCommand() const
 
     QStringList parts;
     parts.append(QStringLiteral("add schedule"));
-    parts.append(QStringLiteral("name=\"%1\"").arg(scheduleName()));
+    bool nameOk = false, descriptionOk = true;
+    parts.append(QStringLiteral("name=") + BQuote::quoted(scheduleName(), &nameOk));
     if (!scheduleDescription().isEmpty())
-        parts.append(QStringLiteral("description=\"%1\"").arg(scheduleDescription()));
+        parts.append(QStringLiteral("description=") + BQuote::quoted(scheduleDescription(), &descriptionOk));
+    if (!nameOk || !descriptionOk)
+        return QString();   // a newline would end the command
     if (!scheduleEnabled())
         parts.append(QStringLiteral("enabled=no"));
     // Run lines may contain quoted names (Pool="Full Pool")
