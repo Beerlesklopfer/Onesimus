@@ -564,26 +564,26 @@ public:
      * @brief Get current host name
      * @return Host name or empty string if not connected
      */
-    QString currentHost() const { return m_host; }
+    QString currentHost() const;
 
     /**
      * @brief Get current port
      * @return Port number or 0 if not connected
      */
-    int currentPort() const { return m_port; }
+    int currentPort() const;
 
     /**
      * @brief Get current director name
      * @return Director name or empty string if not connected
      */
-    QString currentDirectorName() const { return m_directorName; }
+    QString currentDirectorName() const;
 
     /**
      * @brief Get TLS cipher list from authentication
      * @return Colon-separated cipher list (e.g., "PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA")
      * @since 2.9
      */
-    QString tlsCipherList() const { return m_tlsCipherList; }
+    QString tlsCipherList() const;
 
     // ========================================================================
     // TLS Configuration
@@ -1098,6 +1098,9 @@ private:
      */
     void resetResourceFlags();
 
+    /// Sets the state of one resource (under m_infoMutex)
+    void setResourceState(ResourceType type, ResourceLoadState state);
+
     // ========================================================================
     // Protocol Methods
     // ========================================================================
@@ -1263,6 +1266,9 @@ private:
     mutable QMutex m_connectionMutex;  ///< Schützt Socket-Operationen
     mutable QMutex m_stateMutex;       ///< Schützt m_connectionState, m_connected
     mutable QMutex m_authMutex;        ///< Mutex für Authentifizierung-Wait
+    /// Guards what the GUI thread reads while the Director's thread writes
+    /// it: m_host, m_port, m_directorName, m_tlsCipherList, m_resourceStates
+    mutable QMutex m_infoMutex;
     QWaitCondition m_authCondition;    ///< Wait Condition für Authentifizierung
     bool m_initialized;                ///< Socket initialisiert?
     bool m_authCompleted;              ///< Authentifizierung abgeschlossen (Erfolg oder Fehler)
@@ -1292,15 +1298,15 @@ private:
     static constexpr int ApiModeTimeoutMs = 15000;
 
     /**
-     * @brief Map of resource type to its current loading state
-     */
-    QMap<ResourceType, ResourceLoadState> m_resourceStates;
-
-    /**
      * @brief Timeout of the oldest sent command (see onCommandTimeout())
      */
     QTimer *m_commandTimer = nullptr;
     int m_commandTimeoutMs = DefaultCommandTimeoutMs;
+
+    /**
+     * @brief Map of resource type to its current loading state
+     */
+    QMap<ResourceType, ResourceLoadState> m_resourceStates;
 
     /**
      * @brief Error message if state is Error

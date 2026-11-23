@@ -155,22 +155,25 @@ BareosDirector::~BareosDirector()
 {
     DIR_DEBUG << "Destructor called";
 
-    // Cleanup socket
+    // Runs in the Director's thread (BDirector deletes it when that thread
+    // finishes). The socket, the auth object, the timers and the gRPC
+    // transport are children and are deleted by ~QObject; before that, none
+    // of them may call back into this half-destroyed object.
     if (m_socket) {
-        // abort() immediately closes without waiting - cleaner for destructor
+        QObject::disconnect(m_socket, nullptr, this, nullptr);
         if (m_socket->state() != QAbstractSocket::UnconnectedState) {
             m_socket->abort();
         }
-        m_socket->deleteLater();
-        m_socket = nullptr;
     }
-
     if (m_auth) {
-        m_auth->deleteLater();
-        m_auth = nullptr;
+        QObject::disconnect(m_auth, nullptr, this, nullptr);
     }
+#ifdef HAVE_GRPC
+    if (m_grpc) {
+        QObject::disconnect(m_grpc, nullptr, this, nullptr);
+    }
+#endif
 
-    // Clean up TLS config
     delete m_tlsConfig;
     m_tlsConfig = nullptr;
 
@@ -254,15 +257,14 @@ void BareosDirector::connect(const QString &host, int port, const QString &direc
     m_receiveBuffer.clear();
     m_consumeApiConfirmation = false;
 
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Connecting;
-        m_connected = false;
-    }
+    setState(Connecting);
 
-    m_host = host;
-    m_port = port;
-    m_directorName = directorName;
+    {
+        QMutexLocker infoLocker(&m_infoMutex);
+        m_host = host;
+        m_port = port;
+        m_directorName = directorName;
+    }
     m_consoleName = consoleName;
     m_password = password;
 
@@ -321,8 +323,7 @@ void BareosDirector::disconnect()
         m_socket->disconnectFromHost();
     }
 
-    m_connected = false;
-    m_connectionState = Disconnected;
+    setState(Disconnected);
 }
 
 bool BareosDirector::isConnected() const
@@ -351,10 +352,33 @@ void BareosDirector::setTLSConfig(const TLSConfig &config)
 
 BareosDirector::TLSConfig *BareosDirector::tlsConfig() const
 {
-    if (m_tlsConfig) {
-        return m_tlsConfig;
-    }
-    return new TLSConfig();
+    // Never null while the object lives; for the Director's own thread (the
+    // GUI thread uses the copy kept by BDirector, see BDirector::tlsConfig())
+    return m_tlsConfig;
+}
+
+QString BareosDirector::currentHost() const
+{
+    QMutexLocker locker(&m_infoMutex);
+    return m_host;
+}
+
+int BareosDirector::currentPort() const
+{
+    QMutexLocker locker(&m_infoMutex);
+    return m_port;
+}
+
+QString BareosDirector::currentDirectorName() const
+{
+    QMutexLocker locker(&m_infoMutex);
+    return m_directorName;
+}
+
+QString BareosDirector::tlsCipherList() const
+{
+    QMutexLocker locker(&m_infoMutex);
+    return m_tlsCipherList;
 }
 
 // ============================================================================
@@ -427,7 +451,7 @@ void BareosDirector::markResourceLoaded(ResourceType resourceType)
         return;
     }
 
-    m_resourceStates[resourceType] = ResourceLoadState::Loaded;
+    setResourceState(resourceType, ResourceLoadState::Loaded);
     m_resourceErrors.remove(resourceType);
 
     // Count loaded resources (only required ones, so loaded <= total)
@@ -500,6 +524,7 @@ void BareosDirector::onResourceLoadTimeout()
 
 bool BareosDirector::allResourcesReady() const
 {
+    QMutexLocker locker(&m_infoMutex);
     // Check if all required resources have state Loaded
     for (const ResourceType &type : m_requiredResources) {
         if (m_resourceStates.value(type) != ResourceLoadState::Loaded) {
@@ -511,11 +536,13 @@ bool BareosDirector::allResourcesReady() const
 
 BareosDirector::ResourceLoadState BareosDirector::resourceState(ResourceType type) const
 {
+    QMutexLocker locker(&m_infoMutex);
     return m_resourceStates.value(type, ResourceLoadState::Initial);
 }
 
 bool BareosDirector::isResourceLoaded(ResourceType type) const
 {
+    QMutexLocker locker(&m_infoMutex);
     return m_resourceStates.value(type) == ResourceLoadState::Loaded;
 }
 
@@ -527,7 +554,7 @@ bool BareosDirector::areAllResourcesLoaded() const
 void BareosDirector::reloadResource(ResourceType type)
 {
     ResourceLoadState oldState = m_resourceStates.value(type, ResourceLoadState::Initial);
-    m_resourceStates[type] = ResourceLoadState::Reloading;
+    setResourceState(type, ResourceLoadState::Reloading);
 
     DIR_DEBUG << "RESOURCE: " << s_resourceNames.value(type, "?")
              << s_loadStateNames.value(oldState) << "->" << "Reloading";
@@ -569,7 +596,7 @@ void BareosDirector::reloadResource(ResourceType type)
 void BareosDirector::markResourceFailed(ResourceType resourceType, const QString &errorMessage)
 {
     ResourceLoadState oldState = m_resourceStates.value(resourceType, ResourceLoadState::Initial);
-    m_resourceStates[resourceType] = ResourceLoadState::Failed;
+    setResourceState(resourceType, ResourceLoadState::Failed);
     m_resourceErrors[resourceType] = errorMessage;
 
     BLOG_DEBUG() << "RESOURCE FAILED:" << s_resourceNames.value(resourceType, "?")
@@ -660,7 +687,7 @@ void BareosDirector::startResourceLoading()
 
     // Set all required resources to Waiting state and send dot-commands
     for (const ResourceType &type : m_requiredResources) {
-        m_resourceStates[type] = ResourceLoadState::Waiting;
+        setResourceState(type, ResourceLoadState::Waiting);
         emit resourceStateChanged(type, ResourceLoadState::Waiting);
 
         switch (type) {
@@ -691,7 +718,7 @@ void BareosDirector::startResourceLoading()
         default:
             // Other resource types don't have corresponding dot-commands
             // Mark them as loaded immediately
-            m_resourceStates[type] = ResourceLoadState::Loaded;
+            setResourceState(type, ResourceLoadState::Loaded);
             break;
         }
     }
@@ -699,14 +726,23 @@ void BareosDirector::startResourceLoading()
 
 void BareosDirector::resetResourceFlags()
 {
-    m_resourceStates.clear();
+    {
+        QMutexLocker locker(&m_infoMutex);
+        m_resourceStates.clear();
+        // Initialize all required resources to Initial state
+        for (const ResourceType &type : m_requiredResources) {
+            m_resourceStates[type] = ResourceLoadState::Initial;
+        }
+    }
     m_resourceErrors.clear();
     m_errorMessage.clear();
+}
 
-    // Initialize all required resources to Initial state
-    for (const ResourceType &type : m_requiredResources) {
-        m_resourceStates[type] = ResourceLoadState::Initial;
-    }
+void BareosDirector::setResourceState(ResourceType type, ResourceLoadState state)
+{
+    // Written only in the Director's thread, read from the GUI thread too
+    QMutexLocker locker(&m_infoMutex);
+    m_resourceStates[type] = state;
 }
 
 // ============================================================================
@@ -913,11 +949,7 @@ void BareosDirector::onDisconnected()
     DIR_DEBUG << "CONNECTION CLOSED";
     DIR_DEBUG << "========================================";
 
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connected = false;
-        m_connectionState = Disconnected;
-    }
+    setState(Disconnected);
 
     // Cleanup
     m_jsonReply.clear();
@@ -1446,7 +1478,7 @@ void BareosDirector::onError(QAbstractSocket::SocketError error)
     QString errorMsg = QString("Socket error: %1").arg(m_socket->errorString());
 
     BLOG_ERROR() << errorMsg;
-    m_connectionState = Disconnected;
+    setState(Disconnected);
     emit protocolError(errorMsg);
 }
 
@@ -1460,10 +1492,7 @@ void BareosDirector::startAuthentication()
     BLOG_DEBUG() << "STARTING AUTHENTICATION";
     BLOG_DEBUG() << "========================================";
 
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Authenticating;
-    }
+    setState(Authenticating);
 
     {
         QMutexLocker authLocker(&m_authMutex);
@@ -1582,11 +1611,15 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
     QString remoteName = m_auth->remoteDirectorName();
     if (!remoteName.isEmpty() && remoteName != m_directorName) {
         DIR_DEBUG << "Director name updated: " << m_directorName << " -> " << remoteName;
+        QMutexLocker infoLocker(&m_infoMutex);
         m_directorName = remoteName;
     }
 
     // Store TLS cipher list from auth for config export
-    m_tlsCipherList = m_auth->tlsCipherList();
+    {
+        QMutexLocker infoLocker(&m_infoMutex);
+        m_tlsCipherList = m_auth->tlsCipherList();
+    }
 
     {
         QMutexLocker stateLocker(&m_stateMutex);
@@ -1666,18 +1699,6 @@ void BareosDirector::onAuthenticationSucceeded(const QString directorVersion)
     // ✅ Emit signals NACH dem API-Modus
     emit authentificationSucceeded(true, directorVersion);
 
-    // Verwende QTimer für Keep-Alive
-    QTimer *keepAliveTimer = new QTimer(this);
-    QObject::connect(keepAliveTimer, &QTimer::timeout, [this]() {
-        if (m_socket->isOpen()) {
-            doSend(Command::DotMessages);  // Keep connection alive
-        }
-#ifdef IS_DEVELOPER
-        BLOG_DEBUG() << ".";
-#endif
-    });
-    // keepAliveTimer->start(3000);
-
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "✓ Connection established and ready";
 #endif
@@ -1697,11 +1718,7 @@ void BareosDirector::onAuthenticationFailed(const QString &reason)
     BLOG_ERROR() << "  Reason:" << reason;
     BLOG_ERROR() << "========================================";
 
-    {
-        QMutexLocker stateLocker(&m_stateMutex);
-        m_connectionState = Disconnected;
-        m_connected = false;
-    }
+    setState(Disconnected);
 
     // ✅ Disconnect auth signals
     QObject::disconnect(m_connAuthSucceeded);
@@ -2002,6 +2019,7 @@ void BareosDirector::flushQueue()
                                tr("The command was not sent: no ready connection to the Director"));
         }
     }
+    updateCommandTimer();
 }
 
 bool BareosDirector::dequeueCurrentCommand(CommandEntry &entry)
@@ -2376,10 +2394,14 @@ void BareosDirector::onGrpcLoggedIn(const QString &directorName, const QString &
 
     if (!directorName.isEmpty() && directorName != m_directorName) {
         DIR_DEBUG << "Director name updated: " << m_directorName << " -> " << directorName;
+        QMutexLocker infoLocker(&m_infoMutex);
         m_directorName = directorName;
     }
     m_directorVersion = version;
-    m_tlsCipherList.clear();
+    {
+        QMutexLocker infoLocker(&m_infoMutex);
+        m_tlsCipherList.clear();
+    }
 
     {
         QMutexLocker stateLocker(&m_stateMutex);

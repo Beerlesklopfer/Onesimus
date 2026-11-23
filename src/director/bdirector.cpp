@@ -237,35 +237,44 @@ BDirector::~BDirector()
     BLOG_DEBUG() << "BDirector: Destructor - stopping worker thread";
 #endif
 
-    if (m_workerThread) {
-        // Stop thread gracefully
-        m_workerThread->quit();
-        m_workerThread->wait(3000);
+    // Nothing the Director still emits may reach this half-destroyed wrapper
+    if (m_director) {
+        QObject::disconnect(m_director, nullptr, this, nullptr);
+    }
 
-        if (m_workerThread->isRunning()) {
+    if (m_workerThread && m_workerThread->isRunning()) {
+        // The Director lives in the worker thread and is deleted there, when
+        // the thread finishes: QThread sends the deferred deletes of its
+        // objects after finished(). Its children (socket, timers, gRPC
+        // transport) go with it. deleteLater() after quit() would never run:
+        // the thread has no event loop any more by then.
+        if (m_director) {
+            QObject::connect(m_workerThread, &QThread::finished,
+                             m_director, &QObject::deleteLater);
+        }
+        m_workerThread->quit();
+
+        if (!m_workerThread->wait(5000)) {
             BLOG_WARNING() << "BDirector: Worker thread still running, terminating...";
             m_workerThread->terminate();
             m_workerThread->wait();
         }
+        // Deleted by the finishing thread (or, after terminate(), left
+        // alone: nothing about its state can be trusted then)
+        m_director = nullptr;
 
 #ifdef IS_DEVELOPER
         BLOG_DEBUG() << "BDirector: Worker thread stopped";
 #endif
-    }
-
-    // Director will be deleted automatically when thread is deleted
-    // because it's parented to the thread via moveToThread
-    if (m_director) {
-        m_director->deleteLater();
+    } else {
+        // The thread never ran or has ended: no event of the Director can
+        // be processed any more, so it can be deleted here
+        delete m_director;
         m_director = nullptr;
     }
 
-    // Thread is parented to this, so it will be deleted automatically
-    // but we can delete it explicitly for clarity
-    if (m_workerThread) {
-        delete m_workerThread;
-        m_workerThread = nullptr;
-    }
+    delete m_workerThread;
+    m_workerThread = nullptr;
 
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "BDirector: Destructor complete";
@@ -342,10 +351,7 @@ BDirector::ApiMode BDirector::apiMode() const
 
 BDirector::TLSConfig *BDirector::tlsConfig() const
 {
-    if (m_director) {
-        return m_director->tlsConfig();
-    }
-    return nullptr;
+    return &m_tlsConfig;
 }
 
 // ============================================================================
@@ -363,6 +369,20 @@ void BDirector::connect(const QString &host, int port, const QString &directorNa
 #ifdef IS_DEVELOPER
     BLOG_DEBUG() << "BDirector::connect: Forwarding to director thread";
 #endif
+
+    // The Director gets its own copy of the TLS settings, file objects
+    // included, queued before the connect() that uses it
+    TLSConfig tls = m_tlsConfig;
+    tls.tlsCaCertFile.reset(new QFile(m_tlsConfig.tlsCaCertFile ? m_tlsConfig.tlsCaCertFile->fileName() : QString()));
+#ifdef Q_OS_WINDOWS
+    tls.tlsPfxFile.reset(new QFile(m_tlsConfig.tlsPfxFile ? m_tlsConfig.tlsPfxFile->fileName() : QString()));
+#else
+    tls.tlsCertFile.reset(new QFile(m_tlsConfig.tlsCertFile ? m_tlsConfig.tlsCertFile->fileName() : QString()));
+    tls.tlsKeyFile.reset(new QFile(m_tlsConfig.tlsKeyFile ? m_tlsConfig.tlsKeyFile->fileName() : QString()));
+#endif
+    DIRECTOR_CLASS *director = m_director;
+    QMetaObject::invokeMethod(director, [director, tls]() { director->setTLSConfig(tls); },
+                              Qt::QueuedConnection);
 
     // Thread-safe: Use QMetaObject::invokeMethod with Qt::QueuedConnection
     QMetaObject::invokeMethod(m_director, "connect",
@@ -397,8 +417,8 @@ void BDirector::setTLSConfig(const TLSConfig &config)
         return;
     }
 
-    // This is safe to call directly as it only sets member variables
-    m_director->setTLSConfig(config);
+    // Only the GUI thread's copy; connect() hands it to the Director
+    m_tlsConfig = config;
 }
 
 void BDirector::setTransport(Transport transport, int grpcPort, const QString &grpcCertFingerprint)

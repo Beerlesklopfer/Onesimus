@@ -139,8 +139,11 @@ public:
     ApiMode apiMode() const;
 
     /**
-     * @brief Get TLS configuration
-     * @return Pointer to TLS configuration
+     * @brief TLS configuration for the next connect()
+     *
+     * The GUI thread's own copy: changing it touches nothing the Director's
+     * thread uses. connect() hands a copy of it to the Director.
+     * @return Pointer to the copy kept by this wrapper (never null)
      */
     TLSConfig *tlsConfig() const;
 
@@ -428,8 +431,8 @@ public slots:
     void disconnect();
 
     /**
-     * @brief Set TLS configuration
-     * @param config TLS configuration
+     * @brief Set the TLS configuration for the next connect()
+     * @param config TLS configuration (copied; see tlsConfig())
      */
     void setTLSConfig(const TLSConfig &config);
 
@@ -531,6 +534,9 @@ private:
     DIRECTOR_CLASS *m_director;  ///< Underlying director instance (runs in worker thread)
     QThread *m_workerThread;     ///< Worker thread for director and auth
     Transport m_transport = Transport::Bnet;  ///< Last value passed to setTransport()
+    /// GUI-thread TLS configuration; mutable because tlsConfig() is const
+    /// and hands out a pointer to it for editing
+    mutable TLSConfig m_tlsConfig;
     QString m_serverIdentity;    ///< Last serverIdentified() text, cleared on disconnect
     BConfig::Capabilities m_configCapabilities;  ///< Cleared on disconnect
     quint64 m_nextConfigId = 1;
