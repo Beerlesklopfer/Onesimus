@@ -68,6 +68,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checked on a separate pre-flight connection and the channel itself ran without verification.
 - Each refused connection says why (wrong password, Director without the password, certificate
   not matching the pin, host name not in the certificate, CA file unreadable).
+- Certificate generator: private keys are written owner-only (0600, an existing file is
+  tightened first); the CA key is kept only encrypted with a passphrase (PKCS#8, AES-256) or not
+  at all; a PFX is written only with a password; client certificates carry CA:FALSE, key usage,
+  clientAuth and the common name as DNS name; serial numbers are 159 random bits instead of the
+  time of day.
+- New-client dialog: the File Daemon password comes from the system's secure random source.
+- ZIP import (connection wizard and import dialog): configuration files are read in memory with
+  limits (16 MiB archive, 1000 entries, 1 MiB per file, 16 MiB together); symbolic links and paths
+  leaving the archive are refused; no external `unzip`. The "Copy Debug Info" button, which put
+  the start of passwords on the clipboard, is removed.
+- One quoting for console commands and generated configuration: names, passwords and paths
+  with a blank, `"` or `\` stay one value (the ACL matrix dropped backslashes, the schedule wizard
+  and the new-client dialog did not escape); a value with a line break is not sent; values that
+  `configure add` cannot write (`;`, `@`, `"`, `\`) are refused before sending.
 
 ### Fixed
 - The GUI no longer freezes after connecting: the wait prediction runs in a worker thread and
@@ -93,6 +107,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   root directory is asked for by path instead of assuming PathId 1; checking a directory no
   longer loads its whole subtree, and a partly selected directory restores every entry that was
   not unchecked.
+- FileSet wizard: the generated configuration is accepted by `bareos-dir -t` (Bareos 25.1) and
+  `odir -t` for all 22 templates and for edited FileSets: patterns to leave out go into an Options
+  block with `Exclude = yes` instead of an Exclude block inside Options, empty Regex/Wild lines,
+  VSS and Exclude Dir Containing inside Options and Enable Snapshot are no longer written, and
+  the templates no longer use "Files", `Accurate = yes` or `Verify = yes`.
+- FileSet wizard: loading and writing a FileSet keeps every directive (several Options blocks,
+  exclude regexes, Plugin, Enable VSS, Ignore FileSet Changes, unknown directives); the options
+  form changes only the option that was changed; names with blanks are kept.
+- PFX converter: it writes the PFX file (with the CA certificate, if given), reads it back with
+  the password, and otherwise says why; before it reported success without writing a file.
+- "Edit..." of a resource list is offered only for Job and JobDefs, which are written to the
+  Director; for the other types it only changed the list in the window and lost lists and nested
+  blocks.
 
 ## [0.2.0] - 2026-02-21
 
