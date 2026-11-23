@@ -120,6 +120,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "Edit..." of a resource list is offered only for Job and JobDefs, which are written to the
   Director; for the other types it only changed the list in the window and lost lists and nested
   blocks.
+- **Long replies over BNET** (P1-17): a JSON reply split into several telegrams, also inside a
+  UTF-8 character, keeps every character and every space (before, a split character became
+  "\uFFFD" and spaces at the split were lost); the reply is read in time proportional to its size
+  instead of being parsed again after every telegram (8 MiB in 1000-byte telegrams: each byte
+  read once).
+- **Disconnect over BNET** (P1-5): the console sends "quit" before it closes the connection;
+  before, the farewell was written after the socket was closed.
+- **Commands without an answer** (P1-5): a command the Director does not answer within 5 minutes
+  is reported as failed, and its late reply is no longer taken for the reply of the next command.
+- **Closing a connected window or program** (P1-19): the Director connection is torn down in its
+  own thread; before, it was never deleted and its socket stayed open. The unused keep-alive
+  timer created at every login is gone; every change of the connection state reaches the status
+  bar.
+- **Failed commands** (P1-20): a reply counts as failed only when the Director reports an error
+  (the JSON-RPC error object, or a Bareos error line in text mode), no longer when a job log, a
+  file name or another value contains the word "error".
+- **Cancel in the job list toolbar** (P1-20): cancels every selected job instead of one picked
+  at random, and reports the Director's answer for each instead of "Job N was cancelled" before
+  any answer.
+- **Headless mode** (P1-29): `--headless` sends the command (`-e` or the arguments) and the
+  commands of `--script` (one per line), prints each reply (the Director's JSON) and exits with
+  0 (all succeeded), 1 (a command failed) or 2 (no session); it needs no display and needs
+  `--host`. Before, the command was never sent. The unused `--config` option is removed.
 
 ## [0.2.0] - 2026-02-21
 
