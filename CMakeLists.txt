@@ -853,7 +853,7 @@ if(APPLE)
         MACOSX_BUNDLE_ICON_FILE onesimus.icns
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
-        MACOSX_BUNDLE_COPYRIGHT "Copyright (C) Bernau Family. AGPL-3.0-or-later."
+        MACOSX_BUNDLE_COPYRIGHT "Copyright (C) 2025-2026 Jörg Bernau. AGPL-3.0."
     )
 endif()
 
@@ -3133,7 +3133,7 @@ elseif(UNIX)
     set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
     # RPM package settings
-    set(CPACK_RPM_PACKAGE_LICENSE "AGPL-3.0-or-later")
+    set(CPACK_RPM_PACKAGE_LICENSE "AGPL-3.0-only AND AGPL-3.0-or-later")
     set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
     set(CPACK_RPM_PACKAGE_REQUIRES "qt6-qtbase >= ${ONESIMUS_QT_MIN_VERSION}")
     set(CPACK_RPM_FILE_NAME RPM-DEFAULT)

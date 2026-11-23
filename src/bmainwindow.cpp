@@ -1874,11 +1874,11 @@ void BMainWindow::onAboutTriggered()
     // Rich text takes its small size from the interface font
     const QString smallCss = BUiScale::cssFontSize(BUiScale::Small);
     QLabel* licenseLabel = new QLabel(
-        QString("<p><b>License:</b> GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)</p>"
+        QString("<p><b>License:</b> GNU Affero General Public License v3.0 (AGPL-3.0). Onesimus' own code is also available under any later version; parts that follow Bareos are version 3 only (see LICENSING.md).</p>"
         "<p style='" + smallCss + "; color:#666;'>"
         "This program is free software: you can redistribute it and/or modify it under the "
         "terms of the GNU Affero General Public License as published by the Free Software "
-        "Foundation, either version 3 of the License, or (at your option) any later version.</p>"
+        "Foundation, version 3 of the License.</p>"
         "<p style='" + smallCss + "; color:#666;'>"
         "This program is distributed in the hope that it will be useful, but WITHOUT ANY "
         "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A "

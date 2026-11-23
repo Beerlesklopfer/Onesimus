@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/OpenSSL-3.6-orange?logo=openssl" alt="OpenSSL 3.6">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Cross-Platform">
   <img src="https://img.shields.io/badge/Status-Alpha-red" alt="Alpha">
-  <img src="https://img.shields.io/badge/License-AGPL--3.0--or--later-blue" alt="AGPL-3.0-or-later">
+  <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="AGPL-3.0">
 </p>
 
 ---
@@ -506,7 +506,7 @@ Pull requests are welcome! Please:
 
 ## 📄 License
 
-This project is licensed under the GNU Affero General Public License, version 3 or (at your option) any later version (AGPL-3.0-or-later) - see [LICENSE](LICENSE) for details.
+Onesimus is licensed under the GNU Affero General Public License, version 3 (see [LICENSE](LICENSE)). Its own code is also available under any later version (AGPL-3.0-or-later); files that follow the Bareos source are AGPL-3.0-only with the Bareos copyright holders, so the program as a whole is distributed under AGPL-3.0. Each file states its licence in an SPDX header; [LICENSING.md](LICENSING.md) lists the Bareos-related files.
 
 ## 🙏 Credits
 

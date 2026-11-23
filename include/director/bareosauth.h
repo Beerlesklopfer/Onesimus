@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
 
 /**
@@ -17,7 +17,7 @@
  * @date 2025-01-22
  *
  * @copyright Copyright (c) 2025
- * @license AGPL-3.0-or-later
+ * @license AGPL-3.0-only
  *
  * @par Key Differences from Bacula:
  * - TLS-PSK is established BEFORE CRAM-MD5 authentication (since Bareos 18.2)

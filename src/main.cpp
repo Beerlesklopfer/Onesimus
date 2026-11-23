@@ -286,7 +286,7 @@ void usage()
         "Onesimus - Bareos Backup Management\n"
         "Version: " PROJECT_VERSION "\n"
         "Copyright (C) 2025-2026 Jörg Bernau\n"
-        "Licence: AGPL-3.0-or-later\n"
+        "Licence: AGPL-3.0 (own code: AGPL-3.0-or-later; see LICENSING.md)\n"
         "\n"
         "Usage: onesimus [options] [command]\n"
         "\n"

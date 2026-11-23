@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // SPDX-FileCopyrightText: 2026 Jörg Bernau
+// Follows Bacula (see LICENSING.md); AGPL-3.0-only until reviewed.
 
 /**
  * @file baculaauth.h
@@ -16,7 +17,7 @@
  * @date 2025-01-21
  *
  * @copyright Copyright (c) 2025
- * @license GPL-2.0-or-later
+ * @license AGPL-3.0-only
  *
  * Based on Bacula's authenticate.c and authenticatebase.cc
  *
