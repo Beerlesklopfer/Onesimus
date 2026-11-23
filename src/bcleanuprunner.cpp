@@ -182,8 +182,9 @@ bool BCleanupRunner::allSucceeded() const
 
 bool BCleanupRunner::replyHasError(const QString &reply)
 {
-    // Same text markers as BareosDirector::detectCommandError(), so that both
-    // layers agree on what a failed command is
+    // Stricter than BareosDirector::detectCommandError(): the reply of a
+    // delete or prune is short, and anything that looks like a failure stops
+    // the cleanup rather than let it go on
     if (reply.contains(QLatin1String("\"error\""), Qt::CaseInsensitive)
         || reply.contains(QLatin1String("ERR="), Qt::CaseSensitive)
         || reply.contains(QLatin1String("Error:"), Qt::CaseInsensitive)) {

@@ -1182,9 +1182,10 @@ private:
     void registerRollback(CommandEntry &entry);
 
     /**
-     * @brief Detect if a Director response indicates an error
+     * @brief Detect if a Director response reports a failed command
      * @param response The response text or JSON
-     * @return true if the response contains an error indicator
+     * @return true for a JSON-RPC error object or a Bareos error line
+     *         (see BDirectorReply::isErrorReply())
      */
     bool detectCommandError(const QString &response) const;
 

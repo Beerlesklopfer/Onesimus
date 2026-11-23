@@ -25,6 +25,7 @@
 #include "director/bareosdirector.h"
 #include "director/bnetframe.h"
 #include "director/bjsonreassembler.h"
+#include "director/bdirectorreply.h"
 #include "blogging.h"
 #include "blogredact.h"
 #include "bquote.h"
@@ -2057,19 +2058,10 @@ void BareosDirector::registerRollback(CommandEntry &entry)
 
 bool BareosDirector::detectCommandError(const QString &response) const
 {
-    // Bareos error patterns in JSON responses
-    if (response.contains("\"error\"", Qt::CaseInsensitive)) return true;
-    if (response.contains("ERR=", Qt::CaseSensitive)) return true;
-    if (response.contains("Error:", Qt::CaseInsensitive)) return true;
-    // JSON API error field
-    QJsonDocument doc = QJsonDocument::fromJson(response.toUtf8());
-    if (doc.isObject()) {
-        QJsonObject root = doc.object();
-        if (root.contains("error")) return true;
-        QJsonObject result = root["result"].toObject();
-        if (result.contains("error")) return true;
-    }
-    return false;
+    // By the structure of the reply (the JSON-RPC error object, or a Bareos
+    // error line in text mode), not by the word "error" somewhere in it: a
+    // job log or a file name containing it is not a failed command
+    return BDirectorReply::isErrorReply(response);
 }
 
 bool BareosDirector::rollbackLast()
