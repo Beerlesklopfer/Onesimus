@@ -418,6 +418,17 @@ jobs:
           VERSION: ${{ needs.check.outputs.version }}
         run: src/scripts/ci/check-source-assets.sh dist "$VERSION" "$QT_VERSION"
 
+      # GitHub replaces characters other than letters, digits, '.', '-' and '_'
+      # in asset names by '.' (the '~' of the .deb version); rename first so
+      # SHA256SUMS names the files as they are published.
+      - name: Asset names as GitHub publishes them
+        working-directory: dist
+        run: |
+          for f in *; do
+            g="$(printf '%s' "$f" | LC_ALL=C sed 's/[^A-Za-z0-9._-]/./g')"
+            [ "$f" = "$g" ] || { echo "rename: $f -> $g"; mv -- "$f" "$g"; }
+          done
+
       # Every package type, so a job that builds but does not upload is caught
       - name: Packages present
         working-directory: dist
