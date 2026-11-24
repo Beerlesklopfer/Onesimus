@@ -20,11 +20,45 @@
 
 QString BConfigExporter::s_lastError;
 
+namespace {
+
+// A resource name becomes the file name <name>.conf in bareos-dir.d/<type>/.
+// Bareos allows '/' in names, but the archive is extracted into the
+// Director's root directory: a path in the name would put the file outside
+// that directory, or into a subdirectory the Director does not read.
+bool isUsableAsFileName(const QString &name)
+{
+    if (name.isEmpty())
+        return false;
+    for (const QChar c : name) {
+        if (c == QLatin1Char('/') || c == QLatin1Char('\\') || c.unicode() < 0x20 || c.unicode() == 0x7f)
+            return false;
+    }
+    return true;
+}
+
+} // namespace
+
 bool BConfigExporter::exportToArchive(const BConnectionProfile &profile,
                                        const QString &outputPath,
                                        ExportMode mode)
 {
     s_lastError.clear();
+
+    // The names that become file names in the archive (see generateFiles())
+    if (!isUsableAsFileName(profile.consoleName)) {
+        s_lastError = QObject::tr("The console name \"%1\" cannot be used as a file name "
+                                  "(empty, or with a slash, backslash or control character)")
+                          .arg(profile.consoleName);
+        return false;
+    }
+    if (mode >= ExportWithProfile && profile.hasAcls() && !profile.profile.isEmpty()
+        && !isUsableAsFileName(profile.profile)) {
+        s_lastError = QObject::tr("The profile name \"%1\" cannot be used as a file name "
+                                  "(with a slash, backslash or control character)")
+                          .arg(profile.profile);
+        return false;
+    }
 
     // Generate files
     QList<FileEntry> files = generateFiles(profile, mode);

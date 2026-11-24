@@ -47,6 +47,9 @@ private slots:
     void roundTripThroughImport();
     void windowsServerPaths();
     void defaultExtensionIsZip();
+    void namesThatAreNoFileNameRefused_data();
+    void namesThatAreNoFileNameRefused();
+    void profileNameOnlyCheckedWhenWritten();
 };
 
 namespace {
@@ -381,6 +384,56 @@ void BConfigExporterTest::windowsServerPaths()
 void BConfigExporterTest::defaultExtensionIsZip()
 {
     QCOMPARE(BConfigExporter::defaultExtension(), QStringLiteral(".zip"));
+}
+
+void BConfigExporterTest::namesThatAreNoFileNameRefused_data()
+{
+    QTest::addColumn<QString>("consoleName");
+    QTest::addColumn<QString>("profileName");
+    // The archive is extracted into the Director's root directory: a name
+    // with a path in it would write a file outside bareos-dir.d/console
+    // (or into a subdirectory the Director does not read)
+    QTest::newRow("console leaves the tree") << "../../../../root/.ssh/authorized_keys" << "";
+    QTest::newRow("console in a subdirectory") << "team/admin" << "";
+    QTest::newRow("console with backslash") << "..\\..\\evil" << "";
+    QTest::newRow("console empty") << "" << "";
+    QTest::newRow("console with newline") << "admin\nother" << "";
+    QTest::newRow("profile leaves the tree") << "admin" << "../../../etc/cron.d/job";
+    QTest::newRow("profile with backslash") << "admin" << "ops\\night";
+}
+
+void BConfigExporterTest::namesThatAreNoFileNameRefused()
+{
+    QFETCH(QString, consoleName);
+    QFETCH(QString, profileName);
+    QTemporaryDir dir;
+    BConnectionProfile p = sampleProfile();
+    p.consoleName = consoleName;
+    p.profile = profileName;
+    p.aclJob = QStringList{QStringLiteral("*all*")};
+    const QString out = dir.filePath("export.zip");
+
+    QVERIFY(!BConfigExporter::exportToArchive(p, out, BConfigExporter::ExportWithProfile));
+    QVERIFY(!BConfigExporter::lastError().isEmpty());
+    QVERIFY(!QFileInfo::exists(out));   // nothing half written
+}
+
+void BConfigExporterTest::profileNameOnlyCheckedWhenWritten()
+{
+    // Console only: the Profile is a name in the Console resource, no file
+    QTemporaryDir dir;
+    BConnectionProfile p = sampleProfile();
+    p.profile = QStringLiteral("ops/night");
+    p.aclJob = QStringList{QStringLiteral("*all*")};
+    QVERIFY2(BConfigExporter::exportToArchive(p, dir.filePath("a.zip"), BConfigExporter::ExportConsoleOnly),
+             qPrintable(BConfigExporter::lastError()));
+    // Bareos names may contain dots, colons, blanks and dashes
+    p.consoleName = QStringLiteral("admin.console: 2-b_c");
+    p.profile.clear();
+    QVERIFY2(BConfigExporter::exportToArchive(p, dir.filePath("b.zip"), BConfigExporter::ExportWithProfile),
+             qPrintable(BConfigExporter::lastError()));
+    QVERIFY(readZip(dir.filePath("b.zip")).contains(
+        QStringLiteral("etc/bareos/bareos-dir.d/console/admin.console: 2-b_c.conf")));
 }
 
 QTEST_GUILESS_MAIN(BConfigExporterTest)
