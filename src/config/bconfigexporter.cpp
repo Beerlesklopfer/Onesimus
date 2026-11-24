@@ -8,6 +8,7 @@
 
 #include "config/bconfigexporter.h"
 #include "bprivatefile.h"
+#include "bquote.h"
 
 #include <QFile>
 #include <QDir>
@@ -20,11 +21,96 @@
 
 QString BConfigExporter::s_lastError;
 
+namespace {
+
+// A resource name becomes the file name <name>.conf in bareos-dir.d/<type>/.
+// Bareos allows '/' in names, but the archive is extracted into the
+// Director's root directory: a path in the name would put the file outside
+// that directory, or into a subdirectory the Director does not read.
+bool isUsableAsFileName(const QString &name)
+{
+    if (name.isEmpty())
+        return false;
+    for (const QChar c : name) {
+        if (c == QLatin1Char('/') || c == QLatin1Char('\\') || c.unicode() < 0x20 || c.unicode() == 0x7f)
+            return false;
+    }
+    return true;
+}
+
+// The profile values written into the archive's resource text that hold a
+// control character, by directive name. BQuote escapes quotes and
+// backslashes, but a control character cannot be escaped: a newline would
+// end the value and the rest of the line would become a directive.
+QStringList fieldsWithControlCharacters(const BConnectionProfile &p)
+{
+    QStringList fields;
+    auto check = [&fields](const char *name, const QString &value) {
+        if (BQuote::hasControlCharacter(value) && !fields.contains(QLatin1String(name)))
+            fields << QLatin1String(name);
+    };
+    auto checkList = [&check](const char *name, const QStringList &values) {
+        for (const QString &v : values)
+            check(name, v);
+    };
+    check("Name (Director)", p.directorName);
+    check("Address", p.host);
+    check("Description", p.description);
+    check("Profile", p.profile);
+    check("TLS CA Certificate File", p.tlsCaCertFile);
+    check("TLS CA Certificate Dir", p.tlsCaCertDir);
+    check("TLS Certificate", p.tlsCertFile);
+    check("TLS Key", p.tlsKeyFile);
+    check("TLS Cipher List", p.tlsCipherList);
+    check("TLS Cipher Suites", p.tlsCipherSuites);
+    check("TLS DH File", p.tlsDhFile);
+    check("TLS Protocol", p.tlsProtocol);
+    check("TLS Certificate Revocation List", p.tlsCrlFile);
+    check("Grpc Fingerprint", p.grpcCertFingerprint);
+    checkList("TLS Allowed CN", p.tlsAllowedCn);
+    checkList("Job ACL", p.aclJob);
+    checkList("Client ACL", p.aclClient);
+    checkList("Storage ACL", p.aclStorage);
+    checkList("Schedule ACL", p.aclSchedule);
+    checkList("Pool ACL", p.aclPool);
+    checkList("FileSet ACL", p.aclFileSet);
+    checkList("Catalog ACL", p.aclCatalog);
+    checkList("Command ACL", p.aclCommand);
+    checkList("Where ACL", p.aclWhere);
+    checkList("PluginOptions ACL", p.aclPluginOptions);
+    return fields;
+}
+
+} // namespace
+
 bool BConfigExporter::exportToArchive(const BConnectionProfile &profile,
                                        const QString &outputPath,
                                        ExportMode mode)
 {
     s_lastError.clear();
+
+    // The names that become file names in the archive (see generateFiles())
+    if (!isUsableAsFileName(profile.consoleName)) {
+        s_lastError = QObject::tr("The console name \"%1\" cannot be used as a file name "
+                                  "(empty, or with a slash, backslash or control character)")
+                          .arg(profile.consoleName);
+        return false;
+    }
+    if (mode >= ExportWithProfile && profile.hasAcls() && !profile.profile.isEmpty()
+        && !isUsableAsFileName(profile.profile)) {
+        s_lastError = QObject::tr("The profile name \"%1\" cannot be used as a file name "
+                                  "(with a slash, backslash or control character)")
+                          .arg(profile.profile);
+        return false;
+    }
+
+    const QStringList badFields = fieldsWithControlCharacters(profile);
+    if (!badFields.isEmpty()) {
+        s_lastError = QObject::tr("These values contain a line break or another control "
+                                  "character, which Bareos cannot read in a quoted value: %1")
+                          .arg(badFields.join(QStringLiteral(", ")));
+        return false;
+    }
 
     // Generate files
     QList<FileEntry> files = generateFiles(profile, mode);

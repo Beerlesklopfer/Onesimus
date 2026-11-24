@@ -921,8 +921,10 @@ endif()
 # onesimus_core: the application without main()
 # ============================================================================
 # A static library, compiled once and linked by the program and by the tests
-# that need the whole application (bdialogfonts_test, bappwidgets_test);
-# before, those compiled every source again. The Director layer comes from
+# that use application classes; before, every test compiled its own subset
+# of the sources again (and could drift from the program's build). A test
+# that needs the theme resources links onesimus_resources as well. The
+# Director layer comes from
 # bareosdirector_lib (object library, also linked by many tests) and
 # BareosAuth from bareosauth_lib, so neither is compiled twice either.
 # The theme resources are an object library (onesimus_resources): in a
@@ -1463,8 +1465,6 @@ target_link_libraries(director_test PRIVATE
 # volumejson_test - "list volumes" reply parsing (grouped by pool and flat)
 add_executable(volumejson_test
     test/volumejson_test.cpp
-    src/models/bvolumejson.cpp
-    include/models/bvolumejson.h
 )
 
 target_include_directories(volumejson_test PRIVATE
@@ -1472,6 +1472,7 @@ target_include_directories(volumejson_test PRIVATE
 )
 
 target_link_libraries(volumejson_test PRIVATE
+    onesimus_core
     Qt6::Core
 )
 
@@ -1495,8 +1496,6 @@ if(BUILD_TESTING)
     # size suffixes of Bareos directives ("50G" is 50 GiB)
     add_executable(bbyteformat_test
         test/bbyteformat_test.cpp
-        src/bbyteformat.cpp
-        include/bbyteformat.h
     )
 
     target_include_directories(bbyteformat_test PRIVATE
@@ -1504,6 +1503,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bbyteformat_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -1515,21 +1515,9 @@ if(BUILD_TESTING)
     # conversion of usage.proto's UsageInfo (absent zero fields)
     add_executable(busagestatus_test
         test/busagestatus_test.cpp
-        src/busagestatus.cpp
-        include/busagestatus.h
-        include/director/busage.h
-        src/bbyteformat.cpp
-        include/bbyteformat.h
     )
     target_include_directories(busagestatus_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(busagestatus_test PRIVATE Qt6::Core Qt6::Test)
-    if(HAVE_GRPC)
-        target_sources(busagestatus_test PRIVATE
-            src/director/busageproto.cpp
-            include/director/busageproto.h
-        )
-        target_link_libraries(busagestatus_test PRIVATE onesimus_grpc_proto)
-    endif()
+    target_link_libraries(busagestatus_test PRIVATE onesimus_core Qt6::Core Qt6::Test)
     add_test(NAME busagestatus_test COMMAND busagestatus_test)
 
     # bvolumelist_test - the volumes of "list volumes" / "llist volumes":
@@ -1537,10 +1525,6 @@ if(BUILD_TESTING)
     # production Director (test/fixtures)
     add_executable(bvolumelist_test
         test/bvolumelist_test.cpp
-        src/storage/model/bvolumelist.cpp
-        src/models/bvolumejson.cpp
-        include/storage/model/bvolumelist.h
-        include/models/bvolumejson.h
     )
 
     target_include_directories(bvolumelist_test PRIVATE
@@ -1552,6 +1536,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bvolumelist_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -1564,14 +1549,6 @@ if(BUILD_TESTING)
     # retention paths, the min() rule, the cases that never become reusable
     add_executable(brecycleforecast_test
         test/brecycleforecast_test.cpp
-        src/storage/model/brecycleforecast.cpp
-        src/storage/model/bvolumelist.cpp
-        src/models/bvolumejson.cpp
-        src/bbyteformat.cpp
-        include/storage/model/brecycleforecast.h
-        include/storage/model/bvolumelist.h
-        include/models/bvolumejson.h
-        include/bbyteformat.h
     )
 
     target_include_directories(brecycleforecast_test PRIVATE
@@ -1583,6 +1560,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(brecycleforecast_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -1595,26 +1573,7 @@ if(BUILD_TESTING)
     # for "llist volumes" only (widgets, no Director)
     add_executable(storagewidget_test
         test/storagewidget_test.cpp
-        src/storagewidget.cpp
-        src/storage/model/bvolumelist.cpp
-        src/storage/model/brecycleforecast.cpp
-        src/models/bvolumejson.cpp
-        src/bbyteformat.cpp
-        src/buiscale.cpp
-        src/config/bsettings.cpp
-        src/bstatuschip.cpp
-        src/bstatusdelegate.cpp
-        src/clients/bclientstatus.cpp
         ui/storagewidget.ui
-        include/storagewidget.h
-        include/bstatuschip.h
-        include/bstatusdelegate.h
-        include/storage/model/bvolumelist.h
-        include/storage/model/brecycleforecast.h
-        include/models/bvolumejson.h
-        include/bbyteformat.h
-        include/buiscale.h
-        include/config/bsettings.h
     )
 
     target_include_directories(storagewidget_test PRIVATE
@@ -1625,10 +1584,10 @@ if(BUILD_TESTING)
         STORAGE_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/test/fixtures"
     )
 
-    # bareosdirector_lib: the tab names commands by BDirector::Command, an
+    # onesimus_core brings bareosdirector_lib: the tab names commands by BDirector::Command, an
     # enum of the BareosDirector class. Nothing of a Director is created.
     target_link_libraries(storagewidget_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -1649,16 +1608,6 @@ if(BUILD_TESTING)
     # both themes, and how BStatusDelegate paints a chip (widgets, no Director)
     add_executable(bstatuschip_test
         test/bstatuschip_test.cpp
-        src/bstatuschip.cpp
-        src/bstatusdelegate.cpp
-        src/clients/bclientstatus.cpp
-        src/buiscale.cpp
-        src/config/bsettings.cpp
-        include/bstatuschip.h
-        include/bstatusdelegate.h
-        include/clients/bclientstatus.h
-        include/buiscale.h
-        include/config/bsettings.h
     )
 
     target_include_directories(bstatuschip_test PRIVATE
@@ -1670,6 +1619,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bstatuschip_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -1685,33 +1635,16 @@ if(BUILD_TESTING)
     # sorting by value, no row colour by level (widgets, no Director)
     add_executable(bjobstable_test
         test/bjobstable_test.cpp
-        src/jobs/bjobmodels.cpp
-        src/bbyteformat.cpp
-        src/bheaderstate.cpp
-        src/bcheckableheaderview.cpp
-        src/config/bcolumnconfiguration.cpp
-        src/bstatuschip.cpp
-        src/clients/bclientstatus.cpp
-        src/buiscale.cpp
-        src/config/bsettings.cpp
-        include/jobs/bjobmodels.h
-        include/bbyteformat.h
-        include/bheaderstate.h
-        include/bcheckableheaderview.h
-        include/config/bcolumnconfiguration.h
-        include/bstatuschip.h
-        include/buiscale.h
-        include/config/bsettings.h
     )
 
     target_include_directories(bjobstable_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
     )
 
-    # bareosdirector_lib: the jobs model keeps a BDirector pointer; nothing
+    # onesimus_core brings bareosdirector_lib: the jobs model keeps a BDirector pointer; nothing
     # of a Director is created
     target_link_libraries(bjobstable_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -1728,14 +1661,6 @@ if(BUILD_TESTING)
     # bjoblogmodel_test - job log model, its sources and the push message parser
     add_executable(bjoblogmodel_test
         test/bjoblogmodel_test.cpp
-        src/jobs/bjoblogmodel.cpp
-        src/jobs/bjoblogsource.cpp
-        src/bstatuschip.cpp
-        src/clients/bclientstatus.cpp
-        include/jobs/bjoblogmodel.h
-        include/jobs/bjoblogsource.h
-        include/director/bjobpushmessage.h
-        include/bstatuschip.h
     )
 
     target_include_directories(bjoblogmodel_test PRIVATE
@@ -1743,6 +1668,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bjoblogmodel_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Test
@@ -1753,8 +1679,6 @@ if(BUILD_TESTING)
     # brunjobcommand_test - command line of the "Run Job" dialog
     add_executable(brunjobcommand_test
         test/brunjobcommand_test.cpp
-        src/jobs/brunjobcommand.cpp
-        include/jobs/brunjobcommand.h
     )
 
     target_include_directories(brunjobcommand_test PRIVATE
@@ -1762,6 +1686,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(brunjobcommand_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -1772,10 +1697,6 @@ if(BUILD_TESTING)
     # quoting, restoreclient=, restorejob= (P0-4)
     add_executable(brestorecommand_test
         test/brestorecommand_test.cpp
-        src/jobs/brestorecommand.cpp
-        src/jobs/brunjobcommand.cpp
-        include/jobs/brestorecommand.h
-        include/jobs/brunjobcommand.h
     )
 
     target_include_directories(brestorecommand_test PRIVATE
@@ -1783,6 +1704,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(brestorecommand_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -1793,19 +1715,15 @@ if(BUILD_TESTING)
     # their requests; late replies of closed wizards dropped (P0-15)
     add_executable(bbvfsreplyrouter_test
         test/bbvfsreplyrouter_test.cpp
-        src/jobs/bbvfsreplyrouter.cpp
-        include/jobs/bbvfsreplyrouter.h
-        src/director/bdirector.cpp
-        include/director/bdirector.h
     )
 
     target_include_directories(bbvfsreplyrouter_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
     )
 
-    # bareosdirector_lib: BDirector wraps a BareosDirector; none is created
+    # onesimus_core brings bareosdirector_lib: BDirector wraps a BareosDirector; none is created
     target_link_libraries(bbvfsreplyrouter_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Network
         Qt6::Test
@@ -1820,24 +1738,15 @@ if(BUILD_TESTING)
     # (P0-15); hand-written replies, no Director
     add_executable(bbvfsmodel_test
         test/bbvfsmodel_test.cpp
-        src/jobs/bbvfsmodel.cpp
-        src/jobs/bbvfsreplyrouter.cpp
-        src/bbyteformat.cpp
-        include/jobs/bbvfsmodel.h
-        include/bbyteformat.h
-        include/jobs/bbvfsargs.h
-        include/jobs/bbvfsreplyrouter.h
-        src/director/bdirector.cpp
-        include/director/bdirector.h
     )
 
     target_include_directories(bbvfsmodel_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
     )
 
-    # bareosdirector_lib: BDirector wraps a BareosDirector; none is created
+    # onesimus_core brings bareosdirector_lib: BDirector wraps a BareosDirector; none is created
     target_link_libraries(bbvfsmodel_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -1853,10 +1762,6 @@ if(BUILD_TESTING)
     # bcleanup_test - cleanup selection, analysis invalidation and command sequencing
     add_executable(bcleanup_test
         test/bcleanup_test.cpp
-        src/bcleanupplan.cpp
-        src/bcleanuprunner.cpp
-        include/bcleanupplan.h
-        include/bcleanuprunner.h
     )
 
     target_include_directories(bcleanup_test PRIVATE
@@ -1864,6 +1769,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bcleanup_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -1874,12 +1780,6 @@ if(BUILD_TESTING)
     # line, reply parser, and the panel's preview-before-purge rule (offscreen)
     add_executable(bvolumepurge_test
         test/bvolumepurge_test.cpp
-        src/bvolumepurge.cpp
-        src/bvolumepurgepanel.cpp
-        src/bbyteformat.cpp
-        include/bvolumepurge.h
-        include/bvolumepurgepanel.h
-        include/bbyteformat.h
     )
 
     target_include_directories(bvolumepurge_test PRIVATE
@@ -1887,6 +1787,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bvolumepurge_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Widgets
         Qt6::Test
@@ -1899,8 +1800,6 @@ if(BUILD_TESTING)
     # (uses the SQL scripts from the application's resource file)
     add_executable(bdatabase_test
         test/bdatabase_test.cpp
-        src/db/bdatabase.cpp
-        include/db/bdatabase.h
         ${THEME_RESOURCES}
     )
 
@@ -1909,6 +1808,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bdatabase_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Sql
         Qt6::Test
@@ -1940,8 +1840,6 @@ if(BUILD_TESTING)
     # bclientstatus_test - age and state of a client's last backup (issue #9)
     add_executable(bclientstatus_test
         test/bclientstatus_test.cpp
-        src/clients/bclientstatus.cpp
-        include/clients/bclientstatus.h
     )
 
     target_include_directories(bclientstatus_test PRIVATE
@@ -1949,6 +1847,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bclientstatus_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -1960,9 +1859,6 @@ if(BUILD_TESTING)
     # fixtures from the Bareos and Onesimus Director sources, no Director
     add_executable(bclientreachability_test
         test/bclientreachability_test.cpp
-        src/clients/bclientreachability.cpp
-        include/clients/bclientreachability.h
-        include/director/bclientevent.h
     )
 
     target_include_directories(bclientreachability_test PRIVATE
@@ -1974,6 +1870,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bclientreachability_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2105,8 +2002,6 @@ if(BUILD_TESTING)
     # any byte, decoded once, in linear time (P1-17)
     add_executable(bjsonreassembler_test
         test/bjsonreassembler_test.cpp
-        src/director/bjsonreassembler.cpp
-        include/director/bjsonreassembler.h
     )
 
     target_include_directories(bjsonreassembler_test PRIVATE
@@ -2114,6 +2009,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bjsonreassembler_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2127,8 +2023,6 @@ if(BUILD_TESTING)
         test/bdirectorsession_test.cpp
         test/bfakebnetdirector.h
         test/bbnettesthelpers.h
-        src/director/bdirector.cpp
-        include/director/bdirector.h
     )
 
     target_include_directories(bdirectorsession_test PRIVATE
@@ -2137,7 +2031,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bdirectorsession_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Network
         Qt6::Test
@@ -2172,10 +2066,6 @@ if(BUILD_TESTING)
         test/bheadlessrunner_test.cpp
         test/bfakebnetdirector.h
         test/bbnettesthelpers.h
-        src/bheadlessrunner.cpp
-        include/bheadlessrunner.h
-        src/director/bdirector.cpp
-        include/director/bdirector.h
     )
 
     target_include_directories(bheadlessrunner_test PRIVATE
@@ -2184,7 +2074,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bheadlessrunner_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Network
         Qt6::Test
@@ -2205,13 +2095,12 @@ if(BUILD_TESTING)
     # each theme has readable text on its backgrounds (issue #6)
     add_executable(btheme_test
         test/btheme_test.cpp
-        src/btheme.cpp
-        include/btheme.h
     )
     target_include_directories(btheme_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
     )
     target_link_libraries(btheme_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Test
@@ -2223,13 +2112,12 @@ if(BUILD_TESTING)
     # size, time), not only integers
     add_executable(bdirectiveschema_test
         test/bdirectiveschema_test.cpp
-        src/config/bdirectiveschema.cpp
-        include/config/bdirectiveschema.h
     )
     target_include_directories(bdirectiveschema_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
     )
     target_link_libraries(bdirectiveschema_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2297,9 +2185,6 @@ if(BUILD_TESTING)
     # brunparser_test - the Run line model: parser, writer and round trips
     add_executable(brunparser_test
         test/brunparser_test.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/schedules/model/brunspec.h
     )
 
     target_include_directories(brunparser_test PRIVATE
@@ -2307,6 +2192,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(brunparser_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2318,21 +2204,6 @@ if(BUILD_TESTING)
     # the Messages names for the job wizard
     add_executable(bscheduledragplan_test
         test/bscheduledragplan_test.cpp
-        src/schedules/bscheduledragplan.cpp
-        src/schedules/bstaggerplan.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/models/bresourcemodels.cpp
-        src/models/bbasemodels.cpp
-        src/config/bconfigparser.cpp
-        include/schedules/bscheduledragplan.h
-        include/schedules/bstaggerplan.h
-        include/schedules/model/brunspec.h
-        include/schedules/model/bscheduleoccurrences.h
-        include/models/bresourcemodels.h
-        include/models/bbasemodels.h
-        include/config/bconfigparser.h
     )
 
     target_include_directories(bscheduledragplan_test PRIVATE
@@ -2340,6 +2211,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bscheduledragplan_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Test
@@ -2351,11 +2223,6 @@ if(BUILD_TESTING)
     # proposal real: Run lines later, names, the Schedule directive of a job
     add_executable(bstaggerplan_test
         test/bstaggerplan_test.cpp
-        src/schedules/bstaggerplan.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/schedules/bstaggerplan.h
-        include/schedules/model/brunspec.h
     )
 
     target_include_directories(bstaggerplan_test PRIVATE
@@ -2363,6 +2230,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bstaggerplan_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2373,12 +2241,6 @@ if(BUILD_TESTING)
     # ".acl list", the effective ACL, the reasons, Bareos' file decision
     add_executable(baclmatrix_test
         test/baclmatrix_test.cpp
-        src/director/baclmatrix.cpp
-        src/director/baclmatrixdialog.cpp
-        src/buiscale.cpp
-        include/director/baclmatrix.h
-        include/director/baclmatrixdialog.h
-        include/buiscale.h
     )
 
     target_include_directories(baclmatrix_test PRIVATE
@@ -2386,6 +2248,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(baclmatrix_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Widgets
         Qt6::Test
@@ -2398,20 +2261,6 @@ if(BUILD_TESTING)
     # overlaps on concrete dates, and the entries the schedule views get
     add_executable(bscheduleoccurrences_test
         test/bscheduleoccurrences_test.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        src/schedules/bjobscheduleindex.cpp
-        src/schedules/model/bschedulewaitmodel.cpp
-        src/models/bresourcemodels.cpp
-        src/models/bbasemodels.cpp
-        src/config/bconfigparser.cpp
-        include/schedules/model/bscheduleoccurrences.h
-        include/schedules/model/brunspec.h
-        include/schedules/bjobscheduleindex.h
-        include/models/bresourcemodels.h
-        include/models/bbasemodels.h
-        include/config/bconfigparser.h
     )
 
     target_include_directories(bscheduleoccurrences_test PRIVATE
@@ -2419,6 +2268,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bscheduleoccurrences_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Test
@@ -2429,16 +2279,10 @@ if(BUILD_TESTING)
     # bmessagesmodel_test - row signals of the Director messages list at its history limit
     add_executable(bmessagesmodel_test
         test/bmessagesmodel_test.cpp
-        src/messages/bmessageswidget.cpp
-        src/buiscale.cpp
-        src/bstatuschip.cpp
-        src/clients/bclientstatus.cpp
-        include/messages/bmessageswidget.h
-        include/buiscale.h
     )
 
     target_link_libraries(bmessagesmodel_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -2462,25 +2306,6 @@ if(BUILD_TESTING)
         test/bschedulepersistence_test.cpp
         test/bfakeconfigclient.h
         test/bfakesaveui.h
-        src/schedules/bschedulepersistence.cpp
-        src/schedules/bscheduledragplan.cpp
-        src/schedules/bstaggerplan.cpp
-        src/schedules/model/bscheduleresource.cpp
-        src/config/bresourcetext.cpp
-        src/config/bresourcepersistence.cpp
-        include/config/bresourcetext.h
-        include/config/bresourcepersistence.h
-        src/schedules/model/bschedulegridmodel.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/schedules/bschedulepersistence.h
-        include/schedules/bscheduledragplan.h
-        include/schedules/bstaggerplan.h
-        include/schedules/model/bscheduleresource.h
-        include/schedules/model/bschedulegridmodel.h
-        include/schedules/model/brunspec.h
-        include/director/bconfigclient.h
-        include/director/bconfigtypes.h
     )
 
     target_include_directories(bschedulepersistence_test PRIVATE
@@ -2489,17 +2314,11 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bschedulepersistence_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
 
-    if(HAVE_GRPC)
-        target_sources(bschedulepersistence_test PRIVATE
-            src/director/bconfigproto.cpp
-            include/director/bconfigproto.h
-        )
-        target_link_libraries(bschedulepersistence_test PRIVATE onesimus_grpc_proto)
-    endif()
 
     add_test(NAME bschedulepersistence_test COMMAND bschedulepersistence_test)
 
@@ -2509,11 +2328,9 @@ if(BUILD_TESTING)
     # unsafe edits refused, the line diff of the review (no Director)
     add_executable(bresourcetext_test
         test/bresourcetext_test.cpp
-        src/config/bresourcetext.cpp
-        include/config/bresourcetext.h
     )
     target_include_directories(bresourcetext_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bresourcetext_test PRIVATE Qt6::Core Qt6::Test)
+    target_link_libraries(bresourcetext_test PRIVATE onesimus_core Qt6::Core Qt6::Test)
     add_test(NAME bresourcetext_test COMMAND bresourcetext_test)
 
     # bresourcechanges_test - what the resource form (Edit Job...) changed,
@@ -2521,15 +2338,9 @@ if(BUILD_TESTING)
     # shows, emptied fields, list values not written (no Director)
     add_executable(bresourcechanges_test
         test/bresourcechanges_test.cpp
-        src/config/bresourcechanges.cpp
-        src/config/bresourcetext.cpp
-        src/config/bconfigparser.cpp
-        include/config/bresourcechanges.h
-        include/config/bresourcetext.h
-        include/config/bconfigparser.h
     )
     target_include_directories(bresourcechanges_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bresourcechanges_test PRIVATE Qt6::Core Qt6::Test)
+    target_link_libraries(bresourcechanges_test PRIVATE onesimus_core Qt6::Core Qt6::Test)
     add_test(NAME bresourcechanges_test COMMAND bresourcechanges_test)
 
     # bquote_test - the one quoting helper for command lines and resource
@@ -2551,17 +2362,10 @@ if(BUILD_TESTING)
     # options form changing one option (no Director)
     add_executable(bfilesetdocument_test
         test/bfilesetdocument_test.cpp
-        src/jobs/fileset/bfilesetdocument.cpp
-        src/config/beditablelistmodel.cpp
-        src/config/bundocommands.cpp
-        include/jobs/fileset/bfilesetdocument.h
-        include/config/beditablelistmodel.h
-        include/config/bundocommands.h
-        include/bquote.h
     )
     target_include_directories(bfilesetdocument_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_compile_definitions(bfilesetdocument_test PRIVATE ONESIMUS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-    target_link_libraries(bfilesetdocument_test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+    target_link_libraries(bfilesetdocument_test PRIVATE onesimus_core Qt6::Core Qt6::Gui Qt6::Test)
     add_test(NAME bfilesetdocument_test COMMAND bfilesetdocument_test)
 
     # bzipimport_test - ZIP import in memory: limits on archive size, entry
@@ -2569,15 +2373,37 @@ if(BUILD_TESTING)
     # symbolic links; BConfigParser::parseZipArchive() (no Director)
     add_executable(bzipimport_test
         test/bzipimport_test.cpp
-        src/config/bzipimport.cpp
-        src/config/bconfigparser.cpp
-        include/config/bzipimport.h
-        include/config/bconfigparser.h
     )
     target_include_directories(bzipimport_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bzipimport_test PRIVATE Qt6::Core Qt6::Gui Qt6::Test)
+    target_link_libraries(bzipimport_test PRIVATE onesimus_core Qt6::Core Qt6::Gui Qt6::Test)
     target_link_libraries(bzipimport_test PRIVATE Qt6::GuiPrivate)
     add_test(NAME bzipimport_test COMMAND bzipimport_test)
+
+    # bconfigexporter_test - the archive the connection wizard exports:
+    # files per mode, names, directories, owner-only permissions, errors,
+    # read back with QZipReader and the import path (no Director).
+    # Linked against onesimus_core; GuiPrivate for QZipReader.
+    add_executable(bconfigexporter_test
+        test/bconfigexporter_test.cpp
+    )
+    target_link_libraries(bconfigexporter_test PRIVATE
+        onesimus_core
+        Qt6::GuiPrivate
+        Qt6::Test
+    )
+    add_test(NAME bconfigexporter_test COMMAND bconfigexporter_test)
+
+    # bjsonstreamreader_test - JSON replies buffered in chunks, the jobs
+    # array in the shapes a Director sends it, malformed replies, the live
+    # device mode (no Director). Linked against onesimus_core.
+    add_executable(bjsonstreamreader_test
+        test/bjsonstreamreader_test.cpp
+    )
+    target_link_libraries(bjsonstreamreader_test PRIVATE
+        onesimus_core
+        Qt6::Test
+    )
+    add_test(NAME bjsonstreamreader_test COMMAND bjsonstreamreader_test)
 
     # bconfigparser_test - configuration text read as Bareos 25 reads it:
     # directive names without blanks and case, ';', quoted strings, lists,
@@ -2585,11 +2411,9 @@ if(BUILD_TESTING)
     # and include depth, include loops, huge values (P1-25)
     add_executable(bconfigparser_test
         test/bconfigparser_test.cpp
-        src/config/bconfigparser.cpp
-        include/config/bconfigparser.h
     )
     target_include_directories(bconfigparser_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bconfigparser_test PRIVATE Qt6::Core Qt6::Test)
+    target_link_libraries(bconfigparser_test PRIVATE onesimus_core Qt6::Core Qt6::Test)
     add_test(NAME bconfigparser_test COMMAND bconfigparser_test)
 
     # bpki_test - certificate generator and PFX converter without widgets:
@@ -2598,12 +2422,9 @@ if(BUILD_TESTING)
     # password written and read back, errors instead of false success
     add_executable(bpki_test
         test/bpki_test.cpp
-        src/bpki.cpp
-        include/bpki.h
-        include/bprivatefile.h
     )
     target_include_directories(bpki_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bpki_test PRIVATE Qt6::Core Qt6::Test OpenSSL::SSL OpenSSL::Crypto)
+    target_link_libraries(bpki_test PRIVATE onesimus_core Qt6::Core Qt6::Test OpenSSL::SSL OpenSSL::Crypto)
     if(USE_STATIC_OPENSSL)
         add_dependencies(bpki_test openssl_build)
     endif()
@@ -2615,13 +2436,9 @@ if(BUILD_TESTING)
     # JobDefs (no Director)
     add_executable(bjobdefinitions_test
         test/bjobdefinitions_test.cpp
-        src/jobs/bjobdefinitions.cpp
-        src/config/bresourcetext.cpp
-        include/jobs/bjobdefinitions.h
-        include/config/bresourcetext.h
     )
     target_include_directories(bjobdefinitions_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bjobdefinitions_test PRIVATE Qt6::Core Qt6::Test)
+    target_link_libraries(bjobdefinitions_test PRIVATE onesimus_core Qt6::Core Qt6::Test)
     add_test(NAME bjobdefinitions_test COMMAND bjobdefinitions_test)
 
     # bgrpcconnect_test - reaching the gRPC port: order of the resolved
@@ -2629,8 +2446,6 @@ if(BUILD_TESTING)
     # interface, the texts of failed calls (no Director)
     add_executable(bgrpcconnect_test
         test/bgrpcconnect_test.cpp
-        src/director/bgrpcconnect.cpp
-        include/director/bgrpcconnect.h
     )
 
     target_include_directories(bgrpcconnect_test PRIVATE
@@ -2638,6 +2453,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bgrpcconnect_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Network
         Qt6::Test
@@ -2675,8 +2491,6 @@ if(BUILD_TESTING)
     # data, notice texts and the rules for showing a notice (no widgets)
     add_executable(bcapabilities_test
         test/bcapabilities_test.cpp
-        src/bcapabilities.cpp
-        include/bcapabilities.h
     )
 
     target_include_directories(bcapabilities_test PRIVATE
@@ -2684,6 +2498,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bcapabilities_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2695,8 +2510,6 @@ if(BUILD_TESTING)
     # (no widgets, no Director)
     add_executable(bjobhistorystats_test
         test/bjobhistorystats_test.cpp
-        src/schedules/model/bjobhistorystats.cpp
-        include/schedules/model/bjobhistorystats.h
     )
 
     target_include_directories(bjobhistorystats_test PRIVATE
@@ -2704,6 +2517,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bjobhistorystats_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2716,8 +2530,6 @@ if(BUILD_TESTING)
     # (Max Run Time and its relatives) and the texts (no widgets, no Director)
     add_executable(bschedulewaitmodel_test
         test/bschedulewaitmodel_test.cpp
-        src/schedules/model/bschedulewaitmodel.cpp
-        include/schedules/model/bschedulewaitmodel.h
     )
 
     target_include_directories(bschedulewaitmodel_test PRIVATE
@@ -2725,6 +2537,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bschedulewaitmodel_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2736,26 +2549,12 @@ if(BUILD_TESTING)
     # backup replies of all clients (no widgets, no Director)
     add_executable(bclientsmodel_test
         test/bclientsmodel_test.cpp
-        src/clients/bclientsmodel.cpp
-        src/clients/bclientreachability.cpp
-        src/clients/bclientstatus.cpp
-        src/bstatuschip.cpp
-        src/director/bdirector.cpp
-        src/config/bconfigparser.cpp
-        src/bbyteformat.cpp
-        include/config/bconfigparser.h
-        include/clients/bclientsmodel.h
-        include/clients/bclientreachability.h
-        include/bbyteformat.h
-        include/clients/bclientstatus.h
-        include/bstatuschip.h
-        include/director/bdirector.h
     )
     target_include_directories(bclientsmodel_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
     )
     target_link_libraries(bclientsmodel_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -2770,10 +2569,6 @@ if(BUILD_TESTING)
     # other: the search, its bounds and the order of priorities
     add_executable(bwaitstagger_test
         test/bwaitstagger_test.cpp
-        src/schedules/model/bwaitstagger.cpp
-        src/schedules/model/bschedulewaitmodel.cpp
-        include/schedules/model/bwaitstagger.h
-        include/schedules/model/bschedulewaitmodel.h
     )
 
     target_include_directories(bwaitstagger_test PRIVATE
@@ -2781,6 +2576,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bwaitstagger_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2792,10 +2588,6 @@ if(BUILD_TESTING)
     # job history at connect (no widgets, no Director)
     add_executable(bliveoverlay_test
         test/bliveoverlay_test.cpp
-        src/schedules/model/bliveoverlay.cpp
-        src/schedules/model/bjobhistorystats.cpp
-        include/schedules/model/bliveoverlay.h
-        include/schedules/model/bjobhistorystats.h
     )
 
     target_include_directories(bliveoverlay_test PRIVATE
@@ -2803,6 +2595,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bliveoverlay_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2814,13 +2607,9 @@ if(BUILD_TESTING)
     if(HAVE_GRPC)
         add_executable(bjobhistoryproto_test
             test/bjobhistoryproto_test.cpp
-            src/director/bjobhistoryproto.cpp
-            include/director/bjobhistoryproto.h
-            src/schedules/model/bjobhistorystats.cpp
-            include/schedules/model/bjobhistorystats.h
         )
         target_include_directories(bjobhistoryproto_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-        target_link_libraries(bjobhistoryproto_test PRIVATE Qt6::Core Qt6::Test onesimus_grpc_proto)
+        target_link_libraries(bjobhistoryproto_test PRIVATE onesimus_core Qt6::Core Qt6::Test)
         add_test(NAME bjobhistoryproto_test COMMAND bjobhistoryproto_test)
     endif()
 
@@ -2830,12 +2619,6 @@ if(BUILD_TESTING)
     # and the fixture built from the production Director's measured table
     add_executable(bwaitcalibration_test
         test/bwaitcalibration_test.cpp
-        src/schedules/model/bwaitcalibration.cpp
-        src/schedules/model/bschedulewaitmodel.cpp
-        src/schedules/model/bjobhistorystats.cpp
-        include/schedules/model/bwaitcalibration.h
-        include/schedules/model/bschedulewaitmodel.h
-        include/schedules/model/bjobhistorystats.h
     )
 
     target_include_directories(bwaitcalibration_test PRIVATE
@@ -2843,6 +2626,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bwaitcalibration_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2855,14 +2639,6 @@ if(BUILD_TESTING)
     # production Director's volume list (no widgets, no Director)
     add_executable(b321verifier_test
         test/b321verifier_test.cpp
-        src/tools/b321verifier.cpp
-        src/storage/model/bvolumelist.cpp
-        src/models/bvolumejson.cpp
-        src/bbyteformat.cpp
-        include/tools/b321verifier.h
-        include/storage/model/bvolumelist.h
-        include/models/bvolumejson.h
-        include/bbyteformat.h
     )
 
     target_include_directories(b321verifier_test PRIVATE
@@ -2874,6 +2650,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(b321verifier_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2887,28 +2664,6 @@ if(BUILD_TESTING)
     # texts (widgets, offscreen, no Director)
     add_executable(b321dialog_test
         test/b321dialog_test.cpp
-        src/tools/b321dialog.cpp
-        src/tools/b321verifier.cpp
-        src/storage/model/bvolumelist.cpp
-        src/models/bvolumejson.cpp
-        src/bbyteformat.cpp
-        src/bheaderstate.cpp
-        src/config/bcolumnconfiguration.cpp
-        src/bstatuschip.cpp
-        src/bstatusdelegate.cpp
-        src/clients/bclientstatus.cpp
-        src/buiscale.cpp
-        src/config/bsettings.cpp
-        include/tools/b321dialog.h
-        include/tools/b321verifier.h
-        include/storage/model/bvolumelist.h
-        include/models/bvolumejson.h
-        include/bheaderstate.h
-        include/config/bcolumnconfiguration.h
-        include/bstatuschip.h
-        include/bstatusdelegate.h
-        include/buiscale.h
-        include/config/bsettings.h
     )
 
     target_include_directories(b321dialog_test PRIVATE
@@ -2920,10 +2675,10 @@ if(BUILD_TESTING)
         THEME_DIR="${CMAKE_SOURCE_DIR}/resources/themes"
     )
 
-    # bareosdirector_lib: the dialog names commands by BDirector::Command, an
+    # onesimus_core brings bareosdirector_lib: the dialog names commands by BDirector::Command, an
     # enum of the BareosDirector class. Nothing of a Director is created.
     target_link_libraries(b321dialog_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -2942,11 +2697,6 @@ if(BUILD_TESTING)
     # (no widgets, no Director)
     add_executable(bschedulegridmodel_test
         test/bschedulegridmodel_test.cpp
-        src/schedules/model/bschedulegridmodel.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/schedules/model/bschedulegridmodel.h
-        include/schedules/model/brunspec.h
     )
 
     target_include_directories(bschedulegridmodel_test PRIVATE
@@ -2954,6 +2704,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bschedulegridmodel_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2965,17 +2716,6 @@ if(BUILD_TESTING)
     # calendar, and where its parts are (no widgets, no Director)
     add_executable(bschedulegridtext_test
         test/bschedulegridtext_test.cpp
-        src/schedules/bschedulegridgeometry.cpp
-        src/schedules/model/bschedulegridtext.cpp
-        src/schedules/model/bschedulegridmodel.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/schedules/bschedulegridgeometry.h
-        include/schedules/model/bschedulegridtext.h
-        include/schedules/model/bschedulegridmodel.h
-        include/schedules/model/bscheduleoccurrences.h
-        include/schedules/model/brunspec.h
     )
 
     target_include_directories(bschedulegridtext_test PRIVATE
@@ -2983,6 +2723,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bschedulegridtext_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Test
     )
@@ -2994,35 +2735,6 @@ if(BUILD_TESTING)
     # and a rendering smoke test in both themes (widgets, no Director)
     add_executable(bschedulegridwidget_test
         test/bschedulegridwidget_test.cpp
-        src/buiscale.cpp
-        src/schedules/bschedulegridaccessible.cpp
-        src/schedules/bschedulegriddialogs.cpp
-        src/schedules/bschedulegrideditor.cpp
-        src/schedules/bschedulegridgeometry.cpp
-        src/schedules/bschedulegridview.cpp
-        src/schedules/bschedulegridwidget.cpp
-        src/schedules/bscheduleminicalendar.cpp
-        src/schedules/bschedulepalette.cpp
-        src/schedules/brunruledialog.cpp
-        src/schedules/model/bschedulegridtext.cpp
-        src/schedules/model/bschedulegridmodel.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/buiscale.h
-        include/schedules/bschedulegridaccessible.h
-        include/schedules/bschedulegriddialogs.h
-        include/schedules/bschedulegrideditor.h
-        include/schedules/bschedulegridgeometry.h
-        include/schedules/bschedulegridview.h
-        include/schedules/bschedulegridwidget.h
-        include/schedules/bscheduleminicalendar.h
-        include/schedules/bschedulepalette.h
-        include/schedules/brunruledialog.h
-        include/schedules/model/bschedulegridtext.h
-        include/schedules/model/bschedulegridmodel.h
-        include/schedules/model/bscheduleoccurrences.h
-        include/schedules/model/brunspec.h
     )
 
     target_include_directories(bschedulegridwidget_test PRIVATE
@@ -3035,6 +2747,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bschedulegridwidget_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -3054,35 +2767,6 @@ if(BUILD_TESTING)
     # no Director)
     add_executable(bschedulegridedit_test
         test/bschedulegridedit_test.cpp
-        src/buiscale.cpp
-        src/schedules/bschedulegridaccessible.cpp
-        src/schedules/bschedulegriddialogs.cpp
-        src/schedules/bschedulegrideditor.cpp
-        src/schedules/bschedulegridgeometry.cpp
-        src/schedules/bschedulegridview.cpp
-        src/schedules/bschedulegridwidget.cpp
-        src/schedules/bscheduleminicalendar.cpp
-        src/schedules/bschedulepalette.cpp
-        src/schedules/brunruledialog.cpp
-        src/schedules/model/bschedulegridtext.cpp
-        src/schedules/model/bschedulegridmodel.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/buiscale.h
-        include/schedules/bschedulegridaccessible.h
-        include/schedules/bschedulegriddialogs.h
-        include/schedules/bschedulegrideditor.h
-        include/schedules/bschedulegridgeometry.h
-        include/schedules/bschedulegridview.h
-        include/schedules/bschedulegridwidget.h
-        include/schedules/bscheduleminicalendar.h
-        include/schedules/bschedulepalette.h
-        include/schedules/brunruledialog.h
-        include/schedules/model/bschedulegridtext.h
-        include/schedules/model/bschedulegridmodel.h
-        include/schedules/model/bscheduleoccurrences.h
-        include/schedules/model/brunspec.h
     )
 
     target_include_directories(bschedulegridedit_test PRIVATE
@@ -3094,6 +2778,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(bschedulegridedit_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -3110,25 +2795,6 @@ if(BUILD_TESTING)
     # 100 % and 200 % (widgets, no Director)
     add_executable(buiscale_test
         test/buiscale_test.cpp
-        src/buiscale.cpp
-        src/config/bsettings.cpp
-        src/schedules/bscheduleganttwidget.cpp
-        src/schedules/model/bliveoverlay.cpp
-        src/schedules/model/bjobhistorystats.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/models/bresourcemodels.cpp
-        src/models/bbasemodels.cpp
-        src/config/bconfigparser.cpp
-        include/buiscale.h
-        include/config/bsettings.h
-        include/schedules/bscheduleganttwidget.h
-        include/schedules/model/bliveoverlay.h
-        include/schedules/model/bjobhistorystats.h
-        include/models/bresourcemodels.h
-        include/models/bbasemodels.h
-        include/config/bconfigparser.h
     )
 
     target_include_directories(buiscale_test PRIVATE
@@ -3136,6 +2802,7 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(buiscale_test PRIVATE
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -3149,10 +2816,6 @@ if(BUILD_TESTING)
     # the About box shows them (widgets, offscreen)
     add_executable(bthirdpartynotices_test
         test/bthirdpartynotices_test.cpp
-        src/bthirdpartynotices.cpp
-        src/buiscale.cpp
-        include/bthirdpartynotices.h
-        include/buiscale.h
     )
     qt_add_resources(bthirdpartynotices_test bthirdpartynotices_test_legal
         PREFIX "/legal"
@@ -3160,7 +2823,7 @@ if(BUILD_TESTING)
         FILES ${ONESIMUS_NOTICE_FILES} ${ONESIMUS_LICENSE_TEXTS}
     )
     target_include_directories(bthirdpartynotices_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bthirdpartynotices_test PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test)
+    target_link_libraries(bthirdpartynotices_test PRIVATE onesimus_core Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Test)
     add_test(NAME bthirdpartynotices_test COMMAND bthirdpartynotices_test)
     set_tests_properties(bthirdpartynotices_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
@@ -3170,16 +2833,12 @@ if(BUILD_TESTING)
     # export/import file (a keychain in memory, scratch settings directory)
     add_executable(bsettingsstore_test
         test/bsettingsstore_test.cpp
-        src/config/bsettings.cpp
-        src/buiscale.cpp
-        include/config/bsettings.h
-        include/buiscale.h
     )
     target_include_directories(bsettingsstore_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
     )
     target_link_libraries(bsettingsstore_test PRIVATE
-        onesimus_secretstore
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -3281,81 +2940,6 @@ if(BUILD_TESTING)
         test/bscheduletimeline_test.cpp
         test/bfakeconfigclient.h
         test/bfakesaveui.h
-        src/buiscale.cpp
-        src/bheaderstate.cpp
-        src/config/bcolumnconfiguration.cpp
-        include/bheaderstate.h
-        include/config/bcolumnconfiguration.h
-        src/config/bsettings.cpp
-        src/schedules/bschedulewidget.cpp
-        src/schedules/bschedulelegend.cpp
-        src/schedules/bscheduleganttwidget.cpp
-        src/schedules/model/bliveoverlay.cpp
-        src/schedules/bscheduledragplan.cpp
-        src/schedules/bstaggerplan.cpp
-        src/schedules/bstaggerconstraintsdialog.cpp
-        src/schedules/bschedulepersistence.cpp
-        include/schedules/bschedulepersistence.h
-        include/schedules/bschedulereviewdialog.h
-        include/director/bconfigclient.h
-        src/schedules/bschedulereviewdialog.cpp
-        src/schedules/model/bscheduleresource.cpp
-        src/config/bresourcetext.cpp
-        src/config/bresourcepersistence.cpp
-        src/config/bresourcereviewdialog.cpp
-        include/config/bresourcetext.h
-        include/config/bresourcepersistence.h
-        include/config/bresourcereviewdialog.h
-        src/schedules/bjobscheduleindex.cpp
-        src/schedules/bschedulegridaccessible.cpp
-        src/schedules/bschedulegriddialogs.cpp
-        src/schedules/bschedulegrideditor.cpp
-        src/schedules/bschedulegridgeometry.cpp
-        src/schedules/bschedulegridview.cpp
-        src/schedules/bschedulegridwidget.cpp
-        src/schedules/bscheduleminicalendar.cpp
-        src/schedules/bschedulepalette.cpp
-        src/schedules/brunruledialog.cpp
-        src/schedules/model/bschedulegridtext.cpp
-        src/schedules/model/bschedulegridmodel.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/schedules/model/bjobhistorystats.cpp
-        src/schedules/model/bschedulewaitmodel.cpp
-        src/schedules/model/bwaitcalibration.cpp
-        src/schedules/model/bwaitstagger.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        src/models/bresourcemodels.cpp
-        src/models/bbasemodels.cpp
-        src/config/bconfigparser.cpp
-        include/buiscale.h
-        include/config/bsettings.h
-        include/schedules/bschedulewidget.h
-        include/schedules/bstaggerconstraintsdialog.h
-        include/schedules/bschedulelegend.h
-        include/schedules/bscheduleganttwidget.h
-        include/schedules/model/bliveoverlay.h
-        include/schedules/bjobscheduleindex.h
-        include/schedules/bschedulegridaccessible.h
-        include/schedules/bschedulegriddialogs.h
-        include/schedules/bschedulegrideditor.h
-        include/schedules/bschedulegridgeometry.h
-        include/schedules/bschedulegridview.h
-        include/schedules/bschedulegridwidget.h
-        include/schedules/bscheduleminicalendar.h
-        include/schedules/bschedulepalette.h
-        include/schedules/brunruledialog.h
-        include/schedules/model/bschedulegridtext.h
-        include/schedules/model/bschedulegridmodel.h
-        include/schedules/model/bscheduleoccurrences.h
-        include/schedules/model/bjobhistorystats.h
-        include/schedules/model/bschedulewaitmodel.h
-        include/schedules/model/bwaitcalibration.h
-        include/schedules/model/bwaitstagger.h
-        include/schedules/model/brunspec.h
-        include/models/bresourcemodels.h
-        include/models/bbasemodels.h
-        include/config/bconfigparser.h
     )
 
     target_include_directories(bscheduletimeline_test PRIVATE
@@ -3363,11 +2947,11 @@ if(BUILD_TESTING)
         ${CMAKE_SOURCE_DIR}/test
     )
 
-    # bareosdirector_lib: the schedule tab names commands by
+    # onesimus_core brings bareosdirector_lib: the schedule tab names commands by
     # BDirector::Command, an enum of the BareosDirector class. Nothing of a
     # Director is created or called.
     target_link_libraries(bscheduletimeline_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -3392,62 +2976,15 @@ if(BUILD_TESTING)
         test/bschedulewizard_test.cpp
         test/bfakeconfigclient.h
         test/bfakesaveui.h
-        src/schedules/bschedulewizard.cpp
-        include/schedules/bschedulewizard.h
-        src/director/bdirector.cpp
-        include/director/bdirector.h
-        src/config/bresourcetext.cpp
-        src/config/bresourcepersistence.cpp
-        src/config/bresourcereviewdialog.cpp
-        include/config/bresourcetext.h
-        include/config/bresourcepersistence.h
-        include/config/bresourcereviewdialog.h
-        src/buiscale.cpp
-        src/config/bsettings.cpp
-        src/schedules/bschedulelegend.cpp
-        src/schedules/bschedulepersistence.cpp
-        include/schedules/bschedulepersistence.h
-        include/director/bconfigclient.h
-        src/schedules/model/bscheduleresource.cpp
-        src/schedules/bschedulegridaccessible.cpp
-        src/schedules/bschedulegriddialogs.cpp
-        src/schedules/bschedulegrideditor.cpp
-        src/schedules/bschedulegridgeometry.cpp
-        src/schedules/bschedulegridview.cpp
-        src/schedules/bschedulegridwidget.cpp
-        src/schedules/bscheduleminicalendar.cpp
-        src/schedules/bschedulepalette.cpp
-        src/schedules/brunruledialog.cpp
-        src/schedules/model/bschedulegridtext.cpp
-        src/schedules/model/bschedulegridmodel.cpp
-        src/schedules/model/bscheduleoccurrences.cpp
-        src/schedules/model/brunparser.cpp
-        src/schedules/model/brunwriter.cpp
-        include/buiscale.h
-        include/config/bsettings.h
-        include/schedules/bschedulelegend.h
-        include/schedules/bschedulegridaccessible.h
-        include/schedules/bschedulegriddialogs.h
-        include/schedules/bschedulegrideditor.h
-        include/schedules/bschedulegridgeometry.h
-        include/schedules/bschedulegridview.h
-        include/schedules/bschedulegridwidget.h
-        include/schedules/bscheduleminicalendar.h
-        include/schedules/bschedulepalette.h
-        include/schedules/brunruledialog.h
-        include/schedules/model/bschedulegridtext.h
-        include/schedules/model/bschedulegridmodel.h
-        include/schedules/model/bscheduleoccurrences.h
-        include/schedules/model/brunspec.h
     )
     target_include_directories(bschedulewizard_test PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/test
     )
-    # bareosdirector_lib: the review page sends "configure" through
+    # onesimus_core brings bareosdirector_lib: the review page sends "configure" through
     # BDirector when there is no CreateResource; the test passes no Director
     target_link_libraries(bschedulewizard_test PRIVATE
-        bareosdirector_lib
+        onesimus_core
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
