@@ -1911,17 +1911,17 @@ Auf „Vorgabe“ klicken, um die empfohlenen Ciphers zu verwenden.</translation
     <message>
         <location filename="../src/bcapabilities.cpp" line="202"/>
         <source>Check whether a client is reachable</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfen, ob ein Client erreichbar ist</translation>
     </message>
     <message>
         <location filename="../src/bcapabilities.cpp" line="205"/>
         <source>%1 cannot check a client on this connection: in the API mode the GUI uses, the reply of &quot;status client&quot; does not say whether the client answered.</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 kann auf dieser Verbindung keinen Client prüfen: Im API-Modus, den die GUI verwendet, sagt die Antwort von „status client“ nicht, ob der Client geantwortet hat.</translation>
     </message>
     <message>
         <location filename="../src/bcapabilities.cpp" line="209"/>
         <source>Nothing was sent. You can run &quot;status client=&lt;name&gt;&quot; in a console (bconsole) and read the reply.</source>
-        <translation type="unfinished"></translation>
+        <translation>Es wurde nichts gesendet. Sie können „status client=&lt;name&gt;“ in einer Konsole (bconsole) ausführen und die Antwort lesen.</translation>
     </message>
     <message>
         <location filename="../src/bcapabilities.cpp" line="337"/>
@@ -3017,17 +3017,17 @@ Möchten Sie fortfahren?</translation>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="364"/>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="441"/>
         <source>Check Now</source>
-        <translation type="unfinished"></translation>
+        <translation>Jetzt prüfen</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="365"/>
         <source>Ask the Director whether it can reach this client now</source>
-        <translation type="unfinished"></translation>
+        <translation>Den Director fragen, ob er diesen Client jetzt erreichen kann</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="371"/>
         <source>Reachable:</source>
-        <translation type="unfinished"></translation>
+        <translation>Erreichbar:</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="391"/>
@@ -3068,12 +3068,12 @@ Möchten Sie fortfahren?</translation>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="420"/>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="441"/>
         <source>Checking...</source>
-        <translation type="unfinished">Prüfe...</translation>
+        <translation>Prüfe...</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="424"/>
         <source>Not known: no client-initiated connection, client event or check holds now. The last backup above is an estimate, not a check.</source>
-        <translation type="unfinished"></translation>
+        <translation>Nicht bekannt: Derzeit gilt weder eine vom Client aufgebaute Verbindung noch ein Client-Ereignis noch eine Prüfung. Das letzte Backup oben ist eine Schätzung, keine Prüfung.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="460"/>
@@ -3280,7 +3280,7 @@ Möchten Sie fortfahren?</translation>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="295"/>
         <source>Connected while the client holds a connection to the Director (client-initiated connections from &quot;status director&quot;, or client events of the Onesimus Director); Online or Offline after a client event or &quot;Check now&quot;; otherwise the age of the last backup or contact, an estimate.</source>
-        <translation type="unfinished"></translation>
+        <translation>Verbunden, solange der Client eine Verbindung zum Director hält (vom Client aufgebaute Verbindungen laut „status director“ oder Client-Ereignisse des Onesimus Directors); Online oder Offline nach einem Client-Ereignis oder „Jetzt prüfen“; sonst das Alter des letzten Backups oder Kontakts, eine Schätzung.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="304"/>
@@ -3295,57 +3295,57 @@ Möchten Sie fortfahren?</translation>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1076"/>
         <source>The client answered &quot;Check now&quot; at %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Client hat um %1 auf „Jetzt prüfen“ geantwortet.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1077"/>
         <source>The Director could not connect to the client at %1 (&quot;Check now&quot;).</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Director konnte um %1 keine Verbindung zum Client herstellen („Jetzt prüfen“).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1091"/>
         <source>Check at %1: the client answered.</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1: Der Client hat geantwortet.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1093"/>
         <source>Check at %1: the Director could not connect to the client.</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1: Der Director konnte keine Verbindung zum Client herstellen.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1095"/>
         <source>Check at %1: the client is disabled on the Director, so it was not contacted.</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1: Der Client ist im Director deaktiviert und wurde daher nicht kontaktiert.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1097"/>
         <source>Check at %1: the reply does not tell whether the client answered.</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1: Die Antwort sagt nicht, ob der Client geantwortet hat.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1099"/>
         <source>Check at %1: no answer in time; the state is unknown.</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1: Keine Antwort in der Zeit; der Zustand ist unbekannt.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1102"/>
         <source>Check at %1 failed; the state is unknown.</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1 fehlgeschlagen; der Zustand ist unbekannt.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1103"/>
         <source>Check at %1 failed: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1 fehlgeschlagen: %2</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1106"/>
         <source>Check at %1: not possible on this connection.</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1: Auf dieser Verbindung nicht möglich.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1107"/>
         <source>Check at %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfung um %1: %2</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="42"/>
@@ -3360,7 +3360,7 @@ Möchten Sie fortfahren?</translation>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="995"/>
         <source>Checking client %1...</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfe Client %1...</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1054"/>
@@ -3375,22 +3375,22 @@ Möchten Sie fortfahren?</translation>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1054"/>
         <source>Connected</source>
-        <translation type="unfinished">Verbunden</translation>
+        <translation>Verbunden</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1064"/>
         <source>The client holds a client-initiated connection to the Director, connected at %1 (&quot;status director&quot;).</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Client hält eine von ihm aufgebaute Verbindung zum Director, verbunden um %1 („status director“).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1066"/>
         <source>The client held a client-initiated connection to the Director at %1 (&quot;status director&quot;). It is no longer in the list, which also happens while it runs a job.</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Client hielt um %1 eine von ihm aufgebaute Verbindung zum Director („status director“). Er steht nicht mehr in der Liste; das geschieht auch, während er einen Job ausführt.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1071"/>
         <source>The Director has an open connection to the client since %1 (client event of the Director).</source>
-        <translation type="unfinished"></translation>
+        <translation>Der Director hat seit %1 eine offene Verbindung zum Client (Client-Ereignis des Directors).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1073"/>
@@ -3435,7 +3435,7 @@ Möchten Sie fortfahren?</translation>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="112"/>
         <source>Checking the client now...</source>
-        <translation type="unfinished"></translation>
+        <translation>Prüfe den Client jetzt...</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="314"/>
@@ -3581,17 +3581,17 @@ Möchten Sie fortfahren?</translation>
     <message>
         <location filename="../src/clients/bclientswidget.cpp" line="554"/>
         <source>Check Now</source>
-        <translation type="unfinished"></translation>
+        <translation>Jetzt prüfen</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientswidget.cpp" line="555"/>
         <source>Check Now (checking %1...)</source>
-        <translation type="unfinished"></translation>
+        <translation>Jetzt prüfen (prüfe %1...)</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientswidget.cpp" line="556"/>
         <source>Ask the Director whether it can reach this client now</source>
-        <translation type="unfinished"></translation>
+        <translation>Den Director fragen, ob er diesen Client jetzt erreichen kann</translation>
     </message>
 </context>
 <context>
@@ -5115,7 +5115,7 @@ Plattform: %2</translation>
     <message>
         <location filename="../src/director/bgrpctransport.cpp" line="631"/>
         <source>Another client is being checked</source>
-        <translation type="unfinished"></translation>
+        <translation>Ein anderer Client wird gerade geprüft</translation>
     </message>
     <message>
         <location filename="../src/director/bgrpctransport.cpp" line="661"/>
@@ -7384,7 +7384,7 @@ Nur abgelaufene Jobs der betroffenen Clients werden entfernt.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1972"/>
         <source>Third-party licences...</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenzen von Drittanbietern...</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="2712"/>
@@ -17648,27 +17648,27 @@ Der Zertifikatspfad wurde im aktuellen Profil aktualisiert.</translation>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="61"/>
         <source>Third-party licences</source>
-        <translation type="unfinished"></translation>
+        <translation>Lizenzen von Drittanbietern</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="67"/>
         <source>Document:</source>
-        <translation type="unfinished"></translation>
+        <translation>Dokument:</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="71"/>
         <source>Third-party notices</source>
-        <translation type="unfinished"></translation>
+        <translation>Hinweise zu Drittanbietern</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="72"/>
         <source>Onesimus licence (AGPL-3.0)</source>
-        <translation type="unfinished"></translation>
+        <translation>Onesimus-Lizenz (AGPL-3.0)</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="95"/>
         <source>The third-party notices are missing from this build.</source>
-        <translation type="unfinished"></translation>
+        <translation>Die Hinweise zu Drittanbietern fehlen in diesem Build.</translation>
     </message>
 </context>
 <context>
@@ -18493,7 +18493,7 @@ Mögliche Ursachen:
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="219"/>
         <source>Checking a client needs the gRPC interface of the Onesimus Director</source>
-        <translation type="unfinished"></translation>
+        <translation>Das Prüfen eines Clients erfordert die gRPC-Schnittstelle des Onesimus Directors</translation>
     </message>
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="273"/>
@@ -19267,7 +19267,7 @@ Entpacken Sie sie in das Wurzelverzeichnis Ihres Bareos-Servers und starten Sie 
     <message>
         <location filename="../include/bconnectionprofile.h" line="129"/>
         <source>New Connection</source>
-        <translation type="unfinished">Neue Verbindung</translation>
+        <translation>Neue Verbindung</translation>
     </message>
 </context>
 <context>
