@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Configuration export (ZIP for the Director): values in the generated Console, Profile, Director and console
+  configuration text are escaped, so a backslash (an ACL regex like `Backup\.daily`, a Windows path) and a `"`
+  reach the Director unchanged; before, backslashes were lost and a `"` ended the value. A value
+  with a line break or another control character stops the export with a message naming it.
+- Configuration export: an empty console name, or a console or profile name with a slash, backslash or
+  control character, is refused; before, such a name became a path in the archive (`../`) outside
+  `bareos-dir.d/console`.
+- Release: `SHA256SUMS` names the assets as GitHub publishes them (the `~` of the .deb version
+  became `.`, so the check skipped the .deb).
+
+### Changed
+- Translations: German, Spanish, French, Italian and Russian are complete again.
+- Tests: tests for `BJsonStreamReader` and `BConfigExporter`; 57 test programs link
+  `onesimus_core` instead of compiling their own copies of the sources.
+
 ## [0.3.0] - 2026-11-23
 
 ### Added

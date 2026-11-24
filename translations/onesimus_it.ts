@@ -19188,17 +19188,32 @@ Estrarla nella directory radice del server Bareos e riavviare il Director.</tran
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../src/config/bconfigexporter.cpp" line="33"/>
+        <location filename="../src/config/bconfigexporter.cpp" line="94"/>
+        <source>The console name &quot;%1&quot; cannot be used as a file name (empty, or with a slash, backslash or control character)</source>
+        <translation>Il nome della console &quot;%1&quot; non può essere usato come nome di file (vuoto, o con barra, barra rovesciata o carattere di controllo)</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigexporter.cpp" line="101"/>
+        <source>The profile name &quot;%1&quot; cannot be used as a file name (with a slash, backslash or control character)</source>
+        <translation>Il nome del profilo &quot;%1&quot; non può essere usato come nome di file (con barra, barra rovesciata o carattere di controllo)</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigexporter.cpp" line="109"/>
+        <source>These values contain a line break or another control character, which Bareos cannot read in a quoted value: %1</source>
+        <translation>Questi valori contengono un a capo o un altro carattere di controllo, che Bareos non può leggere in un valore tra virgolette: %1</translation>
+    </message>
+    <message>
+        <location filename="../src/config/bconfigexporter.cpp" line="119"/>
         <source>No files to export</source>
         <translation>Nessun file da esportare</translation>
     </message>
     <message>
-        <location filename="../src/config/bconfigexporter.cpp" line="206"/>
+        <location filename="../src/config/bconfigexporter.cpp" line="292"/>
         <source>Cannot create zip file: %1</source>
         <translation>Impossibile creare il file zip: %1</translation>
     </message>
     <message>
-        <location filename="../src/config/bconfigexporter.cpp" line="237"/>
+        <location filename="../src/config/bconfigexporter.cpp" line="323"/>
         <source>Error writing zip file</source>
         <translation>Errore durante la scrittura del file zip</translation>
     </message>
@@ -19265,7 +19280,7 @@ Estrarla nella directory radice del server Bareos e riavviare il Director.</tran
         <translation>Sposta elemento</translation>
     </message>
     <message>
-        <location filename="../include/bconnectionprofile.h" line="129"/>
+        <location filename="../include/bconnectionprofile.h" line="134"/>
         <source>New Connection</source>
         <translation>Nuova connessione</translation>
     </message>
