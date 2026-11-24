@@ -46,7 +46,7 @@ An archive larger than 2 GiB is attached in parts `<archive>.part00`, `<archive>
 | Libraries bundled by linuxdeploy | Debian 13 packages | various, see below | – | included | – | – |
 | Third-party code inside the Qt libraries | see below | various | – | via Debian's Qt | included | included |
 | Microsoft Visual C++ runtime | MSVC 2022 | Microsoft licence terms | – | – | see below | – |
-| onesimus-proto (`proto/` submodule) | submodule commit | AGPL-3.0-only | built in | built in | built in | built in |
+| onesimus-proto (`proto/` submodule) | submodule commit | AGPL-3.0-only, partly AGPL-3.0-or-later | built in | built in | built in | built in |
 
 ## Qt
 
@@ -153,9 +153,11 @@ code under the Microsoft Visual Studio licence terms, not under an open-source l
 ## onesimus-proto
 
 The `.proto` files of the Onesimus Director interfaces come from the git submodule `proto/`
-(<https://github.com/Onesimus-io/onesimus-proto>), Copyright (C) 2025-2026 Jörg Bernau; the files
-also name the Bareos copyright holders (Free Software Foundation Europe e.V., Planets Communications
-B.V., Bareos GmbH & Co. KG), AGPL-3.0-only. They are part of Onesimus, not third-party code, and are listed here because they
+(<https://github.com/Onesimus-io/onesimus-proto>), Copyright (C) 2025-2026 Jörg Bernau. The files
+that follow Bareos interfaces (`director_service`, `director_api`, `director_commands` and the
+other service definitions) also name the Bareos copyright holders (Free Software Foundation Europe
+e.V., Planets Communications B.V., Bareos GmbH & Co. KG) and are AGPL-3.0-only; the own definitions
+(`usage`, `onesimus_options` and the broker interfaces) are AGPL-3.0-or-later. They are part of Onesimus, not third-party code, and are listed here because they
 live in a repository of their own.
 
 ## Licence texts
