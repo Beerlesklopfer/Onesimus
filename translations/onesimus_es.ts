@@ -1748,12 +1748,12 @@ Haga clic en Predefinido para usar los cifrados recomendados.</translation>
     <message>
         <location filename="../src/jobs/bbvfsreplyrouter.cpp" line="36"/>
         <source>The connection to the Director was lost.</source>
-        <translation type="unfinished"></translation>
+        <translation>Se ha perdido la conexión con el Director.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bbvfsreplyrouter.cpp" line="38"/>
         <source>The connection to the Director was established again.</source>
-        <translation type="unfinished"></translation>
+        <translation>Se ha restablecido la conexión con el Director.</translation>
     </message>
 </context>
 <context>
@@ -1911,17 +1911,17 @@ Haga clic en Predefinido para usar los cifrados recomendados.</translation>
     <message>
         <location filename="../src/bcapabilities.cpp" line="202"/>
         <source>Check whether a client is reachable</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobar si un client es accesible</translation>
     </message>
     <message>
         <location filename="../src/bcapabilities.cpp" line="205"/>
         <source>%1 cannot check a client on this connection: in the API mode the GUI uses, the reply of &quot;status client&quot; does not say whether the client answered.</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 no puede comprobar un client en esta conexión: en el modo API que usa la GUI, la respuesta de &quot;status client&quot; no indica si el client respondió.</translation>
     </message>
     <message>
         <location filename="../src/bcapabilities.cpp" line="209"/>
         <source>Nothing was sent. You can run &quot;status client=&lt;name&gt;&quot; in a console (bconsole) and read the reply.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se envió nada. Puede ejecutar &quot;status client=&lt;name&gt;&quot; en una consola (bconsole) y leer la respuesta.</translation>
     </message>
     <message>
         <location filename="../src/bcapabilities.cpp" line="337"/>
@@ -2082,37 +2082,37 @@ Se crearán un certificado de CA, un certificado de cliente y una clave privada.
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="90"/>
         <source>Empty: the CA key is not kept</source>
-        <translation type="unfinished"></translation>
+        <translation>Vacía: la clave de la CA no se conserva</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="91"/>
         <source>With a passphrase the CA key is saved encrypted (ca.key) to sign more certificates later. Without one it is not saved.</source>
-        <translation type="unfinished"></translation>
+        <translation>Con una frase de contraseña, la clave de la CA se guarda cifrada (ca.key) para firmar más certificados más adelante. Sin ella, no se guarda.</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="93"/>
         <source>CA key passphrase:</source>
-        <translation type="unfinished"></translation>
+        <translation>Frase de contraseña de la clave de la CA:</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="99"/>
         <source>Required: protects client.pfx</source>
-        <translation type="unfinished"></translation>
+        <translation>Obligatoria: protege client.pfx</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="101"/>
         <source>Optional: also writes client.pfx</source>
-        <translation type="unfinished"></translation>
+        <translation>Opcional: también escribe client.pfx</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="103"/>
         <source>PFX password:</source>
-        <translation type="unfinished"></translation>
+        <translation>Contraseña del PFX:</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="106"/>
         <source>Confirm PFX password:</source>
-        <translation type="unfinished"></translation>
+        <translation>Confirmar la contraseña del PFX:</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="109"/>
@@ -2137,12 +2137,12 @@ Se crearán un certificado de CA, un certificado de cliente y una clave privada.
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="328"/>
         <source>Creating PFX file...</source>
-        <translation type="unfinished"></translation>
+        <translation>Creando el archivo PFX...</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="335"/>
         <source>PFX creation failed: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Error al crear el PFX: %1</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="188"/>
@@ -2165,12 +2165,12 @@ Se crearán un certificado de CA, un certificado de cliente y una clave privada.
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="206"/>
         <source>The PFX passwords do not match.</source>
-        <translation type="unfinished"></translation>
+        <translation>Las contraseñas del PFX no coinciden.</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="215"/>
         <source>Please enter a password to protect the PFX file.</source>
-        <translation type="unfinished">Introduzca una contraseña para proteger el archivo PFX.</translation>
+        <translation>Introduzca una contraseña para proteger el archivo PFX.</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="230"/>
@@ -2205,12 +2205,12 @@ Se crearán un certificado de CA, un certificado de cliente y una clave privada.
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="286"/>
         <source>Saving CA private key (encrypted with the passphrase)...</source>
-        <translation type="unfinished"></translation>
+        <translation>Guardando la clave privada de la CA (cifrada con la frase de contraseña)...</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="292"/>
         <source>No CA key passphrase: the CA private key is not saved.</source>
-        <translation type="unfinished"></translation>
+        <translation>Sin frase de contraseña para la clave de la CA: la clave privada de la CA no se guarda.</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="298"/>
@@ -2240,7 +2240,7 @@ Se crearán un certificado de CA, un certificado de cliente y una clave privada.
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="349"/>
         <source>CA Key (encrypted): %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Clave de la CA (cifrada): %1</translation>
     </message>
     <message>
         <location filename="../src/bcertificategenerator.cpp" line="351"/>
@@ -3017,17 +3017,17 @@ Do you want to continue?</source>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="364"/>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="441"/>
         <source>Check Now</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobar ahora</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="365"/>
         <source>Ask the Director whether it can reach this client now</source>
-        <translation type="unfinished"></translation>
+        <translation>Preguntar al Director si puede acceder ahora a este client</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="371"/>
         <source>Reachable:</source>
-        <translation type="unfinished"></translation>
+        <translation>Accesible:</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="391"/>
@@ -3068,12 +3068,12 @@ Do you want to continue?</source>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="420"/>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="441"/>
         <source>Checking...</source>
-        <translation type="unfinished">Comprobando...</translation>
+        <translation>Comprobando...</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="424"/>
         <source>Not known: no client-initiated connection, client event or check holds now. The last backup above is an estimate, not a check.</source>
-        <translation type="unfinished"></translation>
+        <translation>Desconocido: ahora no hay ninguna conexión iniciada por el client, ningún evento de client ni ninguna comprobación vigente. El último backup indicado arriba es una estimación, no una comprobación.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientdetailsdialog.cpp" line="460"/>
@@ -3280,7 +3280,7 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="295"/>
         <source>Connected while the client holds a connection to the Director (client-initiated connections from &quot;status director&quot;, or client events of the Onesimus Director); Online or Offline after a client event or &quot;Check now&quot;; otherwise the age of the last backup or contact, an estimate.</source>
-        <translation type="unfinished"></translation>
+        <translation>Conectado mientras el client mantiene una conexión con el Director (conexiones iniciadas por el client según &quot;status director&quot;, o eventos de client del Onesimus Director); En línea o Fuera de línea tras un evento de client o &quot;Comprobar ahora&quot;; en otro caso, la antigüedad del último backup o contacto, como estimación.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="304"/>
@@ -3295,57 +3295,57 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1076"/>
         <source>The client answered &quot;Check now&quot; at %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>El client respondió a &quot;Comprobar ahora&quot; el %1.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1077"/>
         <source>The Director could not connect to the client at %1 (&quot;Check now&quot;).</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director no pudo conectarse al client el %1 (&quot;Comprobar ahora&quot;).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1091"/>
         <source>Check at %1: the client answered.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobación del %1: el client respondió.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1093"/>
         <source>Check at %1: the Director could not connect to the client.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobación del %1: el Director no pudo conectarse al client.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1095"/>
         <source>Check at %1: the client is disabled on the Director, so it was not contacted.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobación del %1: el client está deshabilitado en el Director, por lo que no se contactó con él.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1097"/>
         <source>Check at %1: the reply does not tell whether the client answered.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobación del %1: la respuesta no indica si el client respondió.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1099"/>
         <source>Check at %1: no answer in time; the state is unknown.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobación del %1: no hubo respuesta a tiempo; el estado es desconocido.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1102"/>
         <source>Check at %1 failed; the state is unknown.</source>
-        <translation type="unfinished"></translation>
+        <translation>La comprobación del %1 falló; el estado es desconocido.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1103"/>
         <source>Check at %1 failed: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>La comprobación del %1 falló: %2</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1106"/>
         <source>Check at %1: not possible on this connection.</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobación del %1: no es posible en esta conexión.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1107"/>
         <source>Check at %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobación del %1: %2</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="42"/>
@@ -3360,47 +3360,47 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="995"/>
         <source>Checking client %1...</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobando el client %1...</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1054"/>
         <source>Online</source>
-        <translation type="unfinished"></translation>
+        <translation>En línea</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1053"/>
         <source>Offline</source>
-        <translation type="unfinished"></translation>
+        <translation>Fuera de línea</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1054"/>
         <source>Connected</source>
-        <translation type="unfinished">Conectado</translation>
+        <translation>Conectado</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1064"/>
         <source>The client holds a client-initiated connection to the Director, connected at %1 (&quot;status director&quot;).</source>
-        <translation type="unfinished"></translation>
+        <translation>El client mantiene una conexión iniciada por el client con el Director, conectada el %1 (&quot;status director&quot;).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1066"/>
         <source>The client held a client-initiated connection to the Director at %1 (&quot;status director&quot;). It is no longer in the list, which also happens while it runs a job.</source>
-        <translation type="unfinished"></translation>
+        <translation>El client mantenía una conexión iniciada por el client con el Director el %1 (&quot;status director&quot;). Ya no aparece en la lista, lo que también ocurre mientras ejecuta un job.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1071"/>
         <source>The Director has an open connection to the client since %1 (client event of the Director).</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director tiene una conexión abierta con el client desde el %1 (evento de client del Director).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1073"/>
         <source>The Director reached the client at %1 (client event of the Director).</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director accedió al client el %1 (evento de client del Director).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="1074"/>
         <source>The Director could not reach the client at %1 (client event of the Director).</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director no pudo acceder al client el %1 (evento de client del Director).</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="270"/>
@@ -3410,7 +3410,7 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="292"/>
         <source>From &quot;list backups client=&quot;: all backups of the client in the catalog, not only the jobs on the current page.</source>
-        <translation type="unfinished"></translation>
+        <translation>Según &quot;list backups client=&quot;: todos los backups del client en el catálogo, no solo los jobs de la página actual.</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="308"/>
@@ -3420,12 +3420,12 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="310"/>
         <source>Status</source>
-        <translation type="unfinished">Estado</translation>
+        <translation>Estado</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="318"/>
         <source>Backups</source>
-        <translation type="unfinished"></translation>
+        <translation>Backups</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="312"/>
@@ -3435,7 +3435,7 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="112"/>
         <source>Checking the client now...</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobando el client ahora...</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientsmodel.cpp" line="314"/>
@@ -3581,17 +3581,17 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/clients/bclientswidget.cpp" line="554"/>
         <source>Check Now</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobar ahora</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientswidget.cpp" line="555"/>
         <source>Check Now (checking %1...)</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobar ahora (comprobando %1...)</translation>
     </message>
     <message>
         <location filename="../src/clients/bclientswidget.cpp" line="556"/>
         <source>Ask the Director whether it can reach this client now</source>
-        <translation type="unfinished"></translation>
+        <translation>Preguntar al Director si puede acceder ahora a este client</translation>
     </message>
 </context>
 <context>
@@ -3698,24 +3698,25 @@ Do you want to continue?</source>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="318"/>
         <source>Reading ZIP archive...</source>
-        <translation type="unfinished"></translation>
+        <translation>Leyendo el archivo ZIP...</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="322"/>
         <source>No configuration resources found in the archive.</source>
-        <translation type="unfinished">No se han encontrado recursos de configuración en el archivo.</translation>
+        <translation>No se han encontrado recursos de configuración en el archivo.</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="327"/>
         <location filename="../src/director/bconfigimportdialog.cpp" line="343"/>
         <source>Entries not read</source>
-        <translation type="unfinished"></translation>
+        <translation>Entradas no leídas</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="328"/>
         <source>These entries of the archive were not read:
 %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Estas entradas del archivo no se leyeron:
+%1</translation>
     </message>
     <message>
         <location filename="../src/director/bconfigimportdialog.cpp" line="224"/>
@@ -3881,7 +3882,8 @@ Do you want to continue?</source>
         <location filename="../src/director/bconfigimportdialog.cpp" line="344"/>
         <source>These parts of the configuration were not read:
 %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Estas partes de la configuración no se leyeron:
+%1</translation>
     </message>
 </context>
 <context>
@@ -3890,98 +3892,98 @@ Do you want to continue?</source>
         <location filename="../src/config/bconfigparser.cpp" line="381"/>
         <location filename="../src/config/bconfigparser.cpp" line="432"/>
         <source>%1: the quoted string has no closing quote</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: la cadena entre comillas no tiene comilla de cierre</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="411"/>
         <source>%1: the file name after @ is missing</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: falta el nombre de archivo después de @</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="120"/>
         <source>%1: more than %2 MiB of configuration text</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: más de %2 MiB de texto de configuración</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="604"/>
         <source>%1: UTF-16 files cannot be read; save the file as UTF-8</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: los archivos UTF-16 no se pueden leer; guarde el archivo como UTF-8</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="728"/>
         <source>%1: @%2 was not read (includes are only followed when one file is opened)</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: @%2 no se leyó (los includes solo se siguen cuando se abre un único archivo)</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="734"/>
         <source>%1: @%2 was not run (commands are never run)</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: @%2 no se ejecutó (los comandos nunca se ejecutan)</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="738"/>
         <source>%1: @%2 was not read (relative path)</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: @%2 no se leyó (ruta relativa)</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="742"/>
         <source>%1: includes nested deeper than %2 levels</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: includes anidados a más de %2 niveles</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="749"/>
         <source>%1: cannot open the included file %2</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: no se puede abrir el archivo incluido %2</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="755"/>
         <source>%1: %2 includes itself</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: %2 se incluye a sí mismo</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="759"/>
         <source>%1: more than %2 included files</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: más de %2 archivos incluidos</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="785"/>
         <source>%1: expected a resource type, got &quot;%2&quot;</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: se esperaba un tipo de recurso y se encontró &quot;%2&quot;</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="792"/>
         <source>%1: expected &quot;{&quot; after the resource type %2</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: se esperaba &quot;{&quot; después del tipo de recurso %2</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="807"/>
         <source>%1: the %2 resource has no Name and was left out</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: el recurso %2 no tiene Name y se omitió</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="821"/>
         <source>%1: blocks nested deeper than %2 levels</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: bloques anidados a más de %2 niveles</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="832"/>
         <source>%1: the text ends before the closing &quot;}&quot;</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: el texto termina antes de la &quot;}&quot; de cierre</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="853"/>
         <source>%1: expected &quot;=&quot; after %2</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: se esperaba &quot;=&quot; después de %2</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="859"/>
         <source>%1: unexpected &quot;%2&quot;</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: &quot;%2&quot; inesperado</translation>
     </message>
     <message>
         <location filename="../src/config/bconfigparser.cpp" line="877"/>
         <location filename="../src/config/bconfigparser.cpp" line="889"/>
         <source>%1: expected a value for %2</source>
-        <translation type="unfinished"></translation>
+        <translation>%1: se esperaba un valor para %2</translation>
     </message>
 </context>
 <context>
@@ -4185,17 +4187,17 @@ Sentencia: %2</translation>
     <message>
         <location filename="../src/config/bdirectiveschema.cpp" line="318"/>
         <source>&apos;%1&apos; must be yes or no</source>
-        <translation type="unfinished"></translation>
+        <translation>&apos;%1&apos; debe ser yes o no</translation>
     </message>
     <message>
         <location filename="../src/config/bdirectiveschema.cpp" line="324"/>
         <source>&apos;%1&apos; must be a size such as 500 mb or 2 gb</source>
-        <translation type="unfinished"></translation>
+        <translation>&apos;%1&apos; debe ser un tamaño como 500 mb o 2 gb</translation>
     </message>
     <message>
         <location filename="../src/config/bdirectiveschema.cpp" line="330"/>
         <source>&apos;%1&apos; must be a time such as 30 days or 1 hour 30 min</source>
-        <translation type="unfinished"></translation>
+        <translation>&apos;%1&apos; debe ser un tiempo como 30 days o 1 hour 30 min</translation>
     </message>
 </context>
 <context>
@@ -4434,52 +4436,52 @@ Sentencia: %2</translation>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="174"/>
         <source>Line %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Línea %1: %2</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="223"/>
         <source>a quoted value is not closed</source>
-        <translation type="unfinished"></translation>
+        <translation>un valor entre comillas no está cerrado</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="253"/>
         <source>blocks are nested too deeply</source>
-        <translation type="unfinished"></translation>
+        <translation>los bloques están anidados a demasiada profundidad</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="258"/>
         <source>a closing brace is missing</source>
-        <translation type="unfinished"></translation>
+        <translation>falta una llave de cierre</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="264"/>
         <source>a closing brace has no opening brace</source>
-        <translation type="unfinished"></translation>
+        <translation>una llave de cierre no tiene llave de apertura</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="269"/>
         <source>@include is not read here</source>
-        <translation type="unfinished"></translation>
+        <translation>@include no se lee aquí</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="283"/>
         <source>a directive name is missing</source>
-        <translation type="unfinished"></translation>
+        <translation>falta el nombre de una directiva</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="289"/>
         <source>&quot;%1&quot; is followed by neither = nor {</source>
-        <translation type="unfinished"></translation>
+        <translation>a &quot;%1&quot; no le sigue ni = ni {</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="761"/>
         <source>The text is not one FileSet resource.</source>
-        <translation type="unfinished"></translation>
+        <translation>El texto no es un único recurso FileSet.</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1029"/>
         <source>A value contains a line break or another control character.</source>
-        <translation type="unfinished"></translation>
+        <translation>Un valor contiene un salto de línea u otro carácter de control.</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1046"/>
@@ -4489,7 +4491,7 @@ Sentencia: %2</translation>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1049"/>
         <source>The name may contain only letters, digits, blanks and the characters : . - _ / (no blank at the start or end, at most 127 characters)</source>
-        <translation type="unfinished"></translation>
+        <translation>El nombre solo puede contener letras, dígitos, espacios y los caracteres : . - _ / (sin espacio al principio ni al final, como máximo 127 caracteres)</translation>
     </message>
     <message>
         <location filename="../src/jobs/fileset/bfilesetdocument.cpp" line="1055"/>
@@ -4571,7 +4573,7 @@ Use rutas absolutas (p. ej., /tmp, /var/cache) o patrones.</translation>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1039"/>
         <source>Review the generated FileSet configuration. Finish sends it to the Director where the Director accepts FileSets; otherwise copy it for manual deployment.</source>
-        <translation type="unfinished"></translation>
+        <translation>Revise la configuración del FileSet generada. Finalizar la envía al Director cuando el Director acepta FileSets; en otro caso, cópiela para implantarla manualmente.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1052"/>
@@ -4589,7 +4591,10 @@ Use rutas absolutas (p. ej., /tmp, /var/cache) o patrones.</translation>
 # Director has checked it and you have confirmed the change.
 
 </source>
-        <translation type="unfinished"></translation>
+        <translation># Finalizar escribe este texto sobre el FileSet %1 en el Director, después de que
+# el Director lo haya comprobado y usted haya confirmado el cambio.
+
+</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1118"/>
@@ -4597,7 +4602,10 @@ Use rutas absolutas (p. ej., /tmp, /var/cache) o patrones.</translation>
 # checked it and you have confirmed it.
 
 </source>
-        <translation type="unfinished"></translation>
+        <translation># Finalizar crea este FileSet en el Director, después de que el Director lo haya
+# comprobado y usted lo haya confirmado.
+
+</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1121"/>
@@ -4628,7 +4636,7 @@ Use rutas absolutas (p. ej., /tmp, /var/cache) o patrones.</translation>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1177"/>
         <source>FileSet not complete</source>
-        <translation type="unfinished"></translation>
+        <translation>FileSet incompleto</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1189"/>
@@ -4649,27 +4657,27 @@ Use &apos;Copiar configuración&apos; para guardarla antes de cerrar.
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1208"/>
         <source>Another change is still being written. Try again when it is done.</source>
-        <translation type="unfinished">Todavía se está escribiendo otro cambio. Vuelva a intentarlo cuando haya terminado.</translation>
+        <translation>Todavía se está escribiendo otro cambio. Vuelva a intentarlo cuando haya terminado.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1232"/>
         <source>Nothing was written.</source>
-        <translation type="unfinished">No se ha escrito nada.</translation>
+        <translation>No se ha escrito nada.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1244"/>
         <source>The Director checks the FileSet...</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director está comprobando el FileSet...</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1247"/>
         <source>The wizard writes the whole FileSet as it generates it: every directive is kept, comments and the layout of the file are not.</source>
-        <translation type="unfinished"></translation>
+        <translation>El asistente escribe el FileSet completo tal como lo genera: se conservan todas las directivas, pero no los comentarios ni el formato del archivo.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1251"/>
         <source>A new FileSet. No job uses it until a job names it.</source>
-        <translation type="unfinished"></translation>
+        <translation>Un FileSet nuevo. Ningún job lo usa hasta que un job lo nombre.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="1268"/>
@@ -4792,7 +4800,7 @@ Use &apos;Copiar configuración&apos; para guardarla antes de cerrar.
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="850"/>
         <source>Loaded from &quot;show filesets&quot;: Enable VSS and Ignore FileSet Changes are not reported there; check them.</source>
-        <translation type="unfinished"></translation>
+        <translation>Cargado desde &quot;show filesets&quot;: Enable VSS e Ignore FileSet Changes no se indican allí; compruébelos.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bfilesetwizard.cpp" line="865"/>
@@ -5027,7 +5035,7 @@ Plataforma: %2</translation>
     <message>
         <location filename="../src/director/bgrpcconnect.cpp" line="410"/>
         <source>no pinned certificate</source>
-        <translation type="unfinished"></translation>
+        <translation>ningún certificado fijado</translation>
     </message>
 </context>
 <context>
@@ -5107,7 +5115,7 @@ Plataforma: %2</translation>
     <message>
         <location filename="../src/director/bgrpctransport.cpp" line="631"/>
         <source>Another client is being checked</source>
-        <translation type="unfinished"></translation>
+        <translation>Se está comprobando otro client</translation>
     </message>
     <message>
         <location filename="../src/director/bgrpctransport.cpp" line="661"/>
@@ -5118,17 +5126,17 @@ Plataforma: %2</translation>
     <message>
         <location filename="../src/director/bgrpctransport.cpp" line="183"/>
         <source>The Director&apos;s certificate on the gRPC connection (SHA-256 %1) does not match the pinned certificate (SHA-256 %2). The connection was refused before the login; someone may be intercepting it.</source>
-        <translation type="unfinished"></translation>
+        <translation>El certificado del Director en la conexión gRPC (SHA-256 %1) no coincide con el certificado fijado (SHA-256 %2). La conexión se rechazó antes del inicio de sesión; alguien podría estar interceptándola.</translation>
     </message>
     <message>
         <location filename="../src/director/bgrpctransport.cpp" line="186"/>
         <source>none</source>
-        <translation type="unfinished"></translation>
+        <translation>ninguno</translation>
     </message>
     <message>
         <location filename="../src/director/bgrpctransport.cpp" line="193"/>
         <source>Cannot open the local relay for the gRPC connection: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede abrir el relé local para la conexión gRPC: %1</translation>
     </message>
 </context>
 <context>
@@ -5561,7 +5569,7 @@ Haga clic en Sí para ejecutarlo o en No para cerrar sin desplegar.</translation
     <message>
         <location filename="../src/jobs/bjobwizard.cpp" line="842"/>
         <source>Not sent: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>No enviado: %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/bjobwizard.cpp" line="851"/>
@@ -6297,48 +6305,48 @@ dejar la tabla vacía o limitada si el intervalo es demasiado estrecho.</transla
     <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="755"/>
         <source>A cancel is still waiting for the Director&apos;s answer</source>
-        <translation type="unfinished"></translation>
+        <translation>Una cancelación sigue esperando la respuesta del Director</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/jobs/bjobwidget.cpp" line="766"/>
         <source>Do you really want to cancel these %n jobs: %1?</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>¿Realmente desea cancelar este job: %1?</numerusform>
+            <numerusform>¿Realmente desea cancelar estos %n jobs: %1?</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../src/jobs/bjobwidget.cpp" line="777"/>
         <source>Cancelling %n job(s)...</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Cancelando %n job...</numerusform>
+            <numerusform>Cancelando %n jobs...</numerusform>
         </translation>
     </message>
     <message numerus="yes">
         <location filename="../src/jobs/bjobwidget.cpp" line="794"/>
         <source>The Director accepted the cancel of %n job(s): %1</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>El Director aceptó la cancelación de %n job: %1</numerusform>
+            <numerusform>El Director aceptó la cancelación de %n jobs: %1</numerusform>
         </translation>
     </message>
     <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="801"/>
         <source>Job %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Job %1: %2</translation>
     </message>
     <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="802"/>
         <source>no reason given</source>
-        <translation type="unfinished"></translation>
+        <translation>no se indicó ningún motivo</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/jobs/bjobwidget.cpp" line="806"/>
         <source>The Director did not cancel %n job(s):</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>El Director no canceló %n job:</numerusform>
+            <numerusform>El Director no canceló %n jobs:</numerusform>
         </translation>
     </message>
 </context>
@@ -6362,12 +6370,12 @@ dejar la tabla vacía o limitada si el intervalo es demasiado estrecho.</transla
     <message>
         <location filename="../src/jobs/bjobwizard.cpp" line="1095"/>
         <source>a control character</source>
-        <translation type="unfinished"></translation>
+        <translation>un carácter de control</translation>
     </message>
     <message>
         <location filename="../src/jobs/bjobwizard.cpp" line="1096"/>
         <source>%1 contains %2, which &apos;configure add&apos; cannot write.</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 contiene %2, que &apos;configure add&apos; no puede escribir.</translation>
     </message>
 </context>
 <context>
@@ -7371,27 +7379,27 @@ Solo se eliminarán los jobs caducados de los clients afectados.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1831"/>
         <source>Connection attempt cancelled</source>
-        <translation type="unfinished"></translation>
+        <translation>Intento de conexión cancelado</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="1972"/>
         <source>Third-party licences...</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencias de terceros...</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="2712"/>
         <source>The connection profile &quot;%1&quot; has no saved password or is incomplete. Complete it in Settings, then connect again.</source>
-        <translation type="unfinished"></translation>
+        <translation>El perfil de conexión &quot;%1&quot; no tiene contraseña guardada o está incompleto. Complételo en Configuración y vuelva a conectarse.</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="2913"/>
         <source>Cancel the connection attempt</source>
-        <translation type="unfinished"></translation>
+        <translation>Cancelar el intento de conexión</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="2930"/>
         <source>Passwords Not in the Keychain</source>
-        <translation type="unfinished"></translation>
+        <translation>Contraseñas fuera del llavero</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/bmainwindow.cpp" line="3005"/>
@@ -7405,17 +7413,17 @@ Solo se eliminarán los jobs caducados de los clients afectados.</translation>
     <message>
         <location filename="../src/bmainwindow.cpp" line="3013"/>
         <source>No client selected</source>
-        <translation type="unfinished"></translation>
+        <translation>Ningún client seleccionado</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="3053"/>
         <source>All clients selected</source>
-        <translation type="unfinished"></translation>
+        <translation>Todos los clients seleccionados</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="3081"/>
         <source>Find works in the Jobs and Clients tabs</source>
-        <translation type="unfinished"></translation>
+        <translation>Buscar funciona en las pestañas Jobs y Clients</translation>
     </message>
     <message>
         <location filename="../src/bmainwindow.cpp" line="704"/>
@@ -8455,20 +8463,20 @@ en la página de vista previa para añadir este client automáticamente.</transl
     <message numerus="yes">
         <location filename="../src/jobs/bnewjobdialog.cpp" line="708"/>
         <source>Estimate: %n file(s), %1</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>Estimación: %n archivo, %1</numerusform>
+            <numerusform>Estimación: %n archivos, %1</numerusform>
         </translation>
     </message>
     <message>
         <location filename="../src/jobs/bnewjobdialog.cpp" line="713"/>
         <source>The Director sent no estimate.</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director no envió ninguna estimación.</translation>
     </message>
     <message>
         <location filename="../src/jobs/bnewjobdialog.cpp" line="714"/>
         <source>Estimate failed: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Error en la estimación: %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/bnewjobdialog.cpp" line="229"/>
@@ -8831,13 +8839,14 @@ Ya puede usar este archivo en la configuración de certificados.</translation>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="252"/>
         <source>✗ ERROR: Cannot open %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>✗ ERROR: No se puede abrir %1: %2</translation>
     </message>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="254"/>
         <source>Cannot open %1:
 %2</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede abrir %1:
+%2</translation>
     </message>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="262"/>
@@ -8847,29 +8856,31 @@ Ya puede usar este archivo en la configuración de certificados.</translation>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="263"/>
         <source>the certificate file</source>
-        <translation type="unfinished"></translation>
+        <translation>el archivo de certificado</translation>
     </message>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="267"/>
         <source>the private key file</source>
-        <translation type="unfinished"></translation>
+        <translation>el archivo de clave privada</translation>
     </message>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="272"/>
         <source>the CA certificate file</source>
-        <translation type="unfinished"></translation>
+        <translation>el archivo de certificado de la CA</translation>
     </message>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="283"/>
         <source>✗ ERROR: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>✗ ERROR: %1</translation>
     </message>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="285"/>
         <source>The PFX file was not created.
 
 %1</source>
-        <translation type="unfinished"></translation>
+        <translation>No se creó el archivo PFX.
+
+%1</translation>
     </message>
     <message>
         <location filename="../src/bpfxconverter.cpp" line="253"/>
@@ -9092,157 +9103,157 @@ Ya puede usar este archivo en la configuración de certificados.</translation>
     <message>
         <location filename="../src/bpki.cpp" line="83"/>
         <source>Cannot open %1 for writing: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede abrir %1 para escribir: %2</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="89"/>
         <source>Cannot write %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede escribir %1: %2</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="103"/>
         <source>Cannot create certificate extension %1</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede crear la extensión de certificado %1</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="109"/>
         <source>Cannot add certificate extension %1</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede añadir la extensión de certificado %1</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="150"/>
         <source>Cannot create the key context</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede crear el contexto de la clave</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="157"/>
         <source>Cannot generate the RSA key</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede generar la clave RSA</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="171"/>
         <source>Invalid certificate request</source>
-        <translation type="unfinished"></translation>
+        <translation>Solicitud de certificado no válida</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="178"/>
         <source>Cannot create the certificate</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede crear el certificado</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="186"/>
         <source>Cannot set the public key</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede establecer la clave pública</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="198"/>
         <source>Cannot set the subject name</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede establecer el nombre del sujeto</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="204"/>
         <source>Cannot set the issuer name</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede establecer el nombre del emisor</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="233"/>
         <source>Cannot sign the certificate</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede firmar el certificado</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="258"/>
         <source>Cannot prepare the private key</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede preparar la clave privada</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="270"/>
         <source>Cannot encode the private key</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede codificar la clave privada</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="280"/>
         <source>Cannot encode the certificate</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede codificar el certificado</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="291"/>
         <source>A PFX file needs a password</source>
-        <translation type="unfinished"></translation>
+        <translation>Un archivo PFX necesita una contraseña</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="297"/>
         <source>A PFX file needs a certificate and its private key</source>
-        <translation type="unfinished"></translation>
+        <translation>Un archivo PFX necesita un certificado y su clave privada</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="303"/>
         <source>The private key does not belong to the certificate</source>
-        <translation type="unfinished"></translation>
+        <translation>La clave privada no corresponde al certificado</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="313"/>
         <source>Cannot prepare the certificate chain</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede preparar la cadena de certificados</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="323"/>
         <source>Cannot create the PKCS#12 structure</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede crear la estructura PKCS#12</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="331"/>
         <source>Cannot encode the PFX file</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede codificar el archivo PFX</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="347"/>
         <source>Not a PEM or DER certificate</source>
-        <translation type="unfinished"></translation>
+        <translation>No es un certificado PEM ni DER</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="373"/>
         <source>The private key is encrypted; decrypt it first (openssl pkey -in key.pem -out plain.pem)</source>
-        <translation type="unfinished"></translation>
+        <translation>La clave privada está cifrada; descífrela primero (openssl pkey -in key.pem -out plain.pem)</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="376"/>
         <source>Not a PEM or DER private key</source>
-        <translation type="unfinished"></translation>
+        <translation>No es una clave privada PEM ni DER</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="398"/>
         <source>Cannot open %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede abrir %1: %2</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="406"/>
         <source>%1 is not a PKCS#12 file</source>
-        <translation type="unfinished"></translation>
+        <translation>%1 no es un archivo PKCS#12</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="415"/>
         <source>Cannot open %1 with this password</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede abrir %1 con esta contraseña</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="434"/>
         <source>Certificate: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Certificado: %1</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="439"/>
         <source>Private key: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Clave privada: %1</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="446"/>
         <source>CA certificate: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Certificado de la CA: %1</translation>
     </message>
     <message>
         <location filename="../src/bpki.cpp" line="458"/>
         <source>The written PFX file cannot be read back</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo PFX escrito no se puede volver a leer</translation>
     </message>
 </context>
 <context>
@@ -10467,7 +10478,7 @@ Déjela vacía para permitir todos los certificados válidos.</translation>
     <message>
         <location filename="../src/director/bresourcewidget.cpp" line="70"/>
         <source>Only Job and JobDefs resources can be changed here; they are written to the Director. Change this resource in its configuration file.</source>
-        <translation type="unfinished"></translation>
+        <translation>Aquí solo se pueden modificar los recursos Job y JobDefs; se escriben en el Director. Modifique este recurso en su archivo de configuración.</translation>
     </message>
     <message>
         <location filename="../src/director/bresourcewidget.cpp" line="77"/>
@@ -10503,7 +10514,7 @@ Déjela vacía para permitir todos los certificados válidos.</translation>
     <message>
         <location filename="../src/director/bresourcewidget.cpp" line="207"/>
         <source>There is no Director connection to write the change to. Nothing was changed.</source>
-        <translation type="unfinished"></translation>
+        <translation>No hay ninguna conexión con el Director en la que escribir el cambio. No se ha modificado nada.</translation>
     </message>
     <message>
         <location filename="../src/director/bresourcewidget.cpp" line="248"/>
@@ -10618,7 +10629,7 @@ Déjela vacía para permitir todos los certificados válidos.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="754"/>
         <source>The Director reported an error: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director informó de un error: %1</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/jobs/brestorewizard.cpp" line="770"/>
@@ -10716,12 +10727,12 @@ Déjela vacía para permitir todos los certificados válidos.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1446"/>
         <source>The Director answered.</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director respondió.</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1461"/>
         <source>Cleanup failed: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Error en la limpieza: %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1478"/>
@@ -10834,17 +10845,17 @@ Consulte el registro anterior para más detalles.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1683"/>
         <source>No answer from the Director to %1 within %2 seconds.</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director no respondió a %1 en %2 segundos.</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1686"/>
         <source>Waiting for the Director...</source>
-        <translation type="unfinished"></translation>
+        <translation>Esperando al Director...</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1687"/>
         <source>The restore may still start. Check the job list before you start it again. The answer is still awaited while this window is open.</source>
-        <translation type="unfinished"></translation>
+        <translation>Es posible que la restauración aún se inicie. Revise la lista de jobs antes de volver a iniciarla. La respuesta se sigue esperando mientras esta ventana esté abierta.</translation>
     </message>
 </context>
 <context>
@@ -10872,7 +10883,7 @@ Consulte el registro anterior para más detalles.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="803"/>
         <source>Restore Job:</source>
-        <translation type="unfinished"></translation>
+        <translation>Job de restauración:</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="806"/>
@@ -10938,7 +10949,7 @@ Consulte el registro anterior para más detalles.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="855"/>
         <source>at least %1</source>
-        <translation type="unfinished"></translation>
+        <translation>al menos %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="856"/>
@@ -10953,7 +10964,7 @@ Consulte el registro anterior para más detalles.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="933"/>
         <source>Chosen by the Director</source>
-        <translation type="unfinished"></translation>
+        <translation>Elegido por el Director</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="947"/>
@@ -11021,7 +11032,7 @@ Consulte el registro anterior para más detalles.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1093"/>
         <source>The restore command cannot be built: the value of %1= is not valid.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede construir el comando de restauración: el valor de %1= no es válido.</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/jobs/brestorewizard.cpp" line="1100"/>
@@ -11061,7 +11072,7 @@ Consulte el registro anterior para más detalles.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1115"/>
         <source>at least %1</source>
-        <translation type="unfinished"></translation>
+        <translation>al menos %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1116"/>
@@ -11086,7 +11097,7 @@ Consulte el registro anterior para más detalles.</translation>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1130"/>
         <source>• Restore job: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>• Job de restauración: %1</translation>
     </message>
     <message>
         <location filename="../src/jobs/brestorewizard.cpp" line="1152"/>
@@ -16303,33 +16314,33 @@ Haga clic en Sí para ejecutar, en No para cerrar sin desplegar.</translation>
     <message>
         <location filename="../src/config/bsettings.cpp" line="168"/>
         <source>A stored password is missing from the system keychain. Enter the password of the connection profile again.</source>
-        <translation type="unfinished"></translation>
+        <translation>Falta una contraseña guardada en el llavero del sistema. Vuelva a introducir la contraseña del perfil de conexión.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettings.cpp" line="172"/>
         <source>The passwords of the connection profiles could not be read from the system keychain (%1). Unlock the keychain and restart Onesimus, or enter the passwords again.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudieron leer las contraseñas de los perfiles de conexión desde el llavero del sistema (%1). Desbloquee el llavero y reinicie Onesimus, o vuelva a introducir las contraseñas.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettings.cpp" line="175"/>
         <location filename="../src/config/bsettings.cpp" line="286"/>
         <source>no keychain available</source>
-        <translation type="unfinished"></translation>
+        <translation>no hay ningún llavero disponible</translation>
     </message>
     <message>
         <location filename="../src/config/bsettings.cpp" line="311"/>
         <source>No system keychain could be used (%1). The passwords of the connection profiles are stored in the settings file %2, readable only by you. Install and unlock a keychain (for example GNOME Keyring or KWallet) to keep them out of the file.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo usar ningún llavero del sistema (%1). Las contraseñas de los perfiles de conexión se guardan en el archivo de configuración %2, que solo usted puede leer. Instale y desbloquee un llavero (por ejemplo, GNOME Keyring o KWallet) para que no queden en el archivo.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettings.cpp" line="453"/>
         <source>The file is not valid JSON: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo no es JSON válido: %1</translation>
     </message>
     <message>
         <location filename="../src/config/bsettings.cpp" line="485"/>
         <source>The file contains no connection profiles.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo no contiene perfiles de conexión.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettings.cpp" line="530"/>
@@ -16399,17 +16410,17 @@ Haga clic en Sí para ejecutar, en No para cerrar sin desplegar.</translation>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="105"/>
         <source>Reset...</source>
-        <translation type="unfinished"></translation>
+        <translation>Restablecer...</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="106"/>
         <source>Reset the settings to their defaults at once. The connection profiles are kept unless you choose otherwise.</source>
-        <translation type="unfinished"></translation>
+        <translation>Restablece de inmediato la configuración a sus valores predeterminados. Los perfiles de conexión se conservan, salvo que elija lo contrario.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="112"/>
         <source>Save</source>
-        <translation type="unfinished"></translation>
+        <translation>Guardar</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="213"/>
@@ -16709,60 +16720,62 @@ Ejemplo: PSK-AES256-GCM-SHA384:PSK-AES128-GCM-SHA256</translation>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="591"/>
         <source>Theme</source>
-        <translation type="unfinished"></translation>
+        <translation>Tema</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="596"/>
         <source>System</source>
-        <translation type="unfinished">Sistema</translation>
+        <translation>Sistema</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="597"/>
         <source>Light</source>
-        <translation type="unfinished"></translation>
+        <translation>Claro</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="598"/>
         <source>Dark</source>
-        <translation type="unfinished"></translation>
+        <translation>Oscuro</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="599"/>
         <source>&quot;System&quot; follows the light or dark colour scheme of the desktop.</source>
-        <translation type="unfinished"></translation>
+        <translation>&quot;Sistema&quot; sigue el esquema de colores claro u oscuro del escritorio.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="600"/>
         <source>Colour theme:</source>
-        <translation type="unfinished"></translation>
+        <translation>Tema de colores:</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1173"/>
         <location filename="../src/config/bsettingsdialog.cpp" line="1189"/>
         <source>Reset Settings</source>
-        <translation type="unfinished"></translation>
+        <translation>Restablecer configuración</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1174"/>
         <source>Reset all settings to their default values now?
 
 This takes effect at once, also if you then press Cancel, and cannot be undone.</source>
-        <translation type="unfinished"></translation>
+        <translation>¿Restablecer ahora toda la configuración a sus valores predeterminados?
+
+Esto surte efecto de inmediato, aunque después pulse Cancelar, y no se puede deshacer.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1178"/>
         <source>Also delete all connection profiles</source>
-        <translation type="unfinished"></translation>
+        <translation>Eliminar también todos los perfiles de conexión</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1190"/>
         <source>All settings and connection profiles have been reset.</source>
-        <translation type="unfinished"></translation>
+        <translation>Se han restablecido toda la configuración y todos los perfiles de conexión.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1191"/>
         <source>All settings have been reset to their default values. The connection profiles were kept.</source>
-        <translation type="unfinished"></translation>
+        <translation>Toda la configuración se ha restablecido a sus valores predeterminados. Los perfiles de conexión se han conservado.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1236"/>
@@ -16771,64 +16784,68 @@ This takes effect at once, also if you then press Cancel, and cannot be undone.<
         <location filename="../src/config/bsettingsdialog.cpp" line="1255"/>
         <location filename="../src/config/bsettingsdialog.cpp" line="1258"/>
         <source>Export Profiles</source>
-        <translation type="unfinished"></translation>
+        <translation>Exportar perfiles</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1237"/>
         <source>There are no connection profiles to export.</source>
-        <translation type="unfinished"></translation>
+        <translation>No hay perfiles de conexión que exportar.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1242"/>
         <location filename="../src/config/bsettingsdialog.cpp" line="1287"/>
         <source>JSON (*.json)</source>
-        <translation type="unfinished"></translation>
+        <translation>JSON (*.json)</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1247"/>
         <source>Include the stored passwords in the file?
 
 The file then holds the password hashes, and anyone who has it can log in to the Directors with them. Without them, the passwords must be entered again after the import.</source>
-        <translation type="unfinished"></translation>
+        <translation>¿Incluir en el archivo las contraseñas guardadas?
+
+El archivo contendrá entonces los hashes de las contraseñas, y cualquiera que lo tenga podrá iniciar sesión con ellos en los Directors. Sin ellas, habrá que volver a introducir las contraseñas después de la importación.</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/config/bsettingsdialog.cpp" line="1259"/>
         <source>%n connection profile(s) exported.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n perfil de conexión exportado.</numerusform>
+            <numerusform>%n perfiles de conexión exportados.</numerusform>
         </translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1268"/>
         <location filename="../src/config/bsettingsdialog.cpp" line="1278"/>
         <source>Cannot write %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede escribir %1: %2</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/config/bsettingsdialog.cpp" line="1298"/>
         <source>%n connection profile(s) imported. They are stored when you save the settings.</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>%n perfil de conexión importado. Se guarda al guardar la configuración.</numerusform>
+            <numerusform>%n perfiles de conexión importados. Se guardan al guardar la configuración.</numerusform>
         </translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1307"/>
         <source>Cannot read %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede leer %1: %2</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1362"/>
         <source>All connection profiles have been removed. They are deleted when you save the settings.</source>
-        <translation type="unfinished"></translation>
+        <translation>Se han quitado todos los perfiles de conexión. Se eliminan al guardar la configuración.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="1582"/>
         <source>Do you really want to delete the connection profile &quot;%1&quot;?
 
 It is deleted when you save the settings.</source>
-        <translation type="unfinished"></translation>
+        <translation>¿Realmente desea eliminar el perfil de conexión &quot;%1&quot;?
+
+Se elimina al guardar la configuración.</translation>
     </message>
     <message>
         <location filename="../src/config/bsettingsdialog.cpp" line="759"/>
@@ -17631,27 +17648,27 @@ La ruta del certificado se ha actualizado en el perfil actual.</translation>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="61"/>
         <source>Third-party licences</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencias de terceros</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="67"/>
         <source>Document:</source>
-        <translation type="unfinished"></translation>
+        <translation>Documento:</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="71"/>
         <source>Third-party notices</source>
-        <translation type="unfinished"></translation>
+        <translation>Avisos de terceros</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="72"/>
         <source>Onesimus licence (AGPL-3.0)</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia de Onesimus (AGPL-3.0)</translation>
     </message>
     <message>
         <location filename="../src/bthirdpartynotices.cpp" line="95"/>
         <source>The third-party notices are missing from this build.</source>
-        <translation type="unfinished"></translation>
+        <translation>Faltan los avisos de terceros en esta compilación.</translation>
     </message>
 </context>
 <context>
@@ -17659,129 +17676,129 @@ La ruta del certificado se ha actualizado en el perfil actual.</translation>
     <message>
         <location filename="../src/busagestatus.cpp" line="76"/>
         <source>Usage: %1 of %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Uso: %1 de %2</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="77"/>
         <source>Usage: %1 of %2 (%3)</source>
-        <translation type="unfinished"></translation>
+        <translation>Uso: %1 de %2 (%3)</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="79"/>
         <source>Usage: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Uso: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="79"/>
         <source>Usage: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>Uso: %1 (%2)</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="116"/>
         <source>Licence: free tier</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia: nivel gratuito</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="119"/>
         <source>Licence: licensed</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia: con licencia</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="120"/>
         <source>Licence: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="123"/>
         <source>Licence: licensed, valid until %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia: con licencia, válida hasta el %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="124"/>
         <source>Licence: %1, valid until %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia: %1, válida hasta el %2</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="130"/>
         <source>Licence: expired, the free tier applies</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia: caducada, se aplica el nivel gratuito</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="133"/>
         <source>Licence: not valid, the free tier applies</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia: no válida, se aplica el nivel gratuito</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="142"/>
         <source>Limit: %1 per month</source>
-        <translation type="unfinished"></translation>
+        <translation>Límite: %1 al mes</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="143"/>
         <source>Limit: none</source>
-        <translation type="unfinished"></translation>
+        <translation>Límite: ninguno</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="146"/>
         <source>Written by finished jobs: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Escrito por jobs terminados: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="147"/>
         <source>Written by running jobs so far: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Escrito hasta ahora por jobs en ejecución: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="149"/>
         <source>Used: %1 % of the limit</source>
-        <translation type="unfinished"></translation>
+        <translation>Usado: %1 % del límite</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="153"/>
         <source>Projected by the end of the month: %1, above the limit</source>
-        <translation type="unfinished"></translation>
+        <translation>Previsión a final de mes: %1, por encima del límite</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="154"/>
         <source>Projected by the end of the month: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Previsión a final de mes: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="156"/>
         <source>Backup jobs held this month: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Jobs de backup retenidos este mes: %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="158"/>
         <source>Resets on %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Se restablece el %1</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="163"/>
         <source>Limit reached: new backup jobs are held until the reset. Restores are not affected.</source>
-        <translation type="unfinished"></translation>
+        <translation>Límite alcanzado: los nuevos jobs de backup se retienen hasta el restablecimiento. Las restauraciones no se ven afectadas.</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="166"/>
         <source>Close to the limit: at the limit new backup jobs are held.</source>
-        <translation type="unfinished"></translation>
+        <translation>Cerca del límite: al alcanzarlo, los nuevos jobs de backup se retienen.</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="215"/>
         <source>Licence not valid: free tier</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia no válida: nivel gratuito</translation>
     </message>
     <message>
         <location filename="../src/busagestatus.cpp" line="220"/>
         <source>Licence expired: free tier</source>
-        <translation type="unfinished"></translation>
+        <translation>Licencia caducada: nivel gratuito</translation>
     </message>
     <message numerus="yes">
         <location filename="../src/busagestatus.cpp" line="225"/>
         <source>Licence ends in %n day(s), on %1</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>La licencia termina en %n día, el %1</numerusform>
+            <numerusform>La licencia termina en %n días, el %1</numerusform>
         </translation>
     </message>
 </context>
@@ -18163,80 +18180,80 @@ La ruta del certificado se ha actualizado en el perfil actual.</translation>
         <location filename="../src/config/bzipimport.cpp" line="53"/>
         <location filename="../src/config/bzipimport.cpp" line="65"/>
         <source>The file is not a ZIP archive.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo no es un archivo ZIP.</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="72"/>
         <source>ZIP64 archives are not read.</source>
-        <translation type="unfinished"></translation>
+        <translation>Los archivos ZIP64 no se leen.</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="76"/>
         <source>The archive has %1 entries; at most %2 are read.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo tiene %1 entradas; se leen como máximo %2.</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="80"/>
         <location filename="../src/config/bzipimport.cpp" line="86"/>
         <location filename="../src/config/bzipimport.cpp" line="100"/>
         <source>The ZIP archive is damaged.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo ZIP está dañado.</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="141"/>
         <source>Cannot open %1: %2</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede abrir %1: %2</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="145"/>
         <source>The archive is larger than %1 MiB.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo supera los %1 MiB.</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="157"/>
         <source>Cannot read the ZIP archive %1.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede leer el archivo ZIP %1.</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="172"/>
         <source>the path leaves the archive</source>
-        <translation type="unfinished"></translation>
+        <translation>la ruta sale del archivo</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="174"/>
         <source>a symbolic link</source>
-        <translation type="unfinished"></translation>
+        <translation>un enlace simbólico</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="176"/>
         <source>encrypted</source>
-        <translation type="unfinished"></translation>
+        <translation>cifrado</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="178"/>
         <source>compression method %1 is not read</source>
-        <translation type="unfinished"></translation>
+        <translation>el método de compresión %1 no se lee</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="180"/>
         <location filename="../src/config/bzipimport.cpp" line="214"/>
         <source>the size does not match the archive directory</source>
-        <translation type="unfinished"></translation>
+        <translation>el tamaño no coincide con el directorio del archivo</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="182"/>
         <source>larger than %1 KiB</source>
-        <translation type="unfinished"></translation>
+        <translation>mayor de %1 KiB</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="184"/>
         <source>the name cannot be read</source>
-        <translation type="unfinished"></translation>
+        <translation>el nombre no se puede leer</translation>
     </message>
     <message>
         <location filename="../src/config/bzipimport.cpp" line="206"/>
         <source>The configuration files are larger than %1 MiB together.</source>
-        <translation type="unfinished"></translation>
+        <translation>Los archivos de configuración superan juntos los %1 MiB.</translation>
     </message>
 </context>
 <context>
@@ -18368,102 +18385,102 @@ Posibles causas:
     <message>
         <location filename="../src/director/bareosauth.cpp" line="153"/>
         <source>TLS is required for this connection, but neither TLS-PSK nor certificate TLS is enabled in the profile. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>Esta conexión requiere TLS, pero en el perfil no está habilitado ni TLS-PSK ni TLS con certificados. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="286"/>
         <source>Certificate verification is on, but no CA certificate file is set in the profile. Set the CA certificate file to the CA that signed the Director&apos;s certificate. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>La verificación de certificados está activada, pero en el perfil no hay ningún archivo de certificado de CA. Indique como archivo de certificado de CA la CA que firmó el certificado del Director. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="298"/>
         <source>The CA certificate file &quot;%1&quot; cannot be read or contains no certificate. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo de certificado de CA &quot;%1&quot; no se puede leer o no contiene ningún certificado. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="329"/>
         <source>The client certificate file &quot;%1&quot; cannot be read (wrong password, or not a PKCS#12 file). Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo de certificado de cliente &quot;%1&quot; no se puede leer (contraseña incorrecta o no es un archivo PKCS#12). Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="343"/>
         <source>The client certificate file &quot;%1&quot; cannot be read or contains no certificate. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo de certificado de cliente &quot;%1&quot; no se puede leer o no contiene ningún certificado. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="364"/>
         <source>The private key file &quot;%1&quot; cannot be read (an unencrypted RSA or EC key in PEM format is needed). Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El archivo de clave privada &quot;%1&quot; no se puede leer (se necesita una clave RSA o EC sin cifrar en formato PEM). Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="547"/>
         <source>The TLS library of this system offers no TLS-PSK cipher suite, so TLS-PSK cannot be used. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>La biblioteca TLS de este sistema no ofrece ningún conjunto de cifrado TLS-PSK, por lo que no se puede usar TLS-PSK. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="731"/>
         <source>The Director&apos;s certificate was not accepted: %1. It must be signed by the CA of the profile (&quot;%2&quot;). Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se aceptó el certificado del Director: %1. Debe estar firmado por la CA del perfil (&quot;%2&quot;). Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="762"/>
         <source>The common name of the Director&apos;s certificate (&quot;%1&quot;) is not in the TLS Allowed CN list of the profile (%2). Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El nombre común del certificado del Director (&quot;%1&quot;) no está en la lista TLS Allowed CN del perfil (%2). Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="784"/>
         <source>The Director&apos;s certificate is not issued for the host name &quot;%1&quot; (the certificate names: %2). Connect with a name the certificate contains, or add its common name to TLS Allowed CN in the profile. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El certificado del Director no está emitido para el nombre de host &quot;%1&quot; (nombres del certificado: %2). Conéctese con un nombre que contenga el certificado o añada su nombre común a TLS Allowed CN en el perfil. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="787"/>
         <source>none</source>
-        <translation type="unfinished"></translation>
+        <translation>ninguno</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="896"/>
         <source>The server sent this console&apos;s own challenge back instead of a challenge of the Director (reflection attack). It is not the configured Director. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El servidor devolvió el propio desafío de esta consola en lugar de un desafío del Director (ataque de reflexión). No es el Director configurado. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="909"/>
         <source>TLS is required for this connection, but the session with the Director is not encrypted. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>Esta conexión requiere TLS, pero la sesión con el Director no está cifrada. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="913"/>
         <source>The Director requires TLS, but this connection is not encrypted. Use TLS-PSK or certificate TLS in the profile.</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director requiere TLS, pero esta conexión no está cifrada. Use TLS-PSK o TLS con certificados en el perfil.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="944"/>
         <source>Failed to send the CRAM-MD5 response to the Director.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo enviar la respuesta CRAM-MD5 al Director.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="1484"/>
         <source>Failed to send the CRAM-MD5 challenge to the Director.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo enviar el desafío CRAM-MD5 al Director.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="1487"/>
         <source>The Director rejected the password of console &quot;%1&quot; (wrong password or console name). Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director rechazó la contraseña de la consola &quot;%1&quot; (contraseña o nombre de consola incorrectos). Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="1490"/>
         <source>The server did not complete the CRAM-MD5 handshake (it answered &quot;%1&quot; instead of &quot;1000 OK auth&quot;). It may not be a Bareos or Onesimus Director. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El servidor no completó el intercambio CRAM-MD5 (respondió &quot;%1&quot; en lugar de &quot;1000 OK auth&quot;). Puede que no sea un Director de Bareos u Onesimus. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="1514"/>
         <source>The Director could not prove that it knows the console password: its answer to the CRAM-MD5 challenge is wrong. Either the server is not the configured Director, or the password stored on the Director differs from this profile. Connection refused.</source>
-        <translation type="unfinished"></translation>
+        <translation>El Director no pudo demostrar que conoce la contraseña de la consola: su respuesta al desafío CRAM-MD5 es incorrecta. O el servidor no es el Director configurado, o la contraseña guardada en el Director difiere de la de este perfil. Conexión rechazada.</translation>
     </message>
     <message>
         <location filename="../src/director/bareosauth.cpp" line="1528"/>
         <source>Failed to send &quot;1000 OK auth&quot; to the Director.</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo enviar &quot;1000 OK auth&quot; al Director.</translation>
     </message>
 </context>
 <context>
@@ -18476,7 +18493,7 @@ Posibles causas:
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="219"/>
         <source>Checking a client needs the gRPC interface of the Onesimus Director</source>
-        <translation type="unfinished"></translation>
+        <translation>Comprobar un client requiere la interfaz gRPC del Onesimus Director</translation>
     </message>
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="273"/>
@@ -18526,7 +18543,7 @@ Posibles causas:
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="1904"/>
         <source>Not sent: a value contains a control character</source>
-        <translation type="unfinished"></translation>
+        <translation>No enviado: un valor contiene un carácter de control</translation>
     </message>
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="1924"/>
@@ -18567,15 +18584,15 @@ Posibles causas:
     <message numerus="yes">
         <location filename="../src/director/bareosdirector.cpp" line="1058"/>
         <source>The Director did not answer within %n second(s)</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
+        <translation>
+            <numerusform>El Director no respondió en %n segundo</numerusform>
+            <numerusform>El Director no respondió en %n segundos</numerusform>
         </translation>
     </message>
     <message>
         <location filename="../src/director/bareosdirector.cpp" line="1994"/>
         <source>The command was not sent: one of its values cannot be written in a command line</source>
-        <translation type="unfinished"></translation>
+        <translation>El comando no se envió: uno de sus valores no se puede escribir en una línea de comandos</translation>
     </message>
 </context>
 <context>
@@ -18691,12 +18708,12 @@ Posibles causas:
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="2123"/>
         <source>Add the Console resource, then reload the Director. The Onesimus Director offers gRPC on the BNET port + 1000; nothing else to configure.</source>
-        <translation type="unfinished"></translation>
+        <translation>Añada el recurso Console y luego recargue el Director. El Onesimus Director ofrece gRPC en el puerto BNET + 1000; no hay nada más que configurar.</translation>
     </message>
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="2129"/>
         <source>Add the Console resource and &quot;Grpc Port = %1&quot; to the Director resource, then restart the Director (the default would be %2).</source>
-        <translation type="unfinished"></translation>
+        <translation>Añada el recurso Console y &quot;Grpc Port = %1&quot; al recurso Director y luego reinicie el Director (el valor predeterminado sería %2).</translation>
     </message>
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="2302"/>
@@ -18891,7 +18908,7 @@ Configuración de Console: /etc/bareos/bareos-dir.d/console/&lt;name&gt;.conf</t
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="764"/>
         <source>Cannot read the ZIP archive: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>No se puede leer el archivo ZIP: %1</translation>
     </message>
     <message>
         <location filename="../src/bconnectionwizard.cpp" line="774"/>
@@ -19250,7 +19267,7 @@ Extráigala en el directorio raíz de su servidor Bareos y reinicie el Director.
     <message>
         <location filename="../include/bconnectionprofile.h" line="129"/>
         <source>New Connection</source>
-        <translation type="unfinished">Nueva conexión</translation>
+        <translation>Nueva conexión</translation>
     </message>
 </context>
 <context>
