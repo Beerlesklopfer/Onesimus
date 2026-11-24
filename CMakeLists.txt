@@ -2579,6 +2579,32 @@ if(BUILD_TESTING)
     target_link_libraries(bzipimport_test PRIVATE Qt6::GuiPrivate)
     add_test(NAME bzipimport_test COMMAND bzipimport_test)
 
+    # bconfigexporter_test - the archive the connection wizard exports:
+    # files per mode, names, directories, owner-only permissions, errors,
+    # read back with QZipReader and the import path (no Director).
+    # Linked against onesimus_core; GuiPrivate for QZipReader.
+    add_executable(bconfigexporter_test
+        test/bconfigexporter_test.cpp
+    )
+    target_link_libraries(bconfigexporter_test PRIVATE
+        onesimus_core
+        Qt6::GuiPrivate
+        Qt6::Test
+    )
+    add_test(NAME bconfigexporter_test COMMAND bconfigexporter_test)
+
+    # bjsonstreamreader_test - JSON replies buffered in chunks, the jobs
+    # array in the shapes a Director sends it, malformed replies, the live
+    # device mode (no Director). Linked against onesimus_core.
+    add_executable(bjsonstreamreader_test
+        test/bjsonstreamreader_test.cpp
+    )
+    target_link_libraries(bjsonstreamreader_test PRIVATE
+        onesimus_core
+        Qt6::Test
+    )
+    add_test(NAME bjsonstreamreader_test COMMAND bjsonstreamreader_test)
+
     # bconfigparser_test - configuration text read as Bareos 25 reads it:
     # directive names without blanks and case, ';', quoted strings, lists,
     # repeated blocks, @include (parseFile() only, never a command), nesting
