@@ -50,6 +50,10 @@ private slots:
     void namesThatAreNoFileNameRefused_data();
     void namesThatAreNoFileNameRefused();
     void profileNameOnlyCheckedWhenWritten();
+    void quotesAndBackslashesReadBackUnchanged();
+    void quoteInValueAddsNoDirective();
+    void controlCharacterRefused_data();
+    void controlCharacterRefused();
 };
 
 namespace {
@@ -434,6 +438,98 @@ void BConfigExporterTest::profileNameOnlyCheckedWhenWritten()
              qPrintable(BConfigExporter::lastError()));
     QVERIFY(readZip(dir.filePath("b.zip")).contains(
         QStringLiteral("etc/bareos/bareos-dir.d/console/admin.console: 2-b_c.conf")));
+}
+
+void BConfigExporterTest::quotesAndBackslashesReadBackUnchanged()
+{
+    // Bareos reads a backslash in a quoted string as an escape
+    // (lex_quoted_string in core/src/lib/lex.cc): an ACL regex or a Windows
+    // path must reach the Director as the user typed it
+    QTemporaryDir dir;
+    BConnectionProfile p = sampleProfile();
+    p.description = QStringLiteral("Say \"hi\" \\ bye");
+    p.aclJob = QStringList{QStringLiteral("Backup\\.daily"), QStringLiteral("a\\\\b")};
+    p.aclWhere = QStringList{QStringLiteral("C:\\restore")};
+    p.tlsUsePSK = false;
+    p.tlsCaCertFile = QStringLiteral("C:\\certs\\ca.pem");
+    p.tlsAllowedCn = QStringList{QStringLiteral("cn \"quoted\"")};
+    const QString out = dir.filePath("export.zip");
+    QVERIFY2(BConfigExporter::exportToArchive(p, out, BConfigExporter::ExportFull),
+             qPrintable(BConfigExporter::lastError()));
+
+    const QMap<QString, QByteArray> files = readZip(out);
+    BConfigParser parser;
+    QVERIFY2(parser.parseString(QString::fromUtf8(files.value(kConsole))), qPrintable(parser.lastError()));
+    const BConfigResource console = parser.resource(QStringLiteral("Console"), p.consoleName);
+    QCOMPARE(console.simpleValue(QStringLiteral("Description")), p.description);
+    QCOMPARE(console.listValue(QStringLiteral("Job ACL")), p.aclJob);
+    QCOMPARE(console.listValue(QStringLiteral("Where ACL")), p.aclWhere);
+    QCOMPARE(console.simpleValue(QStringLiteral("TLS CA Certificate File")), p.tlsCaCertFile);
+    QCOMPARE(console.listValue(QStringLiteral("TLS Allowed CN")), p.tlsAllowedCn);
+
+    const QString profileFile = QStringLiteral("etc/bareos/bareos-dir.d/profile/admin-console-profile.conf");
+    BConfigParser profileParser;
+    QVERIFY2(profileParser.parseString(QString::fromUtf8(files.value(profileFile))),
+             qPrintable(profileParser.lastError()));
+    const BConfigResource profile =
+        profileParser.resource(QStringLiteral("Profile"), QStringLiteral("admin-console-profile"));
+    QCOMPARE(profile.simpleValue(QStringLiteral("Description")), p.description);
+    QCOMPARE(profile.listValue(QStringLiteral("Job ACL")), p.aclJob);
+
+    BConfigParser client;
+    QVERIFY2(client.parseString(QString::fromUtf8(files.value(kBconsole))), qPrintable(client.lastError()));
+    QCOMPARE(client.resource(QStringLiteral("Director"), p.directorName)
+                 .simpleValue(QStringLiteral("TLS CA Certificate File")),
+             p.tlsCaCertFile);
+}
+
+void BConfigExporterTest::quoteInValueAddsNoDirective()
+{
+    QTemporaryDir dir;
+    BConnectionProfile p = sampleProfile();
+    p.description = QStringLiteral("x\" Command ACL = \"*all*");
+    const QString out = dir.filePath("export.zip");
+    QVERIFY2(BConfigExporter::exportToArchive(p, out), qPrintable(BConfigExporter::lastError()));
+
+    BConfigParser parser;
+    QVERIFY2(parser.parseString(QString::fromUtf8(readZip(out).value(kConsole))), qPrintable(parser.lastError()));
+    const BConfigResource console = parser.resource(QStringLiteral("Console"), p.consoleName);
+    QVERIFY(!console.hasKey(QStringLiteral("Command ACL")));
+    QCOMPARE(console.simpleValue(QStringLiteral("Description")), p.description);
+}
+
+void BConfigExporterTest::controlCharacterRefused_data()
+{
+    // A control character cannot be escaped in Bareos resource text
+    // (BQuote); a newline would end the value and start a directive
+    QTest::addColumn<int>("field");
+    QTest::newRow("description") << 0;
+    QTest::newRow("host") << 1;
+    QTest::newRow("director name") << 2;
+    QTest::newRow("acl entry") << 3;
+    QTest::newRow("tls file") << 4;
+    QTest::newRow("allowed cn") << 5;
+}
+
+void BConfigExporterTest::controlCharacterRefused()
+{
+    QFETCH(int, field);
+    const QString bad = QStringLiteral("x\"\n  Command ACL = \"*all*");
+    BConnectionProfile p = sampleProfile();
+    p.tlsUsePSK = false;
+    switch (field) {
+    case 0: p.description = bad; break;
+    case 1: p.host = bad; break;
+    case 2: p.directorName = bad; break;
+    case 3: p.aclJob = QStringList{QStringLiteral("ok"), bad}; break;
+    case 4: p.tlsKeyFile = bad; break;
+    case 5: p.tlsAllowedCn = QStringList{bad}; break;
+    }
+    QTemporaryDir dir;
+    const QString out = dir.filePath("export.zip");
+    QVERIFY(!BConfigExporter::exportToArchive(p, out, BConfigExporter::ExportFull));
+    QVERIFY(!BConfigExporter::lastError().isEmpty());
+    QVERIFY(!QFileInfo::exists(out));
 }
 
 QTEST_GUILESS_MAIN(BConfigExporterTest)

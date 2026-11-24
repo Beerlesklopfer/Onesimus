@@ -11,6 +11,11 @@
 #include <QJsonArray>
 #include <QCryptographicHash>
 
+// The generated resource text quotes every value with BQuote::quoted():
+// Bareos reads a backslash in a quoted value as an escape and a double quote
+// as its end, so an ACL regex or a Windows path is written escaped
+#include "bquote.h"
+
 /**
  * @brief Connection profile for Bareos/Bacula Directors
  *
@@ -390,7 +395,7 @@ struct BConnectionProfile
     {
         QString config;
         config += QString("Console {\n");
-        config += QString("  Name = \"%1\"\n").arg(consoleName);
+        config += QString("  Name = %1\n").arg(BQuote::quoted(consoleName));
 
         // MANDATORY: Export password as MD5 hash with [md5] prefix
         if (hasValidPasswordHash()) {
@@ -401,7 +406,7 @@ struct BConnectionProfile
         }
 
         if (!description.isEmpty()) {
-            config += QString("  Description = \"%1\"\n").arg(description);
+            config += QString("  Description = %1\n").arg(BQuote::quoted(description));
         }
 
         // TLS settings
@@ -430,17 +435,17 @@ struct BConnectionProfile
                 config += QString("  # Adjust paths to match your server's certificate locations\n");
 
                 if (!tlsCaCertFile.isEmpty())
-                    config += QString("  TLS CA Certificate File = \"%1\"\n").arg(tlsCaCertFile);
+                    config += QString("  TLS CA Certificate File = %1\n").arg(BQuote::quoted(tlsCaCertFile));
                 else
                     config += QString("  # TLS CA Certificate File = \"%1/ca.pem\"\n").arg(tlsDir);
                 if (!tlsCaCertDir.isEmpty())
-                    config += QString("  TLS CA Certificate Dir = \"%1\"\n").arg(tlsCaCertDir);
+                    config += QString("  TLS CA Certificate Dir = %1\n").arg(BQuote::quoted(tlsCaCertDir));
                 if (!tlsCertFile.isEmpty())
-                    config += QString("  TLS Certificate = \"%1\"\n").arg(tlsCertFile);
+                    config += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(tlsCertFile));
                 else
                     config += QString("  # TLS Certificate = \"%1/%2.pem\"\n").arg(tlsDir, consoleName);
                 if (!tlsKeyFile.isEmpty())
-                    config += QString("  TLS Key = \"%1\"\n").arg(tlsKeyFile);
+                    config += QString("  TLS Key = %1\n").arg(BQuote::quoted(tlsKeyFile));
                 else
                     config += QString("  # TLS Key = \"%1/%2-key.pem\"\n").arg(tlsDir, consoleName);
                 config += QString("  TLS Verify Peer = %1\n").arg(tlsVerifyPeer ? "yes" : "no");
@@ -450,31 +455,31 @@ struct BConnectionProfile
             if (tlsAuthenticate)
                 config += QString("  TLS Authenticate = yes\n");
             if (!tlsCipherList.isEmpty())
-                config += QString("  TLS Cipher List = \"%1\"\n").arg(tlsCipherList);
+                config += QString("  TLS Cipher List = %1\n").arg(BQuote::quoted(tlsCipherList));
             if (!tlsCipherSuites.isEmpty())
-                config += QString("  TLS Cipher Suites = \"%1\"\n").arg(tlsCipherSuites);
+                config += QString("  TLS Cipher Suites = %1\n").arg(BQuote::quoted(tlsCipherSuites));
             if (!tlsDhFile.isEmpty())
-                config += QString("  TLS DH File = \"%1\"\n").arg(tlsDhFile);
+                config += QString("  TLS DH File = %1\n").arg(BQuote::quoted(tlsDhFile));
             if (!tlsProtocol.isEmpty())
-                config += QString("  TLS Protocol = \"%1\"\n").arg(tlsProtocol);
+                config += QString("  TLS Protocol = %1\n").arg(BQuote::quoted(tlsProtocol));
             for (const QString &cn : tlsAllowedCn)
-                config += QString("  TLS Allowed CN = \"%1\"\n").arg(cn);
+                config += QString("  TLS Allowed CN = %1\n").arg(BQuote::quoted(cn));
             if (!tlsCrlFile.isEmpty())
-                config += QString("  TLS Certificate Revocation List = \"%1\"\n").arg(tlsCrlFile);
+                config += QString("  TLS Certificate Revocation List = %1\n").arg(BQuote::quoted(tlsCrlFile));
         } else {
             config += QString("  TLS Enable = no\n");
         }
 
         // Profile reference (server-side ACLs)
         if (!profile.isEmpty()) {
-            config += QString("  Profile = \"%1\"\n").arg(profile);
+            config += QString("  Profile = %1\n").arg(BQuote::quoted(profile));
         }
 
         // Direct ACLs (only if no Profile is referenced)
         if (profile.isEmpty()) {
             auto writeAcl = [&config](const QString &name, const QStringList &values) {
                 for (const QString &v : values)
-                    config += QString("  %1 = \"%2\"\n").arg(name, v);
+                    config += QString("  %1 = %2\n").arg(name, BQuote::quoted(v));
             };
 
             writeAcl("Job ACL", aclJob);
@@ -513,15 +518,15 @@ struct BConnectionProfile
 
         QString config;
         config += QString("Profile {\n");
-        config += QString("  Name = \"%1\"\n").arg(profileName);
+        config += QString("  Name = %1\n").arg(BQuote::quoted(profileName));
 
         if (!description.isEmpty()) {
-            config += QString("  Description = \"%1\"\n").arg(description);
+            config += QString("  Description = %1\n").arg(BQuote::quoted(description));
         }
 
         auto writeAcl = [&config](const QString &name, const QStringList &values) {
             for (const QString &v : values)
-                config += QString("  %1 = \"%2\"\n").arg(name, v);
+                config += QString("  %1 = %2\n").arg(name, BQuote::quoted(v));
         };
 
         writeAcl("Job ACL", aclJob);
@@ -550,19 +555,19 @@ struct BConnectionProfile
     {
         QString config;
         config += QString("Director {\n");
-        config += QString("  Name = \"%1\"\n").arg(directorName);
+        config += QString("  Name = %1\n").arg(BQuote::quoted(directorName));
 
         // Platform-specific paths
         QString queryFile, tlsDir;
         if (serverPlatform == "windows") {
-            queryFile = "C:\\\\Program Files\\\\Bareos\\\\scripts\\\\query.sql";
+            queryFile = "C:\\Program Files\\Bareos\\scripts\\query.sql";
             tlsDir = "C:\\\\ProgramData\\\\Bareos\\\\tls";
         } else {
             queryFile = "/usr/lib/bareos/scripts/query.sql";
             tlsDir = "/etc/bareos/tls";
         }
 
-        config += QString("  QueryFile = \"%1\"\n").arg(queryFile);
+        config += QString("  QueryFile = %1\n").arg(BQuote::quoted(queryFile));
         config += QString("  Maximum Concurrent Jobs = 10\n");
         config += QString("  Password = \"CHANGE_ME\"\n");
         config += QString("  Messages = \"Daemon\"\n");
@@ -608,9 +613,9 @@ struct BConnectionProfile
     {
         QString config;
         config += QString("Director {\n");
-        config += QString("  Name = \"%1\"\n").arg(directorName);
+        config += QString("  Name = %1\n").arg(BQuote::quoted(directorName));
         config += QString("  DIRport = %1\n").arg(port);
-        config += QString("  Address = \"%1\"\n").arg(host);
+        config += QString("  Address = %1\n").arg(BQuote::quoted(host));
 
         // MANDATORY: Export password as MD5 hash with [md5] prefix
         if (hasValidPasswordHash()) {
@@ -634,13 +639,13 @@ struct BConnectionProfile
             if (!tlsUsePSK) {
                 // Certificate mode - need to specify certificates
                 if (!tlsCaCertFile.isEmpty())
-                    config += QString("  TLS CA Certificate File = \"%1\"\n").arg(tlsCaCertFile);
+                    config += QString("  TLS CA Certificate File = %1\n").arg(BQuote::quoted(tlsCaCertFile));
                 if (!tlsCaCertDir.isEmpty())
-                    config += QString("  TLS CA Certificate Dir = \"%1\"\n").arg(tlsCaCertDir);
+                    config += QString("  TLS CA Certificate Dir = %1\n").arg(BQuote::quoted(tlsCaCertDir));
                 if (!tlsCertFile.isEmpty())
-                    config += QString("  TLS Certificate = \"%1\"\n").arg(tlsCertFile);
+                    config += QString("  TLS Certificate = %1\n").arg(BQuote::quoted(tlsCertFile));
                 if (!tlsKeyFile.isEmpty())
-                    config += QString("  TLS Key = \"%1\"\n").arg(tlsKeyFile);
+                    config += QString("  TLS Key = %1\n").arg(BQuote::quoted(tlsKeyFile));
                 config += QString("  TLS Verify Peer = %1\n").arg(tlsVerifyPeer ? "yes" : "no");
             }
             // PSK mode: TLS Enable = yes is sufficient, PSK is default
@@ -648,17 +653,17 @@ struct BConnectionProfile
             if (tlsAuthenticate)
                 config += QString("  TLS Authenticate = yes\n");
             if (!tlsCipherList.isEmpty())
-                config += QString("  TLS Cipher List = \"%1\"\n").arg(tlsCipherList);
+                config += QString("  TLS Cipher List = %1\n").arg(BQuote::quoted(tlsCipherList));
             if (!tlsCipherSuites.isEmpty())
-                config += QString("  TLS Cipher Suites = \"%1\"\n").arg(tlsCipherSuites);
+                config += QString("  TLS Cipher Suites = %1\n").arg(BQuote::quoted(tlsCipherSuites));
             if (!tlsDhFile.isEmpty())
-                config += QString("  TLS DH File = \"%1\"\n").arg(tlsDhFile);
+                config += QString("  TLS DH File = %1\n").arg(BQuote::quoted(tlsDhFile));
             if (!tlsProtocol.isEmpty())
-                config += QString("  TLS Protocol = \"%1\"\n").arg(tlsProtocol);
+                config += QString("  TLS Protocol = %1\n").arg(BQuote::quoted(tlsProtocol));
             for (const QString &cn : tlsAllowedCn)
-                config += QString("  TLS Allowed CN = \"%1\"\n").arg(cn);
+                config += QString("  TLS Allowed CN = %1\n").arg(BQuote::quoted(cn));
             if (!tlsCrlFile.isEmpty())
-                config += QString("  TLS Certificate Revocation List = \"%1\"\n").arg(tlsCrlFile);
+                config += QString("  TLS Certificate Revocation List = %1\n").arg(BQuote::quoted(tlsCrlFile));
         } else {
             config += QString("  TLS Enable = no\n");
         }
@@ -670,7 +675,7 @@ struct BConnectionProfile
         config += QString("}\n\n");
 
         config += QString("Console {\n");
-        config += QString("  Name = \"%1\"\n").arg(consoleName);
+        config += QString("  Name = %1\n").arg(BQuote::quoted(consoleName));
 
         // MANDATORY: Export password as MD5 hash with [md5] prefix
         if (hasValidPasswordHash()) {
