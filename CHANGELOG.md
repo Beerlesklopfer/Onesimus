@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-28
+
 ### Fixed
 - Jobs tab: with "newest first" the first page shows the newest jobs again (#13). The page total
   came from `list jobtotals`, which counts only backup, archive and copy jobs, while `list jobs`

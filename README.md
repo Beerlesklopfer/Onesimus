@@ -12,7 +12,7 @@ configuration.
 [![CI](https://github.com/Onesimus-io/Onesimus/actions/workflows/ci.yml/badge.svg)](https://github.com/Onesimus-io/Onesimus/actions/workflows/ci.yml)
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSING.md)
 
-> **Pre-release.** Version 0.3.0 is an early-access release. Test it against a Director you can
+> **Pre-release.** Version 0.3.1 is an early-access release. Test it against a Director you can
 > afford to lose before you rely on it, and expect changes. Known bugs and open work are listed in
 > [TODO.md](TODO.md).
 
@@ -32,7 +32,7 @@ configuration.
 Onesimus is meant to answer the questions every backup administrator asks. Today it answers one
 of them in part:
 
-| # | Question | Status in 0.3.0 |
+| # | Question | Status in 0.3.1 |
 |---|----------|-----------------|
 | 1 | Where does my storage go? | planned |
 | 2 | When will the pool be full? | planned |
@@ -40,7 +40,7 @@ of them in part:
 | 4 | What happens if I change retention? | planned |
 | 5 | Which volumes can I recycle? | partly: the volume table shows from when each volume is reusable, and why |
 
-## Features in 0.3.0
+## Features in 0.3.1
 
 **Jobs and logs**
 - Jobs table with filters (name, client, status, level, date range), statistics, pagination and
@@ -118,11 +118,11 @@ Download the packages from [GitHub Releases](https://github.com/Onesimus-io/Ones
 |---------|-----|
 | `.deb` | Debian 13 (trixie), x86_64 |
 | `.AppImage` | Linux x86_64 (built on Debian 13) |
-| `.msi` | Windows 64-bit; the 0.3.0 MSI contains the GUI only |
+| `.msi` | Windows 64-bit; the 0.3.1 MSI contains the GUI only |
 | `-Windows.zip` | Windows 64-bit, portable (unpack and run `onesimus.exe`) |
 | `-macos-arm64.dmg` | macOS 12 or later on Apple Silicon; signed and notarised by Apple |
 
-The MSI installs silently with `msiexec /i Onesimus-0.3.0-windows-x86_64.msi /qn`.
+The MSI installs silently with `msiexec /i Onesimus-0.3.1-windows-x86_64.msi /qn`.
 `SHA256SUMS` in the release lists the checksum of every file. The Linux and Windows packages are
 not signed. The source archives (Onesimus with its submodules, the Qt sources of the Windows and
 macOS packages, the Debian sources of the libraries in the AppImage) are attached to the same
