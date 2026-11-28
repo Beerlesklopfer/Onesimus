@@ -194,11 +194,10 @@ public slots:
     void processDotCatalogsResponse(const QString &jsonData);
 
     /**
-     * @brief Processes list jobtotals response for server-side pagination
-     * @param jsonData JSON response from list jobtotals command
-     * @since 2.9
+     * @brief Processes the "list jobs count" reply for server-side pagination
+     * @param jsonData JSON reply of "list jobs count"
      */
-    void processJobTotalsResponse(const QString &jsonData);
+    void processJobCountResponse(const QString &jsonData);
 
     /**
      * @brief Processes messages JSON response (forwards to MessagesWidget)

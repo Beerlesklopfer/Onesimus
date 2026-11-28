@@ -134,7 +134,7 @@ private:
     QCheckBox *m_enabledCheckBox;   ///< Enable/disable pagination checkbox
 
     // Server-side pagination
-    int m_totalJobs;                ///< Total job count (from jobtotals)
+    int m_totalJobs;                ///< Total job count (from "list jobs count")
     int m_currentPage;              ///< Current page (0-indexed)
 };
 

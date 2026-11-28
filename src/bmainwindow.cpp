@@ -269,7 +269,7 @@ BMainWindow::BMainWindow(QWidget *parent)
         // Resource dot-commands (filesets, storages, pools, levels, jobs, clients, schedule)
         // are already populated via typed signals from the state machine responses.
         // Only send non-resource commands that aren't part of the state machine.
-        m_jobWidget->triggerRefresh();            // ListJobTotals / ListJobs
+        m_jobWidget->triggerRefresh();            // ListJobsCount / ListJobs
         m_clientWidget->triggerRefresh();          // ListClients
         m_scheduleWidget->triggerRefresh();        // DotSchedule + ShowSchedules
         onSendCommand(BDirector::Command::ShowClients, "");
@@ -327,8 +327,8 @@ BMainWindow::BMainWindow(QWidget *parent)
         case BDirector::Command::ListClients:
             break;  // Routed via typed signals → model/widget slots
 
-        case BDirector::Command::ListJobTotals:
-            m_jobWidget->processJobTotalsResponse(jsonData);
+        case BDirector::Command::ListJobsCount:
+            m_jobWidget->processJobCountResponse(jsonData);
             break;
 
         case BDirector::Command::ListJobs:
@@ -2665,7 +2665,7 @@ void BMainWindow::onRefreshAll()
 
     m_statusLabel->setText(tr("Refreshing data..."));
 
-    // Use pagination-aware refresh for jobs (respects ListJobTotals → ListJobs flow)
+    // Use pagination-aware refresh for jobs (respects ListJobsCount → ListJobs flow)
     m_jobWidget->triggerRefresh();
 
     // Use widget's own refresh for clients (sends ListClients via signal)

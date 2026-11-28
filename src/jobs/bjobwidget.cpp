@@ -1143,54 +1143,27 @@ void BJobWidget::processDotCatalogsResponse(const QString &jsonData)
 #endif
 }
 
-void BJobWidget::processJobTotalsResponse(const QString &jsonData)
+void BJobWidget::processJobCountResponse(const QString &jsonData)
 {
-#ifdef IS_DEVELOPER
-    BLOG_DEBUG() << "BJobWidget: Processing list jobtotals response";
-#endif
-
-    // Parse JSON to extract total job count
+    // The page total is the number of jobs "list jobs" pages through
+    // (issue #13); see BJobPaging::jobCountFromReply().
     QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
-
-    if (parseError.error != QJsonParseError::NoError) {
-        BLOG_WARNING() << "Failed to parse jobtotals response:" << parseError.errorString();
+    const QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+        BLOG_WARNING() << "BJobWidget: no JSON object in the reply to list jobs count:"
+                       << parseError.errorString();
+        emit statusMessageChanged(tr("The number of jobs could not be read"));
         m_refreshButton->setEnabled(true);
         return;
     }
 
-    if (!doc.isObject()) {
-        BLOG_WARNING() << "Jobtotals response is not a JSON object";
+    const int totalJobs = BJobPaging::jobCountFromReply(doc.object().value("result").toObject());
+    if (totalJobs < 0) {
+        BLOG_WARNING() << "BJobWidget: the reply to list jobs count holds no count";
+        emit statusMessageChanged(tr("The number of jobs could not be read"));
         m_refreshButton->setEnabled(true);
         return;
     }
-
-    QJsonObject root = doc.object();
-    QJsonObject result = root["result"].toObject();
-
-    // Extract total job count from jobtotals
-    // Bareos returns jobtotals as an object: {"jobs": "2163", "files": "...", "bytes": "..."}
-    // with string-typed numeric values
-    int totalJobs = 0;
-    if (result.contains("jobtotals")) {
-        QJsonValue jt = result["jobtotals"];
-        if (jt.isObject()) {
-            // Bareos format: jobtotals is a summary object
-            QJsonObject totals = jt.toObject();
-            totalJobs = totals["jobs"].toVariant().toInt();
-        } else if (jt.isArray()) {
-            // Fallback: array of per-type totals
-            QJsonArray jobtotals = jt.toArray();
-            for (const QJsonValue &v : jobtotals) {
-                QJsonObject total = v.toObject();
-                if (total.contains("jobs")) {
-                    totalJobs += total["jobs"].toVariant().toInt();
-                }
-            }
-        }
-    }
-
-    // totalJobs parsed from jobtotals response
 
     // Update pagination widget with total count. It keeps the current page
     // and falls back to the last existing one if the list became shorter.
@@ -1235,8 +1208,8 @@ void BJobWidget::onRefreshClicked()
     emit statusMessageChanged(tr("Refreshing job list..."));
 
     if (m_paginationWidget->isPaginationEnabled()) {
-        // Server-side pagination: First fetch job totals to know total count
-        emit sendCommand(BDirector::Command::ListJobTotals, "");
+        // Server-side pagination: first the number of jobs, then the page
+        emit sendCommand(BDirector::Command::ListJobsCount, "");
     } else {
         // No pagination: Fetch jobs based on sort order setting
         int maxJobs = BSettings::instance().behaviorMaxJobsDisplay();

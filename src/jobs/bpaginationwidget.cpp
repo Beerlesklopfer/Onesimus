@@ -136,7 +136,7 @@ void BPaginationWidget::setModel(BJobsModel *model)
 
         // Note: Do NOT enable client-side pagination in the model here.
         // When the pagination checkbox is checked, we use server-side pagination
-        // (ListJobTotals → ListJobs with limit/offset). The model receives one
+        // (ListJobsCount → ListJobs with limit/offset). The model receives one
         // page at a time and must show all rows without further client-side paging.
     }
 

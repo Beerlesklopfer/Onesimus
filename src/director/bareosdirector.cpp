@@ -2232,7 +2232,7 @@ QString BareosDirector::commandToString(Command cmd, const QString &args)
     case Command::ListFiles:        command = QString("list files jobid=%1").arg(args); break;
     case Command::ListBackups:      command = "list backups"; break;
     case Command::ListBackupsClient: command = QString("list backups client=%1").arg(name); break;
-    case Command::ListJobTotals:    command = "list jobtotals"; break;
+    case Command::ListJobsCount:    command = "list jobs count"; break;
 
     // Job Control
     case Command::Run:              command = QString("run job=%1").arg(name); break;

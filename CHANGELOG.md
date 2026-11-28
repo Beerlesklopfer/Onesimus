@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Jobs tab: with "newest first" the first page shows the newest jobs again (#13). The page total
+  came from `list jobtotals`, which counts only backup, archive and copy jobs, while `list jobs`
+  lists every job type (restores, admin jobs, copy and migration control jobs); with 526 against
+  720 jobs the newest 194 were on no page. The total now comes from `list jobs count`.
 - Configuration export (ZIP for the Director): values in the generated Console, Profile, Director and console
   configuration text are escaped, so a backslash (an ACL regex like `Backup\.daily`, a Windows path) and a `"`
   reach the Director unchanged; before, backslashes were lost and a `"` ended the value. A value

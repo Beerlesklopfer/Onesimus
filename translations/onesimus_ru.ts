@@ -5872,8 +5872,8 @@ Click Yes to execute, No to close without deploying.</source>
     </message>
     <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="426"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1702"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1705"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1675"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1678"/>
         <source>Filter</source>
         <translation>Фильтр</translation>
     </message>
@@ -5985,7 +5985,7 @@ cause an empty or limited table if the range is too narrow.</source>
     </message>
     <message>
         <location filename="../src/jobs/bjobwidget.cpp" line="182"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1752"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1725"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - No job selected</source>
         <translation>&lt;b&gt;Журнал Job&lt;/b&gt; - Job не выбран</translation>
     </message>
@@ -6171,53 +6171,53 @@ cause an empty or limited table if the range is too narrow.</source>
         <translation>Вы действительно хотите отменить Job с ID %1?</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1222"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1195"/>
         <source>Loading page %1...</source>
         <translation>Загрузка страницы %1...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1235"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1208"/>
         <source>Refreshing job list...</source>
         <translation>Обновление списка Jobs...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1342"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1315"/>
         <source>%1 jobs loaded</source>
         <translation>Загружено Jobs: %1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1577"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1550"/>
         <source>Auto-refresh on (%1)</source>
         <translation>Автообновление включено (%1)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1582"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1555"/>
         <source>Auto-refresh off</source>
         <translation>Автообновление выключено</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1657"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1630"/>
         <source>Filtered: %1 of %2 jobs</source>
         <translation>Отфильтровано: %1 из %2 Jobs</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1703"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1676"/>
         <source>Hide filter</source>
         <translation>Скрыть фильтр</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1706"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1679"/>
         <source>Show filter</source>
         <translation>Показать фильтр</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1734"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1707"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - Job: %1 (ID: %2) - Loading...</source>
         <translation>&lt;b&gt;Журнал Job&lt;/b&gt; - Job: %1 (ID: %2) - Загрузка...</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1772"/>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1909"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1745"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1882"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - Job: %1 (ID: %2) - %3 lines</source>
         <translation>&lt;b&gt;Журнал Job&lt;/b&gt; - Job: %1 (ID: %2) - строк: %3</translation>
     </message>
@@ -6237,87 +6237,93 @@ cause an empty or limited table if the range is too narrow.</source>
         <translation>Messages</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1274"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1155"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1163"/>
+        <source>The number of jobs could not be read</source>
+        <translation>Не удалось прочитать количество заданий</translation>
+    </message>
+    <message>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1247"/>
         <source>Error parsing JSON data</source>
         <translation>Ошибка разбора данных JSON</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1588"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1561"/>
         <source>Created</source>
         <translation>Создан</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1589"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1562"/>
         <source>Running</source>
         <translation>Выполняется</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1590"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1563"/>
         <source>Blocked</source>
         <translation>Заблокирован</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1591"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1564"/>
         <source>OK</source>
         <translation>OK</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1592"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1565"/>
         <source>Warning</source>
         <translation>Предупреждение</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1593"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1566"/>
         <source>Failed</source>
         <translation>Неудачно</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1594"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1567"/>
         <source>Error</source>
         <translation>Ошибка</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1595"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1568"/>
         <source>Non-fatal Error</source>
         <translation>Нефатальная ошибка</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1596"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1569"/>
         <source>Canceled</source>
         <translation>Отменён</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1650"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1623"/>
         <source>⚠ No jobs visible — &apos;Zero Bytes&apos; filter is active!</source>
         <translation>⚠ Нет видимых Jobs — активен фильтр «Ноль байт»!</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1652"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1625"/>
         <source>⚠ No jobs visible — check your filter settings (%1 jobs loaded)</source>
         <translation>⚠ Нет видимых Jobs — проверьте настройки фильтров (загружено Jobs: %1)</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1661"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1634"/>
         <source>%1 Jobs</source>
         <translation>Jobs: %1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1767"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1740"/>
         <source>&lt;b&gt;Job Log&lt;/b&gt; - Job: %1 (ID: %2) - %3 lines, job is running</source>
         <translation>&lt;b&gt;Журнал Job&lt;/b&gt; - Job: %1 (ID: %2) - строк: %3, Job выполняется</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1933"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1906"/>
         <source>Copied %1 log lines to clipboard</source>
         <translation>Скопировано строк журнала в буфер обмена: %1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1948"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1921"/>
         <source>Copied %1 selected lines to clipboard</source>
         <translation>Скопировано выделенных строк в буфер обмена: %1</translation>
     </message>
     <message>
-        <location filename="../src/jobs/bjobwidget.cpp" line="1962"/>
+        <location filename="../src/jobs/bjobwidget.cpp" line="1935"/>
         <source>Job log history cleared</source>
         <translation>История журналов Jobs очищена</translation>
     </message>

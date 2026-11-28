@@ -9,6 +9,8 @@
  */
 
 #include <QtTest>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include "jobs/bjobpaging.h"
 
@@ -32,6 +34,9 @@ private slots:
     void rangeWithoutTotals();
     void everyJobIsOnExactlyOnePage_data();
     void everyJobIsOnExactlyOnePage();
+    void jobCountFromReply_data();
+    void jobCountFromReply();
+    void firstNewestPageEndsAtTheNewestJob();
 };
 
 void BJobPagingTest::pageCount_data()
@@ -166,6 +171,44 @@ void BJobPagingTest::everyJobIsOnExactlyOnePage()
         }
     }
     QCOMPARE(seen.count(1), total);
+}
+
+void BJobPagingTest::jobCountFromReply_data()
+{
+    QTest::addColumn<QByteArray>("result");
+    QTest::addColumn<int>("count");
+
+    QTest::newRow("bareos string") << QByteArray(R"({"jobs":[{"count":"720"}]})") << 720;
+    QTest::newRow("bareos number") << QByteArray(R"({"jobs":[{"count":720}]})") << 720;
+    QTest::newRow("typed") << QByteArray(R"({"count":720})") << 720;
+    QTest::newRow("typed string") << QByteArray(R"({"count":" 42 "})") << 42;
+    QTest::newRow("zero") << QByteArray(R"({"jobs":[{"count":"0"}]})") << 0;
+    QTest::newRow("empty result") << QByteArray(R"({})") << -1;
+    QTest::newRow("jobtotals shape") << QByteArray(R"({"jobtotals":{"jobs":"526"}})") << -1;
+    QTest::newRow("job rows") << QByteArray(R"({"jobs":[{"jobid":"1"},{"jobid":"2"}]})") << -1;
+    QTest::newRow("two count rows") << QByteArray(R"({"jobs":[{"count":"1"},{"count":"2"}]})") << -1;
+    QTest::newRow("negative") << QByteArray(R"({"count":-5})") << -1;
+    QTest::newRow("fraction") << QByteArray(R"({"count":1.5})") << -1;
+    QTest::newRow("text") << QByteArray(R"({"count":"many"})") << -1;
+    QTest::newRow("too large") << QByteArray(R"({"count":"99999999999"})") << -1;
+}
+
+void BJobPagingTest::jobCountFromReply()
+{
+    QFETCH(QByteArray, result);
+    QFETCH(int, count);
+    const QJsonObject obj = QJsonDocument::fromJson(result).object();
+    QCOMPARE(BJobPaging::jobCountFromReply(obj), count);
+}
+
+// Issue #13: with the 526 of "list jobtotals" the newest first page ended
+// at job 526 of 720; with the count of "list jobs" it ends at the newest.
+void BJobPagingTest::firstNewestPageEndsAtTheNewestJob()
+{
+    const int listed = 720;  // list jobs count
+    const Range range = BJobPaging::pageRange(0, 200, listed, true);
+    QCOMPARE(range.offset, 520);
+    QCOMPARE(range.offset + range.limit, listed);
 }
 
 QTEST_APPLESS_MAIN(BJobPagingTest)

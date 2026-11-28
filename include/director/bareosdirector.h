@@ -271,7 +271,7 @@ public:
         ListFiles,          ///< list files jobid=<id>
         ListBackups,        ///< list backups
         ListBackupsClient,  ///< list backups client=<name>
-        ListJobTotals,      ///< list jobtotals - Get total job count for pagination
+        ListJobsCount,      ///< list jobs count - number of jobs "list jobs" pages through
 
         // Job Control
         Run,                ///< run job=<name>
