@@ -336,6 +336,17 @@ if(USE_STATIC_OPENSSL)
         add_custom_target(openssl_build)
     else()
     set(OPENSSL_PREBUILT OFF)
+    # Up to 0.2.0 OpenSSL was configured inside the submodule. Its generated
+    # files (configdata.pm, Makefile, *.s) make the out-of-source configure
+    # fail with "There are files missing". Say so instead of failing late;
+    # nothing is deleted here (the source itself is needed, also on Windows).
+    if(EXISTS "${OPENSSL_SUBMODULE_DIR}/configdata.pm")
+        message(FATAL_ERROR
+            "external/openssl holds files of an earlier in-source OpenSSL build "
+            "(configdata.pm, Makefile, ...), which break the out-of-source build. "
+            "Remove only the generated, git-ignored files and configure again:\n"
+            "  git -C external/openssl clean -fdX")
+    endif()
     ExternalProject_Add(openssl_build
         SOURCE_DIR ${OPENSSL_SUBMODULE_DIR}
         BINARY_DIR ${OPENSSL_BUILD_DIR}
