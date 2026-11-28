@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2026-11-28
 
 ### Fixed
+- Start: no more about 45 lines "Mutable view on type already registered ... QProtobufRepeatedIterator"
+  on stderr (also for `--version`); Qt 6.8's protobuf type registration repeats a harmless
+  registration, and exactly this warning is now dropped.
 - Jobs tab: with "newest first" the first page shows the newest jobs again (#13). The page total
   came from `list jobtotals`, which counts only backup, archive and copy jobs, while `list jobs`
   lists every job type (restores, admin jobs, copy and migration control jobs); with 526 against

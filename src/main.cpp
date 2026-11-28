@@ -19,6 +19,53 @@
 
 void usage();
 
+#ifdef HAVE_GRPC
+// Qt 6.8's generated protobuf registration (qRegisterProtobufTypes(), run by
+// a static initializer before main()) registers the map view of
+// QHash<QString, QString> once per message with a map field, and Qt warns
+// for every repeat: about 45 lines on stderr, even for --version. The
+// repeats are harmless (Qt keeps the first view). This handler drops exactly
+// that warning and passes everything else on; it is installed with a high
+// constructor priority so that it runs before those initializers.
+namespace {
+QtMessageHandler g_previousMessageHandler = nullptr;
+
+void dropRepeatedProtobufViewWarning(QtMsgType type, const QMessageLogContext &context,
+                                     const QString &message)
+{
+    if (type == QtWarningMsg
+        && message.startsWith(QLatin1String("Mutable view on type already registered from type "))
+        && message.endsWith(QLatin1String(" to type QProtobufRepeatedIterator"))) {
+        return;
+    }
+    if (g_previousMessageHandler)
+        g_previousMessageHandler(type, context, message);
+}
+
+void installProtobufWarningFilter()
+{
+    g_previousMessageHandler = qInstallMessageHandler(dropRepeatedProtobufViewWarning);
+}
+} // namespace
+
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4073) // initializers put in library initialization area
+#pragma init_seg(lib)
+namespace {
+struct ProtobufWarningFilterInstaller {
+    ProtobufWarningFilterInstaller() { installProtobufWarningFilter(); }
+} g_protobufWarningFilterInstaller;
+} // namespace
+#pragma warning(pop)
+#else
+__attribute__((constructor(101))) static void installProtobufWarningFilterEarly()
+{
+    installProtobufWarningFilter();
+}
+#endif
+#endif // HAVE_GRPC
+
 struct CommandLineOptions {
     bool headless = false;
     bool autoConnect = false;
